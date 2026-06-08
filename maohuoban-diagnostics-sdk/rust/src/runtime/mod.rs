@@ -34,7 +34,7 @@ struct DiagnosticsInner {
     service_name: String,
     environment: String,
     privacy: PrivacyPolicy,
-    capture: CapturePolicy,
+    capture: Mutex<CapturePolicy>,
     cleanup: CleanupPolicy,
     started_at: Instant,
     context: Mutex<DiagnosticsContext>,

@@ -2,7 +2,8 @@ mod support;
 
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics,
-    DiagnosticsConfig, EventKind, FileSegmentStore, PrivacyPolicy, Severity,
+    DiagnosticsConfig, EventKind, FileSegmentStore, NetworkSummary, PrivacyPolicy, Severity,
+    TextRedactionPattern, TrackingConsent,
 };
 use serde_json::json;
 use std::{fs, time::Duration};
@@ -44,6 +45,49 @@ fn records_events_with_privacy_filter_and_exports_debug_bundle() {
 }
 
 #[test]
+fn privacy_policy_redacts_message_url_query_and_error_text() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let diagnostics = install_file_diagnostics_with(
+        temp.path(),
+        1024 * 1024,
+        PrivacyPolicy::default()
+            .redact_query_item("token")
+            .redact_text_pattern(TextRedactionPattern::Email)
+            .redact_text_pattern(TextRedactionPattern::PhoneNumber),
+        CapturePolicy::default(),
+        CleanupPolicy::default(),
+    );
+
+    diagnostics.log(Severity::Info, "contact 13800138000 at user@example.com");
+    diagnostics.network(
+        NetworkSummary::new("GET", "https://api.example.com/profile?token=secret&safe=1")
+            .error("failed for user@example.com"),
+    );
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let log = events
+        .iter()
+        .find(|event| event.kind == EventKind::Log)
+        .expect("log event");
+    let network = events
+        .iter()
+        .find(|event| event.kind == EventKind::Network)
+        .expect("network event");
+
+    assert_eq!(log.message, "contact <redacted:phone> at <redacted:email>");
+    assert_eq!(
+        network.metadata["url"],
+        json!("https://api.example.com/profile?token=<redacted>&safe=1")
+    );
+    assert_eq!(
+        network.metadata["error"],
+        json!("failed for <redacted:email>")
+    );
+}
+
+#[test]
 fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
@@ -55,6 +99,7 @@ fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
             minimum_severity: Severity::Warn,
             max_message_length: 8,
             max_metadata_value_length: 6,
+            ..CapturePolicy::default()
         },
         CleanupPolicy::default(),
     );
@@ -77,6 +122,94 @@ fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
     assert_eq!(event.metadata["detail"], json!("databa..."));
     assert_eq!(event.metadata["service"], json!("maohuo..."));
     assert_eq!(event.metadata["environment"], json!("test"));
+}
+
+#[test]
+fn capture_policy_consent_enabled_and_sampling_control_event_writes() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let disabled = install_file_diagnostics_with(
+        &temp.path().join("disabled"),
+        1024 * 1024,
+        PrivacyPolicy::default(),
+        CapturePolicy {
+            enabled: false,
+            ..CapturePolicy::default()
+        },
+        CleanupPolicy::default(),
+    );
+    disabled.error("disabled event", Vec::<(String, serde_json::Value)>::new());
+    assert!(disabled.read_events().expect("disabled events").is_empty());
+
+    let pending = install_file_diagnostics_with(
+        &temp.path().join("pending"),
+        1024 * 1024,
+        PrivacyPolicy::default(),
+        CapturePolicy {
+            consent: TrackingConsent::Pending,
+            ..CapturePolicy::default()
+        },
+        CleanupPolicy::default(),
+    );
+    pending.error("pending event", Vec::<(String, serde_json::Value)>::new());
+    assert!(pending.read_events().expect("pending events").is_empty());
+
+    let sampled_out = install_file_diagnostics_with(
+        &temp.path().join("sampled-out"),
+        1024 * 1024,
+        PrivacyPolicy::default(),
+        CapturePolicy {
+            sample_rate: 0.0,
+            ..CapturePolicy::default()
+        },
+        CleanupPolicy::default(),
+    );
+    sampled_out.error(
+        "sampled out event",
+        Vec::<(String, serde_json::Value)>::new(),
+    );
+    assert!(
+        sampled_out
+            .read_events()
+            .expect("sampled out events")
+            .is_empty()
+    );
+}
+
+#[test]
+fn runtime_can_update_capture_policy_controls() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let diagnostics = install_file_diagnostics_with(
+        temp.path(),
+        1024 * 1024,
+        PrivacyPolicy::default(),
+        CapturePolicy {
+            consent: TrackingConsent::Pending,
+            ..CapturePolicy::default()
+        },
+        CleanupPolicy::default(),
+    );
+
+    diagnostics.error("before consent", Vec::<(String, serde_json::Value)>::new());
+    diagnostics.set_tracking_consent(TrackingConsent::Granted);
+    diagnostics.set_capture_enabled(false);
+    diagnostics.error(
+        "disabled after consent",
+        Vec::<(String, serde_json::Value)>::new(),
+    );
+    diagnostics.set_capture_enabled(true);
+    diagnostics.set_sample_rate(1.0);
+    diagnostics.error("after consent", Vec::<(String, serde_json::Value)>::new());
+
+    let events = diagnostics.read_events().expect("events");
+    assert!(!events.iter().any(|event| event.message == "before consent"));
+    assert!(
+        !events
+            .iter()
+            .any(|event| event.message == "disabled after consent")
+    );
+    assert!(events.iter().any(|event| event.message == "after consent"));
 }
 
 #[test]

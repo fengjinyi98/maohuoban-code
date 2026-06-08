@@ -26,22 +26,14 @@
 | `rust/src/export/checksum.rs` | 导出文件 SHA256 校验 |
 | `rust/src/export/tar.rs` | 无压缩 tar 归档写入 |
 | `rust/src/runtime/` | 运行时安装、上下文、采集 API、存储 API、健康快照和生命周期编排 |
-| `swift/Sources/MaohuobanDiagnostics/Diagnostics.swift` | Swift 全局 facade 入口 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntime.swift` | Swift runtime 共享状态和初始化 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeCapture.swift` | Swift runtime 采集 API |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeContextAPI.swift` | Swift runtime 上下文 API |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeStorage.swift` | Swift runtime 存储、清理和导出 API |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeNetwork.swift` | Swift runtime 网络配置注入 API |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeSpan.swift` | Swift runtime 性能 span API |
-| `swift/Sources/MaohuobanDiagnostics/NetworkSummary.swift` | Swift 网络摘要事件协议 |
-| `swift/Sources/MaohuobanDiagnostics/DebugBundle.swift` | Swift Debug Bundle 导出结果 |
-| `swift/Sources/MaohuobanDiagnostics/DebugBundleExporter.swift` | Swift Debug Bundle manifest、timeline 和 archive 导出编排 |
-| `swift/Sources/MaohuobanDiagnostics/LLMPromptExporter.swift` | Swift LLM Prompt 文本导出 |
-| `swift/Sources/MaohuobanDiagnostics/FileChecksum.swift` | Swift 导出文件 SHA256 校验 |
-| `swift/Sources/MaohuobanDiagnostics/TarArchiveWriter.swift` | Swift 无压缩 tar 归档写入 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsContext.swift` | Swift session、trace 和默认 metadata 上下文 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsURLProtocol.swift` | Swift URLSession 网络自动采集 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsURLProtocolSummary.swift` | Swift URLSession 网络摘要字段提取 |
+| `swift/Sources/MaohuobanDiagnostics/Core/` | Swift 事件协议、facade、配置、采集和隐私策略 |
+| `swift/Sources/MaohuobanDiagnostics/Runtime/` | Swift runtime 共享状态、安装、采集、上下文、网络、性能、存储和健康 API |
+| `swift/Sources/MaohuobanDiagnostics/Context/` | Swift session、trace、TaskLocal 和 W3C Trace Context |
+| `swift/Sources/MaohuobanDiagnostics/Network/` | Swift URLSession 自动采集、网络摘要和 OpenTelemetry 风格字段 |
+| `swift/Sources/MaohuobanDiagnostics/SwiftUI/` | SwiftUI 页面曝光和点击埋点 modifier |
+| `swift/Sources/MaohuobanDiagnostics/Performance/` | Swift 性能 span |
+| `swift/Sources/MaohuobanDiagnostics/Storage/` | Swift JSONL 分段存储和导出目录索引 |
+| `swift/Sources/MaohuobanDiagnostics/Export/` | Swift Debug Bundle、Prompt、校验和 tar 归档导出 |
 | `collector/src/lib.rs` | Collector 库公开入口 |
 | `collector/src/config.rs` | Collector 输入源和输出目录配置 |
 | `collector/src/export.rs` | Collector Debug Bundle 导出编排 |
@@ -131,6 +123,9 @@ await Diagnostics.setSampleRate(0.2)
 let span = await Diagnostics.beginSpan("load detail")
 await span?.end(metadata: ["result": "failed"])
 
+ContentView()
+    .diagnosticsScreen("home", metadata: ["screen_type": "root"])
+
 let bundle = try await Diagnostics.exportDebugBundle(to: diagnosticsBundleURL)
 let prompt = try await Diagnostics.exportLLMPrompt(title: "分析这个 bug")
 ```
@@ -148,7 +143,10 @@ let session = URLSession(configuration: configuration ?? .default)
 ## Rust 一次接入
 
 ```rust
-use maohuoban_diagnostics::{Diagnostics, DiagnosticsBootstrapConfig, PrivacyPolicy, Severity};
+use maohuoban_diagnostics::{
+    Diagnostics, DiagnosticsBootstrapConfig, NetworkSummary, PrivacyPolicy, Severity,
+    TextRedactionPattern, TraceContext, TrackingConsent,
+};
 use serde_json::json;
 
 let mut config = DiagnosticsBootstrapConfig::new(
@@ -158,7 +156,12 @@ let mut config = DiagnosticsBootstrapConfig::new(
 );
 config.privacy = PrivacyPolicy::default()
     .redact_key("authorization")
-    .redact_key("password");
+    .redact_key("password")
+    .redact_query_item("token")
+    .redact_text_pattern(TextRedactionPattern::Email);
+config.capture.enabled = true;
+config.capture.consent = TrackingConsent::Granted;
+config.capture.sample_rate = 1.0;
 config.defaults.insert("worker".to_string(), json!("scheduler"));
 config.session_id = Some("session-local".to_string());
 config.trace_id = Some("sync-home".to_string());
@@ -186,6 +189,12 @@ Diagnostics::current()
 let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
 span.end([("result", json!("ok"))]);
 
+diagnostics.network(
+    NetworkSummary::new("GET", "https://api.example.com/feed")
+        .trace_context(TraceContext::generate(true))
+        .status_code(200),
+);
+
 let bundle = diagnostics.export_debug_bundle("target/maohuoban-diagnostics/bundle")?;
 let prompt = diagnostics.export_llm_prompt("分析这个 bug")?;
 ```
@@ -207,7 +216,7 @@ diagnostics.set_context_metadata("worker", json!("scheduler"));
 
 | 项目 | 入口文件 | 接入方式 |
 | --- | --- | --- |
-| `maohuoban` | `maohuoban/maohuoban/maohuobanApp.swift` | `Diagnostics.bootstrap(...)` |
+| `maohuoban` | `maohuoban/maohuoban/App/MaohuobanApp.swift` | `Diagnostics.bootstrap(...)` |
 | `maohuoban-rust` | `maohuoban-rust/src/main.rs` | `Diagnostics::bootstrap(...)` |
 
 ## Collector 导出
@@ -261,11 +270,11 @@ Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.json
 
 运行时快照 API 会以 `performance` 事件记录进程、系统、架构和 SDK uptime。Swift 额外记录物理内存大小；发生事件落盘失败后，Swift 和 Rust 快照都会带出 `dropped_event_count` 和 `last_storage_error`。
 
-网络摘要 API 会记录 method、url、status code、duration、error 和取消状态。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。取消请求会生成 `severity=warn` 且 message 为 `network request cancelled`；显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
+网络摘要 API 会记录 method、url、status code、duration、error、W3C `traceparent` 和取消状态。Swift 与 Rust 都会写入兼容字段 `method`、`url`、`status_code`，以及 OpenTelemetry 风格字段 `http.request.method`、`url.full`、`http.response.status_code`。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。取消请求会生成 `severity=warn` 且 message 为 `network request cancelled`；显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
 
-采集策略默认启用、授权为 `.granted`、采样率为 `1`。需要控制日志量时，可以配置 Swift `CapturePolicy(enabled:consent:sampleRate:minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。Swift 运行时支持 `setTrackingConsent`、`setCaptureEnabled` 和 `setSampleRate` 动态更新采集边界。
+采集策略默认启用、授权为 `.granted`、采样率为 `1`。需要控制日志量时，可以配置 Swift `CapturePolicy(enabled:consent:sampleRate:minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy { enabled, consent, sample_rate, ... }`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。Swift 和 Rust 运行时都支持动态更新采集授权、启用状态和采样率。
 
-Swift `PrivacyPolicy` 会在写入前统一处理 metadata key、URL query item 和文本模式。Swift Package 已包含 `PrivacyInfo.xcprivacy`，默认不上传数据、不声明追踪域名。
+Swift 与 Rust `PrivacyPolicy` 都会在写入前统一处理 metadata key、URL query item 和文本模式。Swift Package 已包含 `PrivacyInfo.xcprivacy`，默认不上传数据、不声明追踪域名。
 
 ## Hooks
 

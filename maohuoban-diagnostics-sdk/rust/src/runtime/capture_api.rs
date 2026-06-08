@@ -1,5 +1,6 @@
 use crate::{
     DiagnosticEvent, DiagnosticsError, DiagnosticsSpan, EventKind, NetworkSummary, Severity,
+    TrackingConsent,
 };
 use serde_json::{Value, json};
 use std::panic;
@@ -17,7 +18,13 @@ impl Diagnostics {
             .apply_context(event)
             .metadata("service", json!(self.inner.service_name))
             .metadata("environment", json!(self.inner.environment));
-        let Some(mut event) = self.inner.capture.apply(&event) else {
+        let Some(mut event) = self
+            .inner
+            .capture
+            .lock()
+            .ok()
+            .and_then(|capture| capture.apply(&event))
+        else {
             return;
         };
         event = self.inner.privacy.apply(&event);
@@ -138,6 +145,36 @@ impl Diagnostics {
     #[must_use]
     pub fn begin_span(&self, name: impl Into<String>) -> DiagnosticsSpan {
         DiagnosticsSpan::new(name, self.clone())
+    }
+
+    /// `set_tracking_consent` 更新诊断采集授权状态
+    /// 核心职责：
+    /// - 支持运行时响应用户或宿主服务授权变化
+    /// - 让后续事件立即遵守新的采集边界
+    pub fn set_tracking_consent(&self, consent: TrackingConsent) {
+        if let Ok(mut capture) = self.inner.capture.lock() {
+            capture.consent = consent;
+        }
+    }
+
+    /// `set_capture_enabled` 更新诊断采集开关
+    /// 核心职责：
+    /// - 支持运行时开启或暂停诊断事件写入
+    /// - 保持调用方无需重装 SDK
+    pub fn set_capture_enabled(&self, enabled: bool) {
+        if let Ok(mut capture) = self.inner.capture.lock() {
+            capture.enabled = enabled;
+        }
+    }
+
+    /// `set_sample_rate` 更新诊断采样率
+    /// 核心职责：
+    /// - 支持运行时控制诊断数据量
+    /// - 将采样边界统一应用到后续事件
+    pub fn set_sample_rate(&self, sample_rate: f64) {
+        if let Ok(mut capture) = self.inner.capture.lock() {
+            capture.sample_rate = sample_rate;
+        }
     }
 
     /// `install_panic_hook` 安装 panic 自动采集

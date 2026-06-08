@@ -19,6 +19,7 @@ extension DiagnosticsURLProtocol {
             method: request.httpMethod ?? "GET",
             url: request.url?.absoluteString ?? "",
             durationMs: durationMs,
+            traceparent: request.value(forHTTPHeaderField: "traceparent"),
             metadata: networkMetadata(request: request, response: response, data: data)
         )
         if let http = response as? HTTPURLResponse {
@@ -39,6 +40,7 @@ extension DiagnosticsURLProtocol {
             method: request.httpMethod ?? "GET",
             url: request.url?.absoluteString ?? "",
             durationMs: durationMs,
+            traceparent: request.value(forHTTPHeaderField: "traceparent"),
             metadata: networkMetadata(request: request, response: nil, data: nil)
                 .merging(["cancelled": "true"]) { _, new in new }
         )

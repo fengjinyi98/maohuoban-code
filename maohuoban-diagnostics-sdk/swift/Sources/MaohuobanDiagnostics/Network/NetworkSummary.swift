@@ -8,6 +8,7 @@ public struct NetworkSummary: Sendable {
     public var statusCode: Int?
     public var durationMs: Int?
     public var error: String?
+    public var traceparent: String?
     public var metadata: [String: String]
 
     public init(
@@ -16,6 +17,7 @@ public struct NetworkSummary: Sendable {
         statusCode: Int? = nil,
         durationMs: Int? = nil,
         error: String? = nil,
+        traceparent: String? = nil,
         metadata: [String: String] = [:]
     ) {
         self.method = method
@@ -23,6 +25,7 @@ public struct NetworkSummary: Sendable {
         self.statusCode = statusCode
         self.durationMs = durationMs
         self.error = error
+        self.traceparent = traceparent
         self.metadata = metadata
     }
 
@@ -32,14 +35,20 @@ public struct NetworkSummary: Sendable {
         let cancelled = metadata["cancelled"] == "true"
         metadata["method"] = method
         metadata["url"] = url
+        metadata["http.request.method"] = method
+        metadata["url.full"] = url
         if let statusCode {
             metadata["status_code"] = "\(statusCode)"
+            metadata["http.response.status_code"] = "\(statusCode)"
         }
         if let durationMs {
             metadata["duration_ms"] = "\(durationMs)"
         }
         if let error {
             metadata["error"] = error
+        }
+        if let traceparent {
+            metadata["traceparent"] = traceparent
         }
         return DiagnosticEvent(
             kind: .network,

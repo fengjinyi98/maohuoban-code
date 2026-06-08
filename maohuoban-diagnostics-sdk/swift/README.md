@@ -55,6 +55,8 @@ try await Diagnostics.bootstrap(
 | 运行时快照 | `await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])` |
 | 性能 | `let span = await Diagnostics.beginSpan("load detail")` + `await span?.end()` |
 | 网络 | `Diagnostics.current()?.instrumentedURLSessionConfiguration(...)` |
+| SwiftUI 页面曝光 | `.diagnosticsScreen("home", metadata: ["tab": "main"])` |
+| SwiftUI 点击 | `.diagnosticsTap("home.refresh", metadata: ["source": "toolbar"])` |
 | 采集授权 | `await Diagnostics.setTrackingConsent(.granted)` |
 | 采集开关 | `await Diagnostics.setCaptureEnabled(true)` |
 | 采样率 | `await Diagnostics.setSampleRate(0.2)` |
@@ -84,7 +86,7 @@ await Diagnostics.clearTraceID()
 
 `captureRuntimeSnapshot` 会记录进程 ID、进程名、系统版本、架构、SDK uptime 和物理内存大小，适合放在启动、卡顿、网络异常前后。发生事件落盘失败后，快照还会带出 `dropped_event_count` 和 `last_storage_error`，用于判断诊断数据自身是否丢失。
 
-`NetworkSummary` 会记录 method、url、statusCode、durationMs、error 和取消状态。Swift `URLProtocol` 自动采集还会补充请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key；header value 不会进入事件。取消请求会生成 `severity=.warn` 的取消网络事件；显式 error 或 `statusCode >= 400` 会自动生成 `severity=.error` 的失败网络事件。
+`NetworkSummary` 会记录 method、url、statusCode、durationMs、error、W3C `traceparent` 和取消状态。事件会同时写入兼容字段 `method`、`url`、`status_code`，以及 OpenTelemetry 风格字段 `http.request.method`、`url.full`、`http.response.status_code`。Swift `URLProtocol` 自动采集还会补充请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key；header value 不会进入事件。取消请求会生成 `severity=.warn` 的取消网络事件；显式 error 或 `statusCode >= 400` 会自动生成 `severity=.error` 的失败网络事件。
 
 网络采集默认使用低侵入手动注入：
 
@@ -93,6 +95,8 @@ let diagnostics = await Diagnostics.current()
 let configuration = await diagnostics?.instrumentedURLSessionConfiguration(.default)
 let session = URLSession(configuration: configuration ?? .default)
 ```
+
+没有上游 trace 时，`DiagnosticsURLProtocol` 会自动生成 W3C `traceparent` 并注入请求 header；已有 `traceparent` 时会保留调用方提供的值。手动网络采集可以直接传入 `DiagnosticsTraceContext(...).traceparent`。
 
 需要覆盖全进程 URL Loading 时，显式开启全局模式：
 
@@ -131,3 +135,17 @@ Swift Package 已包含 `PrivacyInfo.xcprivacy`。SDK 默认不上传数据、�
 | --- | --- |
 | `App.init` / `task` / `onAppear` | 可以执行 `install`、记录事件、导出和清理 |
 | `body` / 同步计算属性 / View Builder | 保持纯读取，避免写磁盘、写全局状态和触发网络 |
+
+SwiftUI 页面和点击埋点推荐用 modifier：
+
+```swift
+ContentView()
+    .diagnosticsScreen("home", metadata: ["screen_type": "root"])
+
+Button("刷新") {
+    reload()
+}
+.diagnosticsTap("home.refresh")
+```
+
+`diagnosticsScreen` 在 `onAppear` 事件边界记录 `screen appeared`，可选 `trackDisappear: true` 记录 `screen disappeared`。`diagnosticsTap` 在点击事件边界记录 `ui tapped`。

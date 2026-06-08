@@ -9,6 +9,7 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
     private static let handledKey = "MaohuobanDiagnosticsHandled"
     private var dataTask: URLSessionDataTask?
     private var startedAt = Date()
+    private var loadedRequest: URLRequest?
     private let terminalEventLock = NSLock()
     private var recordedTerminalEvent = false
 
@@ -20,18 +21,29 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
         request
     }
 
+    public static func instrumentedRequest(_ request: URLRequest) -> URLRequest {
+        guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
+            return request
+        }
+        URLProtocol.setProperty(true, forKey: handledKey, in: mutableRequest)
+        if mutableRequest.value(forHTTPHeaderField: "traceparent") == nil {
+            mutableRequest.setValue(
+                DiagnosticsTraceContext.generate().traceparent,
+                forHTTPHeaderField: "traceparent"
+            )
+        }
+        return mutableRequest as URLRequest
+    }
+
     public override func startLoading() {
         startedAt = Date()
-        guard let mutableRequest = (request as NSURLRequest).mutableCopy() as? NSMutableURLRequest else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
-            return
-        }
-        URLProtocol.setProperty(true, forKey: Self.handledKey, in: mutableRequest)
+        let loadedRequest = Self.instrumentedRequest(request)
+        self.loadedRequest = loadedRequest
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = []
         let session = URLSession(configuration: configuration)
-        dataTask = session.dataTask(with: mutableRequest as URLRequest) { [weak self] data, response, error in
+        dataTask = session.dataTask(with: loadedRequest) { [weak self] data, response, error in
             guard let self else {
                 return
             }
@@ -63,7 +75,7 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
         }
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
         let capturedSummary = Self.networkSummary(
-            request: request,
+            request: loadedRequest ?? request,
             response: response,
             data: data,
             error: error,
@@ -80,7 +92,10 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
             return
         }
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        let capturedSummary = Self.cancelledNetworkSummary(request: request, durationMs: durationMs)
+        let capturedSummary = Self.cancelledNetworkSummary(
+            request: loadedRequest ?? request,
+            durationMs: durationMs
+        )
         let capturedRuntime = Self.runtime
         Task.detached { @Sendable [capturedSummary, capturedRuntime] in
             await capturedRuntime?.network(capturedSummary)

@@ -2,13 +2,23 @@ mod support;
 
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, NetworkSummary,
-    PrivacyPolicy, Severity,
+    PrivacyPolicy, Severity, TraceContext,
 };
 use serde_json::json;
 use support::{
     CheckoutError, DatabaseError, FlakyStore, diagnostics_test_lock, install_file_diagnostics,
 };
 use tempfile::tempdir;
+
+#[test]
+fn trace_context_builds_w3c_traceparent() {
+    let context = TraceContext::new("4bf92f3577b34da6a3ce929d0e0e4736", "00f067aa0ba902b7", true);
+
+    assert_eq!(
+        context.traceparent(),
+        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    );
+}
 
 #[test]
 fn network_summary_api_records_success_and_failure_without_temp_logs() {
@@ -20,6 +30,11 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
         NetworkSummary::new("GET", "https://api.example.com/feed")
             .status_code(200)
             .duration_ms(42)
+            .trace_context(TraceContext::new(
+                "4bf92f3577b34da6a3ce929d0e0e4736",
+                "00f067aa0ba902b7",
+                true,
+            ))
             .metadata("feature", json!("feed")),
     );
     diagnostics.network(
@@ -39,6 +54,11 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
         event.kind == EventKind::Network
             && event.severity == Severity::Info
             && event.metadata["status_code"] == json!(200)
+            && event.metadata["http.request.method"] == json!("GET")
+            && event.metadata["url.full"] == json!("https://api.example.com/feed")
+            && event.metadata["http.response.status_code"] == json!(200)
+            && event.metadata["traceparent"]
+                == json!("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
             && event.metadata["feature"] == json!("feed")
     }));
     assert!(events.iter().any(|event| {

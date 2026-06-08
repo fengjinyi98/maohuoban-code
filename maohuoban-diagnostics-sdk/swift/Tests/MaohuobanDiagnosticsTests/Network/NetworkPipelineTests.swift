@@ -3,6 +3,17 @@ import Testing
 @testable import MaohuobanDiagnostics
 
 extension DiagnosticsPipelineTests {
+    @Test("TraceContext 会生成 W3C traceparent")
+    func traceContextBuildsW3CTraceparent() {
+        let context = DiagnosticsTraceContext(
+            traceID: "4bf92f3577b34da6a3ce929d0e0e4736",
+            spanID: "00f067aa0ba902b7",
+            sampled: true
+        )
+
+        #expect(context.traceparent == "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+    }
+
     @Test("全局入口能生成已注入网络采集的 URLSessionConfiguration")
     func installsNetworkCaptureConfiguration() async throws {
         let root = try temporaryDirectory()
@@ -18,6 +29,16 @@ extension DiagnosticsPipelineTests {
         #expect(configuration.protocolClasses?.first == DiagnosticsURLProtocol.self)
     }
 
+    @Test("URLProtocol 会为没有上游 trace 的请求注入 traceparent")
+    func urlProtocolInjectsTraceparentWhenMissing() throws {
+        let url = try #require(URL(string: "https://api.example.com/feed"))
+        let request = URLRequest(url: url)
+
+        let instrumented = DiagnosticsURLProtocol.instrumentedRequest(request)
+
+        #expect(instrumented.value(forHTTPHeaderField: "traceparent")?.hasPrefix("00-") == true)
+    }
+
     @Test("URLProtocol 采集摘要会记录载荷和响应类型")
     func urlProtocolSummaryCapturesPayloadMetadata() throws {
         let url = try #require(URL(string: "https://api.example.com/upload"))
@@ -26,6 +47,10 @@ extension DiagnosticsPipelineTests {
         request.httpBody = Data(repeating: 1, count: 16)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer token", forHTTPHeaderField: "Authorization")
+        request.setValue(
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+            forHTTPHeaderField: "traceparent"
+        )
 
         let response = try #require(
             HTTPURLResponse(
@@ -49,11 +74,15 @@ extension DiagnosticsPipelineTests {
         let event = summary.event()
 
         #expect(event.metadata["method"] == "POST")
+        #expect(event.metadata["http.request.method"] == "POST")
+        #expect(event.metadata["url.full"] == "https://api.example.com/upload")
         #expect(event.metadata["status_code"] == "201")
+        #expect(event.metadata["http.response.status_code"] == "201")
+        #expect(event.metadata["traceparent"] == "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
         #expect(event.metadata["request_body_bytes"] == "16")
         #expect(event.metadata["response_body_bytes"] == "32")
         #expect(event.metadata["response_mime_type"] == "application/json")
-        #expect(event.metadata["request_header_keys"] == "Authorization,Content-Type")
+        #expect(event.metadata["request_header_keys"] == "Authorization,Content-Type,traceparent")
         #expect(event.metadata["response_header_keys"] == "Content-Type,X-Request-ID")
     }
 

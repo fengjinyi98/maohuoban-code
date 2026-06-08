@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import MaohuobanDiagnostics
 
 struct ContentView: View {
     var body: some View {
@@ -16,6 +17,7 @@ struct ContentView: View {
             Text("Hello, world!")
         }
         .padding()
+        .diagnosticsScreen("home", metadata: ["screen_type": "root"])
     }
 }
 

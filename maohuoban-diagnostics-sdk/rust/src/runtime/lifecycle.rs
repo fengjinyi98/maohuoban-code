@@ -22,7 +22,7 @@ impl Diagnostics {
             service_name: config.service_name,
             environment: config.environment,
             privacy: config.privacy,
-            capture: config.capture,
+            capture: Mutex::new(config.capture),
             cleanup: config.cleanup,
             started_at: Instant::now(),
             context: Mutex::new(DiagnosticsContext::default()),

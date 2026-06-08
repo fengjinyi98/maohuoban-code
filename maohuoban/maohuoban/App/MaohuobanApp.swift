@@ -1,5 +1,5 @@
 //
-//  maohuobanApp.swift
+//  MaohuobanApp.swift
 //  maohuoban
 //
 //  Created by fengjinyi on 2026/6/8.
@@ -9,7 +9,7 @@ import SwiftUI
 import MaohuobanDiagnostics
 
 @main
-struct maohuobanApp: App {
+struct MaohuobanApp: App {
     init() {
         Task {
             let diagnostics = try await Diagnostics.bootstrap(

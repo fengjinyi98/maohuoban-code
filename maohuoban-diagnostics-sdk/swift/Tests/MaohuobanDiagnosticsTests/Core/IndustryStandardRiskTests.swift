@@ -150,23 +150,28 @@ extension DiagnosticsPipelineTests {
 
     @Test("Swift Package 包含 Apple SDK 隐私清单")
     func packageContainsPrivacyManifestResource() throws {
+        let packageRoot = try packageRootURL(from: URL(fileURLWithPath: #filePath))
         let manifest = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Package.swift"),
+            contentsOf: packageRoot.appendingPathComponent("Package.swift"),
             encoding: .utf8
         )
-        let privacyManifestURL = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+        let privacyManifestURL = packageRoot
             .appendingPathComponent("Sources/MaohuobanDiagnostics/Resources/PrivacyInfo.xcprivacy")
 
         #expect(manifest.contains(".process(\"Resources\")"))
         #expect(FileManager.default.fileExists(atPath: privacyManifestURL.path))
     }
+}
+
+private func packageRootURL(from fileURL: URL) throws -> URL {
+    var current = fileURL.deletingLastPathComponent()
+    while current.path != "/" {
+        if FileManager.default.fileExists(atPath: current.appendingPathComponent("Package.swift").path) {
+            return current
+        }
+        current.deleteLastPathComponent()
+    }
+    throw CocoaError(.fileNoSuchFile)
 }
 
 // AsyncTestGate 异步测试闸门

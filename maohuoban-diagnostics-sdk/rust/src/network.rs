@@ -1,5 +1,57 @@
 use crate::{DiagnosticEvent, EventKind, Severity};
 use serde_json::{Map, Value, json};
+use uuid::Uuid;
+
+/// `TraceContext` W3C Trace Context
+/// 核心职责：
+/// - 表达可注入 HTTP 请求的 traceparent 值
+/// - 为网络事件提供标准链路字段
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TraceContext {
+    trace_id: String,
+    span_id: String,
+    sampled: bool,
+}
+
+impl TraceContext {
+    /// `new` 创建链路上下文
+    /// 核心职责：
+    /// - 接收 W3C 兼容 trace id 与 span id
+    /// - 固定生成 traceparent 字符串的输入
+    #[must_use]
+    pub fn new(trace_id: impl Into<String>, span_id: impl Into<String>, sampled: bool) -> Self {
+        Self {
+            trace_id: trace_id.into().to_ascii_lowercase(),
+            span_id: span_id.into().to_ascii_lowercase(),
+            sampled,
+        }
+    }
+
+    /// `generate` 生成新的链路上下文
+    /// 核心职责：
+    /// - 为没有上游 trace 的请求创建本地上下文
+    /// - 输出可直接注入 HTTP header 的 traceparent
+    #[must_use]
+    pub fn generate(sampled: bool) -> Self {
+        let trace_id = Uuid::new_v4().simple().to_string();
+        let span_id = Uuid::new_v4().simple().to_string()[..16].to_string();
+        Self::new(trace_id, span_id, sampled)
+    }
+
+    /// `traceparent` 生成 W3C traceparent header 值
+    /// 核心职责：
+    /// - 使用固定版本、trace id、span id 和采样标记
+    /// - 让下游服务可以关联同一链路
+    #[must_use]
+    pub fn traceparent(&self) -> String {
+        format!(
+            "00-{}-{}-{}",
+            self.trace_id,
+            self.span_id,
+            if self.sampled { "01" } else { "00" }
+        )
+    }
+}
 
 /// `NetworkSummary` 网络请求摘要
 /// 核心职责：
@@ -12,6 +64,7 @@ pub struct NetworkSummary {
     status_code: Option<u16>,
     duration_ms: Option<u128>,
     error: Option<String>,
+    trace_context: Option<TraceContext>,
     metadata: Map<String, Value>,
 }
 
@@ -28,6 +81,7 @@ impl NetworkSummary {
             status_code: None,
             duration_ms: None,
             error: None,
+            trace_context: None,
             metadata: Map::new(),
         }
     }
@@ -62,6 +116,16 @@ impl NetworkSummary {
         self
     }
 
+    /// `trace_context` 设置标准链路上下文
+    /// 核心职责：
+    /// - 将 W3C traceparent 纳入网络事件
+    /// - 支持跨服务关联同一请求链路
+    #[must_use]
+    pub fn trace_context(mut self, trace_context: TraceContext) -> Self {
+        self.trace_context = Some(trace_context);
+        self
+    }
+
     /// `metadata` 追加网络上下文
     /// 核心职责：
     /// - 补充 `feature`、`retry`、`request_id` 等业务字段
@@ -88,15 +152,22 @@ impl NetworkSummary {
         };
         let mut event = DiagnosticEvent::new(EventKind::Network, severity, message)
             .metadata("method", json!(self.method))
-            .metadata("url", json!(self.url));
+            .metadata("url", json!(self.url))
+            .metadata("http.request.method", json!(self.method))
+            .metadata("url.full", json!(self.url));
         if let Some(status_code) = self.status_code {
-            event = event.metadata("status_code", json!(status_code));
+            event = event
+                .metadata("status_code", json!(status_code))
+                .metadata("http.response.status_code", json!(status_code));
         }
         if let Some(duration_ms) = self.duration_ms {
             event = event.metadata("duration_ms", json!(duration_ms));
         }
         if let Some(error) = self.error {
             event = event.metadata("error", json!(error));
+        }
+        if let Some(trace_context) = self.trace_context {
+            event = event.metadata("traceparent", json!(trace_context.traceparent()));
         }
         for (key, value) in self.metadata {
             event = event.metadata(key, value);
