@@ -8,6 +8,7 @@ public struct DebugBundle: Sendable {
     public let directoryURL: URL
     public let manifestURL: URL
     public let timelineURL: URL
+    public let promptURL: URL
 }
 
 // DebugBundleExporter 诊断包导出器
@@ -21,6 +22,7 @@ struct DebugBundleExporter {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
         let manifestURL = outputDirectory.appending(path: "manifest.json")
         let timelineURL = outputDirectory.appending(path: "timeline.jsonl")
+        let promptURL = outputDirectory.appending(path: "prompt.md")
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -38,11 +40,14 @@ struct DebugBundleExporter {
             timeline.append(0x0A)
         }
         try timeline.write(to: timelineURL, options: .atomic)
+        let prompt = LLMPromptExporter(title: "分析 Maohuoban 诊断包").export(events: events)
+        try prompt.write(to: promptURL, atomically: true, encoding: .utf8)
 
         return DebugBundle(
             directoryURL: outputDirectory,
             manifestURL: manifestURL,
-            timelineURL: timelineURL
+            timelineURL: timelineURL,
+            promptURL: promptURL
         )
     }
 }

@@ -24,6 +24,34 @@ public enum Diagnostics {
     public static func record(_ event: DiagnosticEvent) async {
         await current()?.record(event)
     }
+
+    public static func breadcrumb(_ message: String, metadata: [String: String] = [:]) async {
+        await current()?.breadcrumb(message, metadata: metadata)
+    }
+
+    public static func error(_ message: String, metadata: [String: String] = [:]) async {
+        await current()?.error(message, metadata: metadata)
+    }
+
+    public static func beginSpan(_ name: String) async -> DiagnosticsSpan? {
+        await current()?.beginSpan(name)
+    }
+
+    public static func flush() async throws {
+        try await current()?.flush()
+    }
+
+    public static func cleanup() async throws -> CleanupReport? {
+        try await current()?.cleanup()
+    }
+
+    public static func exportDebugBundle(to outputDirectory: URL) async throws -> DebugBundle? {
+        try await current()?.exportDebugBundle(to: outputDirectory)
+    }
+
+    public static func exportLLMPrompt(title: String, maxEvents: Int = 200) async throws -> String? {
+        try await current()?.exportLLMPrompt(title: title, maxEvents: maxEvents)
+    }
 }
 
 // DiagnosticsRegistry 全局运行时注册表

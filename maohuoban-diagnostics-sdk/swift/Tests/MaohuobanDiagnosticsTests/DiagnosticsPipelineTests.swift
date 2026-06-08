@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import MaohuobanDiagnostics
 
-@Suite("Diagnostics pipeline")
+@Suite("Diagnostics pipeline", .serialized)
 struct DiagnosticsPipelineTests {
     @Test("安装后记录事件会脱敏并导出诊断包")
     func recordsRedactsAndExportsBundle() async throws {
@@ -33,6 +33,25 @@ struct DiagnosticsPipelineTests {
         #expect(timeline.contains("\"password\":\"<redacted>\""))
         #expect(!timeline.contains("Bearer token"))
         #expect(!timeline.contains("secret"))
+    }
+
+    @Test("诊断包会写入可直接给 LLM 分析的 prompt 文件")
+    func debugBundleIncludesLLMPromptFile() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.error("checkout request failed")
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let prompt = try String(contentsOf: bundle.promptURL, encoding: .utf8)
+
+        #expect(prompt.contains("maohuoban.diagnostics.prompt.v1"))
+        #expect(prompt.contains("checkout request failed"))
     }
 
     @Test("清理策略会删除过期段文件")
@@ -91,6 +110,29 @@ struct DiagnosticsPipelineTests {
         #expect(events.contains { $0.kind == .breadcrumb && $0.message == "open detail" })
         #expect(events.contains { $0.kind == .error && $0.message == "load failed" })
         #expect(events.contains { $0.kind == .performance && $0.message == "load detail" })
+    }
+
+    @Test("全局 facade 会转发便捷 API 到当前 runtime")
+    func globalFacadeForwardsConvenienceCapture() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await Diagnostics.breadcrumb("global open", metadata: ["screen": "home"])
+        await Diagnostics.error("global error", metadata: ["reason": "timeout"])
+        let span = await Diagnostics.beginSpan("global load")
+        await span?.end(metadata: ["result": "ok"])
+        try await Diagnostics.flush()
+
+        let events = try await diagnostics.readEvents()
+        #expect(events.contains { $0.kind == .breadcrumb && $0.message == "global open" })
+        #expect(events.contains { $0.kind == .error && $0.message == "global error" })
+        #expect(events.contains { $0.kind == .performance && $0.message == "global load" })
     }
 
     @Test("LLM Prompt 导出会包含 schema 和时间线摘要")
