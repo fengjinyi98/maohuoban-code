@@ -21,7 +21,7 @@
 | Normalize | 转成统一 `DiagnosticEvent` 协议 |
 | Privacy | 写入前执行字段脱敏 |
 | Storage | JSONL 分段落盘，读取时保留损坏段文件告警 |
-| Cleanup | 按大小、时间窗口、导出生命周期清理 |
+| Cleanup | 按大小、时间窗口、导出生命周期清理，支持跨运行时清理遗留导出包 |
 | Export | 生成 `manifest.json`、`timeline.jsonl`、`prompt.md` 与 `archive.tar` Debug Bundle |
 
 ## Swift 一次接入
@@ -183,6 +183,8 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `archive.tar`，或直接使用 `prompt.md` 和 `timeline.jsonl` |
 
 `bootstrap` 会完成安装、默认上下文注入、启动生命周期事件、可选运行时快照和启动清理，适合作为 App 或服务进程的唯一接入点。
+
+Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.jsonl` 索引。`cleanup()` 会读取该索引，因此 App 或服务重启后仍能按 `maxExportAge` 清理上次运行遗留的导出包。
 
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
 

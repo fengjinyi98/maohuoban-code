@@ -155,11 +155,14 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     private let store: FileSegmentStore
     private let context = DiagnosticsContext()
     private let storageHealth = DiagnosticsStorageHealth()
-    private let exportRegistry = ExportDirectoryRegistry()
+    private let exportRegistry: ExportDirectoryRegistry
     private let startedAt = Date()
 
     init(configuration: DiagnosticsConfiguration) throws {
         self.configuration = configuration
+        exportRegistry = ExportDirectoryRegistry(
+            indexURL: configuration.storageDirectory.appending(path: ".debug-bundles.jsonl")
+        )
         store = try FileSegmentStore(
             directory: configuration.storageDirectory,
             maxSegmentBytes: configuration.maxSegmentBytes
@@ -303,7 +306,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     public func exportDebugBundle(to outputDirectory: URL) async throws -> DebugBundle {
         let bundle = try DebugBundleExporter(outputDirectory: outputDirectory)
             .export(events: try await readEvents())
-        exportRegistry.register(bundle.directoryURL)
+        try exportRegistry.register(bundle.directoryURL)
         return bundle
     }
 
@@ -448,23 +451,31 @@ actor DiagnosticsContext {
 
 // ExportDirectoryRegistry 导出目录注册表
 // 核心职责：
-// - 记录当前运行时创建的 Debug Bundle 目录
+// - 持久记录运行时创建的 Debug Bundle 目录
 // - 按清理策略删除过期导出包
 final class ExportDirectoryRegistry: @unchecked Sendable {
     private let lock = NSLock()
+    private let indexURL: URL
     private var directories: [URL] = []
 
-    func register(_ directory: URL) {
+    init(indexURL: URL) {
+        self.indexURL = indexURL
+        directories = loadIndex()
+    }
+
+    func register(_ directory: URL) throws {
         lock.lock()
-        directories.append(directory)
+        directories.append(directory.standardizedFileURL)
+        let snapshot = uniqueDirectories(directories)
         lock.unlock()
+        try saveIndex(snapshot)
     }
 
     func cleanup(policy: CleanupPolicy) throws -> CleanupReport {
         var report = CleanupReport()
         var remaining: [URL] = []
         lock.lock()
-        let currentDirectories = directories
+        let currentDirectories = uniqueDirectories(directories + loadIndex())
         directories.removeAll()
         lock.unlock()
 
@@ -485,8 +496,44 @@ final class ExportDirectoryRegistry: @unchecked Sendable {
 
         lock.lock()
         directories.append(contentsOf: remaining)
+        let snapshot = uniqueDirectories(directories)
         lock.unlock()
+        try saveIndex(snapshot)
         return report
+    }
+
+    private func loadIndex() -> [URL] {
+        guard let lines = try? String(contentsOf: indexURL, encoding: .utf8) else {
+            return []
+        }
+        return uniqueDirectories(
+            lines
+                .split(separator: "\n")
+                .compactMap { URL(fileURLWithPath: String($0)).standardizedFileURL }
+        )
+    }
+
+    private func saveIndex(_ directories: [URL]) throws {
+        try FileManager.default.createDirectory(
+            at: indexURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let body = directories.map(\.path).joined(separator: "\n")
+        let data = Data((body.isEmpty ? "" : body + "\n").utf8)
+        try data.write(to: indexURL, options: .atomic)
+    }
+
+    private func uniqueDirectories(_ directories: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var output: [URL] = []
+        for directory in directories {
+            let standardized = directory.standardizedFileURL
+            guard seen.insert(standardized.path).inserted else {
+                continue
+            }
+            output.append(standardized)
+        }
+        return output
     }
 
     private func directorySize(_ directory: URL) -> Int {

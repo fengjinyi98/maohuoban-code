@@ -130,3 +130,5 @@ Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行�
 | `maxTotalBytes` | 50MB | 段文件总体积上限 |
 | `maxSegmentAge` | 7 天 | 事件段文件最大保留时间 |
 | `maxExportAge` | 1 天 | 导出包最大保留时间 |
+
+Debug Bundle 导出目录会持久写入 SDK storage 目录下的 `.debug-bundles.jsonl` 索引。`cleanup()` 会合并当前运行时登记目录和该索引，因此 Swift 与 Rust 进程重启后仍能按 `maxExportAge` 清理遗留导出包。

@@ -305,6 +305,53 @@ fn cleanup_removes_expired_debug_bundles() {
 }
 
 #[test]
+fn cleanup_removes_expired_debug_bundles_across_runtime_restart() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let storage = temp.path().join("segments");
+    let cleanup = CleanupPolicy {
+        max_total_bytes: 1024 * 1024,
+        max_segment_age: Duration::from_secs(7 * 24 * 60 * 60),
+        max_export_age: Duration::from_secs(0),
+    };
+    let first_store = FileSegmentStore::new(&storage, 1024).expect("first store");
+    let first_runtime = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: cleanup.clone(),
+        store: Box::new(first_store),
+    })
+    .expect("install first diagnostics");
+
+    first_runtime.error(
+        "previous export cleanup input",
+        Vec::<(String, serde_json::Value)>::new(),
+    );
+    first_runtime.flush().expect("flush events");
+    let bundle = first_runtime
+        .export_debug_bundle(temp.path().join("bundle"))
+        .expect("export bundle");
+    assert!(bundle.directory.exists());
+
+    let next_store = FileSegmentStore::new(&storage, 1024).expect("next store");
+    let next_runtime = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup,
+        store: Box::new(next_store),
+    })
+    .expect("install next diagnostics");
+    let removed = next_runtime.cleanup().expect("cleanup");
+
+    assert_eq!(removed.removed_exports, 1);
+    assert!(!bundle.directory.exists());
+}
+
+#[test]
 fn prompt_exporter_summarizes_timeline_for_llm() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");

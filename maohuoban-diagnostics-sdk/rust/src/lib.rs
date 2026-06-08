@@ -458,6 +458,14 @@ pub trait EventStore: Send + Sync {
     ///
     /// 当底层存储读取文件元数据或删除数据失败时返回错误。
     fn cleanup(&mut self, policy: &CleanupPolicy) -> Result<CleanupReport, DiagnosticsError>;
+
+    /// `export_index_path` 返回导出目录索引路径
+    /// 核心职责：
+    /// - 允许运行时持久记录 Debug Bundle 导出目录
+    /// - 支持进程重启后继续清理过期导出包
+    fn export_index_path(&self) -> Option<PathBuf> {
+        None
+    }
 }
 
 /// `FileSegmentStore` JSONL 分段文件存储
@@ -617,6 +625,10 @@ impl EventStore for FileSegmentStore {
 
         Ok(report)
     }
+
+    fn export_index_path(&self) -> Option<PathBuf> {
+        Some(self.directory.join(".debug-bundles.jsonl"))
+    }
 }
 
 /// `DiagnosticsConfig` SDK 安装配置
@@ -701,6 +713,7 @@ struct DiagnosticsInner {
     storage_health: Mutex<DiagnosticsStorageHealth>,
     store: Mutex<Box<dyn EventStore>>,
     export_directories: Mutex<Vec<PathBuf>>,
+    export_index_path: Option<PathBuf>,
 }
 
 /// `DiagnosticsStorageHealth` 诊断存储健康状态
@@ -746,6 +759,7 @@ impl Diagnostics {
     ///
     /// 当前安装过程只封装配置与存储句柄，保留错误返回用于未来校验配置和存储初始化失败。
     pub fn install(config: DiagnosticsConfig) -> Result<Self, DiagnosticsError> {
+        let export_index_path = config.store.export_index_path();
         let diagnostics = Self {
             inner: Arc::new(DiagnosticsInner {
                 service_name: config.service_name,
@@ -758,6 +772,7 @@ impl Diagnostics {
                 storage_health: Mutex::new(DiagnosticsStorageHealth::default()),
                 store: Mutex::new(config.store),
                 export_directories: Mutex::new(Vec::new()),
+                export_index_path,
             }),
         };
         let registry = CURRENT_DIAGNOSTICS.get_or_init(|| Mutex::new(None));
@@ -1145,10 +1160,18 @@ impl Diagnostics {
         LlmPromptExporter::new(title).export_prompt(self)
     }
 
-    fn register_export_directory(&self, directory: PathBuf) {
-        if let Ok(mut export_directories) = self.inner.export_directories.lock() {
+    fn register_export_directory(&self, directory: PathBuf) -> Result<(), DiagnosticsError> {
+        let snapshot = {
+            let mut export_directories = self
+                .inner
+                .export_directories
+                .lock()
+                .map_err(|_| DiagnosticsError::StoreLockPoisoned)?;
             export_directories.push(directory);
-        }
+            unique_paths(export_directories.clone())
+        };
+        self.save_export_index(&snapshot)?;
+        Ok(())
     }
 
     fn apply_context(&self, mut event: DiagnosticEvent) -> DiagnosticEvent {
@@ -1185,12 +1208,21 @@ impl Diagnostics {
         let mut report = CleanupReport::default();
         let mut remaining = Vec::new();
         let now = SystemTime::now();
-        let mut export_directories = self
-            .inner
-            .export_directories
-            .lock()
-            .map_err(|_| DiagnosticsError::StoreLockPoisoned)?;
-        for directory in export_directories.drain(..) {
+        let current_directories = {
+            let mut export_directories = self
+                .inner
+                .export_directories
+                .lock()
+                .map_err(|_| DiagnosticsError::StoreLockPoisoned)?;
+            unique_paths(
+                export_directories
+                    .drain(..)
+                    .chain(self.load_export_index()?)
+                    .collect::<Vec<_>>(),
+            )
+        };
+
+        for directory in current_directories {
             if !directory.exists() {
                 continue;
             }
@@ -1208,8 +1240,50 @@ impl Diagnostics {
                 remaining.push(directory);
             }
         }
-        *export_directories = remaining;
+        let remaining = unique_paths(remaining);
+        {
+            let mut export_directories = self
+                .inner
+                .export_directories
+                .lock()
+                .map_err(|_| DiagnosticsError::StoreLockPoisoned)?;
+            export_directories.clone_from(&remaining);
+        }
+        self.save_export_index(&remaining)?;
         Ok(report)
+    }
+
+    fn load_export_index(&self) -> Result<Vec<PathBuf>, DiagnosticsError> {
+        let Some(index_path) = &self.inner.export_index_path else {
+            return Ok(Vec::new());
+        };
+        if !index_path.exists() {
+            return Ok(Vec::new());
+        }
+        let file = File::open(index_path)?;
+        let directories = BufReader::new(file)
+            .lines()
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .filter(|line| !line.trim().is_empty())
+            .map(PathBuf::from)
+            .collect::<Vec<_>>();
+        Ok(unique_paths(directories))
+    }
+
+    fn save_export_index(&self, directories: &[PathBuf]) -> Result<(), DiagnosticsError> {
+        let Some(index_path) = &self.inner.export_index_path else {
+            return Ok(());
+        };
+        if let Some(parent) = index_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut body = String::new();
+        for directory in directories {
+            let _ = writeln!(body, "{}", directory.display());
+        }
+        fs::write(index_path, body)?;
+        Ok(())
     }
 
     fn record_dropped_event(&self, error: &DiagnosticsError) {
@@ -1291,6 +1365,18 @@ fn directory_size(directory: &PathBuf) -> Result<u64, DiagnosticsError> {
         }
     }
     Ok(total)
+}
+
+fn unique_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut seen = BTreeSet::new();
+    let mut output = Vec::new();
+    for path in paths {
+        let key = path.to_string_lossy().into_owned();
+        if seen.insert(key) {
+            output.push(path);
+        }
+    }
+    output
 }
 
 /// `DiagnosticsSpan` 性能 span
@@ -1468,7 +1554,7 @@ impl DebugBundleExporter {
             timeline_path,
             archive_path,
         };
-        diagnostics.register_export_directory(bundle.directory.clone());
+        diagnostics.register_export_directory(bundle.directory.clone())?;
         Ok(bundle)
     }
 }

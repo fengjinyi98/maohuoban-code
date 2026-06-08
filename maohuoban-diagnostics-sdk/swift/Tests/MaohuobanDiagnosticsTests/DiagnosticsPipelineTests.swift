@@ -201,6 +201,38 @@ struct DiagnosticsPipelineTests {
         #expect(!FileManager.default.fileExists(atPath: bundle.directoryURL.path))
     }
 
+    @Test("清理策略会删除上次运行遗留的过期诊断包")
+    func cleanupRemovesExpiredDebugBundlesAcrossRuntimeRestart() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appending(path: "segments")
+        let bundleURL = root.appending(path: "bundle")
+        let firstRuntime = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: storage,
+                cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 7 * 24 * 60 * 60, maxExportAge: 0)
+            )
+        )
+
+        await firstRuntime.error("previous export cleanup input")
+        let bundle = try await firstRuntime.exportDebugBundle(to: bundleURL)
+        #expect(FileManager.default.fileExists(atPath: bundle.directoryURL.path))
+
+        let nextRuntime = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: storage,
+                cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 7 * 24 * 60 * 60, maxExportAge: 0)
+            )
+        )
+        let report = try await nextRuntime.cleanup()
+
+        #expect(report.removedExports == 1)
+        #expect(!FileManager.default.fileExists(atPath: bundle.directoryURL.path))
+    }
+
     @Test("全局入口能生成已注入网络采集的 URLSessionConfiguration")
     func installsNetworkCaptureConfiguration() async throws {
         let root = try temporaryDirectory()
