@@ -263,6 +263,29 @@ struct DiagnosticsPipelineTests {
         #expect(event.metadata["underlying_errors"]?.contains("database unavailable") == true)
     }
 
+    @Test("运行时快照 API 会记录基础进程和系统信息")
+    func capturesRuntimeSnapshotAsPerformanceEvent() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
+
+        let events = try await diagnostics.readEvents()
+        let event = try #require(events.first { $0.kind == .performance && $0.message == "runtime snapshot" })
+        #expect(event.metadata["phase"] == "startup")
+        #expect(event.metadata["process_id"] == "\(ProcessInfo.processInfo.processIdentifier)")
+        #expect(event.metadata["process_name"] == ProcessInfo.processInfo.processName)
+        #expect(event.metadata["os"]?.isEmpty == false)
+        #expect(event.metadata["arch"]?.isEmpty == false)
+        #expect(Int(event.metadata["uptime_ms"] ?? "") != nil)
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()

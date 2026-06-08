@@ -45,6 +45,15 @@
 
 结构化错误会作为 `kind=error`、`severity=error` 的标准事件写入。全局上下文、隐私脱敏、存储、导出和 LLM Prompt 复用同一记录管线。
 
+## 运行时快照
+
+| 语言 | API | 自动字段 |
+| --- | --- | --- |
+| Swift | `Diagnostics.captureRuntimeSnapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms`、`physical_memory_bytes` |
+| Rust | `diagnostics.capture_runtime_snapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms` |
+
+运行时快照会作为 `kind=performance`、`severity=info` 的标准事件写入，用于启动、卡顿、网络异常和错误链前后的环境记录。
+
 ## 全局上下文
 
 | 能力 | Swift | Rust |

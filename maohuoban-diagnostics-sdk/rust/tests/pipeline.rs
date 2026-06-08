@@ -311,6 +311,35 @@ fn captures_error_source_chain_as_structured_metadata() {
 }
 
 #[test]
+fn captures_runtime_snapshot_as_performance_event() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.capture_runtime_snapshot([("phase", json!("startup"))]);
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let event = events
+        .iter()
+        .find(|event| event.kind == EventKind::Performance && event.message == "runtime snapshot")
+        .expect("runtime snapshot");
+    assert_eq!(event.metadata["phase"], json!("startup"));
+    assert_eq!(event.metadata["process_id"], json!(std::process::id()));
+    assert!(event.metadata["process_name"].is_string());
+    assert_eq!(event.metadata["os"], json!(std::env::consts::OS));
+    assert_eq!(event.metadata["arch"], json!(std::env::consts::ARCH));
+    assert!(event.metadata["uptime_ms"].as_u64().is_some());
+}
+
+#[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");

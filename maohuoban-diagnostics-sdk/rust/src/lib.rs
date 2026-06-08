@@ -532,6 +532,7 @@ struct DiagnosticsInner {
     environment: String,
     privacy: PrivacyPolicy,
     cleanup: CleanupPolicy,
+    started_at: Instant,
     context: Mutex<DiagnosticsContext>,
     store: Mutex<Box<dyn EventStore>>,
     export_directories: Mutex<Vec<PathBuf>>,
@@ -553,6 +554,7 @@ impl Diagnostics {
                 environment: config.environment,
                 privacy: config.privacy,
                 cleanup: config.cleanup,
+                started_at: Instant::now(),
                 context: Mutex::new(DiagnosticsContext::default()),
                 store: Mutex::new(config.store),
                 export_directories: Mutex::new(Vec::new()),
@@ -732,6 +734,26 @@ impl Diagnostics {
         self.record(summary.into_event());
     }
 
+    /// `capture_runtime_snapshot` 记录运行时快照
+    /// 核心职责：
+    /// - 捕获进程、系统、架构和 SDK 运行时长
+    /// - 将性能排查基础信息写入统一时间线
+    pub fn capture_runtime_snapshot(
+        &self,
+        metadata: impl IntoIterator<Item = (impl Into<String>, Value)>,
+    ) {
+        let uptime_ms =
+            u64::try_from(self.inner.started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
+        let event =
+            DiagnosticEvent::new(EventKind::Performance, Severity::Info, "runtime snapshot")
+                .metadata("process_id", json!(std::process::id()))
+                .metadata("process_name", json!(process_name()))
+                .metadata("os", json!(std::env::consts::OS))
+                .metadata("arch", json!(std::env::consts::ARCH))
+                .metadata("uptime_ms", json!(uptime_ms));
+        self.record(event_with_metadata(event, metadata));
+    }
+
     /// `begin_span` 开始性能 span
     /// 核心职责：
     /// - 捕获一段业务或系统操作耗时
@@ -899,6 +921,17 @@ fn panic_message(info: &panic::PanicHookInfo<'_>) -> String {
     } else {
         "panic captured".to_string()
     }
+}
+
+fn process_name() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .or_else(|| std::env::args().next())
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn directory_size(directory: &PathBuf) -> Result<u64, DiagnosticsError> {

@@ -41,6 +41,10 @@ public enum Diagnostics {
         await current()?.network(summary)
     }
 
+    public static func captureRuntimeSnapshot(metadata: [String: String] = [:]) async {
+        await current()?.captureRuntimeSnapshot(metadata: metadata)
+    }
+
     public static func setSessionID(_ sessionID: String) async {
         await current()?.setSessionID(sessionID)
     }
@@ -119,6 +123,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     private let store: FileSegmentStore
     private let context = DiagnosticsContext()
     private let exportRegistry = ExportDirectoryRegistry()
+    private let startedAt = Date()
 
     init(configuration: DiagnosticsConfiguration) throws {
         self.configuration = configuration
@@ -181,6 +186,21 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func network(_ summary: NetworkSummary) async {
         await record(summary.event())
+    }
+
+    public func captureRuntimeSnapshot(metadata: [String: String] = [:]) async {
+        let processInfo = ProcessInfo.processInfo
+        var event = DiagnosticEvent.performance("runtime snapshot")
+            .metadata("process_id", "\(processInfo.processIdentifier)")
+            .metadata("process_name", processInfo.processName)
+            .metadata("os", processInfo.operatingSystemVersionString)
+            .metadata("arch", runtimeArchitecture())
+            .metadata("uptime_ms", "\(Int(Date().timeIntervalSince(startedAt) * 1_000))")
+            .metadata("physical_memory_bytes", "\(processInfo.physicalMemory)")
+        for (key, value) in metadata {
+            event = event.metadata(key, value)
+        }
+        await record(event)
     }
 
     public func setSessionID(_ sessionID: String) async {
@@ -262,6 +282,20 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
             current = error.userInfo[NSUnderlyingErrorKey] as? NSError
         }
         return descriptions
+    }
+
+    private func runtimeArchitecture() -> String {
+        #if arch(arm64)
+        "arm64"
+        #elseif arch(x86_64)
+        "x86_64"
+        #elseif arch(arm)
+        "arm"
+        #elseif arch(i386)
+        "i386"
+        #else
+        "unknown"
+        #endif
     }
 }
 

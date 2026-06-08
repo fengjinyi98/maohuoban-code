@@ -37,6 +37,7 @@ try await Diagnostics.install(
 | 面包屑 | `await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])` |
 | 错误 | `await Diagnostics.error("load failed", metadata: ["reason": "timeout"])` |
 | 结构化错误 | `await Diagnostics.captureError(error, metadata: ["feature": "checkout"])` |
+| 运行时快照 | `await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])` |
 | 性能 | `let span = await Diagnostics.beginSpan("load detail")` + `await span?.end()` |
 | 网络 | `Diagnostics.current()?.instrumentedURLSessionConfiguration(...)` |
 | 清理 | `try await Diagnostics.cleanup()` |
@@ -50,12 +51,15 @@ await Diagnostics.setContextMetadata("screen", "checkout")
 
 await Diagnostics.error("checkout failed", metadata: ["screen": "payment"])
 await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
+await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
 await Diagnostics.clearTraceID()
 ```
 
 全局上下文会在统一记录管线中自动注入后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 会保留自身值，适合临时覆盖某个页面、请求或 span。
 
 `captureError` 会把 Swift `Error` 桥接为 `NSError`，记录 domain、code、description 和 `NSUnderlyingErrorKey` chain，方便 LLM 直接分析错误因果。
+
+`captureRuntimeSnapshot` 会记录进程 ID、进程名、系统版本、架构、SDK uptime 和物理内存大小，适合放在启动、卡顿、网络异常前后。
 
 ## Debug Bundle
 
