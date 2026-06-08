@@ -12,11 +12,15 @@ import MaohuobanDiagnostics
 struct maohuobanApp: App {
     init() {
         Task {
-            let diagnostics = try await Diagnostics.install(
-                DiagnosticsConfiguration(
+            let diagnostics = try await Diagnostics.bootstrap(
+                DiagnosticsBootstrapConfiguration(
                     serviceName: "maohuoban-ios",
                     environment: "local",
-                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"])
+                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"]),
+                    defaults: [
+                        "client": "ios",
+                        "app": "maohuoban"
+                    ]
                 )
             )
             await diagnostics.record(
