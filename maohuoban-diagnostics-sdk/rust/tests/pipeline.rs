@@ -1,7 +1,7 @@
 use maohuoban_diagnostics::{
-    CapturePolicy, CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics,
-    DiagnosticsBootstrapConfig, DiagnosticsConfig, EventKind, FileSegmentStore, LlmPromptExporter,
-    NetworkSummary, PrivacyPolicy, Severity,
+    CapturePolicy, CleanupPolicy, CleanupReport, DebugBundleExporter, DiagnosticEvent, Diagnostics,
+    DiagnosticsBootstrapConfig, DiagnosticsConfig, DiagnosticsError, EventKind, EventStore,
+    FileSegmentStore, LlmPromptExporter, NetworkSummary, PrivacyPolicy, Severity,
 };
 use serde_json::json;
 use std::{
@@ -456,6 +456,37 @@ fn captures_runtime_snapshot_as_performance_event() {
 }
 
 #[test]
+fn runtime_snapshot_reports_dropped_events_after_storage_write_failure() {
+    let _guard = diagnostics_test_lock();
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(FlakyStore::fail_first_append()),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.log(Severity::Error, "cannot be stored");
+    diagnostics.capture_runtime_snapshot([("phase", json!("after-storage-error"))]);
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let event = events
+        .iter()
+        .find(|event| event.kind == EventKind::Performance && event.message == "runtime snapshot")
+        .expect("runtime snapshot");
+    assert_eq!(event.metadata["phase"], json!("after-storage-error"));
+    assert_eq!(event.metadata["dropped_event_count"], json!(1));
+    assert!(
+        event.metadata["last_storage_error"]
+            .as_str()
+            .is_some_and(|error| error.contains("injected append failure"))
+    );
+}
+
+#[test]
 fn scoped_trace_restores_previous_trace_after_operation() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
@@ -584,4 +615,45 @@ struct DatabaseError;
 struct CheckoutError {
     #[source]
     source: DatabaseError,
+}
+
+/// `FlakyStore` 测试用可失败存储
+/// 核心职责：
+/// - 模拟首次事件落盘失败
+/// - 在后续写入中保留事件，验证运行时健康字段
+struct FlakyStore {
+    fail_next_append: bool,
+    events: Vec<DiagnosticEvent>,
+}
+
+impl FlakyStore {
+    fn fail_first_append() -> Self {
+        Self {
+            fail_next_append: true,
+            events: Vec::new(),
+        }
+    }
+}
+
+impl EventStore for FlakyStore {
+    fn append(&mut self, event: &DiagnosticEvent) -> Result<(), DiagnosticsError> {
+        if self.fail_next_append {
+            self.fail_next_append = false;
+            return Err(std::io::Error::other("injected append failure").into());
+        }
+        self.events.push(event.clone());
+        Ok(())
+    }
+
+    fn flush(&mut self) -> Result<(), DiagnosticsError> {
+        Ok(())
+    }
+
+    fn read_all(&self) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
+        Ok(self.events.clone())
+    }
+
+    fn cleanup(&mut self, _policy: &CleanupPolicy) -> Result<CleanupReport, DiagnosticsError> {
+        Ok(CleanupReport::default())
+    }
 }

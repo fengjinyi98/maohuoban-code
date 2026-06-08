@@ -669,8 +669,42 @@ struct DiagnosticsInner {
     cleanup: CleanupPolicy,
     started_at: Instant,
     context: Mutex<DiagnosticsContext>,
+    storage_health: Mutex<DiagnosticsStorageHealth>,
     store: Mutex<Box<dyn EventStore>>,
     export_directories: Mutex<Vec<PathBuf>>,
+}
+
+/// `DiagnosticsStorageHealth` 诊断存储健康状态
+/// 核心职责：
+/// - 记录事件落盘失败导致的丢弃数量
+/// - 为运行时快照提供 SDK 自身健康信号
+#[derive(Default)]
+struct DiagnosticsStorageHealth {
+    dropped_event_count: usize,
+    last_storage_error: String,
+}
+
+/// `DiagnosticsStorageHealthSnapshot` 存储健康快照
+/// 核心职责：
+/// - 承载运行时读取到的存储失败状态
+/// - 避免运行时快照直接暴露可变状态
+struct DiagnosticsStorageHealthSnapshot {
+    dropped_event_count: usize,
+    last_storage_error: String,
+}
+
+impl DiagnosticsStorageHealth {
+    fn record_dropped_event(&mut self, error: &str) {
+        self.dropped_event_count += 1;
+        error.clone_into(&mut self.last_storage_error);
+    }
+
+    fn snapshot(&self) -> DiagnosticsStorageHealthSnapshot {
+        DiagnosticsStorageHealthSnapshot {
+            dropped_event_count: self.dropped_event_count,
+            last_storage_error: self.last_storage_error.clone(),
+        }
+    }
 }
 
 impl Diagnostics {
@@ -692,6 +726,7 @@ impl Diagnostics {
                 cleanup: config.cleanup,
                 started_at: Instant::now(),
                 context: Mutex::new(DiagnosticsContext::default()),
+                storage_health: Mutex::new(DiagnosticsStorageHealth::default()),
                 store: Mutex::new(config.store),
                 export_directories: Mutex::new(Vec::new()),
             }),
@@ -859,7 +894,9 @@ impl Diagnostics {
         };
         event = self.inner.privacy.apply(&event);
         if let Ok(mut store) = self.inner.store.lock() {
-            let _ = store.append(&event);
+            if let Err(error) = store.append(&event) {
+                self.record_dropped_event(&error);
+            }
         }
     }
 
@@ -944,13 +981,25 @@ impl Diagnostics {
     ) {
         let uptime_ms =
             u64::try_from(self.inner.started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
-        let event =
+        let storage_health = self.storage_health_snapshot();
+        let mut event =
             DiagnosticEvent::new(EventKind::Performance, Severity::Info, "runtime snapshot")
                 .metadata("process_id", json!(std::process::id()))
                 .metadata("process_name", json!(process_name()))
                 .metadata("os", json!(std::env::consts::OS))
                 .metadata("arch", json!(std::env::consts::ARCH))
                 .metadata("uptime_ms", json!(uptime_ms));
+        if storage_health.dropped_event_count > 0 {
+            event = event
+                .metadata(
+                    "dropped_event_count",
+                    json!(storage_health.dropped_event_count),
+                )
+                .metadata(
+                    "last_storage_error",
+                    json!(storage_health.last_storage_error),
+                );
+        }
         self.record(event_with_metadata(event, metadata));
     }
 
@@ -1105,6 +1154,22 @@ impl Diagnostics {
         }
         *export_directories = remaining;
         Ok(report)
+    }
+
+    fn record_dropped_event(&self, error: &DiagnosticsError) {
+        if let Ok(mut storage_health) = self.inner.storage_health.lock() {
+            storage_health.record_dropped_event(&error.to_string());
+        }
+    }
+
+    fn storage_health_snapshot(&self) -> DiagnosticsStorageHealthSnapshot {
+        match self.inner.storage_health.lock() {
+            Ok(storage_health) => storage_health.snapshot(),
+            Err(_) => DiagnosticsStorageHealthSnapshot {
+                dropped_event_count: 0,
+                last_storage_error: "storage health lock poisoned".to_string(),
+            },
+        }
     }
 }
 
