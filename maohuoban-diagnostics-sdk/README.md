@@ -15,7 +15,7 @@
 
 | 层 | 职责 |
 | --- | --- |
-| Facade | 一次 `install` 后全局可用 |
+| Facade | 一次 `bootstrap` 或 `install` 后全局可用 |
 | Context | 维护 service、environment、trace、session 元信息 |
 | Capture | 采集日志、网络、性能、错误、生命周期事件，并控制最低级别与字段大小 |
 | Normalize | 转成统一 `DiagnosticEvent` 协议 |
@@ -81,22 +81,22 @@ let session = URLSession(configuration: configuration ?? .default)
 ## Rust 一次接入
 
 ```rust
-use maohuoban_diagnostics::{CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy, Severity};
+use maohuoban_diagnostics::{Diagnostics, DiagnosticsBootstrapConfig, PrivacyPolicy, Severity};
 use serde_json::json;
 
-let store = FileSegmentStore::new("target/maohuoban-diagnostics/segments", 1024 * 1024)?;
-let diagnostics = Diagnostics::install(DiagnosticsConfig {
-    service_name: "maohuoban-rust".to_string(),
-    environment: "local".to_string(),
-    privacy: PrivacyPolicy::default().redact_key("authorization").redact_key("password"),
-    capture: CapturePolicy::default(),
-    cleanup: CleanupPolicy::default(),
-    store: Box::new(store),
-})?;
-diagnostics.install_panic_hook();
-diagnostics.set_session_id("session-local");
-diagnostics.set_trace_id("sync-home");
-diagnostics.set_context_metadata("worker", json!("scheduler"));
+let mut config = DiagnosticsBootstrapConfig::new(
+    "maohuoban-rust",
+    "local",
+    "target/maohuoban-diagnostics/segments",
+);
+config.privacy = PrivacyPolicy::default()
+    .redact_key("authorization")
+    .redact_key("password");
+config.defaults.insert("worker".to_string(), json!("scheduler"));
+config.session_id = Some("session-local".to_string());
+config.trace_id = Some("sync-home".to_string());
+
+let diagnostics = Diagnostics::bootstrap(config)?;
 
 Diagnostics::current().expect("diagnostics").log(Severity::Info, "started");
 Diagnostics::current()
@@ -120,7 +120,9 @@ let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
 span.end([("result", json!("ok"))]);
 ```
 
-服务启动阶段也可以使用 `bootstrap` 组合文件存储、默认上下文、panic hook、启动清理和启动快照：
+需要完全自定义存储实例和生命周期时使用 `Diagnostics::install(...)`。服务启动阶段推荐使用 `bootstrap` 组合文件存储、默认上下文、panic hook、启动清理和启动快照。
+
+最小启动配置：
 
 ```rust
 let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig::new(
@@ -130,6 +132,13 @@ let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig::new(
 ))?;
 diagnostics.set_context_metadata("worker", json!("scheduler"));
 ```
+
+## 真实产品接入位置
+
+| 项目 | 入口文件 | 接入方式 |
+| --- | --- | --- |
+| `maohuoban` | `maohuoban/maohuoban/maohuobanApp.swift` | `Diagnostics.bootstrap(...)` |
+| `maohuoban-rust` | `maohuoban-rust/src/main.rs` | `Diagnostics::bootstrap(...)` |
 
 ## Collector 导出
 
