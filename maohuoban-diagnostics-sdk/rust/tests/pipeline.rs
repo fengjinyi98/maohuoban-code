@@ -371,6 +371,41 @@ fn install_makes_runtime_available_globally_and_records_convenience_events() {
 }
 
 #[test]
+fn diagnostics_facade_exports_debug_bundle_and_llm_prompt() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.error(
+        "facade export failed",
+        [("feature", json!("facade-export"))],
+    );
+    diagnostics.flush().expect("flush events");
+
+    let bundle = diagnostics
+        .export_debug_bundle(temp.path().join("bundle"))
+        .expect("export debug bundle");
+    let prompt = diagnostics
+        .export_llm_prompt("分析 facade 导出")
+        .expect("export llm prompt");
+
+    let timeline = fs::read_to_string(&bundle.timeline_path).expect("timeline");
+    assert!(timeline.contains("facade export failed"));
+    assert!(bundle.archive_path.exists());
+    assert!(prompt.contains("分析 facade 导出"));
+    assert!(prompt.contains("facade export failed"));
+}
+
+#[test]
 fn network_summary_api_records_success_and_failure_without_temp_logs() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");

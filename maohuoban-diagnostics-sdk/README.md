@@ -118,6 +118,9 @@ Diagnostics::current()
 
 let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
 span.end([("result", json!("ok"))]);
+
+let bundle = diagnostics.export_debug_bundle("target/maohuoban-diagnostics/bundle")?;
+let prompt = diagnostics.export_llm_prompt("分析这个 bug")?;
 ```
 
 需要完全自定义存储实例和生命周期时使用 `Diagnostics::install(...)`。服务启动阶段推荐使用 `bootstrap` 组合文件存储、默认上下文、panic hook、启动清理和启动快照。
@@ -174,7 +177,8 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 | 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
 | 建立作用域链路 | Swift `withTraceID`，Rust `with_trace_id` |
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`captureRuntimeSnapshot/capture_runtime_snapshot`、`beginSpan/end` |
-| Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
+| Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `diagnostics.export_debug_bundle(...)` / Collector CLI |
+| 导出 LLM Prompt | Swift `Diagnostics.exportLLMPrompt` / Rust `diagnostics.export_llm_prompt(...)` |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `archive.tar`，或直接使用 `prompt.md` 和 `timeline.jsonl` |
 

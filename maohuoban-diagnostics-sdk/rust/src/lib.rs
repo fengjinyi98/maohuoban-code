@@ -1118,6 +1118,33 @@ impl Diagnostics {
         Ok(report)
     }
 
+    /// `export_debug_bundle` 导出诊断包
+    /// 核心职责：
+    /// - 为产品侧提供句柄级 Debug Bundle 导出入口
+    /// - 复用统一 manifest、timeline、prompt 和 archive 生成逻辑
+    ///
+    /// # Errors
+    ///
+    /// 当输出目录创建、事件读取、JSON 编码或文件写入失败时返回错误。
+    pub fn export_debug_bundle(
+        &self,
+        output_directory: impl Into<PathBuf>,
+    ) -> Result<DebugBundle, DiagnosticsError> {
+        DebugBundleExporter::new(output_directory).export(self)
+    }
+
+    /// `export_llm_prompt` 导出 LLM 分析输入
+    /// 核心职责：
+    /// - 为产品侧提供句柄级 Prompt 导出入口
+    /// - 将最近诊断时间线整理成可直接分析的文本
+    ///
+    /// # Errors
+    ///
+    /// 当底层事件读取失败时返回错误。
+    pub fn export_llm_prompt(&self, title: impl Into<String>) -> Result<String, DiagnosticsError> {
+        LlmPromptExporter::new(title).export_prompt(self)
+    }
+
     fn register_export_directory(&self, directory: PathBuf) {
         if let Ok(mut export_directories) = self.inner.export_directories.lock() {
             export_directories.push(directory);
