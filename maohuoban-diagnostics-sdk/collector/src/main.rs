@@ -18,6 +18,7 @@ fn main() {
 
 fn run(args: &[String]) -> Result<(), String> {
     let mut segments = Vec::new();
+    let mut log_files = Vec::new();
     let mut output = None;
     let mut index = 0;
     while index < args.len() {
@@ -28,6 +29,13 @@ fn run(args: &[String]) -> Result<(), String> {
                     .get(index)
                     .ok_or_else(|| "missing value for --segments".to_string())?;
                 segments.push(PathBuf::from(path));
+            }
+            "--log-file" => {
+                index += 1;
+                let path = args
+                    .get(index)
+                    .ok_or_else(|| "missing value for --log-file".to_string())?;
+                log_files.push(PathBuf::from(path));
             }
             "--output" => {
                 index += 1;
@@ -46,15 +54,17 @@ fn run(args: &[String]) -> Result<(), String> {
         return Err("missing --segments <path>".to_string());
     }
     let output = output.ok_or_else(|| "missing --output <path>".to_string())?;
-    let bundle = collect_debug_bundle(CollectorConfig::from_segment_directories(segments, output))
-        .map_err(|error| error.to_string())?;
+    let bundle = collect_debug_bundle(
+        CollectorConfig::from_segment_directories(segments, output).with_log_files(log_files),
+    )
+    .map_err(|error| error.to_string())?;
     println!("{}", bundle.directory.display());
     Ok(())
 }
 
 fn print_help() {
     println!(
-        "maohuoban_diagnostics_collector --segments <path> [--segments <path> ...] --output <path>\n\n导出 Maohuoban Debug Bundle。"
+        "maohuoban_diagnostics_collector --segments <path> [--segments <path> ...] [--log-file <path> ...] --output <path>\n\n导出 Maohuoban Debug Bundle。"
     );
 }
 
@@ -104,5 +114,38 @@ mod tests {
         let timeline = std::fs::read_to_string(output.join("timeline.jsonl")).expect("timeline");
         assert!(timeline.contains("cli swift input"));
         assert!(timeline.contains("cli rust input"));
+    }
+
+    #[test]
+    fn cli_accepts_external_log_file_arguments() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let log_file = root.path().join("xcode.log");
+        let output = root.path().join("bundle");
+
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Lifecycle,
+                Severity::Info,
+                "cli sdk input",
+            ))
+            .expect("append sdk");
+        std::fs::write(&log_file, "preview crashed\nnetwork timeout\n").expect("write log");
+
+        run(&[
+            "--segments".to_string(),
+            segments.display().to_string(),
+            "--log-file".to_string(),
+            log_file.display().to_string(),
+            "--output".to_string(),
+            output.display().to_string(),
+        ])
+        .expect("run collector");
+
+        let timeline = std::fs::read_to_string(output.join("timeline.jsonl")).expect("timeline");
+        assert!(timeline.contains("cli sdk input"));
+        assert!(timeline.contains("preview crashed"));
+        assert!(timeline.contains("network timeout"));
     }
 }

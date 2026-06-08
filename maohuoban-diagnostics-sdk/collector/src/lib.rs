@@ -1,9 +1,13 @@
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, CleanupReport, DebugBundle, DebugBundleExporter, DiagnosticEvent,
-    Diagnostics, DiagnosticsConfig, DiagnosticsError, EventStore, FileSegmentStore,
+    Diagnostics, DiagnosticsConfig, DiagnosticsError, EventKind, EventStore, FileSegmentStore,
     LlmPromptExporter, PrivacyPolicy,
 };
-use std::path::{Path, PathBuf};
+use serde_json::json;
+use std::{
+    io::{BufRead, BufReader},
+    path::{Path, PathBuf},
+};
 
 /// `CollectorConfig` 采集器配置
 /// 核心职责：
@@ -13,6 +17,7 @@ pub struct CollectorConfig {
     pub service_name: String,
     pub environment: String,
     pub segments_directories: Vec<PathBuf>,
+    pub log_files: Vec<PathBuf>,
     pub output_directory: PathBuf,
 }
 
@@ -30,6 +35,7 @@ impl CollectorConfig {
             service_name: "maohuoban-collector".to_string(),
             environment: "local".to_string(),
             segments_directories: vec![segments_directory.into()],
+            log_files: Vec::new(),
             output_directory: output_directory.into(),
         }
     }
@@ -51,8 +57,23 @@ impl CollectorConfig {
             service_name: "maohuoban-collector".to_string(),
             environment: "local".to_string(),
             segments_directories: segments_directories.into_iter().map(Into::into).collect(),
+            log_files: Vec::new(),
             output_directory: output_directory.into(),
         }
+    }
+
+    /// `with_log_files` 添加外部日志文件输入
+    /// 核心职责：
+    /// - 支持 Xcode、Rust 进程和脚本输出进入统一 timeline
+    /// - 保持日志文件输入与 SDK 段目录输入声明式组合
+    #[must_use]
+    pub fn with_log_files<I, P>(mut self, log_files: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        self.log_files = log_files.into_iter().map(Into::into).collect();
+        self
     }
 }
 
@@ -65,7 +86,7 @@ impl CollectorConfig {
 ///
 /// 当段文件读取、诊断包目录创建或导出写入失败时返回错误。
 pub fn collect_debug_bundle(config: CollectorConfig) -> Result<DebugBundle, DiagnosticsError> {
-    let store = MultiSourceSegmentStore::new(config.segments_directories)?;
+    let store = MultiSourceSegmentStore::new(config.segments_directories, config.log_files)?;
     collect_from_store(
         config.output_directory,
         store,
@@ -100,15 +121,22 @@ fn collect_from_store(
 /// - 为 Collector 导出提供按时间排序的统一事件流
 struct MultiSourceSegmentStore {
     stores: Vec<FileSegmentStore>,
+    log_files: Vec<PathBuf>,
 }
 
 impl MultiSourceSegmentStore {
-    fn new(directories: impl IntoIterator<Item = PathBuf>) -> Result<Self, DiagnosticsError> {
+    fn new(
+        directories: impl IntoIterator<Item = PathBuf>,
+        log_files: impl IntoIterator<Item = PathBuf>,
+    ) -> Result<Self, DiagnosticsError> {
         let stores = directories
             .into_iter()
             .map(|directory| FileSegmentStore::new(directory, 1024 * 1024))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { stores })
+        Ok(Self {
+            stores,
+            log_files: log_files.into_iter().collect(),
+        })
     }
 }
 
@@ -132,6 +160,9 @@ impl EventStore for MultiSourceSegmentStore {
         for store in &self.stores {
             events.extend(store.read_all()?);
         }
+        for log_file in &self.log_files {
+            events.extend(read_external_log_file(log_file)?);
+        }
         events.sort_by_key(|event| event.timestamp);
         Ok(events)
     }
@@ -146,6 +177,34 @@ impl EventStore for MultiSourceSegmentStore {
         }
         Ok(report)
     }
+}
+
+/// `read_external_log_file` 读取外部日志文件
+/// 核心职责：
+/// - 将 Xcode、Rust 进程和脚本输出转换为标准 log 事件
+/// - 为 Collector 多来源 timeline 提供统一事件输入
+fn read_external_log_file(path: &Path) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
+    let file = std::fs::File::open(path)?;
+    let reader = BufReader::new(file);
+    let source_path = path.display().to_string();
+    let mut events = Vec::new();
+    for line in reader.lines() {
+        let line = line?;
+        let message = line.trim();
+        if message.is_empty() {
+            continue;
+        }
+        events.push(
+            DiagnosticEvent::new(
+                EventKind::Log,
+                maohuoban_diagnostics::Severity::Info,
+                message,
+            )
+            .metadata("source", json!("external_log"))
+            .metadata("source_path", json!(source_path)),
+        );
+    }
+    Ok(events)
 }
 
 #[cfg(test)]
@@ -249,5 +308,37 @@ mod tests {
         let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
         assert!(timeline.contains("swift input"));
         assert!(timeline.contains("rust input"));
+    }
+
+    #[test]
+    fn collector_imports_external_log_files_into_timeline() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let output = root.path().join("bundle");
+        let log_file = root.path().join("xcode.log");
+        std::fs::write(
+            &log_file,
+            "SwiftUI body updated\nnetwork request failed: timeout\n",
+        )
+        .expect("write log");
+
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Lifecycle,
+                Severity::Info,
+                "sdk input",
+            ))
+            .expect("append sdk");
+
+        let bundle = collect_debug_bundle(
+            CollectorConfig::from_paths(segments, output).with_log_files([log_file]),
+        )
+        .expect("collect bundle");
+        let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
+        assert!(timeline.contains("sdk input"));
+        assert!(timeline.contains("SwiftUI body updated"));
+        assert!(timeline.contains("network request failed: timeout"));
+        assert!(timeline.contains("\"source\":\"external_log\""));
     }
 }

@@ -17,6 +17,7 @@ Collector 是本地诊断采集器，负责把 Swift SDK、Rust SDK、系统日�
 cargo run -p maohuoban_diagnostics_collector -- \
   --segments target/maohuoban-ios/segments \
   --segments target/maohuoban-rust/segments \
+  --log-file target/xcode-run.log \
   --output target/maohuoban-diagnostics/bundle
 ```
 
@@ -25,10 +26,13 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | 路径 | 内容 |
 | --- | --- |
 | `--segments` | SDK 产生的 JSONL 分段目录，可重复传入多个来源 |
+| `--log-file` | Xcode、Rust 进程或脚本输出文件，可重复传入多个来源 |
 | `--output/manifest.json` | 诊断包 schema、SDK 版本、事件数量、导出时间、`timeline_sha256`、`prompt_sha256`、`archive_path` |
-| `--output/timeline.jsonl` | 按时间排序的标准诊断事件 |
+| `--output/timeline.jsonl` | 按时间排序的 SDK 诊断事件和外部日志事件 |
 | `--output/prompt.md` | 已压缩的 LLM 分析输入 |
 | `--output/archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，可直接作为单文件诊断包传输 |
+
+外部日志文件的每个非空行会转换为 `kind=log`、`severity=info` 事件，并写入 `source=external_log` 与 `source_path` metadata。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包。
 
 ## 分层边界
 
@@ -36,4 +40,4 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | --- | --- |
 | CLI | 解析参数，保持命令行入口轻量 |
 | Collector | 将一个或多个段目录转换成 Debug Bundle |
-| Rust SDK | 读取 JSONL 段文件、导出 timeline、prompt、manifest 校验值和 archive |
+| Rust SDK | 读取 JSONL 段文件和外部日志事件，导出 timeline、prompt、manifest 校验值和 archive |
