@@ -8,6 +8,7 @@ mod cleanup;
 mod error;
 mod event;
 mod export;
+mod network;
 mod policy;
 mod runtime;
 mod span;
@@ -16,8 +17,9 @@ mod version;
 
 pub use cleanup::{CleanupPolicy, CleanupReport};
 pub use error::DiagnosticsError;
-pub use event::{DiagnosticEvent, EventKind, NetworkSummary, Severity};
+pub use event::{DiagnosticEvent, EventKind, Severity};
 pub use export::{DebugBundle, DebugBundleExporter, LlmPromptExporter};
+pub use network::NetworkSummary;
 pub use policy::{CapturePolicy, PrivacyPolicy};
 pub use runtime::{Diagnostics, DiagnosticsBootstrapConfig, DiagnosticsConfig};
 pub use span::DiagnosticsSpan;

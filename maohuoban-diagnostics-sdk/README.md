@@ -16,15 +16,32 @@
 | 路径 | 职责 |
 | --- | --- |
 | `rust/src/lib.rs` | Rust SDK 公开导出入口 |
-| `rust/src/event.rs` | 诊断事件、事件类型、严重级别和网络摘要协议 |
+| `rust/src/event.rs` | 诊断事件、事件类型和严重级别协议 |
+| `rust/src/network.rs` | Rust 网络摘要事件协议 |
 | `rust/src/policy.rs` | 隐私脱敏和采集过滤策略 |
-| `rust/src/storage/` | JSONL 分段存储、损坏行恢复和导出索引维护 |
-| `rust/src/export/` | Debug Bundle、Prompt 和 tar 归档导出 |
+| `rust/src/storage/event_store.rs` | 存储接口协议 |
+| `rust/src/storage/file_segment_store.rs` | JSONL 分段存储、损坏行恢复和段文件清理 |
+| `rust/src/export/bundle.rs` | Debug Bundle manifest、timeline 和 archive 导出编排 |
+| `rust/src/export/prompt.rs` | LLM Prompt 文本导出 |
+| `rust/src/export/checksum.rs` | 导出文件 SHA256 校验 |
+| `rust/src/export/tar.rs` | 无压缩 tar 归档写入 |
 | `rust/src/runtime/` | 运行时安装、上下文、采集 API、存储 API、健康快照和生命周期编排 |
 | `swift/Sources/MaohuobanDiagnostics/Diagnostics.swift` | Swift 全局 facade 入口 |
-| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntime.swift` | Swift runtime 的事件记录、导出、清理和启动编排 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntime.swift` | Swift runtime 共享状态和初始化 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeCapture.swift` | Swift runtime 采集 API |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeContextAPI.swift` | Swift runtime 上下文 API |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeStorage.swift` | Swift runtime 存储、清理和导出 API |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeNetwork.swift` | Swift runtime 网络配置注入 API |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntimeSpan.swift` | Swift runtime 性能 span API |
+| `swift/Sources/MaohuobanDiagnostics/NetworkSummary.swift` | Swift 网络摘要事件协议 |
+| `swift/Sources/MaohuobanDiagnostics/DebugBundle.swift` | Swift Debug Bundle 导出结果 |
+| `swift/Sources/MaohuobanDiagnostics/DebugBundleExporter.swift` | Swift Debug Bundle manifest、timeline 和 archive 导出编排 |
+| `swift/Sources/MaohuobanDiagnostics/LLMPromptExporter.swift` | Swift LLM Prompt 文本导出 |
+| `swift/Sources/MaohuobanDiagnostics/FileChecksum.swift` | Swift 导出文件 SHA256 校验 |
+| `swift/Sources/MaohuobanDiagnostics/TarArchiveWriter.swift` | Swift 无压缩 tar 归档写入 |
 | `swift/Sources/MaohuobanDiagnostics/DiagnosticsContext.swift` | Swift session、trace 和默认 metadata 上下文 |
 | `swift/Sources/MaohuobanDiagnostics/DiagnosticsURLProtocol.swift` | Swift URLSession 网络自动采集 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsURLProtocolSummary.swift` | Swift URLSession 网络摘要字段提取 |
 | `collector/src/lib.rs` | Collector 库公开入口 |
 | `collector/src/config.rs` | Collector 输入源和输出目录配置 |
 | `collector/src/export.rs` | Collector Debug Bundle 导出编排 |

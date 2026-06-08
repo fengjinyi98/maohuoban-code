@@ -31,9 +31,14 @@
 
 | 区域 | 文件组织 |
 | --- | --- |
-| Rust SDK | `event.rs`、`policy.rs`、`storage/`、`export/`、`runtime/` 分别承载协议、策略、存储、导出和运行时 API |
+| Rust SDK | `event.rs`、`network.rs`、`policy.rs`、`storage/`、`export/`、`runtime/` 分别承载事件协议、网络摘要、策略、存储、导出和运行时 API |
+| Rust Storage | `event_store.rs` 定义存储协议，`file_segment_store.rs` 负责 JSONL 分段文件、损坏行恢复和清理 |
+| Rust Export | `bundle.rs` 编排 Debug Bundle，`prompt.rs` 生成 LLM Prompt，`checksum.rs` 计算校验值，`tar.rs` 写入归档 |
 | Rust Runtime | `config.rs`、`context.rs`、`context_api.rs`、`capture_api.rs`、`storage_api.rs`、`health.rs`、`lifecycle.rs`、`helpers.rs` 分别处理单一运行时职责 |
-| Swift SDK | `Diagnostics.swift` 保留 facade，Runtime、Context、Registry、Span、StorageHealth、ExportDirectoryRegistry 和 URLProtocol 分文件维护 |
+| Swift SDK | `Diagnostics.swift` 保留 facade，`DiagnosticEvent.swift` 保留事件协议，`NetworkSummary.swift` 保留网络摘要协议 |
+| Swift Runtime | `DiagnosticsRuntime.swift` 保留共享状态，Capture、ContextAPI、Storage、Network、Span 分扩展文件维护 |
+| Swift Export | `DebugBundleExporter.swift` 编排 Debug Bundle，`LLMPromptExporter.swift` 生成 LLM Prompt，`FileChecksum.swift` 计算校验值，`TarArchiveWriter.swift` 写入归档 |
+| Swift Support | Context、Registry、Span、StorageHealth、ExportDirectoryRegistry、URLProtocol 和 URLProtocolSummary 分文件维护 |
 | Collector | `config.rs`、`export.rs`、`external_log.rs`、`multi_source_store.rs` 分别处理配置、导出编排、外部日志解析和多源读取 |
 | Tests | Rust、Swift 和 Collector 测试按 storage、export、network、context、runtime、bootstrap、external logs 等行为域组织 |
 
