@@ -71,6 +71,40 @@ fn cleanup_removes_old_segments_and_keeps_recent_events() {
 }
 
 #[test]
+fn cleanup_removes_expired_debug_bundles() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy {
+            max_total_bytes: 1024 * 1024,
+            max_segment_age: Duration::from_secs(7 * 24 * 60 * 60),
+            max_export_age: Duration::from_secs(0),
+        },
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.record(DiagnosticEvent::new(
+        EventKind::Error,
+        Severity::Error,
+        "export cleanup input",
+    ));
+    diagnostics.flush().expect("flush events");
+
+    let bundle = DebugBundleExporter::new(temp.path().join("bundle"))
+        .export(&diagnostics)
+        .expect("export bundle");
+    assert!(bundle.directory.exists());
+
+    let removed = diagnostics.cleanup().expect("cleanup");
+    assert_eq!(removed.removed_exports, 1);
+    assert!(!bundle.directory.exists());
+}
+
+#[test]
 fn prompt_exporter_summarizes_timeline_for_llm() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");

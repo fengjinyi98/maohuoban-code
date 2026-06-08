@@ -81,6 +81,7 @@ actor DiagnosticsRegistry {
 public final class DiagnosticsRuntime: @unchecked Sendable {
     private let configuration: DiagnosticsConfiguration
     private let store: FileSegmentStore
+    private let exportRegistry = ExportDirectoryRegistry()
 
     init(configuration: DiagnosticsConfiguration) throws {
         self.configuration = configuration
@@ -128,12 +129,18 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     }
 
     public func cleanup() async throws -> CleanupReport {
-        try await store.cleanup(configuration.cleanup)
+        var report = try await store.cleanup(configuration.cleanup)
+        let exportReport = try exportRegistry.cleanup(policy: configuration.cleanup)
+        report.removedExports += exportReport.removedExports
+        report.freedBytes += exportReport.freedBytes
+        return report
     }
 
     public func exportDebugBundle(to outputDirectory: URL) async throws -> DebugBundle {
-        try DebugBundleExporter(outputDirectory: outputDirectory)
+        let bundle = try DebugBundleExporter(outputDirectory: outputDirectory)
             .export(events: try await readEvents())
+        exportRegistry.register(bundle.directoryURL)
+        return bundle
     }
 
     public func exportLLMPrompt(title: String, maxEvents: Int = 200) async throws -> String {
@@ -154,6 +161,65 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func beginSpan(_ name: String) -> DiagnosticsSpan {
         DiagnosticsSpan(name: name, runtime: self)
+    }
+}
+
+// ExportDirectoryRegistry 导出目录注册表
+// 核心职责：
+// - 记录当前运行时创建的 Debug Bundle 目录
+// - 按清理策略删除过期导出包
+final class ExportDirectoryRegistry: @unchecked Sendable {
+    private let lock = NSLock()
+    private var directories: [URL] = []
+
+    func register(_ directory: URL) {
+        lock.lock()
+        directories.append(directory)
+        lock.unlock()
+    }
+
+    func cleanup(policy: CleanupPolicy) throws -> CleanupReport {
+        var report = CleanupReport()
+        var remaining: [URL] = []
+        lock.lock()
+        let currentDirectories = directories
+        directories.removeAll()
+        lock.unlock()
+
+        for directory in currentDirectories {
+            guard FileManager.default.fileExists(atPath: directory.path) else {
+                continue
+            }
+            let values = try directory.resourceValues(forKeys: [.contentModificationDateKey])
+            let modified = values.contentModificationDate ?? .distantPast
+            if Date().timeIntervalSince(modified) >= policy.maxExportAge {
+                report.freedBytes += UInt64(directorySize(directory))
+                try FileManager.default.removeItem(at: directory)
+                report.removedExports += 1
+            } else {
+                remaining.append(directory)
+            }
+        }
+
+        lock.lock()
+        directories.append(contentsOf: remaining)
+        lock.unlock()
+        return report
+    }
+
+    private func directorySize(_ directory: URL) -> Int {
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.fileSizeKey]
+        ) else {
+            return 0
+        }
+        var total = 0
+        for case let url as URL in enumerator {
+            let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+            total += values?.fileSize ?? 0
+        }
+        return total
     }
 }
 

@@ -421,6 +421,7 @@ struct DiagnosticsInner {
     privacy: PrivacyPolicy,
     cleanup: CleanupPolicy,
     store: Mutex<Box<dyn EventStore>>,
+    export_directories: Mutex<Vec<PathBuf>>,
 }
 
 impl Diagnostics {
@@ -440,6 +441,7 @@ impl Diagnostics {
                 privacy: config.privacy,
                 cleanup: config.cleanup,
                 store: Mutex::new(config.store),
+                export_directories: Mutex::new(Vec::new()),
             }),
         };
         let registry = CURRENT_DIAGNOSTICS.get_or_init(|| Mutex::new(None));
@@ -586,11 +588,53 @@ impl Diagnostics {
     ///
     /// 当底层存储读取元数据、删除文件或存储锁异常时返回错误。
     pub fn cleanup(&self) -> Result<CleanupReport, DiagnosticsError> {
-        self.inner
+        let mut report = self
+            .inner
             .store
             .lock()
             .map_err(|_| DiagnosticsError::StoreLockPoisoned)?
-            .cleanup(&self.inner.cleanup)
+            .cleanup(&self.inner.cleanup)?;
+        let export_report = self.cleanup_exports()?;
+        report.removed_exports += export_report.removed_exports;
+        report.freed_bytes += export_report.freed_bytes;
+        Ok(report)
+    }
+
+    fn register_export_directory(&self, directory: PathBuf) {
+        if let Ok(mut export_directories) = self.inner.export_directories.lock() {
+            export_directories.push(directory);
+        }
+    }
+
+    fn cleanup_exports(&self) -> Result<CleanupReport, DiagnosticsError> {
+        let mut report = CleanupReport::default();
+        let mut remaining = Vec::new();
+        let now = SystemTime::now();
+        let mut export_directories = self
+            .inner
+            .export_directories
+            .lock()
+            .map_err(|_| DiagnosticsError::StoreLockPoisoned)?;
+        for directory in export_directories.drain(..) {
+            if !directory.exists() {
+                continue;
+            }
+            let metadata = fs::metadata(&directory)?;
+            let age_expired = metadata
+                .modified()
+                .ok()
+                .and_then(|modified| now.duration_since(modified).ok())
+                .is_some_and(|age| age >= self.inner.cleanup.max_export_age);
+            if age_expired {
+                report.freed_bytes += directory_size(&directory)?;
+                fs::remove_dir_all(&directory)?;
+                report.removed_exports += 1;
+            } else {
+                remaining.push(directory);
+            }
+        }
+        *export_directories = remaining;
+        Ok(report)
     }
 }
 
@@ -615,6 +659,20 @@ fn panic_message(info: &panic::PanicHookInfo<'_>) -> String {
     } else {
         "panic captured".to_string()
     }
+}
+
+fn directory_size(directory: &PathBuf) -> Result<u64, DiagnosticsError> {
+    let mut total = 0;
+    for entry in fs::read_dir(directory)? {
+        let path = entry?.path();
+        let metadata = fs::metadata(&path)?;
+        if metadata.is_dir() {
+            total += directory_size(&path)?;
+        } else {
+            total += metadata.len();
+        }
+    }
+    Ok(total)
 }
 
 /// `DiagnosticsSpan` 性能 span
@@ -767,11 +825,13 @@ impl DebugBundleExporter {
             timeline.write_all(b"\n")?;
         }
 
-        Ok(DebugBundle {
+        let bundle = DebugBundle {
             directory: self.output_directory.clone(),
             manifest_path,
             timeline_path,
-        })
+        };
+        diagnostics.register_export_directory(bundle.directory.clone());
+        Ok(bundle)
     }
 }
 
