@@ -50,8 +50,8 @@ fn run(args: &[String]) -> Result<(), String> {
         index += 1;
     }
 
-    if segments.is_empty() {
-        return Err("missing --segments <path>".to_string());
+    if segments.is_empty() && log_files.is_empty() {
+        return Err("missing input: provide --segments <path> or --log-file <path>".to_string());
     }
     let output = output.ok_or_else(|| "missing --output <path>".to_string())?;
     let bundle = collect_debug_bundle(
@@ -64,7 +64,7 @@ fn run(args: &[String]) -> Result<(), String> {
 
 fn print_help() {
     println!(
-        "maohuoban_diagnostics_collector --segments <path> [--segments <path> ...] [--log-file <path> ...] --output <path>\n\n导出 Maohuoban Debug Bundle。"
+        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] --output <path>\n\n导出 Maohuoban Debug Bundle。"
     );
 }
 
@@ -147,5 +147,25 @@ mod tests {
         assert!(timeline.contains("cli sdk input"));
         assert!(timeline.contains("preview crashed"));
         assert!(timeline.contains("network timeout"));
+    }
+
+    #[test]
+    fn cli_accepts_only_external_log_file_arguments() {
+        let root = tempdir().expect("temp dir");
+        let log_file = root.path().join("xcode.log");
+        let output = root.path().join("bundle");
+        std::fs::write(&log_file, "launch failed\nmissing entitlement\n").expect("write log");
+
+        run(&[
+            "--log-file".to_string(),
+            log_file.display().to_string(),
+            "--output".to_string(),
+            output.display().to_string(),
+        ])
+        .expect("run collector");
+
+        let timeline = std::fs::read_to_string(output.join("timeline.jsonl")).expect("timeline");
+        assert!(timeline.contains("launch failed"));
+        assert!(timeline.contains("missing entitlement"));
     }
 }

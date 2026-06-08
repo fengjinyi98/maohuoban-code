@@ -152,6 +152,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 `--segments` 可以重复传入多个 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log/info` 事件，并按事件时间合并成同一个 timeline。
 
+Collector 需要至少一种输入来源。SDK 还没接入某个进程时，可以只传 `--log-file` 生成 Debug Bundle，后续再逐步加入 `--segments`。
+
 Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`、`prompt_sha256`、`archive_path`。Swift SDK 的 manifest 使用 camelCase 字段：`timelineSHA256`、`promptSHA256`、`archivePath`。
 
 ## 清理与导出工作流

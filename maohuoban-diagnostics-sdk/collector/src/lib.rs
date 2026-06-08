@@ -62,6 +62,25 @@ impl CollectorConfig {
         }
     }
 
+    /// `from_log_files` 基于外部日志文件创建采集器配置
+    /// 核心职责：
+    /// - 支持尚未接入 SDK 的 Xcode、Rust 进程和脚本输出导出
+    /// - 保持输出仍为标准 Debug Bundle
+    #[must_use]
+    pub fn from_log_files<I, P>(log_files: I, output_directory: impl Into<PathBuf>) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        Self {
+            service_name: "maohuoban-collector".to_string(),
+            environment: "local".to_string(),
+            segments_directories: Vec::new(),
+            log_files: log_files.into_iter().map(Into::into).collect(),
+            output_directory: output_directory.into(),
+        }
+    }
+
     /// `with_log_files` 添加外部日志文件输入
     /// 核心职责：
     /// - 支持 Xcode、Rust 进程和脚本输出进入统一 timeline
@@ -340,5 +359,24 @@ mod tests {
         assert!(timeline.contains("SwiftUI body updated"));
         assert!(timeline.contains("network request failed: timeout"));
         assert!(timeline.contains("\"source\":\"external_log\""));
+    }
+
+    #[test]
+    fn collector_exports_bundle_from_only_external_log_files() {
+        let root = tempdir().expect("temp dir");
+        let output = root.path().join("bundle");
+        let log_file = root.path().join("xcode.log");
+        std::fs::write(&log_file, "app launch failed\nmissing entitlement\n").expect("write log");
+
+        let bundle = collect_debug_bundle(CollectorConfig::from_log_files([log_file], output))
+            .expect("collect bundle");
+        let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
+        let manifest = std::fs::read_to_string(bundle.manifest_path).expect("manifest");
+        let manifest: serde_json::Value = serde_json::from_str(&manifest).expect("manifest json");
+
+        assert!(timeline.contains("app launch failed"));
+        assert!(timeline.contains("missing entitlement"));
+        assert!(timeline.contains("\"source\":\"external_log\""));
+        assert_eq!(manifest["event_count"], json!(2));
     }
 }

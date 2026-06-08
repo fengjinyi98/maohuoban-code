@@ -34,6 +34,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 外部日志文件的每个非空行会转换为 `kind=log`、`severity=info` 事件，并写入 `source=external_log` 与 `source_path` metadata。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包。
 
+`--segments` 与 `--log-file` 至少提供一种。某个进程尚未接入 SDK 时，可以只传 `--log-file`，Collector 仍会输出完整 Debug Bundle。
+
 ## 分层边界
 
 | 层 | 职责 |
