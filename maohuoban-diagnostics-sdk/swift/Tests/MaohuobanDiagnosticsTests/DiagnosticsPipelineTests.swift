@@ -171,6 +171,45 @@ struct DiagnosticsPipelineTests {
         #expect(configuration.protocolClasses?.first == DiagnosticsURLProtocol.self)
     }
 
+    @Test("URLProtocol 采集摘要会记录载荷和响应类型")
+    func urlProtocolSummaryCapturesPayloadMetadata() throws {
+        let url = try #require(URL(string: "https://api.example.com/upload"))
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = Data(repeating: 1, count: 16)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer token", forHTTPHeaderField: "Authorization")
+
+        let response = try #require(
+            HTTPURLResponse(
+                url: url,
+                statusCode: 201,
+                httpVersion: nil,
+                headerFields: [
+                    "Content-Type": "application/json",
+                    "X-Request-ID": "request-1"
+                ]
+            )
+        )
+
+        let summary = DiagnosticsURLProtocol.networkSummary(
+            request: request,
+            response: response,
+            data: Data(repeating: 2, count: 32),
+            error: nil,
+            durationMs: 42
+        )
+        let event = summary.event()
+
+        #expect(event.metadata["method"] == "POST")
+        #expect(event.metadata["status_code"] == "201")
+        #expect(event.metadata["request_body_bytes"] == "16")
+        #expect(event.metadata["response_body_bytes"] == "32")
+        #expect(event.metadata["response_mime_type"] == "application/json")
+        #expect(event.metadata["request_header_keys"] == "Authorization,Content-Type")
+        #expect(event.metadata["response_header_keys"] == "Content-Type,X-Request-ID")
+    }
+
     @Test("便捷 API 会记录面包屑、错误和性能 span")
     func recordsBreadcrumbErrorAndSpan() async throws {
         let root = try temporaryDirectory()
