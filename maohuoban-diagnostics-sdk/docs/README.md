@@ -21,8 +21,11 @@
 | Runtime | 绑定 service、environment、隐私策略、清理策略和存储 |
 | Context | 维护全局 session、trace 和默认 metadata，并在记录管线中补齐事件 |
 | Capture | 记录 log、breadcrumb、error、performance、network、lifecycle，并执行采集级别与字段大小控制 |
+| Privacy | 在事件写入前执行敏感字段脱敏，统一约束本地存储和导出边界 |
 | Storage | JSONL 分段文件，支持轮转、按策略清理和损坏行恢复 |
+| Cleanup | 按段文件时间、总大小和 Debug Bundle 导出生命周期清理本地诊断数据 |
 | Export | 输出 Debug Bundle、无压缩 tar 归档和 LLM Prompt |
+| Collector | 汇总多个 SDK 段目录和外部日志文件，导出单个标准 Debug Bundle |
 
 Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行，并注入 `kind=error`、`severity=warn`、`message=storage segment decode failed` 的告警事件，保留 `segment`、`line`、`source=file_segment_store` 和 `error` metadata。这样单条损坏诊断行不会阻断后续合法事件导出。
 
