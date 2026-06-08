@@ -27,6 +27,16 @@
 | Export | 输出 Debug Bundle、无压缩 tar 归档和 LLM Prompt |
 | Collector | 汇总多个 SDK 段目录和外部日志文件，导出单个标准 Debug Bundle |
 
+## 文件职责边界
+
+| 区域 | 文件组织 |
+| --- | --- |
+| Rust SDK | `event.rs`、`policy.rs`、`storage/`、`export/`、`runtime/` 分别承载协议、策略、存储、导出和运行时 API |
+| Rust Runtime | `config.rs`、`context.rs`、`context_api.rs`、`capture_api.rs`、`storage_api.rs`、`health.rs`、`lifecycle.rs`、`helpers.rs` 分别处理单一运行时职责 |
+| Swift SDK | `Diagnostics.swift` 保留 facade，Runtime、Context、Registry、Span、StorageHealth、ExportDirectoryRegistry 和 URLProtocol 分文件维护 |
+| Collector | `config.rs`、`export.rs`、`external_log.rs`、`multi_source_store.rs` 分别处理配置、导出编排、外部日志解析和多源读取 |
+| Tests | Rust、Swift 和 Collector 测试按 storage、export、network、context、runtime、bootstrap、external logs 等行为域组织 |
+
 Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行，并注入 `kind=error`、`severity=warn`、`message=storage segment decode failed` 的告警事件，保留 `segment`、`line`、`source=file_segment_store` 和 `error` metadata。这样单条损坏诊断行不会阻断后续合法事件导出。
 
 ## 当前协议

@@ -11,6 +11,41 @@
 | `collector/` | 本地采集器 CLI，负责汇总段文件并导出 Debug Bundle |
 | `docs/` | SDK 协议、清理策略、导出格式和工作流说明 |
 
+## 目录职责
+
+| 路径 | 职责 |
+| --- | --- |
+| `rust/src/lib.rs` | Rust SDK 公开导出入口 |
+| `rust/src/event.rs` | 诊断事件、事件类型、严重级别和网络摘要协议 |
+| `rust/src/policy.rs` | 隐私脱敏和采集过滤策略 |
+| `rust/src/storage/` | JSONL 分段存储、损坏行恢复和导出索引维护 |
+| `rust/src/export/` | Debug Bundle、Prompt 和 tar 归档导出 |
+| `rust/src/runtime/` | 运行时安装、上下文、采集 API、存储 API、健康快照和生命周期编排 |
+| `swift/Sources/MaohuobanDiagnostics/Diagnostics.swift` | Swift 全局 facade 入口 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsRuntime.swift` | Swift runtime 的事件记录、导出、清理和启动编排 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsContext.swift` | Swift session、trace 和默认 metadata 上下文 |
+| `swift/Sources/MaohuobanDiagnostics/DiagnosticsURLProtocol.swift` | Swift URLSession 网络自动采集 |
+| `collector/src/lib.rs` | Collector 库公开入口 |
+| `collector/src/config.rs` | Collector 输入源和输出目录配置 |
+| `collector/src/export.rs` | Collector Debug Bundle 导出编排 |
+| `collector/src/external_log.rs` | 外部日志行解析和严重级别归一 |
+| `collector/src/multi_source_store.rs` | 多段目录和外部日志统一读取 |
+
+## 测试组织
+
+| 路径 | 覆盖 |
+| --- | --- |
+| `rust/tests/storage_pipeline.rs` | Rust 隐私、采集策略、段文件清理、损坏行恢复和导出清理 |
+| `rust/tests/export_pipeline.rs` | Rust Debug Bundle、Prompt 和 facade 导出 |
+| `rust/tests/facade_context_pipeline.rs` | Rust 全局入口、全局上下文和作用域 trace |
+| `rust/tests/runtime_capture_pipeline.rs` | Rust 网络摘要、结构化错误、运行时快照、存储失败健康字段和 panic hook |
+| `rust/tests/bootstrap_pipeline.rs` | Rust bootstrap 启动上下文和启动清理 |
+| `rust/tests/support/` | Rust integration tests 的锁、tar 解析和可失败存储 |
+| `swift/Tests/MaohuobanDiagnosticsTests/*PipelineTests.swift` | Swift 按存储、导出、网络、上下文、运行时和启动行为域拆分 |
+| `swift/Tests/MaohuobanDiagnosticsTests/Support/` | Swift 测试临时目录、tar 解析和作用域 trace 错误 |
+| `collector/tests/bundle_export.rs` | Collector 段文件汇总、Prompt、归档和损坏行恢复 |
+| `collector/tests/external_logs.rs` | Collector 外部日志导入和严重级别识别 |
+
 ## 分层模型
 
 | 层 | 职责 |
