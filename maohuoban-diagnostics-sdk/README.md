@@ -107,7 +107,8 @@ span.end([("result", json!("ok"))]);
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --segments target/maohuoban-diagnostics/segments \
+  --segments target/maohuoban-ios/segments \
+  --segments target/maohuoban-rust/segments \
   --output target/maohuoban-diagnostics/bundle
 ```
 
@@ -118,6 +119,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | `manifest.json` | schema、SDK 版本、事件数量、导出时间 |
 | `timeline.jsonl` | 按时间排序的诊断事件 |
 | `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
+
+`--segments` 可以重复传入多个 SDK 段目录，Collector 会按事件时间合并成同一个 timeline。
 
 ## 清理与导出工作流
 
