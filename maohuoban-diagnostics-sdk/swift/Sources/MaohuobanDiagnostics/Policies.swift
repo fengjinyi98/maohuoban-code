@@ -31,6 +31,55 @@ public struct PrivacyPolicy: Sendable {
     }
 }
 
+// CapturePolicy 采集控制策略
+// 核心职责：
+// - 控制进入存储层的最低事件级别
+// - 裁剪超长 message 和 metadata 字符串，避免诊断数据失控
+public struct CapturePolicy: Sendable {
+    public var minimumSeverity: DiagnosticSeverity
+    public var maxMessageLength: Int
+    public var maxMetadataValueLength: Int
+
+    public init(
+        minimumSeverity: DiagnosticSeverity = .trace,
+        maxMessageLength: Int = .max,
+        maxMetadataValueLength: Int = .max
+    ) {
+        self.minimumSeverity = minimumSeverity
+        self.maxMessageLength = maxMessageLength
+        self.maxMetadataValueLength = maxMetadataValueLength
+    }
+
+    public func apply(to event: DiagnosticEvent) -> DiagnosticEvent? {
+        guard event.severity.rank >= minimumSeverity.rank else {
+            return nil
+        }
+
+        var metadata: [String: String] = [:]
+        for (key, value) in event.metadata {
+            metadata[key] = truncate(value, limit: maxMetadataValueLength)
+        }
+
+        return DiagnosticEvent(
+            id: event.id,
+            timestamp: event.timestamp,
+            kind: event.kind,
+            severity: event.severity,
+            message: truncate(event.message, limit: maxMessageLength),
+            traceID: event.traceID,
+            sessionID: event.sessionID,
+            metadata: metadata
+        )
+    }
+
+    private func truncate(_ value: String, limit: Int) -> String {
+        guard limit >= 0, value.count > limit else {
+            return value
+        }
+        return String(value.prefix(limit)) + "..."
+    }
+}
+
 // CleanupPolicy 本地清理策略
 // 核心职责：
 // - 控制诊断段文件保留时间与磁盘上限

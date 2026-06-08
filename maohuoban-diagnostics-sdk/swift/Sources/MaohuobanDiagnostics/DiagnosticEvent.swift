@@ -11,6 +11,23 @@ public enum DiagnosticSeverity: String, Codable, Sendable {
     case warn
     case error
     case fatal
+
+    var rank: Int {
+        switch self {
+        case .trace:
+            0
+        case .debug:
+            1
+        case .info:
+            2
+        case .warn:
+            3
+        case .error:
+            4
+        case .fatal:
+            5
+        }
+    }
 }
 
 // DiagnosticEventKind 诊断事件类型

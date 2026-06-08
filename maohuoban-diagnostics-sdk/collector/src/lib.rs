@@ -1,7 +1,7 @@
 use maohuoban_diagnostics::{
-    CleanupPolicy, CleanupReport, DebugBundle, DebugBundleExporter, DiagnosticEvent, Diagnostics,
-    DiagnosticsConfig, DiagnosticsError, EventStore, FileSegmentStore, LlmPromptExporter,
-    PrivacyPolicy,
+    CapturePolicy, CleanupPolicy, CleanupReport, DebugBundle, DebugBundleExporter, DiagnosticEvent,
+    Diagnostics, DiagnosticsConfig, DiagnosticsError, EventStore, FileSegmentStore,
+    LlmPromptExporter, PrivacyPolicy,
 };
 use std::path::{Path, PathBuf};
 
@@ -84,6 +84,7 @@ fn collect_from_store(
         service_name,
         environment,
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })?;

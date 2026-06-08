@@ -54,6 +54,38 @@ struct DiagnosticsPipelineTests {
         #expect(prompt.contains("checkout request failed"))
     }
 
+    @Test("采集策略会过滤低优先级事件并裁剪超长字段")
+    func capturePolicyFiltersLowSeverityAndTruncatesOversizedFields() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments"),
+                capture: .init(
+                    minimumSeverity: .warn,
+                    maxMessageLength: 8,
+                    maxMetadataValueLength: 6
+                )
+            )
+        )
+
+        await diagnostics.log(.info, "filtered")
+        await diagnostics.record(
+            DiagnosticEvent(kind: .error, severity: .error, message: "checkout request timeout")
+                .metadata("detail", "database unavailable")
+        )
+        try await diagnostics.flush()
+
+        let events = try await diagnostics.readEvents()
+        #expect(events.count == 1)
+        let event = try #require(events.first)
+        #expect(event.message == "checkout...")
+        #expect(event.metadata["detail"] == "databa...")
+        #expect(event.metadata["service"] == "maohuo...")
+        #expect(event.metadata["environment"] == "test")
+    }
+
     @Test("清理策略会删除过期段文件")
     func cleanupRemovesExpiredSegments() async throws {
         let root = try temporaryDirectory()

@@ -9,6 +9,7 @@ public struct DiagnosticsConfiguration: Sendable {
     public var environment: String
     public var storageDirectory: URL
     public var privacy: PrivacyPolicy
+    public var capture: CapturePolicy
     public var cleanup: CleanupPolicy
     public var maxSegmentBytes: UInt64
 
@@ -17,6 +18,7 @@ public struct DiagnosticsConfiguration: Sendable {
         environment: String,
         storageDirectory: URL = DiagnosticsConfiguration.defaultStorageDirectory(),
         privacy: PrivacyPolicy = .init(),
+        capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
         maxSegmentBytes: UInt64 = 1_024 * 1_024
     ) {
@@ -24,6 +26,7 @@ public struct DiagnosticsConfiguration: Sendable {
         self.environment = environment
         self.storageDirectory = storageDirectory
         self.privacy = privacy
+        self.capture = capture
         self.cleanup = cleanup
         self.maxSegmentBytes = maxSegmentBytes
     }
@@ -52,6 +55,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
         environment: String,
         storageDirectory: URL = DiagnosticsConfiguration.defaultStorageDirectory(),
         privacy: PrivacyPolicy = .init(),
+        capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
         maxSegmentBytes: UInt64 = 1_024 * 1_024,
         defaults: [String: String] = [:],
@@ -65,6 +69,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
             environment: environment,
             storageDirectory: storageDirectory,
             privacy: privacy,
+            capture: capture,
             cleanup: cleanup,
             maxSegmentBytes: maxSegmentBytes
         )

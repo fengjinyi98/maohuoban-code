@@ -1,7 +1,7 @@
 use maohuoban_diagnostics::{
-    CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics, DiagnosticsBootstrapConfig,
-    DiagnosticsConfig, EventKind, FileSegmentStore, LlmPromptExporter, NetworkSummary,
-    PrivacyPolicy, Severity,
+    CapturePolicy, CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics,
+    DiagnosticsBootstrapConfig, DiagnosticsConfig, EventKind, FileSegmentStore, LlmPromptExporter,
+    NetworkSummary, PrivacyPolicy, Severity,
 };
 use serde_json::json;
 use std::{fs, time::Duration};
@@ -17,6 +17,7 @@ fn records_events_with_privacy_filter_and_exports_debug_bundle() {
         privacy: PrivacyPolicy::default()
             .redact_key("authorization")
             .redact_key("password"),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -43,6 +44,44 @@ fn records_events_with_privacy_filter_and_exports_debug_bundle() {
 }
 
 #[test]
+fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy {
+            minimum_severity: Severity::Warn,
+            max_message_length: 8,
+            max_metadata_value_length: 6,
+        },
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.log(Severity::Info, "filtered");
+    diagnostics.record(
+        DiagnosticEvent::new(
+            EventKind::Error,
+            Severity::Error,
+            "checkout request timeout",
+        )
+        .metadata("detail", json!("database unavailable")),
+    );
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    assert_eq!(events.len(), 1);
+    let event = events.first().expect("event");
+    assert_eq!(event.message, "checkout...");
+    assert_eq!(event.metadata["detail"], json!("databa..."));
+    assert_eq!(event.metadata["service"], json!("maohuo..."));
+    assert_eq!(event.metadata["environment"], json!("test"));
+}
+
+#[test]
 fn cleanup_removes_old_segments_and_keeps_recent_events() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024).expect("store");
@@ -50,6 +89,7 @@ fn cleanup_removes_old_segments_and_keeps_recent_events() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy {
             max_total_bytes: 1024 * 1024,
             max_segment_age: Duration::from_secs(0),
@@ -79,6 +119,7 @@ fn cleanup_removes_expired_debug_bundles() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy {
             max_total_bytes: 1024 * 1024,
             max_segment_age: Duration::from_secs(7 * 24 * 60 * 60),
@@ -113,6 +154,7 @@ fn prompt_exporter_summarizes_timeline_for_llm() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -141,6 +183,7 @@ fn install_makes_runtime_available_globally_and_records_convenience_events() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -175,6 +218,7 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -216,6 +260,7 @@ fn global_context_is_applied_to_events_without_temp_metadata_plumbing() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -280,6 +325,7 @@ fn captures_error_source_chain_as_structured_metadata() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -319,6 +365,7 @@ fn captures_runtime_snapshot_as_performance_event() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -348,6 +395,7 @@ fn scoped_trace_restores_previous_trace_after_operation() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })
@@ -384,6 +432,7 @@ fn bootstrap_installs_global_runtime_and_captures_startup_context() {
         storage_directory: temp.path().join("segments"),
         max_segment_bytes: 1024 * 1024,
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         defaults: [
             ("app_version".to_string(), json!("1.2.3")),
@@ -437,6 +486,7 @@ fn panic_hook_records_panic_as_fatal_error_event() {
         service_name: "maohuoban-rust".to_string(),
         environment: "test".to_string(),
         privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })

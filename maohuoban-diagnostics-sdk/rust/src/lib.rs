@@ -44,6 +44,19 @@ pub enum Severity {
     Fatal,
 }
 
+impl Severity {
+    const fn rank(self) -> u8 {
+        match self {
+            Self::Trace => 0,
+            Self::Debug => 1,
+            Self::Info => 2,
+            Self::Warn => 3,
+            Self::Error => 4,
+            Self::Fatal => 5,
+        }
+    }
+}
+
 /// `EventKind` 诊断事件类型
 /// 核心职责：
 /// - 统一日志、网络、性能、错误、面包屑和生命周期事件分类
@@ -258,6 +271,45 @@ impl PrivacyPolicy {
     }
 }
 
+/// `CapturePolicy` 采集控制策略
+/// 核心职责：
+/// - 控制进入存储层的最低事件级别
+/// - 裁剪超长 message 和 metadata 字符串，避免诊断数据失控
+#[derive(Clone, Debug)]
+pub struct CapturePolicy {
+    pub minimum_severity: Severity,
+    pub max_message_length: usize,
+    pub max_metadata_value_length: usize,
+}
+
+impl Default for CapturePolicy {
+    fn default() -> Self {
+        Self {
+            minimum_severity: Severity::Trace,
+            max_message_length: usize::MAX,
+            max_metadata_value_length: usize::MAX,
+        }
+    }
+}
+
+impl CapturePolicy {
+    /// `apply` 对事件执行采集控制
+    /// 核心职责：
+    /// - 过滤低于最低级别的事件
+    /// - 输出裁剪后的事件副本供隐私层继续处理
+    #[must_use]
+    pub fn apply(&self, event: &DiagnosticEvent) -> Option<DiagnosticEvent> {
+        if event.severity.rank() < self.minimum_severity.rank() {
+            return None;
+        }
+
+        let mut event = event.clone();
+        event.message = truncate_string(&event.message, self.max_message_length);
+        event.metadata = truncate_map(&event.metadata, self.max_metadata_value_length);
+        Some(event)
+    }
+}
+
 fn redact_map(input: &Map<String, Value>, keys: &BTreeSet<String>) -> Map<String, Value> {
     input
         .iter()
@@ -283,6 +335,34 @@ fn redact_value(value: &Value, keys: &BTreeSet<String>) -> Value {
         ),
         other => other.clone(),
     }
+}
+
+fn truncate_map(input: &Map<String, Value>, limit: usize) -> Map<String, Value> {
+    input
+        .iter()
+        .map(|(key, value)| (key.clone(), truncate_value(value, limit)))
+        .collect()
+}
+
+fn truncate_value(value: &Value, limit: usize) -> Value {
+    match value {
+        Value::String(value) => Value::String(truncate_string(value, limit)),
+        Value::Object(map) => Value::Object(truncate_map(map, limit)),
+        Value::Array(values) => Value::Array(
+            values
+                .iter()
+                .map(|value| truncate_value(value, limit))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+fn truncate_string(value: &str, limit: usize) -> String {
+    if value.chars().count() <= limit {
+        return value.to_string();
+    }
+    value.chars().take(limit).collect::<String>() + "..."
 }
 
 /// `DiagnosticsContext` 诊断上下文
@@ -514,6 +594,7 @@ pub struct DiagnosticsConfig {
     pub service_name: String,
     pub environment: String,
     pub privacy: PrivacyPolicy,
+    pub capture: CapturePolicy,
     pub cleanup: CleanupPolicy,
     pub store: Box<dyn EventStore>,
 }
@@ -528,6 +609,7 @@ pub struct DiagnosticsBootstrapConfig {
     pub storage_directory: PathBuf,
     pub max_segment_bytes: u64,
     pub privacy: PrivacyPolicy,
+    pub capture: CapturePolicy,
     pub cleanup: CleanupPolicy,
     pub defaults: Map<String, Value>,
     pub session_id: Option<String>,
@@ -554,6 +636,7 @@ impl DiagnosticsBootstrapConfig {
             storage_directory: storage_directory.into(),
             max_segment_bytes: 1024 * 1024,
             privacy: PrivacyPolicy::default(),
+            capture: CapturePolicy::default(),
             cleanup: CleanupPolicy::default(),
             defaults: Map::new(),
             session_id: None,
@@ -578,6 +661,7 @@ struct DiagnosticsInner {
     service_name: String,
     environment: String,
     privacy: PrivacyPolicy,
+    capture: CapturePolicy,
     cleanup: CleanupPolicy,
     started_at: Instant,
     context: Mutex<DiagnosticsContext>,
@@ -600,6 +684,7 @@ impl Diagnostics {
                 service_name: config.service_name,
                 environment: config.environment,
                 privacy: config.privacy,
+                capture: config.capture,
                 cleanup: config.cleanup,
                 started_at: Instant::now(),
                 context: Mutex::new(DiagnosticsContext::default()),
@@ -628,6 +713,7 @@ impl Diagnostics {
             service_name: config.service_name,
             environment: config.environment,
             privacy: config.privacy,
+            capture: config.capture,
             cleanup: config.cleanup,
             store: Box::new(store),
         })?;
@@ -758,12 +844,15 @@ impl Diagnostics {
     /// `record` 记录诊断事件
     /// 核心职责：
     /// - 补齐 service 与 environment 元数据
-    /// - 在写入前执行隐私脱敏
+    /// - 在写入前执行采集控制和隐私脱敏
     pub fn record(&self, event: DiagnosticEvent) {
-        let mut event = self
+        let event = self
             .apply_context(event)
             .metadata("service", json!(self.inner.service_name))
             .metadata("environment", json!(self.inner.environment));
+        let Some(mut event) = self.inner.capture.apply(&event) else {
+            return;
+        };
         event = self.inner.privacy.apply(&event);
         if let Ok(mut store) = self.inner.store.lock() {
             let _ = store.append(&event);

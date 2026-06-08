@@ -20,7 +20,7 @@
 | Bootstrap | 汇总安装、默认上下文、启动事件、运行时快照和启动清理 |
 | Runtime | 绑定 service、environment、隐私策略、清理策略和存储 |
 | Context | 维护全局 session、trace 和默认 metadata，并在记录管线中补齐事件 |
-| Capture | 记录 log、breadcrumb、error、performance、network、lifecycle |
+| Capture | 记录 log、breadcrumb、error、performance、network、lifecycle，并执行采集级别与字段大小控制 |
 | Storage | JSONL 分段文件，支持轮转和按策略清理 |
 | Export | 输出 Debug Bundle 和 LLM Prompt |
 
@@ -54,6 +54,16 @@
 | Rust | `diagnostics.capture_runtime_snapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms` |
 
 运行时快照会作为 `kind=performance`、`severity=info` 的标准事件写入，用于启动、卡顿、网络异常和错误链前后的环境记录。
+
+## 采集策略
+
+| 策略 | Swift | Rust | 默认值 |
+| --- | --- | --- | --- |
+| 最低严重级别 | `minimumSeverity` | `minimum_severity` | `trace` |
+| message 最大长度 | `maxMessageLength` | `max_message_length` | 不裁剪 |
+| metadata 字符串最大长度 | `maxMetadataValueLength` | `max_metadata_value_length` | 不裁剪 |
+
+采集策略在统一 `record` 管线内执行，顺序是 Context 补齐、service/environment 注入、Capture 过滤和裁剪、Privacy 脱敏、Storage 落盘。这样所有入口共享同一条采集边界。
 
 ## 全局上下文
 

@@ -17,7 +17,7 @@
 | --- | --- |
 | Facade | 一次 `install` 后全局可用 |
 | Context | 维护 service、environment、trace、session 元信息 |
-| Capture | 采集日志、网络、性能、错误、生命周期事件 |
+| Capture | 采集日志、网络、性能、错误、生命周期事件，并控制最低级别与字段大小 |
 | Normalize | 转成统一 `DiagnosticEvent` 协议 |
 | Privacy | 写入前执行字段脱敏 |
 | Storage | JSONL 分段落盘 |
@@ -81,7 +81,7 @@ let session = URLSession(configuration: configuration ?? .default)
 ## Rust 一次接入
 
 ```rust
-use maohuoban_diagnostics::{CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy, Severity};
+use maohuoban_diagnostics::{CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy, Severity};
 use serde_json::json;
 
 let store = FileSegmentStore::new("target/maohuoban-diagnostics/segments", 1024 * 1024)?;
@@ -89,6 +89,7 @@ let diagnostics = Diagnostics::install(DiagnosticsConfig {
     service_name: "maohuoban-rust".to_string(),
     environment: "local".to_string(),
     privacy: PrivacyPolicy::default().redact_key("authorization").redact_key("password"),
+    capture: CapturePolicy::default(),
     cleanup: CleanupPolicy::default(),
     store: Box::new(store),
 })?;
@@ -171,6 +172,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 
 运行时快照 API 会以 `performance` 事件记录进程、系统、架构和 SDK uptime。Swift 额外记录物理内存大小。
+
+采集策略默认保留全部事件。需要控制日志量时，可以配置 Swift `CapturePolicy(minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。
 
 ## Hooks
 

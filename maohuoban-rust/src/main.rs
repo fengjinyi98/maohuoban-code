@@ -1,6 +1,6 @@
 use maohuoban_diagnostics::{
-    CleanupPolicy, DiagnosticEvent, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
-    PrivacyPolicy, Severity,
+    CapturePolicy, CleanupPolicy, DiagnosticEvent, Diagnostics, DiagnosticsConfig, EventKind,
+    FileSegmentStore, PrivacyPolicy, Severity,
 };
 
 /// main 毛伙伴 Rust 产品入口
@@ -26,6 +26,7 @@ fn install_diagnostics() -> Diagnostics {
         privacy: PrivacyPolicy::default()
             .redact_key("authorization")
             .redact_key("password"),
+        capture: CapturePolicy::default(),
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })

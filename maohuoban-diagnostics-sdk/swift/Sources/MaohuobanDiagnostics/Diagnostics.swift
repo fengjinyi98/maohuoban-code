@@ -167,11 +167,14 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func record(_ event: DiagnosticEvent) async {
         let contextualEvent = await context.apply(to: event)
-        let event = configuration.privacy.apply(
+        guard let capturedEvent = configuration.capture.apply(
             to: contextualEvent
                 .metadata("service", configuration.serviceName)
                 .metadata("environment", configuration.environment)
-        )
+        ) else {
+            return
+        }
+        let event = configuration.privacy.apply(to: capturedEvent)
         try? await store.append(event)
     }
 
