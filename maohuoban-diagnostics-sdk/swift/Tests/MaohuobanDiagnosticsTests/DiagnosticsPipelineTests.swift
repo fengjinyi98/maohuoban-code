@@ -221,6 +221,14 @@ struct DiagnosticsPipelineTests {
                 error: "request timed out"
             )
         )
+        await diagnostics.network(
+            .init(
+                method: "GET",
+                url: "https://api.example.com/profile",
+                statusCode: 500,
+                durationMs: 80
+            )
+        )
 
         let events = try await diagnostics.readEvents()
         #expect(events.contains {
@@ -234,6 +242,12 @@ struct DiagnosticsPipelineTests {
                 && $0.severity == .error
                 && $0.metadata["error"] == "request timed out"
                 && $0.metadata["duration_ms"] == "1200"
+        })
+        #expect(events.contains {
+            $0.kind == .network
+                && $0.severity == .error
+                && $0.metadata["status_code"] == "500"
+                && $0.message == "network request failed"
         })
     }
 

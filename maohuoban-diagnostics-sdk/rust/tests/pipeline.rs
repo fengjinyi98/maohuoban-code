@@ -289,6 +289,11 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
             .duration_ms(1_200)
             .error("request timed out"),
     );
+    diagnostics.network(
+        NetworkSummary::new("GET", "https://api.example.com/profile")
+            .status_code(500)
+            .duration_ms(80),
+    );
     diagnostics.flush().expect("flush events");
 
     let events = diagnostics.read_events().expect("events");
@@ -303,6 +308,12 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
             && event.severity == Severity::Error
             && event.metadata["error"] == json!("request timed out")
             && event.metadata["duration_ms"] == json!(1_200)
+    }));
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Network
+            && event.severity == Severity::Error
+            && event.metadata.get("status_code") == Some(&json!(500))
+            && event.message == "network request failed"
     }));
 }
 

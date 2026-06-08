@@ -55,6 +55,18 @@
 
 运行时快照会作为 `kind=performance`、`severity=info` 的标准事件写入，用于启动、卡顿、网络异常和错误链前后的环境记录。
 
+## 网络摘要
+
+| 字段 | 说明 |
+| --- | --- |
+| `method` | HTTP/RPC 方法 |
+| `url` | 请求地址 |
+| `status_code` | 可选响应状态码 |
+| `duration_ms` | 可选耗时 |
+| `error` | 可选失败摘要 |
+
+显式 `error` 或 `status_code >= 400` 会生成 `severity=error`、`message=network request failed` 的网络事件。成功状态码会生成 `severity=info`、`message=network request completed` 的网络事件。
+
 ## 采集策略
 
 | 策略 | Swift | Rust | 默认值 |

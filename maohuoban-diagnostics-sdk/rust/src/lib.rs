@@ -211,12 +211,15 @@ impl NetworkSummary {
     }
 
     fn into_event(self) -> DiagnosticEvent {
-        let severity = if self.error.is_some() {
+        let failed_status = self
+            .status_code
+            .is_some_and(|status_code| status_code >= 400);
+        let severity = if self.error.is_some() || failed_status {
             Severity::Error
         } else {
             Severity::Info
         };
-        let message = if self.error.is_some() {
+        let message = if self.error.is_some() || failed_status {
             "network request failed"
         } else {
             "network request completed"
