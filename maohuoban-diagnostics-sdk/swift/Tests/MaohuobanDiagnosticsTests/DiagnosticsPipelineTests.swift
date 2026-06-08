@@ -399,6 +399,33 @@ struct DiagnosticsPipelineTests {
         #expect(Int(event.metadata["uptime_ms"] ?? "") != nil)
     }
 
+    @Test("运行时快照会暴露存储写入失败计数")
+    func runtimeSnapshotReportsDroppedEventsAfterStorageWriteFailure() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appending(path: "segments")
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: storage
+            )
+        )
+
+        try FileManager.default.removeItem(at: storage)
+        try Data("blocked".utf8).write(to: storage)
+        await diagnostics.log(.error, "cannot be stored")
+
+        try FileManager.default.removeItem(at: storage)
+        try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+        await diagnostics.captureRuntimeSnapshot(metadata: ["phase": "after-storage-error"])
+
+        let events = try await diagnostics.readEvents()
+        let event = try #require(events.first { $0.message == "runtime snapshot" })
+        #expect(event.metadata["phase"] == "after-storage-error")
+        #expect(event.metadata["dropped_event_count"] == "1")
+        #expect(event.metadata["last_storage_error"]?.isEmpty == false)
+    }
+
     @Test("作用域 trace 会在操作结束后恢复原 trace")
     func scopedTraceRestoresPreviousTraceAfterOperation() async throws {
         let root = try temporaryDirectory()

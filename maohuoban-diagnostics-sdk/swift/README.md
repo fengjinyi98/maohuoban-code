@@ -70,7 +70,7 @@ await Diagnostics.clearTraceID()
 
 `captureError` 会把 Swift `Error` 桥接为 `NSError`，记录 domain、code、description 和 `NSUnderlyingErrorKey` chain，方便 LLM 直接分析错误因果。
 
-`captureRuntimeSnapshot` 会记录进程 ID、进程名、系统版本、架构、SDK uptime 和物理内存大小，适合放在启动、卡顿、网络异常前后。
+`captureRuntimeSnapshot` 会记录进程 ID、进程名、系统版本、架构、SDK uptime 和物理内存大小，适合放在启动、卡顿、网络异常前后。发生事件落盘失败后，快照还会带出 `dropped_event_count` 和 `last_storage_error`，用于判断诊断数据自身是否丢失。
 
 `NetworkSummary` 会记录 method、url、statusCode、durationMs 和 error。Swift `URLProtocol` 自动采集还会补充请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key；header value 不会进入事件。显式 error 或 `statusCode >= 400` 会自动生成 `severity=.error` 的失败网络事件。
 

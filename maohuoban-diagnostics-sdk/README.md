@@ -177,7 +177,7 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 
 结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 
-运行时快照 API 会以 `performance` 事件记录进程、系统、架构和 SDK uptime。Swift 额外记录物理内存大小。
+运行时快照 API 会以 `performance` 事件记录进程、系统、架构和 SDK uptime。Swift 额外记录物理内存大小；发生事件落盘失败后，Swift 快照还会带出 `dropped_event_count` 和 `last_storage_error`。
 
 网络摘要 API 会记录 method、url、status code、duration 和 error。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
 

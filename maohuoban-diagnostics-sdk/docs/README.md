@@ -50,10 +50,10 @@
 
 | 语言 | API | 自动字段 |
 | --- | --- | --- |
-| Swift | `Diagnostics.captureRuntimeSnapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms`、`physical_memory_bytes` |
+| Swift | `Diagnostics.captureRuntimeSnapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms`、`physical_memory_bytes`、`dropped_event_count`、`last_storage_error` |
 | Rust | `diagnostics.capture_runtime_snapshot(...)` | `process_id`、`process_name`、`os`、`arch`、`uptime_ms` |
 
-运行时快照会作为 `kind=performance`、`severity=info` 的标准事件写入，用于启动、卡顿、网络异常和错误链前后的环境记录。
+运行时快照会作为 `kind=performance`、`severity=info` 的标准事件写入，用于启动、卡顿、网络异常和错误链前后的环境记录。Swift 只有在发生事件落盘失败后才会写入 `dropped_event_count` 和 `last_storage_error`，用于判断诊断数据本身是否丢失。
 
 ## 网络摘要
 

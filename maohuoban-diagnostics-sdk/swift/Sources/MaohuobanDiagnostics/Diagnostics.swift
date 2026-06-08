@@ -154,6 +154,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     private let configuration: DiagnosticsConfiguration
     private let store: FileSegmentStore
     private let context = DiagnosticsContext()
+    private let storageHealth = DiagnosticsStorageHealth()
     private let exportRegistry = ExportDirectoryRegistry()
     private let startedAt = Date()
 
@@ -175,7 +176,11 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
             return
         }
         let event = configuration.privacy.apply(to: capturedEvent)
-        try? await store.append(event)
+        do {
+            try await store.append(event)
+        } catch {
+            await storageHealth.recordDroppedEvent(error)
+        }
     }
 
     public func log(_ severity: DiagnosticSeverity, _ message: String) async {
@@ -225,6 +230,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func captureRuntimeSnapshot(metadata: [String: String] = [:]) async {
         let processInfo = ProcessInfo.processInfo
+        let storageStatus = await storageHealth.snapshot()
         var event = DiagnosticEvent.performance("runtime snapshot")
             .metadata("process_id", "\(processInfo.processIdentifier)")
             .metadata("process_name", processInfo.processName)
@@ -232,6 +238,11 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
             .metadata("arch", runtimeArchitecture())
             .metadata("uptime_ms", "\(Int(Date().timeIntervalSince(startedAt) * 1_000))")
             .metadata("physical_memory_bytes", "\(processInfo.physicalMemory)")
+        if storageStatus.droppedEventCount > 0 {
+            event = event
+                .metadata("dropped_event_count", "\(storageStatus.droppedEventCount)")
+                .metadata("last_storage_error", storageStatus.lastStorageError)
+        }
         for (key, value) in metadata {
             event = event.metadata(key, value)
         }
@@ -339,6 +350,36 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         "unknown"
         #endif
     }
+}
+
+// DiagnosticsStorageHealth 诊断存储健康状态
+// 核心职责：
+// - 记录事件落盘失败导致的丢弃数量
+// - 为运行时快照提供 SDK 自身健康信号
+actor DiagnosticsStorageHealth {
+    private var droppedEventCount = 0
+    private var lastStorageError = ""
+
+    func recordDroppedEvent(_ error: Error) {
+        droppedEventCount += 1
+        lastStorageError = String(describing: error)
+    }
+
+    func snapshot() -> DiagnosticsStorageHealthSnapshot {
+        DiagnosticsStorageHealthSnapshot(
+            droppedEventCount: droppedEventCount,
+            lastStorageError: lastStorageError
+        )
+    }
+}
+
+// DiagnosticsStorageHealthSnapshot 存储健康快照
+// 核心职责：
+// - 承载运行时读取到的存储失败状态
+// - 避免运行时快照直接暴露可变状态
+struct DiagnosticsStorageHealthSnapshot {
+    let droppedEventCount: Int
+    let lastStorageError: String
 }
 
 // DiagnosticsContext 诊断上下文
