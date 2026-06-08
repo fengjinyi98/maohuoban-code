@@ -4,11 +4,26 @@ use maohuoban_diagnostics::{
     NetworkSummary, PrivacyPolicy, Severity,
 };
 use serde_json::json;
-use std::{fs, time::Duration};
+use std::{
+    fs,
+    sync::{Mutex, MutexGuard},
+    time::Duration,
+};
 use tempfile::tempdir;
+
+static DIAGNOSTICS_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+/// `diagnostics_test_lock` 隔离全局诊断运行时测试
+/// 核心职责：
+/// - 避免并行 integration tests 互相覆盖 `Diagnostics::current()`
+/// - 保持每个测试的文件存储和全局 runtime 生命周期一致
+fn diagnostics_test_lock() -> MutexGuard<'static, ()> {
+    DIAGNOSTICS_TEST_LOCK.lock().expect("diagnostics test lock")
+}
 
 #[test]
 fn records_events_with_privacy_filter_and_exports_debug_bundle() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -45,6 +60,7 @@ fn records_events_with_privacy_filter_and_exports_debug_bundle() {
 
 #[test]
 fn debug_bundle_includes_checksums_and_archive() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -77,6 +93,7 @@ fn debug_bundle_includes_checksums_and_archive() {
 
 #[test]
 fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -115,6 +132,7 @@ fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
 
 #[test]
 fn cleanup_removes_old_segments_and_keeps_recent_events() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -145,6 +163,7 @@ fn cleanup_removes_old_segments_and_keeps_recent_events() {
 
 #[test]
 fn cleanup_removes_expired_debug_bundles() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -180,6 +199,7 @@ fn cleanup_removes_expired_debug_bundles() {
 
 #[test]
 fn prompt_exporter_summarizes_timeline_for_llm() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -209,6 +229,7 @@ fn prompt_exporter_summarizes_timeline_for_llm() {
 
 #[test]
 fn install_makes_runtime_available_globally_and_records_convenience_events() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -244,6 +265,7 @@ fn install_makes_runtime_available_globally_and_records_convenience_events() {
 
 #[test]
 fn network_summary_api_records_success_and_failure_without_temp_logs() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -286,6 +308,7 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
 
 #[test]
 fn global_context_is_applied_to_events_without_temp_metadata_plumbing() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -351,6 +374,7 @@ fn global_context_is_applied_to_events_without_temp_metadata_plumbing() {
 
 #[test]
 fn captures_error_source_chain_as_structured_metadata() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -391,6 +415,7 @@ fn captures_error_source_chain_as_structured_metadata() {
 
 #[test]
 fn captures_runtime_snapshot_as_performance_event() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -421,6 +446,7 @@ fn captures_runtime_snapshot_as_performance_event() {
 
 #[test]
 fn scoped_trace_restores_previous_trace_after_operation() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -457,6 +483,7 @@ fn scoped_trace_restores_previous_trace_after_operation() {
 
 #[test]
 fn bootstrap_installs_global_runtime_and_captures_startup_context() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig {
         service_name: "maohuoban-rust".to_string(),
@@ -512,6 +539,7 @@ fn bootstrap_installs_global_runtime_and_captures_startup_context() {
 
 #[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
+    let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
     let diagnostics = Diagnostics::install(DiagnosticsConfig {

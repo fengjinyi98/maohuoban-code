@@ -78,9 +78,12 @@ await Diagnostics.clearTraceID()
 
 | 文件 | 内容 |
 | --- | --- |
-| `manifest.json` | schema、SDK 版本、事件数量、导出时间 |
+| `manifest.json` | schema、SDK 版本、事件数量、导出时间、`timelineSHA256`、`promptSHA256`、`archivePath` |
 | `timeline.jsonl` | 脱敏后的标准诊断事件 |
 | `prompt.md` | 可直接交给 LLM 的分析输入摘要 |
+| `archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，可作为单文件附件传输 |
+
+`Diagnostics.exportDebugBundle(to:)` 返回的 `DebugBundle` 会暴露 `archiveURL`，用于上传、复制或附加到 LLM 分析流程。
 
 ## SwiftUI 边界
 

@@ -9,7 +9,7 @@
 | Event Protocol | Swift 与 Rust 共用的诊断事件协议 |
 | Storage Policy | 本地缓存大小、时间窗口和清理规则 |
 | Privacy Policy | 脱敏字段、隐私边界和导出控制 |
-| Debug Bundle | 诊断包结构、压缩规则和 LLM 输入模板 |
+| Debug Bundle | 诊断包结构、归档规则、校验字段和 LLM 输入模板 |
 | Integration Guide | 产品 App 和 Rust 项目的接入方式 |
 
 ## 分层职责
@@ -22,7 +22,7 @@
 | Context | 维护全局 session、trace 和默认 metadata，并在记录管线中补齐事件 |
 | Capture | 记录 log、breadcrumb、error、performance、network、lifecycle，并执行采集级别与字段大小控制 |
 | Storage | JSONL 分段文件，支持轮转和按策略清理 |
-| Export | 输出 Debug Bundle 和 LLM Prompt |
+| Export | 输出 Debug Bundle、无压缩 tar 归档和 LLM Prompt |
 
 ## 当前协议
 
@@ -92,9 +92,17 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| `manifest.json` | `maohuoban.diagnostics.bundle.v1` 清单 |
+| `manifest.json` | `maohuoban.diagnostics.bundle.v1` 清单，包含事件数量、导出时间、SHA256 校验值和归档路径 |
 | `timeline.jsonl` | 标准诊断事件时间线 |
 | `prompt.md` | `maohuoban.diagnostics.prompt.v1` LLM 输入 |
+| `archive.tar` | 无压缩 tar 归档，包含 `manifest.json`、`timeline.jsonl` 和 `prompt.md` |
+
+| 来源 | manifest 校验字段 |
+| --- | --- |
+| Swift SDK | `timelineSHA256`、`promptSHA256`、`archivePath` |
+| Rust SDK / Collector | `timeline_sha256`、`prompt_sha256`、`archive_path` |
+
+`archive.tar` 作为单文件交付物使用，适合 issue 附件、聊天窗口上传和跨机器复制。`manifest.json` 中的 SHA256 校验值用于确认 timeline 与 prompt 在传输后保持一致。
 
 ## 清理策略
 

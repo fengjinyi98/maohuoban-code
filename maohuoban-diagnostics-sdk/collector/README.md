@@ -25,9 +25,10 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | 路径 | 内容 |
 | --- | --- |
 | `--segments` | SDK 产生的 JSONL 分段目录，可重复传入多个来源 |
-| `--output/manifest.json` | 诊断包 schema、SDK 版本、事件数量、导出时间 |
+| `--output/manifest.json` | 诊断包 schema、SDK 版本、事件数量、导出时间、`timeline_sha256`、`prompt_sha256`、`archive_path` |
 | `--output/timeline.jsonl` | 按时间排序的标准诊断事件 |
 | `--output/prompt.md` | 已压缩的 LLM 分析输入 |
+| `--output/archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，可直接作为单文件诊断包传输 |
 
 ## 分层边界
 
@@ -35,4 +36,4 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | --- | --- |
 | CLI | 解析参数，保持命令行入口轻量 |
 | Collector | 将一个或多个段目录转换成 Debug Bundle |
-| Rust SDK | 读取 JSONL 段文件、导出 timeline 和 prompt |
+| Rust SDK | 读取 JSONL 段文件、导出 timeline、prompt、manifest 校验值和 archive |

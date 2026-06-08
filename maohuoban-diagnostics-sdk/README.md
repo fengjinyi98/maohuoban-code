@@ -22,7 +22,7 @@
 | Privacy | 写入前执行字段脱敏 |
 | Storage | JSONL 分段落盘 |
 | Cleanup | 按大小、时间窗口、导出生命周期清理 |
-| Export | 生成 `manifest.json`、`timeline.jsonl` 与 `prompt.md` Debug Bundle |
+| Export | 生成 `manifest.json`、`timeline.jsonl`、`prompt.md` 与 `archive.tar` Debug Bundle |
 
 ## Swift 一次接入
 
@@ -144,11 +144,14 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 | 文件 | 内容 |
 | --- | --- |
-| `manifest.json` | schema、SDK 版本、事件数量、导出时间 |
+| `manifest.json` | schema、SDK 版本、事件数量、导出时间、内容校验值和归档路径 |
 | `timeline.jsonl` | 按时间排序的诊断事件 |
 | `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
+| `archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，便于直接传输或附加给 LLM 工作流 |
 
 `--segments` 可以重复传入多个 SDK 段目录，Collector 会按事件时间合并成同一个 timeline。
+
+Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`、`prompt_sha256`、`archive_path`。Swift SDK 的 manifest 使用 camelCase 字段：`timelineSHA256`、`promptSHA256`、`archivePath`。
 
 ## 清理与导出工作流
 
@@ -161,7 +164,7 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`captureRuntimeSnapshot/capture_runtime_snapshot`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
-| 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
+| 发给 LLM 分析 | 使用 Debug Bundle 中的 `archive.tar`，或直接使用 `prompt.md` 和 `timeline.jsonl` |
 
 `bootstrap` 会完成安装、默认上下文注入、启动生命周期事件、可选运行时快照和启动清理，适合作为 App 或服务进程的唯一接入点。
 
