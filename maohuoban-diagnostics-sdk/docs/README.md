@@ -12,6 +12,16 @@
 | Debug Bundle | 诊断包结构、压缩规则和 LLM 输入模板 |
 | Integration Guide | 产品 App 和 Rust 项目的接入方式 |
 
+## 分层职责
+
+| 层 | 说明 |
+| --- | --- |
+| Facade | Swift `Diagnostics` / Rust `Diagnostics::current()` 提供全局入口 |
+| Runtime | 绑定 service、environment、隐私策略、清理策略和存储 |
+| Capture | 记录 log、breadcrumb、error、performance、network、lifecycle |
+| Storage | JSONL 分段文件，支持轮转和按策略清理 |
+| Export | 输出 Debug Bundle 和 LLM Prompt |
+
 ## 当前协议
 
 | 字段 | 说明 |
@@ -24,6 +34,14 @@
 | `trace_id` / `traceID` | 可选链路标识 |
 | `session_id` / `sessionID` | 可选会话标识 |
 | `metadata` | 可脱敏上下文字段 |
+
+## Debug Bundle
+
+| 文件 | 说明 |
+| --- | --- |
+| `manifest.json` | `maohuoban.diagnostics.bundle.v1` 清单 |
+| `timeline.jsonl` | 标准诊断事件时间线 |
+| `prompt.md` | `maohuoban.diagnostics.prompt.v1` LLM 输入 |
 
 ## 清理策略
 

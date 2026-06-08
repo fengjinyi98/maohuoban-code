@@ -22,7 +22,7 @@
 | Privacy | 写入前执行字段脱敏 |
 | Storage | JSONL 分段落盘 |
 | Cleanup | 按大小、时间窗口、导出生命周期清理 |
-| Export | 生成 `manifest.json` 与 `timeline.jsonl` Debug Bundle |
+| Export | 生成 `manifest.json`、`timeline.jsonl` 与 `prompt.md` Debug Bundle |
 
 ## Swift 一次接入
 
@@ -33,19 +33,30 @@ import MaohuobanDiagnostics
 struct AppMain: App {
     init() {
         Task {
-            let diagnostics = try await Diagnostics.install(
+            try await Diagnostics.install(
                 DiagnosticsConfiguration(
                     serviceName: "maohuoban-ios",
                     environment: "local",
                     privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"])
                 )
             )
-            await diagnostics.record(
-                DiagnosticEvent(kind: .lifecycle, severity: .info, message: "app launched")
-            )
+            await Diagnostics.record(.init(kind: .lifecycle, severity: .info, message: "app launched"))
         }
     }
 }
+```
+
+安装后任意模块可以通过 `Diagnostics` facade 记录上下文：
+
+```swift
+await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
+await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
+
+let span = await Diagnostics.beginSpan("load detail")
+await span?.end(metadata: ["result": "failed"])
+
+let bundle = try await Diagnostics.exportDebugBundle(to: diagnosticsBundleURL)
+let prompt = try await Diagnostics.exportLLMPrompt(title: "分析这个 bug")
 ```
 
 网络采集使用稳定的 `URLProtocol` 注入方式：
@@ -59,10 +70,8 @@ let session = URLSession(configuration: configuration ?? .default)
 ## Rust 一次接入
 
 ```rust
-use maohuoban_diagnostics::{
-    CleanupPolicy, DiagnosticEvent, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
-    PrivacyPolicy, Severity,
-};
+use maohuoban_diagnostics::{CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy, Severity};
+use serde_json::json;
 
 let store = FileSegmentStore::new("target/maohuoban-diagnostics/segments", 1024 * 1024)?;
 let diagnostics = Diagnostics::install(DiagnosticsConfig {
@@ -72,7 +81,15 @@ let diagnostics = Diagnostics::install(DiagnosticsConfig {
     cleanup: CleanupPolicy::default(),
     store: Box::new(store),
 })?;
-diagnostics.record(DiagnosticEvent::new(EventKind::Lifecycle, Severity::Info, "started"));
+diagnostics.install_panic_hook();
+
+Diagnostics::current().expect("diagnostics").log(Severity::Info, "started");
+Diagnostics::current()
+    .expect("diagnostics")
+    .breadcrumb("job queued", [("job_id", json!("sync-home"))]);
+
+let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
+span.end([("result", json!("ok"))]);
 ```
 
 ## Collector 导出
@@ -89,6 +106,17 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | --- | --- |
 | `manifest.json` | schema、SDK 版本、事件数量、导出时间 |
 | `timeline.jsonl` | 按时间排序的诊断事件 |
+| `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
+
+## 清理与导出工作流
+
+| 场景 | 调用 |
+| --- | --- |
+| App 或服务启动 | `Diagnostics.install(...)` |
+| 业务流程中记录上下文 | `breadcrumb`、`error`、`log`、`beginSpan/end` |
+| Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
+| 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
+| 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
 
 ## Hooks
 
