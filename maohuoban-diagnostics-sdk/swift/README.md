@@ -30,6 +30,9 @@ try await Diagnostics.install(
 
 | 场景 | API |
 | --- | --- |
+| 会话上下文 | `await Diagnostics.setSessionID("session-id")` |
+| 链路上下文 | `await Diagnostics.setTraceID("trace-id")` / `await Diagnostics.clearTraceID()` |
+| 默认 metadata | `await Diagnostics.setContextMetadata("screen", "home")` |
 | 日志 | `await Diagnostics.log(.info, "message")` |
 | 面包屑 | `await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])` |
 | 错误 | `await Diagnostics.error("load failed", metadata: ["reason": "timeout"])` |
@@ -38,6 +41,17 @@ try await Diagnostics.install(
 | 清理 | `try await Diagnostics.cleanup()` |
 | 诊断包 | `try await Diagnostics.exportDebugBundle(to: outputURL)` |
 | LLM Prompt | `try await Diagnostics.exportLLMPrompt(title: "分析这个 bug")` |
+
+```swift
+await Diagnostics.setSessionID("session-\(UUID().uuidString)")
+await Diagnostics.setTraceID("checkout")
+await Diagnostics.setContextMetadata("screen", "checkout")
+
+await Diagnostics.error("checkout failed", metadata: ["screen": "payment"])
+await Diagnostics.clearTraceID()
+```
+
+全局上下文会在统一记录管线中自动注入后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 会保留自身值，适合临时覆盖某个页面、请求或 span。
 
 ## Debug Bundle
 

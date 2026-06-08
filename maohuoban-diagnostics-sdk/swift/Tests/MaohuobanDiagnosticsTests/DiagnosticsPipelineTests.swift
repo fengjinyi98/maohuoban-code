@@ -177,6 +177,54 @@ struct DiagnosticsPipelineTests {
         })
     }
 
+    @Test("全局上下文会自动注入后续事件")
+    func globalContextAppliesToEventsWithoutTempMetadataPlumbing() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.setSessionID("session-a")
+        await Diagnostics.setTraceID("trace-a")
+        await Diagnostics.setContextMetadata("screen", "home")
+        await diagnostics.log(.info, "context log")
+        await diagnostics.network(.init(method: "GET", url: "https://api.example.com/feed"))
+        await diagnostics.record(
+            DiagnosticEvent(kind: .breadcrumb, severity: .info, message: "explicit context")
+                .traceID("trace-event")
+                .metadata("screen", "detail")
+        )
+        let span = diagnostics.beginSpan("context span")
+        await span.end()
+
+        var events = try await diagnostics.readEvents()
+        let log = try #require(events.first { $0.message == "context log" })
+        #expect(log.sessionID == "session-a")
+        #expect(log.traceID == "trace-a")
+        #expect(log.metadata["screen"] == "home")
+
+        let network = try #require(events.first { $0.kind == .network })
+        #expect(network.sessionID == "session-a")
+        #expect(network.traceID == "trace-a")
+
+        let explicit = try #require(events.first { $0.message == "explicit context" })
+        #expect(explicit.sessionID == "session-a")
+        #expect(explicit.traceID == "trace-event")
+        #expect(explicit.metadata["screen"] == "detail")
+
+        await diagnostics.clearTraceID()
+        await diagnostics.log(.info, "trace cleared")
+
+        events = try await diagnostics.readEvents()
+        let cleared = try #require(events.first { $0.message == "trace cleared" })
+        #expect(cleared.sessionID == "session-a")
+        #expect(cleared.traceID == nil)
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()

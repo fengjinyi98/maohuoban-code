@@ -49,6 +49,10 @@ struct AppMain: App {
 安装后任意模块可以通过 `Diagnostics` facade 记录上下文：
 
 ```swift
+await Diagnostics.setSessionID("session-\(UUID().uuidString)")
+await Diagnostics.setTraceID("home-refresh")
+await Diagnostics.setContextMetadata("screen", "home")
+
 await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
 await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
 
@@ -82,6 +86,9 @@ let diagnostics = Diagnostics::install(DiagnosticsConfig {
     store: Box::new(store),
 })?;
 diagnostics.install_panic_hook();
+diagnostics.set_session_id("session-local");
+diagnostics.set_trace_id("sync-home");
+diagnostics.set_context_metadata("worker", json!("scheduler"));
 
 Diagnostics::current().expect("diagnostics").log(Severity::Info, "started");
 Diagnostics::current()
@@ -113,10 +120,13 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | 场景 | 调用 |
 | --- | --- |
 | App 或服务启动 | `Diagnostics.install(...)` |
+| 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`log`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
+
+全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
 
 ## Hooks
 

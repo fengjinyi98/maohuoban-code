@@ -37,6 +37,34 @@ public enum Diagnostics {
         await current()?.network(summary)
     }
 
+    public static func setSessionID(_ sessionID: String) async {
+        await current()?.setSessionID(sessionID)
+    }
+
+    public static func clearSessionID() async {
+        await current()?.clearSessionID()
+    }
+
+    public static func setTraceID(_ traceID: String) async {
+        await current()?.setTraceID(traceID)
+    }
+
+    public static func clearTraceID() async {
+        await current()?.clearTraceID()
+    }
+
+    public static func setContextMetadata(_ key: String, _ value: String) async {
+        await current()?.setContextMetadata(key, value)
+    }
+
+    public static func removeContextMetadata(_ key: String) async {
+        await current()?.removeContextMetadata(key)
+    }
+
+    public static func clearContextMetadata() async {
+        await current()?.clearContextMetadata()
+    }
+
     public static func beginSpan(_ name: String) async -> DiagnosticsSpan? {
         await current()?.beginSpan(name)
     }
@@ -85,6 +113,7 @@ actor DiagnosticsRegistry {
 public final class DiagnosticsRuntime: @unchecked Sendable {
     private let configuration: DiagnosticsConfiguration
     private let store: FileSegmentStore
+    private let context = DiagnosticsContext()
     private let exportRegistry = ExportDirectoryRegistry()
 
     init(configuration: DiagnosticsConfiguration) throws {
@@ -96,8 +125,9 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     }
 
     public func record(_ event: DiagnosticEvent) async {
+        let contextualEvent = await context.apply(to: event)
         let event = configuration.privacy.apply(
-            to: event
+            to: contextualEvent
                 .metadata("service", configuration.serviceName)
                 .metadata("environment", configuration.environment)
         )
@@ -126,6 +156,34 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func network(_ summary: NetworkSummary) async {
         await record(summary.event())
+    }
+
+    public func setSessionID(_ sessionID: String) async {
+        await context.setSessionID(sessionID)
+    }
+
+    public func clearSessionID() async {
+        await context.clearSessionID()
+    }
+
+    public func setTraceID(_ traceID: String) async {
+        await context.setTraceID(traceID)
+    }
+
+    public func clearTraceID() async {
+        await context.clearTraceID()
+    }
+
+    public func setContextMetadata(_ key: String, _ value: String) async {
+        await context.setMetadata(key, value)
+    }
+
+    public func removeContextMetadata(_ key: String) async {
+        await context.removeMetadata(key)
+    }
+
+    public func clearContextMetadata() async {
+        await context.clearMetadata()
     }
 
     public func flush() async throws {
@@ -169,6 +227,58 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func beginSpan(_ name: String) -> DiagnosticsSpan {
         DiagnosticsSpan(name: name, runtime: self)
+    }
+}
+
+// DiagnosticsContext 诊断上下文
+// 核心职责：
+// - 保存全局 session、trace 和默认 metadata
+// - 在统一记录管线中为后续事件补齐上下文
+actor DiagnosticsContext {
+    private var sessionID: String?
+    private var traceID: String?
+    private var metadata: [String: String] = [:]
+
+    func setSessionID(_ sessionID: String) {
+        self.sessionID = sessionID
+    }
+
+    func clearSessionID() {
+        sessionID = nil
+    }
+
+    func setTraceID(_ traceID: String) {
+        self.traceID = traceID
+    }
+
+    func clearTraceID() {
+        traceID = nil
+    }
+
+    func setMetadata(_ key: String, _ value: String) {
+        metadata[key] = value
+    }
+
+    func removeMetadata(_ key: String) {
+        metadata.removeValue(forKey: key)
+    }
+
+    func clearMetadata() {
+        metadata.removeAll()
+    }
+
+    func apply(to event: DiagnosticEvent) -> DiagnosticEvent {
+        let eventMetadata = metadata.merging(event.metadata) { _, eventValue in eventValue }
+        return DiagnosticEvent(
+            id: event.id,
+            timestamp: event.timestamp,
+            kind: event.kind,
+            severity: event.severity,
+            message: event.message,
+            traceID: event.traceID ?? traceID,
+            sessionID: event.sessionID ?? sessionID,
+            metadata: eventMetadata
+        )
     }
 }
 

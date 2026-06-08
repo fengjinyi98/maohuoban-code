@@ -208,6 +208,70 @@ fn network_summary_api_records_success_and_failure_without_temp_logs() {
 }
 
 #[test]
+fn global_context_is_applied_to_events_without_temp_metadata_plumbing() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.set_session_id("session-a");
+    diagnostics.set_trace_id("trace-a");
+    diagnostics.set_context_metadata("screen", json!("home"));
+    diagnostics.log(Severity::Info, "context log");
+    diagnostics.network(NetworkSummary::new("GET", "https://api.example.com/feed"));
+    diagnostics.record(
+        DiagnosticEvent::new(EventKind::Breadcrumb, Severity::Info, "explicit context")
+            .trace_id("trace-event")
+            .metadata("screen", json!("detail")),
+    );
+    let span = diagnostics.begin_span("context span");
+    span.end(Vec::<(String, serde_json::Value)>::new());
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let log = events
+        .iter()
+        .find(|event| event.message == "context log")
+        .expect("context log");
+    assert_eq!(log.session_id.as_deref(), Some("session-a"));
+    assert_eq!(log.trace_id.as_deref(), Some("trace-a"));
+    assert_eq!(log.metadata["screen"], json!("home"));
+
+    let network = events
+        .iter()
+        .find(|event| event.kind == EventKind::Network)
+        .expect("network event");
+    assert_eq!(network.session_id.as_deref(), Some("session-a"));
+    assert_eq!(network.trace_id.as_deref(), Some("trace-a"));
+
+    let explicit = events
+        .iter()
+        .find(|event| event.message == "explicit context")
+        .expect("explicit context");
+    assert_eq!(explicit.session_id.as_deref(), Some("session-a"));
+    assert_eq!(explicit.trace_id.as_deref(), Some("trace-event"));
+    assert_eq!(explicit.metadata["screen"], json!("detail"));
+
+    diagnostics.clear_trace_id();
+    diagnostics.log(Severity::Info, "trace cleared");
+    diagnostics.flush().expect("flush cleared event");
+
+    let events = diagnostics.read_events().expect("events after clear");
+    let cleared = events
+        .iter()
+        .find(|event| event.message == "trace cleared")
+        .expect("trace cleared event");
+    assert_eq!(cleared.session_id.as_deref(), Some("session-a"));
+    assert_eq!(cleared.trace_id, None);
+}
+
+#[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
