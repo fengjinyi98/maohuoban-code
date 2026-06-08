@@ -321,6 +321,39 @@ mod tests {
     use maohuoban_diagnostics::{DiagnosticEvent, EventKind, Severity};
     use tempfile::tempdir;
 
+    /// `tar_entries` 解析测试用无压缩 tar 条目
+    /// 核心职责：
+    /// - 验证 Collector 生成的归档可以按 tar 格式读取
+    /// - 对比归档内文件内容和导出目录原文件
+    fn tar_entries(archive: &[u8]) -> Vec<(String, Vec<u8>)> {
+        let mut entries = Vec::new();
+        let mut offset = 0;
+        while offset + 512 <= archive.len() {
+            let header = &archive[offset..offset + 512];
+            if header.iter().all(|byte| *byte == 0) {
+                break;
+            }
+            let name_end = header[0..100]
+                .iter()
+                .position(|byte| *byte == 0)
+                .unwrap_or(100);
+            let name = String::from_utf8(header[0..name_end].to_vec()).expect("tar name");
+            let size_bytes = header[124..136]
+                .iter()
+                .copied()
+                .filter(|byte| *byte != 0 && *byte != b' ')
+                .collect::<Vec<_>>();
+            let size_text = String::from_utf8(size_bytes).expect("tar size");
+            let size = usize::from_str_radix(size_text.trim(), 8).expect("tar octal size");
+            let data_start = offset + 512;
+            let data_end = data_start + size;
+            assert!(data_end <= archive.len(), "tar entry exceeds archive size");
+            entries.push((name, archive[data_start..data_end].to_vec()));
+            offset = data_start + size.div_ceil(512) * 512;
+        }
+        entries
+    }
+
     #[test]
     fn collector_exports_existing_segments() {
         let root = tempdir().expect("temp dir");
@@ -381,6 +414,42 @@ mod tests {
         assert!(bundle.archive_path.exists());
         let manifest = std::fs::read_to_string(bundle.manifest_path).expect("manifest");
         assert!(manifest.contains("\"archive_path\""));
+
+        let archive = std::fs::read(&bundle.archive_path).expect("archive");
+        let entries = tar_entries(&archive);
+        assert_eq!(
+            entries
+                .iter()
+                .find(|(name, _)| name == "manifest.json")
+                .map(|(_, data)| data.as_slice()),
+            Some(
+                std::fs::read(bundle.directory.join("manifest.json"))
+                    .expect("manifest data")
+                    .as_slice()
+            )
+        );
+        assert_eq!(
+            entries
+                .iter()
+                .find(|(name, _)| name == "timeline.jsonl")
+                .map(|(_, data)| data.as_slice()),
+            Some(
+                std::fs::read(bundle.directory.join("timeline.jsonl"))
+                    .expect("timeline data")
+                    .as_slice()
+            )
+        );
+        assert_eq!(
+            entries
+                .iter()
+                .find(|(name, _)| name == "prompt.md")
+                .map(|(_, data)| data.as_slice()),
+            Some(
+                std::fs::read(bundle.directory.join("prompt.md"))
+                    .expect("prompt data")
+                    .as_slice()
+            )
+        );
     }
 
     #[test]
