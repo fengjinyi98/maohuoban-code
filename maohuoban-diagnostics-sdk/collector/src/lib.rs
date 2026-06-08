@@ -1,6 +1,6 @@
 use maohuoban_diagnostics::{
     CleanupPolicy, DebugBundle, DebugBundleExporter, Diagnostics, DiagnosticsConfig,
-    DiagnosticsError, EventStore, FileSegmentStore, PrivacyPolicy,
+    DiagnosticsError, EventStore, FileSegmentStore, LlmPromptExporter, PrivacyPolicy,
 };
 use std::path::{Path, PathBuf};
 
@@ -65,7 +65,10 @@ fn collect_from_store(
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })?;
-    DebugBundleExporter::new(output_directory.as_ref()).export(&diagnostics)
+    let bundle = DebugBundleExporter::new(output_directory.as_ref()).export(&diagnostics)?;
+    let prompt = LlmPromptExporter::new("分析 Maohuoban 诊断包").export_prompt(&diagnostics)?;
+    std::fs::write(bundle.directory.join("prompt.md"), prompt)?;
+    Ok(bundle)
 }
 
 #[cfg(test)]
@@ -92,5 +95,26 @@ mod tests {
             .expect("collect bundle");
         let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
         assert!(timeline.contains("collector input"));
+    }
+
+    #[test]
+    fn collector_writes_llm_prompt_into_debug_bundle() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let output = root.path().join("bundle");
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Error,
+                Severity::Error,
+                "collector prompt input",
+            ))
+            .expect("append");
+
+        let bundle = collect_debug_bundle(CollectorConfig::from_paths(segments, output))
+            .expect("collect bundle");
+        let prompt = std::fs::read_to_string(bundle.directory.join("prompt.md")).expect("prompt");
+        assert!(prompt.contains("maohuoban.diagnostics.prompt.v1"));
+        assert!(prompt.contains("collector prompt input"));
     }
 }

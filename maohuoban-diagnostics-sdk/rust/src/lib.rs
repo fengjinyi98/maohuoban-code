@@ -12,9 +12,10 @@ use std::{
     fmt::Write as _,
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write as _},
+    panic,
     path::PathBuf,
-    sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    sync::{Arc, Mutex, OnceLock},
+    time::{Duration, Instant, SystemTime},
 };
 use thiserror::Error;
 use uuid::Uuid;
@@ -432,7 +433,7 @@ impl Diagnostics {
     ///
     /// 当前安装过程只封装配置与存储句柄，保留错误返回用于未来校验配置和存储初始化失败。
     pub fn install(config: DiagnosticsConfig) -> Result<Self, DiagnosticsError> {
-        Ok(Self {
+        let diagnostics = Self {
             inner: Arc::new(DiagnosticsInner {
                 service_name: config.service_name,
                 environment: config.environment,
@@ -440,7 +441,23 @@ impl Diagnostics {
                 cleanup: config.cleanup,
                 store: Mutex::new(config.store),
             }),
-        })
+        };
+        let registry = CURRENT_DIAGNOSTICS.get_or_init(|| Mutex::new(None));
+        if let Ok(mut current) = registry.lock() {
+            *current = Some(diagnostics.clone());
+        }
+        Ok(diagnostics)
+    }
+
+    /// `current` 读取全局诊断句柄
+    /// 核心职责：
+    /// - 支持一次安装后任意模块读取同一运行时
+    /// - 避免业务层传递临时诊断参数
+    #[must_use]
+    pub fn current() -> Option<Self> {
+        CURRENT_DIAGNOSTICS
+            .get()
+            .and_then(|registry| registry.lock().ok().and_then(|current| current.clone()))
     }
 
     /// `record` 记录诊断事件
@@ -455,6 +472,77 @@ impl Diagnostics {
         if let Ok(mut store) = self.inner.store.lock() {
             let _ = store.append(&event);
         }
+    }
+
+    /// `log` 记录日志事件
+    /// 核心职责：
+    /// - 提供业务层轻量记录入口
+    /// - 复用统一事件写入管线
+    pub fn log(&self, severity: Severity, message: impl Into<String>) {
+        self.record(DiagnosticEvent::new(EventKind::Log, severity, message));
+    }
+
+    /// `breadcrumb` 记录面包屑事件
+    /// 核心职责：
+    /// - 捕获用户动作、页面流转和关键业务节点
+    /// - 为错误前上下文重建提供轻量时间线
+    pub fn breadcrumb(
+        &self,
+        message: impl Into<String>,
+        metadata: impl IntoIterator<Item = (impl Into<String>, Value)>,
+    ) {
+        self.record(event_with_metadata(
+            DiagnosticEvent::new(EventKind::Breadcrumb, Severity::Info, message),
+            metadata,
+        ));
+    }
+
+    /// `error` 记录错误事件
+    /// 核心职责：
+    /// - 提供错误采集的便捷入口
+    /// - 将业务错误纳入统一诊断时间线
+    pub fn error(
+        &self,
+        message: impl Into<String>,
+        metadata: impl IntoIterator<Item = (impl Into<String>, Value)>,
+    ) {
+        self.record(event_with_metadata(
+            DiagnosticEvent::new(EventKind::Error, Severity::Error, message),
+            metadata,
+        ));
+    }
+
+    /// `begin_span` 开始性能 span
+    /// 核心职责：
+    /// - 捕获一段业务或系统操作耗时
+    /// - 在 `end` 时写入 performance 事件
+    #[must_use]
+    pub fn begin_span(&self, name: impl Into<String>) -> DiagnosticsSpan {
+        DiagnosticsSpan {
+            name: name.into(),
+            diagnostics: self.clone(),
+            started_at: Instant::now(),
+        }
+    }
+
+    /// `install_panic_hook` 安装 panic 自动采集
+    /// 核心职责：
+    /// - 捕获 Rust panic 文本与位置
+    /// - 在进程异常路径中写入 fatal error 事件
+    pub fn install_panic_hook(&self) {
+        let diagnostics = self.clone();
+        panic::set_hook(Box::new(move |info| {
+            let message = panic_message(info);
+            let mut event = DiagnosticEvent::new(EventKind::Error, Severity::Fatal, message);
+            if let Some(location) = info.location() {
+                event = event
+                    .metadata("file", json!(location.file()))
+                    .metadata("line", json!(location.line()))
+                    .metadata("column", json!(location.column()));
+            }
+            diagnostics.record(event);
+            let _ = diagnostics.flush();
+        }));
     }
 
     /// `flush` 刷新存储
@@ -503,6 +591,53 @@ impl Diagnostics {
             .lock()
             .map_err(|_| DiagnosticsError::StoreLockPoisoned)?
             .cleanup(&self.inner.cleanup)
+    }
+}
+
+static CURRENT_DIAGNOSTICS: OnceLock<Mutex<Option<Diagnostics>>> = OnceLock::new();
+
+fn event_with_metadata(
+    mut event: DiagnosticEvent,
+    metadata: impl IntoIterator<Item = (impl Into<String>, Value)>,
+) -> DiagnosticEvent {
+    for (key, value) in metadata {
+        event = event.metadata(key, value);
+    }
+    event
+}
+
+fn panic_message(info: &panic::PanicHookInfo<'_>) -> String {
+    let payload = info.payload();
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "panic captured".to_string()
+    }
+}
+
+/// `DiagnosticsSpan` 性能 span
+/// 核心职责：
+/// - 记录一段业务或系统操作的耗时
+/// - 将耗时作为 performance 事件写入统一时间线
+pub struct DiagnosticsSpan {
+    name: String,
+    diagnostics: Diagnostics,
+    started_at: Instant,
+}
+
+impl DiagnosticsSpan {
+    /// `end` 结束 span 并写入性能事件
+    /// 核心职责：
+    /// - 计算 span 耗时
+    /// - 合并业务 metadata 后记录 performance 事件
+    pub fn end(self, metadata: impl IntoIterator<Item = (impl Into<String>, Value)>) {
+        let duration = self.started_at.elapsed();
+        let event = DiagnosticEvent::new(EventKind::Performance, Severity::Info, self.name)
+            .metadata("duration_ms", json!(duration.as_millis()));
+        self.diagnostics
+            .record(event_with_metadata(event, metadata));
     }
 }
 

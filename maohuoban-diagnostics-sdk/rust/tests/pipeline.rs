@@ -97,3 +97,62 @@ fn prompt_exporter_summarizes_timeline_for_llm() {
     assert!(prompt.contains("request timeout"));
     assert!(prompt.contains("maohuoban.diagnostics.prompt.v1"));
 }
+
+#[test]
+fn install_makes_runtime_available_globally_and_records_convenience_events() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    let current = Diagnostics::current().expect("current diagnostics");
+    current.breadcrumb("screen opened", [("screen", json!("home"))]);
+    current.error("api failed", [("status", json!(504))]);
+    let span = current.begin_span("load home");
+    span.end([("phase", json!("render"))]);
+    current.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    assert!(
+        events
+            .iter()
+            .any(|event| event.kind == EventKind::Breadcrumb)
+    );
+    assert!(events.iter().any(|event| event.kind == EventKind::Error));
+    assert!(
+        events
+            .iter()
+            .any(|event| event.kind == EventKind::Performance)
+    );
+}
+
+#[test]
+fn panic_hook_records_panic_as_fatal_error_event() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+    diagnostics.install_panic_hook();
+
+    let _ = std::panic::catch_unwind(|| panic!("database unavailable"));
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Error
+            && event.severity == Severity::Fatal
+            && event.message.contains("database unavailable")
+    }));
+}
