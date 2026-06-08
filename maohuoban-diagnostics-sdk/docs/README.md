@@ -24,7 +24,7 @@
 | Storage | JSONL 分段文件，支持轮转、按策略清理和损坏行恢复 |
 | Export | 输出 Debug Bundle、无压缩 tar 归档和 LLM Prompt |
 
-Swift Storage 读取 JSONL 段文件时会跳过无法解码的单行，并注入 `kind=error`、`severity=warn`、`message=storage segment decode failed` 的告警事件，保留 `segment`、`line`、`source=file_segment_store` 和 `error` metadata。这样单条损坏诊断行不会阻断后续合法事件导出。
+Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行，并注入 `kind=error`、`severity=warn`、`message=storage segment decode failed` 的告警事件，保留 `segment`、`line`、`source=file_segment_store` 和 `error` metadata。这样单条损坏诊断行不会阻断后续合法事件导出。
 
 ## 当前协议
 

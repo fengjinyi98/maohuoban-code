@@ -14,7 +14,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{BufRead, BufReader, Write as _},
     panic,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant, SystemTime},
 };
@@ -463,7 +463,7 @@ pub trait EventStore: Send + Sync {
 /// `FileSegmentStore` JSONL 分段文件存储
 /// 核心职责：
 /// - 将诊断事件以 JSONL 格式分段落盘
-/// - 执行基于时间与大小的段文件清理
+/// - 执行基于时间与大小的段文件清理和损坏行恢复
 pub struct FileSegmentStore {
     directory: PathBuf,
     max_segment_bytes: u64,
@@ -514,6 +514,30 @@ impl FileSegmentStore {
             self.current_path = self.directory.join(format!("{}.jsonl", Uuid::new_v4()));
         }
     }
+
+    /// `corrupted_segment_event` 构造损坏段文件告警事件
+    /// 核心职责：
+    /// - 保留段文件读取损坏的可观测信号
+    /// - 允许合法诊断事件继续导出给分析流程
+    fn corrupted_segment_event(
+        path: &Path,
+        line: usize,
+        error: &serde_json::Error,
+    ) -> DiagnosticEvent {
+        let segment = path
+            .file_name()
+            .and_then(|file_name| file_name.to_str())
+            .unwrap_or("unknown");
+        DiagnosticEvent::new(
+            EventKind::Error,
+            Severity::Warn,
+            "storage segment decode failed",
+        )
+        .metadata("source", json!("file_segment_store"))
+        .metadata("segment", json!(segment))
+        .metadata("line", json!(line.to_string()))
+        .metadata("error", json!(error.to_string()))
+    }
 }
 
 impl EventStore for FileSegmentStore {
@@ -535,13 +559,18 @@ impl EventStore for FileSegmentStore {
     fn read_all(&self) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
         let mut events: Vec<DiagnosticEvent> = Vec::new();
         for path in self.segment_paths()? {
-            let file = File::open(path)?;
-            for line in BufReader::new(file).lines() {
+            let file = File::open(&path)?;
+            for (index, line) in BufReader::new(file).lines().enumerate() {
                 let line = line?;
                 if line.trim().is_empty() {
                     continue;
                 }
-                events.push(serde_json::from_str(&line)?);
+                match serde_json::from_str(&line) {
+                    Ok(event) => events.push(event),
+                    Err(error) => {
+                        events.push(Self::corrupted_segment_event(&path, index + 1, &error));
+                    }
+                }
             }
         }
         events.sort_by_key(|event| event.timestamp);

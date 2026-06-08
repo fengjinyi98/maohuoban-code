@@ -162,6 +162,49 @@ fn cleanup_removes_old_segments_and_keeps_recent_events() {
 }
 
 #[test]
+fn read_events_skips_corrupted_segment_lines_and_reports_warning() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let storage = temp.path().join("segments");
+    let store = FileSegmentStore::new(&storage, 1024 * 1024).expect("store");
+    let valid_event =
+        DiagnosticEvent::new(EventKind::Log, Severity::Info, "valid after corrupt line");
+    let valid_json = serde_json::to_string(&valid_event).expect("valid json");
+    fs::write(
+        storage.join("corrupted.jsonl"),
+        format!("not json\n{valid_json}\n"),
+    )
+    .expect("corrupted segment");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    let events = diagnostics.read_events().expect("events");
+    let valid = events
+        .iter()
+        .find(|event| event.message == "valid after corrupt line")
+        .expect("valid event");
+    let warning = events
+        .iter()
+        .find(|event| event.message == "storage segment decode failed")
+        .expect("storage warning");
+
+    assert_eq!(valid.kind, EventKind::Log);
+    assert_eq!(warning.kind, EventKind::Error);
+    assert_eq!(warning.severity, Severity::Warn);
+    assert_eq!(warning.metadata["source"], json!("file_segment_store"));
+    assert_eq!(warning.metadata["line"], json!("1"));
+    assert_eq!(warning.metadata["segment"], json!("corrupted.jsonl"));
+    assert!(warning.metadata.get("error").is_some());
+}
+
+#[test]
 fn cleanup_removes_expired_debug_bundles() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");
