@@ -1,6 +1,6 @@
 use maohuoban_diagnostics::{
     CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics, DiagnosticsConfig, EventKind,
-    FileSegmentStore, LlmPromptExporter, PrivacyPolicy, Severity,
+    FileSegmentStore, LlmPromptExporter, NetworkSummary, PrivacyPolicy, Severity,
 };
 use serde_json::json;
 use std::{fs, time::Duration};
@@ -164,6 +164,47 @@ fn install_makes_runtime_available_globally_and_records_convenience_events() {
             .iter()
             .any(|event| event.kind == EventKind::Performance)
     );
+}
+
+#[test]
+fn network_summary_api_records_success_and_failure_without_temp_logs() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.network(
+        NetworkSummary::new("GET", "https://api.example.com/feed")
+            .status_code(200)
+            .duration_ms(42)
+            .metadata("feature", json!("feed")),
+    );
+    diagnostics.network(
+        NetworkSummary::new("POST", "https://api.example.com/login")
+            .duration_ms(1_200)
+            .error("request timed out"),
+    );
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Network
+            && event.severity == Severity::Info
+            && event.metadata["status_code"] == json!(200)
+            && event.metadata["feature"] == json!("feed")
+    }));
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Network
+            && event.severity == Severity::Error
+            && event.metadata["error"] == json!("request timed out")
+            && event.metadata["duration_ms"] == json!(1_200)
+    }));
 }
 
 #[test]

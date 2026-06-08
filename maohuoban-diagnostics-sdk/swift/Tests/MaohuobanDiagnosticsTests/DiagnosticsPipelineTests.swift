@@ -133,6 +133,50 @@ struct DiagnosticsPipelineTests {
         #expect(events.contains { $0.kind == .performance && $0.message == "load detail" })
     }
 
+    @Test("网络摘要 API 会记录成功和失败请求")
+    func recordsNetworkSummaryWithoutTempLogs() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.network(
+            .init(
+                method: "GET",
+                url: "https://api.example.com/feed",
+                statusCode: 200,
+                durationMs: 42,
+                metadata: ["feature": "feed"]
+            )
+        )
+        await Diagnostics.network(
+            .init(
+                method: "POST",
+                url: "https://api.example.com/login",
+                durationMs: 1_200,
+                error: "request timed out"
+            )
+        )
+
+        let events = try await diagnostics.readEvents()
+        #expect(events.contains {
+            $0.kind == .network
+                && $0.severity == .info
+                && $0.metadata["status_code"] == "200"
+                && $0.metadata["feature"] == "feed"
+        })
+        #expect(events.contains {
+            $0.kind == .network
+                && $0.severity == .error
+                && $0.metadata["error"] == "request timed out"
+                && $0.metadata["duration_ms"] == "1200"
+        })
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()

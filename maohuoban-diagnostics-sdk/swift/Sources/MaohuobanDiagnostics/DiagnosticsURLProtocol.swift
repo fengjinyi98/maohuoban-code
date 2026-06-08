@@ -56,20 +56,21 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
 
     private func record(response: URLResponse?, error: Error?) {
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        var event = DiagnosticEvent.network(error == nil ? "network request completed" : "network request failed")
-            .metadata("url", request.url?.absoluteString ?? "")
-            .metadata("method", request.httpMethod ?? "GET")
-            .metadata("duration_ms", "\(durationMs)")
+        var summary = NetworkSummary(
+            method: request.httpMethod ?? "GET",
+            url: request.url?.absoluteString ?? "",
+            durationMs: durationMs
+        )
         if let http = response as? HTTPURLResponse {
-            event = event.metadata("status_code", "\(http.statusCode)")
+            summary.statusCode = http.statusCode
         }
         if let error {
-            event = event.metadata("error", error.localizedDescription)
+            summary.error = error.localizedDescription
         }
-        let capturedEvent = event
+        let capturedSummary = summary
         let capturedRuntime = Self.runtime
-        Task.detached { @Sendable [capturedEvent, capturedRuntime] in
-            await capturedRuntime?.record(capturedEvent)
+        Task.detached { @Sendable [capturedSummary, capturedRuntime] in
+            await capturedRuntime?.network(capturedSummary)
         }
     }
 }

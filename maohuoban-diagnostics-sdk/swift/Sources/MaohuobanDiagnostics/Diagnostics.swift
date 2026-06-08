@@ -33,6 +33,10 @@ public enum Diagnostics {
         await current()?.error(message, metadata: metadata)
     }
 
+    public static func network(_ summary: NetworkSummary) async {
+        await current()?.network(summary)
+    }
+
     public static func beginSpan(_ name: String) async -> DiagnosticsSpan? {
         await current()?.beginSpan(name)
     }
@@ -118,6 +122,10 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
             event = event.metadata(key, value)
         }
         await record(event)
+    }
+
+    public func network(_ summary: NetworkSummary) async {
+        await record(summary.event())
     }
 
     public func flush() async throws {
