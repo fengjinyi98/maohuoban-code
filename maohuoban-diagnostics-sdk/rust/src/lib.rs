@@ -699,6 +699,31 @@ impl Diagnostics {
         ));
     }
 
+    /// `capture_error` 记录结构化错误事件
+    /// 核心职责：
+    /// - 捕获 Rust 错误类型、顶层描述和 source chain
+    /// - 将业务 metadata 合并到统一 error 事件
+    pub fn capture_error<E>(
+        &self,
+        error: &E,
+        metadata: impl IntoIterator<Item = (impl Into<String>, Value)>,
+    ) where
+        E: std::error::Error + 'static,
+    {
+        let mut chain = vec![error.to_string()];
+        let mut source = error.source();
+        while let Some(error) = source {
+            chain.push(error.to_string());
+            source = error.source();
+        }
+
+        let event = DiagnosticEvent::new(EventKind::Error, Severity::Error, error.to_string())
+            .metadata("error", json!(error.to_string()))
+            .metadata("error_type", json!(std::any::type_name::<E>()))
+            .metadata("error_chain", json!(chain));
+        self.record(event_with_metadata(event, metadata));
+    }
+
     /// `network` 记录网络请求摘要
     /// 核心职责：
     /// - 采集自定义网络栈或 Rust HTTP 客户端的请求结果

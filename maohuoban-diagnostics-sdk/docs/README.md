@@ -36,6 +36,15 @@
 | `session_id` / `sessionID` | 可选会话标识 |
 | `metadata` | 可脱敏上下文字段 |
 
+## 结构化错误
+
+| 语言 | API | 自动字段 |
+| --- | --- | --- |
+| Swift | `Diagnostics.captureError(...)` | `error`、`error_type`、`error_domain`、`error_code`、`error_description`、`underlying_errors` |
+| Rust | `diagnostics.capture_error(...)` | `error`、`error_type`、`error_chain` |
+
+结构化错误会作为 `kind=error`、`severity=error` 的标准事件写入。全局上下文、隐私脱敏、存储、导出和 LLM Prompt 复用同一记录管线。
+
 ## 全局上下文
 
 | 能力 | Swift | Rust |

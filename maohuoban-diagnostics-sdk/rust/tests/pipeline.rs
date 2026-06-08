@@ -272,6 +272,45 @@ fn global_context_is_applied_to_events_without_temp_metadata_plumbing() {
 }
 
 #[test]
+fn captures_error_source_chain_as_structured_metadata() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    let error = CheckoutError {
+        source: DatabaseError,
+    };
+    diagnostics.capture_error(&error, [("feature", json!("checkout"))]);
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let event = events
+        .iter()
+        .find(|event| event.kind == EventKind::Error && event.message == "checkout failed")
+        .expect("captured error");
+    assert_eq!(event.severity, Severity::Error);
+    assert_eq!(event.metadata["feature"], json!("checkout"));
+    assert_eq!(event.metadata["error"], json!("checkout failed"));
+    assert!(
+        event.metadata["error_type"]
+            .as_str()
+            .expect("error type")
+            .contains("CheckoutError")
+    );
+    assert_eq!(
+        event.metadata["error_chain"],
+        json!(["checkout failed", "database unavailable"])
+    );
+}
+
+#[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
@@ -294,4 +333,15 @@ fn panic_hook_records_panic_as_fatal_error_event() {
             && event.severity == Severity::Fatal
             && event.message.contains("database unavailable")
     }));
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("database unavailable")]
+struct DatabaseError;
+
+#[derive(Debug, thiserror::Error)]
+#[error("checkout failed")]
+struct CheckoutError {
+    #[source]
+    source: DatabaseError,
 }

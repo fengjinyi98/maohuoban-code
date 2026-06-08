@@ -55,6 +55,7 @@ await Diagnostics.setContextMetadata("screen", "home")
 
 await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
 await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
+await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
 
 let span = await Diagnostics.beginSpan("load detail")
 await span?.end(metadata: ["result": "failed"])
@@ -94,6 +95,9 @@ Diagnostics::current().expect("diagnostics").log(Severity::Info, "started");
 Diagnostics::current()
     .expect("diagnostics")
     .breadcrumb("job queued", [("job_id", json!("sync-home"))]);
+Diagnostics::current()
+    .expect("diagnostics")
+    .capture_error(&error, [("feature", json!("sync-home"))]);
 
 let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
 span.end([("result", json!("ok"))]);
@@ -121,12 +125,14 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | --- | --- |
 | App 或服务启动 | `Diagnostics.install(...)` |
 | 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
-| 业务流程中记录上下文 | `breadcrumb`、`error`、`log`、`beginSpan/end` |
+| 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
 
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
+
+结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 
 ## Hooks
 

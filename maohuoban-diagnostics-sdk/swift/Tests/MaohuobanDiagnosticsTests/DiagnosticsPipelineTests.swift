@@ -225,6 +225,44 @@ struct DiagnosticsPipelineTests {
         #expect(cleared.traceID == nil)
     }
 
+    @Test("结构化错误 API 会记录 NSError domain、code 和 underlying chain")
+    func capturesNSErrorChainAsStructuredMetadata() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        let underlying = NSError(
+            domain: "Database",
+            code: 100,
+            userInfo: [NSLocalizedDescriptionKey: "database unavailable"]
+        )
+        let error = NSError(
+            domain: "Checkout",
+            code: 42,
+            userInfo: [
+                NSLocalizedDescriptionKey: "checkout failed",
+                NSUnderlyingErrorKey: underlying
+            ]
+        )
+
+        await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
+
+        let events = try await diagnostics.readEvents()
+        let event = try #require(events.first { $0.kind == .error && $0.message == "checkout failed" })
+        #expect(event.severity == .error)
+        #expect(event.metadata["feature"] == "checkout")
+        #expect(event.metadata["error_domain"] == "Checkout")
+        #expect(event.metadata["error_code"] == "42")
+        #expect(event.metadata["error_description"] == "checkout failed")
+        #expect(event.metadata["underlying_errors"]?.contains("Database:100") == true)
+        #expect(event.metadata["underlying_errors"]?.contains("database unavailable") == true)
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()

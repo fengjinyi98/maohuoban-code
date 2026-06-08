@@ -33,6 +33,10 @@ public enum Diagnostics {
         await current()?.error(message, metadata: metadata)
     }
 
+    public static func captureError(_ error: Error, metadata: [String: String] = [:]) async {
+        await current()?.captureError(error, metadata: metadata)
+    }
+
     public static func network(_ summary: NetworkSummary) async {
         await current()?.network(summary)
     }
@@ -154,6 +158,27 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         await record(event)
     }
 
+    public func captureError(_ error: Error, metadata: [String: String] = [:]) async {
+        var event = DiagnosticEvent.error(error.localizedDescription)
+        let nsError = error as NSError
+        event = event
+            .metadata("error", error.localizedDescription)
+            .metadata("error_type", String(reflecting: type(of: error)))
+            .metadata("error_domain", nsError.domain)
+            .metadata("error_code", "\(nsError.code)")
+            .metadata("error_description", nsError.localizedDescription)
+
+        let underlyingErrors = underlyingErrorDescriptions(from: nsError)
+        if !underlyingErrors.isEmpty {
+            event = event.metadata("underlying_errors", underlyingErrors.joined(separator: " | "))
+        }
+
+        for (key, value) in metadata {
+            event = event.metadata(key, value)
+        }
+        await record(event)
+    }
+
     public func network(_ summary: NetworkSummary) async {
         await record(summary.event())
     }
@@ -227,6 +252,16 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func beginSpan(_ name: String) -> DiagnosticsSpan {
         DiagnosticsSpan(name: name, runtime: self)
+    }
+
+    private func underlyingErrorDescriptions(from error: NSError) -> [String] {
+        var descriptions: [String] = []
+        var current = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        while let error = current {
+            descriptions.append("\(error.domain):\(error.code): \(error.localizedDescription)")
+            current = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return descriptions
     }
 }
 
