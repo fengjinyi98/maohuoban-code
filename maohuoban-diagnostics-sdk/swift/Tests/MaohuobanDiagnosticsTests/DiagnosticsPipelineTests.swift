@@ -54,6 +54,34 @@ struct DiagnosticsPipelineTests {
         #expect(prompt.contains("checkout request failed"))
     }
 
+    @Test("诊断包会写入校验字段和归档文件")
+    func debugBundleIncludesChecksumsAndArchive() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.error("archive input")
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let manifestData = try Data(contentsOf: bundle.manifestURL)
+        let manifest = try #require(
+            JSONSerialization.jsonObject(with: manifestData) as? [String: String]
+        )
+
+        #expect(manifest["timelineSHA256"]?.count == 64)
+        #expect(manifest["promptSHA256"]?.count == 64)
+        #expect(manifest["archivePath"] == "archive.tar")
+        #expect(FileManager.default.fileExists(atPath: bundle.archiveURL.path))
+
+        let archive = try Data(contentsOf: bundle.archiveURL)
+        #expect(String(data: archive, encoding: .utf8)?.contains("timeline.jsonl") == true)
+        #expect(String(data: archive, encoding: .utf8)?.contains("prompt.md") == true)
+    }
+
     @Test("采集策略会过滤低优先级事件并裁剪超长字段")
     func capturePolicyFiltersLowSeverityAndTruncatesOversizedFields() async throws {
         let root = try temporaryDirectory()

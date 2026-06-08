@@ -44,6 +44,38 @@ fn records_events_with_privacy_filter_and_exports_debug_bundle() {
 }
 
 #[test]
+fn debug_bundle_includes_checksums_and_archive() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.error("archive input", Vec::<(String, serde_json::Value)>::new());
+    diagnostics.flush().expect("flush events");
+
+    let bundle = DebugBundleExporter::new(temp.path().join("bundle"))
+        .export(&diagnostics)
+        .expect("export bundle");
+    let manifest = fs::read_to_string(&bundle.manifest_path).expect("manifest");
+    assert!(manifest.contains("\"timeline_sha256\""));
+    assert!(manifest.contains("\"prompt_sha256\""));
+    assert!(manifest.contains("\"archive_path\""));
+    assert!(bundle.archive_path.exists());
+
+    let archive = fs::read(&bundle.archive_path).expect("archive");
+    let archive_text = String::from_utf8_lossy(&archive);
+    assert!(archive_text.contains("timeline.jsonl"));
+    assert!(archive_text.contains("prompt.md"));
+}
+
+#[test]
 fn capture_policy_filters_low_severity_and_truncates_oversized_fields() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");

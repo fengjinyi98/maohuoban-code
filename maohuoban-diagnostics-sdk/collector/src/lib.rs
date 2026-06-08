@@ -196,6 +196,27 @@ mod tests {
     }
 
     #[test]
+    fn collector_keeps_archive_in_debug_bundle() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let output = root.path().join("bundle");
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Error,
+                Severity::Error,
+                "collector archive input",
+            ))
+            .expect("append");
+
+        let bundle = collect_debug_bundle(CollectorConfig::from_paths(segments, output))
+            .expect("collect bundle");
+        assert!(bundle.archive_path.exists());
+        let manifest = std::fs::read_to_string(bundle.manifest_path).expect("manifest");
+        assert!(manifest.contains("\"archive_path\""));
+    }
+
+    #[test]
     fn collector_merges_multiple_segment_directories_into_one_timeline() {
         let root = tempdir().expect("temp dir");
         let swift_segments = root.path().join("swift-segments");
