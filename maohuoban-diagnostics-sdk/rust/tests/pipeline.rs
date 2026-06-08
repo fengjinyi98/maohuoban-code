@@ -1,6 +1,7 @@
 use maohuoban_diagnostics::{
-    CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics, DiagnosticsConfig, EventKind,
-    FileSegmentStore, LlmPromptExporter, NetworkSummary, PrivacyPolicy, Severity,
+    CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics, DiagnosticsBootstrapConfig,
+    DiagnosticsConfig, EventKind, FileSegmentStore, LlmPromptExporter, NetworkSummary,
+    PrivacyPolicy, Severity,
 };
 use serde_json::json;
 use std::{fs, time::Duration};
@@ -372,6 +373,60 @@ fn scoped_trace_restores_previous_trace_after_operation() {
         .expect("after trace");
     assert_eq!(inside.trace_id.as_deref(), Some("inner"));
     assert_eq!(after.trace_id.as_deref(), Some("outer"));
+}
+
+#[test]
+fn bootstrap_installs_global_runtime_and_captures_startup_context() {
+    let temp = tempdir().expect("temp dir");
+    let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        storage_directory: temp.path().join("segments"),
+        max_segment_bytes: 1024 * 1024,
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        defaults: [
+            ("app_version".to_string(), json!("1.2.3")),
+            ("node".to_string(), json!("worker-a")),
+        ]
+        .into_iter()
+        .collect(),
+        session_id: Some("session-bootstrap".to_string()),
+        trace_id: Some("launch-trace".to_string()),
+        capture_runtime_snapshot: true,
+        cleanup_on_bootstrap: true,
+        install_panic_hook: false,
+    })
+    .expect("bootstrap diagnostics");
+
+    diagnostics.log(Severity::Info, "after bootstrap");
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let launch = events
+        .iter()
+        .find(|event| {
+            event.kind == EventKind::Lifecycle && event.message == "diagnostics bootstrap completed"
+        })
+        .expect("bootstrap lifecycle");
+    assert_eq!(launch.session_id.as_deref(), Some("session-bootstrap"));
+    assert_eq!(launch.trace_id.as_deref(), Some("launch-trace"));
+    assert_eq!(launch.metadata["app_version"], json!("1.2.3"));
+    assert_eq!(launch.metadata["node"], json!("worker-a"));
+
+    let runtime = events
+        .iter()
+        .find(|event| event.kind == EventKind::Performance && event.message == "runtime snapshot")
+        .expect("runtime snapshot");
+    assert_eq!(runtime.metadata["phase"], json!("bootstrap"));
+    assert_eq!(runtime.metadata["app_version"], json!("1.2.3"));
+
+    let after = events
+        .iter()
+        .find(|event| event.message == "after bootstrap")
+        .expect("after bootstrap");
+    assert_eq!(after.session_id.as_deref(), Some("session-bootstrap"));
+    assert_eq!(after.metadata["node"], json!("worker-a"));
 }
 
 #[test]

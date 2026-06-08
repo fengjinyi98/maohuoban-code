@@ -13,6 +13,28 @@ public enum Diagnostics {
         try await registry.install(configuration)
     }
 
+    @discardableResult
+    public static func bootstrap(_ configuration: DiagnosticsBootstrapConfiguration) async throws -> DiagnosticsRuntime {
+        let runtime = try await install(configuration.installation)
+        if configuration.cleanupOnBootstrap {
+            _ = try await runtime.cleanup()
+        }
+        if let sessionID = configuration.sessionID {
+            await runtime.setSessionID(sessionID)
+        }
+        if let traceID = configuration.traceID {
+            await runtime.setTraceID(traceID)
+        }
+        for (key, value) in configuration.defaults {
+            await runtime.setContextMetadata(key, value)
+        }
+        await runtime.record(.init(kind: .lifecycle, severity: .info, message: "diagnostics bootstrap completed"))
+        if configuration.captureRuntimeSnapshot {
+            await runtime.captureRuntimeSnapshot(metadata: ["phase": "bootstrap"])
+        }
+        return runtime
+    }
+
     public static func current() async -> DiagnosticsRuntime? {
         await registry.current()
     }

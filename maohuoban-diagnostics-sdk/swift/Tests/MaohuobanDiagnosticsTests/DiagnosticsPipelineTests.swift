@@ -313,6 +313,55 @@ struct DiagnosticsPipelineTests {
         #expect(after.traceID == "outer")
     }
 
+    @Test("启动助手会一次安装并记录启动上下文")
+    func bootstrapInstallsGlobalRuntimeAndCapturesStartupContext() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.bootstrap(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments"),
+                defaults: [
+                    "app_version": "1.2.3",
+                    "device_id": "simulator-a"
+                ],
+                sessionID: "session-bootstrap",
+                traceID: "launch-trace",
+                captureRuntimeSnapshot: true
+            )
+        )
+
+        await Diagnostics.log(.info, "after bootstrap")
+        try await diagnostics.flush()
+
+        let current = await Diagnostics.current()
+        #expect(current === diagnostics)
+
+        let events = try await diagnostics.readEvents()
+        let launchEvent = events.first { event in
+            event.kind == .lifecycle && event.message == "diagnostics bootstrap completed"
+        }
+        let launch = try #require(launchEvent)
+        #expect(launch.sessionID == "session-bootstrap")
+        #expect(launch.traceID == "launch-trace")
+        #expect(launch.metadata["app_version"] == "1.2.3")
+        #expect(launch.metadata["device_id"] == "simulator-a")
+
+        let runtimeEvent = events.first { event in
+            event.kind == .performance && event.message == "runtime snapshot"
+        }
+        let runtime = try #require(runtimeEvent)
+        #expect(runtime.metadata["phase"] == "bootstrap")
+        #expect(runtime.metadata["app_version"] == "1.2.3")
+
+        let afterEvent = events.first { event in
+            event.message == "after bootstrap"
+        }
+        let after = try #require(afterEvent)
+        #expect(after.sessionID == "session-bootstrap")
+        #expect(after.metadata["device_id"] == "simulator-a")
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()

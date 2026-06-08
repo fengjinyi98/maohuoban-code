@@ -518,6 +518,53 @@ pub struct DiagnosticsConfig {
     pub store: Box<dyn EventStore>,
 }
 
+/// `DiagnosticsBootstrapConfig` SDK 启动接入配置
+/// 核心职责：
+/// - 将文件存储、隐私策略、清理策略和默认上下文汇总为一个声明式入口
+/// - 为服务启动阶段提供一次调用即可全局可用的诊断管线
+pub struct DiagnosticsBootstrapConfig {
+    pub service_name: String,
+    pub environment: String,
+    pub storage_directory: PathBuf,
+    pub max_segment_bytes: u64,
+    pub privacy: PrivacyPolicy,
+    pub cleanup: CleanupPolicy,
+    pub defaults: Map<String, Value>,
+    pub session_id: Option<String>,
+    pub trace_id: Option<String>,
+    pub capture_runtime_snapshot: bool,
+    pub cleanup_on_bootstrap: bool,
+    pub install_panic_hook: bool,
+}
+
+impl DiagnosticsBootstrapConfig {
+    /// `new` 创建启动接入配置
+    /// 核心职责：
+    /// - 提供最小必填字段入口
+    /// - 为可选策略提供生产可用默认值
+    #[must_use]
+    pub fn new(
+        service_name: impl Into<String>,
+        environment: impl Into<String>,
+        storage_directory: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            service_name: service_name.into(),
+            environment: environment.into(),
+            storage_directory: storage_directory.into(),
+            max_segment_bytes: 1024 * 1024,
+            privacy: PrivacyPolicy::default(),
+            cleanup: CleanupPolicy::default(),
+            defaults: Map::new(),
+            session_id: None,
+            trace_id: None,
+            capture_runtime_snapshot: true,
+            cleanup_on_bootstrap: true,
+            install_panic_hook: true,
+        }
+    }
+}
+
 /// `Diagnostics` 诊断 SDK 主入口
 /// 核心职责：
 /// - 提供一次安装后全局可用的记录、读取、清理、导出能力
@@ -563,6 +610,49 @@ impl Diagnostics {
         let registry = CURRENT_DIAGNOSTICS.get_or_init(|| Mutex::new(None));
         if let Ok(mut current) = registry.lock() {
             *current = Some(diagnostics.clone());
+        }
+        Ok(diagnostics)
+    }
+
+    /// `bootstrap` 启动诊断 SDK
+    /// 核心职责：
+    /// - 初始化默认文件存储并完成全局安装
+    /// - 注入启动上下文、记录生命周期事件和可选运行时快照
+    ///
+    /// # Errors
+    ///
+    /// 当文件存储初始化或启动清理失败时返回错误。
+    pub fn bootstrap(config: DiagnosticsBootstrapConfig) -> Result<Self, DiagnosticsError> {
+        let store = FileSegmentStore::new(&config.storage_directory, config.max_segment_bytes)?;
+        let diagnostics = Self::install(DiagnosticsConfig {
+            service_name: config.service_name,
+            environment: config.environment,
+            privacy: config.privacy,
+            cleanup: config.cleanup,
+            store: Box::new(store),
+        })?;
+        if config.cleanup_on_bootstrap {
+            let _report = diagnostics.cleanup()?;
+        }
+        if let Some(session_id) = config.session_id {
+            diagnostics.set_session_id(session_id);
+        }
+        if let Some(trace_id) = config.trace_id {
+            diagnostics.set_trace_id(trace_id);
+        }
+        for (key, value) in config.defaults {
+            diagnostics.set_context_metadata(key, value);
+        }
+        if config.install_panic_hook {
+            diagnostics.install_panic_hook();
+        }
+        diagnostics.record(DiagnosticEvent::new(
+            EventKind::Lifecycle,
+            Severity::Info,
+            "diagnostics bootstrap completed",
+        ));
+        if config.capture_runtime_snapshot {
+            diagnostics.capture_runtime_snapshot([("phase", json!("bootstrap"))]);
         }
         Ok(diagnostics)
     }

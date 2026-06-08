@@ -33,14 +33,17 @@ import MaohuobanDiagnostics
 struct AppMain: App {
     init() {
         Task {
-            try await Diagnostics.install(
-                DiagnosticsConfiguration(
+            try await Diagnostics.bootstrap(
+                DiagnosticsBootstrapConfiguration(
                     serviceName: "maohuoban-ios",
                     environment: "local",
-                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"])
+                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"]),
+                    defaults: [
+                        "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+                    ],
+                    sessionID: "session-\(UUID().uuidString)"
                 )
             )
-            await Diagnostics.record(.init(kind: .lifecycle, severity: .info, message: "app launched"))
         }
     }
 }
@@ -116,6 +119,17 @@ let span = Diagnostics::current().expect("diagnostics").begin_span("sync home");
 span.end([("result", json!("ok"))]);
 ```
 
+服务启动阶段也可以使用 `bootstrap` 组合文件存储、默认上下文、panic hook、启动清理和启动快照：
+
+```rust
+let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig::new(
+    "maohuoban-rust",
+    "local",
+    "target/maohuoban-diagnostics/segments",
+))?;
+diagnostics.set_context_metadata("worker", json!("scheduler"));
+```
+
 ## Collector 导出
 
 ```bash
@@ -139,13 +153,16 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 | 场景 | 调用 |
 | --- | --- |
-| App 或服务启动 | `Diagnostics.install(...)` |
+| App 或服务启动 | Swift `Diagnostics.bootstrap(...)` / Rust `Diagnostics::bootstrap(...)` |
+| 高级自定义安装 | Swift `Diagnostics.install(...)` / Rust `Diagnostics::install(...)` |
 | 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
 | 建立作用域链路 | Swift `withTraceID`，Rust `with_trace_id` |
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`captureRuntimeSnapshot/capture_runtime_snapshot`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
+
+`bootstrap` 会完成安装、默认上下文注入、启动生命周期事件、可选运行时快照和启动清理，适合作为 App 或服务进程的唯一接入点。
 
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
 

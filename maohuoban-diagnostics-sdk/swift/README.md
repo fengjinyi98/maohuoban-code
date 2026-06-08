@@ -12,19 +12,23 @@ Swift SDK 面向 iOS/macOS 原生项目接入。
 | 错误 | 记录异常、错误链、面包屑和环境快照 |
 | 清理 | 管理本地缓存大小、时间窗口、隐私字段和导出生命周期 |
 
-## 一次安装
+## 一次接入
 
 ```swift
 import MaohuobanDiagnostics
 
-try await Diagnostics.install(
-    .init(
+try await Diagnostics.bootstrap(
+    DiagnosticsBootstrapConfiguration(
         serviceName: "maohuoban-ios",
         environment: "local",
-        privacy: .init(redactedKeys: ["authorization", "password", "token"])
+        privacy: .init(redactedKeys: ["authorization", "password", "token"]),
+        defaults: ["app_version": "1.0.0"],
+        sessionID: "session-\(UUID().uuidString)"
     )
 )
 ```
+
+`bootstrap` 会完成全局安装、默认上下文注入、启动生命周期事件、运行时快照和启动清理。需要完全自定义存储生命周期时使用 `Diagnostics.install(...)`。
 
 ## 全局使用
 

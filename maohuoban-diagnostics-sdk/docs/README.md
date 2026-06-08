@@ -17,6 +17,7 @@
 | 层 | 说明 |
 | --- | --- |
 | Facade | Swift `Diagnostics` / Rust `Diagnostics::current()` 提供全局入口 |
+| Bootstrap | 汇总安装、默认上下文、启动事件、运行时快照和启动清理 |
 | Runtime | 绑定 service、environment、隐私策略、清理策略和存储 |
 | Context | 维护全局 session、trace 和默认 metadata，并在记录管线中补齐事件 |
 | Capture | 记录 log、breadcrumb、error、performance、network、lifecycle |
@@ -67,6 +68,15 @@
 全局上下文会自动补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 保留自身值，用于覆盖某个局部请求、页面或 span。
 
 作用域链路会在操作结束后恢复进入前的 trace，失败路径同样恢复，适合包住一次用户动作、网络请求或后台任务。
+
+## 启动接入
+
+| 语言 | 推荐入口 | 启动阶段自动能力 |
+| --- | --- | --- |
+| Swift | `Diagnostics.bootstrap(...)` | 安装全局 runtime、注入默认 metadata、记录 `lifecycle` 启动事件、可选运行时快照、可选清理 |
+| Rust | `Diagnostics::bootstrap(...)` | 初始化文件分段存储、安装全局 runtime、注入默认 metadata、记录 `lifecycle` 启动事件、可选运行时快照、可选清理、可选 panic hook |
+
+启动助手只编排现有层：配置层提供声明式参数，Context 层接收默认值，Capture 层记录生命周期和性能事件，Cleanup 层执行保留策略，Storage 层继续负责 JSONL 分段落盘。
 
 ## Debug Bundle
 
