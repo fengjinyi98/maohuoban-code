@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+maohuoban_diagnostics = { path = "../maohuoban-diagnostics-sdk/rust" }
 
 [lints]
 workspace = true

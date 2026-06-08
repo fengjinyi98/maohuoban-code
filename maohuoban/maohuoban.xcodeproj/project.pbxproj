@@ -10,6 +10,10 @@
 		B9BC334D2FD6C95400F40E35 /* maohuoban.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = maohuoban.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXBuildFile section */
+		B9BC33602FD6D70000F40E35 /* MaohuobanDiagnostics in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B9BC334F2FD6C95400F40E35 /* maohuoban */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B9BC33602FD6D70000F40E35 /* MaohuobanDiagnostics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = maohuoban;
 			packageProductDependencies = (
+				B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */,
 			);
 			productName = maohuoban;
 			productReference = B9BC334D2FD6C95400F40E35 /* maohuoban.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = B9BC33442FD6C95400F40E35;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B9BC33622FD6D70000F40E35 /* XCLocalSwiftPackageReference "../maohuoban-diagnostics-sdk/swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B9BC334E2FD6C95400F40E35 /* Products */;
 			projectDirPath = "";
@@ -332,6 +341,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B9BC33622FD6D70000F40E35 /* XCLocalSwiftPackageReference "../maohuoban-diagnostics-sdk/swift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../maohuoban-diagnostics-sdk/swift";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B9BC33622FD6D70000F40E35 /* XCLocalSwiftPackageReference "../maohuoban-diagnostics-sdk/swift" */;
+			productName = MaohuobanDiagnostics;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B9BC33452FD6C95400F40E35 /* Project object */;
 }

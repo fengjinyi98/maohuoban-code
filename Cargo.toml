@@ -1,10 +1,12 @@
 [workspace]
 members = [
     "maohuoban-rust",
+    "maohuoban-diagnostics-sdk/collector",
     "maohuoban-diagnostics-sdk/rust",
 ]
 default-members = [
     "maohuoban-rust",
+    "maohuoban-diagnostics-sdk/collector",
     "maohuoban-diagnostics-sdk/rust",
 ]
 resolver = "3"
