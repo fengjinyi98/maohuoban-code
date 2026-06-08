@@ -37,4 +37,16 @@ extension DiagnosticsRuntime {
     public func clearContextMetadata() async {
         await context.clearMetadata()
     }
+
+    public func setTrackingConsent(_ consent: DiagnosticsTrackingConsent) async {
+        await captureState.setTrackingConsent(consent)
+    }
+
+    public func setCaptureEnabled(_ enabled: Bool) async {
+        await captureState.setCaptureEnabled(enabled)
+    }
+
+    public func setSampleRate(_ sampleRate: Double) async {
+        await captureState.setSampleRate(sampleRate)
+    }
 }

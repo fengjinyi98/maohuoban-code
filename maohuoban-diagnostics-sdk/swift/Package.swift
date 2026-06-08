@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "MaohuobanDiagnostics",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15),
+        .iOS(.v15),
+        .macOS(.v12),
     ],
     products: [
         .library(
@@ -16,7 +16,10 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "MaohuobanDiagnostics"
+            name: "MaohuobanDiagnostics",
+            resources: [
+                .process("Resources"),
+            ]
         ),
         .testTarget(
             name: "MaohuobanDiagnosticsTests",

@@ -10,7 +10,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
@@ -48,7 +48,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
@@ -67,7 +67,7 @@ extension DiagnosticsPipelineTests {
     @Test("运行时快照会暴露存储写入失败计数")
     func runtimeSnapshotReportsDroppedEventsAfterStorageWriteFailure() async throws {
         let root = try temporaryDirectory()
-        let storage = root.appending(path: "segments")
+        let storage = root.appendingPathComponent("segments")
         let diagnostics = try await Diagnostics.install(
             .init(
                 serviceName: "maohuoban",

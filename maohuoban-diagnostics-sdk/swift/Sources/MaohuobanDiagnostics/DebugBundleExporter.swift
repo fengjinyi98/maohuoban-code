@@ -9,10 +9,10 @@ struct DebugBundleExporter {
 
     func export(events: [DiagnosticEvent]) throws -> DebugBundle {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-        let manifestURL = outputDirectory.appending(path: "manifest.json")
-        let timelineURL = outputDirectory.appending(path: "timeline.jsonl")
-        let promptURL = outputDirectory.appending(path: "prompt.md")
-        let archiveURL = outputDirectory.appending(path: "archive.tar")
+        let manifestURL = outputDirectory.appendingPathComponent("manifest.json")
+        let timelineURL = outputDirectory.appendingPathComponent("timeline.jsonl")
+        let promptURL = outputDirectory.appendingPathComponent("prompt.md")
+        let archiveURL = outputDirectory.appendingPathComponent("archive.tar")
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

@@ -7,7 +7,7 @@ import Testing
 // - 避免诊断段文件、导出包和日志文件相互污染
 func temporaryDirectory() throws -> URL {
     let root = FileManager.default.temporaryDirectory
-        .appending(path: "maohuoban-diagnostics-\(UUID().uuidString)")
+        .appendingPathComponent("maohuoban-diagnostics-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     return root
 }

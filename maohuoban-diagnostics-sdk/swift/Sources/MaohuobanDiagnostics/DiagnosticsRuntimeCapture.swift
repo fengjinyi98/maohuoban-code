@@ -7,7 +7,7 @@ import Foundation
 extension DiagnosticsRuntime {
     public func record(_ event: DiagnosticEvent) async {
         let contextualEvent = await context.apply(to: event)
-        guard let capturedEvent = configuration.capture.apply(
+        guard let capturedEvent = await captureState.apply(
             to: contextualEvent
                 .metadata("service", configuration.serviceName)
                 .metadata("environment", configuration.environment)

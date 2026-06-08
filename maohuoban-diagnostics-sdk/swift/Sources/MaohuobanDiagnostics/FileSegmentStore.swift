@@ -14,7 +14,7 @@ actor FileSegmentStore {
     init(directory: URL, maxSegmentBytes: UInt64) throws {
         self.directory = directory
         self.maxSegmentBytes = maxSegmentBytes
-        currentURL = directory.appending(path: "\(UUID().uuidString).jsonl")
+        currentURL = directory.appendingPathComponent("\(UUID().uuidString).jsonl")
         encoder = JSONEncoder()
         decoder = JSONDecoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -92,7 +92,7 @@ actor FileSegmentStore {
         }
         let values = try currentURL.resourceValues(forKeys: [.fileSizeKey])
         if UInt64(values.fileSize ?? 0) >= maxSegmentBytes {
-            currentURL = directory.appending(path: "\(UUID().uuidString).jsonl")
+            currentURL = directory.appendingPathComponent("\(UUID().uuidString).jsonl")
         }
     }
 

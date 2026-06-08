@@ -10,12 +10,12 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
         await diagnostics.error("checkout request failed")
-        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appendingPathComponent("bundle"))
         let prompt = try String(contentsOf: bundle.promptURL, encoding: .utf8)
 
         #expect(prompt.contains("maohuoban.diagnostics.prompt.v1"))
@@ -29,12 +29,12 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
         await diagnostics.error("archive input")
-        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appendingPathComponent("bundle"))
         let manifestData = try Data(contentsOf: bundle.manifestURL)
         let manifest = try #require(
             JSONSerialization.jsonObject(with: manifestData) as? [String: String]
@@ -62,7 +62,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 

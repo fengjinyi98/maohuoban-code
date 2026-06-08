@@ -10,7 +10,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments"),
+                storageDirectory: root.appendingPathComponent("segments"),
                 defaults: [
                     "app_version": "1.2.3",
                     "device_id": "simulator-a"
@@ -55,14 +55,14 @@ extension DiagnosticsPipelineTests {
     @Test("启动助手会在记录启动事件前执行清理策略")
     func bootstrapRunsCleanupBeforeRecordingStartupEvents() async throws {
         let root = try temporaryDirectory()
-        let storage = root.appending(path: "segments")
+        let storage = root.appendingPathComponent("segments")
         try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
         let staleEvent = DiagnosticEvent(kind: .log, severity: .info, message: "stale before bootstrap")
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         var staleData = try encoder.encode(staleEvent)
         staleData.append(0x0A)
-        try staleData.write(to: storage.appending(path: "stale.jsonl"))
+        try staleData.write(to: storage.appendingPathComponent("stale.jsonl"))
 
         let diagnostics = try await Diagnostics.bootstrap(
             .init(

@@ -89,7 +89,17 @@ struct AppMain: App {
                 DiagnosticsBootstrapConfiguration(
                     serviceName: "maohuoban-ios",
                     environment: "local",
-                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"]),
+                    privacy: PrivacyPolicy(
+                        redactedKeys: ["authorization", "password", "token"],
+                        redactedQueryItems: ["token", "access_token", "refresh_token"],
+                        redactedTextPatterns: [.email, .phoneNumber]
+                    ),
+                    capture: CapturePolicy(
+                        enabled: true,
+                        consent: .granted,
+                        sampleRate: 1,
+                        minimumSeverity: .info
+                    ),
                     defaults: [
                         "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
                     ],
@@ -114,6 +124,9 @@ try await Diagnostics.withTraceID("open-detail") {
 await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
 await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
 await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
+await Diagnostics.setTrackingConsent(.granted)
+await Diagnostics.setCaptureEnabled(true)
+await Diagnostics.setSampleRate(0.2)
 
 let span = await Diagnostics.beginSpan("load detail")
 await span?.end(metadata: ["result": "failed"])
@@ -122,13 +135,15 @@ let bundle = try await Diagnostics.exportDebugBundle(to: diagnosticsBundleURL)
 let prompt = try await Diagnostics.exportLLMPrompt(title: "分析这个 bug")
 ```
 
-网络采集使用稳定的 `URLProtocol` 注入方式：
+网络采集默认使用低侵入手动 `URLProtocol` 注入方式：
 
 ```swift
 let diagnostics = await Diagnostics.current()
 let configuration = await diagnostics?.instrumentedURLSessionConfiguration(.default)
 let session = URLSession(configuration: configuration ?? .default)
 ```
+
+需要覆盖全进程 URL Loading 时，显式配置 `networkCapture: .globalURLProtocol`。
 
 ## Rust 一次接入
 
@@ -240,7 +255,7 @@ Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.json
 
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
 
-作用域 trace API 会在操作结束后恢复进入前的 trace，失败路径同样恢复，适合包住一次用户动作、网络请求或后台任务。
+作用域 trace API 使用 Swift `TaskLocal` 绑定临时 trace。操作结束后恢复进入前的 trace，失败路径同样恢复，并发任务保留自身 trace，适合包住一次用户动作、网络请求或后台任务。
 
 结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 
@@ -248,7 +263,9 @@ Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.json
 
 网络摘要 API 会记录 method、url、status code、duration、error 和取消状态。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。取消请求会生成 `severity=warn` 且 message 为 `network request cancelled`；显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
 
-采集策略默认保留全部事件。需要控制日志量时，可以配置 Swift `CapturePolicy(minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。
+采集策略默认启用、授权为 `.granted`、采样率为 `1`。需要控制日志量时，可以配置 Swift `CapturePolicy(enabled:consent:sampleRate:minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。Swift 运行时支持 `setTrackingConsent`、`setCaptureEnabled` 和 `setSampleRate` 动态更新采集边界。
+
+Swift `PrivacyPolicy` 会在写入前统一处理 metadata key、URL query item 和文本模式。Swift Package 已包含 `PrivacyInfo.xcprivacy`，默认不上传数据、不声明追踪域名。
 
 ## Hooks
 

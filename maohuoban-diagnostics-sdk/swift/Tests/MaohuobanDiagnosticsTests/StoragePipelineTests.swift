@@ -10,7 +10,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments"),
+                storageDirectory: root.appendingPathComponent("segments"),
                 privacy: .init(redactedKeys: ["authorization", "password"]),
                 cleanup: .init()
             )
@@ -24,7 +24,7 @@ extension DiagnosticsPipelineTests {
         )
         try await diagnostics.flush()
 
-        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appendingPathComponent("bundle"))
         let timeline = try String(contentsOf: bundle.timelineURL, encoding: .utf8)
 
         #expect(timeline.contains("request completed"))
@@ -41,7 +41,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments"),
+                storageDirectory: root.appendingPathComponent("segments"),
                 capture: .init(
                     minimumSeverity: .warn,
                     maxMessageLength: 8,
@@ -69,7 +69,7 @@ extension DiagnosticsPipelineTests {
     @Test("读取段文件会跳过损坏行并保留告警事件")
     func readEventsSkipsCorruptedSegmentLinesAndReportsWarning() async throws {
         let root = try temporaryDirectory()
-        let storage = root.appending(path: "segments")
+        let storage = root.appendingPathComponent("segments")
         let diagnostics = try await Diagnostics.install(
             .init(
                 serviceName: "maohuoban",
@@ -86,7 +86,7 @@ extension DiagnosticsPipelineTests {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let validData = try encoder.encode(validEvent)
-        let segment = storage.appending(path: "corrupted.jsonl")
+        let segment = storage.appendingPathComponent("corrupted.jsonl")
         try Data("not json\n".utf8).write(to: segment)
         let handle = try FileHandle(forWritingTo: segment)
         defer { try? handle.close() }
@@ -113,7 +113,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments"),
+                storageDirectory: root.appendingPathComponent("segments"),
                 privacy: .init(),
                 cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 0, maxExportAge: 0)
             )
@@ -134,13 +134,13 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments"),
+                storageDirectory: root.appendingPathComponent("segments"),
                 cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 7 * 24 * 60 * 60, maxExportAge: 0)
             )
         )
 
         await diagnostics.error("export cleanup input")
-        let bundle = try await diagnostics.exportDebugBundle(to: root.appending(path: "bundle"))
+        let bundle = try await diagnostics.exportDebugBundle(to: root.appendingPathComponent("bundle"))
         #expect(FileManager.default.fileExists(atPath: bundle.directoryURL.path))
 
         let report = try await diagnostics.cleanup()
@@ -151,8 +151,8 @@ extension DiagnosticsPipelineTests {
     @Test("清理策略会删除上次运行遗留的过期诊断包")
     func cleanupRemovesExpiredDebugBundlesAcrossRuntimeRestart() async throws {
         let root = try temporaryDirectory()
-        let storage = root.appending(path: "segments")
-        let bundleURL = root.appending(path: "bundle")
+        let storage = root.appendingPathComponent("segments")
+        let bundleURL = root.appendingPathComponent("bundle")
         let firstRuntime = try await Diagnostics.install(
             .init(
                 serviceName: "maohuoban",

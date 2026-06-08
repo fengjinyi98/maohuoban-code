@@ -16,7 +16,12 @@ struct maohuobanApp: App {
                 DiagnosticsBootstrapConfiguration(
                     serviceName: "maohuoban-ios",
                     environment: "local",
-                    privacy: PrivacyPolicy(redactedKeys: ["authorization", "password", "token"]),
+                    privacy: PrivacyPolicy(
+                        redactedKeys: ["authorization", "password", "token"],
+                        redactedQueryItems: ["token", "access_token", "refresh_token"],
+                        redactedTextPatterns: [.email, .phoneNumber]
+                    ),
+                    capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
                     defaults: [
                         "client": "ios",
                         "app": "maohuoban"

@@ -105,6 +105,18 @@ public enum Diagnostics {
         await current()?.clearContextMetadata()
     }
 
+    public static func setTrackingConsent(_ consent: DiagnosticsTrackingConsent) async {
+        await current()?.setTrackingConsent(consent)
+    }
+
+    public static func setCaptureEnabled(_ enabled: Bool) async {
+        await current()?.setCaptureEnabled(enabled)
+    }
+
+    public static func setSampleRate(_ sampleRate: Double) async {
+        await current()?.setSampleRate(sampleRate)
+    }
+
     public static func beginSpan(_ name: String) async -> DiagnosticsSpan? {
         await current()?.beginSpan(name)
     }
@@ -125,4 +137,3 @@ public enum Diagnostics {
         try await current()?.exportLLMPrompt(title: title, maxEvents: maxEvents)
     }
 }
-

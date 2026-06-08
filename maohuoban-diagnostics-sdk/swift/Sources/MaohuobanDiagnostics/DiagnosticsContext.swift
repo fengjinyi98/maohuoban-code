@@ -25,12 +25,9 @@ actor DiagnosticsContext {
         _ traceID: String,
         operation: @Sendable () async throws -> T
     ) async throws -> T {
-        let previous = self.traceID
-        self.traceID = traceID
-        defer {
-            self.traceID = previous
+        try await DiagnosticsTraceScope.$traceID.withValue(traceID) {
+            try await operation()
         }
-        return try await operation()
     }
 
     func clearTraceID() {
@@ -57,9 +54,17 @@ actor DiagnosticsContext {
             kind: event.kind,
             severity: event.severity,
             message: event.message,
-            traceID: event.traceID ?? traceID,
+            traceID: event.traceID ?? DiagnosticsTraceScope.traceID ?? traceID,
             sessionID: event.sessionID ?? sessionID,
             metadata: eventMetadata
         )
     }
+}
+
+// DiagnosticsTraceScope 异步作用域链路上下文
+// 核心职责：
+// - 将临时 trace 绑定到当前异步任务树
+// - 避免并发事件读取到其他作用域的临时 trace
+private enum DiagnosticsTraceScope {
+    @TaskLocal static var traceID: String?
 }

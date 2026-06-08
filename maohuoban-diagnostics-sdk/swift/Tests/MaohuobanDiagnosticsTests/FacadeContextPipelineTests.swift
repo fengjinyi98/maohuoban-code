@@ -9,7 +9,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
@@ -31,7 +31,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
@@ -79,7 +79,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 
@@ -106,7 +106,7 @@ extension DiagnosticsPipelineTests {
             .init(
                 serviceName: "maohuoban",
                 environment: "test",
-                storageDirectory: root.appending(path: "segments")
+                storageDirectory: root.appendingPathComponent("segments")
             )
         )
 

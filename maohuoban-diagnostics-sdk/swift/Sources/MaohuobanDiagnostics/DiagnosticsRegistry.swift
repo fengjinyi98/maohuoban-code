@@ -11,7 +11,9 @@ actor DiagnosticsRegistry {
         let runtime = try DiagnosticsRuntime(configuration: configuration)
         self.runtime = runtime
         DiagnosticsURLProtocol.runtime = runtime
-        URLProtocol.registerClass(DiagnosticsURLProtocol.self)
+        if configuration.networkCapture == .globalURLProtocol {
+            URLProtocol.registerClass(DiagnosticsURLProtocol.self)
+        }
         return runtime
     }
 

@@ -8,14 +8,16 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     let configuration: DiagnosticsConfiguration
     let store: FileSegmentStore
     let context = DiagnosticsContext()
+    let captureState: DiagnosticsCaptureState
     let storageHealth = DiagnosticsStorageHealth()
     let exportRegistry: ExportDirectoryRegistry
     let startedAt = Date()
 
     init(configuration: DiagnosticsConfiguration) throws {
         self.configuration = configuration
+        captureState = DiagnosticsCaptureState(policy: configuration.capture)
         exportRegistry = ExportDirectoryRegistry(
-            indexURL: configuration.storageDirectory.appending(path: ".debug-bundles.jsonl")
+            indexURL: configuration.storageDirectory.appendingPathComponent(".debug-bundles.jsonl")
         )
         store = try FileSegmentStore(
             directory: configuration.storageDirectory,

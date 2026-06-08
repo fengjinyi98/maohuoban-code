@@ -12,6 +12,7 @@ public struct DiagnosticsConfiguration: Sendable {
     public var capture: CapturePolicy
     public var cleanup: CleanupPolicy
     public var maxSegmentBytes: UInt64
+    public var networkCapture: NetworkCaptureMode
 
     public init(
         serviceName: String,
@@ -20,7 +21,8 @@ public struct DiagnosticsConfiguration: Sendable {
         privacy: PrivacyPolicy = .init(),
         capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
-        maxSegmentBytes: UInt64 = 1_024 * 1_024
+        maxSegmentBytes: UInt64 = 1_024 * 1_024,
+        networkCapture: NetworkCaptureMode = .manual
     ) {
         self.serviceName = serviceName
         self.environment = environment
@@ -29,13 +31,23 @@ public struct DiagnosticsConfiguration: Sendable {
         self.capture = capture
         self.cleanup = cleanup
         self.maxSegmentBytes = maxSegmentBytes
+        self.networkCapture = networkCapture
     }
 
     public static func defaultStorageDirectory() -> URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        return base.appending(path: "MaohuobanDiagnostics/segments")
+        return base.appendingPathComponent("MaohuobanDiagnostics/segments")
     }
+}
+
+// NetworkCaptureMode 网络采集模式
+// 核心职责：
+// - 控制 SDK 是否修改全进程 URL Loading 行为
+// - 为低侵入手动注入和显式全局采集提供配置边界
+public enum NetworkCaptureMode: Sendable, Equatable {
+    case manual
+    case globalURLProtocol
 }
 
 // DiagnosticsBootstrapConfiguration SDK 启动接入配置
@@ -58,6 +70,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
         capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
         maxSegmentBytes: UInt64 = 1_024 * 1_024,
+        networkCapture: NetworkCaptureMode = .manual,
         defaults: [String: String] = [:],
         sessionID: String? = nil,
         traceID: String? = nil,
@@ -71,7 +84,8 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
             privacy: privacy,
             capture: capture,
             cleanup: cleanup,
-            maxSegmentBytes: maxSegmentBytes
+            maxSegmentBytes: maxSegmentBytes,
+            networkCapture: networkCapture
         )
         self.defaults = defaults
         self.sessionID = sessionID
