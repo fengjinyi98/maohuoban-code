@@ -57,6 +57,16 @@ public enum Diagnostics {
         await current()?.setTraceID(traceID)
     }
 
+    public static func withTraceID<T: Sendable>(
+        _ traceID: String,
+        operation: @Sendable () async throws -> T
+    ) async throws -> T {
+        guard let runtime = await current() else {
+            return try await operation()
+        }
+        return try await runtime.withTraceID(traceID, operation: operation)
+    }
+
     public static func clearTraceID() async {
         await current()?.clearTraceID()
     }
@@ -215,6 +225,13 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         await context.setTraceID(traceID)
     }
 
+    public func withTraceID<T: Sendable>(
+        _ traceID: String,
+        operation: @Sendable () async throws -> T
+    ) async throws -> T {
+        try await context.withTraceID(traceID, operation: operation)
+    }
+
     public func clearTraceID() async {
         await context.clearTraceID()
     }
@@ -318,6 +335,18 @@ actor DiagnosticsContext {
 
     func setTraceID(_ traceID: String) {
         self.traceID = traceID
+    }
+
+    func withTraceID<T: Sendable>(
+        _ traceID: String,
+        operation: @Sendable () async throws -> T
+    ) async throws -> T {
+        let previous = self.traceID
+        self.traceID = traceID
+        defer {
+            self.traceID = previous
+        }
+        return try await operation()
     }
 
     func clearTraceID() {

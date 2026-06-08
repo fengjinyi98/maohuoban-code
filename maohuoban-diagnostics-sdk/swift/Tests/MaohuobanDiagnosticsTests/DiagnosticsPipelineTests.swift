@@ -286,6 +286,33 @@ struct DiagnosticsPipelineTests {
         #expect(Int(event.metadata["uptime_ms"] ?? "") != nil)
     }
 
+    @Test("作用域 trace 会在操作结束后恢复原 trace")
+    func scopedTraceRestoresPreviousTraceAfterOperation() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.setTraceID("outer")
+        await #expect(throws: ScopedTraceTestError.self) {
+            try await Diagnostics.withTraceID("inner") {
+                await Diagnostics.log(.info, "inside trace")
+                throw ScopedTraceTestError()
+            }
+        }
+        await diagnostics.log(.info, "after trace")
+
+        let events = try await diagnostics.readEvents()
+        let inside = try #require(events.first { $0.message == "inside trace" })
+        let after = try #require(events.first { $0.message == "after trace" })
+        #expect(inside.traceID == "inner")
+        #expect(after.traceID == "outer")
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()
@@ -335,3 +362,5 @@ private func temporaryDirectory() throws -> URL {
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     return root
 }
+
+private struct ScopedTraceTestError: Error {}

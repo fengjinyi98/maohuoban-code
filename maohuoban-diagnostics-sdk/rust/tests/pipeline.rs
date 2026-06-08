@@ -340,6 +340,41 @@ fn captures_runtime_snapshot_as_performance_event() {
 }
 
 #[test]
+fn scoped_trace_restores_previous_trace_after_operation() {
+    let temp = tempdir().expect("temp dir");
+    let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");
+    let diagnostics = Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        privacy: PrivacyPolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics");
+
+    diagnostics.set_trace_id("outer");
+    let result: Result<(), &str> = diagnostics.with_trace_id("inner", || {
+        diagnostics.log(Severity::Info, "inside trace");
+        Err("operation failed")
+    });
+    assert_eq!(result, Err("operation failed"));
+    diagnostics.log(Severity::Info, "after trace");
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    let inside = events
+        .iter()
+        .find(|event| event.message == "inside trace")
+        .expect("inside trace");
+    let after = events
+        .iter()
+        .find(|event| event.message == "after trace")
+        .expect("after trace");
+    assert_eq!(inside.trace_id.as_deref(), Some("inner"));
+    assert_eq!(after.trace_id.as_deref(), Some("outer"));
+}
+
+#[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
     let temp = tempdir().expect("temp dir");
     let store = FileSegmentStore::new(temp.path().join("segments"), 1024 * 1024).expect("store");

@@ -53,7 +53,9 @@ await Diagnostics.setSessionID("session-\(UUID().uuidString)")
 await Diagnostics.setTraceID("home-refresh")
 await Diagnostics.setContextMetadata("screen", "home")
 
-await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
+try await Diagnostics.withTraceID("open-detail") {
+    await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
+}
 await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
 await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
 await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
@@ -98,6 +100,13 @@ Diagnostics::current()
     .breadcrumb("job queued", [("job_id", json!("sync-home"))]);
 Diagnostics::current()
     .expect("diagnostics")
+    .with_trace_id("sync-home-task", || {
+        Diagnostics::current()
+            .expect("diagnostics")
+            .log(Severity::Info, "sync task running");
+    });
+Diagnostics::current()
+    .expect("diagnostics")
     .capture_error(&error, [("feature", json!("sync-home"))]);
 Diagnostics::current()
     .expect("diagnostics")
@@ -132,12 +141,15 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | --- | --- |
 | App 或服务启动 | `Diagnostics.install(...)` |
 | 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
+| 建立作用域链路 | Swift `withTraceID`，Rust `with_trace_id` |
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`captureRuntimeSnapshot/capture_runtime_snapshot`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `DebugBundleExporter` / Collector CLI |
 | 定期清理 | Swift `Diagnostics.cleanup()` / Rust `diagnostics.cleanup()` |
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `prompt.md` 和 `timeline.jsonl` |
 
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
+
+作用域 trace API 会在操作结束后恢复进入前的 trace，失败路径同样恢复，适合包住一次用户动作、网络请求或后台任务。
 
 结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 

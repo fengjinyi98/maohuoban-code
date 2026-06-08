@@ -608,6 +608,23 @@ impl Diagnostics {
         }
     }
 
+    /// `with_trace_id` 在作用域内设置链路标识
+    /// 核心职责：
+    /// - 为闭包内事件设置临时 trace
+    /// - 闭包结束后恢复进入前的 trace
+    pub fn with_trace_id<T>(
+        &self,
+        trace_id: impl Into<String>,
+        operation: impl FnOnce() -> T,
+    ) -> T {
+        let previous = self.replace_trace_id(Some(trace_id.into()));
+        let _guard = TraceScopeGuard {
+            diagnostics: self.clone(),
+            previous,
+        };
+        operation()
+    }
+
     /// `clear_trace_id` 清除全局链路标识
     /// 核心职责：
     /// - 结束当前链路关联
@@ -868,6 +885,14 @@ impl Diagnostics {
         event
     }
 
+    fn replace_trace_id(&self, trace_id: Option<String>) -> Option<String> {
+        self.inner
+            .context
+            .lock()
+            .ok()
+            .and_then(|mut context| std::mem::replace(&mut context.trace_id, trace_id))
+    }
+
     fn cleanup_exports(&self) -> Result<CleanupReport, DiagnosticsError> {
         let mut report = CleanupReport::default();
         let mut remaining = Vec::new();
@@ -901,6 +926,22 @@ impl Diagnostics {
 }
 
 static CURRENT_DIAGNOSTICS: OnceLock<Mutex<Option<Diagnostics>>> = OnceLock::new();
+
+/// `TraceScopeGuard` 链路作用域恢复器
+/// 核心职责：
+/// - 在作用域退出时恢复原 trace
+/// - 支持闭包失败或 panic unwind 路径的上下文恢复
+struct TraceScopeGuard {
+    diagnostics: Diagnostics,
+    previous: Option<String>,
+}
+
+impl Drop for TraceScopeGuard {
+    fn drop(&mut self) {
+        let previous = self.previous.take();
+        let _ = self.diagnostics.replace_trace_id(previous);
+    }
+}
 
 fn event_with_metadata(
     mut event: DiagnosticEvent,

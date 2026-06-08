@@ -60,10 +60,13 @@
 | --- | --- | --- |
 | 设置会话 | `Diagnostics.setSessionID(...)` | `diagnostics.set_session_id(...)` |
 | 设置链路 | `Diagnostics.setTraceID(...)` | `diagnostics.set_trace_id(...)` |
+| 作用域链路 | `Diagnostics.withTraceID(...)` | `diagnostics.with_trace_id(...)` |
 | 清除链路 | `Diagnostics.clearTraceID()` | `diagnostics.clear_trace_id()` |
 | 设置默认 metadata | `Diagnostics.setContextMetadata(...)` | `diagnostics.set_context_metadata(...)` |
 
 全局上下文会自动补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 保留自身值，用于覆盖某个局部请求、页面或 span。
+
+作用域链路会在操作结束后恢复进入前的 trace，失败路径同样恢复，适合包住一次用户动作、网络请求或后台任务。
 
 ## Debug Bundle
 

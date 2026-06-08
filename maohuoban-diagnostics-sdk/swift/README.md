@@ -32,6 +32,7 @@ try await Diagnostics.install(
 | --- | --- |
 | 会话上下文 | `await Diagnostics.setSessionID("session-id")` |
 | 链路上下文 | `await Diagnostics.setTraceID("trace-id")` / `await Diagnostics.clearTraceID()` |
+| 作用域链路 | `try await Diagnostics.withTraceID("checkout") { ... }` |
 | 默认 metadata | `await Diagnostics.setContextMetadata("screen", "home")` |
 | 日志 | `await Diagnostics.log(.info, "message")` |
 | 面包屑 | `await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])` |
@@ -49,6 +50,9 @@ await Diagnostics.setSessionID("session-\(UUID().uuidString)")
 await Diagnostics.setTraceID("checkout")
 await Diagnostics.setContextMetadata("screen", "checkout")
 
+try await Diagnostics.withTraceID("payment") {
+    await Diagnostics.breadcrumb("payment opened")
+}
 await Diagnostics.error("checkout failed", metadata: ["screen": "payment"])
 await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
 await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
@@ -56,6 +60,8 @@ await Diagnostics.clearTraceID()
 ```
 
 全局上下文会在统一记录管线中自动注入后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 会保留自身值，适合临时覆盖某个页面、请求或 span。
+
+`withTraceID` 会在作用域结束后恢复进入前的 trace，抛错路径同样恢复，适合包住一次用户动作、网络请求或后台任务。
 
 `captureError` 会把 Swift `Error` 桥接为 `NSError`，记录 domain、code、description 和 `NSUnderlyingErrorKey` chain，方便 LLM 直接分析错误因果。
 
