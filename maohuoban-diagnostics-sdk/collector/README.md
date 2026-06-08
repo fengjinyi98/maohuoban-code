@@ -34,6 +34,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 外部日志文件的每个非空行会转换为 `kind=log` 事件，并写入 `source=external_log` 与 `source_path` metadata。Collector 会识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记，映射为对应 `severity`，同时写入 `external_log_marker` 与 `external_log_format`。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包，并保留异常优先级。
 
+SDK JSONL 段目录读取时会跳过无法解码的单行，并在 timeline 中保留 `message=storage segment decode failed`、`source=file_segment_store`、`segment` 和 `line` 告警事件。这样单条损坏诊断行不会阻断 Collector 汇总后续合法事件。
+
 `--segments` 与 `--log-file` 至少提供一种。某个进程尚未接入 SDK 时，可以只传 `--log-file`，Collector 仍会输出完整 Debug Bundle。
 
 ## 分层边界

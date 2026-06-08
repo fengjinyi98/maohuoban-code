@@ -419,6 +419,31 @@ mod tests {
     }
 
     #[test]
+    fn collector_recovers_corrupted_segment_lines() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let output = root.path().join("bundle");
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Log,
+                Severity::Info,
+                "collector valid after corrupt line",
+            ))
+            .expect("append");
+        std::fs::write(segments.join("corrupted.jsonl"), "not json\n").expect("write corrupt line");
+
+        let bundle = collect_debug_bundle(CollectorConfig::from_paths(segments, output))
+            .expect("collect bundle");
+        let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
+
+        assert!(timeline.contains("collector valid after corrupt line"));
+        assert!(timeline.contains("storage segment decode failed"));
+        assert!(timeline.contains("\"source\":\"file_segment_store\""));
+        assert!(timeline.contains("\"segment\":\"corrupted.jsonl\""));
+    }
+
+    #[test]
     fn collector_imports_external_log_files_into_timeline() {
         let root = tempdir().expect("temp dir");
         let segments = root.path().join("segments");
