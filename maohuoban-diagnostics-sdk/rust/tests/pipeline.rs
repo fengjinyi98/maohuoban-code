@@ -722,6 +722,50 @@ fn bootstrap_installs_global_runtime_and_captures_startup_context() {
 }
 
 #[test]
+fn bootstrap_runs_cleanup_before_recording_startup_events() {
+    let _guard = diagnostics_test_lock();
+    let temp = tempdir().expect("temp dir");
+    let storage = temp.path().join("segments");
+    fs::create_dir_all(&storage).expect("segments dir");
+    let stale_event =
+        DiagnosticEvent::new(EventKind::Log, Severity::Info, "stale before bootstrap");
+    let stale_json = serde_json::to_string(&stale_event).expect("stale json");
+    fs::write(storage.join("stale.jsonl"), format!("{stale_json}\n")).expect("stale segment");
+
+    let diagnostics = Diagnostics::bootstrap(DiagnosticsBootstrapConfig {
+        service_name: "maohuoban-rust".to_string(),
+        environment: "test".to_string(),
+        storage_directory: storage,
+        max_segment_bytes: 1024 * 1024,
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy {
+            max_total_bytes: 1024 * 1024,
+            max_segment_age: Duration::from_secs(0),
+            max_export_age: Duration::from_secs(0),
+        },
+        defaults: serde_json::Map::default(),
+        session_id: None,
+        trace_id: None,
+        capture_runtime_snapshot: false,
+        cleanup_on_bootstrap: true,
+        install_panic_hook: false,
+    })
+    .expect("bootstrap diagnostics");
+    diagnostics.flush().expect("flush events");
+
+    let events = diagnostics.read_events().expect("events");
+    assert!(
+        !events
+            .iter()
+            .any(|event| event.message == "stale before bootstrap")
+    );
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Lifecycle && event.message == "diagnostics bootstrap completed"
+    }));
+}
+
+#[test]
 fn panic_hook_records_panic_as_fatal_error_event() {
     let _guard = diagnostics_test_lock();
     let temp = tempdir().expect("temp dir");

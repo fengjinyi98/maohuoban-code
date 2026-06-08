@@ -622,6 +622,37 @@ struct DiagnosticsPipelineTests {
         #expect(after.metadata["device_id"] == "simulator-a")
     }
 
+    @Test("启动助手会在记录启动事件前执行清理策略")
+    func bootstrapRunsCleanupBeforeRecordingStartupEvents() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appending(path: "segments")
+        try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+        let staleEvent = DiagnosticEvent(kind: .log, severity: .info, message: "stale before bootstrap")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var staleData = try encoder.encode(staleEvent)
+        staleData.append(0x0A)
+        try staleData.write(to: storage.appending(path: "stale.jsonl"))
+
+        let diagnostics = try await Diagnostics.bootstrap(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: storage,
+                cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 0, maxExportAge: 0),
+                captureRuntimeSnapshot: false,
+                cleanupOnBootstrap: true
+            )
+        )
+        try await diagnostics.flush()
+
+        let events = try await diagnostics.readEvents()
+        #expect(!events.contains { $0.message == "stale before bootstrap" })
+        #expect(events.contains { event in
+            event.kind == .lifecycle && event.message == "diagnostics bootstrap completed"
+        })
+    }
+
     @Test("全局 facade 会转发便捷 API 到当前 runtime")
     func globalFacadeForwardsConvenienceCapture() async throws {
         let root = try temporaryDirectory()
