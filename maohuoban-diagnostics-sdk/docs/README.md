@@ -50,12 +50,23 @@ Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行�
 | --- | --- |
 | `id` | 事件唯一标识 |
 | `timestamp` | 事件发生时间 |
-| `kind` | `log`、`network`、`performance`、`error`、`breadcrumb`、`lifecycle` |
+| `kind` | `log`、`network`、`performance`、`error`、`breadcrumb`、`lifecycle`、`analytics`、`identity` |
 | `severity` | `trace`、`debug`、`info`、`warn`、`error`、`fatal` |
 | `message` | 可读摘要 |
 | `trace_id` / `traceID` | 可选链路标识 |
 | `session_id` / `sessionID` | 可选会话标识 |
-| `metadata` | 可脱敏上下文字段 |
+| `metadata` | 可脱敏上下文字段；Swift 与 Rust 均支持 JSON 兼容结构化值 |
+
+## 产品埋点
+
+| 能力 | Swift API | 事件语义 |
+| --- | --- | --- |
+| 事件采集 | `Diagnostics.track("checkout.started", properties: [...])` | `kind=analytics`、`event_type=track` |
+| 用户识别 | `Diagnostics.identify(userID:traits:)` | `kind=identity`、`event_type=identify` |
+| 用户属性 | `Diagnostics.setUserProperty(...)` | 注入后续事件的 `user.*` metadata |
+| 清除用户 | `Diagnostics.clearUser()` | 清除 `user_id` 与 `user.*` 上下文 |
+
+产品事件名使用小写点分段格式：`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`，最长 80 字符。无效事件名不会写入 `analytics` 事件，会生成 `analytics event rejected` warn 事件。
 
 ## 结构化错误
 

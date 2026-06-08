@@ -25,8 +25,10 @@ public struct PrivacyPolicy: Sendable {
             if redactedKeys.contains(key.lowercased()) {
                 metadata[key] = "<redacted>"
             } else if let value = metadata[key] {
-                let urlRedacted = redactURLQueryItems(in: value)
-                metadata[key] = redactText(in: urlRedacted)
+                metadata[key] = value.applyingToStrings { text in
+                    let urlRedacted = redactURLQueryItems(in: text)
+                    return redactText(in: urlRedacted)
+                }
             }
         }
         return DiagnosticEvent(
@@ -158,9 +160,9 @@ public struct CapturePolicy: Sendable {
             return nil
         }
 
-        var metadata: [String: String] = [:]
+        var metadata: DiagnosticProperties = [:]
         for (key, value) in event.metadata {
-            metadata[key] = truncate(value, limit: maxMetadataValueLength)
+            metadata[key] = value.truncatingStrings(to: maxMetadataValueLength)
         }
 
         return DiagnosticEvent(

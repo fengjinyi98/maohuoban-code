@@ -41,6 +41,8 @@ public enum DiagnosticEventKind: String, Codable, Sendable {
     case error
     case breadcrumb
     case lifecycle
+    case analytics
+    case identity
 }
 
 // DiagnosticEvent 标准诊断事件
@@ -55,7 +57,7 @@ public struct DiagnosticEvent: Codable, Sendable, Identifiable {
     public let message: String
     public let traceID: String?
     public let sessionID: String?
-    public let metadata: [String: String]
+    public let metadata: DiagnosticProperties
 
     public init(
         id: UUID = UUID(),
@@ -65,7 +67,7 @@ public struct DiagnosticEvent: Codable, Sendable, Identifiable {
         message: String,
         traceID: String? = nil,
         sessionID: String? = nil,
-        metadata: [String: String] = [:]
+        metadata: DiagnosticProperties = [:]
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -93,7 +95,15 @@ public struct DiagnosticEvent: Codable, Sendable, Identifiable {
         DiagnosticEvent(kind: .error, severity: .error, message: message)
     }
 
-    public func metadata(_ key: String, _ value: String) -> DiagnosticEvent {
+    public static func analytics(_ name: String) -> DiagnosticEvent {
+        DiagnosticEvent(kind: .analytics, severity: .info, message: name)
+    }
+
+    public static func identity(_ message: String) -> DiagnosticEvent {
+        DiagnosticEvent(kind: .identity, severity: .info, message: message)
+    }
+
+    public func metadata(_ key: String, _ value: DiagnosticValue) -> DiagnosticEvent {
         var metadata = self.metadata
         metadata[key] = value
         return DiagnosticEvent(
@@ -106,6 +116,10 @@ public struct DiagnosticEvent: Codable, Sendable, Identifiable {
             sessionID: sessionID,
             metadata: metadata
         )
+    }
+
+    public func metadata(_ key: String, _ value: String) -> DiagnosticEvent {
+        metadata(key, .string(value))
     }
 
     public func traceID(_ traceID: String) -> DiagnosticEvent {

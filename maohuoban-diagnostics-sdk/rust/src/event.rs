@@ -44,6 +44,8 @@ pub enum EventKind {
     Error,
     Breadcrumb,
     Lifecycle,
+    Analytics,
+    Identity,
 }
 
 /// `DiagnosticEvent` 标准诊断事件

@@ -26,8 +26,12 @@ extension DiagnosticsRuntime {
         await context.clearTraceID()
     }
 
-    public func setContextMetadata(_ key: String, _ value: String) async {
+    public func setContextMetadata(_ key: String, _ value: DiagnosticValue) async {
         await context.setMetadata(key, value)
+    }
+
+    public func setContextMetadata(_ key: String, _ value: String) async {
+        await setContextMetadata(key, .string(value))
     }
 
     public func removeContextMetadata(_ key: String) async {
@@ -36,6 +40,10 @@ extension DiagnosticsRuntime {
 
     public func clearContextMetadata() async {
         await context.clearMetadata()
+    }
+
+    func removeContextMetadata(prefix: String) async {
+        await context.removeMetadata(prefix: prefix)
     }
 
     public func setTrackingConsent(_ consent: DiagnosticsTrackingConsent) async {

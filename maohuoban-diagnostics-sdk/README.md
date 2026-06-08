@@ -113,6 +113,17 @@ await Diagnostics.setContextMetadata("screen", "home")
 try await Diagnostics.withTraceID("open-detail") {
     await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
 }
+await Diagnostics.identify(userID: "user-123", traits: ["plan": "pro"])
+await Diagnostics.setUserProperty("locale", "zh-CN")
+await Diagnostics.track(
+    "checkout.started",
+    properties: [
+        "amount": 129,
+        "discount": 12.5,
+        "is_trial": false,
+        "items": ["sku-1", "sku-2"]
+    ]
+)
 await Diagnostics.error("load failed", metadata: ["reason": "timeout"])
 await Diagnostics.captureError(error, metadata: ["feature": "checkout"])
 await Diagnostics.captureRuntimeSnapshot(metadata: ["phase": "startup"])
@@ -252,6 +263,7 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 | 高级自定义安装 | Swift `Diagnostics.install(...)` / Rust `Diagnostics::install(...)` |
 | 建立全局上下文 | Swift `setSessionID` / `setTraceID` / `setContextMetadata`，Rust `set_session_id` / `set_trace_id` / `set_context_metadata` |
 | 建立作用域链路 | Swift `withTraceID`，Rust `with_trace_id` |
+| 产品埋点 | Swift `track` / `identify` / `setUserProperty` / `clearUser` |
 | 业务流程中记录上下文 | `breadcrumb`、`error`、`captureError/capture_error`、`log`、`captureRuntimeSnapshot/capture_runtime_snapshot`、`beginSpan/end` |
 | Debug 前导出诊断包 | Swift `Diagnostics.exportDebugBundle` / Rust `diagnostics.export_debug_bundle(...)` / Collector CLI |
 | 导出 LLM Prompt | Swift `Diagnostics.exportLLMPrompt` / Rust `diagnostics.export_llm_prompt(...)` |
@@ -265,6 +277,8 @@ Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.json
 全局上下文会在统一 `record` 管线内补齐到后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 优先级更高，适合局部覆盖某次请求或页面。
 
 作用域 trace API 使用 Swift `TaskLocal` 绑定临时 trace。操作结束后恢复进入前的 trace，失败路径同样恢复，并发任务保留自身 trace，适合包住一次用户动作、网络请求或后台任务。
+
+产品埋点 API 使用 Swift `DiagnosticProperties` 表达结构化属性，支持字符串、数字、布尔、数组和对象。`track` 会写入 `kind=analytics` 事件；`identify`、`setUserProperty` 和 `clearUser` 会维护 `user_id` 与 `user.*` 上下文，并写入身份时间线。事件名使用小写点分段格式，防止临时命名污染分析事件。
 
 结构化错误 API 会自动记录错误描述和错误链。Swift 记录 `NSError` 的 domain、code、description 和 underlying chain；Rust 记录错误类型和 `std::error::Error::source()` chain。
 

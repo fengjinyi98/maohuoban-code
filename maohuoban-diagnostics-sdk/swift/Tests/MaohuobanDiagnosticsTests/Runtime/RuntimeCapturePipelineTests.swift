@@ -61,7 +61,7 @@ extension DiagnosticsPipelineTests {
         #expect(event.metadata["process_name"] == ProcessInfo.processInfo.processName)
         #expect(event.metadata["os"]?.isEmpty == false)
         #expect(event.metadata["arch"]?.isEmpty == false)
-        #expect(Int(event.metadata["uptime_ms"] ?? "") != nil)
+        #expect(Int(event.metadata["uptime_ms"]?.stringValue ?? "") != nil)
     }
 
     @Test("运行时快照会暴露存储写入失败计数")

@@ -9,7 +9,7 @@ public struct NetworkSummary: Sendable {
     public var durationMs: Int?
     public var error: String?
     public var traceparent: String?
-    public var metadata: [String: String]
+    public var metadata: DiagnosticProperties
 
     public init(
         method: String,
@@ -18,7 +18,7 @@ public struct NetworkSummary: Sendable {
         durationMs: Int? = nil,
         error: String? = nil,
         traceparent: String? = nil,
-        metadata: [String: String] = [:]
+        metadata: DiagnosticProperties = [:]
     ) {
         self.method = method
         self.url = url
@@ -32,23 +32,23 @@ public struct NetworkSummary: Sendable {
     func event() -> DiagnosticEvent {
         var metadata = metadata
         let failedStatus = statusCode.map { $0 >= 400 } ?? false
-        let cancelled = metadata["cancelled"] == "true"
-        metadata["method"] = method
-        metadata["url"] = url
-        metadata["http.request.method"] = method
-        metadata["url.full"] = url
+        let cancelled = metadata["cancelled"]?.stringValue == "true"
+        metadata["method"] = .string(method)
+        metadata["url"] = .string(url)
+        metadata["http.request.method"] = .string(method)
+        metadata["url.full"] = .string(url)
         if let statusCode {
-            metadata["status_code"] = "\(statusCode)"
-            metadata["http.response.status_code"] = "\(statusCode)"
+            metadata["status_code"] = .string("\(statusCode)")
+            metadata["http.response.status_code"] = .string("\(statusCode)")
         }
         if let durationMs {
-            metadata["duration_ms"] = "\(durationMs)"
+            metadata["duration_ms"] = .string("\(durationMs)")
         }
         if let error {
-            metadata["error"] = error
+            metadata["error"] = .string(error)
         }
         if let traceparent {
-            metadata["traceparent"] = traceparent
+            metadata["traceparent"] = .string(traceparent)
         }
         return DiagnosticEvent(
             kind: .network,

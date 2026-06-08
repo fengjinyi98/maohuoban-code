@@ -39,6 +39,16 @@ public enum Diagnostics {
         await registry.current()
     }
 
+    public static func uninstall() async {
+        await registry.uninstall()
+    }
+
+    public static var isGlobalNetworkCaptureRegistered: Bool {
+        get async {
+            await registry.globalNetworkCaptureRegistered()
+        }
+    }
+
     public static func log(_ severity: DiagnosticSeverity, _ message: String) async {
         await current()?.log(severity, message)
     }
@@ -48,14 +58,26 @@ public enum Diagnostics {
     }
 
     public static func breadcrumb(_ message: String, metadata: [String: String] = [:]) async {
+        await current()?.breadcrumb(message, metadata: properties(from: metadata))
+    }
+
+    public static func breadcrumb(_ message: String, metadata: DiagnosticProperties) async {
         await current()?.breadcrumb(message, metadata: metadata)
     }
 
     public static func error(_ message: String, metadata: [String: String] = [:]) async {
+        await current()?.error(message, metadata: properties(from: metadata))
+    }
+
+    public static func error(_ message: String, metadata: DiagnosticProperties) async {
         await current()?.error(message, metadata: metadata)
     }
 
     public static func captureError(_ error: Error, metadata: [String: String] = [:]) async {
+        await current()?.captureError(error, metadata: properties(from: metadata))
+    }
+
+    public static func captureError(_ error: Error, metadata: DiagnosticProperties) async {
         await current()?.captureError(error, metadata: metadata)
     }
 
@@ -64,7 +86,28 @@ public enum Diagnostics {
     }
 
     public static func captureRuntimeSnapshot(metadata: [String: String] = [:]) async {
+        await current()?.captureRuntimeSnapshot(metadata: properties(from: metadata))
+    }
+
+    public static func captureRuntimeSnapshot(metadata: DiagnosticProperties) async {
         await current()?.captureRuntimeSnapshot(metadata: metadata)
+    }
+
+    @discardableResult
+    public static func track(_ name: String, properties: DiagnosticProperties = [:]) async -> Bool {
+        await current()?.track(name, properties: properties) ?? false
+    }
+
+    public static func identify(userID: String, traits: DiagnosticProperties = [:]) async {
+        await current()?.identify(userID: userID, traits: traits)
+    }
+
+    public static func setUserProperty(_ key: String, _ value: DiagnosticValue) async {
+        await current()?.setUserProperty(key, value)
+    }
+
+    public static func clearUser() async {
+        await current()?.clearUser()
     }
 
     public static func setSessionID(_ sessionID: String) async {
@@ -91,6 +134,10 @@ public enum Diagnostics {
 
     public static func clearTraceID() async {
         await current()?.clearTraceID()
+    }
+
+    public static func setContextMetadata(_ key: String, _ value: DiagnosticValue) async {
+        await current()?.setContextMetadata(key, value)
     }
 
     public static func setContextMetadata(_ key: String, _ value: String) async {
@@ -135,5 +182,11 @@ public enum Diagnostics {
 
     public static func exportLLMPrompt(title: String, maxEvents: Int = 200) async throws -> String? {
         try await current()?.exportLLMPrompt(title: title, maxEvents: maxEvents)
+    }
+
+    private static func properties(from metadata: [String: String]) -> DiagnosticProperties {
+        Dictionary(uniqueKeysWithValues: metadata.map { key, value in
+            (key, DiagnosticValue.string(value))
+        })
     }
 }

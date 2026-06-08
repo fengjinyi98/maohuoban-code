@@ -56,7 +56,7 @@ public enum NetworkCaptureMode: Sendable, Equatable {
 // - 降低 App 启动阶段重复拼装诊断管线的成本
 public struct DiagnosticsBootstrapConfiguration: Sendable {
     public var installation: DiagnosticsConfiguration
-    public var defaults: [String: String]
+    public var defaults: DiagnosticProperties
     public var sessionID: String?
     public var traceID: String?
     public var captureRuntimeSnapshot: Bool
@@ -71,7 +71,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
         cleanup: CleanupPolicy = .init(),
         maxSegmentBytes: UInt64 = 1_024 * 1_024,
         networkCapture: NetworkCaptureMode = .manual,
-        defaults: [String: String] = [:],
+        defaults: DiagnosticProperties = [:],
         sessionID: String? = nil,
         traceID: String? = nil,
         captureRuntimeSnapshot: Bool = true,

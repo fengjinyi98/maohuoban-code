@@ -15,7 +15,7 @@ public final class DiagnosticsSpan: @unchecked Sendable {
         startedAt = Date()
     }
 
-    public func end(metadata: [String: String] = [:]) async {
+    public func end(metadata: DiagnosticProperties = [:]) async {
         let duration = Date().timeIntervalSince(startedAt)
         var event = DiagnosticEvent.performance(name)
             .metadata("duration_ms", "\(Int(duration * 1_000))")

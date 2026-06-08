@@ -7,7 +7,7 @@ import Foundation
 actor DiagnosticsContext {
     private var sessionID: String?
     private var traceID: String?
-    private var metadata: [String: String] = [:]
+    private var metadata: DiagnosticProperties = [:]
 
     func setSessionID(_ sessionID: String) {
         self.sessionID = sessionID
@@ -34,7 +34,7 @@ actor DiagnosticsContext {
         traceID = nil
     }
 
-    func setMetadata(_ key: String, _ value: String) {
+    func setMetadata(_ key: String, _ value: DiagnosticValue) {
         metadata[key] = value
     }
 
@@ -44,6 +44,12 @@ actor DiagnosticsContext {
 
     func clearMetadata() {
         metadata.removeAll()
+    }
+
+    func removeMetadata(prefix: String) {
+        metadata = metadata.filter { key, _ in
+            !key.hasPrefix(prefix)
+        }
     }
 
     func apply(to event: DiagnosticEvent) -> DiagnosticEvent {

@@ -26,7 +26,7 @@ extension DiagnosticsRuntime {
         await record(.log(severity, message))
     }
 
-    public func breadcrumb(_ message: String, metadata: [String: String] = [:]) async {
+    public func breadcrumb(_ message: String, metadata: DiagnosticProperties = [:]) async {
         var event = DiagnosticEvent(kind: .breadcrumb, severity: .info, message: message)
         for (key, value) in metadata {
             event = event.metadata(key, value)
@@ -34,7 +34,7 @@ extension DiagnosticsRuntime {
         await record(event)
     }
 
-    public func error(_ message: String, metadata: [String: String] = [:]) async {
+    public func error(_ message: String, metadata: DiagnosticProperties = [:]) async {
         var event = DiagnosticEvent.error(message)
         for (key, value) in metadata {
             event = event.metadata(key, value)
@@ -42,7 +42,7 @@ extension DiagnosticsRuntime {
         await record(event)
     }
 
-    public func captureError(_ error: Error, metadata: [String: String] = [:]) async {
+    public func captureError(_ error: Error, metadata: DiagnosticProperties = [:]) async {
         var event = DiagnosticEvent.error(error.localizedDescription)
         let nsError = error as NSError
         event = event
@@ -63,11 +63,57 @@ extension DiagnosticsRuntime {
         await record(event)
     }
 
+    @discardableResult
+    public func track(_ name: String, properties: DiagnosticProperties = [:]) async -> Bool {
+        guard AnalyticsEventNameValidator.validate(name) else {
+            await record(
+                DiagnosticEvent(kind: .error, severity: .warn, message: "analytics event rejected")
+                    .metadata("event_name", .string(name))
+                    .metadata("reason", "invalid event name")
+            )
+            return false
+        }
+        var event = DiagnosticEvent.analytics(name)
+            .metadata("event_type", "track")
+        for (key, value) in properties {
+            event = event.metadata(key, value)
+        }
+        await record(event)
+        return true
+    }
+
+    public func identify(userID: String, traits: DiagnosticProperties = [:]) async {
+        await setContextMetadata("user_id", .string(userID))
+        for (key, value) in traits {
+            await setContextMetadata("user.\(key)", value)
+        }
+        var event = DiagnosticEvent.identity("identify")
+            .metadata("event_type", "identify")
+            .metadata("user_id", .string(userID))
+        for (key, value) in traits {
+            event = event.metadata(key, value)
+        }
+        await record(event)
+    }
+
+    public func setUserProperty(_ key: String, _ value: DiagnosticValue) async {
+        await setContextMetadata("user.\(key)", value)
+    }
+
+    public func clearUser() async {
+        await removeContextMetadata("user_id")
+        await removeContextMetadata(prefix: "user.")
+        await record(
+            DiagnosticEvent.identity("clear user")
+                .metadata("event_type", "clear_user")
+        )
+    }
+
     public func network(_ summary: NetworkSummary) async {
         await record(summary.event())
     }
 
-    public func captureRuntimeSnapshot(metadata: [String: String] = [:]) async {
+    public func captureRuntimeSnapshot(metadata: DiagnosticProperties = [:]) async {
         let processInfo = ProcessInfo.processInfo
         let storageStatus = await storageHealth.snapshot()
         var event = DiagnosticEvent.performance("runtime snapshot")

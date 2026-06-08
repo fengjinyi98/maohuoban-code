@@ -118,10 +118,10 @@ actor FileSegmentStore {
             severity: .warn,
             message: "storage segment decode failed",
             metadata: [
-                "source": "file_segment_store",
-                "segment": url.lastPathComponent,
-                "line": "\(line)",
-                "error": String(describing: error)
+                "source": .string("file_segment_store"),
+                "segment": .string(url.lastPathComponent),
+                "line": .string("\(line)"),
+                "error": .string(String(describing: error))
             ]
         )
     }

@@ -42,7 +42,7 @@ extension DiagnosticsURLProtocol {
             durationMs: durationMs,
             traceparent: request.value(forHTTPHeaderField: "traceparent"),
             metadata: networkMetadata(request: request, response: nil, data: nil)
-                .merging(["cancelled": "true"]) { _, new in new }
+                .merging(["cancelled": "true" as DiagnosticValue]) { _, new in new }
         )
     }
 
@@ -66,27 +66,27 @@ extension DiagnosticsURLProtocol {
         request: URLRequest,
         response: URLResponse?,
         data: Data?
-    ) -> [String: String] {
-        var metadata: [String: String] = [:]
+    ) -> DiagnosticProperties {
+        var metadata: DiagnosticProperties = [:]
         if let requestBodyBytes = request.httpBody?.count {
-            metadata["request_body_bytes"] = "\(requestBodyBytes)"
+            metadata["request_body_bytes"] = .string("\(requestBodyBytes)")
         }
         if let responseBodyBytes = data?.count {
-            metadata["response_body_bytes"] = "\(responseBodyBytes)"
+            metadata["response_body_bytes"] = .string("\(responseBodyBytes)")
         }
         if let mimeType = response?.mimeType, !mimeType.isEmpty {
-            metadata["response_mime_type"] = mimeType
+            metadata["response_mime_type"] = .string(mimeType)
         }
         let requestHeaderKeys = sortedHeaderKeys(request.allHTTPHeaderFields)
         if !requestHeaderKeys.isEmpty {
-            metadata["request_header_keys"] = requestHeaderKeys.joined(separator: ",")
+            metadata["request_header_keys"] = .string(requestHeaderKeys.joined(separator: ","))
         }
         if let http = response as? HTTPURLResponse {
             let responseHeaderKeys = http.allHeaderFields.keys
                 .compactMap { $0 as? String }
                 .sorted()
             if !responseHeaderKeys.isEmpty {
-                metadata["response_header_keys"] = responseHeaderKeys.joined(separator: ",")
+                metadata["response_header_keys"] = .string(responseHeaderKeys.joined(separator: ","))
             }
         }
         return metadata

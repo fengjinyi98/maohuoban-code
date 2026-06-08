@@ -12,25 +12,29 @@ import MaohuobanDiagnostics
 struct MaohuobanApp: App {
     init() {
         Task {
-            let diagnostics = try await Diagnostics.bootstrap(
-                DiagnosticsBootstrapConfiguration(
-                    serviceName: "maohuoban-ios",
-                    environment: "local",
-                    privacy: PrivacyPolicy(
-                        redactedKeys: ["authorization", "password", "token"],
-                        redactedQueryItems: ["token", "access_token", "refresh_token"],
-                        redactedTextPatterns: [.email, .phoneNumber]
-                    ),
-                    capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
-                    defaults: [
-                        "client": "ios",
-                        "app": "maohuoban"
-                    ]
+            do {
+                let diagnostics = try await Diagnostics.bootstrap(
+                    DiagnosticsBootstrapConfiguration(
+                        serviceName: "maohuoban-ios",
+                        environment: "local",
+                        privacy: PrivacyPolicy(
+                            redactedKeys: ["authorization", "password", "token"],
+                            redactedQueryItems: ["token", "access_token", "refresh_token"],
+                            redactedTextPatterns: [.email, .phoneNumber]
+                        ),
+                        capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
+                        defaults: [
+                            "client": "ios",
+                            "app": "maohuoban"
+                        ]
+                    )
                 )
-            )
-            await diagnostics.record(
-                DiagnosticEvent(kind: .lifecycle, severity: .info, message: "maohuoban app launched")
-            )
+                await diagnostics.record(
+                    DiagnosticEvent(kind: .lifecycle, severity: .info, message: "maohuoban app launched")
+                )
+            } catch {
+                assertionFailure("Diagnostics bootstrap failed: \(error)")
+            }
         }
     }
 

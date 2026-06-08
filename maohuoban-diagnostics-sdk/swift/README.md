@@ -48,6 +48,9 @@ try await Diagnostics.bootstrap(
 | 链路上下文 | `await Diagnostics.setTraceID("trace-id")` / `await Diagnostics.clearTraceID()` |
 | 作用域链路 | `try await Diagnostics.withTraceID("checkout") { ... }` |
 | 默认 metadata | `await Diagnostics.setContextMetadata("screen", "home")` |
+| 产品埋点 | `await Diagnostics.track("checkout.started", properties: ["amount": 129])` |
+| 用户标识 | `await Diagnostics.identify(userID: "user-123", traits: ["plan": "pro"])` |
+| 用户属性 | `await Diagnostics.setUserProperty("locale", "zh-CN")` / `await Diagnostics.clearUser()` |
 | 日志 | `await Diagnostics.log(.info, "message")` |
 | 面包屑 | `await Diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])` |
 | 错误 | `await Diagnostics.error("load failed", metadata: ["reason": "timeout"])` |
@@ -68,6 +71,17 @@ try await Diagnostics.bootstrap(
 await Diagnostics.setSessionID("session-\(UUID().uuidString)")
 await Diagnostics.setTraceID("checkout")
 await Diagnostics.setContextMetadata("screen", "checkout")
+await Diagnostics.identify(userID: "user-123", traits: ["plan": "pro"])
+await Diagnostics.setUserProperty("locale", "zh-CN")
+await Diagnostics.track(
+    "checkout.started",
+    properties: [
+        "amount": 129,
+        "discount": 12.5,
+        "is_trial": false,
+        "items": ["sku-1", "sku-2"]
+    ]
+)
 
 try await Diagnostics.withTraceID("payment") {
     await Diagnostics.breadcrumb("payment opened")
@@ -79,6 +93,10 @@ await Diagnostics.clearTraceID()
 ```
 
 全局上下文会在统一记录管线中自动注入后续事件。事件自身的 `traceID`、`sessionID` 或同名 metadata 会保留自身值，适合临时覆盖某个页面、请求或 span。
+
+产品埋点使用 `DiagnosticProperties` 表达结构化属性，支持 String、Int、Double、Bool、Array、Object 和 null。事件名必须满足小写点分段格式，例如 `checkout.started`、`home.refresh_tapped`；包含空格、大写字母或超过 80 个字符的事件会被拒绝，并记录一条 `analytics event rejected` 的 warn 事件。
+
+`identify` 会把 `user_id` 和 `user.*` traits 注入后续事件，同时写入一条 `kind=identity` 的识别事件。`clearUser()` 会清除用户上下文并写入 `clear user` 身份事件。
 
 `withTraceID` 使用 Swift `TaskLocal` 绑定临时 trace。作用域结束后恢复进入前的 trace，抛错路径同样恢复；并发任务会保留自身 trace，适合包住一次用户动作、网络请求或后台任务。
 
@@ -109,6 +127,8 @@ try await Diagnostics.bootstrap(
     )
 )
 ```
+
+全局网络采集注册具备幂等状态。需要在测试、退出登录或宿主生命周期结束时清理全局状态，可调用 `await Diagnostics.uninstall()`，该方法会清空当前 runtime 并反注册 `DiagnosticsURLProtocol`。
 
 `CapturePolicy` 默认启用、授权为 `.granted`、采样率为 `1`。生产环境可用 `enabled`、`consent`、`sampleRate`、最低严重级别、message 最大长度和 metadata 字符串最大长度控制数据量；策略在统一记录管线内执行，所有日志、网络、错误、性能和生命周期事件都会遵守同一边界。用户授权状态变化时，可调用 `Diagnostics.setTrackingConsent(...)` 动态更新。
 

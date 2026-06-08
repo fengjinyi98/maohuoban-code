@@ -20,7 +20,7 @@ public enum DiagnosticsSwiftUIInstrumentation {
     public static func screenEvent(
         name: String,
         lifecycle: DiagnosticsSwiftUIScreenLifecycle,
-        metadata: [String: String]
+        metadata: DiagnosticProperties
     ) -> DiagnosticEvent {
         var event = DiagnosticEvent(
             kind: .breadcrumb,
@@ -37,7 +37,7 @@ public enum DiagnosticsSwiftUIInstrumentation {
 
     public static func tapEvent(
         name: String,
-        metadata: [String: String]
+        metadata: DiagnosticProperties
     ) -> DiagnosticEvent {
         var event = DiagnosticEvent(
             kind: .breadcrumb,
@@ -59,10 +59,10 @@ public enum DiagnosticsSwiftUIInstrumentation {
 // - 避免在 SwiftUI 同步渲染路径执行写入副作用
 public struct DiagnosticsScreenModifier: ViewModifier {
     private let name: String
-    private let metadata: [String: String]
+    private let metadata: DiagnosticProperties
     private let trackDisappear: Bool
 
-    public init(name: String, metadata: [String: String], trackDisappear: Bool) {
+    public init(name: String, metadata: DiagnosticProperties, trackDisappear: Bool) {
         self.name = name
         self.metadata = metadata
         self.trackDisappear = trackDisappear
@@ -102,9 +102,9 @@ public struct DiagnosticsScreenModifier: ViewModifier {
 // - 为现有 View 提供低侵入交互埋点入口
 public struct DiagnosticsTapModifier: ViewModifier {
     private let name: String
-    private let metadata: [String: String]
+    private let metadata: DiagnosticProperties
 
-    public init(name: String, metadata: [String: String]) {
+    public init(name: String, metadata: DiagnosticProperties) {
         self.name = name
         self.metadata = metadata
     }
@@ -127,7 +127,7 @@ public struct DiagnosticsTapModifier: ViewModifier {
 public extension View {
     func diagnosticsScreen(
         _ name: String,
-        metadata: [String: String] = [:],
+        metadata: DiagnosticProperties = [:],
         trackDisappear: Bool = false
     ) -> some View {
         modifier(
@@ -141,7 +141,7 @@ public extension View {
 
     func diagnosticsTap(
         _ name: String,
-        metadata: [String: String] = [:]
+        metadata: DiagnosticProperties = [:]
     ) -> some View {
         modifier(DiagnosticsTapModifier(name: name, metadata: metadata))
     }
