@@ -148,6 +148,40 @@ extension DiagnosticsPipelineTests {
         #expect(network.metadata["error"] == "failed for <redacted:email>")
     }
 
+    @Test("默认隐私策略会脱敏常见认证字段")
+    func defaultPrivacyPolicyRedactsCommonCredentialFields() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("segments")
+            )
+        )
+
+        await diagnostics.record(
+            DiagnosticEvent(kind: .log, severity: .info, message: "credentials")
+                .metadata("Authorization", "Bearer secret")
+                .metadata("password", "secret")
+                .metadata("token", "secret")
+                .metadata("access_token", "secret")
+                .metadata("refresh_token", "secret")
+                .metadata("cookie", "session=secret")
+                .metadata("Set-Cookie", "session=secret")
+        )
+
+        let events = try await diagnostics.readEvents()
+        let event = try #require(events.first { $0.message == "credentials" })
+
+        #expect(event.metadata["Authorization"] == "<redacted>")
+        #expect(event.metadata["password"] == "<redacted>")
+        #expect(event.metadata["token"] == "<redacted>")
+        #expect(event.metadata["access_token"] == "<redacted>")
+        #expect(event.metadata["refresh_token"] == "<redacted>")
+        #expect(event.metadata["cookie"] == "<redacted>")
+        #expect(event.metadata["Set-Cookie"] == "<redacted>")
+    }
+
     @Test("Swift Package 包含 Apple SDK 隐私清单")
     func packageContainsPrivacyManifestResource() throws {
         let packageRoot = try packageRootURL(from: URL(fileURLWithPath: #filePath))

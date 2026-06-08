@@ -24,6 +24,28 @@ extension DiagnosticsPipelineTests {
         #expect(events.contains { $0.kind == .performance && $0.message == "load detail" })
     }
 
+    @Test("性能 span 重复结束只会记录一次")
+    func endingSpanRepeatedlyRecordsOnlyOnce() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("segments")
+            )
+        )
+
+        let span = diagnostics.beginSpan("load detail")
+        await span.end(metadata: ["attempt": 1])
+        await span.end(metadata: ["attempt": 2])
+
+        let events = try await diagnostics.readEvents()
+        let spanEvents = events.filter { $0.kind == .performance && $0.message == "load detail" }
+
+        #expect(spanEvents.count == 1)
+        #expect(spanEvents.first?.metadata["attempt"] == 1)
+    }
+
     @Test("全局上下文会自动注入后续事件")
     func globalContextAppliesToEventsWithoutTempMetadataPlumbing() async throws {
         let root = try temporaryDirectory()

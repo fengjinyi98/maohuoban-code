@@ -288,7 +288,7 @@ Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.json
 
 采集策略默认启用、授权为 `.granted`、采样率为 `1`。需要控制日志量时，可以配置 Swift `CapturePolicy(enabled:consent:sampleRate:minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy { enabled, consent, sample_rate, ... }`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。Swift 和 Rust 运行时都支持动态更新采集授权、启用状态和采样率。
 
-Swift 与 Rust `PrivacyPolicy` 都会在写入前统一处理 metadata key、URL query item 和文本模式。Swift Package 已包含 `PrivacyInfo.xcprivacy`，默认不上传数据、不声明追踪域名。
+Swift 与 Rust `PrivacyPolicy` 都会在写入前统一处理 metadata key、URL query item 和文本模式。Swift `PrivacyPolicy()` 默认会脱敏 `authorization`、`password`、`token`、`access_token`、`refresh_token`、`cookie`、`set-cookie` 等常见认证字段。Swift Package 已包含 `PrivacyInfo.xcprivacy`，默认不上传数据、不声明追踪域名。
 
 ## Hooks
 

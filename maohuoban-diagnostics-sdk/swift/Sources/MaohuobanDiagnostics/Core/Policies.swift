@@ -14,10 +14,21 @@ public struct PrivacyPolicy: Sendable {
         redactedQueryItems: Set<String> = [],
         redactedTextPatterns: [DiagnosticTextRedactionPattern] = []
     ) {
-        self.redactedKeys = Set(redactedKeys.map { $0.lowercased() })
+        self.redactedKeys = Self.defaultRedactedKeys
+            .union(redactedKeys.map { $0.lowercased() })
         self.redactedQueryItems = Set(redactedQueryItems.map { $0.lowercased() })
         self.redactedTextPatterns = redactedTextPatterns
     }
+
+    private static let defaultRedactedKeys: Set<String> = [
+        "authorization",
+        "password",
+        "token",
+        "access_token",
+        "refresh_token",
+        "cookie",
+        "set-cookie"
+    ]
 
     public func apply(to event: DiagnosticEvent) -> DiagnosticEvent {
         var metadata = event.metadata

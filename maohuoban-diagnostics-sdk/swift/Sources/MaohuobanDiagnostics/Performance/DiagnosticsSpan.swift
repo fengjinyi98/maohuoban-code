@@ -8,6 +8,8 @@ public final class DiagnosticsSpan: @unchecked Sendable {
     private let name: String
     private weak var runtime: DiagnosticsRuntime?
     private let startedAt: Date
+    private let endLock = NSLock()
+    private var hasEnded = false
 
     init(name: String, runtime: DiagnosticsRuntime) {
         self.name = name
@@ -16,6 +18,9 @@ public final class DiagnosticsSpan: @unchecked Sendable {
     }
 
     public func end(metadata: DiagnosticProperties = [:]) async {
+        guard markEnded() else {
+            return
+        }
         let duration = Date().timeIntervalSince(startedAt)
         var event = DiagnosticEvent.performance(name)
             .metadata("duration_ms", "\(Int(duration * 1_000))")
@@ -23,5 +28,17 @@ public final class DiagnosticsSpan: @unchecked Sendable {
             event = event.metadata(key, value)
         }
         await runtime?.record(event)
+    }
+
+    private func markEnded() -> Bool {
+        endLock.lock()
+        defer {
+            endLock.unlock()
+        }
+        guard !hasEnded else {
+            return false
+        }
+        hasEnded = true
+        return true
     }
 }

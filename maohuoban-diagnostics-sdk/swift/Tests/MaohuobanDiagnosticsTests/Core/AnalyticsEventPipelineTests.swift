@@ -132,4 +132,31 @@ extension DiagnosticsPipelineTests {
         #expect(!(await Diagnostics.isGlobalNetworkCaptureRegistered))
         #expect(await Diagnostics.current() == nil)
     }
+
+    @Test("全局网络采集切回手动模式会反注册全局 URLProtocol")
+    func installingManualNetworkCaptureAfterGlobalUnregistersGlobalURLProtocol() async throws {
+        let root = try temporaryDirectory()
+
+        _ = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("global"),
+                networkCapture: .globalURLProtocol
+            )
+        )
+        #expect(await Diagnostics.isGlobalNetworkCaptureRegistered)
+
+        _ = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("manual"),
+                networkCapture: .manual
+            )
+        )
+
+        #expect(!(await Diagnostics.isGlobalNetworkCaptureRegistered))
+        await Diagnostics.uninstall()
+    }
 }

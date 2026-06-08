@@ -132,7 +132,7 @@ try await Diagnostics.bootstrap(
 
 `CapturePolicy` 默认启用、授权为 `.granted`、采样率为 `1`。生产环境可用 `enabled`、`consent`、`sampleRate`、最低严重级别、message 最大长度和 metadata 字符串最大长度控制数据量；策略在统一记录管线内执行，所有日志、网络、错误、性能和生命周期事件都会遵守同一边界。用户授权状态变化时，可调用 `Diagnostics.setTrackingConsent(...)` 动态更新。
 
-`PrivacyPolicy` 会在写入前统一处理 metadata key、URL query item 和文本模式。内置文本模式包含 `.email` 和 `.phoneNumber`，也支持 `.custom(pattern:replacement:)` 扩展业务规则。
+`PrivacyPolicy` 会在写入前统一处理 metadata key、URL query item 和文本模式。默认会脱敏 `authorization`、`password`、`token`、`access_token`、`refresh_token`、`cookie`、`set-cookie` 等常见认证字段；内置文本模式包含 `.email` 和 `.phoneNumber`，也支持 `.custom(pattern:replacement:)` 扩展业务规则。
 
 Swift Package 已包含 `PrivacyInfo.xcprivacy`。SDK 默认不上传数据、不声明追踪域名；当前清单声明 SDK 为清理策略读取 app 容器内文件时间戳。
 

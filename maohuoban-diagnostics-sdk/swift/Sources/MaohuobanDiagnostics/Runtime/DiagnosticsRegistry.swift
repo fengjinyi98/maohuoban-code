@@ -15,6 +15,9 @@ actor DiagnosticsRegistry {
         if configuration.networkCapture == .globalURLProtocol, !isGlobalNetworkCaptureRegistered {
             URLProtocol.registerClass(DiagnosticsURLProtocol.self)
             isGlobalNetworkCaptureRegistered = true
+        } else if configuration.networkCapture == .manual, isGlobalNetworkCaptureRegistered {
+            URLProtocol.unregisterClass(DiagnosticsURLProtocol.self)
+            isGlobalNetworkCaptureRegistered = false
         }
         return runtime
     }
