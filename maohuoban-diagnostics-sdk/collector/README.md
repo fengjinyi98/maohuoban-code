@@ -32,7 +32,7 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | `--output/prompt.md` | 已压缩的 LLM 分析输入 |
 | `--output/archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，可直接作为单文件诊断包传输 |
 
-外部日志文件的每个非空行会转换为 `kind=log`、`severity=info` 事件，并写入 `source=external_log` 与 `source_path` metadata。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包。
+外部日志文件的每个非空行会转换为 `kind=log` 事件，并写入 `source=external_log` 与 `source_path` metadata。Collector 会识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记，映射为对应 `severity`，同时写入 `external_log_marker` 与 `external_log_format`。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包，并保留异常优先级。
 
 `--segments` 与 `--log-file` 至少提供一种。某个进程尚未接入 SDK 时，可以只传 `--log-file`，Collector 仍会输出完整 Debug Bundle。
 

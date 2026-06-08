@@ -150,7 +150,7 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
 | `archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，便于直接传输或附加给 LLM 工作流 |
 
-`--segments` 可以重复传入多个 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log/info` 事件，并按事件时间合并成同一个 timeline。
+`--segments` 可以重复传入多个 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log` 事件，并识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记映射 `severity`，再按事件时间合并成同一个 timeline。
 
 Collector 需要至少一种输入来源。SDK 还没接入某个进程时，可以只传 `--log-file` 生成 Debug Bundle，后续再逐步加入 `--segments`。
 

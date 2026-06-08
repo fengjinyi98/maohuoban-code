@@ -213,17 +213,106 @@ fn read_external_log_file(path: &Path) -> Result<Vec<DiagnosticEvent>, Diagnosti
         if message.is_empty() {
             continue;
         }
-        events.push(
-            DiagnosticEvent::new(
-                EventKind::Log,
-                maohuoban_diagnostics::Severity::Info,
-                message,
-            )
+        let parsed = parse_external_log_line(message);
+        let mut event = DiagnosticEvent::new(EventKind::Log, parsed.severity, message)
             .metadata("source", json!("external_log"))
-            .metadata("source_path", json!(source_path)),
-        );
+            .metadata("source_path", json!(source_path));
+        if let Some(marker) = parsed.marker {
+            event = event.metadata("external_log_marker", json!(marker));
+        }
+        if let Some(format) = parsed.format {
+            event = event.metadata("external_log_format", json!(format));
+        }
+        events.push(event);
     }
     Ok(events)
+}
+
+/// `ParsedExternalLogLine` 外部日志解析结果
+/// 核心职责：
+/// - 承载从原始日志行识别出的严重级别
+/// - 为事件 metadata 保留解析依据
+struct ParsedExternalLogLine<'a> {
+    severity: maohuoban_diagnostics::Severity,
+    marker: Option<&'a str>,
+    format: Option<&'static str>,
+}
+
+/// `parse_external_log_line` 解析外部日志行
+/// 核心职责：
+/// - 识别 Xcode、Rust 和脚本日志里的常见级别标记
+/// - 保留原始日志文本，由 Collector 统一转换为标准事件
+fn parse_external_log_line(line: &str) -> ParsedExternalLogLine<'_> {
+    for token in line.split(|character: char| {
+        character.is_whitespace()
+            || matches!(
+                character,
+                '[' | ']' | '(' | ')' | '{' | '}' | '<' | '>' | ':' | '=' | ',' | ';'
+            )
+    }) {
+        let Some(severity) = severity_from_marker(token) else {
+            continue;
+        };
+        return ParsedExternalLogLine {
+            severity,
+            marker: Some(token),
+            format: Some(classify_external_log_format(line)),
+        };
+    }
+
+    ParsedExternalLogLine {
+        severity: maohuoban_diagnostics::Severity::Info,
+        marker: None,
+        format: None,
+    }
+}
+
+/// `severity_from_marker` 映射日志级别标记
+/// 核心职责：
+/// - 将常见大小写日志级别转换为诊断事件严重级别
+/// - 保持外部日志解析逻辑集中在 Collector 层
+fn severity_from_marker(marker: &str) -> Option<maohuoban_diagnostics::Severity> {
+    match marker {
+        "TRACE" | "Trace" | "trace" => Some(maohuoban_diagnostics::Severity::Trace),
+        "DEBUG" | "Debug" | "debug" => Some(maohuoban_diagnostics::Severity::Debug),
+        "INFO" | "Info" | "info" => Some(maohuoban_diagnostics::Severity::Info),
+        "WARN" | "Warn" | "warn" | "WARNING" | "Warning" | "warning" => {
+            Some(maohuoban_diagnostics::Severity::Warn)
+        }
+        "ERROR" | "Error" | "error" => Some(maohuoban_diagnostics::Severity::Error),
+        "FATAL" | "Fatal" | "fatal" => Some(maohuoban_diagnostics::Severity::Fatal),
+        _ => None,
+    }
+}
+
+/// `classify_external_log_format` 判断外部日志格式
+/// 核心职责：
+/// - 标记日志行来源形态，辅助 LLM 判断上下文
+/// - 为 Xcode、Rust 和普通脚本输出提供轻量分类
+fn classify_external_log_format(line: &str) -> &'static str {
+    if looks_like_xcode_or_system_log(line) {
+        "xcode_or_system"
+    } else if line.contains(" src/") || line.contains(".rs:") {
+        "rust"
+    } else {
+        "plain"
+    }
+}
+
+/// `looks_like_xcode_or_system_log` 判断 Xcode 或系统日志行
+/// 核心职责：
+/// - 识别带日期、进程和线程片段的 Apple 平台日志
+/// - 为外部日志格式分类提供无依赖判断
+fn looks_like_xcode_or_system_log(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    bytes.len() >= 23
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes[10].is_ascii_whitespace()
+        && bytes[13] == b':'
+        && bytes[16] == b':'
+        && line.contains('[')
+        && line.contains(']')
 }
 
 #[cfg(test)]
@@ -378,5 +467,47 @@ mod tests {
         assert!(timeline.contains("missing entitlement"));
         assert!(timeline.contains("\"source\":\"external_log\""));
         assert_eq!(manifest["event_count"], json!(2));
+    }
+
+    #[test]
+    fn collector_classifies_external_log_severity_markers() {
+        let root = tempdir().expect("temp dir");
+        let output = root.path().join("bundle");
+        let log_file = root.path().join("xcode.log");
+        std::fs::write(
+            &log_file,
+            [
+                "2026-06-09 10:00:00.000 maohuoban[100:200] ERROR login failed",
+                "warning: missing asset catalog color",
+                "DEBUG cache warm completed",
+                "TRACE render pass entered",
+                "FATAL database migration corrupted",
+            ]
+            .join("\n"),
+        )
+        .expect("write log");
+
+        let bundle = collect_debug_bundle(CollectorConfig::from_log_files([log_file], output))
+            .expect("collect bundle");
+        let timeline = std::fs::read_to_string(bundle.timeline_path).expect("timeline");
+        let events = timeline
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("event json"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(events[0]["severity"], json!("error"));
+        assert_eq!(events[1]["severity"], json!("warn"));
+        assert_eq!(events[2]["severity"], json!("debug"));
+        assert_eq!(events[3]["severity"], json!("trace"));
+        assert_eq!(events[4]["severity"], json!("fatal"));
+        assert_eq!(events[0]["metadata"]["external_log_marker"], json!("ERROR"));
+        assert_eq!(
+            events[1]["metadata"]["external_log_marker"],
+            json!("warning")
+        );
+        assert_eq!(
+            events[0]["metadata"]["external_log_format"],
+            json!("xcode_or_system")
+        );
     }
 }
