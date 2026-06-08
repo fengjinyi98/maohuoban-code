@@ -70,6 +70,47 @@ struct DiagnosticsPipelineTests {
         let configuration = diagnostics.instrumentedURLSessionConfiguration(.ephemeral)
         #expect(configuration.protocolClasses?.first == DiagnosticsURLProtocol.self)
     }
+
+    @Test("便捷 API 会记录面包屑、错误和性能 span")
+    func recordsBreadcrumbErrorAndSpan() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.breadcrumb("open detail", metadata: ["screen": "detail"])
+        await diagnostics.error("load failed", metadata: ["reason": "timeout"])
+        let span = diagnostics.beginSpan("load detail")
+        await span.end(metadata: ["result": "failed"])
+
+        let events = try await diagnostics.readEvents()
+        #expect(events.contains { $0.kind == .breadcrumb && $0.message == "open detail" })
+        #expect(events.contains { $0.kind == .error && $0.message == "load failed" })
+        #expect(events.contains { $0.kind == .performance && $0.message == "load detail" })
+    }
+
+    @Test("LLM Prompt 导出会包含 schema 和时间线摘要")
+    func exportsLLMPrompt() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+
+        await diagnostics.error("request timeout")
+        let prompt = try await diagnostics.exportLLMPrompt(title: "分析这个 bug")
+
+        #expect(prompt.contains("maohuoban.diagnostics.prompt.v1"))
+        #expect(prompt.contains("分析这个 bug"))
+        #expect(prompt.contains("request timeout"))
+    }
 }
 
 private func temporaryDirectory() throws -> URL {

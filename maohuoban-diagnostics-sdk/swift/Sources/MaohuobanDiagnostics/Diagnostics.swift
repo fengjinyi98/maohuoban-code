@@ -75,6 +75,22 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         await record(.log(severity, message))
     }
 
+    public func breadcrumb(_ message: String, metadata: [String: String] = [:]) async {
+        var event = DiagnosticEvent(kind: .breadcrumb, severity: .info, message: message)
+        for (key, value) in metadata {
+            event = event.metadata(key, value)
+        }
+        await record(event)
+    }
+
+    public func error(_ message: String, metadata: [String: String] = [:]) async {
+        var event = DiagnosticEvent.error(message)
+        for (key, value) in metadata {
+            event = event.metadata(key, value)
+        }
+        await record(event)
+    }
+
     public func flush() async throws {
         try await store.flush()
     }
@@ -89,6 +105,11 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
 
     public func exportDebugBundle(to outputDirectory: URL) async throws -> DebugBundle {
         try DebugBundleExporter(outputDirectory: outputDirectory)
+            .export(events: try await readEvents())
+    }
+
+    public func exportLLMPrompt(title: String, maxEvents: Int = 200) async throws -> String {
+        LLMPromptExporter(title: title, maxEvents: maxEvents)
             .export(events: try await readEvents())
     }
 
