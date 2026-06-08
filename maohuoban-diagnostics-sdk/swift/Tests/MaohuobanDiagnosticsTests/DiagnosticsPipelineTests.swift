@@ -114,6 +114,46 @@ struct DiagnosticsPipelineTests {
         #expect(event.metadata["environment"] == "test")
     }
 
+    @Test("读取段文件会跳过损坏行并保留告警事件")
+    func readEventsSkipsCorruptedSegmentLinesAndReportsWarning() async throws {
+        let root = try temporaryDirectory()
+        let storage = root.appending(path: "segments")
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: storage
+            )
+        )
+        let validEvent = DiagnosticEvent(
+            timestamp: Date(timeIntervalSince1970: 1),
+            kind: .log,
+            severity: .info,
+            message: "valid after corrupt line"
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let validData = try encoder.encode(validEvent)
+        let segment = storage.appending(path: "corrupted.jsonl")
+        try Data("not json\n".utf8).write(to: segment)
+        let handle = try FileHandle(forWritingTo: segment)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: validData)
+        try handle.write(contentsOf: Data("\n".utf8))
+
+        let events = try await diagnostics.readEvents()
+        let valid = try #require(events.first { $0.message == "valid after corrupt line" })
+        let warning = try #require(events.first { $0.message == "storage segment decode failed" })
+
+        #expect(valid.kind == .log)
+        #expect(warning.kind == .error)
+        #expect(warning.severity == .warn)
+        #expect(warning.metadata["source"] == "file_segment_store")
+        #expect(warning.metadata["line"] == "1")
+        #expect(warning.metadata["segment"]?.hasSuffix("corrupted.jsonl") == true)
+    }
+
     @Test("清理策略会删除过期段文件")
     func cleanupRemovesExpiredSegments() async throws {
         let root = try temporaryDirectory()

@@ -3,7 +3,7 @@ import Foundation
 // FileSegmentStore JSONL 分段文件存储
 // 核心职责：
 // - 将诊断事件以 JSONL 格式分段落盘
-// - 执行基于时间与大小的段文件清理
+// - 执行基于时间与大小的段文件清理和损坏行恢复
 actor FileSegmentStore {
     private let directory: URL
     private let maxSegmentBytes: UInt64
@@ -44,9 +44,13 @@ actor FileSegmentStore {
             guard let lines = String(data: try Data(contentsOf: url), encoding: .utf8) else {
                 continue
             }
-            for line in lines.split(separator: "\n") {
+            for (index, line) in lines.split(separator: "\n").enumerated() {
                 let data = Data(line.utf8)
-                events.append(try decoder.decode(DiagnosticEvent.self, from: data))
+                do {
+                    events.append(try decoder.decode(DiagnosticEvent.self, from: data))
+                } catch {
+                    events.append(corruptedSegmentEvent(url: url, line: index + 1, error: error))
+                }
             }
         }
         return events.sorted { $0.timestamp < $1.timestamp }
@@ -102,5 +106,23 @@ actor FileSegmentStore {
         )
         .filter { $0.pathExtension == "jsonl" }
         .sorted { $0.path < $1.path }
+    }
+
+    // corruptedSegmentEvent 构造损坏段文件告警事件
+    // 核心职责：
+    // - 保留段文件读取损坏的可观测信号
+    // - 允许合法诊断事件继续导出给分析流程
+    private func corruptedSegmentEvent(url: URL, line: Int, error: Error) -> DiagnosticEvent {
+        DiagnosticEvent(
+            kind: .error,
+            severity: .warn,
+            message: "storage segment decode failed",
+            metadata: [
+                "source": "file_segment_store",
+                "segment": url.lastPathComponent,
+                "line": "\(line)",
+                "error": String(describing: error)
+            ]
+        )
     }
 }

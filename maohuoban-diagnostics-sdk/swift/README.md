@@ -87,6 +87,8 @@ await Diagnostics.clearTraceID()
 
 `Diagnostics.exportDebugBundle(to:)` 返回的 `DebugBundle` 会暴露 `archiveURL`，用于上传、复制或附加到 LLM 分析流程。
 
+读取 JSONL 段文件时，Swift Storage 会跳过无法解码的单行，并注入 `storage segment decode failed` 告警事件。诊断包会继续包含后续合法事件，同时把损坏段文件名、行号和错误摘要交给 LLM。
+
 ## SwiftUI 边界
 
 | 位置 | 规则 |

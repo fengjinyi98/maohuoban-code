@@ -20,7 +20,7 @@
 | Capture | 采集日志、网络、性能、错误、生命周期事件，并控制最低级别与字段大小 |
 | Normalize | 转成统一 `DiagnosticEvent` 协议 |
 | Privacy | 写入前执行字段脱敏 |
-| Storage | JSONL 分段落盘 |
+| Storage | JSONL 分段落盘，读取时保留损坏段文件告警 |
 | Cleanup | 按大小、时间窗口、导出生命周期清理 |
 | Export | 生成 `manifest.json`、`timeline.jsonl`、`prompt.md` 与 `archive.tar` Debug Bundle |
 
