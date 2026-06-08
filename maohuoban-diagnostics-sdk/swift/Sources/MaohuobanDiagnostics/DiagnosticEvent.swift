@@ -166,6 +166,7 @@ public struct NetworkSummary: Sendable {
     func event() -> DiagnosticEvent {
         var metadata = metadata
         let failedStatus = statusCode.map { $0 >= 400 } ?? false
+        let cancelled = metadata["cancelled"] == "true"
         metadata["method"] = method
         metadata["url"] = url
         if let statusCode {
@@ -179,8 +180,8 @@ public struct NetworkSummary: Sendable {
         }
         return DiagnosticEvent(
             kind: .network,
-            severity: error == nil && !failedStatus ? .info : .error,
-            message: error == nil && !failedStatus ? "network request completed" : "network request failed",
+            severity: cancelled ? .warn : (error == nil && !failedStatus ? .info : .error),
+            message: cancelled ? "network request cancelled" : (error == nil && !failedStatus ? "network request completed" : "network request failed"),
             metadata: metadata
         )
     }

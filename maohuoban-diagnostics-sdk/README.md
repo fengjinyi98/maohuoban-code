@@ -179,7 +179,7 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 
 运行时快照 API 会以 `performance` 事件记录进程、系统、架构和 SDK uptime。Swift 额外记录物理内存大小；发生事件落盘失败后，Swift 和 Rust 快照都会带出 `dropped_event_count` 和 `last_storage_error`。
 
-网络摘要 API 会记录 method、url、status code、duration 和 error。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
+网络摘要 API 会记录 method、url、status code、duration、error 和取消状态。Swift `URLProtocol` 自动采集会额外记录请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key，避免采集 header value。取消请求会生成 `severity=warn` 且 message 为 `network request cancelled`；显式 error 或 HTTP 状态码大于等于 400 时，事件会自动标记为 `severity=error` 且 message 为 `network request failed`。
 
 采集策略默认保留全部事件。需要控制日志量时，可以配置 Swift `CapturePolicy(minimumSeverity:maxMessageLength:maxMetadataValueLength:)` 或 Rust `CapturePolicy`，在统一 `record` 管线内过滤低优先级事件并裁剪超长字段。
 

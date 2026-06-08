@@ -72,7 +72,7 @@ await Diagnostics.clearTraceID()
 
 `captureRuntimeSnapshot` 会记录进程 ID、进程名、系统版本、架构、SDK uptime 和物理内存大小，适合放在启动、卡顿、网络异常前后。发生事件落盘失败后，快照还会带出 `dropped_event_count` 和 `last_storage_error`，用于判断诊断数据自身是否丢失。
 
-`NetworkSummary` 会记录 method、url、statusCode、durationMs 和 error。Swift `URLProtocol` 自动采集还会补充请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key；header value 不会进入事件。显式 error 或 `statusCode >= 400` 会自动生成 `severity=.error` 的失败网络事件。
+`NetworkSummary` 会记录 method、url、statusCode、durationMs、error 和取消状态。Swift `URLProtocol` 自动采集还会补充请求体字节数、响应体字节数、响应 MIME type、请求 header key 和响应 header key；header value 不会进入事件。取消请求会生成 `severity=.warn` 的取消网络事件；显式 error 或 `statusCode >= 400` 会自动生成 `severity=.error` 的失败网络事件。
 
 `CapturePolicy` 默认保留全部事件。需要控制本地数据量时，可配置最低严重级别、message 最大长度和 metadata 字符串最大长度；策略在统一记录管线内执行，所有日志、网络、错误、性能和生命周期事件都会遵守同一边界。
 

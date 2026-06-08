@@ -250,6 +250,81 @@ struct DiagnosticsPipelineTests {
         #expect(event.metadata["response_header_keys"] == "Content-Type,X-Request-ID")
     }
 
+    @Test("URLProtocol 取消摘要会记录取消状态")
+    func urlProtocolSummaryCapturesCancellation() throws {
+        let url = try #require(URL(string: "https://api.example.com/stream"))
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let summary = DiagnosticsURLProtocol.cancelledNetworkSummary(
+            request: request,
+            durationMs: 17
+        )
+        let event = summary.event()
+
+        #expect(event.kind == .network)
+        #expect(event.severity == .warn)
+        #expect(event.message == "network request cancelled")
+        #expect(event.metadata["method"] == "GET")
+        #expect(event.metadata["url"] == "https://api.example.com/stream")
+        #expect(event.metadata["duration_ms"] == "17")
+        #expect(event.metadata["cancelled"] == "true")
+    }
+
+    @Test("URLProtocol 取消错误会归一为取消摘要")
+    func urlProtocolSummaryNormalizesCancelledError() throws {
+        let url = try #require(URL(string: "https://api.example.com/stream"))
+        let request = URLRequest(url: url)
+
+        let summary = DiagnosticsURLProtocol.networkSummary(
+            request: request,
+            response: nil,
+            data: nil,
+            error: URLError(.cancelled),
+            durationMs: 23
+        )
+        let event = summary.event()
+
+        #expect(event.severity == .warn)
+        #expect(event.message == "network request cancelled")
+        #expect(event.metadata["cancelled"] == "true")
+        #expect(event.metadata["error"] == nil)
+    }
+
+    @Test("URLProtocol 停止加载只记录一次取消事件")
+    func urlProtocolStopLoadingRecordsCancellationOnce() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appending(path: "segments")
+            )
+        )
+        DiagnosticsURLProtocol.runtime = diagnostics
+        defer {
+            DiagnosticsURLProtocol.runtime = nil
+        }
+        let url = try #require(URL(string: "https://api.example.com/stream"))
+        let request = URLRequest(url: url)
+        let protocolInstance = DiagnosticsURLProtocol(
+            request: request,
+            cachedResponse: nil,
+            client: nil
+        )
+
+        protocolInstance.stopLoading()
+        protocolInstance.stopLoading()
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let events = try await diagnostics.readEvents()
+        let cancellations = events.filter { event in
+            event.kind == .network && event.message == "network request cancelled"
+        }
+
+        #expect(cancellations.count == 1)
+    }
+
     @Test("便捷 API 会记录面包屑、错误和性能 span")
     func recordsBreadcrumbErrorAndSpan() async throws {
         let root = try temporaryDirectory()

@@ -9,6 +9,8 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
     private static let handledKey = "MaohuobanDiagnosticsHandled"
     private var dataTask: URLSessionDataTask?
     private var startedAt = Date()
+    private let terminalEventLock = NSLock()
+    private var recordedTerminalEvent = false
 
     public override class func canInit(with request: URLRequest) -> Bool {
         URLProtocol.property(forKey: handledKey, in: request) == nil
@@ -50,11 +52,15 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     public override func stopLoading() {
+        recordCancellation()
         dataTask?.cancel()
         dataTask = nil
     }
 
     private func record(response: URLResponse?, data: Data?, error: Error?) {
+        guard markTerminalEventRecorded() else {
+            return
+        }
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
         let capturedSummary = Self.networkSummary(
             request: request,
@@ -69,6 +75,34 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
         }
     }
 
+    private func recordCancellation() {
+        guard markTerminalEventRecorded() else {
+            return
+        }
+        let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        let capturedSummary = Self.cancelledNetworkSummary(request: request, durationMs: durationMs)
+        let capturedRuntime = Self.runtime
+        Task.detached { @Sendable [capturedSummary, capturedRuntime] in
+            await capturedRuntime?.network(capturedSummary)
+        }
+    }
+
+    // markTerminalEventRecorded 标记网络终态事件已记录
+    // 核心职责：
+    // - 保证完成、失败和取消三类终态只写入一次
+    // - 隔离 URLSession 回调与 stopLoading 并发触发的竞态
+    private func markTerminalEventRecorded() -> Bool {
+        terminalEventLock.lock()
+        defer {
+            terminalEventLock.unlock()
+        }
+        guard !recordedTerminalEvent else {
+            return false
+        }
+        recordedTerminalEvent = true
+        return true
+    }
+
     // networkSummary 构造网络采集摘要
     // 核心职责：
     // - 从 URLSession 请求、响应和错误中提取稳定调试字段
@@ -80,6 +114,9 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
         error: Error?,
         durationMs: Int
     ) -> NetworkSummary {
+        if let error, isCancelledError(error) {
+            return cancelledNetworkSummary(request: request, durationMs: durationMs)
+        }
         var summary = NetworkSummary(
             method: request.httpMethod ?? "GET",
             url: request.url?.absoluteString ?? "",
@@ -93,6 +130,32 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
             summary.error = error.localizedDescription
         }
         return summary
+    }
+
+    // cancelledNetworkSummary 构造网络取消摘要
+    // 核心职责：
+    // - 在 URLProtocol 停止加载时保留取消信号
+    // - 避免取消请求在诊断时间线中丢失
+    static func cancelledNetworkSummary(request: URLRequest, durationMs: Int) -> NetworkSummary {
+        NetworkSummary(
+            method: request.httpMethod ?? "GET",
+            url: request.url?.absoluteString ?? "",
+            durationMs: durationMs,
+            metadata: networkMetadata(request: request, response: nil, data: nil)
+                .merging(["cancelled": "true"]) { _, new in new }
+        )
+    }
+
+    // isCancelledError 判断 URLSession 取消错误
+    // 核心职责：
+    // - 识别 Swift URLProtocol 和 URLSession 回调中的取消信号
+    // - 保持取消事件与网络失败事件的诊断语义分离
+    private static func isCancelledError(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            return urlError.code == .cancelled
+        }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
     }
 
     // networkMetadata 构造网络 metadata

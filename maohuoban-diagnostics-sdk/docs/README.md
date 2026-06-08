@@ -66,12 +66,13 @@ Swift 和 Rust Storage 读取 JSONL 段文件时会跳过无法解码的单行�
 | `status_code` | 可选响应状态码 |
 | `duration_ms` | 可选耗时 |
 | `error` | 可选失败摘要 |
+| `cancelled` | Swift URLProtocol 自动采集的可选取消标记，值为 `true` |
 | `request_body_bytes` | Swift URLProtocol 自动采集的可选请求体字节数 |
 | `response_body_bytes` | Swift URLProtocol 自动采集的可选响应体字节数 |
 | `response_mime_type` | Swift URLProtocol 自动采集的可选响应 MIME type |
 | `request_header_keys` / `response_header_keys` | Swift URLProtocol 自动采集的 header key 列表，不采集 header value |
 
-显式 `error` 或 `status_code >= 400` 会生成 `severity=error`、`message=network request failed` 的网络事件。成功状态码会生成 `severity=info`、`message=network request completed` 的网络事件。
+`cancelled=true` 会生成 `severity=warn`、`message=network request cancelled` 的网络事件。显式 `error` 或 `status_code >= 400` 会生成 `severity=error`、`message=network request failed` 的网络事件。成功状态码会生成 `severity=info`、`message=network request completed` 的网络事件。
 
 ## 采集策略
 
