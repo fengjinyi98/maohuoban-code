@@ -19,5 +19,8 @@ target/
 .playwright-cli/
 output/
 
+# External reference projects (独立 Git 仓库，主仓库不跟踪)
+references/projects/
+
 # Repository migration backups
 .repo-backups/

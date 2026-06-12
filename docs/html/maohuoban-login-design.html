@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="毛伙伴(Maohuoban)登录流程与核心功能UI设计规范设计稿。展示了包含手机号验证、数字验证码输入、忘记密码引导等高保真交互 mockups，移除了宠物和Logo，增设了第三方微信及Apple快捷登录区域。">
+  <title>毛伙伴 UI Design Spec — 登录流程与核心功能</title>
+  <style>
+    /* ============================================================
+       毛伙伴 UI Design Spec — 登录流程与核心功能
+       风格：Apple Health · Frosted Glass · 冷白蓝灰 · 低饱和
+       设计规范遵循 docs/design/00_AI生图Prompt与视觉一致性规范.md
+       ============================================================ */
+
+    :root {
+      /* — Brand — */
+      --primary:     #4F8CFF;
+      --primary-lt:  #6BCBFF;
+      --primary-dk:  #3A6FCC;
+      --primary-bg:  rgba(79, 140, 255, 0.08);
+      --primary-bg2: rgba(79, 140, 255, 0.04);
+
+      /* — Semantic — */
+      --green:   #34C759;
+      --orange:  #FF9500;
+      --red:     #FF3B30;
+      --teal:    #5AC8FA;
+      --purple:  #AF52DE;
+
+      /* — Neutral — */
+      --bg:          #F7F9FC;
+      --card:        rgba(255, 255, 255, 0.75);
+      --card-solid:  #FFFFFF;
+      --card-border: rgba(255, 255, 255, 0.6);
+      --glass:       rgba(255, 255, 255, 0.6);
+
+      --l1: #1A1D26;     /* primary text */
+      --l2: #6E7681;     /* secondary */
+      --l3: #9CA3AF;     /* tertiary */
+      --l4: #D1D5DB;     /* quaternary */
+
+      --sep: rgba(0,0,0,0.05);
+      --sep2: rgba(0,0,0,0.03);
+
+      /* — Spacing — */
+      --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
+
+      /* — Radius — */
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 9999px;
+
+      /* — Font — */
+      --font: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+
+      /* — Device Specs — */
+      --dw: 390px; --dh: 844px; --safe-t: 59px; --safe-b: 34px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--l1);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 80px;
+    }
+
+    /* ===== Background Glow Orbs ===== */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(100px);
+      opacity: 0.35;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary-lt); top: -100px; right: -100px; }
+    .orb-2 { width: 500px; height: 500px; background: rgba(90, 200, 250, 0.4); top: 500px; left: -150px; }
+    .orb-3 { width: 350px; height: 350px; background: rgba(175, 82, 222, 0.25); bottom: 100px; right: -50px; }
+
+    /* ===== Layout Wrapper ===== */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 var(--s6);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== Page Header ===== */
+    .pg-hd {
+      text-align: center;
+      padding: var(--s8) 0;
+      margin-bottom: var(--s6);
+    }
+    .pg-hd h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+    }
+    .pg-hd p {
+      font-size: 16px;
+      color: var(--l2);
+      max-width: 600px;
+      margin: 0 auto var(--s4);
+      line-height: 1.6;
+    }
+    .pg-hd .chips {
+      display: flex;
+      justify-content: center;
+      gap: var(--s2);
+      flex-wrap: wrap;
+    }
+    .pg-hd .chip {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--l2);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 6px 16px;
+      border-radius: var(--r-full);
+      border: 0.5px solid var(--card-border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    /* ===== Divider ===== */
+    .dv {
+      border: none;
+      border-top: 0.5px solid var(--sep);
+      margin: var(--s8) 0;
+    }
+
+    /* ===== Common Section Styling ===== */
+    .sec {
+      padding: var(--s6) 0;
+    }
+    .sec-t {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: var(--s1);
+      color: var(--l1);
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+    }
+    .sec-t::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: var(--primary);
+      border-radius: var(--r-full);
+    }
+    .sec-s {
+      font-size: 14px;
+      color: var(--l3);
+      margin-bottom: var(--s6);
+      line-height: 1.5;
+    }
+
+    /* ===== Frosted Card Utility ===== */
+    .fc {
+      background: var(--card);
+      backdrop-filter: blur(20px) saturate(1.6);
+      -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-2xl);
+      padding: var(--s6);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.03);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .fc:hover {
+      box-shadow: 0 12px 40px rgba(79, 140, 255, 0.06);
+    }
+
+    /* ============================================================
+       TOP BANNER MOCKUP (Left: Slogan/Intro | Right: Today's Care)
+       ============================================================ */
+    .top-banner {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: var(--s8);
+      align-items: center;
+      margin-bottom: var(--s8);
+    }
+
+    .banner-left {
+      padding-right: var(--s6);
+    }
+    .banner-logo-placeholder {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: var(--s4);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s1);
+    }
+    .banner-logo-placeholder::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--primary);
+      border-radius: 50%;
+    }
+    .banner-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.3;
+      letter-spacing: -1px;
+      color: var(--l1);
+      margin-bottom: var(--s4);
+    }
+    .banner-title span {
+      background: linear-gradient(135deg, var(--primary), var(--primary-lt));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .banner-desc {
+      font-size: 15px;
+      color: var(--l2);
+      line-height: 1.7;
+      margin-bottom: var(--s6);
+    }
+    .banner-features {
+      display: flex;
+      gap: var(--s4);
+      flex-wrap: wrap;
+    }
+    .banner-feature-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      background: var(--card);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-lg);
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.01);
+      transition: transform 0.2s ease;
+    }
+    .banner-feature-item:hover {
+      transform: translateY(-2px);
+    }
+    .banner-feature-item svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--primary);
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .banner-right {
+      position: relative;
+    }
+    /* Abstract decorative pattern replacing pet photo on right side */
+    .banner-right-backdrop {
+      position: absolute;
+      top: -20px;
+      left: -20px;
+      right: -20px;
+      bottom: -20px;
+      background: radial-gradient(circle at center, rgba(79, 140, 255, 0.15) 0%, transparent 70%);
+      z-index: 0;
+      border-radius: var(--r-2xl);
+    }
+    .banner-right-card {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--s4);
+    }
+    .banner-care-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 0.5px solid var(--sep);
+      padding-bottom: var(--s3);
+    }
+    .banner-care-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .banner-care-tag {
+      font-size: 11px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: var(--r-full);
+      font-weight: 600;
+    }
+    .banner-care-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+    }
+    .banner-care-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      font-size: 14px;
+      color: var(--l1);
+      font-weight: 500;
+    }
+    .banner-care-item .icon-check {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .banner-care-item .icon-check svg {
+      width: 11px;
+      height: 11px;
+      stroke: currentColor;
+      stroke-width: 3;
+      fill: none;
+    }
+    .banner-care-item .icon-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary-bg);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .banner-care-item .icon-dot::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+      border-radius: 50%;
+    }
+    .banner-care-item .val {
+      margin-left: auto;
+      color: var(--l3);
+      font-size: 13px;
+    }
+
+    /* Vaccine reminder card inside top right banner */
+    .banner-vaccine-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-xl);
+      padding: var(--s4);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+    }
+    .banner-vaccine-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--r-md);
+      background: linear-gradient(135deg, var(--orange), #FFB340);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .banner-vaccine-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+    .banner-vaccine-info {
+      flex: 1;
+    }
+    .banner-vaccine-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+    }
+    .banner-vaccine-sub {
+      font-size: 11px;
+      color: var(--l3);
+      margin-top: 1px;
+    }
+    .banner-vaccine-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--orange);
+      background: rgba(255, 149, 0, 0.08);
+      padding: 4px 10px;
+      border-radius: var(--r-sm);
+    }
+
+    /* ============================================================
+       LOGIN FLOW (iPhone Mockups Side-By-Side)
+       ============================================================ */
+    .mockups-grid {
+      display: flex;
+      justify-content: center;
+      gap: var(--s8);
+      flex-wrap: wrap;
+      margin-top: var(--s6);
+    }
+
+    /* iPhone 14 Pro Frame */
+    .iphone-frame {
+      width: var(--dw);
+      height: var(--dh);
+      background: var(--bg);
+      border-radius: 54px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.06),
+        0 0 0 4px var(--bg),
+        0 0 0 5px rgba(0,0,0,0.06),
+        0 20px 60px rgba(0,0,0,0.08);
+      border: 10px solid #1c1d24; /* Outer frame solid color */
+    }
+
+    /* Status Bar */
+    .iphone-stbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--safe-t);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 32px 8px;
+      z-index: 100;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+      background: transparent;
+      user-select: none;
+    }
+    .stbar-icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .stbar-icons svg {
+      height: 12px;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 30px;
+      background: #000;
+      border-radius: 18px;
+      z-index: 110;
+    }
+
+    /* Home Indicator */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: var(--l1);
+      border-radius: 3px;
+      z-index: 100;
+      opacity: 0.3;
+    }
+
+    /* iPhone Content Container (Scrollable) */
+    .iphone-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: var(--safe-t);
+      padding-bottom: var(--safe-b);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+      scrollbar-width: none; /* Firefox */
+    }
+    .iphone-content::-webkit-scrollbar {
+      display: none; /* Safari & Chrome */
+    }
+
+    /* Screen Title / Label below mockup */
+    .mockup-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--s4);
+    }
+    .mockup-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .mockup-desc {
+      font-size: 13px;
+      color: var(--l3);
+      text-align: center;
+      max-width: 300px;
+      line-height: 1.4;
+    }
+
+    /* ===== Input & Button elements inside iPhone ===== */
+    .phone-input-group {
+      position: relative;
+      margin-bottom: var(--s4);
+    }
+    .phone-input-group .icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: var(--l3);
+    }
+    .phone-input-group input {
+      width: 100%;
+      height: 48px;
+      background: rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      border-radius: var(--r-md);
+      padding: 0 16px 0 44px;
+      font-size: 15px;
+      color: var(--l1);
+      outline: none;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .phone-input-group input:focus {
+      border-color: var(--primary);
+      background-color: var(--card-solid);
+    }
+    .phone-input-group input::placeholder {
+      color: var(--l3);
+    }
+
+    .primary-btn {
+      width: 100%;
+      height: 48px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--r-md);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(79, 140, 255, 0.25);
+      transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    }
+    .primary-btn:hover {
+      background: var(--primary-dk);
+    }
+    .primary-btn:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 8px rgba(79, 140, 255, 0.15);
+    }
+
+    /* ===== Screen 1: Login Page (01 登录页) ===== */
+    .screen-login {
+      padding: var(--s5);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .login-logo-placeholder {
+      margin: var(--s6) auto var(--s5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 48px;
+    }
+    /* Simple stylized text placeholder replacing logo */
+    .logo-text-holder {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: 4px;
+      border: 1px dashed var(--primary-lt);
+      padding: 4px 16px;
+      border-radius: var(--r-sm);
+      background: var(--primary-bg);
+      text-transform: uppercase;
+    }
+    .login-heading {
+      text-align: center;
+      margin-bottom: var(--s8);
+    }
+    .login-heading h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+      letter-spacing: -0.5px;
+    }
+    .login-heading p {
+      font-size: 13px;
+      color: var(--l2);
+    }
+    .login-form {
+      margin-bottom: var(--s5);
+    }
+    .agreement-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: var(--s4);
+      font-size: 11px;
+      color: var(--l2);
+      line-height: 1.4;
+    }
+    .agreement-line input[type="checkbox"] {
+      margin-top: 2px;
+      width: 14px;
+      height: 14px;
+      accent-color: var(--primary);
+    }
+    .agreement-line a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .agreement-line a:hover {
+      text-decoration: underline;
+    }
+
+    /* Third-party login area */
+    .third-party-login {
+      margin-top: auto;
+      padding-top: var(--s6);
+      text-align: center;
+    }
+    .tpl-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s3);
+      margin-bottom: var(--s4);
+    }
+    .tpl-divider::before,
+    .tpl-divider::after {
+      content: '';
+      flex: 1;
+      height: 0.5px;
+      background: var(--sep);
+    }
+    .tpl-divider span {
+      font-size: 11px;
+      color: var(--l3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .tpl-buttons {
+      display: flex;
+      justify-content: center;
+      gap: var(--s5);
+      margin-bottom: var(--s4);
+    }
+    .tpl-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 0.5px solid var(--card-border);
+      background: var(--card-solid);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .tpl-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .tpl-btn.wechat svg {
+      width: 22px;
+      height: 22px;
+      fill: #07C160;
+    }
+    .tpl-btn.apple svg {
+      width: 18px;
+      height: 18px;
+      fill: #000000;
+    }
+    .tpl-subtext {
+      font-size: 11px;
+      color: var(--l3);
+      line-height: 1.4;
+    }
+
+    /* Bottom abstract pattern replacing pet illustration */
+    .bottom-pattern-placeholder {
+      height: 80px;
+      margin-top: var(--s5);
+      border-radius: var(--r-lg);
+      background: linear-gradient(180deg, transparent, rgba(79, 140, 255, 0.05));
+      border: 1px dashed rgba(79, 140, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--l3);
+      letter-spacing: 1px;
+    }
+
+    /* ===== Screen 2: Verification Code Page (02 验证码页) ===== */
+    .screen-verify {
+      padding: var(--s5);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .screen-header-nav {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--s6);
+      position: relative;
+      height: 40px;
+    }
+    .back-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.02);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--l1);
+      cursor: pointer;
+    }
+    .back-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .verify-heading {
+      margin-bottom: var(--s6);
+    }
+    .verify-heading h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+    }
+    .verify-heading p {
+      font-size: 13px;
+      color: var(--l2);
+      line-height: 1.5;
+    }
+    .verify-heading strong {
+      color: var(--l1);
+    }
+
+    .code-input-container {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: var(--s2);
+      margin-bottom: var(--s5);
+    }
+    .code-box {
+      aspect-ratio: 1;
+      background: rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--l1);
+      position: relative;
+    }
+    .code-box.active {
+      border-color: var(--primary);
+      background: var(--card-solid);
+      box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.1);
+    }
+    /* Blinking cursor simulation */
+    .code-box.active::after {
+      content: '';
+      width: 2px;
+      height: 20px;
+      background: var(--primary);
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      from, to { background-color: transparent }
+      50% { background-color: var(--primary); }
+    }
+
+    .resend-timer {
+      text-align: center;
+      font-size: 13px;
+      color: var(--l3);
+      margin-bottom: auto;
+    }
+    .resend-timer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* iOS-Style Custom Keyboard */
+    .ios-keyboard {
+      background: rgba(220, 224, 230, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      margin: 0 -20px -20px;
+      padding: 10px 6px calc(10px + var(--s2));
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      border-top: 0.5px solid rgba(0,0,0,0.1);
+    }
+    .keyboard-key {
+      height: 46px;
+      background: #ffffff;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+      user-select: none;
+    }
+    .keyboard-key:active {
+      background: rgba(230, 230, 230, 0.8);
+    }
+    .keyboard-key .num {
+      font-size: 20px;
+      font-weight: 500;
+      color: #000;
+    }
+    .keyboard-key .letters {
+      font-size: 9px;
+      font-weight: 700;
+      color: #8a8a8a;
+      letter-spacing: 0.5px;
+      margin-top: -2px;
+      text-transform: uppercase;
+    }
+    .keyboard-key.special {
+      background: transparent;
+      box-shadow: none;
+    }
+    .keyboard-key.special:active {
+      background: rgba(0,0,0,0.05);
+    }
+    .keyboard-key svg {
+      width: 22px;
+      height: 18px;
+    }
+
+    /* ===== Screen 3: Forgot Password Page (03 忘记密码页) ===== */
+    .screen-forgot {
+      padding: var(--s5);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .forgot-heading {
+      margin-bottom: var(--s6);
+    }
+    .forgot-heading h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+    }
+    .forgot-heading p {
+      font-size: 13px;
+      color: var(--l2);
+      line-height: 1.5;
+    }
+    .back-link-wrapper {
+      text-align: center;
+      margin-top: var(--s5);
+    }
+    .back-link {
+      font-size: 14px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Elegant wireframe placeholder replacing cat illustration */
+    .forgot-vector-placeholder {
+      margin-top: auto;
+      margin-bottom: var(--s6);
+      height: 120px;
+      border-radius: var(--r-xl);
+      background: radial-gradient(circle at center, rgba(79, 140, 255, 0.03), transparent);
+      border: 0.5px solid var(--sep);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+    }
+    .forgot-vector-placeholder svg {
+      width: 36px;
+      height: 36px;
+      stroke: var(--l3);
+      stroke-width: 1.5;
+      fill: none;
+    }
+    .forgot-vector-placeholder span {
+      font-size: 11px;
+      color: var(--l3);
+      letter-spacing: 0.5px;
+    }
+
+    /* ============================================================
+       CORE FEATURES SECTION (8 Gradient-colored Icon Cards)
+       ============================================================ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--s4);
+      margin-top: var(--s4);
+    }
+    .feature-card {
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-xl);
+      padding: var(--s5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(79, 140, 255, 0.08);
+    }
+    .feature-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--r-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--s3);
+      color: #fff;
+    }
+    .feature-card-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+    .feature-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--l1);
+      margin-bottom: var(--s1);
+    }
+    .feature-card-desc {
+      font-size: 11px;
+      color: var(--l3);
+      line-height: 1.4;
+    }
+
+    /* Gradient colors for feature icons */
+    .icon-g-blue { background: linear-gradient(135deg, var(--primary), var(--primary-dk)); }
+    .icon-g-green { background: linear-gradient(135deg, var(--green), #2DB84E); }
+    .icon-g-teal { background: linear-gradient(135deg, var(--teal), #3AB8E8); }
+    .icon-g-purple { background: linear-gradient(135deg, var(--purple), #9B40D0); }
+    .icon-g-orange { background: linear-gradient(135deg, var(--orange), #FFB14A); }
+
+    /* ============================================================
+       IP CHARACTER SECTION (Mascot replaced by clean layout Spec)
+       ============================================================ */
+    .ip-spec-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s8);
+      align-items: center;
+      margin-top: var(--s4);
+    }
+    .ip-spec-text {
+      padding-right: var(--s6);
+    }
+    .ip-spec-text h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: var(--s3);
+      color: var(--l1);
+    }
+    .ip-spec-text p {
+      font-size: 14px;
+      color: var(--l2);
+      line-height: 1.6;
+      margin-bottom: var(--s4);
+    }
+    .ip-spec-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+    }
+    .ip-spec-bullet {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      font-size: 13px;
+      color: var(--l2);
+    }
+    .ip-spec-bullet::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--primary);
+      border-radius: 50%;
+    }
+
+    /* Graphic Wireframe Placeholder replacing mascot */
+    .ip-placeholder-card {
+      height: 240px;
+      border-radius: var(--r-2xl);
+      background: radial-gradient(circle at center, rgba(79, 140, 255, 0.05) 0%, transparent 80%), var(--card);
+      border: 1px dashed rgba(79, 140, 255, 0.25);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: var(--s5);
+      position: relative;
+      overflow: hidden;
+    }
+    /* Simple abstract vector geometry decoration to make the card look premium */
+    .ip-placeholder-card .geometry-shape {
+      width: 100px;
+      height: 100px;
+      border: 1px solid rgba(79, 140, 255, 0.15);
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--s4);
+      animation: rotate 20s linear infinite;
+    }
+    .ip-placeholder-card .geometry-shape::before {
+      content: '';
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      border: 1px dashed rgba(107, 203, 255, 0.3);
+      border-radius: 40%;
+    }
+    .ip-placeholder-card .geometry-shape::after {
+      content: '';
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(175, 82, 222, 0.2);
+      border-radius: var(--r-sm);
+      transform: rotate(45deg);
+    }
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .ip-placeholder-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+    }
+    .ip-placeholder-desc {
+      font-size: 12px;
+      color: var(--l3);
+      line-height: 1.5;
+      max-width: 320px;
+    }
+
+    /* ============================================================
+       DESIGN TOKENS REFERENCE TABLE
+       ============================================================ */
+    .tokens-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+      margin-top: var(--s4);
+    }
+    .tokens-table th {
+      text-align: left;
+      padding: 12px 18px;
+      background: rgba(0,0,0,0.02);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--l2);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 0.5px solid var(--sep);
+    }
+    .tokens-table td {
+      padding: 12px 18px;
+      border-bottom: 0.5px solid var(--sep);
+      color: var(--l1);
+    }
+    .tokens-table tr:last-child td {
+      border-bottom: none;
+    }
+    .token-color-preview {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s2);
+    }
+    .color-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 0.5px solid rgba(0,0,0,0.1);
+    }
+    .token-font-preview {
+      font-family: var(--font);
+    }
+
+    /* Footer styling */
+    footer {
+      text-align: center;
+      padding: var(--s8) 0;
+      color: var(--l3);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      border-top: 0.5px solid var(--sep);
+      margin-top: var(--s8);
+    }
+
+    /* Responsive adjustments */
+    @media(max-width: 1200px) {
+      .top-banner {
+        grid-template-columns: 1fr;
+      }
+      .banner-left {
+        padding-right: 0;
+        text-align: center;
+      }
+      .banner-logo-placeholder {
+        justify-content: center;
+      }
+      .banner-features {
+        justify-content: center;
+      }
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .ip-spec-container {
+        grid-template-columns: 1fr;
+        gap: var(--s6);
+      }
+      .ip-spec-text {
+        padding-right: 0;
+        text-align: center;
+      }
+      .ip-spec-bullet {
+        justify-content: center;
+      }
+    }
+    @media(max-width: 768px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="container">
+    <!-- Page Header -->
+    <header class="pg-hd">
+      <h1>毛伙伴 UI Design Spec</h1>
+      <p>登录流程与核心功能视觉规范 — 风格采用冷白蓝灰与 Frosted Glass 玻璃拟态风格，符合 App 级一致性规范。</p>
+      <div class="chips">
+        <span class="chip">主色 #4F8CFF</span>
+        <span class="chip">iPhone 14 Pro Layout</span>
+        <span class="chip">第三方登录加入</span>
+        <span class="chip">宠物与Logo原画已移除</span>
+      </div>
+    </header>
+
+    <hr class="dv">
+
+    <!-- ==================== TOP BANNER MOCKUP ==================== -->
+    <section class="top-banner">
+      <div class="banner-left">
+        <div class="banner-logo-placeholder">MAOHUOBAN</div>
+        <h2 class="banner-title">让每只毛孩子<br>拥有自己的<span>主页、时间线</span>和伙伴关系</h2>
+        <p class="banner-desc">毛伙伴是一个以宠物为主体的长期协同平台，围绕宠物的一生，连接记录、关系、服务与爱。系统全局采用低饱和、高雅冷静的 Apple Health 灵感面板，通过轻量级圆角卡片传递专业、可靠的宠物服务体验。</p>
+        <div class="banner-features">
+          <div class="banner-feature-item">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            宠物档案
+          </div>
+          <div class="banner-feature-item">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            伙伴关系
+          </div>
+          <div class="banner-feature-item">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            同城服务
+          </div>
+          <div class="banner-feature-item">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            医疗健康
+          </div>
+          <div class="banner-feature-item">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            保险协同
+          </div>
+        </div>
+      </div>
+      <div class="banner-right">
+        <div class="banner-right-backdrop"></div>
+        <div class="fc banner-right-card">
+          <div class="banner-care-header">
+            <span class="banner-care-title">今日照护</span>
+            <span class="banner-care-tag">健康状态</span>
+          </div>
+          <div class="banner-care-list">
+            <div class="banner-care-item">
+              <div class="icon-check">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span>食欲良好</span>
+            </div>
+            <div class="banner-care-item">
+              <div class="icon-check">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span>精神活跃</span>
+            </div>
+            <div class="banner-care-item">
+              <div class="icon-check">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <span>排泄正常</span>
+            </div>
+            <div class="banner-care-item">
+              <div class="icon-dot"></div>
+              <span>体重</span>
+              <span class="val">4.2 kg</span>
+            </div>
+          </div>
+
+          <div class="banner-vaccine-card">
+            <div class="banner-vaccine-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div class="banner-vaccine-info">
+              <div class="banner-vaccine-title">疫苗接种提醒</div>
+              <div class="banner-vaccine-sub">猫三联/狂犬疫苗</div>
+            </div>
+            <div class="banner-vaccine-badge">6天后到期</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="dv">
+
+    <!-- ==================== LOGIN FLOW SECTION ==================== -->
+    <section class="sec">
+      <h2 class="sec-t">登录流程</h2>
+      <p class="sec-s">规范的三步登录验证机制，支持手机号一键获取验证码、忘记密码找回流程，同时整合了第三方社交快捷登录功能。原画中宠物图形及品牌Logo已按需移除。</p>
+
+      <div class="mockups-grid">
+
+        <!-- Screen 1: 登录页 -->
+        <div class="mockup-wrapper">
+          <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <!-- Status Bar -->
+            <div class="iphone-stbar">
+              <span>9:41</span>
+              <div class="stbar-icons">
+                <!-- Wifi Icon -->
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><path d="M12 21a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0-7a9 9 0 0 0-9 9 2 2 0 1 0 4 0 5 5 0 0 1 10 0 2 2 0 1 0 4 0 9 9 0 0 0-9-9zm0-7a16 16 0 0 0-16 16 2 2 0 1 0 4 0 12 12 0 0 1 24 0 2 2 0 1 0 4 0 16 16 0 0 0-16-16z"/></svg>
+                <!-- Cellular Icon -->
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="16" width="3" height="5" rx="1"/><rect x="7" y="12" width="3" height="9" rx="1"/><rect x="12" y="8" width="3" height="13" rx="1"/><rect x="17" y="3" width="3" height="18" rx="1"/></svg>
+                <!-- Battery Icon -->
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="5" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="8" width="11" height="8" rx="1"/><path d="M22 9v6"/></svg>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="iphone-content">
+              <div class="screen-login">
+                <!-- Logo Placeholder -->
+                <div class="login-logo-placeholder">
+                  <div class="logo-text-holder">MAOHUOBAN</div>
+                </div>
+
+                <!-- Text Header -->
+                <div class="login-heading">
+                  <h2>欢迎来到毛伙伴</h2>
+                  <p>让每只毛孩子被更好的记录与陪伴</p>
+                </div>
+
+                <!-- Input & Button -->
+                <div class="login-form">
+                  <div class="phone-input-group">
+                    <!-- Phone Icon -->
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    <input type="text" id="login-phone-input" placeholder="请输入手机号" value="">
+                  </div>
+                  <button class="primary-btn" id="login-submit-btn">获取验证码</button>
+
+                  <div class="agreement-line">
+                    <input type="checkbox" id="agreement" checked>
+                    <label for="agreement">我已阅读并同意 <a href="#">《用户协议》</a> 和 <a href="#">《隐私政策》</a></label>
+                  </div>
+                </div>
+
+                <!-- Third-Party Login Area -->
+                <div class="third-party-login">
+                  <div class="tpl-divider">
+                    <span>第三方快捷登录</span>
+                  </div>
+                  <div class="tpl-buttons">
+                    <div class="tpl-btn wechat" id="login-wechat-btn" title="微信登录">
+                      <svg viewBox="0 0 24 24"><path d="M8.2 13.5c-.5 0-.8-.4-.8-.8s.3-.8.8-.8.8.4.8.8-.3.8-.8.8zm3.5 0c-.5 0-.8-.4-.8-.8s.3-.8.8-.8.8.4.8.8-.3.8-.8.8zm-5-3.3c.4 0 .8.4.8.9s-.4.9-.8.9-.9-.4-.9-.9.4-.9.9-.9zm7.3 0c.4 0 .9.4.9.9s-.5.9-.9.9-.9-.4-.9-.9.4-.9.9-.9zm3.5.7C17.5 7.1 14.1 4.6 10 4.6 5 4.6 1 8.1 1 12.4c0 2.3 1.1 4.5 3 6l-.7 2.1c-.1.2 0 .4.2.4l2.5-1.2c1.2.3 2.5.5 3.8.5.5 0 1 0 1.5-.1-.4-.9-.6-2-.6-3 0-3.6 3.2-6.5 7.3-6.5.9 0 1.7.1 2.5.4zm3.8 4c0-3.3-3.2-6-7.2-6-4.1 0-7.3 2.7-7.3 6s3.2 6 7.3 6c1 0 2-.2 3-.5l2.1 1c.2 0 .3 0 .3-.2l-.6-1.8c1.6-1.1 2.4-2.8 2.4-4.5z"/></svg>
+                    </div>
+                    <div class="tpl-btn apple" id="login-apple-btn" title="Apple 登录">
+                      <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.2.67-2.92 1.49-.62.71-1.16 1.85-1.01 2.96 1.1.09 2.22-.57 2.94-1.39"/></svg>
+                    </div>
+                  </div>
+                  <div class="tpl-subtext">未注册手机号验证后将自动注册</div>
+                </div>
+
+                <!-- Decorative Pattern Container (Replacing Pet Illustration) -->
+                <div class="bottom-pattern-placeholder">
+                  插画区域 (已按需移除)
+                </div>
+              </div>
+            </div>
+
+            <div class="home-indicator"></div>
+          </div>
+          <div class="mockup-label">01 登录页</div>
+          <div class="mockup-desc">包含极简风格手机号登录、获取验证码，以及微信与 Apple 账号第三方快捷登录区域。</div>
+        </div>
+
+        <!-- Screen 2: 验证码页 -->
+        <div class="mockup-wrapper">
+          <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <!-- Status Bar -->
+            <div class="iphone-stbar">
+              <span>9:41</span>
+              <div class="stbar-icons">
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><path d="M12 21a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0-7a9 9 0 0 0-9 9 2 2 0 1 0 4 0 5 5 0 0 1 10 0 2 2 0 1 0 4 0 9 9 0 0 0-9-9zm0-7a16 16 0 0 0-16 16 2 2 0 1 0 4 0 12 12 0 0 1 24 0 2 2 0 1 0 4 0 16 16 0 0 0-16-16z"/></svg>
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="16" width="3" height="5" rx="1"/><rect x="7" y="12" width="3" height="9" rx="1"/><rect x="12" y="8" width="3" height="13" rx="1"/><rect x="17" y="3" width="3" height="18" rx="1"/></svg>
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="5" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="8" width="11" height="8" rx="1"/><path d="M22 9v6"/></svg>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="iphone-content" style="justify-content: space-between;">
+              <div class="screen-verify">
+                <!-- Navigation -->
+                <div class="screen-header-nav">
+                  <button class="back-btn" id="verify-back-btn">
+                    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                </div>
+
+                <!-- Heading -->
+                <div class="verify-heading">
+                  <h2>输入验证码</h2>
+                  <p>验证码已发送至 <strong>+86 138 **** 1234</strong></p>
+                </div>
+
+                <!-- 6 Digit Input boxes -->
+                <div class="code-input-container">
+                  <div class="code-box active"></div>
+                  <div class="code-box"></div>
+                  <div class="code-box"></div>
+                  <div class="code-box"></div>
+                  <div class="code-box"></div>
+                  <div class="code-box"></div>
+                </div>
+
+                <!-- Resend Timer -->
+                <div class="resend-timer">
+                  重新发送 (59s)
+                </div>
+              </div>
+
+              <!-- Custom iOS-Style Numeric Keyboard -->
+              <div class="ios-keyboard">
+                <div class="keyboard-key"><span class="num">1</span><span class="letters">&nbsp;</span></div>
+                <div class="keyboard-key"><span class="num">2</span><span class="letters">abc</span></div>
+                <div class="keyboard-key"><span class="num">3</span><span class="letters">def</span></div>
+                <div class="keyboard-key"><span class="num">4</span><span class="letters">ghi</span></div>
+                <div class="keyboard-key"><span class="num">5</span><span class="letters">jkl</span></div>
+                <div class="keyboard-key"><span class="num">6</span><span class="letters">mno</span></div>
+                <div class="keyboard-key"><span class="num">7</span><span class="letters">pqrs</span></div>
+                <div class="keyboard-key"><span class="num">8</span><span class="letters">tuv</span></div>
+                <div class="keyboard-key"><span class="num">9</span><span class="letters">wxyz</span></div>
+                <div class="keyboard-key special"></div>
+                <div class="keyboard-key"><span class="num">0</span><span class="letters">&nbsp;</span></div>
+                <div class="keyboard-key special" style="display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-indicator"></div>
+          </div>
+          <div class="mockup-label">02 验证码页</div>
+          <div class="mockup-desc">6位数字验证码输入流程，具有活动焦点光效及原生 iOS 风格的九宫格数字模拟键盘。</div>
+        </div>
+
+        <!-- Screen 3: 忘记密码页 -->
+        <div class="mockup-wrapper">
+          <div class="iphone-frame">
+            <div class="dynamic-island"></div>
+            <!-- Status Bar -->
+            <div class="iphone-stbar">
+              <span>9:41</span>
+              <div class="stbar-icons">
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><path d="M12 21a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0-7a9 9 0 0 0-9 9 2 2 0 1 0 4 0 5 5 0 0 1 10 0 2 2 0 1 0 4 0 9 9 0 0 0-9-9zm0-7a16 16 0 0 0-16 16 2 2 0 1 0 4 0 12 12 0 0 1 24 0 2 2 0 1 0 4 0 16 16 0 0 0-16-16z"/></svg>
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="16" width="3" height="5" rx="1"/><rect x="7" y="12" width="3" height="9" rx="1"/><rect x="12" y="8" width="3" height="13" rx="1"/><rect x="17" y="3" width="3" height="18" rx="1"/></svg>
+                <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="5" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="8" width="11" height="8" rx="1"/><path d="M22 9v6"/></svg>
+              </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="iphone-content">
+              <div class="screen-forgot">
+                <!-- Navigation -->
+                <div class="screen-header-nav">
+                  <button class="back-btn" id="forgot-back-btn">
+                    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                </div>
+
+                <!-- Heading -->
+                <div class="forgot-heading">
+                  <h2>忘记密码</h2>
+                  <p>输入手机号，我们将发送验证码帮助你重置密码</p>
+                </div>
+
+                <!-- Input & Button -->
+                <div class="phone-input-group">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <input type="text" id="forgot-phone-input" placeholder="请输入手机号">
+                </div>
+                <button class="primary-btn" id="forgot-submit-btn">获取验证码</button>
+
+                <div class="back-link-wrapper">
+                  <a href="#" class="back-link" id="forgot-back-link">返回登录</a>
+                </div>
+
+                <!-- Vector Placeholder (Replacing Cat Illustration) -->
+                <div class="forgot-vector-placeholder">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span>重置密码安全验证</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-indicator"></div>
+          </div>
+          <div class="mockup-label">03 忘记密码页</div>
+          <div class="mockup-desc">针对忘记密码或验证错误场景设计的引导页，可一键发送找回凭证，猫咪图片已替换为安全图标。</div>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="dv">
+
+    <!-- ==================== CORE FEATURES SECTION ==================== -->
+    <section class="sec">
+      <h2 class="sec-t">核心功能</h2>
+      <p class="sec-s">毛伙伴平台八大核心模块，贯穿宠物生命全周期管理、社交交互及同城消费场景。</p>
+
+      <div class="features-grid">
+        <!-- Card 1 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-blue">
+            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div class="feature-card-title">记录日常</div>
+          <div class="feature-card-desc">随时记下宠物的饮食、排泄与有趣瞬间</div>
+        </div>
+        <!-- Card 2 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-green">
+            <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="feature-card-title">健康记录</div>
+          <div class="feature-card-desc">统计体重、过敏源与历史病史与诊疗</div>
+        </div>
+        <!-- Card 3 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-teal">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="feature-card-title">预约医院</div>
+          <div class="feature-card-desc">一键预约同城认证的三甲或专科宠物医院</div>
+        </div>
+        <!-- Card 4 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-purple">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          </div>
+          <div class="feature-card-title">导入宠物</div>
+          <div class="feature-card-desc">扫码或对接芯片快速录入宠物完整档案</div>
+        </div>
+        <!-- Card 5 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-orange">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="feature-card-title">同窝伙伴</div>
+          <div class="feature-card-desc">关联同猫舍、同犬舍的兄弟姐妹，拓展亲缘</div>
+        </div>
+        <!-- Card 6 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-teal">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div class="feature-card-title">同城服务</div>
+          <div class="feature-card-desc">发现身边高分宠物美容、寄养及社交聚会</div>
+        </div>
+        <!-- Card 7 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-green">
+            <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          </div>
+          <div class="feature-card-title">交易保障</div>
+          <div class="feature-card-desc">针对活体买卖和高值繁育提供平台级资金存管</div>
+        </div>
+        <!-- Card 8 -->
+        <div class="feature-card">
+          <div class="feature-card-icon icon-g-blue">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="feature-card-title">保险协同</div>
+          <div class="feature-card-desc">直连宠物医疗保险，线上完成理赔快速极速协同</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="dv">
+
+    <!-- ==================== IP MASCOT SECTION ==================== -->
+    <section class="sec">
+      <h2 class="sec-t">IP 形象</h2>
+      <p class="sec-s">品牌 IP 视觉资产说明。在业务界面呈现中，已移除具体的宠物图片元素，在此保留形象设定说明。</p>
+
+      <div class="ip-spec-container">
+        <div class="ip-spec-text">
+          <h3>品牌伙伴形象 — 小白犬「毛毛」</h3>
+          <p>毛毛是毛伙伴的核心 IP 形象，它是一只软糯可爱的白色幼犬，手捧一颗象征呵护与关爱的蓝色爱心，有着大大的黑色眼睛和顽皮眨眼的生动神态。</p>
+          <div class="ip-spec-list">
+            <div class="ip-spec-bullet"><strong>设计语境</strong>：友好、可信赖、克制、富有温度</div>
+            <div class="ip-spec-bullet"><strong>核心作用</strong>：在 App 的引导页、数据空状态及医疗照护服务页面担任友好助理的角色</div>
+            <div class="ip-spec-bullet"><strong>视觉原则</strong>：小白犬通体使用冷白配色的渐变柔化毛发，搭配品牌蓝色心形配饰</div>
+          </div>
+        </div>
+        <div class="ip-placeholder-card">
+          <!-- Animated Geometry decoration replacing mascot illustration -->
+          <div class="geometry-shape"></div>
+          <div class="ip-placeholder-title">IP 形象 (原图已按需移除)</div>
+          <div class="ip-placeholder-desc">此处的具象狗年吉祥物插画已按规范删除，以保持低噪精简的主界面观感。</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="dv">
+
+    <!-- ==================== DESIGN TOKENS SPEC ==================== -->
+    <section class="sec">
+      <h2 class="sec-t">UI 设计规范 (Design Tokens)</h2>
+      <p class="sec-s">毛伙伴项目规范的 CSS 设计 Token 定义，严禁在业务代码中硬编码以下变量值。</p>
+
+      <table class="tokens-table">
+        <thead>
+          <tr>
+            <th>Token 名称</th>
+            <th>默认值 (Hex / Value)</th>
+            <th>展示效果</th>
+            <th>用途说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--primary</code></td>
+            <td><code>#4F8CFF</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: #4F8CFF;"></div>
+                <span>冷蓝主色</span>
+              </div>
+            </td>
+            <td>主按钮、选中状态、品牌交互高亮</td>
+          </tr>
+          <tr>
+            <td><code>--primary-lt</code></td>
+            <td><code>#6BCBFF</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: #6BCBFF;"></div>
+                <span>辅助浅蓝</span>
+              </div>
+            </td>
+            <td>高光、渐变色块、轻量辅助背景</td>
+          </tr>
+          <tr>
+            <td><code>--green</code></td>
+            <td><code>#34C759</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: #34C759;"></div>
+                <span>健康绿</span>
+              </div>
+            </td>
+            <td>食欲与健康良好、安全状态、已完成标记</td>
+          </tr>
+          <tr>
+            <td><code>--orange</code></td>
+            <td><code>#FF9500</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: #FF9500;"></div>
+                <span>警告橙</span>
+              </div>
+            </td>
+            <td>接种与驱虫提醒、待处理动作、金额提示</td>
+          </tr>
+          <tr>
+            <td><code>--bg</code></td>
+            <td><code>#F7F9FC</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: #F7F9FC;"></div>
+                <span>页面底色</span>
+              </div>
+            </td>
+            <td>App 页面底色背景，低饱和冷色调</td>
+          </tr>
+          <tr>
+            <td><code>--card</code></td>
+            <td><code>rgba(255,255,255,0.75)</code></td>
+            <td>
+              <div class="token-color-preview">
+                <div class="color-swatch" style="background: rgba(255,255,255,0.75); backdrop-filter: blur(5px);"></div>
+                <span>毛玻璃卡片</span>
+              </div>
+            </td>
+            <td>毛玻璃半透明材质卡片，配合 blur 20px</td>
+          </tr>
+          <tr>
+            <td><code>--l1</code></td>
+            <td><code>#1A1D26</code></td>
+            <td>
+              <span class="token-font-preview" style="color: #1A1D26; font-weight: 700;">主要字色 (L1)</span>
+            </td>
+            <td>主标题、重要标签文字、主要段落正文</td>
+          </tr>
+          <tr>
+            <td><code>--l2</code></td>
+            <td><code>#6E7681</code></td>
+            <td>
+              <span class="token-font-preview" style="color: #6E7681;">次要字色 (L2)</span>
+            </td>
+            <td>辅助描述、次要段落、副标题</td>
+          </tr>
+          <tr>
+            <td><code>--r-lg</code></td>
+            <td><code>16px</code></td>
+            <td>
+              <div style="width: 44px; height: 24px; background: rgba(0,0,0,0.05); border-radius: 16px; border: 0.5px solid rgba(0,0,0,0.1);"></div>
+            </td>
+            <td>标准的列表卡片、iPhone 内部主要区块圆角</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+  <!-- Page Footer -->
+  <footer>
+    毛伙伴 UI Design Spec v0.4 · Apple Health Style · 2026-06-13
+  </footer>
+
+</body>
+</html>

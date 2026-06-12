@@ -22,6 +22,8 @@
 | `docs/product/prd/00_V1_PRD_产品总纲与核心流程.md` | 定义 V1 产品范围、核心对象、信息架构和主流程 |
 | `docs/design/00_AI生图Prompt与视觉一致性规范.md` | 统一 UI、Logo、图标、IP、默认头像等 AI 生图 Prompt |
 | `docs/html/maohuoban-architecture.html` | 可交互工程架构图，覆盖 iOS、Rust 后端、数据平台和外部集成 |
+| `docs/html/maohuoban-login-design.html` | 登录页设计稿，含两步登录流程（手机号→验证码） |
+| `references/README.md` | 说明外部参考项目目录规则 |
 
 ## 技术栈
 
@@ -42,6 +44,7 @@ maohuoban-code/
     html/
       maohuoban-ui-design.html
       maohuoban-architecture.html
+      maohuoban-login-design.html
     product/
       prd/
       strategy/
@@ -54,6 +57,8 @@ maohuoban-code/
       MaohuobanDesignSystem/
   maohuoban-rust/
   maohuoban-diagnostics-sdk/
+  references/
+    projects/
   scripts/
 ```
 

@@ -42,9 +42,20 @@ struct MaohuobanApp: App {
         }
     }
 
+    @State private var isLaunchCompleted = false
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ZStack {
+                if isLaunchCompleted {
+                    ContentView()
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                } else {
+                    LaunchScreenView(isCompleted: $isLaunchCompleted)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.45), value: isLaunchCompleted)
         }
     }
 }
