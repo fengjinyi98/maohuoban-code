@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>毛伙伴 UI Design Spec — Apple Health Style</title>
+<style>
+/* ============================================================
+   毛伙伴 UI Design Spec
+   风格：Apple Health · Frosted Glass · 冷白蓝灰 · 低饱和
+   设备：iPhone 14 Pro · 390 × 844pt · @3x
+   ============================================================ */
+
+:root {
+  /* — Brand — */
+  --primary:     #4F8CFF;
+  --primary-lt:  #6BCBFF;
+  --primary-dk:  #3A6FCC;
+  --primary-bg:  rgba(79,140,255,0.08);
+  --primary-bg2: rgba(79,140,255,0.04);
+
+  /* — Semantic — */
+  --green:   #34C759;
+  --orange:  #FF9500;
+  --red:     #FF3B30;
+  --teal:    #5AC8FA;
+  --purple:  #AF52DE;
+
+  /* — Neutral — */
+  --bg:        #F7F9FC;
+  --card:      rgba(255,255,255,0.75);
+  --card-solid:#FFFFFF;
+  --card-border:rgba(255,255,255,0.6);
+  --glass:     rgba(255,255,255,0.6);
+
+  --l1: #1A1D26;     /* primary text */
+  --l2: #6E7681;     /* secondary */
+  --l3: #9CA3AF;     /* tertiary */
+  --l4: #D1D5DB;     /* quaternary */
+
+  --sep: rgba(0,0,0,0.05);
+  --sep2: rgba(0,0,0,0.03);
+
+  /* — Spacing — */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px;
+
+  /* — Radius — */
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-2xl:24px; --r-full:9999px;
+
+  /* — Font — */
+  --font: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+
+  /* — Device — */
+  --dw:390px; --dh:844px; --safe-t:59px; --safe-b:34px; --tab-h:83px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--l1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Page ===== */
+.pg-hd {
+  text-align:center;
+  padding:56px 40px 24px;
+  max-width:1600px;
+  margin:0 auto;
+}
+.pg-hd h1 {
+  font-size:34px;
+  font-weight:700;
+  letter-spacing:-0.5px;
+  color:var(--l1);
+}
+.pg-hd p {
+  font-size:15px;
+  color:var(--l2);
+  margin-top:6px;
+}
+.pg-hd .chips {
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-top:14px;
+  flex-wrap:wrap;
+}
+.pg-hd .chip {
+  font-size:11px;
+  color:var(--l2);
+  background:var(--card);
+  backdrop-filter:blur(12px);
+  padding:4px 14px;
+  border-radius:var(--r-full);
+  border:0.5px solid var(--card-border);
+}
+
+.dv { border:none; border-top:0.5px solid var(--sep); max-width:1520px; margin:0 40px; }
+
+.sec { max-width:1600px; margin:0 auto; padding:28px 40px; }
+.sec-t { font-size:22px; font-weight:700; letter-spacing:-0.3px; margin-bottom:4px; }
+.sec-s { font-size:13px; color:var(--l3); margin-bottom:24px; line-height:1.5; }
+
+/* ===== Token Cards ===== */
+.tg { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+.tc {
+  background:var(--card);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-lg);
+  padding:20px;
+}
+.tc h4 {
+  font-size:11px;
+  font-weight:600;
+  color:var(--l3);
+  text-transform:uppercase;
+  letter-spacing:0.8px;
+  margin-bottom:14px;
+}
+
+/* type rows */
+.tr { display:flex; align-items:baseline; padding:7px 0; border-bottom:0.5px solid var(--sep); gap:10px; }
+.tr:last-child { border-bottom:none; }
+.tr-n { width:48px; font-size:10px; color:var(--l3); flex-shrink:0; text-transform:uppercase; letter-spacing:0.3px; }
+.tr-s { flex:1; color:var(--l1); }
+.tr-m { font-size:10px; color:var(--l3); flex-shrink:0; font-variant-numeric:tabular-nums; font-family:"SF Mono","Menlo",monospace; }
+
+/* spacing */
+.sr { display:flex; align-items:center; gap:10px; padding:4px 0; }
+.sb { height:14px; background:var(--primary); border-radius:3px; opacity:.35; }
+.sl { font-size:10px; color:var(--l3); min-width:32px; font-family:"SF Mono",monospace; }
+.sv { font-size:10px; color:var(--l3); font-variant-numeric:tabular-nums; font-family:"SF Mono",monospace; }
+
+/* ===== Mockup Area ===== */
+.ms { padding:40px; max-width:1600px; margin:0 auto; }
+.mr { display:flex; justify-content:center; gap:40px; flex-wrap:wrap; align-items:flex-start; }
+.mw { display:flex; flex-direction:column; align-items:center; gap:14px; }
+.ml { font-size:15px; font-weight:600; color:var(--l1); }
+.msub { font-size:12px; color:var(--l3); max-width:340px; text-align:center; line-height:1.5; }
+
+/* ===== iPhone 14 Pro ===== */
+.ip {
+  width:var(--dw); height:var(--dh);
+  background:var(--bg);
+  border-radius:55px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.06),
+    0 0 0 3px var(--bg),
+    0 0 0 4px rgba(0,0,0,0.06),
+    0 24px 80px rgba(0,0,0,0.1);
+}
+
+.di {
+  position:absolute; top:11px; left:50%; transform:translateX(-50%);
+  width:126px; height:37px; background:#000; border-radius:20px; z-index:100;
+}
+
+.stb {
+  position:absolute; top:0; left:0; right:0;
+  height:var(--safe-t);
+  display:flex; align-items:flex-end; justify-content:space-between;
+  padding:0 30px 10px;
+  z-index:50;
+  font-size:15px; font-weight:600; color:var(--l1);
+}
+.stb-r { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; }
+.stb-r svg { width:17px; height:12px; }
+
+.hi {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  width:134px; height:5px; background:var(--l1); border-radius:3px; z-index:200; opacity:0.15;
+}
+
+/* Tab Bar — frosted */
+.tbar {
+  position:absolute; bottom:0; left:0; right:0;
+  height:var(--tab-h);
+  background:rgba(247,249,252,0.72);
+  backdrop-filter:blur(24px) saturate(1.8);
+  -webkit-backdrop-filter:blur(24px) saturate(1.8);
+  border-top:0.5px solid rgba(255,255,255,0.5);
+  display:flex; justify-content:space-around; align-items:flex-start;
+  padding-top:6px; padding-bottom:var(--safe-b);
+  z-index:150;
+}
+.tbi {
+  display:flex; flex-direction:column; align-items:center; gap:2px; min-width:50px;
+}
+.tbi svg { width:24px; height:24px; stroke:var(--l3); stroke-width:1.5; fill:none; }
+.tbi.a svg { stroke:var(--primary); fill:var(--primary); fill-opacity:0.12; }
+.tbi span { font-size:10px; color:var(--l3); font-weight:500; }
+.tbi.a span { color:var(--primary); font-weight:600; }
+
+.sc {
+  position:absolute; top:0; left:0; right:0; bottom:0;
+  overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.sc::-webkit-scrollbar { display:none; }
+
+/* ===== Shared iOS Clean Components ===== */
+
+/* Nav */
+.nb { display:flex; align-items:center; justify-content:space-between; padding:4px 16px 10px; }
+.nb-t { font-size:17px; font-weight:600; letter-spacing:-0.2px; }
+.nb-l { display:flex; align-items:center; gap:6px; }
+.nb-r { display:flex; align-items:center; gap:16px; }
+.nb-i { width:22px; height:22px; display:flex; align-items:center; justify-content:center; position:relative; }
+.nb-i svg { width:22px; height:22px; stroke:var(--primary); stroke-width:1.5; fill:none; }
+.city { font-size:12px; color:var(--l2); display:flex; align-items:center; gap:3px; }
+.city svg { width:12px; height:12px; stroke:var(--l3); stroke-width:1.5; fill:none; }
+.ndot { width:8px; height:8px; background:var(--red); border-radius:50%; border:1.5px solid var(--bg); position:absolute; top:-2px; right:-4px; }
+
+/* Frosted Card */
+.fc {
+  background:var(--card);
+  backdrop-filter:blur(20px) saturate(1.6);
+  -webkit-backdrop-filter:blur(20px) saturate(1.6);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+}
+
+/* Section Label */
+.sh {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 4px 8px;
+}
+.sh-t {
+  font-size:13px; font-weight:500; color:var(--l3);
+  text-transform:uppercase; letter-spacing:0.5px;
+}
+.sh-m { font-size:13px; color:var(--primary); font-weight:500; }
+
+/* iOS List inside card */
+.il { }
+.ir {
+  display:flex; align-items:center; padding:12px 16px; gap:12px; position:relative;
+}
+.ir + .ir::before {
+  content:''; position:absolute; top:0; left:56px; right:0;
+  height:0.5px; background:var(--sep);
+}
+.ir-ic {
+  width:30px; height:30px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.ir-ic svg { width:16px; height:16px; stroke:#fff; stroke-width:1.8; fill:none; }
+.ir-bd { flex:1; min-width:0; }
+.ir-tt { font-size:15px; color:var(--l1); line-height:1.3; }
+.ir-sb { font-size:13px; color:var(--l3); margin-top:1px; }
+.ir-vl { font-size:15px; color:var(--l3); flex-shrink:0; font-weight:500; }
+.chv { width:8px; height:13px; flex-shrink:0; }
+.chv svg { width:8px; height:13px; stroke:var(--l4); stroke-width:2; fill:none; }
+
+/* Pet Card */
+.pet-hero {
+  padding:20px;
+  text-align:center;
+}
+.pet-photo {
+  width:100px; height:100px; border-radius:var(--r-xl);
+  background:linear-gradient(135deg, #E8EDF5, #D8DEE8);
+  margin:0 auto 14px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,0.6);
+  box-shadow:0 4px 20px rgba(79,140,255,0.08);
+}
+.pet-photo span { font-size:11px; color:var(--l3); text-align:center; line-height:1.3; }
+.pet-nm { font-size:24px; font-weight:700; letter-spacing:-0.5px; }
+.pet-gender { font-size:14px; font-weight:400; color:var(--l3); }
+.pet-meta { font-size:13px; color:var(--l2); margin-top:3px; }
+.pet-status {
+  display:inline-flex; align-items:center; gap:5px;
+  margin-top:10px; padding:5px 14px;
+  background:var(--primary-bg);
+  border-radius:var(--r-full);
+  font-size:13px; color:var(--primary); font-weight:500;
+}
+.pet-status .dot { width:6px; height:6px; border-radius:50%; background:var(--green); }
+.pet-stats {
+  display:flex; justify-content:center; gap:28px;
+  margin-top:16px; padding-top:16px;
+  border-top:0.5px solid var(--sep);
+}
+.pet-st { text-align:center; }
+.pet-st .v { font-size:20px; font-weight:700; letter-spacing:-0.3px; color:var(--l1); }
+.pet-st .u { font-size:11px; color:var(--l3); margin-top:1px; }
+
+/* Pet Switcher */
+.psw { display:flex; gap:8px; padding:12px 16px; }
+.psw-i {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:var(--r-full);
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  font-size:13px; color:var(--l2); font-weight:500;
+  white-space:nowrap; flex-shrink:0;
+}
+.psw-i.a {
+  background:var(--primary); color:#fff;
+  border-color:var(--primary);
+  box-shadow:0 2px 12px rgba(79,140,255,0.25);
+}
+.psw-dot {
+  width:18px; height:18px; border-radius:50%;
+  background:linear-gradient(135deg,#E8EDF5,#D8DEE8);
+  border:0.5px solid rgba(255,255,255,0.5);
+}
+.psw-i.a .psw-dot { border-color:rgba(255,255,255,0.4); }
+.psw-add {
+  width:32px; height:32px; border-radius:50%;
+  border:1px dashed var(--l4);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.psw-add svg { width:14px; height:14px; stroke:var(--l3); stroke-width:1.5; fill:none; }
+
+/* Quick Actions */
+.qa { display:grid; grid-template-columns:repeat(4,1fr); }
+.qa-i {
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:16px 8px; position:relative;
+}
+.qa-i + .qa-i::before {
+  content:''; position:absolute; left:0; top:14px; bottom:14px;
+  width:0.5px; background:var(--sep);
+}
+.qa-ic {
+  width:40px; height:40px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+}
+.qa-ic svg { width:20px; height:20px; stroke:#fff; stroke-width:1.6; fill:none; }
+.qa-lb { font-size:11px; color:var(--l2); font-weight:500; text-align:center; }
+
+/* Companion */
+.comp {
+  padding:14px 16px;
+  display:flex; gap:12px; align-items:center;
+}
+.comp-ph {
+  width:48px; height:48px; border-radius:14px;
+  background:linear-gradient(135deg,#E8EDF5,#D8DEE8);
+  flex-shrink:0; border:0.5px solid rgba(255,255,255,0.5);
+}
+.comp-bd { flex:1; min-width:0; }
+.comp-tg { font-size:11px; font-weight:600; color:var(--primary); margin-bottom:2px; }
+.comp-tt { font-size:14px; font-weight:500; color:var(--l1); line-height:1.4; }
+.comp-sb { font-size:12px; color:var(--l3); margin-top:1px; }
+.comp-ac { font-size:13px; color:var(--primary); font-weight:500; white-space:nowrap; flex-shrink:0; }
+
+/* Timeline */
+.tl-i { display:flex; gap:10px; padding:10px 0; position:relative; }
+.tl-i + .tl-i::before {
+  content:''; position:absolute; top:0; left:19px;
+  width:0.5px; height:100%; background:var(--sep);
+}
+.tl-dw { width:10px; display:flex; justify-content:center; padding-top:5px; flex-shrink:0; position:relative; z-index:1; }
+.tl-d { width:8px; height:8px; border-radius:50%; border:2px solid var(--primary); background:var(--bg); }
+.tl-d.f { background:var(--primary); }
+.tl-bd { flex:1; }
+.tl-tm { font-size:12px; color:var(--l3); margin-bottom:2px; }
+.tl-tx { font-size:14px; color:var(--l1); line-height:1.4; }
+.tl-tg {
+  display:inline-block; font-size:11px; font-weight:500;
+  padding:1px 8px; border-radius:var(--r-sm); margin-top:4px;
+}
+
+/* Metrics — Apple Health */
+.met { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.met-i {
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-md); padding:12px 8px; text-align:center;
+}
+.met-v { font-size:22px; font-weight:700; letter-spacing:-0.5px; color:var(--l1); }
+.met-u { font-size:11px; color:var(--l3); font-weight:400; }
+.met-l { font-size:11px; color:var(--l3); margin-top:2px; }
+
+/* Checklist */
+.ck { display:flex; align-items:center; gap:10px; padding:11px 16px; position:relative; }
+.ck + .ck::before {
+  content:''; position:absolute; top:0; left:48px; right:0;
+  height:0.5px; background:var(--sep);
+}
+.ck-c {
+  width:22px; height:22px; border-radius:50%;
+  border:1.5px solid var(--l4); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.ck-c.d { background:var(--green); border-color:var(--green); }
+.ck-c.d svg { width:12px; height:12px; stroke:#fff; stroke-width:2.5; fill:none; }
+.ck-l { flex:1; font-size:15px; color:var(--l1); }
+.ck-l.dl { color:var(--l4); text-decoration:line-through; }
+.ck-t { font-size:13px; color:var(--l3); font-variant-numeric:tabular-nums; }
+
+/* Reminder */
+.rem {
+  padding:12px 16px;
+  display:flex; align-items:center; gap:10px;
+}
+.rem-ic {
+  width:30px; height:30px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.rem-ic svg { width:16px; height:16px; stroke:#fff; stroke-width:1.8; fill:none; }
+.rem-tx { flex:1; font-size:13px; color:var(--l2); line-height:1.4; }
+.rem-tx strong { color:var(--l1); font-weight:600; }
+.rem-bt {
+  font-size:13px; font-weight:600; color:var(--primary);
+  padding:4px 12px; background:var(--primary-bg);
+  border-radius:var(--r-sm); white-space:nowrap;
+}
+
+/* ===== Screen 3 Merchant ===== */
+.mer-hd { padding:16px; }
+.mer-nm { font-size:20px; font-weight:700; letter-spacing:-0.3px; }
+.mer-mt { font-size:13px; color:var(--l2); margin-top:2px; }
+.mer-bg {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11px; font-weight:600; color:var(--primary);
+  background:var(--primary-bg); padding:3px 10px;
+  border-radius:var(--r-full); margin-top:8px;
+}
+.mer-bg svg { width:12px; height:12px; stroke:var(--primary); stroke-width:1.8; fill:none; }
+
+.stg { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.st-i {
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-md); padding:14px 8px; text-align:center;
+}
+.st-n { font-size:28px; font-weight:700; letter-spacing:-0.5px; }
+.st-l { font-size:11px; color:var(--l3); margin-top:2px; }
+
+.pg { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.pg-i {
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-md); padding:12px; position:relative;
+}
+.pg-ph {
+  width:44px; height:44px; border-radius:12px;
+  background:linear-gradient(135deg,#E8EDF5,#D8DEE8);
+  margin-bottom:8px; border:0.5px solid rgba(255,255,255,0.5);
+}
+.pg-nm { font-size:15px; font-weight:600; color:var(--l1); margin-bottom:1px; }
+.pg-mt { font-size:12px; color:var(--l3); }
+.pg-dt { font-size:11px; color:var(--l3); margin-top:4px; }
+.pg-st {
+  position:absolute; top:12px; right:12px;
+  font-size:11px; font-weight:600; padding:2px 8px; border-radius:var(--r-full);
+}
+
+/* Kanban */
+.kb-sc { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.kb-c {
+  min-width:150px; flex-shrink:0;
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-md); padding:10px;
+}
+.kb-h { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.kb-tt { font-size:13px; font-weight:600; }
+.kb-ct {
+  font-size:11px; background:rgba(0,0,0,0.04); color:var(--l3);
+  padding:1px 7px; border-radius:var(--r-full); font-weight:600;
+}
+.kb-cd {
+  background:rgba(0,0,0,0.02); border-radius:8px;
+  padding:10px; margin-bottom:6px; border:0.5px solid var(--sep);
+}
+.kb-ct2 { font-size:13px; font-weight:500; color:var(--l1); margin-bottom:2px; }
+.kb-cm { font-size:11px; color:var(--l3); }
+
+/* Lineage */
+.lin { padding:14px; }
+.lin-r { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.lin-ph {
+  width:40px; height:40px; border-radius:12px;
+  background:linear-gradient(135deg,#E8EDF5,#D8DEE8);
+  border:0.5px solid rgba(255,255,255,0.5); flex-shrink:0;
+}
+.lin-nm { font-size:14px; font-weight:600; color:var(--l1); }
+.lin-mt { font-size:12px; color:var(--l3); }
+.lin-x { font-size:16px; color:var(--l4); flex-shrink:0; }
+.lin-sm {
+  font-size:12px; color:var(--l2); padding:8px 12px;
+  background:rgba(0,0,0,0.02); border-radius:8px; line-height:1.4;
+}
+
+/* Token annotation */
+.ann { position:absolute; z-index:300; pointer-events:none; }
+.at {
+  position:absolute;
+  font-size:9px; font-family:"SF Mono","Menlo",monospace;
+  padding:2px 6px; border-radius:4px;
+  background:rgba(79,140,255,0.85);
+  color:#fff; white-space:nowrap; letter-spacing:-0.2px; font-weight:500;
+}
+
+/* Spec table */
+.stbl {
+  width:100%; border-collapse:collapse; font-size:13px;
+  background:var(--card); backdrop-filter:blur(12px);
+  border:0.5px solid var(--card-border);
+  border-radius:var(--r-md); overflow:hidden;
+}
+.stbl th {
+  text-align:left; padding:10px 14px; background:rgba(0,0,0,0.02);
+  font-weight:600; font-size:11px; color:var(--l3);
+  text-transform:uppercase; letter-spacing:0.5px;
+  border-bottom:0.5px solid var(--sep);
+}
+.stbl td { padding:9px 14px; border-bottom:0.5px solid var(--sep); color:var(--l2); }
+.stbl tr:last-child td { border-bottom:none; }
+
+/* ===== BG Decoration (subtle gradient orbs) ===== */
+.bg-orb {
+  position:absolute; border-radius:50%; pointer-events:none; z-index:0;
+  filter:blur(80px); opacity:0.3;
+}
+
+@media(max-width:1100px) {
+  .mr { flex-direction:column; align-items:center; }
+}
+</style>
+</head>
+<body>
+
+<header class="pg-hd">
+  <h1>毛伙伴 UI Design Spec</h1>
+  <p>首页与底部 Tab · Apple Health 风格 · Frosted Glass</p>
+  <div class="chips">
+    <span class="chip">iPhone 14 Pro · 390 × 844</span>
+    <span class="chip">#4F8CFF 冷蓝主色</span>
+    <span class="chip">Frosted Glass</span>
+    <span class="chip">Apple Health Style</span>
+  </div>
+</header>
+
+<hr class="dv">
+
+<!-- ===== TOKENS ===== -->
+<section class="sec">
+  <h2 class="sec-title">Design Tokens</h2>
+  <p class="sec-s">冷白蓝灰低饱和，Frosted Glass 毛玻璃，Apple Health / Wallet / Notion 风格。</p>
+
+  <div class="tg">
+
+    <!-- Color -->
+    <div class="tc">
+      <h4>色彩系统</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div>
+          <div style="font-size:11px;color:var(--l3);margin-bottom:6px;">主色 Primary</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:40px;height:40px;background:#4F8CFF;border-radius:12px;"></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--l1);">#4F8CFF</div><div style="font-size:10px;color:var(--l3);">选中/交互/品牌</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:40px;height:40px;background:#6BCBFF;border-radius:12px;"></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--l1);">#6BCBFF</div><div style="font-size:10px;color:var(--l3);">辅助/渐变</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--l3);margin-bottom:6px;">背景 / 卡片</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:40px;height:40px;background:#F7F9FC;border-radius:12px;border:0.5px solid #E5E5EA;"></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--l1);">#F7F9FC</div><div style="font-size:10px;color:var(--l3);">页面背景</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:40px;height:40px;background:rgba(255,255,255,0.75);border-radius:12px;border:0.5px solid rgba(255,255,255,0.6);backdrop-filter:blur(8px);"></div>
+            <div><div style="font-size:13px;font-weight:600;color:var(--l1);">75% 白</div><div style="font-size:10px;color:var(--l3);">+ blur(20px)</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--l3);margin-bottom:8px;">语义色</div>
+      <div style="display:flex;gap:6px;">
+        <div style="text-align:center;flex:1;">
+          <div style="height:28px;background:#34C759;border-radius:6px;"></div>
+          <div style="font-size:9px;color:var(--l3);margin-top:3px;">Green</div>
+        </div>
+        <div style="text-align:center;flex:1;">
+          <div style="height:28px;background:#FF9500;border-radius:6px;"></div>
+          <div style="font-size:9px;color:var(--l3);margin-top:3px;">Orange</div>
+        </div>
+        <div style="text-align:center;flex:1;">
+          <div style="height:28px;background:#FF3B30;border-radius:6px;"></div>
+          <div style="font-size:9px;color:var(--l3);margin-top:3px;">Red</div>
+        </div>
+        <div style="text-align:center;flex:1;">
+          <div style="height:28px;background:#5AC8FA;border-radius:6px;"></div>
+          <div style="font-size:9px;color:var(--l3);margin-top:3px;">Teal</div>
+        </div>
+        <div style="text-align:center;flex:1;">
+          <div style="height:28px;background:#AF52DE;border-radius:6px;"></div>
+          <div style="font-size:9px;color:var(--l3);margin-top:3px;">Purple</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Neutral -->
+    <div class="tc">
+      <h4>中性色阶</h4>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:#1A1D26;border-radius:10px;"></div>
+          <div><div style="font-size:12px;font-weight:500;">#1A1D26</div><div style="font-size:10px;color:var(--l3);">Primary Label</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:#6E7681;border-radius:10px;"></div>
+          <div><div style="font-size:12px;font-weight:500;">#6E7681</div><div style="font-size:10px;color:var(--l3);">Secondary Label</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:#9CA3AF;border-radius:10px;"></div>
+          <div><div style="font-size:12px;font-weight:500;">#9CA3AF</div><div style="font-size:10px;color:var(--l3);">Tertiary Label</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:#D1D5DB;border-radius:10px;"></div>
+          <div><div style="font-size:12px;font-weight:500;">#D1D5DB</div><div style="font-size:10px;color:var(--l3);">Quaternary / Disabled</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;background:var(--sep);border-radius:10px;border:0.5px solid #eee;"></div>
+          <div><div style="font-size:12px;font-weight:500;">rgba(0,0,0,0.05)</div><div style="font-size:10px;color:var(--l3);">Separator / Hairline</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div class="tc">
+      <h4>字体</h4>
+      <div class="tr"><span class="tr-n">Large</span><span class="tr-s" style="font-size:28px;font-weight:700;letter-spacing:-0.5px;">毛伙伴</span><span class="tr-m">28/34 · 700</span></div>
+      <div class="tr"><span class="tr-n">Title</span><span class="tr-s" style="font-size:22px;font-weight:700;letter-spacing:-0.3px;">糯米</span><span class="tr-m">22/28 · 700</span></div>
+      <div class="tr"><span class="tr-n">Head</span><span class="tr-s" style="font-size:17px;font-weight:600;">今日照护</span><span class="tr-m">17/22 · 600</span></div>
+      <div class="tr"><span class="tr-n">Body</span><span class="tr-s" style="font-size:15px;">午饭后在阳台晒太阳</span><span class="tr-m">15/20 · 400</span></div>
+      <div class="tr"><span class="tr-n">Callout</span><span class="tr-s" style="font-size:14px;color:var(--l2);">布偶猫 · 2岁3月</span><span class="tr-m">14/19 · 400</span></div>
+      <div class="tr"><span class="tr-n">Foot</span><span class="tr-s" style="font-size:13px;color:var(--l3);">3 分钟前</span><span class="tr-m">13/18 · 400</span></div>
+      <div class="tr"><span class="tr-n">Cap</span><span class="tr-s" style="font-size:12px;color:var(--l3);">杭州 · 已绝育</span><span class="tr-m">12/16 · 400</span></div>
+      <div class="tr"><span class="tr-n">Section</span><span class="tr-s" style="font-size:11px;color:var(--l3);text-transform:uppercase;letter-spacing:0.5px;">HEALTH DATA</span><span class="tr-m">11/13 · 500</span></div>
+    </div>
+
+    <!-- Spacing -->
+    <div class="tc">
+      <h4>间距 · 4pt</h4>
+      <div class="sr"><span class="sl">s1</span><div class="sb" style="width:4px;"></div><span class="sv">4px</span></div>
+      <div class="sr"><span class="sl">s2</span><div class="sb" style="width:8px;"></div><span class="sv">8px</span></div>
+      <div class="sr"><span class="sl">s3</span><div class="sb" style="width:12px;"></div><span class="sv">12px</span></div>
+      <div class="sr"><span class="sl">s4</span><div class="sb" style="width:16px;"></div><span class="sv">16px</span></div>
+      <div class="sr"><span class="sl">s5</span><div class="sb" style="width:20px;"></div><span class="sv">20px</span></div>
+      <div class="sr"><span class="sl">s6</span><div class="sb" style="width:24px;"></div><span class="sv">24px</span></div>
+      <div class="sr"><span class="sl">s8</span><div class="sb" style="width:32px;"></div><span class="sv">32px</span></div>
+      <div style="margin-top:10px;font-size:11px;color:var(--l3);line-height:1.5;">
+        页面边距 16px · 卡片内边距 14–20px · 行高 44pt
+      </div>
+    </div>
+
+    <!-- Radius -->
+    <div class="tc">
+      <h4>圆角</h4>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:44px;height:44px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(8px);border-radius:8px;"></div><span style="font-size:10px;color:var(--l3);">sm 8</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:44px;height:44px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(8px);border-radius:12px;"></div><span style="font-size:10px;color:var(--l3);">md 12</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:44px;height:44px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(8px);border-radius:16px;"></div><span style="font-size:10px;color:var(--l3);">lg 16</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:44px;height:44px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(8px);border-radius:20px;"></div><span style="font-size:10px;color:var(--l3);">xl 20</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="width:44px;height:44px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(8px);border-radius:9999px;"></div><span style="font-size:10px;color:var(--l3);">full</span></div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--l3);line-height:1.5;">
+        卡片/列表: lg (16px) · 图标: 8–12px · 按钮/Tag: full
+      </div>
+    </div>
+
+    <!-- Elevation -->
+    <div class="tc">
+      <h4>层级 / Glass</h4>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="width:56px;height:56px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(12px);border-radius:14px;"></div>
+          <span style="font-size:10px;color:var(--l3);">Glass</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="width:56px;height:56px;background:var(--card);border:0.5px solid var(--card-border);backdrop-filter:blur(20px);border-radius:14px;box-shadow:0 2px 12px rgba(79,140,255,0.06);"></div>
+          <span style="font-size:10px;color:var(--l3);">Glass+</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="width:56px;height:56px;background:#fff;border:0.5px solid var(--card-border);border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,0.06);"></div>
+          <span style="font-size:10px;color:var(--l3);">Float</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <div style="width:56px;height:56px;background:#fff;border:0.5px solid var(--card-border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.1);"></div>
+          <span style="font-size:10px;color:var(--l3);">Modal</span>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--l3);line-height:1.5;">
+        卡片: Glass (75% 白 + blur 20px) · 品牌元素: Glass+ 蓝光 · 弹窗: Modal
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="dv">
+
+<!-- ===== THREE DIRECTIONS ===== -->
+<section class="ms">
+  <div style="text-align:center;margin-bottom:36px;">
+    <h2 class="sec-t">三套首页方向</h2>
+    <p class="sec-s" style="max-width:560px;margin:6px auto 0;">Apple Health 基调 · Frosted Glass 卡片 · 冷蓝低饱和</p>
+  </div>
+
+  <div class="mr">
+
+    <!-- =============== D1: 温暖陪伴 =============== -->
+    <div class="mw">
+      <div class="ml">方向一 · 陪伴</div>
+
+      <div class="ip" style="position:relative;">
+        <!-- BG decoration -->
+        <div class="bg-orb" style="width:200px;height:200px;background:rgba(79,140,255,0.12);top:80px;right:-60px;"></div>
+        <div class="bg-orb" style="width:160px;height:160px;background:rgba(107,203,255,0.1);top:400px;left:-40px;"></div>
+
+        <div class="di"></div>
+        <div class="stb">
+          <span>9:41</span>
+          <div class="stb-r">
+            <svg viewBox="0 0 18 12"><path d="M1 5.5C3.5 2 6.5 0 9 0s5.5 2 8 5.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M3.5 8C5.3 6.2 7 5.2 9 5.2s3.7 1 5.5 2.8" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="9" cy="10.5" r="1.5" fill="currentColor"/></svg>
+            <span>5G</span>
+            <svg viewBox="0 0 28 12"><rect x="0.5" y="0.5" width="23" height="11" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="18" height="8" rx="1" fill="currentColor"/><rect x="25" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/></svg>
+          </div>
+        </div>
+
+        <div class="sc">
+          <div style="padding-top:var(--safe-t);padding-bottom:calc(var(--tab-h) + 16px);padding-left:16px;padding-right:16px;position:relative;z-index:1;">
+
+            <!-- Nav -->
+            <div class="nb">
+              <div class="nb-l">
+                <span style="font-size:13px;font-weight:700;color:var(--primary);letter-spacing:-0.2px;">毛伙伴</span>
+                <span class="city"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg>杭州</span>
+              </div>
+              <div class="nb-r">
+                <div class="nb-i" style="position:relative;">
+                  <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                  <div class="ndot"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pet Hero -->
+            <div class="fc" style="margin-bottom:8px;">
+              <div class="pet-hero">
+                <div class="pet-photo"><span>宠物照片<br>100 × 100</span></div>
+                <div class="pet-nm">糯米 <span class="pet-gender">♀</span></div>
+                <div class="pet-meta">布偶猫 · 2岁3月 · 已绝育</div>
+                <div class="pet-status"><span class="dot"></span>今天状态不错，刚睡完午觉</div>
+                <div class="pet-stats">
+                  <div class="pet-st"><div class="v">4.2</div><div class="u">kg</div></div>
+                  <div class="pet-st"><div class="v">127</div><div class="u">天</div></div>
+                  <div class="pet-st"><div class="v">3</div><div class="u">伙伴</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Switcher -->
+            <div class="psw">
+              <div class="psw-i a"><div class="psw-dot"></div>糯米</div>
+              <div class="psw-i"><div class="psw-dot"></div>年糕</div>
+              <div class="psw-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </div>
+
+            <!-- Care -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">今日照护</span><span class="sh-m">全部</span></div>
+              <div class="fc il">
+                <div class="ir">
+                  <div class="ir-ic" style="background:linear-gradient(135deg,var(--orange),#FFB340);"><svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div>
+                  <div class="ir-bd"><div class="ir-tt">食欲</div></div>
+                  <span class="ir-vl">良好</span>
+                  <div class="chv"><svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></div>
+                </div>
+                <div class="ir">
+                  <div class="ir-ic" style="background:linear-gradient(135deg,var(--green),#5DD879);"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                  <div class="ir-bd"><div class="ir-tt">精神</div></div>
+                  <span class="ir-vl">活跃</span>
+                  <div class="chv"><svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></div>
+                </div>
+                <div class="ir">
+                  <div class="ir-ic" style="background:linear-gradient(135deg,var(--primary),var(--primary-lt));"><svg viewBox="0 0 24 24"><path d="M12 3v17"/><path d="M5 10l7-7 7 7"/><rect x="3" y="17" width="18" height="4" rx="2"/></svg></div>
+                  <div class="ir-bd"><div class="ir-tt">体重</div></div>
+                  <span class="ir-vl">4.2 kg</span>
+                  <div class="chv"><svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></div>
+                </div>
+                <div class="ir">
+                  <div class="ir-ic" style="background:linear-gradient(135deg,var(--purple),#C77DFF);"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                  <div class="ir-bd"><div class="ir-tt">疫苗 / 驱虫</div></div>
+                  <span class="ir-vl">已完成</span>
+                  <div class="chv"><svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">快捷动作</span></div>
+              <div class="fc qa">
+                <div class="qa-i">
+                  <div class="qa-ic" style="background:linear-gradient(135deg,var(--primary),var(--primary-dk));"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+                  <span class="qa-lb">记录日常</span>
+                </div>
+                <div class="qa-i">
+                  <div class="qa-ic" style="background:linear-gradient(135deg,var(--green),#2DB84E);"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                  <span class="qa-lb">健康记录</span>
+                </div>
+                <div class="qa-i">
+                  <div class="qa-ic" style="background:linear-gradient(135deg,var(--teal),#3AB8E8);"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                  <span class="qa-lb">预约医院</span>
+                </div>
+                <div class="qa-i">
+                  <div class="qa-ic" style="background:linear-gradient(135deg,var(--purple),#9B40D0);"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+                  <span class="qa-lb">拍照记录</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Companion -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">今日伙伴</span><span class="sh-m">更多</span></div>
+              <div class="fc comp">
+                <div class="comp-ph"></div>
+                <div class="comp-bd">
+                  <div class="comp-tg">同城伙伴</div>
+                  <div class="comp-tt">附近有一只同龄布偶，也在适应新家</div>
+                  <div class="comp-sb">奶盖 · 西湖区 · 2岁 · ♀</div>
+                </div>
+                <span class="comp-ac">打招呼</span>
+              </div>
+            </div>
+
+            <!-- Timeline -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">最近时间线</span><span class="sh-m">全部</span></div>
+              <div class="fc" style="padding:14px 16px;">
+                <div class="tl-i">
+                  <div class="tl-dw"><div class="tl-d f"></div></div>
+                  <div class="tl-bd">
+                    <div class="tl-tm">今天 14:30</div>
+                    <div class="tl-tx">午饭后在阳台晒太阳，看起来很放松</div>
+                    <span class="tl-tg" style="background:rgba(0,0,0,0.03);color:var(--l3);">日常</span>
+                  </div>
+                </div>
+                <div class="tl-i">
+                  <div class="tl-dw"><div class="tl-d" style="border-color:var(--green);"></div></div>
+                  <div class="tl-bd">
+                    <div class="tl-tm">昨天 10:00</div>
+                    <div class="tl-tx">完成第三次驱虫，瑞派宠物医院</div>
+                    <span class="tl-tg" style="background:rgba(52,199,89,0.08);color:var(--green);">健康</span>
+                  </div>
+                </div>
+                <div class="tl-i">
+                  <div class="tl-dw"><div class="tl-d" style="border-color:var(--orange);"></div></div>
+                  <div class="tl-bd">
+                    <div class="tl-tm">6月10日</div>
+                    <div class="tl-tx">第一次尝试冻干零食，反应超好</div>
+                    <span class="tl-tg" style="background:rgba(255,149,0,0.08);color:var(--orange);">成长</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="tbar">
+          <div class="tbi a"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M9 22V12h6v10"/></svg><span>首页</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span>宠物世界</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>同城</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>消息</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></div>
+        </div>
+        <div class="hi"></div>
+
+        <div class="ann">
+          <span class="at" style="top:75px;left:4px;">card: 75% white + blur(20px)</span>
+          <span class="at" style="top:160px;right:4px;">radius: lg 16px</span>
+          <span class="at" style="top:430px;left:4px;">list: iOS grouped inset</span>
+        </div>
+      </div>
+
+      <div class="msub">大照片居中 + Frosted Glass 列表。温暖感来自内容，UI 保持冷色克制。</div>
+    </div>
+
+    <!-- =============== D2: 轻管理 =============== -->
+    <div class="mw">
+      <div class="ml">方向二 · 管理</div>
+
+      <div class="ip" style="position:relative;">
+        <div class="bg-orb" style="width:180px;height:180px;background:rgba(107,203,255,0.1);top:200px;right:-50px;"></div>
+        <div class="bg-orb" style="width:140px;height:140px;background:rgba(79,140,255,0.08);top:500px;left:-30px;"></div>
+
+        <div class="di"></div>
+        <div class="stb">
+          <span>9:41</span>
+          <div class="stb-r">
+            <svg viewBox="0 0 18 12"><path d="M1 5.5C3.5 2 6.5 0 9 0s5.5 2 8 5.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M3.5 8C5.3 6.2 7 5.2 9 5.2s3.7 1 5.5 2.8" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="9" cy="10.5" r="1.5" fill="currentColor"/></svg>
+            <span>5G</span>
+            <svg viewBox="0 0 28 12"><rect x="0.5" y="0.5" width="23" height="11" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="18" height="8" rx="1" fill="currentColor"/><rect x="25" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/></svg>
+          </div>
+        </div>
+
+        <div class="sc">
+          <div style="padding-top:var(--safe-t);padding-bottom:calc(var(--tab-h) + 16px);padding-left:16px;padding-right:16px;position:relative;z-index:1;">
+
+            <div class="nb">
+              <div class="nb-l">
+                <span style="font-size:13px;font-weight:700;color:var(--primary);">毛伙伴</span>
+                <span class="city"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg>杭州</span>
+              </div>
+              <div class="nb-r">
+                <div class="nb-i" style="position:relative;"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="ndot"></div></div>
+              </div>
+            </div>
+
+            <!-- Compact Pet -->
+            <div class="fc" style="padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+              <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#E8EDF5,#D8DEE8);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:0.5px solid rgba(255,255,255,0.5);">
+                <span style="font-size:10px;color:var(--l3);">56×56</span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:-0.3px;">糯米</div>
+                <div style="font-size:12px;color:var(--l3);margin-top:1px;">布偶猫 · ♀ · 2岁3月</div>
+                <div style="display:flex;align-items:center;gap:4px;margin-top:5px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--green);"></span>
+                  <span style="font-size:12px;color:var(--l2);">今日状态良好</span>
+                </div>
+              </div>
+              <div style="width:30px;height:30px;background:rgba(0,0,0,0.03);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--l3)" stroke-width="1.5"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+
+            <!-- Reminder -->
+            <div class="fc rem" style="margin-bottom:8px;">
+              <div class="rem-ic" style="background:linear-gradient(135deg,var(--orange),#FFB340);">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="rem-tx"><strong>驱虫提醒</strong>：下次 6月20日，还有 7 天</div>
+              <div class="rem-bt">预约</div>
+            </div>
+
+            <!-- Switcher -->
+            <div class="psw" style="padding:8px 0 10px;">
+              <div class="psw-i a"><div class="psw-dot"></div>糯米</div>
+              <div class="psw-i"><div class="psw-dot"></div>年糕</div>
+              <div class="psw-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            </div>
+
+            <!-- Metrics -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">健康数据</span><span class="sh-m">趋势</span></div>
+              <div class="met">
+                <div class="met-i"><div class="met-v">4.2<span class="met-u">kg</span></div><div class="met-l">体重</div></div>
+                <div class="met-i"><div class="met-v" style="color:var(--green);">3/3</div><div class="met-l">疫苗</div></div>
+                <div class="met-i"><div class="met-v" style="color:var(--orange);">7<span class="met-u">天</span></div><div class="met-l">驱虫</div></div>
+                <div class="met-i"><div class="met-v">—</div><div class="met-l">复诊</div></div>
+              </div>
+            </div>
+
+            <!-- Checklist -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">今日照护</span><span style="font-size:13px;color:var(--l3);">2/5</span></div>
+              <div class="fc il">
+                <div class="ck"><div class="ck-c d"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="ck-l dl">早餐 · 猫粮 30g</span><span class="ck-t">08:00</span></div>
+                <div class="ck"><div class="ck-c d"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="ck-l dl">午餐 · 猫粮 25g + 冻干</span><span class="ck-t">12:30</span></div>
+                <div class="ck"><div class="ck-c"></div><span class="ck-l">晚餐 · 猫粮 30g</span><span class="ck-t">18:00</span></div>
+                <div class="ck"><div class="ck-c"></div><span class="ck-l">清理猫砂</span><span class="ck-t">—</span></div>
+                <div class="ck"><div class="ck-c"></div><span class="ck-l">梳毛 / 互动时间</span><span class="ck-t">—</span></div>
+              </div>
+            </div>
+
+            <!-- Quick -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">快捷动作</span></div>
+              <div class="fc qa">
+                <div class="qa-i"><div class="qa-ic" style="background:linear-gradient(135deg,var(--primary),var(--primary-dk));"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><span class="qa-lb">记录日常</span></div>
+                <div class="qa-i"><div class="qa-ic" style="background:linear-gradient(135deg,var(--green),#2DB84E);"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><span class="qa-lb">健康记录</span></div>
+                <div class="qa-i"><div class="qa-ic" style="background:linear-gradient(135deg,var(--teal),#3AB8E8);"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><span class="qa-lb">预约医院</span></div>
+                <div class="qa-i"><div class="qa-ic" style="background:linear-gradient(135deg,var(--purple),#9B40D0);"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div><span class="qa-lb">拍照记录</span></div>
+              </div>
+            </div>
+
+            <!-- Companion -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">今日伙伴</span></div>
+              <div class="fc comp">
+                <div class="comp-ph"></div>
+                <div class="comp-bd">
+                  <div class="comp-tg">同窝伙伴</div>
+                  <div class="comp-tt">糯米可能遇到了同窝妹妹：奶盖</div>
+                  <div class="comp-sb">同一猫舍 · 杭州 · 2岁</div>
+                </div>
+                <span class="comp-ac">查看</span>
+              </div>
+            </div>
+
+            <!-- Timeline -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">时间线</span><span class="sh-m">全部</span></div>
+              <div class="fc" style="padding:14px 16px;">
+                <div class="tl-i">
+                  <div class="tl-dw"><div class="tl-d f"></div></div>
+                  <div class="tl-bd"><div class="tl-tm">今天 14:30</div><div class="tl-tx">午饭后在阳台晒太阳</div></div>
+                </div>
+                <div class="tl-i">
+                  <div class="tl-dw"><div class="tl-d" style="border-color:var(--green);"></div></div>
+                  <div class="tl-bd"><div class="tl-tm">昨天 10:00</div><div class="tl-tx">完成第三次驱虫</div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="tbar">
+          <div class="tbi a"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M9 22V12h6v10"/></svg><span>首页</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span>宠物世界</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>同城</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>消息</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></div>
+        </div>
+        <div class="hi"></div>
+
+        <div class="ann">
+          <span class="at" style="top:90px;right:4px;">compact: 56×56 photo</span>
+          <span class="at" style="top:175px;left:4px;">reminder: glass card</span>
+          <span class="at" style="top:310px;right:4px;">met: 4-col glass</span>
+        </div>
+      </div>
+
+      <div class="msub">紧凑卡片 + Checklist + Health 指标。管理感强，Frosted Glass 保持轻盈。</div>
+    </div>
+
+    <!-- =============== D3: 多宠工作台 =============== -->
+    <div class="mw">
+      <div class="ml">方向三 · 工作台</div>
+
+      <div class="ip" style="position:relative;">
+        <div class="bg-orb" style="width:200px;height:200px;background:rgba(79,140,255,0.08);top:120px;left:-60px;"></div>
+
+        <div class="di"></div>
+        <div class="stb">
+          <span>9:41</span>
+          <div class="stb-r">
+            <svg viewBox="0 0 18 12"><path d="M1 5.5C3.5 2 6.5 0 9 0s5.5 2 8 5.5" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M3.5 8C5.3 6.2 7 5.2 9 5.2s3.7 1 5.5 2.8" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="9" cy="10.5" r="1.5" fill="currentColor"/></svg>
+            <span>5G</span>
+            <svg viewBox="0 0 28 12"><rect x="0.5" y="0.5" width="23" height="11" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="18" height="8" rx="1" fill="currentColor"/><rect x="25" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity=".4"/></svg>
+          </div>
+        </div>
+
+        <div class="sc">
+          <div style="padding-top:var(--safe-t);padding-bottom:calc(var(--tab-h) + 16px);padding-left:16px;padding-right:16px;position:relative;z-index:1;">
+
+            <div class="nb">
+              <div class="nb-l"><span style="font-size:13px;font-weight:700;color:var(--primary);">毛伙伴</span></div>
+              <div class="nb-r"><div class="nb-i" style="position:relative;"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg><div class="ndot"></div></div></div>
+            </div>
+
+            <!-- Merchant -->
+            <div class="fc mer-hd" style="margin-bottom:8px;">
+              <div class="mer-nm">星辰猫舍</div>
+              <div class="mer-mt">杭州 · 认证猫舍 · 经营 2 年</div>
+              <div class="mer-bg">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                认证商家
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">概览</span></div>
+              <div class="stg">
+                <div class="st-i"><div class="st-n">12</div><div class="st-l">在管</div></div>
+                <div class="st-i"><div class="st-n" style="color:var(--green);">3</div><div class="st-l">可售</div></div>
+                <div class="st-i"><div class="st-n" style="color:var(--orange);">2</div><div class="st-l">已预定</div></div>
+                <div class="st-i"><div class="st-n" style="color:var(--red);">4</div><div class="st-l">待处理</div></div>
+              </div>
+            </div>
+
+            <!-- Pet Grid -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">宠物管理</span><span class="sh-m">全部 (12)</span></div>
+              <div class="pg">
+                <div class="pg-i">
+                  <div class="pg-st" style="background:rgba(52,199,89,0.08);color:var(--green);">可售</div>
+                  <div class="pg-ph"></div>
+                  <div class="pg-nm">布丁</div>
+                  <div class="pg-mt">布偶 · ♂ · 4月龄</div>
+                  <div class="pg-dt">疫苗 2/3 · 已驱虫</div>
+                </div>
+                <div class="pg-i">
+                  <div class="pg-st" style="background:rgba(255,149,0,0.08);color:var(--orange);">已预定</div>
+                  <div class="pg-ph"></div>
+                  <div class="pg-nm">奶盖</div>
+                  <div class="pg-mt">布偶 · ♀ · 3月龄</div>
+                  <div class="pg-dt">疫苗 1/3 · 已驱虫</div>
+                </div>
+                <div class="pg-i">
+                  <div class="pg-st" style="background:rgba(90,200,250,0.1);color:#30B0C7;">护理中</div>
+                  <div class="pg-ph"></div>
+                  <div class="pg-nm">芒果</div>
+                  <div class="pg-mt">英短 · ♂ · 6月龄</div>
+                  <div class="pg-dt">猫藓恢复中</div>
+                </div>
+                <div class="pg-i">
+                  <div class="pg-st" style="background:rgba(52,199,89,0.08);color:var(--green);">可售</div>
+                  <div class="pg-ph"></div>
+                  <div class="pg-nm">豆豆</div>
+                  <div class="pg-mt">英短 · ♀ · 5月龄</div>
+                  <div class="pg-dt">疫苗 3/3 · 已绝育</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kanban -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">待办看板</span></div>
+              <div class="kb-sc">
+                <div class="kb-c">
+                  <div class="kb-h"><span class="kb-tt" style="color:var(--red);">紧急</span><span class="kb-ct">2</span></div>
+                  <div class="kb-cd"><div class="kb-ct2">芒果用药提醒</div><div class="kb-cm">猫藓 · 每日涂药</div></div>
+                  <div class="kb-cd"><div class="kb-ct2">布丁第三针疫苗</div><div class="kb-cm">预约 · 6/15</div></div>
+                </div>
+                <div class="kb-c">
+                  <div class="kb-h"><span class="kb-tt" style="color:var(--orange);">待回复</span><span class="kb-ct">3</span></div>
+                  <div class="kb-cd"><div class="kb-ct2">买家咨询 · 布丁</div><div class="kb-cm">张女士 · 20min</div></div>
+                  <div class="kb-cd"><div class="kb-ct2">售后回访 · 小橘</div><div class="kb-cm">李先生 · 1h</div></div>
+                </div>
+                <div class="kb-c">
+                  <div class="kb-h"><span class="kb-tt" style="color:var(--l3);">已完成</span><span class="kb-ct">5</span></div>
+                  <div class="kb-cd"><div class="kb-ct2">奶盖驱虫完成</div><div class="kb-cm">昨天</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lineage -->
+            <div style="margin-bottom:16px;">
+              <div class="sh"><span class="sh-t">血缘</span><span class="sh-m">管理</span></div>
+              <div class="fc lin">
+                <div class="lin-r">
+                  <div class="lin-ph"></div>
+                  <div><div class="lin-nm">大王 ♂</div><div class="lin-mt">布偶 · 海豹双色</div></div>
+                  <span class="lin-x">×</span>
+                  <div class="lin-ph"></div>
+                  <div><div class="lin-nm">小花 ♀</div><div class="lin-mt">布偶 · 蓝双色</div></div>
+                </div>
+                <div class="lin-sm">本窝 4 只 · 2026/02/15 · 可售 2 · 已预定 1 · 护理中 1</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="tbar">
+          <div class="tbi a"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M9 22V12h6v10"/></svg><span>首页</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg><span>宠物世界</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>同城</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>消息</span></div>
+          <div class="tbi"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></div>
+        </div>
+        <div class="hi"></div>
+
+        <div class="ann">
+          <span class="at" style="top:85px;right:4px;">merchant: glass card</span>
+          <span class="at" style="top:220px;left:4px;">stats: 4-col glass</span>
+          <span class="at" style="top:410px;right:4px;">grid: 2-col gap-8</span>
+        </div>
+      </div>
+
+      <div class="msub">统计概览 + 网格 + 看板 + 血缘。认证商家工作台，全部 Glass 卡片。</div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="dv">
+
+<!-- ===== TAB BAR ===== -->
+<section class="sec">
+  <h2 class="sec-t">底部 Tab Bar</h2>
+  <p class="sec-s">5 个常驻 Tab · Frosted Glass 背景 · 发布入口为全局 + 按钮。</p>
+  <table class="stbl">
+    <thead><tr><th>Tab</th><th>默认色</th><th>选中色</th><th>字号</th><th>职责</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:600;">首页</td><td>#9CA3AF</td><td style="color:var(--primary);font-weight:600;">#4F8CFF</td><td>10 / Medium</td><td>宠物主体页 / 工作台</td></tr>
+      <tr><td style="font-weight:600;">宠物世界</td><td>#9CA3AF</td><td style="color:var(--primary);font-weight:600;">#4F8CFF</td><td>10 / Medium</td><td>宠物画像推荐流</td></tr>
+      <tr><td style="font-weight:600;">同城</td><td>#9CA3AF</td><td style="color:var(--primary);font-weight:600;">#4F8CFF</td><td>10 / Medium</td><td>本地医院、商家、交易</td></tr>
+      <tr><td style="font-weight:600;">消息</td><td>#9CA3AF</td><td style="color:var(--primary);font-weight:600;">#4F8CFF</td><td>10 / Medium</td><td>私信、评论、通知</td></tr>
+      <tr><td style="font-weight:600;">我的</td><td>#9CA3AF</td><td style="color:var(--primary);font-weight:600;">#4F8CFF</td><td>10 / Medium</td><td>账号、认证、设置</td></tr>
+    </tbody>
+  </table>
+  <div style="margin-top:14px;padding:14px;background:var(--card);backdrop-filter:blur(12px);border:0.5px solid var(--card-border);border-radius:var(--r-md);">
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Tab Bar 参数</div>
+    <div style="font-size:12px;color:var(--l3);line-height:1.8;">
+      高度: 83pt (49 + 34 Safe Area) · 背景: rgba(247,249,252,0.72) + blur(24px) saturate(1.8) · 顶线: 0.5px rgba(255,255,255,0.5) · 图标: 24×24 stroke 1.5 · 文字: 10px Medium · 选中: fill-opacity 12%
+    </div>
+  </div>
+</section>
+
+<hr class="dv">
+
+<!-- ===== STYLE GUIDE ===== -->
+<section class="sec">
+  <h2 class="sec-t">设计语言</h2>
+  <p class="sec-s">Apple Health · Wallet · Tesla · Notion 风格融合。</p>
+  <div class="tg">
+    <div class="tc">
+      <h4>核心原则</h4>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">01</span><span><strong style="color:var(--l1);">Frosted Glass 全局</strong> — 所有卡片 75% 白 + blur(20px)，页面背景可透出</span></div>
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">02</span><span><strong style="color:var(--l1);">冷蓝低饱和</strong> — 主色 #4F8CFF 仅交互态，功能色使用 iOS 系统色</span></div>
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">03</span><span><strong style="color:var(--l1);">微妙光晕</strong> — 背景大面积模糊渐变色块 (orb) 营造深度</span></div>
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">04</span><span><strong style="color:var(--l1);">Hairline 分层</strong> — 0.5px border 区分层级，阴影仅品牌元素使用</span></div>
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">05</span><span><strong style="color:var(--l1);">渐变图标</strong> — 列表/快捷动作图标使用 linear-gradient 填充</span></div>
+        <div style="display:flex;gap:8px;font-size:13px;color:var(--l2);line-height:1.5;"><span style="color:var(--primary);font-weight:700;flex-shrink:0;width:20px;">06</span><span><strong style="color:var(--l1);">内容即温度</strong> — 冷色 UI 框架 + 暖色宠物照片形成视觉张力</span></div>
+      </div>
+    </div>
+    <div class="tc">
+      <h4>关键参数</h4>
+      <table class="stbl" style="font-size:12px;">
+        <thead><tr><th>项目</th><th>值</th></tr></thead>
+        <tbody>
+          <tr><td>页面背景</td><td>#F7F9FC 冷白蓝</td></tr>
+          <tr><td>卡片</td><td>rgba(255,255,255,0.75) + blur(20px)</td></tr>
+          <tr><td>卡片边框</td><td>0.5px rgba(255,255,255,0.6)</td></tr>
+          <tr><td>Tab Bar</td><td>rgba(247,249,252,0.72) + blur(24px) saturate(1.8)</td></tr>
+          <tr><td>品牌元素阴影</td><td>0 2px 12px rgba(79,140,255,0.25)</td></tr>
+          <tr><td>背景光晕</td><td>filter: blur(80px) opacity(0.3)</td></tr>
+          <tr><td>选中态 pill</td><td>#4F8CFF + box-shadow 蓝光</td></tr>
+          <tr><td>图标</td><td>linear-gradient 双色渐变填充</td></tr>
+          <tr><td>圆角统一</td><td>卡片 lg (16px) · 按钮/Tag full</td></tr>
+          <tr><td>字体</td><td>SF Pro · 严格 iOS 层级</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer style="text-align:center;padding:40px;color:var(--l3);font-size:12px;">
+  毛伙伴 UI Design Spec v0.3 · Apple Health Style · 2026-06-13
+</footer>
+
+</body>
+</html>

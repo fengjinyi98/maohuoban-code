@@ -8,6 +8,10 @@
 import SwiftUI
 import MaohuobanDiagnostics
 
+// MaohuobanApp 应用入口
+// 核心职责：
+// - 初始化诊断基础设施
+// - 挂载 SwiftUI 根场景
 @main
 struct MaohuobanApp: App {
     init() {
