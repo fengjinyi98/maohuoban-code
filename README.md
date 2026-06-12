@@ -19,6 +19,9 @@
 |---|---|
 | `docs/product/strategy/00_不做薄MVP的产品依据.md` | 说明为什么毛伙伴需要完整闭环 |
 | `docs/product/strategy/01_主页与底部Tab产品方向.md` | 说明首页、底部 Tab 和宠物主体方向 |
+| `docs/product/prd/00_V1_PRD_产品总纲与核心流程.md` | 定义 V1 产品范围、核心对象、信息架构和主流程 |
+| `docs/design/00_AI生图Prompt与视觉一致性规范.md` | 统一 UI、Logo、图标、IP、默认头像等 AI 生图 Prompt |
+| `docs/html/maohuoban-architecture.html` | 可交互工程架构图，覆盖 iOS、Rust 后端、数据平台和外部集成 |
 
 ## 技术栈
 
@@ -35,9 +38,12 @@
 ```text
 maohuoban-code/
   docs/
+    design/
     html/
       maohuoban-ui-design.html
+      maohuoban-architecture.html
     product/
+      prd/
       strategy/
   maohuoban/
     maohuoban.xcodeproj

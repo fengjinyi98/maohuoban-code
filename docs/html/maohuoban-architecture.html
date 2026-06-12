@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>毛伙伴 Maohuoban — 工程架构图</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234F8CFF'/%3E%3Ccircle cx='11' cy='12' r='3' fill='white'/%3E%3Ccircle cx='21' cy='12' r='3' fill='white'/%3E%3Cpath d='M10 21c3 3 9 3 12 0' stroke='white' stroke-width='2' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<script>
+  (function () {
+    const saved = localStorage.getItem("maohuoban-architecture-theme");
+    const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", dark);
+  })();
+</script>
+<style>
+  :root {
+    --bg: #F7F9FC;
+    --surface: rgba(255,255,255,0.84);
+    --surface-solid: #FFFFFF;
+    --surface-2: rgba(245,248,252,0.92);
+    --ink: #1A1D26;
+    --body: #4B5563;
+    --muted: #7C8796;
+    --line: rgba(26,29,38,0.12);
+    --line-soft: rgba(26,29,38,0.07);
+    --primary: #4F8CFF;
+    --primary-2: #6BCBFF;
+    --primary-soft: rgba(79,140,255,0.12);
+    --green: #34C759;
+    --green-soft: rgba(52,199,89,0.13);
+    --orange: #FF9500;
+    --orange-soft: rgba(255,149,0,0.14);
+    --red: #FF3B30;
+    --red-soft: rgba(255,59,48,0.12);
+    --teal: #5AC8FA;
+    --teal-soft: rgba(90,200,250,0.14);
+    --purple: #AF52DE;
+    --purple-soft: rgba(175,82,222,0.13);
+    --zone: rgba(255,255,255,0.44);
+    --zone-strong: rgba(255,255,255,0.68);
+    --shadow: 0 18px 58px rgba(30,45,75,0.12);
+    --font: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", Menlo, Consolas, ui-monospace, monospace;
+  }
+
+  html.dark {
+    --bg: #10141C;
+    --surface: rgba(27,33,45,0.84);
+    --surface-solid: #171D28;
+    --surface-2: rgba(30,38,52,0.92);
+    --ink: #F6F8FC;
+    --body: #D4DAE5;
+    --muted: #8E9AAD;
+    --line: rgba(246,248,252,0.14);
+    --line-soft: rgba(246,248,252,0.08);
+    --primary: #75A6FF;
+    --primary-2: #75D5FF;
+    --primary-soft: rgba(117,166,255,0.18);
+    --green: #55D977;
+    --green-soft: rgba(85,217,119,0.16);
+    --orange: #FFB14A;
+    --orange-soft: rgba(255,177,74,0.16);
+    --red: #FF6B63;
+    --red-soft: rgba(255,107,99,0.16);
+    --teal: #6ED4FF;
+    --teal-soft: rgba(110,212,255,0.16);
+    --purple: #C77AFF;
+    --purple-soft: rgba(199,122,255,0.16);
+    --zone: rgba(255,255,255,0.04);
+    --zone-strong: rgba(255,255,255,0.07);
+    --shadow: 0 22px 70px rgba(0,0,0,0.28);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 12%, var(--primary-soft), transparent 32%),
+      radial-gradient(circle at 84% 8%, var(--teal-soft), transparent 28%),
+      linear-gradient(180deg, var(--bg), var(--bg));
+    color: var(--body);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .shell {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    background: color-mix(in srgb, var(--surface-solid) 76%, transparent);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  }
+
+  .brand {
+    min-width: 290px;
+  }
+
+  .brand h1 {
+    color: var(--ink);
+    font-size: 20px;
+    line-height: 1.15;
+    font-weight: 760;
+    letter-spacing: 0;
+  }
+
+  .brand p {
+    margin-top: 3px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .chips {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .chip,
+  .theme-toggle {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: 999px;
+    height: 30px;
+    padding: 0 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: transform .16s ease, color .16s ease, border-color .16s ease, background .16s ease;
+  }
+
+  .chip:hover,
+  .theme-toggle:hover {
+    color: var(--ink);
+    border-color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .chip.on {
+    color: var(--surface-solid);
+    border-color: var(--primary);
+    background: var(--primary);
+  }
+
+  .spacer { flex: 1; }
+
+  .stage {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .stage svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .zone rect {
+    fill: var(--zone);
+    stroke: var(--line);
+    stroke-width: 1.2;
+    stroke-dasharray: 8 7;
+    rx: 18;
+  }
+
+  .zone.core rect {
+    fill: var(--zone-strong);
+  }
+
+  .zone-title {
+    fill: var(--ink);
+    font-size: 15px;
+    font-weight: 760;
+    letter-spacing: 0;
+  }
+
+  .zone-sub {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+
+  .node {
+    cursor: pointer;
+    transition: opacity .18s ease, filter .18s ease;
+  }
+
+  .node rect,
+  .node path.panel {
+    fill: var(--surface);
+    stroke: var(--line);
+    stroke-width: 1.35;
+    rx: 12;
+    filter: drop-shadow(0 8px 18px rgba(40,70,120,0.05));
+    transition: stroke .18s ease, fill .18s ease, filter .18s ease;
+  }
+
+  html.dark .node rect,
+  html.dark .node path.panel {
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.16));
+  }
+
+  .node:hover rect,
+  .node:hover path.panel {
+    stroke: var(--primary);
+    filter: drop-shadow(0 14px 28px rgba(79,140,255,0.13));
+  }
+
+  .node.selected rect,
+  .node.selected path.panel {
+    stroke: var(--primary);
+    stroke-width: 2.2;
+  }
+
+  .node .title {
+    fill: var(--ink);
+    font-size: 14.5px;
+    font-weight: 720;
+    letter-spacing: 0;
+    pointer-events: none;
+  }
+
+  .node .sub {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+  }
+
+  .node .tag {
+    fill: var(--primary);
+    font-family: var(--mono);
+    font-size: 9.6px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .node.client rect { fill: var(--primary-soft); stroke: var(--primary); }
+  .node.backend rect { fill: var(--teal-soft); stroke: var(--teal); }
+  .node.domain rect { fill: var(--green-soft); stroke: var(--green); }
+  .node.storage rect { fill: var(--surface-2); }
+  .node.external rect { fill: var(--orange-soft); stroke: var(--orange); stroke-dasharray: 7 4; }
+  .node.future rect { stroke-dasharray: 7 4; }
+  .node.risk rect { fill: var(--red-soft); stroke: var(--red); }
+  .node.obs rect { fill: var(--purple-soft); stroke: var(--purple); }
+
+  .edge {
+    stroke: var(--muted);
+    stroke-width: 1.65;
+    fill: none;
+    marker-end: url(#arrow-muted);
+    opacity: .74;
+    transition: opacity .18s ease, stroke .18s ease;
+  }
+
+  .edge.soft {
+    stroke-dasharray: 7 6;
+    opacity: .54;
+  }
+
+  .edge.heavy {
+    stroke-width: 2.2;
+  }
+
+  .edge-label {
+    fill: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.01em;
+    transition: opacity .18s ease, fill .18s ease;
+  }
+
+  .stage.flowing .edge,
+  .stage.flowing .edge-label,
+  .stage.flowing .node {
+    opacity: .16;
+  }
+
+  .stage.flowing .zone {
+    opacity: .38;
+  }
+
+  .stage.flowing .edge.lit {
+    opacity: 1;
+    stroke: var(--primary);
+    marker-end: url(#arrow-primary);
+    stroke-dasharray: 10 7;
+    animation: march .9s linear infinite;
+  }
+
+  .stage.flowing .edge-label.lit {
+    opacity: 1;
+    fill: var(--primary);
+  }
+
+  .stage.flowing .node.lit {
+    opacity: 1;
+  }
+
+  .stage.flowing .node.lit rect,
+  .stage.flowing .node.lit path.panel {
+    stroke: var(--primary);
+    stroke-width: 2;
+  }
+
+  @keyframes march {
+    to { stroke-dashoffset: -17; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage.flowing .edge.lit { animation: none; }
+  }
+
+  .legend {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: 760px;
+    pointer-events: none;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  .dot.green { background: var(--green); }
+  .dot.orange { background: var(--orange); }
+  .dot.purple { background: var(--purple); }
+
+  .detail,
+  .flowcard {
+    position: absolute;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border-radius: 18px;
+  }
+
+  .detail {
+    right: 18px;
+    bottom: 18px;
+    width: 380px;
+    padding: 16px;
+  }
+
+  .detail h2 {
+    color: var(--ink);
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 760;
+    letter-spacing: 0;
+  }
+
+  .detail .meta {
+    margin-top: 4px;
+    color: var(--primary);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .detail p {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.62;
+  }
+
+  .detail code,
+  .flowcard code {
+    color: var(--primary);
+    font-family: var(--mono);
+    font-size: .92em;
+  }
+
+  .flowcard {
+    left: 18px;
+    bottom: 18px;
+    width: 470px;
+    padding: 14px 16px 16px;
+    display: none;
+  }
+
+  .flowcard.show {
+    display: block;
+  }
+
+  .flowcard .flow-name {
+    color: var(--primary);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 760;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .flowcard ol {
+    margin-top: 8px;
+    margin-left: 18px;
+  }
+
+  .flowcard li {
+    padding: 2px 0;
+    font-size: 12.6px;
+    line-height: 1.55;
+  }
+
+  .source {
+    position: absolute;
+    right: 20px;
+    top: 16px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    opacity: .78;
+    pointer-events: none;
+  }
+
+  @media (max-width: 1080px) {
+    body { overflow: auto; }
+    .shell { min-height: 100vh; height: auto; }
+    .topbar { align-items: flex-start; flex-direction: column; }
+    .brand { min-width: 0; }
+    .stage { min-height: 820px; overflow: auto; }
+    .stage svg { min-width: 1320px; }
+    .detail,
+    .flowcard {
+      position: static;
+      width: auto;
+      margin: 12px 18px;
+    }
+    .source { display: none; }
+  }
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <h1>毛伙伴工程架构图</h1>
+      <p>iOS SwiftUI + UIKit · Rust layered backend · PostgreSQL · Redis · RustFS</p>
+    </div>
+    <div class="chips" id="flowChips" aria-label="架构流程切换">
+      <button class="chip on" data-flow="all">总览</button>
+      <button class="chip" data-flow="pet-event">宠物事件</button>
+      <button class="chip" data-flow="city-trade">同城交易</button>
+      <button class="chip" data-flow="medical">医疗摘要</button>
+      <button class="chip" data-flow="media">媒体证据</button>
+      <button class="chip" data-flow="message">消息通知</button>
+      <button class="chip" data-flow="observability">诊断观测</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="theme-toggle" id="themeToggle" type="button">Theme</button>
+  </header>
+
+  <section class="stage" id="stage">
+    <svg viewBox="0 0 1680 1040" preserveAspectRatio="xMidYMid meet" role="img" aria-label="毛伙伴前后端工程架构图">
+      <defs>
+        <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" style="fill: var(--muted)"></path>
+        </marker>
+        <marker id="arrow-primary" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" style="fill: var(--primary)"></path>
+        </marker>
+      </defs>
+
+      <g class="zone" id="zone-product">
+        <rect x="34" y="80" width="244" height="790"></rect>
+        <text class="zone-title" x="58" y="116">产品入口</text>
+        <text class="zone-sub" x="58" y="137">5 tabs · pet as subject</text>
+      </g>
+
+      <g class="zone core" id="zone-ios">
+        <rect x="312" y="80" width="360" height="790"></rect>
+        <text class="zone-title" x="336" y="116">iOS Client</text>
+        <text class="zone-sub" x="336" y="137">SwiftUI · UIKit · MVVM · one-way data</text>
+      </g>
+
+      <g class="zone core" id="zone-api">
+        <rect x="710" y="80" width="396" height="790"></rect>
+        <text class="zone-title" x="734" y="116">Rust Backend</text>
+        <text class="zone-sub" x="734" y="137">Interface · Application · Domain · Infrastructure</text>
+      </g>
+
+      <g class="zone" id="zone-data">
+        <rect x="1144" y="80" width="250" height="790"></rect>
+        <text class="zone-title" x="1168" y="116">Data Platform</text>
+        <text class="zone-sub" x="1168" y="137">truth · cache · object store</text>
+      </g>
+
+      <g class="zone" id="zone-external">
+        <rect x="1430" y="80" width="216" height="790"></rect>
+        <text class="zone-title" x="1454" y="116">外部系统</text>
+        <text class="zone-sub" x="1454" y="137">city service · HIS · insurance</text>
+      </g>
+
+      <path class="edge heavy" id="e-tabs-shell" d="M254,205 C 292,205 304,205 332,205"></path>
+      <path class="edge" id="e-shell-feature" d="M492,215 L492,286"></path>
+      <path class="edge" id="e-feature-store" d="M492,386 L492,456"></path>
+      <path class="edge" id="e-store-domain" d="M492,552 L492,624"></path>
+      <path class="edge" id="e-domain-api-client" d="M492,720 L492,792"></path>
+      <path class="edge heavy" id="e-api-client-gateway" d="M626,802 C 668,802 686,216 734,216"></path>
+      <path class="edge" id="e-gateway-app" d="M908,250 L908,312"></path>
+      <path class="edge" id="e-app-domain" d="M908,410 L908,472"></path>
+      <path class="edge" id="e-domain-infra" d="M908,570 L908,632"></path>
+      <path class="edge heavy" id="e-infra-pg" d="M1080,680 C 1115,674 1132,206 1166,206"></path>
+      <path class="edge" id="e-infra-redis" d="M1080,700 C 1118,708 1132,360 1166,360"></path>
+      <path class="edge" id="e-infra-rustfs" d="M1080,720 C 1118,746 1132,512 1166,512"></path>
+      <path class="edge soft" id="e-infra-search" d="M1080,740 C 1118,790 1132,666 1166,666"></path>
+      <path class="edge soft" id="e-api-ext" d="M1080,214 C 1238,178 1330,190 1452,206"></path>
+      <path class="edge soft" id="e-medical-ext" d="M1080,500 C 1234,478 1320,360 1452,360"></path>
+      <path class="edge soft" id="e-ins-ext" d="M1080,520 C 1242,540 1328,512 1452,512"></path>
+      <path class="edge soft" id="e-push-ext" d="M1080,775 C 1244,816 1338,716 1452,666"></path>
+      <path class="edge" id="e-media-upload" d="M626,803 C 690,880 1005,880 1188,565"></path>
+      <path class="edge" id="e-diagnostics" d="M492,838 C 560,952 1024,952 1306,816"></path>
+      <path class="edge" id="e-backend-diag" d="M908,838 C 986,944 1196,940 1328,816"></path>
+
+      <text class="edge-label" data-e="e-api-client-gateway" x="666" y="492">/api/v1 · typed DTO · auth</text>
+      <text class="edge-label" data-e="e-infra-pg" x="1112" y="250">transactional truth</text>
+      <text class="edge-label" data-e="e-infra-redis" x="1114" y="405">cache · session · queue</text>
+      <text class="edge-label" data-e="e-infra-rustfs" x="1116" y="548">media · contract · report</text>
+      <text class="edge-label" data-e="e-api-ext" x="1282" y="170">map / sms / payment</text>
+      <text class="edge-label" data-e="e-medical-ext" x="1264" y="444">HIS adapter</text>
+      <text class="edge-label" data-e="e-ins-ext" x="1282" y="542">consent package</text>
+      <text class="edge-label" data-e="e-diagnostics" x="712" y="926">privacy-safe diagnostics</text>
+
+      <g class="node client" data-k="tabs">
+        <rect x="58" y="164" width="196" height="124"></rect>
+        <text class="tag" x="78" y="194">PRODUCT SURFACE</text>
+        <text class="title" x="78" y="222">五个底部入口</text>
+        <text class="sub" x="78" y="246">首页 · 宠物世界 · 同城</text>
+        <text class="sub" x="78" y="265">消息 · 我的</text>
+      </g>
+
+      <g class="node client" data-k="pet-home">
+        <rect x="58" y="326" width="196" height="104"></rect>
+        <text class="tag" x="78" y="356">PET FIRST</text>
+        <text class="title" x="78" y="383">宠物主体首页</text>
+        <text class="sub" x="78" y="407">当前宠物 · 今日照护</text>
+      </g>
+
+      <g class="node client" data-k="pet-world">
+        <rect x="58" y="468" width="196" height="104"></rect>
+        <text class="tag" x="78" y="498">UGC</text>
+        <text class="title" x="78" y="525">宠物世界</text>
+        <text class="sub" x="78" y="549">宠物事件 · 关系推荐</text>
+      </g>
+
+      <g class="node client" data-k="city">
+        <rect x="58" y="610" width="196" height="104"></rect>
+        <text class="tag" x="78" y="640">TRUST BOUNDARY</text>
+        <text class="title" x="78" y="667">同城服务</text>
+        <text class="sub" x="78" y="691">医院 · 商家 · 交易</text>
+      </g>
+
+      <g class="node client" data-k="message">
+        <rect x="58" y="752" width="196" height="82"></rect>
+        <text class="tag" x="78" y="782">COMMUNICATION</text>
+        <text class="title" x="78" y="809">消息中心</text>
+      </g>
+
+      <g class="node client" data-k="app-shell">
+        <rect x="332" y="164" width="320" height="88"></rect>
+        <text class="tag" x="352" y="194">APP SHELL</text>
+        <text class="title" x="352" y="222">UIKit Navigation Infrastructure</text>
+        <text class="sub" x="352" y="239">TabBar · Router · Sheet · Hosting</text>
+      </g>
+
+      <g class="node client" data-k="features">
+        <rect x="332" y="286" width="320" height="100"></rect>
+        <text class="tag" x="352" y="316">PRESENTATION</text>
+        <text class="title" x="352" y="344">SwiftUI Feature Views</text>
+        <text class="sub" x="352" y="365">Home · PetWorld · City · Messages · Mine</text>
+      </g>
+
+      <g class="node client" data-k="store">
+        <rect x="332" y="456" width="320" height="96"></rect>
+        <text class="tag" x="352" y="486">STATE</text>
+        <text class="title" x="352" y="514">ViewModel / Store</text>
+        <text class="sub" x="352" y="535">@Observable · MainActor · command入口</text>
+      </g>
+
+      <g class="node domain" data-k="ios-domain">
+        <rect x="332" y="624" width="320" height="96"></rect>
+        <text class="tag" x="352" y="654">CLIENT DOMAIN</text>
+        <text class="title" x="352" y="682">Feature Domain Models</text>
+        <text class="sub" x="352" y="703">PetProfile · PetEvent · LocalEntity</text>
+      </g>
+
+      <g class="node client" data-k="api-client">
+        <rect x="332" y="792" width="320" height="92"></rect>
+        <text class="tag" x="352" y="822">DATA</text>
+        <text class="title" x="352" y="850">API Client / Repository</text>
+        <text class="sub" x="352" y="871">DTO · Mapper · Auth · Offline cache</text>
+      </g>
+
+      <g class="node backend" data-k="gateway">
+        <rect x="734" y="164" width="348" height="86"></rect>
+        <text class="tag" x="754" y="194">INTERFACE</text>
+        <text class="title" x="754" y="222">Rust API Gateway</text>
+        <text class="sub" x="754" y="239">Axum / Tokio · REST · WebSocket · OpenAPI</text>
+      </g>
+
+      <g class="node backend" data-k="application">
+        <rect x="734" y="312" width="348" height="98"></rect>
+        <text class="tag" x="754" y="342">APPLICATION</text>
+        <text class="title" x="754" y="370">UseCase / Command Services</text>
+        <text class="sub" x="754" y="391">RecordEvent · BookVisit · TradeSOP · Consent</text>
+      </g>
+
+      <g class="node domain" data-k="backend-domain">
+        <rect x="734" y="472" width="348" height="98"></rect>
+        <text class="tag" x="754" y="502">DOMAIN</text>
+        <text class="title" x="754" y="530">Pet-centered Domain</text>
+        <text class="sub" x="754" y="551">Pet · Event · Relationship · Permission</text>
+      </g>
+
+      <g class="node backend" data-k="infrastructure">
+        <rect x="734" y="632" width="348" height="108"></rect>
+        <text class="tag" x="754" y="662">INFRASTRUCTURE</text>
+        <text class="title" x="754" y="690">Repository / Adapter Layer</text>
+        <text class="sub" x="754" y="711">Postgres · Redis · RustFS · HIS · Insurance</text>
+      </g>
+
+      <g class="node obs" data-k="backend-observability">
+        <rect x="734" y="792" width="348" height="92"></rect>
+        <text class="tag" x="754" y="822">QUALITY GATE</text>
+        <text class="title" x="754" y="850">Diagnostics / Audit / Tracing</text>
+        <text class="sub" x="754" y="871">privacy policy · event span · error boundary</text>
+      </g>
+
+      <g class="node storage" data-k="postgres">
+        <rect x="1166" y="164" width="206" height="104"></rect>
+        <text class="tag" x="1186" y="194">SOURCE OF TRUTH</text>
+        <text class="title" x="1186" y="222">PostgreSQL</text>
+        <text class="sub" x="1186" y="246">pet · event · trade · consent</text>
+      </g>
+
+      <g class="node storage" data-k="redis">
+        <rect x="1166" y="320" width="206" height="104"></rect>
+        <text class="tag" x="1186" y="350">FAST PATH</text>
+        <text class="title" x="1186" y="378">Redis</text>
+        <text class="sub" x="1186" y="402">cache · session · queue · rate limit</text>
+      </g>
+
+      <g class="node storage" data-k="rustfs">
+        <rect x="1166" y="476" width="206" height="104"></rect>
+        <text class="tag" x="1186" y="506">OBJECT STORE</text>
+        <text class="title" x="1186" y="534">RustFS</text>
+        <text class="sub" x="1186" y="558">media · report · contract · evidence</text>
+      </g>
+
+      <g class="node storage future" data-k="search">
+        <rect x="1166" y="632" width="206" height="104"></rect>
+        <text class="tag" x="1186" y="662">LATER</text>
+        <text class="title" x="1186" y="690">Search / Recommendation</text>
+        <text class="sub" x="1186" y="714">topic · entity · pet graph index</text>
+      </g>
+
+      <g class="node obs" data-k="observability">
+        <rect x="1166" y="792" width="206" height="92"></rect>
+        <text class="tag" x="1186" y="822">OBSERVABILITY</text>
+        <text class="title" x="1186" y="850">Metrics / Logs / Audit</text>
+        <text class="sub" x="1186" y="871">diagnostics-sdk · structured events</text>
+      </g>
+
+      <g class="node external" data-k="city-service">
+        <rect x="1452" y="164" width="170" height="104"></rect>
+        <text class="tag" x="1470" y="194">LOCAL</text>
+        <text class="title" x="1470" y="222">地图 / 短信 / 支付</text>
+        <text class="sub" x="1470" y="246">同城履约基础</text>
+      </g>
+
+      <g class="node external" data-k="his">
+        <rect x="1452" y="320" width="170" height="104"></rect>
+        <text class="tag" x="1470" y="350">MEDICAL</text>
+        <text class="title" x="1470" y="378">合作医院 HIS</text>
+        <text class="sub" x="1470" y="402">摘要 · 接诊 · 回流</text>
+      </g>
+
+      <g class="node external" data-k="insurance">
+        <rect x="1452" y="476" width="170" height="104"></rect>
+        <text class="tag" x="1470" y="506">INSURANCE</text>
+        <text class="title" x="1470" y="534">保险合作方</text>
+        <text class="sub" x="1470" y="558">授权 · 理赔材料</text>
+      </g>
+
+      <g class="node external" data-k="push">
+        <rect x="1452" y="632" width="170" height="104"></rect>
+        <text class="tag" x="1470" y="662">MESSAGE</text>
+        <text class="title" x="1470" y="690">APNs / IM Provider</text>
+        <text class="sub" x="1470" y="714">通知 · 商家咨询</text>
+      </g>
+    </svg>
+
+    <div class="legend" aria-hidden="true">
+      <span class="pill"><span class="dot"></span>当前主链路</span>
+      <span class="pill"><span class="dot green"></span>宠物领域模型</span>
+      <span class="pill"><span class="dot orange"></span>外部集成边界</span>
+      <span class="pill"><span class="dot purple"></span>诊断与审计</span>
+    </div>
+
+    <div class="source">docs/product/prd/00 · README · AGENTS · 2026-06-13</div>
+
+    <aside class="flowcard" id="flowCard" aria-live="polite">
+      <div class="flow-name" id="flowName"></div>
+      <ol id="flowSteps"></ol>
+    </aside>
+
+    <aside class="detail" id="detail" aria-live="polite">
+      <h2 id="detailTitle">点击任意节点查看职责</h2>
+      <div class="meta" id="detailMeta">architecture node detail</div>
+      <p id="detailBody">顶部 chip 可以高亮关键链路。当前图按工程边界组织：iOS 客户端、Rust 后端、数据平台、外部系统、诊断观测。后续每个模块可以继续拆成独立 PRD 和架构子图。</p>
+    </aside>
+  </section>
+</main>
+
+<script>
+const DETAILS = {
+  tabs: {
+    title: "五个底部入口",
+    meta: "首页 / 宠物世界 / 同城 / 消息 / 我的",
+    body: "产品入口保持 5 个底部 Tab。首页承接当前宠物主体页，宠物世界承接宠物事件 UGC，同城承接本地医院、商家、交易和服务，消息承接高频沟通，我的承接账号、认证、订单和授权。"
+  },
+  "pet-home": {
+    title: "宠物主体首页",
+    meta: "pet-first home",
+    body: "首页首屏展示当前毛孩子、今日照护、快捷记录、今日伙伴和最近时间线。普通用户看到当前宠物，认证商家看到多宠工作台。"
+  },
+  "pet-world": {
+    title: "宠物世界",
+    meta: "pet event ugc",
+    body: "内容单位是 <code>PetEvent</code>。推荐依据来自宠物画像、关系标签、同城、年龄、病症、医院、来源和互动反馈。"
+  },
+  city: {
+    title: "同城服务",
+    meta: "local trust boundary",
+    body: "同城承接医院、猫舍、犬舍、宠物店、交易和服务。实体页与交易 SOP 形成可信履约入口，为 HIS 和保险协同预留基础。"
+  },
+  message: {
+    title: "消息中心",
+    meta: "conversation hub",
+    body: "承接私信、评论、商家咨询、医院咨询、交易沟通和系统通知。认证商家会高频使用，底部 Tab 需要常驻。"
+  },
+  "app-shell": {
+    title: "UIKit Navigation Infrastructure",
+    meta: "iOS infrastructure",
+    body: "UIKit 负责导航、TabBar、手势、输入、Sheet、Hosting Controller 等低层控制能力。业务页面通过稳定路由协议进入，不在 Feature 内散写桥接代码。"
+  },
+  features: {
+    title: "SwiftUI Feature Views",
+    meta: "presentation layer",
+    body: "SwiftUI 承担声明式页面和状态驱动 UI。页面只读取状态并转发用户事件，多 section 页面拆成独立 View 类型。"
+  },
+  store: {
+    title: "ViewModel / Store",
+    meta: "one-way data flow",
+    body: "状态层负责派生展示状态和命令式入口。副作用只能在用户事件、生命周期钩子或 Store 命令中触发，渲染路径保持纯读取。"
+  },
+  "ios-domain": {
+    title: "Feature Domain Models",
+    meta: "client domain",
+    body: "客户端领域模型用于表达 <code>PetProfile</code>、<code>PetEvent</code>、<code>LocalEntity</code>、<code>Conversation</code>、<code>Consent</code> 等展示所需语义，并通过 Mapper 与后端 DTO 隔离。"
+  },
+  "api-client": {
+    title: "API Client / Repository",
+    meta: "data layer",
+    body: "集中处理认证、请求、DTO、Mapper、错误归一、离线缓存和重试。前端问题在前端层解决，后端契约问题通过接口和 DTO 同步修正。"
+  },
+  gateway: {
+    title: "Rust API Gateway",
+    meta: "interface layer",
+    body: "Rust HTTP / WebSocket 入口，建议以 <code>Axum + Tokio</code> 承接 REST、实时消息和 OpenAPI 契约。该层只做协议转换、认证入口和 DTO 边界。"
+  },
+  application: {
+    title: "UseCase / Command Services",
+    meta: "application layer",
+    body: "应用层编排业务用例和事务边界，例如记录宠物事件、创建就医摘要、同城交易 SOP、授权材料包、消息通知。"
+  },
+  "backend-domain": {
+    title: "Pet-centered Domain",
+    meta: "domain layer",
+    body: "后端领域层承载核心规则：宠物档案、宠物事件、宠物关系、权限、同城实体、交易证据、医疗记录和授权。领域层不依赖数据库和外部服务。"
+  },
+  infrastructure: {
+    title: "Repository / Adapter Layer",
+    meta: "infrastructure layer",
+    body: "基础设施层实现 PostgreSQL、Redis、RustFS、HIS、保险、地图、支付、推送等具体适配。外部系统通过 Adapter 隔离，方便替换和分阶段上线。"
+  },
+  "backend-observability": {
+    title: "Diagnostics / Audit / Tracing",
+    meta: "quality gate",
+    body: "后端记录结构化事件、错误、链路追踪和审计日志。敏感字段按隐私策略脱敏，交易证据、授权和医疗访问需保留审计轨迹。"
+  },
+  postgres: {
+    title: "PostgreSQL",
+    meta: "transactional source of truth",
+    body: "关系数据的主存储：宠物、事件、关系、用户身份、权限、同城实体、交易、医疗摘要、授权、订单和会话索引。"
+  },
+  redis: {
+    title: "Redis",
+    meta: "cache / queue / rate limit",
+    body: "高频读缓存、会话缓存、限流、轻队列、消息 fan-out 和短期状态。Redis 中的数据可重建，关键业务事实仍落 PostgreSQL。"
+  },
+  rustfs: {
+    title: "RustFS",
+    meta: "object storage",
+    body: "图片、视频、检查报告、合同、交易证据、理赔材料等对象文件统一进入 RustFS。数据库保存对象引用、用途、权限和审计信息。"
+  },
+  search: {
+    title: "Search / Recommendation",
+    meta: "later extension",
+    body: "后续可接入搜索或推荐索引，承接话题、实体、宠物关系图、同病种经验和同城内容召回。V1 先通过 PostgreSQL + Redis 支撑基础检索。"
+  },
+  observability: {
+    title: "Metrics / Logs / Audit",
+    meta: "observability platform",
+    body: "统一收集 iOS、Rust 后端和关键外部调用的诊断事件。当前仓库已有 <code>maohuoban-diagnostics-sdk</code>，后续可继续接日志平台和指标平台。"
+  },
+  "city-service": {
+    title: "地图 / 短信 / 支付",
+    meta: "local service dependencies",
+    body: "同城场景需要城市定位、地址检索、短信验证、支付或担保交易等外部能力。所有供应商能力通过 Adapter 进入后端基础设施层。"
+  },
+  his: {
+    title: "合作医院 HIS",
+    meta: "medical integration",
+    body: "HIS 侧读取用户授权后的就医摘要，后续回流结构化接诊、检查、处置和复诊记录。V1 先支持手动记录和摘要生成。"
+  },
+  insurance: {
+    title: "保险合作方",
+    meta: "consent-based integration",
+    body: "保险方只读取用户授权范围内的宠物档案、交易初始证据、医疗记录和附件。理赔材料包由后端应用层生成，访问全程审计。"
+  },
+  push: {
+    title: "APNs / IM Provider",
+    meta: "message delivery",
+    body: "消息实时通道与推送通道分离。App 内会话使用后端消息服务，离线提醒通过 APNs 或第三方 IM / Push 供应商投递。"
+  }
+};
+
+const FLOWS = {
+  "pet-event": {
+    name: "宠物事件写入",
+    edges: ["e-tabs-shell", "e-shell-feature", "e-feature-store", "e-store-domain", "e-domain-api-client", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-pg", "e-infra-redis"],
+    nodes: ["tabs", "pet-home", "features", "store", "ios-domain", "api-client", "gateway", "application", "backend-domain", "infrastructure", "postgres", "redis", "pet-world"],
+    steps: [
+      "用户从首页或全局 <code>+</code> 记录当前宠物事件。",
+      "SwiftUI View 转发事件到 Store，Store 调用 UseCase / Repository。",
+      "API Client 使用版本化 DTO 调用 <code>/api/v1/pet-events</code>。",
+      "Rust Application 校验权限、可见范围、话题和关系标签。",
+      "PostgreSQL 保存事实，Redis 更新时间线和推荐缓存。"
+    ]
+  },
+  "city-trade": {
+    name: "同城交易与导入档案",
+    edges: ["e-tabs-shell", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-pg", "e-infra-rustfs", "e-api-ext"],
+    nodes: ["city", "message", "api-client", "gateway", "application", "backend-domain", "infrastructure", "postgres", "rustfs", "city-service"],
+    steps: [
+      "用户从同城实体页发起咨询、看宠、体检或交易 SOP。",
+      "交易节点进入 Application 层编排，合同、体检和付款凭证形成证据链。",
+      "结构化事实写入 PostgreSQL，合同和附件进入 RustFS。",
+      "交易完成后可一键导入 <code>PetProfile</code>，成为后续医疗和保险链路的起点。"
+    ]
+  },
+  medical: {
+    name: "就医摘要与 HIS 协同",
+    edges: ["e-tabs-shell", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-pg", "e-infra-rustfs", "e-medical-ext"],
+    nodes: ["pet-home", "city", "api-client", "gateway", "application", "backend-domain", "infrastructure", "postgres", "rustfs", "his"],
+    steps: [
+      "用户从健康异常、复诊提醒或同城医院进入就医流程。",
+      "后端根据宠物档案、近期症状、疫苗驱虫、附件和交易来源生成摘要。",
+      "V1 支持用户手动记录就诊结果和上传报告。",
+      "后续通过 HIS Adapter 接收医院结构化回流。"
+    ]
+  },
+  media: {
+    name: "媒体与证据文件",
+    edges: ["e-domain-api-client", "e-media-upload", "e-api-client-gateway", "e-gateway-app", "e-domain-infra", "e-infra-rustfs", "e-infra-pg"],
+    nodes: ["api-client", "gateway", "application", "infrastructure", "rustfs", "postgres", "pet-world", "city"],
+    steps: [
+      "图片、视频、检查报告、合同和理赔材料作为对象文件处理。",
+      "客户端先获取上传策略或上传会话，文件进入 RustFS。",
+      "后端只把对象引用、用途、权限和审计状态写入 PostgreSQL。",
+      "公开媒体进入宠物世界，敏感附件按授权访问。"
+    ]
+  },
+  message: {
+    name: "消息与通知",
+    edges: ["e-tabs-shell", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-redis", "e-infra-pg", "e-push-ext"],
+    nodes: ["message", "api-client", "gateway", "application", "backend-domain", "infrastructure", "redis", "postgres", "push"],
+    steps: [
+      "评论、商家咨询、医院咨询、交易沟通和系统提醒统一进入消息服务。",
+      "PostgreSQL 保存会话事实和审计记录。",
+      "Redis 承接未读数、短期 fan-out、限流和队列。",
+      "离线用户通过 APNs 或 IM / Push 供应商收到提醒。"
+    ]
+  },
+  observability: {
+    name: "诊断观测与审计",
+    edges: ["e-diagnostics", "e-backend-diag"],
+    nodes: ["store", "api-client", "backend-observability", "observability", "gateway", "infrastructure"],
+    steps: [
+      "iOS 与 Rust 后端均记录结构化诊断事件。",
+      "隐私策略在采集侧脱敏 authorization、password 等敏感字段。",
+      "交易证据、医疗记录和授权访问写入审计日志。",
+      "后续可接入指标、日志检索和告警平台。"
+    ]
+  }
+};
+
+const stage = document.getElementById("stage");
+const chips = document.querySelectorAll(".chip");
+const nodes = document.querySelectorAll(".node");
+const edges = document.querySelectorAll(".edge");
+const labels = document.querySelectorAll(".edge-label");
+const flowCard = document.getElementById("flowCard");
+
+function setFlow(key) {
+  chips.forEach((chip) => chip.classList.toggle("on", chip.dataset.flow === key));
+  edges.forEach((edge) => edge.classList.remove("lit"));
+  labels.forEach((label) => label.classList.remove("lit"));
+  nodes.forEach((node) => node.classList.remove("lit"));
+
+  if (key === "all") {
+    stage.classList.remove("flowing");
+    flowCard.classList.remove("show");
+    return;
+  }
+
+  const flow = FLOWS[key];
+  stage.classList.add("flowing");
+  flow.edges.forEach((id) => document.getElementById(id)?.classList.add("lit"));
+  flow.nodes.forEach((keyName) => document.querySelector(`.node[data-k="${keyName}"]`)?.classList.add("lit"));
+  labels.forEach((label) => {
+    if (flow.edges.includes(label.dataset.e)) label.classList.add("lit");
+  });
+
+  document.getElementById("flowName").textContent = flow.name;
+  document.getElementById("flowSteps").innerHTML = flow.steps.map((step) => `<li>${step}</li>`).join("");
+  flowCard.classList.add("show");
+}
+
+chips.forEach((chip) => {
+  chip.addEventListener("click", () => setFlow(chip.dataset.flow));
+});
+
+nodes.forEach((node) => {
+  node.addEventListener("click", () => {
+    nodes.forEach((item) => item.classList.remove("selected"));
+    node.classList.add("selected");
+    const detail = DETAILS[node.dataset.k];
+    if (!detail) return;
+    document.getElementById("detailTitle").textContent = detail.title;
+    document.getElementById("detailMeta").textContent = detail.meta;
+    document.getElementById("detailBody").innerHTML = detail.body;
+  });
+});
+
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const dark = !document.documentElement.classList.contains("dark");
+  document.documentElement.classList.toggle("dark", dark);
+  localStorage.setItem("maohuoban-architecture-theme", dark ? "dark" : "light");
+});
+</script>
+</body>
+</html>
