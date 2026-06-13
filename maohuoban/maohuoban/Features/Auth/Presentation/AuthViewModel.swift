@@ -32,6 +32,10 @@ final class AuthViewModel {
         resendCountdownSeconds == 0 && !isSubmitting
     }
 
+    var isLoginPhoneValid: Bool {
+        validatePhone(phone)
+    }
+
     private var loginChallengeID: String?
     private var recoveryChallengeID: String?
     private var resendCountdownTask: Task<Void, Never>?

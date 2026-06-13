@@ -34,6 +34,55 @@ final class MaohuobanAuthUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home.logoutButton"].waitForExistence(timeout: 10))
     }
 
+    // testPhoneCodeButtonRequiresElevenDigitPhone 验证验证码入口手机号门禁
+    // 核心职责：
+    // - 确认手机号不足 11 位时获取验证码按钮不可点击
+    // - 确认手机号补齐 11 位后获取验证码按钮恢复可点击
+    @MainActor
+    func testPhoneCodeButtonRequiresElevenDigitPhone() throws {
+        let app = launchResetApp()
+
+        let phoneInput = app.textFields["auth.phoneInput"]
+        XCTAssertTrue(phoneInput.waitForExistence(timeout: 8))
+        let sendCodeButton = app.buttons["auth.sendCodeButton"]
+        XCTAssertTrue(sendCodeButton.waitForExistence(timeout: 3))
+        XCTAssertFalse(sendCodeButton.isEnabled)
+
+        phoneInput.tap()
+        phoneInput.typeText("13912345")
+        XCTAssertFalse(sendCodeButton.isEnabled)
+
+        phoneInput.typeText("678")
+        XCTAssertTrue(sendCodeButton.isEnabled)
+    }
+
+    // testPasswordLoginButtonRequiresElevenDigitPhone 验证密码登录手机号门禁
+    // 核心职责：
+    // - 确认手机号不足 11 位时密码登录按钮不可点击
+    // - 确认手机号补齐 11 位后密码登录按钮恢复可点击
+    @MainActor
+    func testPasswordLoginButtonRequiresElevenDigitPhone() throws {
+        let app = launchResetApp()
+
+        app.buttons["auth.modeSwitchButton"].tap()
+        let phoneInput = app.textFields["auth.phoneInput"]
+        XCTAssertTrue(phoneInput.waitForExistence(timeout: 8))
+        let passwordInput = app.secureTextFields["auth.passwordInput"]
+        XCTAssertTrue(passwordInput.waitForExistence(timeout: 3))
+        let passwordLoginButton = app.buttons["auth.passwordLoginButton"]
+        XCTAssertTrue(passwordLoginButton.waitForExistence(timeout: 3))
+
+        phoneInput.tap()
+        phoneInput.typeText("13912345")
+        passwordInput.tap()
+        passwordInput.typeText("newpass123")
+        XCTAssertFalse(passwordLoginButton.isEnabled)
+
+        phoneInput.tap()
+        phoneInput.typeText("678")
+        XCTAssertTrue(passwordLoginButton.isEnabled)
+    }
+
     @MainActor
     private func launchResetApp() -> XCUIApplication {
         let app = XCUIApplication()

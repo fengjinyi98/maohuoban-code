@@ -124,6 +124,7 @@ struct AuthSecureField: View {
 struct AuthPrimaryButton: View {
     let title: String
     let isLoading: Bool
+    var isEnabled: Bool = true
     var accessibilityIdentifier: String? = nil
     let action: () -> Void
 
@@ -140,13 +141,25 @@ struct AuthPrimaryButton: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(MHBTheme.ColorToken.primary.color, in: .rect(cornerRadius: MHBTheme.Radius.medium))
-            .shadow(color: MHBTheme.ColorToken.primary.color.opacity(0.25), radius: 14, x: 0, y: 4)
+            .background(buttonColor, in: .rect(cornerRadius: MHBTheme.Radius.medium))
+            .shadow(color: shadowColor, radius: 14, x: 0, y: 4)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
-        .disabled(isLoading)
-        .opacity(isLoading ? 0.78 : 1)
+        .disabled(!canInteract)
+        .opacity(canInteract ? 1 : 0.78)
+    }
+
+    private var canInteract: Bool {
+        isEnabled && !isLoading
+    }
+
+    private var buttonColor: Color {
+        MHBTheme.ColorToken.primary.color.opacity(canInteract ? 1 : 0.42)
+    }
+
+    private var shadowColor: Color {
+        MHBTheme.ColorToken.primary.color.opacity(canInteract ? 0.25 : 0)
     }
 }
 
