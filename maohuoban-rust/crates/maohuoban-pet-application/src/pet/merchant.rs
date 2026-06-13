@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use maohuoban_pet_domain::pet::{
     ManagedPetStatus, MerchantProfile, MerchantStatusCount, PetEvent, PetProfile, PetRelationship,
-    PetResult,
+    PetResult, PetSex, PetSourceKind, PetSpecies,
 };
 use uuid::Uuid;
 
@@ -35,9 +35,25 @@ pub struct MerchantLitterSummary {
     pub available_count: u32,
 }
 
+/// NewMerchantPetProfile 新增商家在管宠物输入
+/// 核心职责：
+/// - 汇总商家新增宠物所需字段
+/// - 将 HTTP DTO 与商家仓储写入解耦
+#[derive(Debug, Clone)]
+pub struct NewMerchantPetProfile {
+    pub merchant_id: Uuid,
+    pub name: String,
+    pub species: PetSpecies,
+    pub breed: Option<String>,
+    pub sex: PetSex,
+    pub birthday: Option<NaiveDate>,
+    pub managed_status: ManagedPetStatus,
+    pub source_kind: PetSourceKind,
+}
+
 /// MerchantRepository 商家追溯读取端口
 /// 核心职责：
-/// - 读取认证商家、在管宠物状态、窝次和关系
+/// - 读取和写入认证商家在管宠物、窝次和关系
 /// - 为首页工作台和后续商家模块提供可替换数据源
 #[async_trait]
 pub trait MerchantRepository: Send + Sync {
@@ -75,4 +91,6 @@ pub trait MerchantRepository: Send + Sync {
         status: ManagedPetStatus,
         limit: i64,
     ) -> PetResult<Vec<PetProfile>>;
+
+    async fn create_merchant_pet(&self, input: NewMerchantPetProfile) -> PetResult<PetProfile>;
 }

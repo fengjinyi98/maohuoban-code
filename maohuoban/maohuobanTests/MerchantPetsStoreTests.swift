@@ -92,4 +92,12 @@ private final class CapturingMerchantRepository: MerchantRepository {
             throw error
         }
     }
+
+    func createPet(
+        merchantID: String,
+        draft: MerchantPetDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantManagedPet> {
+        throw .invalidResponse
+    }
 }

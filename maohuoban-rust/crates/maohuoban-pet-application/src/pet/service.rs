@@ -6,7 +6,8 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::{
-    MerchantDashboardSummary, MerchantRepository, NewPetEvent, NewPetProfile, PetRepository,
+    MerchantDashboardSummary, MerchantRepository, NewMerchantPetProfile, NewPetEvent,
+    NewPetProfile, PetRepository,
 };
 
 /// PetService 宠物应用服务
@@ -130,6 +131,30 @@ impl PetService {
         self.merchant_repository
             .list_merchant_pets(merchant_id, status, 100)
             .await
+    }
+
+    pub async fn create_merchant_pet(
+        &self,
+        owner_user_id: Uuid,
+        input: NewMerchantPetProfile,
+    ) -> PetResult<PetProfile> {
+        validate_text("宠物名称", &input.name)?;
+        if input.managed_status == ManagedPetStatus::Family {
+            return Err(PetError::InvalidInput("商家宠物状态无效".to_owned()));
+        }
+
+        let Some(merchant) = self
+            .merchant_repository
+            .find_verified_merchant_for_owner(owner_user_id)
+            .await?
+        else {
+            return Err(PetError::Forbidden);
+        };
+        if merchant.id != input.merchant_id {
+            return Err(PetError::Forbidden);
+        }
+
+        self.merchant_repository.create_merchant_pet(input).await
     }
 }
 

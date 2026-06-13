@@ -45,9 +45,14 @@ struct HomeRouteDestinationScreen: View {
                     accessibilityIdentifier: "home.routeDestination"
                 )
             }
+        case .addMerchantPet(let merchantID):
+            MerchantPetCreateScreen(
+                merchantID: merchantID,
+                currentUserID: currentUserID,
+                onCreated: onHomeMutationCompleted
+            )
         case .bookHospital,
              .importTradePet,
-             .addMerchantPet,
              .publishAvailableStatus,
              .merchantLitter,
              .merchantTask,

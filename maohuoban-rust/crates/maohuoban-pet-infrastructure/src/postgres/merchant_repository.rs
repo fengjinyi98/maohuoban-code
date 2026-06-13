@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
-use maohuoban_pet_application::pet::{MerchantLitterSummary, MerchantRepository};
+use maohuoban_pet_application::pet::{
+    MerchantLitterSummary, MerchantRepository, NewMerchantPetProfile,
+};
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, MerchantProfile, MerchantStatusCount,
     MerchantType, MerchantVerificationStatus, PetError, PetEvent, PetProfile, PetRelationship,
@@ -237,6 +239,53 @@ impl MerchantRepository for PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    async fn create_merchant_pet(&self, input: NewMerchantPetProfile) -> PetResult<PetProfile> {
+        let pet_id = Uuid::new_v4();
+        let row = sqlx::query_as::<_, MerchantManagedPetRow>(
+            r#"
+            INSERT INTO pet_profiles (
+                id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                managed_status,
+                source_kind
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING
+                id,
+                owner_user_id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                managed_status,
+                source_kind,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(pet_id)
+        .bind(input.merchant_id)
+        .bind(input.name)
+        .bind(input.species.as_str())
+        .bind(input.breed)
+        .bind(input.sex.as_str())
+        .bind(input.birthday)
+        .bind(input.managed_status.as_str())
+        .bind(input.source_kind.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        row.try_into()
     }
 }
 

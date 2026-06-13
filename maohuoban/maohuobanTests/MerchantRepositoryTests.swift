@@ -65,6 +65,70 @@ final class MerchantRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.pets.first?.sourceKind, .litterBirth)
     }
 
+    func testCreatePetSendsDraftAndUserContext() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/merchants/merchant-1/pets")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            let body = try Self.requestBodyData(request)
+            XCTAssertFalse(body.isEmpty)
+            let json = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: body) as? [String: Any]
+            )
+            XCTAssertEqual(json["name"] as? String, "奶糖")
+            XCTAssertEqual(json["species"] as? String, "cat")
+            XCTAssertEqual(json["breed"] as? String, "布偶猫")
+            XCTAssertEqual(json["sex"] as? String, "female")
+            XCTAssertEqual(json["birthday"] as? String, "2026-04-01")
+            XCTAssertEqual(json["managed_status"] as? String, "needs_record")
+
+            return Self.jsonResponse(
+                statusCode: 201,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "merchant.pet_created",
+                  "message": "商家宠物已新增",
+                  "data": {
+                    "id": "pet-2",
+                    "owner_user_id": null,
+                    "merchant_id": "merchant-1",
+                    "name": "奶糖",
+                    "species": "cat",
+                    "breed": "布偶猫",
+                    "sex": "female",
+                    "birthday": "2026-04-01",
+                    "managed_status": "needs_record",
+                    "source_kind": "merchant_managed",
+                    "created_at": "2026-06-13T09:20:00Z",
+                    "updated_at": "2026-06-13T09:20:00Z"
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.createPet(
+            merchantID: "merchant-1",
+            draft: MerchantPetDraft(
+                name: "奶糖",
+                species: .cat,
+                breed: "布偶猫",
+                sex: .female,
+                birthday: "2026-04-01",
+                managedStatus: .needsRecord
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "商家宠物已新增")
+        XCTAssertEqual(response.data?.id, "pet-2")
+        XCTAssertEqual(response.data?.merchantID, "merchant-1")
+        XCTAssertEqual(response.data?.sourceKind, .merchantManaged)
+    }
+
     private func makeRepository(
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultMerchantRepository {
@@ -86,6 +150,35 @@ final class MerchantRepositoryTests: XCTestCase {
             )!,
             Data(body.utf8)
         )
+    }
+
+    private static func requestBodyData(_ request: URLRequest) throws -> Data {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else {
+            return Data()
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while true {
+            let count = stream.read(buffer, maxLength: bufferSize)
+            if count > 0 {
+                data.append(buffer, count: count)
+            } else {
+                break
+            }
+        }
+
+        return data
     }
 }
 

@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
-use maohuoban_pet_application::pet::{NewPetEvent, NewPetProfile};
+use maohuoban_pet_application::pet::{NewMerchantPetProfile, NewPetEvent, NewPetProfile};
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, PetEvent, PetProfile, PetSex, PetSourceKind,
     PetSpecies, PetTimeline,
@@ -31,6 +31,35 @@ impl CreatePetProfileRequest {
             sex: self.sex.unwrap_or(PetSex::Unknown),
             birthday: self.birthday,
             source_kind: PetSourceKind::UserCreated,
+        }
+    }
+}
+
+/// CreateMerchantPetRequest 新增商家在管宠物请求
+/// 核心职责：
+/// - 接收商家新增宠物所需字段
+/// - 固定商家手动新增宠物的来源类型
+#[derive(Debug, Deserialize)]
+pub(super) struct CreateMerchantPetRequest {
+    name: String,
+    species: PetSpecies,
+    breed: Option<String>,
+    sex: Option<PetSex>,
+    birthday: Option<NaiveDate>,
+    managed_status: Option<ManagedPetStatus>,
+}
+
+impl CreateMerchantPetRequest {
+    pub(super) fn into_new_merchant_pet(self, merchant_id: Uuid) -> NewMerchantPetProfile {
+        NewMerchantPetProfile {
+            merchant_id,
+            name: self.name,
+            species: self.species,
+            breed: self.breed,
+            sex: self.sex.unwrap_or(PetSex::Unknown),
+            birthday: self.birthday,
+            managed_status: self.managed_status.unwrap_or(ManagedPetStatus::NeedsRecord),
+            source_kind: PetSourceKind::MerchantManaged,
         }
     }
 }

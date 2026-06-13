@@ -245,6 +245,59 @@ async fn merchant_pet_list_returns_status_filtered_managed_pets() {
 }
 
 #[tokio::test]
+async fn merchant_pet_create_persists_managed_pet_for_verified_merchant() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138112").await;
+    let merchant_id = app.seed_merchant_tracking_workspace(&user_id).await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/merchants/{merchant_id}/pets"),
+            json!({
+                "name": "奶糖",
+                "species": "cat",
+                "breed": "布偶猫",
+                "sex": "female",
+                "birthday": "2026-04-01",
+                "managed_status": "needs_record"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create merchant pet");
+
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    assert_eq!(create_body["success"], true);
+    assert_eq!(create_body["code"], "merchant.pet_created");
+    assert_eq!(create_body["message"], "商家宠物已新增");
+    assert_eq!(create_body["data"]["name"], "奶糖");
+    assert_eq!(create_body["data"]["merchant_id"], merchant_id);
+    assert_eq!(create_body["data"]["owner_user_id"], Value::Null);
+    assert_eq!(create_body["data"]["managed_status"], "needs_record");
+    assert_eq!(create_body["data"]["source_kind"], "merchant_managed");
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+    uuid::Uuid::parse_str(pet_id).expect("merchant pet id should be uuid");
+
+    let list_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/merchants/{merchant_id}/pets?status=needs_record"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load needs record merchant pets");
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let list_body = response_json(list_response).await;
+    let pets = list_body["data"]["pets"].as_array().expect("pets");
+    assert!(pets.iter().any(|pet| pet["id"] == pet_id));
+}
+
+#[tokio::test]
 async fn merchant_pet_list_requires_user_context() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
