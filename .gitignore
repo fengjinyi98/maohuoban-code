@@ -16,6 +16,7 @@ Package.resolved
 target/
 
 # Local tooling artifacts
+.worktree/
 .playwright-cli/
 output/
 
