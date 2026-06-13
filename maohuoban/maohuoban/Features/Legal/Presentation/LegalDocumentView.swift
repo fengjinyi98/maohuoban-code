@@ -50,6 +50,7 @@ private struct LegalDocumentContentView: View {
     var body: some View {
         if let document {
             LegalHTMLWebView(html: document.html)
+                .ignoresSafeArea(edges: .top)
                 .accessibilityIdentifier("legal.documentWebView")
         } else if isLoading {
             LegalDocumentLoadingView()

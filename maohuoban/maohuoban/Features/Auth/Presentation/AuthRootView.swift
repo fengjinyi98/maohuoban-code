@@ -68,6 +68,7 @@ private struct AuthFlowView: View {
                     }
                 }
         }
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .diagnosticsScreen("auth", metadata: ["step": .string("\(viewModel.step)")])
     }
 }

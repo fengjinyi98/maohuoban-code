@@ -18,6 +18,7 @@ struct LegalHTMLWebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.accessibilityIdentifier = "legal.documentWebView"
         return webView
     }
@@ -25,7 +26,20 @@ struct LegalHTMLWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {
         guard context.coordinator.loadedHTML != html else { return }
         context.coordinator.loadedHTML = html
-        uiView.loadHTMLString(html, baseURL: nil)
+        
+        let overrideStyle = """
+        <style>
+        body { background: transparent !important; }
+        main {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+        }
+        </style>
+        """
+        uiView.loadHTMLString(html + overrideStyle, baseURL: nil)
     }
 
     final class Coordinator {
