@@ -12,7 +12,7 @@
 
 毛伙伴以宠物为主体。
 
-所有产品、数据、UI、推荐和交易设计都围绕宠物档案、宠物事件、宠物关系、同城服务、医疗记录、交易履约和保险协同展开。
+所有产品、数据、UI、推荐 and 交易设计都围绕宠物档案、宠物事件、宠物关系、同城服务、医疗记录、交易履约和保险协同展开。
 
 ## 3. 技术基线
 
@@ -43,7 +43,7 @@
 4. ViewModel / Store 负责状态、派生展示数据和命令式操作入口。
 5. Domain 只放业务模型、业务规则和协议。
 6. Data 只放仓储、DTO、Mapper 和远端 / 本地数据实现。
-7. DesignSystem 只放跨 Feature 复用的主题、组件和基础视觉能力。
+7. DesignSystem 只放跨 Feature 复用的主题、组件 and 基础视觉能力。
 8. Feature 之间通过稳定模型、协议或路由交互。
 9. 禁止 Feature 之间形成循环依赖。
 
@@ -65,6 +65,7 @@
 3. UIKit 能力必须封装成基础设施或 DesignSystem 组件。
 4. 业务页面不得直接散写 UIKit 桥接代码。
 5. SwiftUI 与 UIKit 桥接必须有清晰边界和可测试入口。
+6. SwiftUI 与 UIKit 混编时，若需在 NavigationStack 中嵌入 UIKit 滚动组件（如 UITextView/WKWebView），应剥离其滚动职责（isScrollEnabled = false），通过外层 SwiftUI ScrollView 包裹以支持系统导航栏透明与滚动效果，并实现 sizeThatFits 提供高度反馈。
 
 ## 8. 主题与 UI Token
 
