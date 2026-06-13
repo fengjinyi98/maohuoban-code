@@ -3,7 +3,7 @@ import Foundation
 // LegalDocumentKind 法务文档类型
 // 核心职责：
 // - 定义前端可请求的后端文档 kind
-// - 为 Sheet 展示提供稳定身份和值
+// - 为页面展示提供稳定身份和值
 enum LegalDocumentKind: String, Decodable, Identifiable, Equatable {
     case userAgreement = "user_agreement"
     case privacyPolicy = "privacy_policy"

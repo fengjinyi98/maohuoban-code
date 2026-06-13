@@ -1,12 +1,11 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// LegalDocumentView 法务文档 Sheet
+// LegalDocumentView 法务文档页面
 // 核心职责：
 // - 承载用户协议和隐私政策的后端 HTML 内容
 // - 管理关闭、加载、错误与重试入口
 struct LegalDocumentView: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var viewModel: LegalDocumentViewModel
 
     init(
@@ -17,32 +16,19 @@ struct LegalDocumentView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let safeAreaTop = geometry.safeAreaInsets.top
-            LegalDocumentContentView(
-                document: viewModel.document,
-                isLoading: viewModel.isLoading,
-                errorMessage: viewModel.errorMessage,
-                safeAreaTop: safeAreaTop,
-                onRetry: {
-                    Task { await viewModel.load() }
-                }
-            )
-            .ignoresSafeArea(edges: .top)
-        }
+        LegalDocumentContentView(
+            document: viewModel.document,
+            isLoading: viewModel.isLoading,
+            errorMessage: viewModel.errorMessage,
+            onRetry: {
+                Task { await viewModel.load() }
+            }
+        )
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .onAppear {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundColor = .clear
-            appearance.shadowColor = .clear
-            UINavigationBar.appearance().standardAppearance = appearance
-            UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        }
+        .toolbarBackground(MHBTheme.ColorToken.background.color, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .task {
             await viewModel.load()
         }
@@ -58,14 +44,12 @@ private struct LegalDocumentContentView: View {
     let document: LegalDocument?
     let isLoading: Bool
     let errorMessage: String?
-    let safeAreaTop: CGFloat
     let onRetry: () -> Void
 
     var body: some View {
         if let document {
-            LegalHTMLWebView(html: document.html, safeAreaTop: safeAreaTop)
-                .ignoresSafeArea(edges: .top)
-                .accessibilityIdentifier("legal.documentWebView")
+            LegalHTMLTextView(html: document.html)
+                .accessibilityIdentifier("legal.documentTextView")
         } else if isLoading {
             LegalDocumentLoadingView()
         } else {
@@ -80,7 +64,7 @@ private struct LegalDocumentContentView: View {
 // LegalDocumentLoadingView 法务文档加载态
 // 核心职责：
 // - 展示协议文档读取中的轻量反馈
-// - 保持 Sheet 内容区布局稳定
+// - 保持页面内容区布局稳定
 private struct LegalDocumentLoadingView: View {
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {

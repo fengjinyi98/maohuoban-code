@@ -487,6 +487,7 @@
     <div class="chips" id="flowChips" aria-label="架构流程切换">
       <button class="chip on" data-flow="all">总览</button>
       <button class="chip" data-flow="pet-event">宠物事件</button>
+      <button class="chip" data-flow="auth-legal">登录/法务</button>
       <button class="chip" data-flow="city-trade">同城交易</button>
       <button class="chip" data-flow="medical">医疗摘要</button>
       <button class="chip" data-flow="media">媒体证据</button>
@@ -607,14 +608,14 @@
         <rect x="332" y="164" width="320" height="88"></rect>
         <text class="tag" x="352" y="194">APP SHELL</text>
         <text class="title" x="352" y="222">UIKit Navigation Infrastructure</text>
-        <text class="sub" x="352" y="239">TabBar · Router · Sheet · Hosting</text>
+        <text class="sub" x="352" y="239">TabBar · Router · Page · Hosting</text>
       </g>
 
       <g class="node client" data-k="features">
         <rect x="332" y="286" width="320" height="100"></rect>
         <text class="tag" x="352" y="316">PRESENTATION</text>
-        <text class="title" x="352" y="344">SwiftUI Feature Views</text>
-        <text class="sub" x="352" y="365">Home · PetWorld · City · Messages · Mine</text>
+        <text class="title" x="352" y="344">SwiftUI Feature Pages</text>
+        <text class="sub" x="352" y="365">Auth · Legal · Home · City · Messages · Mine</text>
       </g>
 
       <g class="node client" data-k="store">
@@ -635,28 +636,28 @@
         <rect x="332" y="792" width="320" height="92"></rect>
         <text class="tag" x="352" y="822">DATA</text>
         <text class="title" x="352" y="850">API Client / Repository</text>
-        <text class="sub" x="352" y="871">DTO · Mapper · Auth · Offline cache</text>
+        <text class="sub" x="352" y="871">Auth · Legal · DTO · Mapper · Token</text>
       </g>
 
       <g class="node backend" data-k="gateway">
         <rect x="734" y="164" width="348" height="86"></rect>
         <text class="tag" x="754" y="194">INTERFACE</text>
         <text class="title" x="754" y="222">Rust API Gateway</text>
-        <text class="sub" x="754" y="239">Axum / Tokio · REST · WebSocket · OpenAPI</text>
+        <text class="sub" x="754" y="239">Axum / Tokio · Auth routes · Legal routes</text>
       </g>
 
       <g class="node backend" data-k="application">
         <rect x="734" y="312" width="348" height="98"></rect>
         <text class="tag" x="754" y="342">APPLICATION</text>
         <text class="title" x="754" y="370">UseCase / Command Services</text>
-        <text class="sub" x="754" y="391">RecordEvent · BookVisit · TradeSOP · Consent</text>
+        <text class="sub" x="754" y="391">PhoneCode · Login · LegalDocument · Consent</text>
       </g>
 
       <g class="node domain" data-k="backend-domain">
         <rect x="734" y="472" width="348" height="98"></rect>
         <text class="tag" x="754" y="502">DOMAIN</text>
         <text class="title" x="754" y="530">Pet-centered Domain</text>
-        <text class="sub" x="754" y="551">Pet · Event · Relationship · Permission</text>
+        <text class="sub" x="754" y="551">User · Session · LegalDocument · Pet · Event</text>
       </g>
 
       <g class="node backend" data-k="infrastructure">
@@ -677,7 +678,7 @@
         <rect x="1166" y="164" width="206" height="104"></rect>
         <text class="tag" x="1186" y="194">SOURCE OF TRUTH</text>
         <text class="title" x="1186" y="222">PostgreSQL</text>
-        <text class="sub" x="1186" y="246">pet · event · trade · consent</text>
+        <text class="sub" x="1186" y="246">auth · legal · pet · trade · consent</text>
       </g>
 
       <g class="node storage" data-k="redis">
@@ -789,12 +790,12 @@ const DETAILS = {
   "app-shell": {
     title: "UIKit Navigation Infrastructure",
     meta: "iOS infrastructure",
-    body: "UIKit 负责导航、TabBar、手势、输入、Sheet、Hosting Controller 等低层控制能力。业务页面通过稳定路由协议进入，不在 Feature 内散写桥接代码。"
+    body: "UIKit 负责系统导航、TabBar、手势、输入和 Hosting Controller 等低层控制能力。业务页面通过稳定路由协议进入，法务文档使用系统页面承载，保留系统返回和侧滑交互。"
   },
   features: {
-    title: "SwiftUI Feature Views",
+    title: "SwiftUI Feature Pages",
     meta: "presentation layer",
-    body: "SwiftUI 承担声明式页面和状态驱动 UI。页面只读取状态并转发用户事件，多 section 页面拆成独立 View 类型。"
+    body: "SwiftUI 承担声明式页面和状态驱动 UI。当前已落地登录、验证码、忘记密码、首页和法务文档页面。法务正文由原生 <code>UITextView</code> 导入后端 HTML 为富文本，避免 WebContent 运行时噪声。"
   },
   store: {
     title: "ViewModel / Store",
@@ -809,22 +810,22 @@ const DETAILS = {
   "api-client": {
     title: "API Client / Repository",
     meta: "data layer",
-    body: "集中处理认证、请求、DTO、Mapper、错误归一、离线缓存和重试。前端问题在前端层解决，后端契约问题通过接口和 DTO 同步修正。"
+    body: "集中处理认证、请求、DTO、Mapper、错误归一和 token 安全存储。当前 iOS 已有 <code>AuthRepository</code> 与 <code>LegalRepository</code>，分别对接登录接口和法务文档接口。"
   },
   gateway: {
     title: "Rust API Gateway",
     meta: "interface layer",
-    body: "Rust HTTP / WebSocket 入口，建议以 <code>Axum + Tokio</code> 承接 REST、实时消息和 OpenAPI 契约。该层只做协议转换、认证入口和 DTO 边界。"
+    body: "Rust HTTP 入口基于 <code>Axum + Tokio</code>。当前已装配认证路由和法务文档路由，该层只做协议转换、认证入口和 DTO 边界。"
   },
   application: {
     title: "UseCase / Command Services",
     meta: "application layer",
-    body: "应用层编排业务用例和事务边界，例如记录宠物事件、创建就医摘要、同城交易 SOP、授权材料包、消息通知。"
+    body: "应用层编排业务用例和事务边界。当前认证域包含发送验证码、验证码登录、密码登录、重置密码、退出登录等用例；法务域提供已发布文档读取用例。"
   },
   "backend-domain": {
     title: "Pet-centered Domain",
     meta: "domain layer",
-    body: "后端领域层承载核心规则：宠物档案、宠物事件、宠物关系、权限、同城实体、交易证据、医疗记录和授权。领域层不依赖数据库和外部服务。"
+    body: "后端领域层承载核心规则。当前已落地用户身份、设备会话、认证错误、法务文档类型和发布文档模型；宠物档案、宠物事件、交易、医疗与授权域按同一分层扩展。"
   },
   infrastructure: {
     title: "Repository / Adapter Layer",
@@ -839,7 +840,7 @@ const DETAILS = {
   postgres: {
     title: "PostgreSQL",
     meta: "transactional source of truth",
-    body: "关系数据的主存储：宠物、事件、关系、用户身份、权限、同城实体、交易、医疗摘要、授权、订单和会话索引。"
+    body: "关系数据的主存储：用户身份、设备会话、密码凭据、认证审计、法务文档、宠物、事件、关系、权限、同城实体、交易、医疗摘要、授权和订单。"
   },
   redis: {
     title: "Redis",
@@ -884,6 +885,17 @@ const DETAILS = {
 };
 
 const FLOWS = {
+  "auth-legal": {
+    name: "登录与法务页面",
+    edges: ["e-tabs-shell", "e-shell-feature", "e-feature-store", "e-domain-api-client", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-pg", "e-infra-redis"],
+    nodes: ["tabs", "features", "store", "api-client", "gateway", "application", "backend-domain", "infrastructure", "postgres", "redis"],
+    steps: [
+      "登录页由 SwiftUI 页面承载，手机号、验证码、密码和协议勾选状态进入 ViewModel。",
+      "验证码挑战进入 Redis，用户身份、密码凭据、设备会话和审计事件进入 PostgreSQL。",
+      "用户服务协议和隐私政策通过 <code>/api/v1/legal-documents/{kind}</code> 读取后端托管 HTML。",
+      "iOS 法务文档页面使用原生 <code>UITextView</code> 渲染富文本，页面保持系统导航返回。"
+    ]
+  },
   "pet-event": {
     name: "宠物事件写入",
     edges: ["e-tabs-shell", "e-shell-feature", "e-feature-store", "e-store-domain", "e-domain-api-client", "e-api-client-gateway", "e-gateway-app", "e-app-domain", "e-domain-infra", "e-infra-pg", "e-infra-redis"],

@@ -87,6 +87,7 @@ final class MaohuobanAuthUITests: XCTestCase {
     // 核心职责：
     // - 确认用户协议和隐私政策以可点击入口出现
     // - 确认点击入口后打开后端托管的文档页
+    // - 验证法务正文下拉和上滑后仍保持稳定展示
     @MainActor
     func testAgreementLinksOpenLegalDocuments() throws {
         let app = launchResetApp()
@@ -95,14 +96,24 @@ final class MaohuobanAuthUITests: XCTestCase {
         XCTAssertTrue(userAgreementLink.waitForExistence(timeout: 8))
         userAgreementLink.tap()
         XCTAssertTrue(app.staticTexts["用户服务协议"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.webViews["legal.documentWebView"].waitForExistence(timeout: 8))
-        app.buttons["legal.closeButton"].tap()
+        let agreementDocument = app.textViews["legal.documentTextView"]
+        XCTAssertTrue(agreementDocument.waitForExistence(timeout: 8))
+        agreementDocument.swipeDown()
+        XCTAssertTrue(agreementDocument.exists)
+        agreementDocument.swipeUp()
+        XCTAssertTrue(agreementDocument.exists)
+        app.buttons["BackButton"].tap()
 
         let privacyPolicyLink = app.buttons["auth.privacyPolicyLink"]
         XCTAssertTrue(privacyPolicyLink.waitForExistence(timeout: 8))
         privacyPolicyLink.tap()
         XCTAssertTrue(app.staticTexts["用户隐私政策"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.webViews["legal.documentWebView"].waitForExistence(timeout: 8))
+        let privacyDocument = app.textViews["legal.documentTextView"]
+        XCTAssertTrue(privacyDocument.waitForExistence(timeout: 8))
+        privacyDocument.swipeDown()
+        XCTAssertTrue(privacyDocument.exists)
+        privacyDocument.swipeUp()
+        XCTAssertTrue(privacyDocument.exists)
     }
 
     @MainActor

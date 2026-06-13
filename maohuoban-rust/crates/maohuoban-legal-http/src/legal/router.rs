@@ -111,7 +111,7 @@ where
 
 /// `LegalDocumentData` 法务文档响应数据
 /// 核心职责：
-/// - 返回客户端 `WebView` 展示所需字段
+/// - 返回客户端原生富文本页面展示所需字段
 /// - 隔离领域模型和 HTTP JSON 结构
 #[derive(Debug, Serialize)]
 struct LegalDocumentData {

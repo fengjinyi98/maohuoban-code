@@ -32,7 +32,7 @@ impl LegalDocumentKind {
 /// `LegalDocument` 后端托管法务文档
 /// 核心职责：
 /// - 承载运营可更新的 HTML 正文和版本信息
-/// - 为客户端 `WebView` 展示提供稳定数据结构
+/// - 为客户端原生富文本页面展示提供稳定数据结构
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LegalDocument {
     pub kind: LegalDocumentKind,
