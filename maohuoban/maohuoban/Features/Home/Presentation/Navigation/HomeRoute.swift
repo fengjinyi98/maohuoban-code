@@ -15,7 +15,7 @@ enum HomeRoute: Hashable {
     case publishAvailableStatus(merchantID: String)
     case merchantPets(merchantID: String, status: String)
     case merchantLitter(merchantID: String, litterID: String)
-    case merchantTask(reminderID: String)
+    case merchantTask(merchantID: String, reminderID: String)
     case timelineEvent(eventID: String)
 }
 

@@ -68,9 +68,14 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID,
                 onPublished: onHomeMutationCompleted
             )
+        case .merchantTask(let merchantID, _):
+            MerchantPetsScreen(
+                merchantID: merchantID,
+                status: .needsRecord,
+                currentUserID: currentUserID
+            )
         case .bookHospital,
-             .importTradePet,
-             .merchantTask:
+             .importTradePet:
             MHBTabPlaceholderRootScreen(
                 systemImage: route.systemImage,
                 title: route.title,

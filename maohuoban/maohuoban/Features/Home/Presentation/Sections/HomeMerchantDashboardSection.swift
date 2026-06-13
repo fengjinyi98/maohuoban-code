@@ -69,7 +69,12 @@ struct HomeMerchantDashboardSection: View {
                 HomeSectionTitle("待处理")
 
                 ForEach(summary.pendingTasks) { reminder in
-                    NavigationLink(value: HomeRoute.merchantTask(reminderID: reminder.id)) {
+                    NavigationLink(
+                        value: HomeRoute.merchantTask(
+                            merchantID: summary.merchantID,
+                            reminderID: reminder.id
+                        )
+                    ) {
                         HomeMerchantTaskRow(reminder: reminder)
                     }
                     .buttonStyle(.plain)
