@@ -16,6 +16,9 @@ members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-recommendation-application",
+    "maohuoban-rust/crates/maohuoban-recommendation-domain",
+    "maohuoban-rust/crates/maohuoban-recommendation-infrastructure",
     "maohuoban-rust/crates/maohuoban-samecity-application",
     "maohuoban-rust/crates/maohuoban-samecity-domain",
     "maohuoban-rust/crates/maohuoban-samecity-http",
@@ -40,6 +43,9 @@ default-members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-recommendation-application",
+    "maohuoban-rust/crates/maohuoban-recommendation-domain",
+    "maohuoban-rust/crates/maohuoban-recommendation-infrastructure",
     "maohuoban-rust/crates/maohuoban-samecity-application",
     "maohuoban-rust/crates/maohuoban-samecity-domain",
     "maohuoban-rust/crates/maohuoban-samecity-http",
@@ -76,6 +82,9 @@ maohuoban-pet-application = { path = "maohuoban-rust/crates/maohuoban-pet-applic
 maohuoban-pet-domain = { path = "maohuoban-rust/crates/maohuoban-pet-domain" }
 maohuoban-pet-http = { path = "maohuoban-rust/crates/maohuoban-pet-http" }
 maohuoban-pet-infrastructure = { path = "maohuoban-rust/crates/maohuoban-pet-infrastructure" }
+maohuoban-recommendation-application = { path = "maohuoban-rust/crates/maohuoban-recommendation-application" }
+maohuoban-recommendation-domain = { path = "maohuoban-rust/crates/maohuoban-recommendation-domain" }
+maohuoban-recommendation-infrastructure = { path = "maohuoban-rust/crates/maohuoban-recommendation-infrastructure" }
 maohuoban-samecity-application = { path = "maohuoban-rust/crates/maohuoban-samecity-application" }
 maohuoban-samecity-domain = { path = "maohuoban-rust/crates/maohuoban-samecity-domain" }
 maohuoban-samecity-http = { path = "maohuoban-rust/crates/maohuoban-samecity-http" }

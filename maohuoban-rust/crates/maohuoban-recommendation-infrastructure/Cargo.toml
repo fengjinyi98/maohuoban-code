@@ -1,0 +1,11 @@
+[package]
+name = "maohuoban-recommendation-infrastructure"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait.workspace = true
+maohuoban-recommendation-application.workspace = true
+maohuoban-recommendation-domain.workspace = true
+sqlx.workspace = true
+uuid.workspace = true

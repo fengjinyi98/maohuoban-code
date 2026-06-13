@@ -1342,6 +1342,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "maohuoban-recommendation-application"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "maohuoban-recommendation-domain",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-recommendation-domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-recommendation-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "maohuoban-recommendation-application",
+ "maohuoban-recommendation-domain",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "maohuoban-samecity-application"
 version = "0.1.0"
 dependencies = [
@@ -1431,6 +1460,9 @@ dependencies = [
  "maohuoban-pet-domain",
  "maohuoban-pet-http",
  "maohuoban-pet-infrastructure",
+ "maohuoban-recommendation-application",
+ "maohuoban-recommendation-domain",
+ "maohuoban-recommendation-infrastructure",
  "maohuoban-samecity-application",
  "maohuoban-samecity-http",
  "maohuoban-samecity-infrastructure",

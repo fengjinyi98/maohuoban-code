@@ -29,6 +29,8 @@ use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
+use maohuoban_recommendation_application::recommendation::RecommendationService;
+use maohuoban_recommendation_infrastructure::postgres::PostgresRecommendationRepository;
 use maohuoban_samecity_application::samecity::SameCityService;
 use maohuoban_samecity_http::samecity::build_samecity_router;
 use maohuoban_samecity_infrastructure::postgres::PostgresSameCityRepository;
@@ -102,6 +104,7 @@ pub struct BackendApp {
     pub token_issuer: JwtTokenIssuer,
     pub home_provider: HybridHomeDashboardProvider,
     pub pet_repository: PostgresPetRepository,
+    pub recommendation_repository: PostgresRecommendationRepository,
     pub samecity_repository: PostgresSameCityRepository,
 }
 
@@ -145,11 +148,16 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         Arc::new(pet_repository.clone()),
         Arc::new(pet_repository.clone()),
     ));
+    let recommendation_repository = PostgresRecommendationRepository::new(pool.clone());
+    let recommendation_service = Arc::new(RecommendationService::new(Arc::new(
+        recommendation_repository.clone(),
+    )));
     let samecity_repository = PostgresSameCityRepository::new(pool.clone());
     let samecity_service = Arc::new(SameCityService::new(Arc::new(samecity_repository.clone())));
     let home_provider = HybridHomeDashboardProvider::new(
         InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot()),
         pet_service.clone(),
+        recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let router = build_auth_router(auth_service)
@@ -167,6 +175,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         token_issuer,
         home_provider,
         pet_repository,
+        recommendation_repository,
         samecity_repository,
     })
 }

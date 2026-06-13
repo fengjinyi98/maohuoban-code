@@ -1,0 +1,9 @@
+[package]
+name = "maohuoban-recommendation-application"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait.workspace = true
+maohuoban-recommendation-domain.workspace = true
+uuid.workspace = true

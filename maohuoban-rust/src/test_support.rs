@@ -167,6 +167,33 @@ impl AuthTestApp {
 
         ids.merchant.to_string()
     }
+
+    /// seed_same_litter_relationship 写入同窝关系测试数据
+    /// 核心职责：
+    /// - 为首页今日伙伴推荐准备显式关系边
+    /// - 保持推荐契约测试不依赖商家完整窝次流程
+    pub async fn seed_same_litter_relationship(&self, subject_pet_id: &str, related_pet_id: &str) {
+        let subject_pet_id = Uuid::parse_str(subject_pet_id).expect("subject pet id");
+        let related_pet_id = Uuid::parse_str(related_pet_id).expect("related pet id");
+        sqlx::query(
+            r#"
+            INSERT INTO pet_relationships (
+                id,
+                subject_pet_id,
+                related_pet_id,
+                relationship_kind,
+                source_kind
+            )
+            VALUES ($1, $2, $3, 'same_litter', 'system_derived')
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(subject_pet_id)
+        .bind(related_pet_id)
+        .execute(&self.app.pool)
+        .await
+        .expect("seed same litter relationship");
+    }
 }
 
 /// MerchantWorkspaceSeedIds 商家追溯测试 ID 集

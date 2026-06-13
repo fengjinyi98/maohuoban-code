@@ -12,14 +12,23 @@ use maohuoban_home_domain::home::{
     HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind,
     HomeReminder, HomeReminderKind, MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
-    MerchantStatusCount as HomeMerchantStatusCount, PetHeroSummary, PetSex as HomePetSex,
-    PetSpecies as HomePetSpecies, PetSwitchItem,
+    MerchantStatusCount as HomeMerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind,
+    PetHeroSummary, PetSex as HomePetSex, PetSpecies as HomePetSpecies, PetSwitchItem,
+    RecommendedContent, RecommendedContentKind,
 };
 use maohuoban_pet_application::pet::{
     MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
 };
 use maohuoban_pet_domain::pet::{
     ManagedPetStatus, PetError, PetProfile, PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
+};
+use maohuoban_recommendation_application::recommendation::{
+    HomeRecommendationContext, RecommendationService,
+};
+use maohuoban_recommendation_domain::recommendation::{
+    HomePartnerRecommendation, HomeRecommendedContent,
+    HomeRecommendedContentKind as RecommendationContentKind,
+    HomeRelationshipKind as RecommendationRelationshipKind,
 };
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -68,14 +77,20 @@ impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
 pub struct HybridHomeDashboardProvider {
     fallback: InMemoryHomeDashboardProvider,
     pet_service: Arc<PetService>,
+    recommendation_service: Arc<RecommendationService>,
 }
 
 impl HybridHomeDashboardProvider {
     #[must_use]
-    pub fn new(fallback: InMemoryHomeDashboardProvider, pet_service: Arc<PetService>) -> Self {
+    pub fn new(
+        fallback: InMemoryHomeDashboardProvider,
+        pet_service: Arc<PetService>,
+        recommendation_service: Arc<RecommendationService>,
+    ) -> Self {
         Self {
             fallback,
             pet_service,
+            recommendation_service,
         }
     }
 
@@ -103,7 +118,19 @@ impl HybridHomeDashboardProvider {
             .await
             .map_err(|error| to_home_error(&error))?;
         let Some(selected_pet) = pets.first() else {
-            return Ok(new_user_home_snapshot());
+            let mut snapshot = new_user_home_snapshot();
+            let contents = self
+                .recommendation_service
+                .list_empty_state_content(snapshot.identity.city.as_deref(), 3)
+                .await
+                .unwrap_or_default();
+            if !contents.is_empty() {
+                snapshot.recommended_content = contents
+                    .into_iter()
+                    .map(recommended_content_summary)
+                    .collect();
+            }
+            return Ok(snapshot);
         };
 
         let timeline = self
@@ -132,7 +159,16 @@ impl HybridHomeDashboardProvider {
             .collect();
         snapshot.care_summary = Some(care_summary_from_events(&timeline.events));
         snapshot.reminders = reminders_from_events(&timeline.events);
-        snapshot.partner_recommendation = None;
+        snapshot.partner_recommendation = self
+            .recommendation_service
+            .recommend_home_partner(HomeRecommendationContext {
+                user_id,
+                selected_pet_id: selected_pet.id,
+                city: snapshot.identity.city.clone(),
+            })
+            .await
+            .unwrap_or_default()
+            .map(partner_recommendation_summary);
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
@@ -300,6 +336,46 @@ fn merchant_pending_tasks(workspace: &AppMerchantDashboardSummary) -> Vec<HomeRe
         subtitle: format!("{} 只宠物待补健康或成长记录", needs_record.count),
         due_text: "今天".to_owned(),
     }]
+}
+
+fn partner_recommendation_summary(
+    recommendation: HomePartnerRecommendation,
+) -> PartnerRecommendation {
+    PartnerRecommendation {
+        pet_id: recommendation.pet_id,
+        pet_name: recommendation.pet_name,
+        relationship_kind: home_relationship_kind(recommendation.relationship_kind),
+        title: recommendation.title,
+        subtitle: recommendation.subtitle,
+        distance_text: recommendation.distance_text,
+    }
+}
+
+fn home_relationship_kind(kind: RecommendationRelationshipKind) -> PartnerRelationshipKind {
+    match kind {
+        RecommendationRelationshipKind::SameLitter => PartnerRelationshipKind::SameLitter,
+        RecommendationRelationshipKind::SameCity => PartnerRelationshipKind::SameCity,
+        RecommendationRelationshipKind::SameCondition => PartnerRelationshipKind::SameCondition,
+        RecommendationRelationshipKind::SameHospital => PartnerRelationshipKind::SameHospital,
+        RecommendationRelationshipKind::SameSource => PartnerRelationshipKind::SameSource,
+    }
+}
+
+fn recommended_content_summary(content: HomeRecommendedContent) -> RecommendedContent {
+    RecommendedContent {
+        id: content.id,
+        kind: home_recommended_content_kind(content.kind),
+        title: content.title,
+        source_text: content.source_text,
+    }
+}
+
+fn home_recommended_content_kind(kind: RecommendationContentKind) -> RecommendedContentKind {
+    match kind {
+        RecommendationContentKind::Ugc => RecommendedContentKind::Ugc,
+        RecommendationContentKind::Guide => RecommendedContentKind::Guide,
+        RecommendationContentKind::LocalService => RecommendedContentKind::LocalService,
+    }
 }
 
 fn home_pet_species(species: DomainPetSpecies) -> HomePetSpecies {

@@ -120,13 +120,25 @@ async fn create_home_test_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
 ) -> String {
+    create_named_home_test_pet(app, user_id, "糯米").await
+}
+
+/// `create_named_home_test_pet` 创建指定名称的测试宠物
+/// 核心职责：
+/// - 支持首页推荐契约区分当前宠物和伙伴宠物
+/// - 复用标准宠物档案输入
+async fn create_named_home_test_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    name: &str,
+) -> String {
     let response = app
         .router()
         .oneshot(json_request(
             "POST",
             "/api/v1/pets",
             json!({
-                "name": "糯米",
+                "name": name,
                 "species": "dog",
                 "breed": "比熊犬",
                 "sex": "female",
@@ -470,4 +482,84 @@ async fn home_dashboard_uses_current_user_merchant_tracking_workspace() {
         "A 窝出生记录"
     );
     assert!(dashboard_body["data"]["empty_state"].is_null());
+}
+
+#[tokio::test]
+async fn home_dashboard_recommends_same_litter_partner_from_pet_relationships() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138223").await;
+    let partner_user_id = login_user_id(&app, "13800138224").await;
+    let pet_id = create_named_home_test_pet(&app, &user_id, "糯米").await;
+    let partner_pet_id = create_named_home_test_pet(&app, &partner_user_id, "奶盖").await;
+
+    app.seed_same_litter_relationship(&pet_id, &partner_pet_id)
+        .await;
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+
+    assert_eq!(
+        dashboard_body["data"]["partner_recommendation"]["pet_id"],
+        partner_pet_id
+    );
+    assert_eq!(
+        dashboard_body["data"]["partner_recommendation"]["pet_name"],
+        "奶盖"
+    );
+    assert_eq!(
+        dashboard_body["data"]["partner_recommendation"]["relationship_kind"],
+        "same_litter"
+    );
+    assert_eq!(
+        dashboard_body["data"]["partner_recommendation"]["distance_text"],
+        "同窝关系"
+    );
+    assert!(dashboard_body["data"]["empty_state"].is_null());
+}
+
+#[tokio::test]
+async fn home_dashboard_uses_public_pet_events_for_new_user_recommended_content() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let content_owner_id = login_user_id(&app, "13800138225").await;
+    let pet_id = create_named_home_test_pet(&app, &content_owner_id, "小满").await;
+    append_home_test_event(
+        &app,
+        &content_owner_id,
+        &pet_id,
+        json!({
+            "event_kind": "daily",
+            "event_subkind": "adaptation",
+            "title": "到家第三天开始主动吃饭",
+            "summary": "幼猫适应新家的公开记录",
+            "visibility": "public",
+            "occurred_at": "2026-06-13T12:00:00Z",
+            "event_payload": {
+                "value_text": "稳定"
+            }
+        }),
+    )
+    .await;
+    let new_user_id = login_user_id(&app, "13800138226").await;
+
+    let dashboard_body = load_user_home_dashboard(&app, &new_user_id).await;
+
+    assert_eq!(dashboard_body["data"]["identity"]["kind"], "new_user");
+    assert_eq!(
+        dashboard_body["data"]["empty_state"]["kind"],
+        "create_first_pet"
+    );
+    assert_eq!(
+        dashboard_body["data"]["recommended_content"][0]["kind"],
+        "ugc"
+    );
+    assert_eq!(
+        dashboard_body["data"]["recommended_content"][0]["title"],
+        "到家第三天开始主动吃饭"
+    );
+    let source_text = dashboard_body["data"]["recommended_content"][0]["source_text"]
+        .as_str()
+        .expect("source text");
+    assert!(source_text.contains("小满"));
+    assert!(source_text.contains("宠物世界"));
 }
