@@ -74,6 +74,10 @@ struct MHBThemeTokenTests {
 
     @Test("图标尺寸 token 使用页面占位根视图基准")
     func iconSizesMatchPlaceholderSpec() {
+        #expect(MHBTheme.IconSize.small == 16)
+        #expect(MHBTheme.IconSize.medium == 20)
+        #expect(MHBTheme.IconSize.large == 28)
+        #expect(MHBTheme.IconSize.avatar == 56)
         #expect(MHBTheme.IconSize.tabRootPlaceholder == 48)
     }
 

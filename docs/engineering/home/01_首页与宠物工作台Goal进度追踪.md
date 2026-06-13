@@ -13,7 +13,7 @@
 | 首页定调 | 已确定 | 首页是以宠物为主体的信任工作台 |
 | ID 策略 | 已确定 | 当前阶段统一使用 UUID v4，PostgreSQL `uuid`，API 传字符串 |
 | 后端基线 | 已完成首页聚合接口基线 | 新增 home domain/application/http crates，`home_contract.rs` 覆盖普通用户、空态、商家态 |
-| iOS 首页 | 待实现 | `HomeRootScreen` 当前为占位根页 |
+| iOS 首页 | 已完成首页骨架 | `HomeRootScreen` 已消费 `HomeDashboardSnapshot`，渲染普通用户首页核心模块 |
 
 ## 2. Phase 进度
 
@@ -22,8 +22,8 @@
 | 1. 文档与边界 | 已完成基线 | 提交 docs-only commit |
 | 2. 后端首页契约 | 已完成基线 | `/api/v1/home/dashboard` 契约测试通过 |
 | 3. 宠物事件底座 | 进行中 | 首页读模型已包含宠物主卡、时间线、窝次摘要；真实宠物持久化待实现 |
-| 4. iOS 首页骨架 | 未开始 | 建立 Home Domain/Data/Stores/Sections 并替换占位页 |
-| 5. 端到端验证 | 未开始 | 运行 Rust、iOS、DesignSystem 质量门禁 |
+| 4. iOS 首页骨架 | 已完成基线 | 后续补 Store 单测 target、动作路由和真实宠物详情入口 |
+| 5. 端到端验证 | 进行中 | Rust、DesignSystem、iOS build、首页 UI 契约已通过；截图复核待补 |
 
 ## 3. 验收清单
 
@@ -35,14 +35,15 @@
 | 后端分层可扩展 | `maohuoban-home-domain`、`maohuoban-home-application`、`maohuoban-home-http` | 已完成首页基线 |
 | 首页接口契约 | `maohuoban-rust/tests/home_contract.rs` | 已完成基线 |
 | UUID 策略 | 文档 + DTO | 首页快照模型已使用 UUID；数据库 schema 待实现 |
-| 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线 | 未开始 |
-| 新用户空态 | 无宠物时展示创建宠物和辅助内容入口 | 未开始 |
-| 商家首页 | 展示机构宠物工作台、窝次入口、待补记录 | 未开始 |
-| SwiftUI 架构约束 | Store 承载副作用，section 独立 View，DesignSystem token | 未开始 |
+| 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线 | 已完成基线 |
+| 新用户空态 | 无宠物时展示创建宠物和辅助内容入口 | 已完成前端渲染基线 |
+| 商家首页 | 展示机构宠物工作台、窝次入口、待补记录 | 已完成前端渲染基线 |
+| SwiftUI 架构约束 | Store 承载副作用，section 独立 View，DesignSystem token | 已完成基线 |
 | Rust 测试 | `cargo test --workspace` | 已通过 |
 | Rust lint | `cargo clippy --workspace --all-targets` | 已通过 |
-| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` | 未开始 |
-| DesignSystem 测试 | `cd maohuoban/Packages/MaohuobanDesignSystem && xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug ENABLE_APP_INTENTS_METADATA_EXTRACTION=NO test` | 未开始 |
+| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` | 已通过 |
+| DesignSystem 测试 | `cd maohuoban/Packages/MaohuobanDesignSystem && xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug ENABLE_APP_INTENTS_METADATA_EXTRACTION=NO test` | 已通过 |
+| iOS 首页 UI | `MHB_BACKEND_BASE_URL=http://127.0.0.1:8080 xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanUITests/MaohuobanHomeUITests/testPetOwnerHomeShowsDashboardSections` | 已通过 |
 
 ## 4. 上下文恢复要点
 
