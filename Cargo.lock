@@ -1252,6 +1252,7 @@ dependencies = [
  "maohuoban-home-domain",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

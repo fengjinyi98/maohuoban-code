@@ -53,6 +53,8 @@ pub trait PetRepository: Send + Sync {
         owner_user_id: Uuid,
     ) -> PetResult<Option<PetProfile>>;
 
+    async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>>;
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 
     async fn load_pet_timeline(

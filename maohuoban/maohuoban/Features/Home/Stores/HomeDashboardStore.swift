@@ -16,20 +16,18 @@ final class HomeDashboardStore {
         self.repository = repository
     }
 
-    func load() async {
+    func load(currentUserID: String? = nil) async {
         guard phase != .loading else { return }
         phase = .loading
         do {
-            let response = try await repository.dashboard()
+            let response = try await repository.dashboard(currentUserID: currentUserID)
             guard let snapshot = response.data else {
                 phase = .failed("首页数据为空")
                 return
             }
             phase = .loaded(snapshot)
-        } catch let error as MHBAPIError {
-            phase = .failed(error.toastMessage)
         } catch {
-            phase = .failed("首页暂时不可用")
+            phase = .failed(error.toastMessage)
         }
     }
 }
@@ -44,4 +42,3 @@ enum HomeDashboardPhase: Equatable {
     case loaded(HomeDashboardSnapshot)
     case failed(String)
 }
-

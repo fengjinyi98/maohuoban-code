@@ -9,6 +9,7 @@
 use std::{env, sync::Arc};
 
 use axum::Router;
+use chrono::{Datelike, NaiveDate, Utc};
 use maohuoban_auth_application::auth::{AuthService, AuthServiceConfig};
 use maohuoban_auth_http::auth::build_auth_router;
 use maohuoban_auth_infrastructure::{
@@ -17,20 +18,30 @@ use maohuoban_auth_infrastructure::{
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
 use maohuoban_home_application::home::{
-    HomeDashboardProvider, HomeDashboardService, HomeResult, pet_owner_home_snapshot,
+    HomeDashboardContext, HomeDashboardProvider, HomeDashboardService, HomeError, HomeResult,
+    new_user_home_snapshot, pet_owner_home_snapshot,
 };
-use maohuoban_home_domain::home::HomeDashboardSnapshot;
+use maohuoban_home_domain::home::{
+    HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind, HomeTimelineEvent,
+    HomeTimelineEventKind, PetHeroSummary, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
+    PetSwitchItem,
+};
 use maohuoban_home_http::home::build_home_router;
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
+use maohuoban_pet_domain::pet::{
+    EventKind, PetError, PetEvent, PetProfile, PetSex as DomainPetSex,
+    PetSpecies as DomainPetSpecies,
+};
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 /// BackendConfig 后端启动配置
 /// 核心职责：
@@ -96,7 +107,7 @@ pub struct BackendApp {
     pub repository: PostgresAuthRepository,
     pub password_service: Argon2PasswordCredentialService,
     pub token_issuer: JwtTokenIssuer,
-    pub home_provider: InMemoryHomeDashboardProvider,
+    pub home_provider: HybridHomeDashboardProvider,
     pub pet_repository: PostgresPetRepository,
 }
 
@@ -128,9 +139,181 @@ impl InMemoryHomeDashboardProvider {
 
 #[async_trait::async_trait]
 impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
-    async fn get_dashboard_snapshot(&self) -> HomeResult<HomeDashboardSnapshot> {
+    async fn get_dashboard_snapshot(
+        &self,
+        _context: HomeDashboardContext,
+    ) -> HomeResult<HomeDashboardSnapshot> {
         Ok(self.snapshot.read().await.clone())
     }
+}
+
+/// HybridHomeDashboardProvider 混合首页快照提供器
+/// 核心职责：
+/// - 无用户上下文时保留开发 seed 快照
+/// - 有用户上下文时读取宠物档案和事件生成真实首页聚合
+#[derive(Clone)]
+pub struct HybridHomeDashboardProvider {
+    fallback: InMemoryHomeDashboardProvider,
+    pet_service: Arc<PetService>,
+}
+
+impl HybridHomeDashboardProvider {
+    #[must_use]
+    pub fn new(fallback: InMemoryHomeDashboardProvider, pet_service: Arc<PetService>) -> Self {
+        Self {
+            fallback,
+            pet_service,
+        }
+    }
+
+    /// replace_snapshot 替换无上下文首页快照
+    /// 核心职责：
+    /// - 支持首页契约测试切换开发 seed
+    /// - 不影响带用户上下文的真实聚合路径
+    pub async fn replace_snapshot(&self, snapshot: HomeDashboardSnapshot) {
+        self.fallback.replace_snapshot(snapshot).await;
+    }
+
+    async fn snapshot_for_user(&self, user_id: Uuid) -> HomeResult<HomeDashboardSnapshot> {
+        let pets = self
+            .pet_service
+            .list_pet_profiles(user_id)
+            .await
+            .map_err(|error| to_home_error(&error))?;
+        let Some(selected_pet) = pets.first() else {
+            return Ok(new_user_home_snapshot());
+        };
+
+        let timeline = self
+            .pet_service
+            .load_pet_timeline(user_id, selected_pet.id)
+            .await
+            .map_err(|error| to_home_error(&error))?;
+
+        let mut snapshot = pet_owner_home_snapshot();
+        snapshot.identity = HomeIdentity {
+            kind: HomeIdentityKind::PetOwner,
+            display_name: "毛伙伴用户".to_owned(),
+            city: None,
+            verification_badge: None,
+        };
+        snapshot.selected_pet = Some(pet_hero_summary(selected_pet));
+        snapshot.pet_switcher = pets
+            .iter()
+            .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id))
+            .collect();
+        snapshot.recent_timeline = timeline
+            .events
+            .iter()
+            .take(3)
+            .map(timeline_event_summary)
+            .collect();
+        snapshot.partner_recommendation = None;
+        snapshot.merchant_dashboard = None;
+        snapshot.empty_state = None;
+        snapshot.recommended_content = Vec::new();
+        Ok(snapshot)
+    }
+}
+
+#[async_trait::async_trait]
+impl HomeDashboardProvider for HybridHomeDashboardProvider {
+    async fn get_dashboard_snapshot(
+        &self,
+        context: HomeDashboardContext,
+    ) -> HomeResult<HomeDashboardSnapshot> {
+        if let Some(user_id) = context.user_id {
+            return self.snapshot_for_user(user_id).await;
+        }
+        self.fallback.get_dashboard_snapshot(context).await
+    }
+}
+
+fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
+    PetHeroSummary {
+        id: pet.id,
+        name: pet.name.clone(),
+        species: home_pet_species(pet.species),
+        breed: pet.breed.clone().unwrap_or_else(|| "未填写品种".to_owned()),
+        sex: home_pet_sex(pet.sex),
+        age_text: pet_age_text(pet.birthday),
+        status_text: "记录正在形成可信档案".to_owned(),
+        updated_text: "档案已同步".to_owned(),
+        avatar_url: None,
+    }
+}
+
+fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
+    PetSwitchItem {
+        id: pet.id,
+        name: pet.name.clone(),
+        species: home_pet_species(pet.species),
+        avatar_url: None,
+        is_selected,
+    }
+}
+
+fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
+    HomeTimelineEvent {
+        id: event.id,
+        event_kind: home_timeline_event_kind(event),
+        title: event.title.clone(),
+        subtitle: event
+            .summary
+            .clone()
+            .unwrap_or_else(|| "已记录到可信档案".to_owned()),
+        occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
+    }
+}
+
+fn home_pet_species(species: DomainPetSpecies) -> HomePetSpecies {
+    match species {
+        DomainPetSpecies::Dog => HomePetSpecies::Dog,
+        DomainPetSpecies::Cat => HomePetSpecies::Cat,
+        DomainPetSpecies::Other => HomePetSpecies::Other,
+    }
+}
+
+fn home_pet_sex(sex: DomainPetSex) -> HomePetSex {
+    match sex {
+        DomainPetSex::Female => HomePetSex::Female,
+        DomainPetSex::Male => HomePetSex::Male,
+        DomainPetSex::Unknown => HomePetSex::Unknown,
+    }
+}
+
+fn home_timeline_event_kind(event: &PetEvent) -> HomeTimelineEventKind {
+    match event.event_kind {
+        EventKind::Daily | EventKind::Growth | EventKind::Memorial => HomeTimelineEventKind::Daily,
+        EventKind::Health if event.event_subkind.as_deref() == Some("weight") => {
+            HomeTimelineEventKind::Weight
+        }
+        EventKind::Health | EventKind::Hospital | EventKind::Trade => HomeTimelineEventKind::Health,
+        EventKind::Merchant => HomeTimelineEventKind::Merchant,
+    }
+}
+
+fn pet_age_text(birthday: Option<NaiveDate>) -> String {
+    let Some(birthday) = birthday else {
+        return "未填写年龄".to_owned();
+    };
+    let today = Utc::now().date_naive();
+    if birthday > today {
+        return "未填写年龄".to_owned();
+    }
+    let mut years = today.year() - birthday.year();
+    if (today.month(), today.day()) < (birthday.month(), birthday.day()) {
+        years -= 1;
+    }
+    if years > 0 {
+        format!("{years}岁")
+    } else {
+        "未满1岁".to_owned()
+    }
+}
+
+fn to_home_error(error: &PetError) -> HomeError {
+    HomeError::Infrastructure(error.to_string())
 }
 
 /// build_backend_app 构建后端应用
@@ -170,7 +353,10 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
     let pet_repository = PostgresPetRepository::new(pool.clone());
     let pet_service = Arc::new(PetService::new(Arc::new(pet_repository.clone())));
-    let home_provider = InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot());
+    let home_provider = HybridHomeDashboardProvider::new(
+        InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot()),
+        pet_service.clone(),
+    );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let router = build_auth_router(auth_service)
         .merge(build_legal_router(legal_service))

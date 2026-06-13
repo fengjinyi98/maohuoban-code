@@ -5,7 +5,7 @@ import Foundation
 // - 定义首页 Store 所需 API
 // - 隔离 HTTP 客户端和展示层状态
 protocol HomeRepository {
-    func dashboard() async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot>
+    func dashboard(currentUserID: String?) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot>
 }
 
 // DefaultHomeRepository 默认首页数据仓库
@@ -19,8 +19,11 @@ struct DefaultHomeRepository: HomeRepository {
         self.client = client
     }
 
-    func dashboard() async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
-        try await client.get(path: "/api/v1/home/dashboard")
+    func dashboard(currentUserID: String?) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
+        var headers: [String: String] = [:]
+        if let currentUserID {
+            headers["x-maohuoban-user-id"] = currentUserID
+        }
+        return try await client.get(path: "/api/v1/home/dashboard", headers: headers)
     }
 }
-

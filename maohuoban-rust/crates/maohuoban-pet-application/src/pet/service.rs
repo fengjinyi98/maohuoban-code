@@ -37,6 +37,12 @@ impl PetService {
         self.repository.create_pet_event(input).await
     }
 
+    pub async fn list_pet_profiles(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>> {
+        self.repository
+            .list_pet_profiles_for_owner(owner_user_id)
+            .await
+    }
+
     pub async fn load_pet_timeline(
         &self,
         owner_user_id: Uuid,

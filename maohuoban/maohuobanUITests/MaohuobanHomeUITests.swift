@@ -3,30 +3,28 @@ import XCTest
 // MaohuobanHomeUITests 首页 UI 契约测试
 // 核心职责：
 // - 通过真实验证码登录进入首页
-// - 验证普通用户首页首屏核心模块存在
+// - 验证无宠物新用户首页空态存在
 final class MaohuobanHomeUITests: XCTestCase {
-    private let backendBaseURL = ProcessInfo.processInfo.environment["MHB_BACKEND_BASE_URL"] ?? "http://192.168.2.2:8080"
+    private let backendBaseURL = ProcessInfo.processInfo.environment["MHB_BACKEND_BASE_URL"] ?? "http://127.0.0.1:18080"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    // testPetOwnerHomeShowsDashboardSections 验证普通用户首页模块
+    // testNewUserHomeShowsCreatePetEmptyState 验证新用户首页空态
     // 核心职责：
-    // - 确认登录成功后首页展示宠物主体卡
-    // - 确认今日照护、快捷动作、今日伙伴和最近时间线可被访问
+    // - 确认登录成功后首页读取当前用户上下文
+    // - 确认无宠物用户展示创建宠物主操作
     @MainActor
-    func testPetOwnerHomeShowsDashboardSections() throws {
+    func testNewUserHomeShowsCreatePetEmptyState() throws {
         let app = launchResetApp()
         sendPhoneCodeLogin(app: app, phone: makeUniquePhone())
 
         XCTAssertTrue(app.otherElements["home.dashboard"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.otherElements["home.petHeroCard"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["糯米"].exists)
-        XCTAssertTrue(app.otherElements["home.careSummarySection"].exists)
-        XCTAssertTrue(app.otherElements["home.quickActionsSection"].exists)
-        XCTAssertTrue(app.otherElements["home.partnerSection"].exists)
-        XCTAssertTrue(app.otherElements["home.timelineSection"].exists)
+        XCTAssertEqual(waitForKeyboardDismissal(in: app), .completed)
+        XCTAssertTrue(app.staticTexts["为第一只毛孩子建立主页"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["home.emptyState.primaryAction"].exists)
+        XCTAssertTrue(app.buttons["home.quickAction.create_pet"].exists)
     }
 
     @MainActor
@@ -34,7 +32,9 @@ final class MaohuobanHomeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "--reset-auth-state",
-            "--skip-launch-screen"
+            "--skip-launch-screen",
+            "-MHB_BACKEND_BASE_URL",
+            backendBaseURL
         ]
         app.launchEnvironment["MHB_BACKEND_BASE_URL"] = backendBaseURL
         addUIInterruptionMonitor(withDescription: "本地网络权限") { alert in
@@ -67,7 +67,17 @@ final class MaohuobanHomeUITests: XCTestCase {
     }
 
     private func makeUniquePhone() -> String {
-        let suffix = Int(Date().timeIntervalSince1970) % 100_000_000
+        let suffix = Int.random(in: 0..<100_000_000)
         return "137" + String(format: "%08d", suffix)
+    }
+
+    @MainActor
+    private func waitForKeyboardDismissal(in app: XCUIApplication) -> XCTWaiter.Result {
+        let keyboard = app.keyboards.element
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: keyboard
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: 3)
     }
 }

@@ -3,14 +3,15 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
-use maohuoban_home_application::home::{HomeDashboardService, HomeError};
+use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
 use serde::Serialize;
 use serde_json::Value;
+use uuid::Uuid;
 
 /// HomeHttpState 首页 HTTP 状态
 /// 核心职责：
@@ -39,8 +40,11 @@ pub fn build_home_router(home: Arc<HomeDashboardService>) -> Router {
         .with_state(HomeHttpState::new(home))
 }
 
-async fn get_home_dashboard(State(state): State<HomeHttpState>) -> Response {
-    match state.home.get_dashboard_snapshot().await {
+async fn get_home_dashboard(State(state): State<HomeHttpState>, headers: HeaderMap) -> Response {
+    let context = HomeDashboardContext {
+        user_id: current_user_id(&headers),
+    };
+    match state.home.get_dashboard_snapshot(context).await {
         Ok(snapshot) => ok_response(
             "home.dashboard_loaded",
             "首页已加载",
@@ -48,6 +52,13 @@ async fn get_home_dashboard(State(state): State<HomeHttpState>) -> Response {
         ),
         Err(error) => error_response(&error),
     }
+}
+
+fn current_user_id(headers: &HeaderMap) -> Option<Uuid> {
+    headers
+        .get("x-maohuoban-user-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|raw_user_id| Uuid::parse_str(raw_user_id).ok())
 }
 
 fn ok_response<T>(code: &'static str, message: &'static str, data: T) -> Response

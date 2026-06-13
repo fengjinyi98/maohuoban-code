@@ -13,7 +13,11 @@ struct AuthRootView: View {
     var body: some View {
         ZStack {
             if viewModel.isAuthenticated {
-                MHBAppShell(router: router, onLogout: handleLogout)
+                MHBAppShell(
+                    router: router,
+                    currentUserID: viewModel.currentUser?.id,
+                    onLogout: handleLogout
+                )
                 .transition(.opacity)
             } else {
                 AuthFlowView(viewModel: viewModel)
@@ -27,6 +31,8 @@ struct AuthRootView: View {
         }
         .task(id: viewModel.isAuthenticated) {
             if viewModel.isAuthenticated {
+                MHBKeyboardDismissal.dismissActiveKeyboard()
+                try? await Task.sleep(for: .milliseconds(200))
                 MHBKeyboardDismissal.dismissActiveKeyboard()
             }
         }

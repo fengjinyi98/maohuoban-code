@@ -40,6 +40,8 @@ struct AuthVerificationView: View {
                 isLoading: viewModel.isSubmitting,
                 accessibilityIdentifier: "auth.verifyCodeButton"
             ) {
+                isCodeFocused = false
+                MHBKeyboardDismissal.dismissActiveKeyboard()
                 Task { await viewModel.verifyCode() }
             }
 

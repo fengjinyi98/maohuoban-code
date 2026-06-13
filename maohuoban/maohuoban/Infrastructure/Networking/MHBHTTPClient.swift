@@ -43,12 +43,16 @@ struct MHBHTTPClient {
     }
 
     func get<ResponseBody: Decodable>(
-        path: String
+        path: String,
+        headers: [String: String] = [:]
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
 
         return try await send(request)
     }

@@ -10,6 +10,10 @@ enum MHBBackendEndpoint {
            let url = URL(string: overrideURL) {
             return url
         }
+        if let overrideURL = UserDefaults.standard.string(forKey: "MHB_BACKEND_BASE_URL"),
+           let url = URL(string: overrideURL) {
+            return url
+        }
         return URL(string: "http://192.168.2.2:8080")!
     }
 }

@@ -6,7 +6,12 @@ import MaohuobanDesignSystem
 // - 作为首页 Tab NavigationStack 的根内容
 // - 后续在此注册 HomeRoute 的 navigationDestination
 struct HomeRootScreen: View {
+    let currentUserID: String?
     @State private var store = HomeDashboardStore()
+
+    init(currentUserID: String? = nil) {
+        self.currentUserID = currentUserID
+    }
 
     var body: some View {
         Group {
@@ -17,13 +22,13 @@ struct HomeRootScreen: View {
                 HomeDashboardLoadedView(snapshot: snapshot)
             case .failed(let message):
                 HomeDashboardErrorView(message: message) {
-                    Task { await store.load() }
+                    Task { await store.load(currentUserID: currentUserID) }
                 }
             }
         }
         .navigationTitle("首页")
-        .task {
-            await store.load()
+        .task(id: currentUserID) {
+            await store.load(currentUserID: currentUserID)
         }
     }
 }

@@ -106,6 +106,35 @@ impl PetRepository for PostgresPetRepository {
         row.map(TryInto::try_into).transpose()
     }
 
+    async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>> {
+        let rows = sqlx::query_as::<_, PetProfileRow>(
+            r#"
+            SELECT
+                id,
+                owner_user_id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                managed_status,
+                source_kind,
+                created_at,
+                updated_at
+            FROM pet_profiles
+            WHERE owner_user_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(owner_user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         let event_id = Uuid::new_v4();
         let row = sqlx::query_as::<_, PetEventRow>(

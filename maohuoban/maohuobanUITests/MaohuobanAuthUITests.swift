@@ -123,7 +123,9 @@ final class MaohuobanAuthUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "--reset-auth-state",
-            "--skip-launch-screen"
+            "--skip-launch-screen",
+            "-MHB_BACKEND_BASE_URL",
+            backendBaseURL
         ]
         app.launchEnvironment["MHB_BACKEND_BASE_URL"] = backendBaseURL
         addUIInterruptionMonitor(withDescription: "本地网络权限") { alert in
