@@ -16,12 +16,18 @@ use maohuoban_auth_infrastructure::{
     redis::RedisOtpChallengeStore,
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
+use maohuoban_home_application::home::{
+    HomeDashboardProvider, HomeDashboardService, HomeResult, pet_owner_home_snapshot,
+};
+use maohuoban_home_domain::home::HomeDashboardSnapshot;
+use maohuoban_home_http::home::build_home_router;
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 /// BackendConfig 后端启动配置
 /// 核心职责：
@@ -87,6 +93,40 @@ pub struct BackendApp {
     pub repository: PostgresAuthRepository,
     pub password_service: Argon2PasswordCredentialService,
     pub token_issuer: JwtTokenIssuer,
+    pub home_provider: InMemoryHomeDashboardProvider,
+}
+
+/// InMemoryHomeDashboardProvider 内存首页快照提供器
+/// 核心职责：
+/// - 为开发和契约测试提供可替换首页快照
+/// - 保持首页应用服务依赖端口而非具体数据库实现
+#[derive(Clone)]
+pub struct InMemoryHomeDashboardProvider {
+    snapshot: Arc<RwLock<HomeDashboardSnapshot>>,
+}
+
+impl InMemoryHomeDashboardProvider {
+    #[must_use]
+    pub fn new(snapshot: HomeDashboardSnapshot) -> Self {
+        Self {
+            snapshot: Arc::new(RwLock::new(snapshot)),
+        }
+    }
+
+    /// replace_snapshot 替换首页快照
+    /// 核心职责：
+    /// - 为测试和开发种子切换首页形态
+    /// - 通过写锁保证读取和替换的一致性
+    pub async fn replace_snapshot(&self, snapshot: HomeDashboardSnapshot) {
+        *self.snapshot.write().await = snapshot;
+    }
+}
+
+#[async_trait::async_trait]
+impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
+    async fn get_dashboard_snapshot(&self) -> HomeResult<HomeDashboardSnapshot> {
+        Ok(self.snapshot.read().await.clone())
+    }
 }
 
 /// build_backend_app 构建后端应用
@@ -124,7 +164,11 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     ));
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
-    let router = build_auth_router(auth_service).merge(build_legal_router(legal_service));
+    let home_provider = InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot());
+    let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
+    let router = build_auth_router(auth_service)
+        .merge(build_legal_router(legal_service))
+        .merge(build_home_router(home_service));
 
     Ok(BackendApp {
         router,
@@ -133,6 +177,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         repository,
         password_service,
         token_issuer,
+        home_provider,
     })
 }
 
@@ -158,6 +203,9 @@ pub mod test_support {
         NewDeviceSession, PasswordCredentialService, SessionRepository, TokenIssuer, UserRepository,
     };
     use maohuoban_auth_domain::auth::DeviceDescriptor;
+    use maohuoban_home_application::home::{
+        merchant_home_snapshot, new_user_home_snapshot, pet_owner_home_snapshot,
+    };
     use tokio::sync::{Mutex, OwnedMutexGuard};
     use uuid::Uuid;
 
@@ -261,6 +309,39 @@ pub mod test_support {
                 .await
                 .expect("count auth audit events")
         }
+
+        /// seed_pet_owner_home 设置普通用户首页快照
+        /// 核心职责：
+        /// - 为首页契约测试提供普通用户场景
+        /// - 覆盖宠物主卡、照护、快捷动作和最近时间线
+        pub async fn seed_pet_owner_home(&self) {
+            self.app
+                .home_provider
+                .replace_snapshot(pet_owner_home_snapshot())
+                .await;
+        }
+
+        /// seed_new_user_home 设置新用户首页快照
+        /// 核心职责：
+        /// - 为首页契约测试提供无宠物空态
+        /// - 覆盖创建宠物主操作和辅助推荐内容
+        pub async fn seed_new_user_home(&self) {
+            self.app
+                .home_provider
+                .replace_snapshot(new_user_home_snapshot())
+                .await;
+        }
+
+        /// seed_merchant_home 设置认证商家首页快照
+        /// 核心职责：
+        /// - 为首页契约测试提供机构宠物工作台
+        /// - 覆盖多宠状态、窝次入口和待补记录
+        pub async fn seed_merchant_home(&self) {
+            self.app
+                .home_provider
+                .replace_snapshot(merchant_home_snapshot())
+                .await;
+        }
     }
 
     /// SeedLoginSession 测试登录会话
@@ -277,6 +358,14 @@ pub mod test_support {
             .await
             .expect("build auth test app");
         AuthTestApp { app, _guard: guard }
+    }
+
+    /// spawn_home_test_app 构建首页契约测试应用
+    /// 核心职责：
+    /// - 复用后端完整路由装配
+    /// - 暴露首页种子快照切换能力
+    pub async fn spawn_home_test_app() -> AuthTestApp {
+        spawn_auth_test_app().await
     }
 
     fn auth_test_lock() -> Arc<Mutex<()>> {

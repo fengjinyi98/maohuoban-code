@@ -5,6 +5,9 @@ members = [
     "maohuoban-rust/crates/maohuoban-auth-domain",
     "maohuoban-rust/crates/maohuoban-auth-http",
     "maohuoban-rust/crates/maohuoban-auth-infrastructure",
+    "maohuoban-rust/crates/maohuoban-home-application",
+    "maohuoban-rust/crates/maohuoban-home-domain",
+    "maohuoban-rust/crates/maohuoban-home-http",
     "maohuoban-rust/crates/maohuoban-legal-application",
     "maohuoban-rust/crates/maohuoban-legal-domain",
     "maohuoban-rust/crates/maohuoban-legal-http",
@@ -18,6 +21,9 @@ default-members = [
     "maohuoban-rust/crates/maohuoban-auth-domain",
     "maohuoban-rust/crates/maohuoban-auth-http",
     "maohuoban-rust/crates/maohuoban-auth-infrastructure",
+    "maohuoban-rust/crates/maohuoban-home-application",
+    "maohuoban-rust/crates/maohuoban-home-domain",
+    "maohuoban-rust/crates/maohuoban-home-http",
     "maohuoban-rust/crates/maohuoban-legal-application",
     "maohuoban-rust/crates/maohuoban-legal-domain",
     "maohuoban-rust/crates/maohuoban-legal-http",
@@ -43,6 +49,9 @@ maohuoban-auth-application = { path = "maohuoban-rust/crates/maohuoban-auth-appl
 maohuoban-auth-domain = { path = "maohuoban-rust/crates/maohuoban-auth-domain" }
 maohuoban-auth-http = { path = "maohuoban-rust/crates/maohuoban-auth-http" }
 maohuoban-auth-infrastructure = { path = "maohuoban-rust/crates/maohuoban-auth-infrastructure" }
+maohuoban-home-application = { path = "maohuoban-rust/crates/maohuoban-home-application" }
+maohuoban-home-domain = { path = "maohuoban-rust/crates/maohuoban-home-domain" }
+maohuoban-home-http = { path = "maohuoban-rust/crates/maohuoban-home-http" }
 maohuoban-legal-application = { path = "maohuoban-rust/crates/maohuoban-legal-application" }
 maohuoban-legal-domain = { path = "maohuoban-rust/crates/maohuoban-legal-domain" }
 maohuoban-legal-http = { path = "maohuoban-rust/crates/maohuoban-legal-http" }
