@@ -6,8 +6,9 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::{
-    MerchantDashboardSummary, MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile,
-    NewPetEvent, NewPetProfile, PetRepository,
+    MerchantAvailableStatusPublication, MerchantDashboardSummary, MerchantLitterDetail,
+    MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile, PetRepository,
+    PublishAvailableStatusInput,
 };
 
 /// PetService 宠物应用服务
@@ -166,6 +167,27 @@ impl PetService {
         }
 
         self.merchant_repository.create_merchant_pet(input).await
+    }
+
+    pub async fn publish_available_status(
+        &self,
+        owner_user_id: Uuid,
+        input: PublishAvailableStatusInput,
+    ) -> PetResult<MerchantAvailableStatusPublication> {
+        let Some(merchant) = self
+            .merchant_repository
+            .find_verified_merchant_for_owner(owner_user_id)
+            .await?
+        else {
+            return Err(PetError::Forbidden);
+        };
+        if merchant.id != input.merchant_id || input.actor_user_id != owner_user_id {
+            return Err(PetError::Forbidden);
+        }
+
+        self.merchant_repository
+            .publish_available_status(input)
+            .await
     }
 
     pub async fn load_merchant_litter_detail(

@@ -12,8 +12,8 @@
 | PRD 总纲 | 已明确 | `docs/product/prd/00_V1_PRD_产品总纲与核心流程.md` 定义 `PetProfile`、`PetEvent`、多宠工作台和商家维护流程 |
 | 首页定调 | 已确定 | 首页是以宠物为主体的信任工作台 |
 | ID 策略 | 已确定 | 当前阶段统一使用 UUID v4，PostgreSQL `uuid`，API 传字符串 |
-| 后端基线 | 已完成首页聚合、宠物事件接口、商家追溯应用基线、商家宠物状态列表接口、商家新增宠物接口、窝次详情接口和事件详情接口 | 新增 home domain/application/http crates；新增 pet domain/application/infrastructure/http crates；`home_contract.rs` 覆盖普通用户、空态、seed 商家态、当前用户真实宠物聚合、当前用户真实事件派生今日照护与提醒、当前用户认证商家真实窝次追溯聚合；`pet_contract.rs` 覆盖宠物档案、事件追加、时间线、事件详情、商家在管宠物状态筛选、认证商家新增在管宠物和窝次详情追溯上下文 |
-| iOS 首页 | 已完成首页骨架、当前用户上下文、动作路由、Pet 写入基线、事件详情页、商家宠物列表目标页、商家新增宠物页和窝次详情页 | `HomeRootScreen` 已消费 `HomeDashboardSnapshot`，`AuthRootView` 将当前 user id 传入首页 Store，`.createPet` / `.recordDaily` / `.recordHealth` / `.timelineEvent` 已接入 `Features/Pet`，`.merchantPets` / `.addMerchantPet` / `.merchantLitter` 已接入 `Features/Merchant` 真实读写流程，登录后新用户空态 UI 契约通过 |
+| 后端基线 | 已完成首页聚合、宠物事件接口、商家追溯应用基线、商家宠物状态列表接口、商家新增宠物接口、可售状态发布接口、窝次详情接口和事件详情接口 | 新增 home domain/application/http crates；新增 pet domain/application/infrastructure/http crates；`home_contract.rs` 覆盖普通用户、空态、seed 商家态、当前用户真实宠物聚合、当前用户真实事件派生今日照护与提醒、当前用户认证商家真实窝次追溯聚合；`pet_contract.rs` 覆盖宠物档案、事件追加、时间线、事件详情、商家在管宠物状态筛选、认证商家新增在管宠物、可售状态发布和窝次详情追溯上下文 |
+| iOS 首页 | 已完成首页骨架、当前用户上下文、动作路由、Pet 写入基线、事件详情页、商家宠物列表目标页、商家新增宠物页、可售状态发布页和窝次详情页 | `HomeRootScreen` 已消费 `HomeDashboardSnapshot`，`AuthRootView` 将当前 user id 传入首页 Store，`.createPet` / `.recordDaily` / `.recordHealth` / `.timelineEvent` 已接入 `Features/Pet`，`.merchantPets` / `.addMerchantPet` / `.publishAvailableStatus` / `.merchantLitter` 已接入 `Features/Merchant` 真实读写流程，登录后新用户空态 UI 契约通过 |
 
 ## 2. Phase 进度
 
@@ -21,8 +21,8 @@
 |---|---|---|
 | 1. 文档与边界 | 已完成基线 | 提交 docs-only commit |
 | 2. 后端首页契约 | 已完成真实用户上下文基线 | `/api/v1/home/dashboard` 支持 `x-maohuoban-user-id` 聚合当前用户宠物、今日照护、提醒和最近时间线 |
-| 3. 宠物事件底座 | 已完成商家追溯应用基线、商家新增宠物接口、窝次详情接口和事件详情接口 | 已新增宠物、事件、窝次、关系、证据快照数据库基线；已实现宠物档案创建、事件追加、时间线读取、事件详情读取、商家宠物列表、商家新增宠物和窝次详情 HTTP 契约；已建立认证商家、窝次摘要、关系边和商家近期事件的应用读模型与首页聚合用例 |
-| 4. iOS 首页骨架 | 已完成当前用户上下文、单测 target、动作路由、Pet 写入基线、事件详情页、商家宠物列表页、商家新增宠物页和窝次详情页 | `HomeRouteDestinationScreen` 已将创建宠物、记录日常、健康记录、事件详情、新增商家宠物和窝次详情替换为真实页面；商家宠物状态筛选进入真实 `MerchantPetsScreen`；医院和交易继续等待对应业务模块接管 |
+| 3. 宠物事件底座 | 已完成商家追溯应用基线、商家新增宠物接口、可售状态发布接口、窝次详情接口和事件详情接口 | 已新增宠物、事件、窝次、关系、证据快照数据库基线；已实现宠物档案创建、事件追加、时间线读取、事件详情读取、商家宠物列表、商家新增宠物、可售状态发布和窝次详情 HTTP 契约；已建立认证商家、窝次摘要、关系边和商家近期事件的应用读模型与首页聚合用例 |
+| 4. iOS 首页骨架 | 已完成当前用户上下文、单测 target、动作路由、Pet 写入基线、事件详情页、商家宠物列表页、商家新增宠物页、可售状态发布页和窝次详情页 | `HomeRouteDestinationScreen` 已将创建宠物、记录日常、健康记录、事件详情、新增商家宠物、发布可售状态和窝次详情替换为真实页面；商家宠物状态筛选进入真实 `MerchantPetsScreen`；医院、交易和商家任务继续等待对应业务模块接管 |
 | 5. 端到端验证 | 已完成当前阶段验证 | Rust、DesignSystem、iOS build、首页新用户空态 UI 契约和模拟器截图复核已通过 |
 
 ## 3. 验收清单
@@ -37,14 +37,15 @@
 | UUID 策略 | 文档 + DTO + 数据库迁移 | 首页快照模型已使用 UUID；`0005_pet_home_baseline.sql` 使用 PostgreSQL `uuid` |
 | 宠物数据库基线 | `maohuoban-rust/migrations/0005_pet_home_baseline.sql` | 已完成 |
 | 宠物迁移契约测试 | `maohuoban-rust/tests/pet_schema_contract.rs` | 已通过 |
-| 宠物档案、事件与商家宠物接口 | `maohuoban-rust/tests/pet_contract.rs` | 已通过，7 tests，覆盖 `POST /api/v1/pets`、`POST /api/v1/pets/{pet_id}/events`、`GET /api/v1/pets/{pet_id}/timeline`、`GET /api/v1/pet-events/{event_id}`、`GET /api/v1/merchants/{merchant_id}/pets?status=available`、`POST /api/v1/merchants/{merchant_id}/pets`、`GET /api/v1/merchants/{merchant_id}/litters/{litter_id}` 和缺失用户上下文 401 |
+| 宠物档案、事件与商家宠物接口 | `maohuoban-rust/tests/pet_contract.rs` | 已通过，8 tests，覆盖 `POST /api/v1/pets`、`POST /api/v1/pets/{pet_id}/events`、`GET /api/v1/pets/{pet_id}/timeline`、`GET /api/v1/pet-events/{event_id}`、`GET /api/v1/merchants/{merchant_id}/pets?status=available`、`POST /api/v1/merchants/{merchant_id}/pets`、`POST /api/v1/merchants/{merchant_id}/pets/{pet_id}/available-status`、`GET /api/v1/merchants/{merchant_id}/litters/{litter_id}` 和缺失用户上下文 401 |
 | 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线；后端可读取当前用户宠物档案，并从真实 `PetEvent` 派生食欲、体重、驱虫提醒和驱虫 / 疫苗时间线类型；创建宠物、记录日常、健康记录进入真实写入流程；最近时间线事件进入真实事件详情页 | 已完成写入和详情读取基线 |
 | 新用户空态 | 无宠物时展示创建宠物和辅助内容入口；创建宠物主操作进入真实 `PetCreateScreen`；UI 测试覆盖登录后键盘消失和创建宠物入口 | 已完成当前用户上下文基线 |
-| 商家首页 | 展示机构宠物工作台、窝次入口、待补记录和近期事件；后端可从真实认证商家、在管宠物、窝次、关系和事件聚合；状态看板可进入真实商家宠物列表；新增宠物入口可写入商家在管宠物；窝次入口可进入真实追溯详情页；近期事件进入真实事件详情页 | 已完成商家追溯应用基线、列表目标页、新增宠物写入页、窝次详情页和事件详情页 |
+| 商家首页 | 展示机构宠物工作台、窝次入口、待补记录和近期事件；后端可从真实认证商家、在管宠物、窝次、关系和事件聚合；状态看板可进入真实商家宠物列表；新增宠物入口可写入商家在管宠物；发布可售状态可更新宠物状态并追加买家可见事件；窝次入口可进入真实追溯详情页；近期事件进入真实事件详情页 | 已完成商家追溯应用基线、列表目标页、新增宠物写入页、可售状态发布页、窝次详情页和事件详情页 |
 | SwiftUI 架构约束 | Store 承载副作用，section 独立 View，DesignSystem token | 已完成基线 |
 | iOS 商家目标测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests/MerchantRepositoryTests -only-testing:maohuobanTests/MerchantLitterDetailStoreTests` | 已通过，5 tests，覆盖商家列表 / 新增 / 窝次详情请求路径、当前用户 header、窝次详情 Store loading -> loaded 和缺失用户上下文失败 |
+| iOS 商家可售发布目标测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests/MerchantRepositoryTests -only-testing:maohuobanTests/MerchantAvailableStatusStoreTests` | 已通过，7 tests，覆盖可售发布请求路径、当前用户 header、`buyer_visible` 解码、候选加载、发布成功和缺失用户上下文失败 |
 | iOS 事件详情目标测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests/PetRepositoryTests -only-testing:maohuobanTests/PetEventDetailStoreTests` | 已通过，5 tests，覆盖事件详情请求路径、当前用户 header、详情解码、Store loading -> loaded 和缺失用户上下文失败 |
-| iOS 单元测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests` | 已通过，25 tests，覆盖 DTO 解码、普通用户真实事件派生 payload、Store loading -> loaded / failed、动作路由上下文、缺失商家上下文兜底、Pet 写入请求头、`PetWriteStore` / `PetEventDetailStore` 状态流、商家宠物列表 / 新增 / 窝次详情请求契约、`MerchantPetsStore`、`MerchantPetCreateStore` 和 `MerchantLitterDetailStore` 状态流 |
+| iOS 单元测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests` | 已通过，29 tests，覆盖 DTO 解码、普通用户真实事件派生 payload、Store loading -> loaded / failed、动作路由上下文、缺失商家上下文兜底、Pet 写入请求头、`PetWriteStore` / `PetEventDetailStore` 状态流、商家宠物列表 / 新增 / 可售发布 / 窝次详情请求契约、`MerchantPetsStore`、`MerchantPetCreateStore`、`MerchantAvailableStatusStore` 和 `MerchantLitterDetailStore` 状态流 |
 | Rust 测试 | `cargo test --workspace` | 已通过 |
 | Rust lint | `cargo clippy --workspace --all-targets` | 已通过 |
 | iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` | 已通过，`** BUILD SUCCEEDED **` |
@@ -62,7 +63,7 @@
 | 新用户空态 | 主操作是创建第一只宠物；UGC 只作为辅助补空态 |
 | 事件底座 | 普通用户和商家共用 `PetEvent`，商家扩展窝次、关系树、证据快照 |
 | ID | UUID v4；后续如需时间有序 ID，可评审 UUIDv7 / ULID |
-| iOS | 首页前端只消费 `HomeDashboardSnapshot`，不在 View 中写副作用；动作通过 `HomeActionRouteResolver` 转为 `HomeRoute`；创建宠物、记录事件和事件详情由 `Features/Pet` 承接；商家宠物状态列表、新增宠物和窝次详情由 `Features/Merchant` 承接；UI 测试通过 `-MHB_BACKEND_BASE_URL` 启动参数固定后端地址 |
+| iOS | 首页前端只消费 `HomeDashboardSnapshot`，不在 View 中写副作用；动作通过 `HomeActionRouteResolver` 转为 `HomeRoute`；创建宠物、记录事件和事件详情由 `Features/Pet` 承接；商家宠物状态列表、新增宠物、发布可售状态和窝次详情由 `Features/Merchant` 承接；UI 测试通过 `-MHB_BACKEND_BASE_URL` 启动参数固定后端地址 |
 | 后端 | 首页聚合服务只做读模型编排，深层规则由 pet/merchant/reminder/recommendation 域承担 |
 
 ## 5. 风险与约束

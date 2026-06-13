@@ -12,9 +12,9 @@ use uuid::Uuid;
 
 use super::{
     dto::{
-        CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest, MerchantPetsData,
-        MerchantLitterDetailData, MerchantPetsQuery, PetEventData, PetProfileData,
-        PetTimelineData,
+        CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest,
+        MerchantAvailableStatusData, MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery,
+        PetEventData, PetProfileData, PetTimelineData, PublishAvailableStatusRequest,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -48,6 +48,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route(
             "/api/v1/merchants/{merchant_id}/pets",
             get(list_merchant_pets).post(create_merchant_pet),
+        )
+        .route(
+            "/api/v1/merchants/{merchant_id}/pets/{pet_id}/available-status",
+            post(publish_available_status),
         )
         .route(
             "/api/v1/merchants/{merchant_id}/litters/{litter_id}",
@@ -179,6 +183,31 @@ async fn create_merchant_pet(
             "merchant.pet_created",
             "商家宠物已新增",
             PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn publish_available_status(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path((merchant_id, pet_id)): Path<(Uuid, Uuid)>,
+    Json(request): Json<PublishAvailableStatusRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = request.into_input(merchant_id, pet_id, owner_user_id);
+    match state
+        .pet
+        .publish_available_status(owner_user_id, input)
+        .await
+    {
+        Ok(publication) => ok_response(
+            "merchant.available_status_published",
+            "可售状态已发布",
+            MerchantAvailableStatusData::from(publication),
         ),
         Err(error) => error_response(&error),
     }

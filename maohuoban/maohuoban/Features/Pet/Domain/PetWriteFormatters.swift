@@ -65,6 +65,7 @@ extension PetEventVisibility {
         case .family: "家庭可见"
         case .publicTimeline: "公开"
         case .authorized: "授权可见"
+        case .buyerVisible: "买家可见"
         }
     }
 }

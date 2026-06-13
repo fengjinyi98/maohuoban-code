@@ -215,9 +215,10 @@ enum PetEventKind: String, Codable, Equatable, CaseIterable, Identifiable {
 // - 默认支持隐私收紧策略
 enum PetEventVisibility: String, Codable, Equatable, CaseIterable, Identifiable {
     case `private`
-    case family
+    case family = "co_caretakers"
     case publicTimeline = "public"
     case authorized
+    case buyerVisible = "buyer_visible"
 
     var id: Self { self }
 }

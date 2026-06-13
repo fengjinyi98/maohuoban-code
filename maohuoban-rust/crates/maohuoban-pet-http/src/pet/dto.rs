@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
-    MerchantLitterDetail, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
+    MerchantAvailableStatusPublication, MerchantLitterDetail, NewMerchantPetProfile, NewPetEvent,
+    NewPetProfile, PublishAvailableStatusInput,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, LitterStatus, ManagedPetStatus, PetEvent, PetProfile,
@@ -62,6 +63,33 @@ impl CreateMerchantPetRequest {
             birthday: self.birthday,
             managed_status: self.managed_status.unwrap_or(ManagedPetStatus::NeedsRecord),
             source_kind: PetSourceKind::MerchantManaged,
+        }
+    }
+}
+
+/// PublishAvailableStatusRequest 发布可售状态请求
+/// 核心职责：
+/// - 接收商家发布买家可见可售状态所需字段
+/// - 将 HTTP 输入转换为应用层命令
+#[derive(Debug, Deserialize)]
+pub(super) struct PublishAvailableStatusRequest {
+    summary: Option<String>,
+    occurred_at: DateTime<Utc>,
+}
+
+impl PublishAvailableStatusRequest {
+    pub(super) fn into_input(
+        self,
+        merchant_id: Uuid,
+        pet_id: Uuid,
+        actor_user_id: Uuid,
+    ) -> PublishAvailableStatusInput {
+        PublishAvailableStatusInput {
+            merchant_id,
+            pet_id,
+            actor_user_id,
+            summary: self.summary,
+            occurred_at: self.occurred_at,
         }
     }
 }
@@ -171,6 +199,25 @@ impl MerchantPetsData {
             merchant_id,
             status,
             pets: pets.into_iter().map(PetProfileData::from).collect(),
+        }
+    }
+}
+
+/// MerchantAvailableStatusData 商家可售状态发布响应
+/// 核心职责：
+/// - 返回更新后的在管宠物状态
+/// - 返回同步写入的买家可见事件
+#[derive(Debug, Serialize)]
+pub(super) struct MerchantAvailableStatusData {
+    pet: PetProfileData,
+    event: PetEventData,
+}
+
+impl From<MerchantAvailableStatusPublication> for MerchantAvailableStatusData {
+    fn from(publication: MerchantAvailableStatusPublication) -> Self {
+        Self {
+            pet: PetProfileData::from(publication.pet),
+            event: PetEventData::from(publication.event),
         }
     }
 }

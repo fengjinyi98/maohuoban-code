@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
     Litter, ManagedPetStatus, MerchantProfile, MerchantStatusCount, PetEvent, PetProfile,
     PetRelationship, PetResult, PetSex, PetSourceKind, PetSpecies,
@@ -66,6 +66,29 @@ pub struct NewMerchantPetProfile {
     pub source_kind: PetSourceKind,
 }
 
+/// PublishAvailableStatusInput 发布可售状态输入
+/// 核心职责：
+/// - 承载商家将宠物发布为可售所需上下文
+/// - 固定状态变更和事件账本写入的应用边界
+#[derive(Debug, Clone)]
+pub struct PublishAvailableStatusInput {
+    pub merchant_id: Uuid,
+    pub pet_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub summary: Option<String>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// MerchantAvailableStatusPublication 可售状态发布结果
+/// 核心职责：
+/// - 返回更新后的商家宠物
+/// - 返回同步追加的买家可见事件
+#[derive(Debug, Clone)]
+pub struct MerchantAvailableStatusPublication {
+    pub pet: PetProfile,
+    pub event: PetEvent,
+}
+
 /// MerchantRepository 商家追溯读取端口
 /// 核心职责：
 /// - 读取和写入认证商家在管宠物、窝次和关系
@@ -108,6 +131,11 @@ pub trait MerchantRepository: Send + Sync {
     ) -> PetResult<Vec<PetProfile>>;
 
     async fn create_merchant_pet(&self, input: NewMerchantPetProfile) -> PetResult<PetProfile>;
+
+    async fn publish_available_status(
+        &self,
+        input: PublishAvailableStatusInput,
+    ) -> PetResult<MerchantAvailableStatusPublication>;
 
     async fn load_merchant_litter_detail(
         &self,

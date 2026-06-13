@@ -62,9 +62,14 @@ struct HomeRouteDestinationScreen: View {
                 eventID: eventID,
                 currentUserID: currentUserID
             )
+        case .publishAvailableStatus(let merchantID):
+            MerchantAvailableStatusScreen(
+                merchantID: merchantID,
+                currentUserID: currentUserID,
+                onPublished: onHomeMutationCompleted
+            )
         case .bookHospital,
              .importTradePet,
-             .publishAvailableStatus,
              .merchantTask:
             MHBTabPlaceholderRootScreen(
                 systemImage: route.systemImage,

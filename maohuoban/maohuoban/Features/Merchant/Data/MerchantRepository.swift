@@ -22,6 +22,13 @@ protocol MerchantRepository {
         litterID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail>
+
+    func publishAvailableStatus(
+        merchantID: String,
+        petID: String,
+        draft: MerchantAvailableStatusDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantAvailableStatusPublication>
 }
 
 // DefaultMerchantRepository 默认商家读写仓库
@@ -68,6 +75,19 @@ struct DefaultMerchantRepository: MerchantRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail> {
         try await client.get(
             path: "/api/v1/merchants/\(merchantID)/litters/\(litterID)",
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func publishAvailableStatus(
+        merchantID: String,
+        petID: String,
+        draft: MerchantAvailableStatusDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantAvailableStatusPublication> {
+        try await client.post(
+            path: "/api/v1/merchants/\(merchantID)/pets/\(petID)/available-status",
+            body: draft,
             headers: userHeaders(currentUserID: currentUserID)
         )
     }

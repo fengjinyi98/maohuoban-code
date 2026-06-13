@@ -61,6 +61,40 @@ struct MerchantPetDraft: Encodable, Equatable {
     }
 }
 
+// MerchantAvailableStatusDraft 商家发布可售状态草稿
+// 核心职责：
+// - 承载商家发布买家可见可售状态的输入
+// - 保持前端表单和后端字段稳定映射
+struct MerchantAvailableStatusDraft: Encodable, Equatable {
+    let summary: String
+    let occurredAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case summary
+        case occurredAt = "occurred_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedSummary.isEmpty {
+            try container.encodeNil(forKey: .summary)
+        } else {
+            try container.encode(trimmedSummary, forKey: .summary)
+        }
+        try container.encode(occurredAt, forKey: .occurredAt)
+    }
+}
+
+// MerchantAvailableStatusPublication 商家可售状态发布结果
+// 核心职责：
+// - 承接发布后更新的宠物状态
+// - 承接同步写入的买家可见事件
+struct MerchantAvailableStatusPublication: Decodable, Equatable {
+    let pet: MerchantManagedPet
+    let event: PetEventDetail
+}
+
 // MerchantManagedPet 商家在管宠物摘要
 // 核心职责：
 // - 表达商家工作台列表页所需宠物字段

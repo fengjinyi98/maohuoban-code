@@ -377,6 +377,62 @@ async fn merchant_pet_create_persists_managed_pet_for_verified_merchant() {
 }
 
 #[tokio::test]
+async fn merchant_publish_available_status_updates_pet_and_records_event() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138115").await;
+    let merchant_id = app.seed_merchant_tracking_workspace(&user_id).await;
+    let pet_id = "69f4570a-aea8-4197-a98c-33ed56c6ff78";
+
+    let publish_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/merchants/{merchant_id}/pets/{pet_id}/available-status"),
+            json!({
+                "summary": "已完成基础健康记录，可预约到店看猫。",
+                "occurred_at": "2026-06-14T10:00:00Z"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("publish available status");
+
+    assert_eq!(publish_response.status(), StatusCode::OK);
+    let publish_body = response_json(publish_response).await;
+    assert_eq!(publish_body["success"], true);
+    assert_eq!(publish_body["code"], "merchant.available_status_published");
+    assert_eq!(publish_body["message"], "可售状态已发布");
+    assert_eq!(publish_body["data"]["pet"]["id"], pet_id);
+    assert_eq!(publish_body["data"]["pet"]["managed_status"], "available");
+    assert_eq!(publish_body["data"]["event"]["pet_id"], pet_id);
+    assert_eq!(publish_body["data"]["event"]["event_kind"], "merchant");
+    assert_eq!(
+        publish_body["data"]["event"]["event_subkind"],
+        "available_status"
+    );
+    assert_eq!(publish_body["data"]["event"]["visibility"], "buyer_visible");
+    assert_eq!(
+        publish_body["data"]["event"]["summary"],
+        "已完成基础健康记录，可预约到店看猫。"
+    );
+
+    let available_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/merchants/{merchant_id}/pets?status=available"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load available merchant pets");
+    assert_eq!(available_response.status(), StatusCode::OK);
+    let available_body = response_json(available_response).await;
+    let pets = available_body["data"]["pets"].as_array().expect("pets");
+    assert!(pets.iter().any(|pet| pet["id"] == pet_id));
+}
+
+#[tokio::test]
 async fn merchant_litter_detail_returns_traceable_family_context() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -421,11 +477,11 @@ async fn merchant_litter_detail_returns_traceable_family_context() {
     assert_eq!(body["data"]["available_count"], 2);
     assert_eq!(body["data"]["sire_pet"]["name"], "Leo");
     assert_eq!(body["data"]["dam_pet"]["name"], "Luna");
-    assert_eq!(body["data"]["children"].as_array().expect("children").len(), 3);
     assert_eq!(
-        body["data"]["recent_events"][0]["title"],
-        "A 窝出生记录"
+        body["data"]["children"].as_array().expect("children").len(),
+        3
     );
+    assert_eq!(body["data"]["recent_events"][0]["title"], "A 窝出生记录");
     assert!(
         body["data"]["relationships"]
             .as_array()

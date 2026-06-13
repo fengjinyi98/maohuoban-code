@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
-    MerchantLitterDetail, MerchantLitterSummary, MerchantRepository, NewMerchantPetProfile,
+    MerchantAvailableStatusPublication, MerchantLitterDetail, MerchantLitterSummary,
+    MerchantRepository, NewMerchantPetProfile, PublishAvailableStatusInput,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, Litter, LitterStatus, ManagedPetStatus, MerchantProfile,
@@ -287,6 +288,112 @@ impl MerchantRepository for PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         row.try_into()
+    }
+
+    async fn publish_available_status(
+        &self,
+        input: PublishAvailableStatusInput,
+    ) -> PetResult<MerchantAvailableStatusPublication> {
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+
+        let pet_row = sqlx::query_as::<_, MerchantManagedPetRow>(
+            r#"
+            UPDATE pet_profiles
+            SET
+                managed_status = 'available',
+                updated_at = now()
+            WHERE id = $1 AND merchant_id = $2
+            RETURNING
+                id,
+                owner_user_id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                managed_status,
+                source_kind,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(input.pet_id)
+        .bind(input.merchant_id)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?
+        .ok_or(PetError::PetNotFound)?;
+
+        let event_id = Uuid::new_v4();
+        let event_row = sqlx::query_as::<_, MerchantPetEventRow>(
+            r#"
+            INSERT INTO pet_events (
+                id,
+                pet_id,
+                event_kind,
+                event_subkind,
+                title,
+                summary,
+                visibility,
+                event_payload,
+                occurred_at,
+                actor_user_id,
+                record_revision
+            )
+            VALUES (
+                $1,
+                $2,
+                'merchant',
+                'available_status',
+                '已发布可售状态',
+                $3,
+                'buyer_visible',
+                $4,
+                $5,
+                $6,
+                1
+            )
+            RETURNING
+                id,
+                pet_id,
+                litter_id,
+                event_kind,
+                event_subkind,
+                title,
+                summary,
+                visibility,
+                event_payload,
+                occurred_at,
+                actor_user_id,
+                evidence_snapshot_id,
+                record_revision,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(event_id)
+        .bind(input.pet_id)
+        .bind(input.summary)
+        .bind(serde_json::json!({
+            "managed_status": "available",
+            "merchant_id": input.merchant_id
+        }))
+        .bind(input.occurred_at)
+        .bind(input.actor_user_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
+
+        Ok(MerchantAvailableStatusPublication {
+            pet: pet_row.try_into()?,
+            event: event_row.try_into()?,
+        })
     }
 
     async fn load_merchant_litter_detail(
