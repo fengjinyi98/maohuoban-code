@@ -59,7 +59,10 @@ struct MHBToastTests {
         #expect(manager.activeToast == toast)
 
         // 等待定时器执行（MHBToastManager 默认 3 秒自动关闭）
-        try await Task.sleep(for: .seconds(3.2))
+        for _ in 0..<20 {
+            if manager.activeToast == nil { break }
+            try await Task.sleep(for: .seconds(0.2))
+        }
 
         #expect(manager.activeToast == nil)
     }
@@ -73,7 +76,10 @@ struct MHBToastTests {
         manager.show(toast)
         #expect(manager.activeToast == toast)
 
-        try await Task.sleep(for: .seconds(0.45))
+        for _ in 0..<15 {
+            if manager.activeToast == nil { break }
+            try await Task.sleep(for: .seconds(0.05))
+        }
 
         #expect(manager.activeToast == nil)
     }

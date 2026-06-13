@@ -50,7 +50,12 @@ final class MHBSlotTextCellView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        faceLabels.forEach { $0.frame = bounds }
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let localBounds = CGRect(origin: .zero, size: bounds.size)
+        faceLabels.forEach {
+            $0.bounds = localBounds
+            $0.center = center
+        }
     }
 
     func setCharacterImmediately(_ character: String) {

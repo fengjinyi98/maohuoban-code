@@ -46,4 +46,13 @@ public struct MHBSlotText: UIViewRepresentable {
         uiView.textColor = textColor
         uiView.setText(text, animated: animated, configuration: configuration)
     }
+
+    public func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: MHBSlotTextView,
+        context: Context
+    ) -> CGSize? {
+        uiView.intrinsicContentSize
+    }
 }
+

@@ -11,7 +11,7 @@ struct AuthAgreementRow: View {
     let onPrivacyPolicy: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: MHBTheme.Spacing.s2) {
+        HStack(alignment: .center, spacing: MHBTheme.Spacing.s2) {
             AuthAgreementToggleButton(isAccepted: $isAccepted)
 
             AuthAgreementLinks(
@@ -53,26 +53,24 @@ private struct AuthAgreementLinks: View {
     let onPrivacyPolicy: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+        HStack(spacing: 0) {
             Text("我已阅读并同意")
                 .font(MHBTheme.Typography.caption)
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
-            HStack(spacing: MHBTheme.Spacing.s1) {
-                Button("《用户协议》", action: onUserAgreement)
-                    .font(MHBTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                    .accessibilityIdentifier("auth.userAgreementLink")
+            Button("《用户协议》", action: onUserAgreement)
+                .font(MHBTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                .accessibilityIdentifier("auth.userAgreementLink")
 
-                Text("和")
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+            Text("和")
+                .font(MHBTheme.Typography.caption)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
-                Button("《隐私政策》", action: onPrivacyPolicy)
-                    .font(MHBTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                    .accessibilityIdentifier("auth.privacyPolicyLink")
-            }
+            Button("《隐私政策》", action: onPrivacyPolicy)
+                .font(MHBTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                .accessibilityIdentifier("auth.privacyPolicyLink")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
