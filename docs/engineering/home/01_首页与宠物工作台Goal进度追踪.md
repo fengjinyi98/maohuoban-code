@@ -43,7 +43,7 @@
 | 商家首页 | 展示机构宠物工作台、窝次入口、待补记录和近期事件；后端可从真实认证商家、在管宠物、窝次、关系和事件聚合；状态看板可进入真实商家宠物列表 | 已完成商家追溯应用基线和列表目标页 |
 | SwiftUI 架构约束 | Store 承载副作用，section 独立 View，DesignSystem token | 已完成基线 |
 | iOS 商家列表目标测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests/MerchantRepositoryTests -only-testing:maohuobanTests/MerchantPetsStoreTests` | 已通过，3 tests，覆盖请求路径、状态 query、当前用户 header、Store loading -> loaded 和缺失用户上下文失败 |
-| iOS 单元测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests` | 已通过，15 tests，覆盖 DTO 解码、Store loading -> loaded / failed、动作路由上下文、缺失商家上下文兜底、Pet 写入请求头、`PetWriteStore` 状态流、商家宠物列表请求契约和 `MerchantPetsStore` 状态流 |
+| iOS 单元测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests` | 已通过，16 tests，覆盖 DTO 解码、普通用户真实事件派生 payload、Store loading -> loaded / failed、动作路由上下文、缺失商家上下文兜底、Pet 写入请求头、`PetWriteStore` 状态流、商家宠物列表请求契约和 `MerchantPetsStore` 状态流 |
 | Rust 测试 | `cargo test --workspace` | 已通过 |
 | Rust lint | `cargo clippy --workspace --all-targets` | 已通过 |
 | iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` | 已通过，`** BUILD SUCCEEDED **` |

@@ -7,6 +7,103 @@ import XCTest
 // - 覆盖认证商家、窝次、待办和近期事件解码
 final class HomeDashboardDecodingTests: XCTestCase {
     @MainActor
+    func testPetOwnerEventDerivedDashboardJSONDecodesIntoSnapshot() throws {
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "code": "ok",
+              "message": "首页已加载",
+              "data": {
+                "identity": {
+                  "kind": "pet_owner",
+                  "display_name": "毛伙伴用户",
+                  "city": null,
+                  "verification_badge": null
+                },
+                "selected_pet": {
+                  "id": "pet-1",
+                  "name": "糯米",
+                  "species": "dog",
+                  "breed": "比熊犬",
+                  "sex": "female",
+                  "age_text": "2岁",
+                  "status_text": "记录正在形成可信档案",
+                  "updated_text": "档案已同步",
+                  "avatar_url": null
+                },
+                "pet_switcher": [
+                  {
+                    "id": "pet-1",
+                    "name": "糯米",
+                    "species": "dog",
+                    "avatar_url": null,
+                    "is_selected": true
+                  }
+                ],
+                "care_summary": {
+                  "title": "今日照护",
+                  "metrics": [
+                    {
+                      "kind": "appetite",
+                      "title": "食欲",
+                      "value_text": "旺盛",
+                      "status_text": "早餐和晚餐已记录"
+                    },
+                    {
+                      "kind": "weight",
+                      "title": "体重",
+                      "value_text": "6.4kg",
+                      "status_text": "已同步"
+                    }
+                  ]
+                },
+                "reminders": [
+                  {
+                    "id": "event-3",
+                    "kind": "deworming",
+                    "title": "内外驱虫",
+                    "subtitle": "预计 2026-07-01 提醒",
+                    "due_text": "待提醒"
+                  }
+                ],
+                "quick_actions": [],
+                "partner_recommendation": null,
+                "recent_timeline": [
+                  {
+                    "id": "event-3",
+                    "event_kind": "deworming",
+                    "title": "内外驱虫",
+                    "subtitle": "已完成本月驱虫",
+                    "occurred_text": "2026-06-13"
+                  }
+                ],
+                "merchant_dashboard": null,
+                "empty_state": null,
+                "recommended_content": []
+              }
+            }
+            """#.utf8
+        )
+
+        let response = try JSONDecoder().decode(
+            MHBAPIResponse<HomeDashboardSnapshot>.self,
+            from: data
+        )
+
+        let dashboard = try XCTUnwrap(response.data)
+        XCTAssertEqual(dashboard.identity.kind, .petOwner)
+        XCTAssertEqual(dashboard.selectedPet?.id, "pet-1")
+        XCTAssertEqual(dashboard.careSummary?.metrics.first?.kind, .appetite)
+        XCTAssertEqual(dashboard.careSummary?.metrics.first?.valueText, "旺盛")
+        XCTAssertEqual(dashboard.careSummary?.metrics.last?.kind, .weight)
+        XCTAssertEqual(dashboard.careSummary?.metrics.last?.valueText, "6.4kg")
+        XCTAssertEqual(dashboard.reminders.first?.kind, .deworming)
+        XCTAssertEqual(dashboard.reminders.first?.title, "内外驱虫")
+        XCTAssertEqual(dashboard.recentTimeline.first?.eventKind, .deworming)
+    }
+
+    @MainActor
     func testMerchantDashboardJSONDecodesIntoSnapshot() throws {
         let data = Data(
             #"""
