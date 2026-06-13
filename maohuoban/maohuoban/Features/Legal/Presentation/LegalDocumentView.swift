@@ -25,6 +25,7 @@ struct LegalDocumentView: View {
                 Task { await viewModel.load() }
             }
         )
+        .ignoresSafeArea(edges: .top)
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
         .navigationBarTitleDisplayMode(.inline)

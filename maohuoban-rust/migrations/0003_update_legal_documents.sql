@@ -64,8 +64,6 @@ SET html = $user_agreement$
     .meta {
       font-size: 13px;
       color: var(--l3);
-      border-bottom: 0.5px solid var(--sep);
-      padding-bottom: var(--s4);
       margin-bottom: var(--s5);
       display: flex;
       gap: var(--s4);
@@ -242,8 +240,6 @@ SET html = $privacy_policy$
     .meta {
       font-size: 13px;
       color: var(--l3);
-      border-bottom: 0.5px solid var(--sep);
-      padding-bottom: var(--s4);
       margin-bottom: var(--s5);
       display: flex;
       gap: var(--s4);
