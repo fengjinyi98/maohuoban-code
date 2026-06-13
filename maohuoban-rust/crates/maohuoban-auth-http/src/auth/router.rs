@@ -223,6 +223,13 @@ fn error_response(error: AuthError) -> Response {
             "auth.code_expired",
             "验证码已过期，请重新获取".to_owned(),
         ),
+        AuthError::CodeCoolingDown {
+            retry_after_seconds,
+        } => (
+            StatusCode::TOO_MANY_REQUESTS,
+            "auth.code_cooling_down",
+            format!("请 {retry_after_seconds} 秒后重新获取验证码"),
+        ),
         AuthError::TooManyAttempts => (
             StatusCode::TOO_MANY_REQUESTS,
             "auth.too_many_attempts",
@@ -394,6 +401,7 @@ impl DevicePayload {
 struct PhoneCodeChallengeData {
     challenge_id: String,
     expires_in_seconds: i64,
+    resend_after_seconds: i64,
 }
 
 impl From<PhoneCodeChallenge> for PhoneCodeChallengeData {
@@ -401,6 +409,7 @@ impl From<PhoneCodeChallenge> for PhoneCodeChallengeData {
         Self {
             challenge_id: challenge.challenge_id,
             expires_in_seconds: challenge.expires_in_seconds,
+            resend_after_seconds: challenge.resend_after_seconds,
         }
     }
 }

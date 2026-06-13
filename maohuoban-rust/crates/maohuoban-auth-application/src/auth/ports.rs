@@ -49,9 +49,11 @@ pub struct AuthAuditEvent {
 pub trait OtpChallengeStore: Send + Sync {
     async fn create_login_challenge(
         &self,
+        purpose: &str,
         phone: &str,
         code: &str,
         ttl_seconds: i64,
+        resend_cooldown_seconds: i64,
     ) -> AuthResult<PhoneCodeChallenge>;
 
     async fn verify_login_challenge(&self, challenge_id: &str, code: &str) -> AuthResult<String>;

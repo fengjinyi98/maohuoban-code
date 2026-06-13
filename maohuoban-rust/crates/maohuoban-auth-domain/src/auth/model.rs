@@ -33,6 +33,7 @@ pub struct AuthUser {
 pub struct PhoneCodeChallenge {
     pub challenge_id: String,
     pub expires_in_seconds: i64,
+    pub resend_after_seconds: i64,
 }
 
 /// TokenPair 双 token 响应

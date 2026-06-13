@@ -43,7 +43,8 @@ expect_field() {
 "$PSQL" -d "$DATABASE" -q -c \
   "TRUNCATE TABLE auth_audit_events, device_sessions, password_credentials, user_identities, users CASCADE;"
 
-phone="13800138999"
+printf -v phone_suffix "%08d" "$(( $(date +%s) % 100000000 ))"
+phone="138$phone_suffix"
 device_id="ios-e2e-device"
 device_json="{\"device_id\":\"$device_id\",\"device_name\":\"iPhone 17 Pro\",\"platform\":\"iOS\",\"app_version\":\"1.0\"}"
 

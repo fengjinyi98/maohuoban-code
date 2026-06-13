@@ -29,25 +29,57 @@ impl RedisOtpChallengeStore {
     fn otp_key(&self, challenge_id: &str) -> String {
         format!("{}:otp:{challenge_id}", self.key_prefix)
     }
+
+    fn cooldown_key(&self, purpose: &str, phone: &str) -> String {
+        format!(
+            "{}:otp:cooldown:{purpose}:{}",
+            self.key_prefix,
+            sha256_hex(phone)
+        )
+    }
 }
 
 #[async_trait]
 impl OtpChallengeStore for RedisOtpChallengeStore {
     async fn create_login_challenge(
         &self,
+        purpose: &str,
         phone: &str,
         code: &str,
         ttl_seconds: i64,
+        resend_cooldown_seconds: i64,
     ) -> AuthResult<PhoneCodeChallenge> {
         let challenge_id = Uuid::new_v4().to_string();
         let key = self.otp_key(&challenge_id);
+        let cooldown_key = self.cooldown_key(purpose, phone);
+        let cooldown_ttl = u64::try_from(resend_cooldown_seconds)
+            .map_err(|error| AuthError::Infrastructure(error.to_string()))?;
+        let mut connection = self.connection.clone();
+        let cooldown_result: Option<String> = redis::cmd("SET")
+            .arg(&cooldown_key)
+            .arg("1")
+            .arg("EX")
+            .arg(cooldown_ttl)
+            .arg("NX")
+            .query_async(&mut connection)
+            .await
+            .map_err(|error| AuthError::Infrastructure(error.to_string()))?;
+        if cooldown_result.is_none() {
+            let retry_after_seconds: i64 = connection
+                .ttl(&cooldown_key)
+                .await
+                .map_err(|error| AuthError::Infrastructure(error.to_string()))?;
+            return Err(AuthError::CodeCoolingDown {
+                retry_after_seconds: retry_after_seconds.max(1),
+            });
+        }
+
         let stored = StoredOtpChallenge {
             phone: phone.to_owned(),
             code_hash: sha256_hex(code),
         };
         let payload = serde_json::to_string(&stored)
             .map_err(|error| AuthError::Infrastructure(error.to_string()))?;
-        let mut connection = self.connection.clone();
         let ttl = u64::try_from(ttl_seconds)
             .map_err(|error| AuthError::Infrastructure(error.to_string()))?;
         let _: () = connection
@@ -57,6 +89,7 @@ impl OtpChallengeStore for RedisOtpChallengeStore {
         Ok(PhoneCodeChallenge {
             challenge_id,
             expires_in_seconds: ttl_seconds,
+            resend_after_seconds: resend_cooldown_seconds,
         })
     }
 

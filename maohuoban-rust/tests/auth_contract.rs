@@ -95,6 +95,57 @@ async fn phone_code_login_uses_fixed_development_code_and_returns_dual_tokens() 
 }
 
 #[tokio::test]
+async fn phone_code_resend_is_limited_for_sixty_seconds() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let first_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/phone/code",
+            json!({
+                "phone": "13800138999",
+                "agreement_accepted": true,
+                "device": {
+                    "device_id": "ios-simulator-resend-limit-test",
+                    "device_name": "iPhone 17 Pro",
+                    "platform": "iOS",
+                    "app_version": "1.0"
+                }
+            }),
+        ))
+        .await
+        .expect("send first phone code");
+    assert_eq!(first_response.status(), StatusCode::OK);
+
+    let second_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/phone/code",
+            json!({
+                "phone": "13800138999",
+                "agreement_accepted": true,
+                "device": {
+                    "device_id": "ios-simulator-resend-limit-test",
+                    "device_name": "iPhone 17 Pro",
+                    "platform": "iOS",
+                    "app_version": "1.0"
+                }
+            }),
+        ))
+        .await
+        .expect("send repeated phone code");
+    assert_eq!(second_response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+    let body = response_json(second_response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "auth.code_cooling_down");
+    assert_eq!(body["message"], "请 60 秒后重新获取验证码");
+}
+
+#[tokio::test]
 async fn password_login_returns_precise_message_for_wrong_password() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

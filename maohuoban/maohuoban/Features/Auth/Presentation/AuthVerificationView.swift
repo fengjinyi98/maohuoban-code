@@ -47,14 +47,20 @@ struct AuthVerificationView: View {
                 Task { await viewModel.verifyCode() }
             }
 
-            Text("重新发送")
-                .font(MHBTheme.Typography.callout)
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .frame(maxWidth: .infinity)
-                .onTapGesture {
+            Button {
+                if viewModel.canResendCode {
                     Task { await viewModel.sendPhoneCode() }
                 }
-                .accessibilityIdentifier("auth.resendCodeButton")
+            } label: {
+                Text(viewModel.resendButtonTitle)
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(viewModel.canResendCode ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.labelTertiary.color)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.canResendCode)
+            .accessibilityLabel(viewModel.resendButtonTitle)
+            .accessibilityIdentifier("auth.resendCodeButton")
 
             Spacer()
         }

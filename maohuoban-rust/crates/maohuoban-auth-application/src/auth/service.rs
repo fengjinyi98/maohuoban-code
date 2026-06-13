@@ -20,6 +20,7 @@ use super::{
 pub struct AuthServiceConfig {
     pub development_fixed_code: String,
     pub otp_ttl_seconds: i64,
+    pub otp_resend_cooldown_seconds: i64,
 }
 
 impl Default for AuthServiceConfig {
@@ -27,6 +28,7 @@ impl Default for AuthServiceConfig {
         Self {
             development_fixed_code: "123456".to_owned(),
             otp_ttl_seconds: 300,
+            otp_resend_cooldown_seconds: 60,
         }
     }
 }
@@ -81,9 +83,11 @@ impl AuthService {
         let challenge = self
             .otp_store
             .create_login_challenge(
+                "login",
                 &phone,
                 &self.config.development_fixed_code,
                 self.config.otp_ttl_seconds,
+                self.config.otp_resend_cooldown_seconds,
             )
             .await?;
         self.record_event(
@@ -104,9 +108,11 @@ impl AuthService {
         let challenge = self
             .otp_store
             .create_login_challenge(
+                "recovery",
                 &phone,
                 &self.config.development_fixed_code,
                 self.config.otp_ttl_seconds,
+                self.config.otp_resend_cooldown_seconds,
             )
             .await?;
         self.record_event(

@@ -65,6 +65,9 @@ final class MaohuobanAuthUITests: XCTestCase {
 
         let codeBoxes = app.buttons["auth.verification.codeBoxes"]
         XCTAssertTrue(codeBoxes.waitForExistence(timeout: 8))
+        let resendButton = app.buttons["auth.resendCodeButton"]
+        XCTAssertTrue(resendButton.waitForExistence(timeout: 3))
+        assertResendCountdownLabel(resendButton.label)
         codeBoxes.tap()
         app.typeText("123456")
 
@@ -151,5 +154,20 @@ final class MaohuobanAuthUITests: XCTestCase {
     private func makeUniquePhone() -> String {
         let suffix = Int(Date().timeIntervalSince1970) % 100_000_000
         return "139" + String(format: "%08d", suffix)
+    }
+
+    // assertResendCountdownLabel 校验验证码重发倒计时
+    // 核心职责：
+    // - 允许端到端测试启动耗时造成的秒数流逝
+    // - 固定用户可见的倒计时文案格式
+    private func assertResendCountdownLabel(_ label: String) {
+        let prefix = "重新发送 "
+        let suffix = "s"
+        XCTAssertTrue(label.hasPrefix(prefix), label)
+        XCTAssertTrue(label.hasSuffix(suffix), label)
+        let secondsText = label.dropFirst(prefix.count).dropLast(suffix.count)
+        let seconds = Int(secondsText)
+        XCTAssertNotNil(seconds, label)
+        XCTAssertTrue((1...60).contains(seconds ?? 0), label)
     }
 }

@@ -22,9 +22,19 @@ final class AuthViewModel {
     var currentUser: AuthUser?
     var maskedPhone: String = ""
     var hasRecoveryChallenge = false
+    var resendCountdownSeconds = 0
+
+    var resendButtonTitle: String {
+        resendCountdownSeconds > 0 ? "重新发送 \(resendCountdownSeconds)s" : "重新发送"
+    }
+
+    var canResendCode: Bool {
+        resendCountdownSeconds == 0 && !isSubmitting
+    }
 
     private var loginChallengeID: String?
     private var recoveryChallengeID: String?
+    private var resendCountdownTask: Task<Void, Never>?
     private let repository: AuthRepository
     private let tokenStore: MHBTokenStore
     private let toast: MHBToastPresenter
@@ -66,6 +76,10 @@ final class AuthViewModel {
             toast.warning("请先同意用户协议和隐私政策")
             return
         }
+        guard resendCountdownSeconds == 0 else {
+            toast.warning("请 \(resendCountdownSeconds) 秒后重新获取验证码")
+            return
+        }
 
         await submit {
             let response = try await repository.sendPhoneCode(
@@ -77,6 +91,7 @@ final class AuthViewModel {
             maskedPhone = maskPhone(phone)
             code = ""
             step = .verification
+            startResendCountdown(seconds: challenge.resendAfterSeconds)
             toast.success(response.message)
         }
     }
@@ -200,6 +215,7 @@ final class AuthViewModel {
         step = .login
         recoveryCode = ""
         recoveryPassword = ""
+        stopResendCountdown()
     }
 
     func showRecovery() {
@@ -228,6 +244,37 @@ final class AuthViewModel {
         currentUser = nil
         isAuthenticated = false
         step = .login
+        stopResendCountdown()
+    }
+
+    private func startResendCountdown(seconds: Int) {
+        resendCountdownTask?.cancel()
+        resendCountdownSeconds = max(seconds, 0)
+        guard resendCountdownSeconds > 0 else {
+            resendCountdownTask = nil
+            return
+        }
+
+        resendCountdownTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let self else { return }
+                    self.resendCountdownSeconds = max(self.resendCountdownSeconds - 1, 0)
+                    if self.resendCountdownSeconds == 0 {
+                        self.resendCountdownTask?.cancel()
+                        self.resendCountdownTask = nil
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopResendCountdown() {
+        resendCountdownTask?.cancel()
+        resendCountdownTask = nil
+        resendCountdownSeconds = 0
     }
 
     private func validatePhone(_ value: String) -> Bool {

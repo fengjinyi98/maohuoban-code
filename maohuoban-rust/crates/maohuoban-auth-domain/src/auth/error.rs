@@ -18,6 +18,8 @@ pub enum AuthError {
     InvalidCode,
     #[error("challenge expired")]
     ChallengeExpired,
+    #[error("code send cooling down: {retry_after_seconds}s")]
+    CodeCoolingDown { retry_after_seconds: i64 },
     #[error("too many attempts")]
     TooManyAttempts,
     #[error("invalid credentials")]

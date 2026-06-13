@@ -67,9 +67,11 @@ struct AuthSession: Decodable, Equatable {
 struct PhoneCodeChallenge: Decodable, Equatable {
     let challengeID: String
     let expiresInSeconds: Int
+    let resendAfterSeconds: Int
 
     enum CodingKeys: String, CodingKey {
         case challengeID = "challenge_id"
         case expiresInSeconds = "expires_in_seconds"
+        case resendAfterSeconds = "resend_after_seconds"
     }
 }
