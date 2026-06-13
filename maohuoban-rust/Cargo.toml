@@ -5,7 +5,25 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-maohuoban_diagnostics = { path = "../maohuoban-diagnostics-sdk/rust" }
+axum.workspace = true
+chrono.workspace = true
+dotenvy.workspace = true
+maohuoban-auth-application.workspace = true
+maohuoban-auth-domain.workspace = true
+maohuoban-auth-http.workspace = true
+maohuoban-auth-infrastructure.workspace = true
+maohuoban_diagnostics.workspace = true
+redis.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tower.workspace = true
 
 [lints]
 workspace = true

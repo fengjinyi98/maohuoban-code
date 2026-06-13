@@ -1,0 +1,23 @@
+[package]
+name = "maohuoban-auth-infrastructure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+argon2.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+jsonwebtoken.workspace = true
+maohuoban-auth-application.workspace = true
+maohuoban-auth-domain.workspace = true
+maohuoban_diagnostics.workspace = true
+redis.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

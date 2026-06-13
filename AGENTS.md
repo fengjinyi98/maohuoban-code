@@ -68,13 +68,16 @@
 
 ## 8. 后端架构规则
 
-1. Rust 后端采用分层架构。
-2. Domain 层承载实体、值对象、业务规则和端口协议。
-3. Application 层承载用例编排和事务边界。
-4. Infrastructure 层承载数据库、缓存、消息队列、外部服务和具体实现。
-5. Interface 层承载 HTTP、CLI、任务入口和 DTO 转换。
-6. 后端模块必须遵循 Rust workspace 和 crate 边界。
-7. 公共能力进入共享 crate，业务能力进入对应业务 crate。
+1. Rust 后端采用 workspace + crates + 分层架构。
+2. 每个可独立演进的业务域优先拆为 `*-domain`、`*-application`、`*-infrastructure`、`*-http` 等 crate。
+3. Domain 层承载实体、值对象、业务规则和领域错误。
+4. Application 层承载用例编排、事务意图和端口 trait。
+5. Infrastructure 层承载 PostgreSQL、Redis、RustFS、消息队列、外部服务和端口实现。
+6. Interface 层承载 HTTP、CLI、任务入口、DTO、请求校验和响应映射。
+7. 根产品 crate 只负责配置读取、迁移、依赖装配、路由聚合和运行时启动。
+8. 依赖方向必须保持单向：`http -> application -> domain`，`infrastructure -> application/domain`，根产品 crate 装配所有实现。
+9. 公共能力进入共享 crate，业务能力进入对应业务 crate。
+10. 跨业务域调用必须通过 application 端口或明确的共享模型，禁止直接读取其他业务域的 infrastructure。
 
 ## 9. 前后端联调规则
 

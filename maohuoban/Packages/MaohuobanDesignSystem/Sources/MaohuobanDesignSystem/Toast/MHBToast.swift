@@ -13,6 +13,7 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
     public var symbolForegroundStyleColor2: Color
     public var title: String
     public var message: String
+    public var duration: TimeInterval?
 
     public var symbolForegroundStyle: (Color, Color) {
         (symbolForegroundStyleColor1, symbolForegroundStyleColor2)
@@ -22,7 +23,8 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         lhs.id == rhs.id &&
         lhs.symbol == rhs.symbol &&
         lhs.title == rhs.title &&
-        lhs.message == rhs.message
+        lhs.message == rhs.message &&
+        lhs.duration == rhs.duration
     }
 
     // 与参考项目 Toast 字段对齐的初始化方法
@@ -32,7 +34,8 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         symbolFont: Font = .system(size: 35),
         symbolForegroundStyle: (Color, Color),
         title: String,
-        message: String
+        message: String,
+        duration: TimeInterval? = 3.0
     ) {
         self.id = id
         self.symbol = symbol
@@ -41,6 +44,7 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         self.symbolForegroundStyleColor2 = symbolForegroundStyle.1
         self.title = title
         self.message = message
+        self.duration = duration
     }
 
     // 兼容原 MHBToastType 输入的便利初始化方法
@@ -49,13 +53,14 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         title: String,
         description: String? = nil,
         type: MHBToastType = .info,
-        duration: TimeInterval? = 3.0, // 保留参数适配原有调用，这里作为参考
+        duration: TimeInterval? = 3.0,
         dismissible: Bool = true,      // 保留参数适配原有调用
         action: MHBToastAction? = nil  // 保留参数适配原有调用
     ) {
         self.id = id
         self.title = title
         self.message = description ?? ""
+        self.duration = duration
         self.symbolFont = .system(size: 35)
 
         switch type {

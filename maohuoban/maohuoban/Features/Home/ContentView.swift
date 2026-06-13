@@ -46,6 +46,8 @@ struct MHBTestButtonLabel: View {
 // - 验证 App 已接入毛伙伴设计系统
 // - 提供 Toast 各种特性的手动触发和真机/模拟器测试入口
 struct ContentView: View {
+    var onLogout: (() -> Void)?
+
     var body: some View {
         ZStack {
             MHBTheme.ColorToken.background.color
@@ -62,6 +64,7 @@ struct ContentView: View {
                         Text("毛伙伴")
                             .font(MHBTheme.Typography.largeTitle)
                             .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                            .accessibilityIdentifier("home.title")
                         Text("让每只毛孩子都拥有自己的主页、时间线和伙伴关系")
                             .font(MHBTheme.Typography.body)
                             .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
@@ -83,6 +86,17 @@ struct ContentView: View {
                             .padding(.bottom, MHBTheme.Spacing.s1)
 
                         VStack(spacing: MHBTheme.Spacing.s3) {
+                            if let onLogout {
+                                Button(action: onLogout) {
+                                    MHBTestButtonLabel(
+                                        title: "退出登录",
+                                        icon: "rectangle.portrait.and.arrow.right",
+                                        color: MHBTheme.ColorToken.danger.color
+                                    )
+                                }
+                                .accessibilityIdentifier("home.logoutButton")
+                            }
+
                             Button(action: triggerSuccessToast) {
                                 MHBTestButtonLabel(
                                     title: "成功提示 (Success)",
@@ -126,8 +140,8 @@ struct ContentView: View {
                 .padding(MHBTheme.Spacing.s6)
             }
         }
-        .mhbToast() // 挂载 Toast 提示全局容器
         .diagnosticsScreen("home", metadata: ["screen_type": "root"])
+        .accessibilityIdentifier("home.root")
     }
 
     private func triggerSuccessToast() {

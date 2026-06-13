@@ -10,17 +10,34 @@
 		B9BC33602FD6D70000F40E35 /* MaohuobanDiagnostics in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */; };
 		B9BC33642FD7100000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 		B9BC33702FD7200000F40E35 /* MaohuobanDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33712FD7200000F40E35 /* MaohuobanDesignSystem */; };
+		B9BC338B2FD8900000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B9BC334C2FD6C95400F40E35;
+			remoteInfo = maohuoban;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		B9BC334D2FD6C95400F40E35 /* maohuoban.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = maohuoban.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BC33632FD7100000F40E35 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maohuobanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B9BC334F2FD6C95400F40E35 /* maohuoban */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = maohuoban;
+			sourceTree = "<group>";
+		};
+		B9BC33812FD8800000F40E35 /* maohuobanUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = maohuobanUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -36,6 +53,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC33832FD8800000F40E35 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B9BC338B2FD8900000F40E35 /* AppIntents.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -43,6 +68,7 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334F2FD6C95400F40E35 /* maohuoban */,
+				B9BC33812FD8800000F40E35 /* maohuobanUITests */,
 				B9BC33652FD7100000F40E35 /* Frameworks */,
 				B9BC334E2FD6C95400F40E35 /* Products */,
 			);
@@ -52,6 +78,7 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334D2FD6C95400F40E35 /* maohuoban.app */,
+				B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +118,29 @@
 			productReference = B9BC334D2FD6C95400F40E35 /* maohuoban.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B9BC33852FD8800000F40E35 /* maohuobanUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9BC33862FD8800000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanUITests" */;
+			buildPhases = (
+				B9BC33822FD8800000F40E35 /* Sources */,
+				B9BC33832FD8800000F40E35 /* Frameworks */,
+				B9BC33842FD8800000F40E35 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B9BC338A2FD8800000F40E35 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B9BC33812FD8800000F40E35 /* maohuobanUITests */,
+			);
+			name = maohuobanUITests;
+			packageProductDependencies = (
+			);
+			productName = maohuobanUITests;
+			productReference = B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -125,12 +175,20 @@
 			projectRoot = "";
 			targets = (
 				B9BC334C2FD6C95400F40E35 /* maohuoban */,
+				B9BC33852FD8800000F40E35 /* maohuobanUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B9BC334B2FD6C95400F40E35 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9BC33842FD8800000F40E35 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -147,7 +205,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC33822FD8800000F40E35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B9BC338A2FD8800000F40E35 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
+			targetProxy = B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		B9BC33562FD6C95400F40E35 /* Debug */ = {
@@ -327,6 +400,52 @@
 			};
 			name = Release;
 		};
+		B9BC33872FD8800000F40E35 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuobanUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = maohuoban;
+			};
+			name = Debug;
+		};
+		B9BC33882FD8800000F40E35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuobanUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = maohuoban;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -344,6 +463,15 @@
 			buildConfigurations = (
 				B9BC33592FD6C95400F40E35 /* Debug */,
 				B9BC335A2FD6C95400F40E35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B9BC33862FD8800000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B9BC33872FD8800000F40E35 /* Debug */,
+				B9BC33882FD8800000F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

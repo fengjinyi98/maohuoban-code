@@ -22,32 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UIApplicationSceneManifest</key>
+	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
-		<key>UISceneConfigurations</key>
-		<dict/>
 	</dict>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。</string>
 	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>LaunchBackgroundColor</string>
-	</dict>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~iphone</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+	<dict/>
 </dict>
 </plist>

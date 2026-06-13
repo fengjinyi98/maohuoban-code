@@ -63,4 +63,18 @@ struct MHBToastTests {
 
         #expect(manager.activeToast == nil)
     }
+
+    @MainActor
+    @Test("Toast 支持单条消息自定义关闭时长")
+    func toastManagerUsesCustomDuration() async throws {
+        let manager = MHBToastManager()
+        let toast = MHBToast(title: "短时提示", duration: 0.2)
+
+        manager.show(toast)
+        #expect(manager.activeToast == toast)
+
+        try await Task.sleep(for: .seconds(0.45))
+
+        #expect(manager.activeToast == nil)
+    }
 }

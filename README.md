@@ -32,7 +32,7 @@
 | iOS App | Swift 6.4 toolchain、SwiftUI、UIKit、iOS 27 SDK |
 | iOS 架构 | MVVM、单向数据流、模块化 DesignSystem |
 | 低层 UI 控制 | UIKit 承接导航、手势、输入、材质、宿主控制器等精细能力 |
-| 后端 | Rust 2024 edition、分层架构、workspace 管理 |
+| 后端 | Rust 2024 edition、workspace crates、分层架构 |
 | 诊断 | `maohuoban-diagnostics-sdk` |
 
 ## 目录结构
@@ -56,11 +56,28 @@ maohuoban-code/
     Packages/
       MaohuobanDesignSystem/
   maohuoban-rust/
+    crates/
+      maohuoban-auth-domain/
+      maohuoban-auth-application/
+      maohuoban-auth-infrastructure/
+      maohuoban-auth-http/
   maohuoban-diagnostics-sdk/
   references/
     projects/
   scripts/
 ```
+
+## 后端架构
+
+| 层级 | Crate 形态 | 职责 |
+|---|---|---|
+| Domain | `maohuoban-*-domain` | 实体、值对象、业务规则、领域错误 |
+| Application | `maohuoban-*-application` | 用例编排、端口 trait、事务意图 |
+| Infrastructure | `maohuoban-*-infrastructure` | PostgreSQL、Redis、RustFS、外部服务和端口实现 |
+| Interface | `maohuoban-*-http` | Axum router、HTTP DTO、统一响应和错误映射 |
+| Composition | `maohuoban-rust` | 配置、迁移、依赖装配、路由聚合、运行时启动 |
+
+后续 HIS、保险、宠物档案、交易、同城服务等业务域沿用同样 crate 分层。跨域协作通过 application 端口或共享模型完成，根产品 crate 负责最终装配。
 
 ## 设计系统
 
@@ -103,6 +120,10 @@ xcodebuild -scheme MaohuobanDesignSystem \
 # Rust 后端检查
 cargo test --workspace
 cargo clippy --workspace --all-targets
+
+# Rust 后端本地启动
+# 默认监听 0.0.0.0:8080，真机可访问 http://192.168.2.2:8080
+cargo run -p maohuoban_rust
 ```
 
 ## 工程原则

@@ -14,7 +14,16 @@ import MaohuobanDiagnostics
 // - 挂载 SwiftUI 根场景
 @main
 struct MaohuobanApp: App {
+    @State private var isLaunchCompleted: Bool
+    @State private var authViewModel = AuthViewModel()
+
     init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--reset-auth-state") {
+            try? MHBKeychainTokenStore().clearTokens()
+        }
+        _isLaunchCompleted = State(initialValue: arguments.contains("--skip-launch-screen"))
+
         Task {
             do {
                 let diagnostics = try await Diagnostics.bootstrap(
@@ -42,13 +51,11 @@ struct MaohuobanApp: App {
         }
     }
 
-    @State private var isLaunchCompleted = false
-
     var body: some Scene {
         WindowGroup {
             ZStack {
                 if isLaunchCompleted {
-                    ContentView()
+                    AuthRootView(viewModel: authViewModel)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
                     LaunchScreenView(isCompleted: $isLaunchCompleted)

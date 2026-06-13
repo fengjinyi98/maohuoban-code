@@ -33,8 +33,9 @@ public final class MHBToastManager {
     }
 
     private func scheduleDismissal() {
+        guard let duration = activeToast?.duration else { return }
         dismissTask = Task {
-            try? await Task.sleep(for: .seconds(3.0))
+            try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
             self.dismiss()
         }
