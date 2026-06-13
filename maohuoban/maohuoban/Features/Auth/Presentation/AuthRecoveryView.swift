@@ -11,10 +11,6 @@ struct AuthRecoveryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
-                AuthBackButton {
-                    viewModel.backToLogin()
-                }
-
                 AuthPageHeading(
                     title: "忘记密码",
                     subtitle: "输入手机号，我们将发送验证码帮助你重置密码"
@@ -78,6 +74,8 @@ struct AuthRecoveryView: View {
             .padding(.top, MHBTheme.Spacing.s6)
         }
         .scrollIndicators(.hidden)
+        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .toolbarBackground(.hidden, for: .navigationBar)
     }
 
     private var recoveryCodeBinding: Binding<String> {

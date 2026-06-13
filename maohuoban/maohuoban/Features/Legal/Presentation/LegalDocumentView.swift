@@ -17,63 +17,23 @@ struct LegalDocumentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            LegalDocumentNavigationBar(
-                title: viewModel.document?.title ?? viewModel.kind.fallbackTitle,
-                onClose: { dismiss() }
-            )
-
-            Divider()
-                .overlay(MHBTheme.ColorToken.separator.color)
-
-            LegalDocumentContentView(
-                document: viewModel.document,
-                isLoading: viewModel.isLoading,
-                errorMessage: viewModel.errorMessage,
-                onRetry: {
-                    Task { await viewModel.load() }
-                }
-            )
-        }
+        LegalDocumentContentView(
+            document: viewModel.document,
+            isLoading: viewModel.isLoading,
+            errorMessage: viewModel.errorMessage,
+            onRetry: {
+                Task { await viewModel.load() }
+            }
+        )
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.load()
         }
     }
 }
 
-// LegalDocumentNavigationBar 法务文档导航栏
-// 核心职责：
-// - 展示后端文档标题
-// - 提供稳定的关闭按钮
-private struct LegalDocumentNavigationBar: View {
-    let title: String
-    let onClose: () -> Void
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Text(title)
-                .font(MHBTheme.Typography.headline)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .frame(width: 36, height: 36)
-                    .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("关闭")
-            .accessibilityIdentifier("legal.closeButton")
-        }
-        .padding(.horizontal, MHBTheme.Spacing.s5)
-        .padding(.vertical, MHBTheme.Spacing.s3)
-        .background(MHBTheme.ColorToken.background.color)
-    }
-}
 
 // LegalDocumentContentView 法务文档内容区
 // 核心职责：

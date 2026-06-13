@@ -37,18 +37,36 @@ private struct AuthFlowView: View {
     @Bindable var viewModel: AuthViewModel
 
     var body: some View {
-        ZStack {
-            MHBTheme.ColorToken.background.color
-                .ignoresSafeArea()
-
-            switch viewModel.step {
-            case .login:
-                AuthLoginView(viewModel: viewModel)
-            case .verification:
-                AuthVerificationView(viewModel: viewModel)
-            case .recovery:
-                AuthRecoveryView(viewModel: viewModel)
+        NavigationStack(path: Binding(
+            get: {
+                switch viewModel.step {
+                case .login:
+                    return [] as [AuthStep]
+                case .verification:
+                    return [.verification]
+                case .recovery:
+                    return [.recovery]
+                }
+            },
+            set: { newPath in
+                if let last = newPath.last {
+                    viewModel.step = last
+                } else {
+                    viewModel.step = .login
+                }
             }
+        )) {
+            AuthLoginView(viewModel: viewModel)
+                .navigationDestination(for: AuthStep.self) { step in
+                    switch step {
+                    case .login:
+                        EmptyView()
+                    case .verification:
+                        AuthVerificationView(viewModel: viewModel)
+                    case .recovery:
+                        AuthRecoveryView(viewModel: viewModel)
+                    }
+                }
         }
         .diagnosticsScreen("auth", metadata: ["step": .string("\(viewModel.step)")])
     }

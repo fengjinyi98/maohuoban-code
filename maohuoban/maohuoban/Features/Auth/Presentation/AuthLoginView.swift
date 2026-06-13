@@ -36,9 +36,11 @@ struct AuthLoginView: View {
             .padding(.bottom, MHBTheme.Spacing.s6)
         }
         .scrollIndicators(.hidden)
-        .sheet(item: $presentedLegalKind) { kind in
+        .navigationDestination(item: $presentedLegalKind) { kind in
             LegalDocumentView(kind: kind)
         }
+        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .navigationTitle("")
     }
 }
 

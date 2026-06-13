@@ -11,10 +11,6 @@ struct AuthVerificationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
-            AuthBackButton {
-                viewModel.backToLogin()
-            }
-
             AuthPageHeading(
                 title: "输入验证码",
                 subtitle: "验证码已发送至 \(viewModel.maskedPhone)"
@@ -66,6 +62,8 @@ struct AuthVerificationView: View {
         }
         .padding(.horizontal, MHBTheme.Spacing.s5)
         .padding(.top, MHBTheme.Spacing.s6)
+        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
             isCodeFocused = true
         }

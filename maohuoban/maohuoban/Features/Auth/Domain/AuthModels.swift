@@ -13,7 +13,7 @@ enum AuthMode: Equatable {
 // 核心职责：
 // - 表达登录、验证码、忘记密码三类界面状态
 // - 支持 AuthRootView 根据状态切换页面
-enum AuthStep: Equatable {
+enum AuthStep: Hashable {
     case login
     case verification
     case recovery
