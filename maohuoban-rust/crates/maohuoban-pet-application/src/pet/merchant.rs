@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, MerchantProfile, MerchantStatusCount, PetEvent, PetProfile, PetRelationship,
-    PetResult, PetSex, PetSourceKind, PetSpecies,
+    Litter, ManagedPetStatus, MerchantProfile, MerchantStatusCount, PetEvent, PetProfile,
+    PetRelationship, PetResult, PetSex, PetSourceKind, PetSpecies,
 };
 use uuid::Uuid;
 
@@ -32,6 +32,21 @@ pub struct MerchantLitterSummary {
     pub born_at: NaiveDate,
     pub born_count: i32,
     pub alive_count: i32,
+    pub available_count: u32,
+}
+
+/// MerchantLitterDetail 商家窝次详情读模型
+/// 核心职责：
+/// - 汇总窝次、父母、同窝幼宠、关系边和近期事件
+/// - 支撑商家从出生批次追溯到买家可见时间线
+#[derive(Debug, Clone)]
+pub struct MerchantLitterDetail {
+    pub litter: Litter,
+    pub sire_pet: Option<PetProfile>,
+    pub dam_pet: Option<PetProfile>,
+    pub children: Vec<PetProfile>,
+    pub relationships: Vec<PetRelationship>,
+    pub recent_events: Vec<PetEvent>,
     pub available_count: u32,
 }
 
@@ -93,4 +108,10 @@ pub trait MerchantRepository: Send + Sync {
     ) -> PetResult<Vec<PetProfile>>;
 
     async fn create_merchant_pet(&self, input: NewMerchantPetProfile) -> PetResult<PetProfile>;
+
+    async fn load_merchant_litter_detail(
+        &self,
+        merchant_id: Uuid,
+        litter_id: Uuid,
+    ) -> PetResult<Option<MerchantLitterDetail>>;
 }

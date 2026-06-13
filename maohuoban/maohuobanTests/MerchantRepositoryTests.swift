@@ -129,6 +129,80 @@ final class MerchantRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.sourceKind, .merchantManaged)
     }
 
+    func testLoadLitterDetailSendsIDsAndUserContext() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v1/merchants/merchant-1/litters/litter-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            return Self.jsonResponse(
+                statusCode: 200,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "merchant.litter_loaded",
+                  "message": "窝次详情已加载",
+                  "data": {
+                    "id": "litter-1",
+                    "merchant_id": "merchant-1",
+                    "name": "2026 春季 A 窝",
+                    "species": "cat",
+                    "born_at": "2026-03-18",
+                    "born_count": 3,
+                    "alive_count": 3,
+                    "available_count": 2,
+                    "status": "active",
+                    "sire_pet": {
+                      "id": "pet-sire",
+                      "owner_user_id": null,
+                      "merchant_id": "merchant-1",
+                      "name": "Leo",
+                      "species": "cat",
+                      "breed": "布偶猫",
+                      "sex": "male",
+                      "birthday": "2026-03-18",
+                      "managed_status": "retained",
+                      "source_kind": "merchant_managed",
+                      "created_at": "2026-06-13T09:20:00Z",
+                      "updated_at": "2026-06-13T09:20:00Z"
+                    },
+                    "dam_pet": {
+                      "id": "pet-dam",
+                      "owner_user_id": null,
+                      "merchant_id": "merchant-1",
+                      "name": "Luna",
+                      "species": "cat",
+                      "breed": "布偶猫",
+                      "sex": "female",
+                      "birthday": "2026-03-18",
+                      "managed_status": "retained",
+                      "source_kind": "merchant_managed",
+                      "created_at": "2026-06-13T09:20:00Z",
+                      "updated_at": "2026-06-13T09:20:00Z"
+                    },
+                    "children": [],
+                    "relationships": [],
+                    "recent_events": []
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.loadLitterDetail(
+            merchantID: "merchant-1",
+            litterID: "litter-1",
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "窝次详情已加载")
+        XCTAssertEqual(response.data?.id, "litter-1")
+        XCTAssertEqual(response.data?.merchantID, "merchant-1")
+        XCTAssertEqual(response.data?.sirePet?.name, "Leo")
+        XCTAssertEqual(response.data?.damPet?.name, "Luna")
+    }
+
     private func makeRepository(
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultMerchantRepository {

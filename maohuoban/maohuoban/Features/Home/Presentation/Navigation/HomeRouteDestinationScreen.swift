@@ -51,10 +51,15 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID,
                 onCreated: onHomeMutationCompleted
             )
+        case .merchantLitter(let merchantID, let litterID):
+            MerchantLitterDetailScreen(
+                merchantID: merchantID,
+                litterID: litterID,
+                currentUserID: currentUserID
+            )
         case .bookHospital,
              .importTradePet,
              .publishAvailableStatus,
-             .merchantLitter,
              .merchantTask,
              .timelineEvent:
             MHBTabPlaceholderRootScreen(

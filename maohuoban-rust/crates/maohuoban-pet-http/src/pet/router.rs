@@ -13,7 +13,8 @@ use uuid::Uuid;
 use super::{
     dto::{
         CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest, MerchantPetsData,
-        MerchantPetsQuery, PetEventData, PetProfileData, PetTimelineData,
+        MerchantLitterDetailData, MerchantPetsQuery, PetEventData, PetProfileData,
+        PetTimelineData,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -46,6 +47,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route(
             "/api/v1/merchants/{merchant_id}/pets",
             get(list_merchant_pets).post(create_merchant_pet),
+        )
+        .route(
+            "/api/v1/merchants/{merchant_id}/litters/{litter_id}",
+            get(load_merchant_litter_detail),
         )
         .with_state(PetHttpState::new(pet))
 }
@@ -150,6 +155,29 @@ async fn create_merchant_pet(
             "merchant.pet_created",
             "商家宠物已新增",
             PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn load_merchant_litter_detail(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path((merchant_id, litter_id)): Path<(Uuid, Uuid)>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    match state
+        .pet
+        .load_merchant_litter_detail(owner_user_id, merchant_id, litter_id)
+        .await
+    {
+        Ok(detail) => ok_response(
+            "merchant.litter_loaded",
+            "窝次详情已加载",
+            MerchantLitterDetailData::from(detail),
         ),
         Err(error) => error_response(&error),
     }

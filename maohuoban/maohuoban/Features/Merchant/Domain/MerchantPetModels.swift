@@ -95,6 +95,142 @@ struct MerchantManagedPet: Decodable, Equatable, Identifiable {
     }
 }
 
+// MerchantLitterDetail 商家窝次详情
+// 核心职责：
+// - 承接后端窝次追溯详情响应
+// - 为窝次详情页提供父母、同窝幼宠、关系边和事件输入
+struct MerchantLitterDetail: Decodable, Equatable, Identifiable {
+    let id: String
+    let merchantID: String
+    let name: String
+    let species: PetSpecies
+    let bornAt: String
+    let bornCount: Int
+    let aliveCount: Int
+    let availableCount: Int
+    let status: MerchantLitterStatus
+    let sirePet: MerchantManagedPet?
+    let damPet: MerchantManagedPet?
+    let children: [MerchantManagedPet]
+    let relationships: [MerchantPetRelationship]
+    let recentEvents: [MerchantPetEventRecord]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case merchantID = "merchant_id"
+        case name
+        case species
+        case bornAt = "born_at"
+        case bornCount = "born_count"
+        case aliveCount = "alive_count"
+        case availableCount = "available_count"
+        case status
+        case sirePet = "sire_pet"
+        case damPet = "dam_pet"
+        case children
+        case relationships
+        case recentEvents = "recent_events"
+    }
+}
+
+// MerchantPetRelationship 商家宠物关系边
+// 核心职责：
+// - 表达父母、同窝等可追溯关系
+// - 支撑商家窝次详情和后续关系树展示
+struct MerchantPetRelationship: Decodable, Equatable, Identifiable {
+    let id: String
+    let subjectPetID: String
+    let relatedPetID: String?
+    let litterID: String?
+    let relationshipKind: MerchantPetRelationshipKind
+    let sourceKind: MerchantPetRelationshipSourceKind
+    let evidenceSnapshotID: String?
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case subjectPetID = "subject_pet_id"
+        case relatedPetID = "related_pet_id"
+        case litterID = "litter_id"
+        case relationshipKind = "relationship_kind"
+        case sourceKind = "source_kind"
+        case evidenceSnapshotID = "evidence_snapshot_id"
+        case createdAt = "created_at"
+    }
+}
+
+// MerchantPetEventRecord 商家宠物事件记录
+// 核心职责：
+// - 承接商家窝次或在管宠物近期事件
+// - 为买家可见时间线和商家详情页复用事件摘要
+struct MerchantPetEventRecord: Decodable, Equatable, Identifiable {
+    let id: String
+    let petID: String?
+    let litterID: String?
+    let kind: PetEventKind
+    let subkind: String?
+    let title: String
+    let summary: String?
+    let visibility: PetEventVisibility
+    let occurredAt: String
+    let recordRevision: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case petID = "pet_id"
+        case litterID = "litter_id"
+        case kind = "event_kind"
+        case subkind = "event_subkind"
+        case title
+        case summary
+        case visibility
+        case occurredAt = "occurred_at"
+        case recordRevision = "record_revision"
+    }
+}
+
+// MerchantLitterStatus 商家窝次状态
+// 核心职责：
+// - 固定窝次生命周期状态契约
+// - 支持详情页和后续筛选复用
+enum MerchantLitterStatus: String, Codable, Equatable, CaseIterable, Identifiable {
+    case planned
+    case active
+    case closed
+    case archived
+
+    var id: Self { self }
+}
+
+// MerchantPetRelationshipKind 商家宠物关系类型
+// 核心职责：
+// - 固定关系树边类型
+// - 支撑父母、同窝、来源和共管关系展示
+enum MerchantPetRelationshipKind: String, Codable, Equatable, CaseIterable, Identifiable {
+    case sire
+    case dam
+    case sameLitter = "same_litter"
+    case sameSource = "same_source"
+    case transferredFrom = "transferred_from"
+    case coCaretaker = "co_caretaker"
+    case merchantManaged = "merchant_managed"
+
+    var id: Self { self }
+}
+
+// MerchantPetRelationshipSourceKind 商家宠物关系来源
+// 核心职责：
+// - 标记关系由用户、商家、系统或交易导入产生
+// - 为后续证据可信度展示预留语义
+enum MerchantPetRelationshipSourceKind: String, Codable, Equatable, CaseIterable, Identifiable {
+    case userRecorded = "user_recorded"
+    case merchantRecorded = "merchant_recorded"
+    case systemDerived = "system_derived"
+    case tradeImported = "trade_imported"
+
+    var id: Self { self }
+}
+
 // MerchantPetStatus 商家宠物经营状态
 // 核心职责：
 // - 固定商家多宠筛选和宠物管理状态契约

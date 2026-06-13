@@ -1,8 +1,10 @@
 use chrono::{DateTime, NaiveDate, Utc};
-use maohuoban_pet_application::pet::{NewMerchantPetProfile, NewPetEvent, NewPetProfile};
+use maohuoban_pet_application::pet::{
+    MerchantLitterDetail, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
+};
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, ManagedPetStatus, PetEvent, PetProfile, PetSex, PetSourceKind,
-    PetSpecies, PetTimeline,
+    EventKind, EventVisibility, LitterStatus, ManagedPetStatus, PetEvent, PetProfile,
+    PetRelationship, PetSex, PetSourceKind, PetSpecies, PetTimeline,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -170,5 +172,76 @@ impl MerchantPetsData {
             status,
             pets: pets.into_iter().map(PetProfileData::from).collect(),
         }
+    }
+}
+
+/// MerchantLitterDetailData 商家窝次详情响应
+/// 核心职责：
+/// - 返回窝次基础信息、父母、同窝幼宠和追溯事件
+/// - 隔离应用读模型和 HTTP JSON 结构
+#[derive(Debug, Serialize)]
+pub(super) struct MerchantLitterDetailData {
+    id: Uuid,
+    merchant_id: Uuid,
+    name: String,
+    species: PetSpecies,
+    born_at: NaiveDate,
+    born_count: i32,
+    alive_count: i32,
+    available_count: u32,
+    status: LitterStatus,
+    sire_pet: Option<PetProfileData>,
+    dam_pet: Option<PetProfileData>,
+    children: Vec<PetProfileData>,
+    relationships: Vec<PetRelationshipData>,
+    recent_events: Vec<PetEventData>,
+}
+
+impl From<MerchantLitterDetail> for MerchantLitterDetailData {
+    fn from(detail: MerchantLitterDetail) -> Self {
+        Self {
+            id: detail.litter.id,
+            merchant_id: detail.litter.merchant_id,
+            name: detail.litter.name,
+            species: detail.litter.species,
+            born_at: detail.litter.born_at,
+            born_count: detail.litter.born_count,
+            alive_count: detail.litter.alive_count,
+            available_count: detail.available_count,
+            status: detail.litter.status,
+            sire_pet: detail.sire_pet.map(PetProfileData::from),
+            dam_pet: detail.dam_pet.map(PetProfileData::from),
+            children: detail
+                .children
+                .into_iter()
+                .map(PetProfileData::from)
+                .collect(),
+            relationships: detail
+                .relationships
+                .into_iter()
+                .map(PetRelationshipData::from)
+                .collect(),
+            recent_events: detail
+                .recent_events
+                .into_iter()
+                .map(PetEventData::from)
+                .collect(),
+        }
+    }
+}
+
+/// PetRelationshipData 宠物关系响应数据
+/// 核心职责：
+/// - 返回商家追溯关系边字段
+/// - 保持关系详情与领域模型序列化一致
+#[derive(Debug, Serialize)]
+pub(super) struct PetRelationshipData {
+    #[serde(flatten)]
+    relationship: PetRelationship,
+}
+
+impl From<PetRelationship> for PetRelationshipData {
+    fn from(relationship: PetRelationship) -> Self {
+        Self { relationship }
     }
 }

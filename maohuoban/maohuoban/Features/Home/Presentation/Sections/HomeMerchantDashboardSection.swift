@@ -39,7 +39,12 @@ struct HomeMerchantDashboardSection: View {
             }
 
             ForEach(summary.litters) { litter in
-                NavigationLink(value: HomeRoute.merchantLitter(litterID: litter.id)) {
+                NavigationLink(
+                    value: HomeRoute.merchantLitter(
+                        merchantID: summary.merchantID,
+                        litterID: litter.id
+                    )
+                ) {
                     VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                         Text(litter.name)
                             .font(MHBTheme.Typography.headline)

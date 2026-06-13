@@ -298,6 +298,65 @@ async fn merchant_pet_create_persists_managed_pet_for_verified_merchant() {
 }
 
 #[tokio::test]
+async fn merchant_litter_detail_returns_traceable_family_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138113").await;
+    let merchant_id = app.seed_merchant_tracking_workspace(&user_id).await;
+
+    let dashboard_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/home/dashboard",
+            Some(&user_id),
+        ))
+        .await
+        .expect("load home dashboard");
+    assert_eq!(dashboard_response.status(), StatusCode::OK);
+    let dashboard_body = response_json(dashboard_response).await;
+    let litter_id = dashboard_body["data"]["merchant_dashboard"]["litters"][0]["id"]
+        .as_str()
+        .expect("litter id");
+
+    let detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/merchants/{merchant_id}/litters/{litter_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load merchant litter detail");
+
+    assert_eq!(detail_response.status(), StatusCode::OK);
+    let body = response_json(detail_response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "merchant.litter_loaded");
+    assert_eq!(body["message"], "窝次详情已加载");
+    assert_eq!(body["data"]["id"], litter_id);
+    assert_eq!(body["data"]["merchant_id"], merchant_id);
+    assert_eq!(body["data"]["name"], "2026 春季 A 窝");
+    assert_eq!(body["data"]["born_count"], 3);
+    assert_eq!(body["data"]["alive_count"], 3);
+    assert_eq!(body["data"]["available_count"], 2);
+    assert_eq!(body["data"]["sire_pet"]["name"], "Leo");
+    assert_eq!(body["data"]["dam_pet"]["name"], "Luna");
+    assert_eq!(body["data"]["children"].as_array().expect("children").len(), 3);
+    assert_eq!(
+        body["data"]["recent_events"][0]["title"],
+        "A 窝出生记录"
+    );
+    assert!(
+        body["data"]["relationships"]
+            .as_array()
+            .expect("relationships")
+            .iter()
+            .any(|relationship| relationship["relationship_kind"] == "same_litter")
+    );
+}
+
+#[tokio::test]
 async fn merchant_pet_list_requires_user_context() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

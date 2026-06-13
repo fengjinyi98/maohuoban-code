@@ -109,4 +109,12 @@ private final class CapturingMerchantCreateRepository: MerchantRepository {
             throw error
         }
     }
+
+    func loadLitterDetail(
+        merchantID: String,
+        litterID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail> {
+        throw .invalidResponse
+    }
 }

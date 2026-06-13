@@ -16,6 +16,12 @@ protocol MerchantRepository {
         draft: MerchantPetDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantManagedPet>
+
+    func loadLitterDetail(
+        merchantID: String,
+        litterID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail>
 }
 
 // DefaultMerchantRepository 默认商家读写仓库
@@ -51,6 +57,17 @@ struct DefaultMerchantRepository: MerchantRepository {
         try await client.post(
             path: "/api/v1/merchants/\(merchantID)/pets",
             body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func loadLitterDetail(
+        merchantID: String,
+        litterID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail> {
+        try await client.get(
+            path: "/api/v1/merchants/\(merchantID)/litters/\(litterID)",
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
