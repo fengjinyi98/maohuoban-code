@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct HomeCareSummarySection: View {
     let summary: HomeDashboardSnapshot.CareSummary
     let reminders: [HomeDashboardSnapshot.Reminder]
+    let routingContext: HomeActionRoutingContext
 
     var body: some View {
         HomeCardContainer(accessibilityIdentifier: "home.careSummarySection") {
@@ -23,7 +24,10 @@ struct HomeCareSummarySection: View {
             }
 
             ForEach(reminders) { reminder in
-                HomeReminderRow(reminder: reminder)
+                HomeReminderNavigationRow(
+                    reminder: reminder,
+                    routingContext: routingContext
+                )
             }
         }
     }
@@ -73,12 +77,41 @@ private struct HomeCareMetricCell: View {
     }
 }
 
+// HomeReminderNavigationRow 首页提醒导航行
+// 核心职责：
+// - 根据提醒类型选择事件详情或商家待办入口
+// - 在缺少必要上下文时保留静态提醒展示
+private struct HomeReminderNavigationRow: View {
+    let reminder: HomeDashboardSnapshot.Reminder
+    let routingContext: HomeActionRoutingContext
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let route = HomeReminderRouteResolver.route(
+                for: reminder,
+                context: routingContext
+            ) {
+                NavigationLink(value: route) {
+                    HomeReminderRow(reminder: reminder, showsChevron: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.reminder.\(reminder.id)")
+            } else {
+                HomeReminderRow(reminder: reminder, showsChevron: false)
+                    .opacity(0.55)
+                    .accessibilityIdentifier("home.reminder.\(reminder.id).disabled")
+            }
+        }
+    }
+}
+
 // HomeReminderRow 首页提醒行
 // 核心职责：
 // - 展示最近一条待处理提醒
 // - 连接后续提醒详情入口
 private struct HomeReminderRow: View {
     let reminder: HomeDashboardSnapshot.Reminder
+    let showsChevron: Bool
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
@@ -103,10 +136,15 @@ private struct HomeReminderRow: View {
             Text(reminder.dueText)
                 .font(MHBTheme.Typography.caption)
                 .foregroundStyle(MHBTheme.ColorToken.primary.color)
+
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+            }
         }
         .padding(MHBTheme.Spacing.s3)
         .background(MHBTheme.ColorToken.primaryBackground.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 }
-

@@ -14,7 +14,11 @@ struct HomeTimelineSection: View {
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
                 ForEach(events) { event in
-                    HomeTimelineRow(event: event)
+                    NavigationLink(value: HomeRoute.timelineEvent(eventID: event.id)) {
+                        HomeTimelineRow(event: event)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.timeline.event.\(event.id)")
                 }
             }
         }
@@ -65,4 +69,3 @@ private struct HomeTimelineRow: View {
         }
     }
 }
-

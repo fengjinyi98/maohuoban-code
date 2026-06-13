@@ -55,3 +55,24 @@ enum HomeActionRouteResolver {
         }
     }
 }
+
+// HomeReminderRouteResolver 首页提醒路由解析器
+// 核心职责：
+// - 将首页提醒摘要映射为本地导航目标
+// - 复用事件详情和商家待办入口，避免首页承载深层提醒规则
+enum HomeReminderRouteResolver {
+    static func route(
+        for reminder: HomeDashboardSnapshot.Reminder,
+        context: HomeActionRoutingContext
+    ) -> HomeRoute? {
+        switch reminder.kind {
+        case .merchantTask:
+            guard let merchantID = context.merchantID, !merchantID.isEmpty else {
+                return nil
+            }
+            return .merchantTask(merchantID: merchantID, reminderID: reminder.id)
+        case .vaccine, .deworming, .followUp, .completeHealthRecord:
+            return .timelineEvent(eventID: reminder.id)
+        }
+    }
+}

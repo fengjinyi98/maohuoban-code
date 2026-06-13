@@ -45,4 +45,60 @@ final class HomeRouteTests: XCTestCase {
         XCTAssertEqual(merchantID, "merchant-1")
         XCTAssertEqual(reminderID, "merchant-task-needs-record")
     }
+
+    @MainActor
+    func testHealthReminderRoutesToTimelineEventDetail() {
+        let reminder = HomeDashboardSnapshot.Reminder(
+            id: "event-1",
+            kind: .deworming,
+            title: "内外驱虫",
+            subtitle: "预计 2026-06-16 提醒",
+            dueText: "待提醒"
+        )
+        let context = HomeActionRoutingContext(selectedPetID: "pet-1")
+
+        let route = HomeReminderRouteResolver.route(for: reminder, context: context)
+
+        XCTAssertEqual(route, .timelineEvent(eventID: "event-1"))
+    }
+
+    @MainActor
+    func testMerchantReminderRoutesToMerchantTaskWhenMerchantContextExists() {
+        let reminder = HomeDashboardSnapshot.Reminder(
+            id: "merchant-task-needs-record",
+            kind: .merchantTask,
+            title: "待补健康记录",
+            subtitle: "3 只宠物缺少买家可见健康信息",
+            dueText: "今日"
+        )
+        let context = HomeActionRoutingContext(merchantID: "merchant-1")
+
+        let route = HomeReminderRouteResolver.route(for: reminder, context: context)
+
+        XCTAssertEqual(
+            route,
+            .merchantTask(
+                merchantID: "merchant-1",
+                reminderID: "merchant-task-needs-record"
+            )
+        )
+    }
+
+    @MainActor
+    func testMerchantReminderWithoutMerchantContextHasNoRoute() {
+        let reminder = HomeDashboardSnapshot.Reminder(
+            id: "merchant-task-needs-record",
+            kind: .merchantTask,
+            title: "待补健康记录",
+            subtitle: "3 只宠物缺少买家可见健康信息",
+            dueText: "今日"
+        )
+
+        let route = HomeReminderRouteResolver.route(
+            for: reminder,
+            context: HomeActionRoutingContext()
+        )
+
+        XCTAssertNil(route)
+    }
 }

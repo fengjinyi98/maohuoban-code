@@ -38,7 +38,8 @@ struct HomeDashboardLoadedView: View {
                 if let careSummary = snapshot.careSummary {
                     HomeCareSummarySection(
                         summary: careSummary,
-                        reminders: snapshot.reminders
+                        reminders: snapshot.reminders,
+                        routingContext: routingContext
                     )
                 }
 
