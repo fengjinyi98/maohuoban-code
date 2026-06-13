@@ -102,7 +102,11 @@ impl HybridHomeDashboardProvider {
         self.fallback.replace_snapshot(snapshot).await;
     }
 
-    async fn snapshot_for_user(&self, user_id: Uuid) -> HomeResult<HomeDashboardSnapshot> {
+    async fn snapshot_for_user(
+        &self,
+        user_id: Uuid,
+        selected_pet_id: Option<Uuid>,
+    ) -> HomeResult<HomeDashboardSnapshot> {
         if let Some(merchant_dashboard) = self
             .pet_service
             .load_merchant_dashboard(user_id)
@@ -117,7 +121,7 @@ impl HybridHomeDashboardProvider {
             .list_pet_profiles(user_id)
             .await
             .map_err(|error| to_home_error(&error))?;
-        let Some(selected_pet) = pets.first() else {
+        let Some(selected_pet) = selected_pet(&pets, selected_pet_id) else {
             let mut snapshot = new_user_home_snapshot();
             let contents = self
                 .recommendation_service
@@ -183,10 +187,18 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
         context: HomeDashboardContext,
     ) -> HomeResult<HomeDashboardSnapshot> {
         if let Some(user_id) = context.user_id {
-            return self.snapshot_for_user(user_id).await;
+            return self
+                .snapshot_for_user(user_id, context.selected_pet_id)
+                .await;
         }
         self.fallback.get_dashboard_snapshot(context).await
     }
+}
+
+fn selected_pet(pets: &[PetProfile], selected_pet_id: Option<Uuid>) -> Option<&PetProfile> {
+    selected_pet_id
+        .and_then(|pet_id| pets.iter().find(|pet| pet.id == pet_id))
+        .or_else(|| pets.first())
 }
 
 fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {

@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
+    let onSelectPet: (String) -> Void
 
     var body: some View {
         let routingContext = HomeActionRoutingContext(snapshot: snapshot)
@@ -14,6 +15,13 @@ struct HomeDashboardLoadedView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 HomeIdentityHeader(identity: snapshot.identity)
+
+                if !snapshot.petSwitcher.isEmpty {
+                    HomePetSwitcherSection(
+                        items: snapshot.petSwitcher,
+                        onSelectPet: onSelectPet
+                    )
+                }
 
                 if let emptyState = snapshot.emptyState {
                     HomeEmptyStateSection(

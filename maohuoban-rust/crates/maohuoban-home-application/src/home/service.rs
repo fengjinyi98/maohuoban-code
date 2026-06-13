@@ -18,10 +18,11 @@ pub enum HomeError {
 /// HomeDashboardContext 首页快照上下文
 /// 核心职责：
 /// - 携带当前用户身份
-/// - 支持无上下文开发 seed 和有上下文真实聚合并存
+/// - 支持无上下文开发 seed、有上下文真实聚合和多宠切换
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HomeDashboardContext {
     pub user_id: Option<Uuid>,
+    pub selected_pet_id: Option<Uuid>,
 }
 
 /// HomeDashboardProvider 首页快照读取端口

@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
 };
 use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -40,9 +40,14 @@ pub fn build_home_router(home: Arc<HomeDashboardService>) -> Router {
         .with_state(HomeHttpState::new(home))
 }
 
-async fn get_home_dashboard(State(state): State<HomeHttpState>, headers: HeaderMap) -> Response {
+async fn get_home_dashboard(
+    State(state): State<HomeHttpState>,
+    headers: HeaderMap,
+    Query(query): Query<HomeDashboardQuery>,
+) -> Response {
     let context = HomeDashboardContext {
         user_id: current_user_id(&headers),
+        selected_pet_id: selected_pet_id(&query),
     };
     match state.home.get_dashboard_snapshot(context).await {
         Ok(snapshot) => ok_response(
@@ -54,11 +59,27 @@ async fn get_home_dashboard(State(state): State<HomeHttpState>, headers: HeaderM
     }
 }
 
+/// HomeDashboardQuery 首页查询参数
+/// 核心职责：
+/// - 承接当前宠物选择参数
+/// - 保持非法或过期宠物 ID 不影响首页默认加载
+#[derive(Debug, Deserialize)]
+struct HomeDashboardQuery {
+    selected_pet_id: Option<String>,
+}
+
 fn current_user_id(headers: &HeaderMap) -> Option<Uuid> {
     headers
         .get("x-maohuoban-user-id")
         .and_then(|value| value.to_str().ok())
         .and_then(|raw_user_id| Uuid::parse_str(raw_user_id).ok())
+}
+
+fn selected_pet_id(query: &HomeDashboardQuery) -> Option<Uuid> {
+    query
+        .selected_pet_id
+        .as_deref()
+        .and_then(|raw_pet_id| Uuid::parse_str(raw_pet_id).ok())
 }
 
 fn ok_response<T>(code: &'static str, message: &'static str, data: T) -> Response

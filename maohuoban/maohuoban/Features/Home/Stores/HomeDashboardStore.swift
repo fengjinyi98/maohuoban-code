@@ -16,11 +16,14 @@ final class HomeDashboardStore {
         self.repository = repository
     }
 
-    func load(currentUserID: String? = nil) async {
+    func load(currentUserID: String? = nil, selectedPetID: String? = nil) async {
         guard phase != .loading else { return }
         phase = .loading
         do {
-            let response = try await repository.dashboard(currentUserID: currentUserID)
+            let response = try await repository.dashboard(
+                currentUserID: currentUserID,
+                selectedPetID: selectedPetID
+            )
             guard let snapshot = response.data else {
                 phase = .failed("首页数据为空")
                 return

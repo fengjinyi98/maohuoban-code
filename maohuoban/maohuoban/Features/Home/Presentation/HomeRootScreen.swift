@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct HomeRootScreen: View {
     let currentUserID: String?
     @State private var store = HomeDashboardStore()
+    @State private var selectedPetID: String?
 
     init(currentUserID: String? = nil) {
         self.currentUserID = currentUserID
@@ -19,15 +20,32 @@ struct HomeRootScreen: View {
             case .idle, .loading:
                 HomeDashboardLoadingView()
             case .loaded(let snapshot):
-                HomeDashboardLoadedView(snapshot: snapshot)
+                HomeDashboardLoadedView(
+                    snapshot: snapshot,
+                    onSelectPet: { petID in
+                        selectedPetID = petID
+                        Task {
+                            await store.load(
+                                currentUserID: currentUserID,
+                                selectedPetID: petID
+                            )
+                        }
+                    }
+                )
             case .failed(let message):
                 HomeDashboardErrorView(message: message) {
-                    Task { await store.load(currentUserID: currentUserID) }
+                    Task {
+                        await store.load(
+                            currentUserID: currentUserID,
+                            selectedPetID: selectedPetID
+                        )
+                    }
                 }
             }
         }
         .navigationTitle("首页")
         .task(id: currentUserID) {
+            selectedPetID = nil
             await store.load(currentUserID: currentUserID)
         }
         .navigationDestination(for: HomeRoute.self) { route in
@@ -36,7 +54,10 @@ struct HomeRootScreen: View {
                 currentUserID: currentUserID
             ) {
                 Task {
-                    await store.load(currentUserID: currentUserID)
+                    await store.load(
+                        currentUserID: currentUserID,
+                        selectedPetID: selectedPetID
+                    )
                 }
             }
         }

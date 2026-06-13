@@ -197,6 +197,28 @@ async fn load_user_home_dashboard(
     response_json(response).await
 }
 
+/// `load_user_home_dashboard_for_pet` 读取指定宠物上下文的首页快照
+/// 核心职责：
+/// - 固定多宠切换查询参数
+/// - 验证首页聚合可按用户选择切换当前宠物
+async fn load_user_home_dashboard_for_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    selected_pet_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "GET",
+            &format!("/api/v1/home/dashboard?selected_pet_id={selected_pet_id}"),
+            Some(user_id),
+        ))
+        .await
+        .expect("load selected pet dashboard");
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
 #[tokio::test]
 async fn home_dashboard_returns_pet_owner_snapshot() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
@@ -339,6 +361,77 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
         "体重记录"
     );
     assert!(dashboard_body["data"]["empty_state"].is_null());
+}
+
+#[tokio::test]
+async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138227").await;
+    let first_pet_id = create_named_home_test_pet(&app, &user_id, "糯米").await;
+    let second_pet_id = create_named_home_test_pet(&app, &user_id, "奶油").await;
+    append_home_test_event(
+        &app,
+        &user_id,
+        &second_pet_id,
+        json!({
+            "event_kind": "daily",
+            "event_subkind": "appetite",
+            "title": "奶油早餐记录",
+            "summary": "第二只宠物的首页时间线",
+            "visibility": "private",
+            "occurred_at": "2026-06-13T08:30:00Z",
+            "event_payload": {
+                "value_text": "正常"
+            }
+        }),
+    )
+    .await;
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &second_pet_id).await;
+
+    assert_eq!(dashboard_body["data"]["selected_pet"]["id"], second_pet_id);
+    assert_eq!(dashboard_body["data"]["selected_pet"]["name"], "奶油");
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][0]["id"],
+        first_pet_id
+    );
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][0]["is_selected"],
+        false
+    );
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][1]["id"],
+        second_pet_id
+    );
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][1]["is_selected"],
+        true
+    );
+    assert_eq!(
+        dashboard_body["data"]["recent_timeline"][0]["title"],
+        "奶油早餐记录"
+    );
+}
+
+#[tokio::test]
+async fn home_dashboard_falls_back_when_selected_pet_belongs_to_another_user() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138228").await;
+    let own_pet_id = create_named_home_test_pet(&app, &user_id, "糯米").await;
+    let other_user_id = login_user_id(&app, "13800138229").await;
+    let other_pet_id = create_named_home_test_pet(&app, &other_user_id, "奶油").await;
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &other_pet_id).await;
+
+    assert_eq!(dashboard_body["data"]["selected_pet"]["id"], own_pet_id);
+    assert_eq!(dashboard_body["data"]["selected_pet"]["name"], "糯米");
+    assert_eq!(dashboard_body["data"]["pet_switcher"][0]["id"], own_pet_id);
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][0]["is_selected"],
+        true
+    );
 }
 
 #[tokio::test]

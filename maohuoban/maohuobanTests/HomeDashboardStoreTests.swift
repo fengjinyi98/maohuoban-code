@@ -33,6 +33,29 @@ final class HomeDashboardStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testLoadPassesSelectedPetIDToRepository() async {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-2")
+        let repository = DelayedHomeRepository(
+            result: .success(
+                MHBAPIResponse(
+                    success: true,
+                    code: "ok",
+                    message: "首页已加载",
+                    data: snapshot
+                )
+            ),
+            delayMilliseconds: 0
+        )
+        let store = HomeDashboardStore(repository: repository)
+
+        await store.load(currentUserID: "user-1", selectedPetID: "pet-2")
+
+        XCTAssertEqual(repository.receivedUserID, "user-1")
+        XCTAssertEqual(repository.receivedSelectedPetID, "pet-2")
+        XCTAssertEqual(store.phase, .loaded(snapshot))
+    }
+
+    @MainActor
     func testLoadTurnsNilDataIntoFailure() async {
         let repository = DelayedHomeRepository(
             result: .success(
@@ -61,6 +84,7 @@ private final class DelayedHomeRepository: HomeRepository {
     private let result: Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>
     private let delayMilliseconds: UInt64
     private(set) var receivedUserID: String?
+    private(set) var receivedSelectedPetID: String?
 
     init(
         result: Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>,
@@ -70,8 +94,12 @@ private final class DelayedHomeRepository: HomeRepository {
         self.delayMilliseconds = delayMilliseconds
     }
 
-    func dashboard(currentUserID: String?) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
+    func dashboard(
+        currentUserID: String?,
+        selectedPetID: String?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
         receivedUserID = currentUserID
+        receivedSelectedPetID = selectedPetID
         do {
             try await Task.sleep(for: .milliseconds(delayMilliseconds))
         } catch {
