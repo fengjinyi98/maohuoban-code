@@ -1,8 +1,8 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{NewPetEvent, NewPetProfile};
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, PetEvent, PetProfile, PetSex, PetSourceKind, PetSpecies,
-    PetTimeline,
+    EventKind, EventVisibility, ManagedPetStatus, PetEvent, PetProfile, PetSex, PetSourceKind,
+    PetSpecies, PetTimeline,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -111,5 +111,35 @@ pub(super) struct PetTimelineData {
 impl From<PetTimeline> for PetTimelineData {
     fn from(timeline: PetTimeline) -> Self {
         Self { timeline }
+    }
+}
+
+/// MerchantPetsQuery 商家宠物筛选查询
+/// 核心职责：
+/// - 接收商家宠物列表状态筛选
+/// - 将 URL query 限定为领域层稳定状态枚举
+#[derive(Debug, Deserialize)]
+pub(super) struct MerchantPetsQuery {
+    pub(super) status: ManagedPetStatus,
+}
+
+/// MerchantPetsData 商家宠物列表响应
+/// 核心职责：
+/// - 返回指定商家和状态下的在管宠物
+/// - 支撑首页商家状态看板目标页
+#[derive(Debug, Serialize)]
+pub(super) struct MerchantPetsData {
+    pub(super) merchant_id: Uuid,
+    pub(super) status: ManagedPetStatus,
+    pub(super) pets: Vec<PetProfileData>,
+}
+
+impl MerchantPetsData {
+    pub(super) fn new(merchant_id: Uuid, status: ManagedPetStatus, pets: Vec<PetProfile>) -> Self {
+        Self {
+            merchant_id,
+            status,
+            pets: pets.into_iter().map(PetProfileData::from).collect(),
+        }
     }
 }

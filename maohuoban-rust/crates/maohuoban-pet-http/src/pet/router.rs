@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     response::Response,
     routing::{get, post},
@@ -12,8 +12,8 @@ use uuid::Uuid;
 
 use super::{
     dto::{
-        CreatePetEventRequest, CreatePetProfileRequest, PetEventData, PetProfileData,
-        PetTimelineData,
+        CreatePetEventRequest, CreatePetProfileRequest, MerchantPetsData, MerchantPetsQuery,
+        PetEventData, PetProfileData, PetTimelineData,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -43,6 +43,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route("/api/v1/pets", post(create_pet_profile))
         .route("/api/v1/pets/{pet_id}/events", post(create_pet_event))
         .route("/api/v1/pets/{pet_id}/timeline", get(load_pet_timeline))
+        .route(
+            "/api/v1/merchants/{merchant_id}/pets",
+            get(list_merchant_pets),
+        )
         .with_state(PetHttpState::new(pet))
 }
 
@@ -101,6 +105,30 @@ async fn load_pet_timeline(
             "pet.timeline_loaded",
             "宠物时间线已加载",
             PetTimelineData::from(timeline),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn list_merchant_pets(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(merchant_id): Path<Uuid>,
+    Query(query): Query<MerchantPetsQuery>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    match state
+        .pet
+        .list_merchant_pets(owner_user_id, merchant_id, query.status)
+        .await
+    {
+        Ok(pets) => ok_response(
+            "merchant.pets_loaded",
+            "商家宠物列表已加载",
+            MerchantPetsData::new(merchant_id, query.status, pets),
         ),
         Err(error) => error_response(&error),
     }

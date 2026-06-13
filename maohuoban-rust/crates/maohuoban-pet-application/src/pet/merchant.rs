@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use maohuoban_pet_domain::pet::{
-    MerchantProfile, MerchantStatusCount, PetEvent, PetRelationship, PetResult,
+    ManagedPetStatus, MerchantProfile, MerchantStatusCount, PetEvent, PetProfile, PetRelationship,
+    PetResult,
 };
 use uuid::Uuid;
 
@@ -67,4 +68,11 @@ pub trait MerchantRepository: Send + Sync {
         merchant_id: Uuid,
         limit: i64,
     ) -> PetResult<Vec<PetEvent>>;
+
+    async fn list_merchant_pets(
+        &self,
+        merchant_id: Uuid,
+        status: ManagedPetStatus,
+        limit: i64,
+    ) -> PetResult<Vec<PetProfile>>;
 }

@@ -61,6 +61,30 @@ struct MHBHTTPClient {
         return try await send(request)
     }
 
+    func get<ResponseBody: Decodable>(
+        path: String,
+        queryItems: [URLQueryItem],
+        headers: [String: String] = [:]
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        let basePathURL = baseURL.appending(path: path)
+        guard var components = URLComponents(url: basePathURL, resolvingAgainstBaseURL: false) else {
+            throw .invalidResponse
+        }
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let url = components.url else {
+            throw .invalidResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+
+        return try await send(request)
+    }
+
     private func send<ResponseBody: Decodable>(
         _ request: URLRequest
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use maohuoban_pet_domain::pet::{PetError, PetEvent, PetProfile, PetResult, PetTimeline};
+use maohuoban_pet_domain::pet::{
+    ManagedPetStatus, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
+};
 use uuid::Uuid;
 
 use super::{
@@ -106,6 +108,28 @@ impl PetService {
             relationships,
             recent_events,
         }))
+    }
+
+    pub async fn list_merchant_pets(
+        &self,
+        owner_user_id: Uuid,
+        merchant_id: Uuid,
+        status: ManagedPetStatus,
+    ) -> PetResult<Vec<PetProfile>> {
+        let Some(merchant) = self
+            .merchant_repository
+            .find_verified_merchant_for_owner(owner_user_id)
+            .await?
+        else {
+            return Err(PetError::Forbidden);
+        };
+        if merchant.id != merchant_id {
+            return Err(PetError::Forbidden);
+        }
+
+        self.merchant_repository
+            .list_merchant_pets(merchant_id, status, 100)
+            .await
     }
 }
 

@@ -3,8 +3,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{MerchantLitterSummary, MerchantRepository};
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, MerchantProfile, MerchantStatusCount,
-    MerchantType, MerchantVerificationStatus, PetError, PetEvent, PetRelationship,
-    PetRelationshipKind, PetRelationshipSourceKind, PetResult,
+    MerchantType, MerchantVerificationStatus, PetError, PetEvent, PetProfile, PetRelationship,
+    PetRelationshipKind, PetRelationshipSourceKind, PetResult, PetSex, PetSourceKind, PetSpecies,
 };
 use serde_json::Value;
 use sqlx::FromRow;
@@ -201,6 +201,43 @@ impl MerchantRepository for PostgresPetRepository {
 
         rows.into_iter().map(TryInto::try_into).collect()
     }
+
+    async fn list_merchant_pets(
+        &self,
+        merchant_id: Uuid,
+        status: ManagedPetStatus,
+        limit: i64,
+    ) -> PetResult<Vec<PetProfile>> {
+        let rows = sqlx::query_as::<_, MerchantManagedPetRow>(
+            r#"
+            SELECT
+                id,
+                owner_user_id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                managed_status,
+                source_kind,
+                created_at,
+                updated_at
+            FROM pet_profiles
+            WHERE merchant_id = $1 AND managed_status = $2
+            ORDER BY created_at ASC, name ASC
+            LIMIT $3
+            "#,
+        )
+        .bind(merchant_id)
+        .bind(status.as_str())
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
 }
 
 #[derive(Debug, FromRow)]
@@ -370,6 +407,50 @@ impl TryFrom<MerchantPetEventRow> for PetEvent {
             actor_user_id: row.actor_user_id,
             evidence_snapshot_id: row.evidence_snapshot_id,
             record_revision: row.record_revision,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+    }
+}
+
+#[derive(Debug, FromRow)]
+struct MerchantManagedPetRow {
+    id: Uuid,
+    owner_user_id: Option<Uuid>,
+    merchant_id: Option<Uuid>,
+    name: String,
+    species: String,
+    breed: Option<String>,
+    sex: String,
+    birthday: Option<NaiveDate>,
+    managed_status: String,
+    source_kind: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+}
+
+impl TryFrom<MerchantManagedPetRow> for PetProfile {
+    type Error = PetError;
+
+    fn try_from(row: MerchantManagedPetRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            owner_user_id: row.owner_user_id,
+            merchant_id: row.merchant_id,
+            name: row.name,
+            species: PetSpecies::try_from(row.species.as_str()).map_err(|_| {
+                PetError::Infrastructure("unknown species from database".to_owned())
+            })?,
+            breed: row.breed,
+            sex: PetSex::try_from(row.sex.as_str())
+                .map_err(|_| PetError::Infrastructure("unknown sex from database".to_owned()))?,
+            birthday: row.birthday,
+            managed_status: ManagedPetStatus::try_from(row.managed_status.as_str()).map_err(
+                |_| PetError::Infrastructure("unknown managed status from database".to_owned()),
+            )?,
+            source_kind: PetSourceKind::try_from(row.source_kind.as_str()).map_err(|_| {
+                PetError::Infrastructure("unknown source kind from database".to_owned())
+            })?,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })

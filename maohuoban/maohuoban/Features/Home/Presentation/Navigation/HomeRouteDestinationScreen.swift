@@ -30,11 +30,25 @@ struct HomeRouteDestinationScreen: View {
                 mode: .health,
                 onRecorded: onHomeMutationCompleted
             )
+        case .merchantPets(let merchantID, let status):
+            if let status = MerchantPetStatus(rawValue: status) {
+                MerchantPetsScreen(
+                    merchantID: merchantID,
+                    status: status,
+                    currentUserID: currentUserID
+                )
+            } else {
+                MHBTabPlaceholderRootScreen(
+                    systemImage: route.systemImage,
+                    title: route.title,
+                    subtitle: "商家宠物状态参数无效",
+                    accessibilityIdentifier: "home.routeDestination"
+                )
+            }
         case .bookHospital,
              .importTradePet,
              .addMerchantPet,
              .publishAvailableStatus,
-             .merchantPets,
              .merchantLitter,
              .merchantTask,
              .timelineEvent:

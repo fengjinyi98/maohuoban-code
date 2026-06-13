@@ -213,3 +213,55 @@ async fn pet_endpoints_require_user_context() {
     assert_eq!(body["code"], "pet.unauthorized");
     assert_eq!(body["message"], "请先登录");
 }
+
+#[tokio::test]
+async fn merchant_pet_list_returns_status_filtered_managed_pets() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138111").await;
+    let merchant_id = app.seed_merchant_tracking_workspace(&user_id).await;
+
+    let response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/merchants/{merchant_id}/pets?status=available"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load merchant pets");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "merchant.pets_loaded");
+    assert_eq!(body["message"], "商家宠物列表已加载");
+    assert_eq!(body["data"]["merchant_id"], merchant_id);
+    assert_eq!(body["data"]["status"], "available");
+    assert_eq!(body["data"]["pets"][0]["name"], "小橘");
+    assert_eq!(body["data"]["pets"][0]["managed_status"], "available");
+    assert_eq!(body["data"]["pets"][1]["name"], "小灰");
+    assert_eq!(body["data"]["pets"].as_array().expect("pets").len(), 2);
+}
+
+#[tokio::test]
+async fn merchant_pet_list_requires_user_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/merchants/3a85d5e7-1d03-41a1-9f8f-7c34a1e5a71f/pets?status=available",
+            None,
+        ))
+        .await
+        .expect("load merchant pets without user context");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "pet.unauthorized");
+    assert_eq!(body["message"], "请先登录");
+}
