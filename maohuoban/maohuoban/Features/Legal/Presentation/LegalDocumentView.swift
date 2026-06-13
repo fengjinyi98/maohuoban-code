@@ -27,14 +27,12 @@ struct LegalDocumentView: View {
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(MHBTheme.ColorToken.background.color, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await viewModel.load()
         }
     }
 }
-
 
 // LegalDocumentContentView 法务文档内容区
 // 核心职责：
@@ -48,8 +46,13 @@ private struct LegalDocumentContentView: View {
 
     var body: some View {
         if let document {
-            LegalHTMLTextView(html: document.html)
-                .accessibilityIdentifier("legal.documentTextView")
+            ScrollView {
+                LegalHTMLTextView(html: document.html)
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .padding(.top, MHBTheme.Spacing.s4)
+                    .padding(.bottom, MHBTheme.Spacing.s8)
+            }
+            .accessibilityIdentifier("legal.documentTextView")
         } else if isLoading {
             LegalDocumentLoadingView()
         } else {

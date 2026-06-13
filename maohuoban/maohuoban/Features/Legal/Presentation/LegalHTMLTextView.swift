@@ -17,26 +17,26 @@ struct LegalHTMLTextView: UIViewRepresentable {
         let textView = UITextView()
         textView.isEditable = false
         textView.isSelectable = true
+        textView.isScrollEnabled = false
         textView.backgroundColor = .clear
         textView.textContainer.lineFragmentPadding = 0
-        textView.alwaysBounceVertical = false
-        textView.bounces = false
         textView.contentInsetAdjustmentBehavior = .never
         textView.accessibilityIdentifier = "legal.documentTextView"
         return textView
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
-        uiView.textContainerInset = UIEdgeInsets(
-            top: MHBTheme.Spacing.s5,
-            left: MHBTheme.Spacing.s5,
-            bottom: MHBTheme.Spacing.s8 + MHBTheme.Spacing.s4,
-            right: MHBTheme.Spacing.s5
-        )
+        uiView.textContainerInset = .zero
 
         guard context.coordinator.loadedHTML != html else { return }
         context.coordinator.loadedHTML = html
         uiView.attributedText = attributedText(from: html)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 320
+        let size = uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return size
     }
 
     // attributedText 生成法务文档对应的原生富文本
