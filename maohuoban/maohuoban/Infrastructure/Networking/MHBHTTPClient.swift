@@ -25,13 +25,17 @@ struct MHBHTTPClient {
 
     func post<RequestBody: Encodable, ResponseBody: Decodable>(
         path: String,
-        body: RequestBody
+        body: RequestBody,
+        headers: [String: String] = [:]
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
 
         do {
             request.httpBody = try encoder.encode(body)
