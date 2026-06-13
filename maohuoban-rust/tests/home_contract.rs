@@ -112,6 +112,79 @@ async fn login_user_id(app: &maohuoban_rust::test_support::AuthTestApp, phone: &
         .to_owned()
 }
 
+/// `create_home_test_pet` 创建首页契约测试宠物
+/// 核心职责：
+/// - 复用标准宠物档案输入
+/// - 返回后续事件和首页断言需要的宠物 ID
+async fn create_home_test_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+) -> String {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "breed": "比熊犬",
+                "sex": "female",
+                "birthday": "2024-04-01"
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    body["data"]["id"].as_str().expect("pet id").to_owned()
+}
+
+/// `append_home_test_event` 写入首页契约测试宠物事件
+/// 核心职责：
+/// - 固定事件写入请求路径
+/// - 让首页派生测试聚焦响应契约
+async fn append_home_test_event(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+    event: Value,
+) {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            event,
+            Some(user_id),
+        ))
+        .await
+        .expect("create pet event");
+    assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+/// `load_user_home_dashboard` 读取带用户上下文的首页快照
+/// 核心职责：
+/// - 固定首页读取请求
+/// - 返回已解析 JSON 供契约断言
+async fn load_user_home_dashboard(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "GET",
+            "/api/v1/home/dashboard",
+            Some(user_id),
+        ))
+        .await
+        .expect("load pet owner dashboard");
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
+}
+
 #[tokio::test]
 async fn home_dashboard_returns_pet_owner_snapshot() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
@@ -222,59 +295,26 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
         "create_first_pet"
     );
 
-    let create_pet_response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            "/api/v1/pets",
-            json!({
-                "name": "糯米",
-                "species": "dog",
-                "breed": "比熊犬",
-                "sex": "female",
-                "birthday": "2024-04-01"
-            }),
-            Some(&user_id),
-        ))
-        .await
-        .expect("create pet");
-    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
-    let create_pet_body = response_json(create_pet_response).await;
-    let pet_id = create_pet_body["data"]["id"].as_str().expect("pet id");
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    append_home_test_event(
+        &app,
+        &user_id,
+        &pet_id,
+        json!({
+            "event_kind": "health",
+            "event_subkind": "weight",
+            "title": "体重记录",
+            "summary": "5.2kg，较上次稳定",
+            "visibility": "private",
+            "occurred_at": "2026-06-13T09:20:00Z",
+            "event_payload": {
+                "weight_kg": 5.2
+            }
+        }),
+    )
+    .await;
 
-    let create_event_response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/pets/{pet_id}/events"),
-            json!({
-                "event_kind": "health",
-                "event_subkind": "weight",
-                "title": "体重记录",
-                "summary": "5.2kg，较上次稳定",
-                "visibility": "private",
-                "occurred_at": "2026-06-13T09:20:00Z",
-                "event_payload": {
-                    "weight_kg": 5.2
-                }
-            }),
-            Some(&user_id),
-        ))
-        .await
-        .expect("create pet event");
-    assert_eq!(create_event_response.status(), StatusCode::CREATED);
-
-    let dashboard_response = app
-        .router()
-        .oneshot(contextual_empty_request(
-            "GET",
-            "/api/v1/home/dashboard",
-            Some(&user_id),
-        ))
-        .await
-        .expect("load pet owner dashboard");
-    assert_eq!(dashboard_response.status(), StatusCode::OK);
-    let dashboard_body = response_json(dashboard_response).await;
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
     assert_eq!(dashboard_body["data"]["identity"]["kind"], "pet_owner");
     assert_eq!(dashboard_body["data"]["selected_pet"]["name"], "糯米");
     assert_eq!(dashboard_body["data"]["selected_pet"]["id"], pet_id);
@@ -287,6 +327,87 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
         "体重记录"
     );
     assert!(dashboard_body["data"]["empty_state"].is_null());
+}
+
+#[tokio::test]
+async fn home_dashboard_derives_care_summary_and_reminders_from_pet_events() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138222").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+
+    for event in [
+        json!({
+            "event_kind": "daily",
+            "event_subkind": "appetite",
+            "title": "食欲记录",
+            "summary": "早餐和晚餐都吃完了",
+            "visibility": "private",
+            "occurred_at": "2026-06-13T08:30:00Z",
+            "event_payload": {
+                "value_text": "旺盛",
+                "status_text": "早餐和晚餐已记录"
+            }
+        }),
+        json!({
+            "event_kind": "health",
+            "event_subkind": "weight",
+            "title": "体重记录",
+            "summary": "6.4kg，较上次增加",
+            "visibility": "private",
+            "occurred_at": "2026-06-13T09:20:00Z",
+            "event_payload": {
+                "weight_kg": 6.4
+            }
+        }),
+        json!({
+            "event_kind": "health",
+            "event_subkind": "deworming",
+            "title": "内外驱虫",
+            "summary": "已完成本月驱虫",
+            "visibility": "private",
+            "occurred_at": "2026-06-13T10:30:00Z",
+            "event_payload": {
+                "next_due_at": "2026-07-01"
+            }
+        }),
+    ] {
+        append_home_test_event(&app, &user_id, &pet_id, event).await;
+    }
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+
+    assert_eq!(
+        dashboard_body["data"]["care_summary"]["metrics"][0]["kind"],
+        "appetite"
+    );
+    assert_eq!(
+        dashboard_body["data"]["care_summary"]["metrics"][0]["value_text"],
+        "旺盛"
+    );
+    assert_eq!(
+        dashboard_body["data"]["care_summary"]["metrics"][0]["status_text"],
+        "早餐和晚餐已记录"
+    );
+    assert_eq!(
+        dashboard_body["data"]["care_summary"]["metrics"][3]["kind"],
+        "weight"
+    );
+    assert_eq!(
+        dashboard_body["data"]["care_summary"]["metrics"][3]["value_text"],
+        "6.4kg"
+    );
+    assert_eq!(dashboard_body["data"]["reminders"][0]["kind"], "deworming");
+    assert_eq!(dashboard_body["data"]["reminders"][0]["title"], "内外驱虫");
+    assert_eq!(
+        dashboard_body["data"]["reminders"][0]["subtitle"],
+        "预计 2026-07-01 提醒"
+    );
+    assert_eq!(dashboard_body["data"]["reminders"][0]["due_text"], "待提醒");
+    assert_eq!(
+        dashboard_body["data"]["recent_timeline"][0]["event_kind"],
+        "deworming"
+    );
 }
 
 #[tokio::test]

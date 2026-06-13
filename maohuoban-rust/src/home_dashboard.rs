@@ -1,5 +1,8 @@
 use std::sync::Arc;
 
+use crate::home_event_projection::{
+    care_summary_from_events, reminders_from_events, timeline_event_summary,
+};
 use chrono::{Datelike, NaiveDate, Utc};
 use maohuoban_home_application::home::{
     HomeDashboardContext, HomeDashboardProvider, HomeError, HomeResult, new_user_home_snapshot,
@@ -7,8 +10,7 @@ use maohuoban_home_application::home::{
 };
 use maohuoban_home_domain::home::{
     HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind,
-    HomeReminder, HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind,
-    MerchantDashboardSummary as HomeMerchantDashboardSummary,
+    HomeReminder, HomeReminderKind, MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
     MerchantStatusCount as HomeMerchantStatusCount, PetHeroSummary, PetSex as HomePetSex,
     PetSpecies as HomePetSpecies, PetSwitchItem,
@@ -17,8 +19,7 @@ use maohuoban_pet_application::pet::{
     MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
 };
 use maohuoban_pet_domain::pet::{
-    EventKind, ManagedPetStatus, PetError, PetEvent, PetProfile, PetSex as DomainPetSex,
-    PetSpecies as DomainPetSpecies,
+    ManagedPetStatus, PetError, PetProfile, PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
 };
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -129,6 +130,8 @@ impl HybridHomeDashboardProvider {
             .take(3)
             .map(timeline_event_summary)
             .collect();
+        snapshot.care_summary = Some(care_summary_from_events(&timeline.events));
+        snapshot.reminders = reminders_from_events(&timeline.events);
         snapshot.partner_recommendation = None;
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
@@ -171,19 +174,6 @@ fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
         species: home_pet_species(pet.species),
         avatar_url: None,
         is_selected,
-    }
-}
-
-fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
-    HomeTimelineEvent {
-        id: event.id,
-        event_kind: home_timeline_event_kind(event),
-        title: event.title.clone(),
-        subtitle: event
-            .summary
-            .clone()
-            .unwrap_or_else(|| "已记录到可信档案".to_owned()),
-        occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
     }
 }
 
@@ -325,17 +315,6 @@ fn home_pet_sex(sex: DomainPetSex) -> HomePetSex {
         DomainPetSex::Female => HomePetSex::Female,
         DomainPetSex::Male => HomePetSex::Male,
         DomainPetSex::Unknown => HomePetSex::Unknown,
-    }
-}
-
-fn home_timeline_event_kind(event: &PetEvent) -> HomeTimelineEventKind {
-    match event.event_kind {
-        EventKind::Daily | EventKind::Growth | EventKind::Memorial => HomeTimelineEventKind::Daily,
-        EventKind::Health if event.event_subkind.as_deref() == Some("weight") => {
-            HomeTimelineEventKind::Weight
-        }
-        EventKind::Health | EventKind::Hospital | EventKind::Trade => HomeTimelineEventKind::Health,
-        EventKind::Merchant => HomeTimelineEventKind::Merchant,
     }
 }
 

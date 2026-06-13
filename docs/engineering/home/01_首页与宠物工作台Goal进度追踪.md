@@ -12,7 +12,7 @@
 | PRD 总纲 | 已明确 | `docs/product/prd/00_V1_PRD_产品总纲与核心流程.md` 定义 `PetProfile`、`PetEvent`、多宠工作台和商家维护流程 |
 | 首页定调 | 已确定 | 首页是以宠物为主体的信任工作台 |
 | ID 策略 | 已确定 | 当前阶段统一使用 UUID v4，PostgreSQL `uuid`，API 传字符串 |
-| 后端基线 | 已完成首页聚合、宠物事件接口、商家追溯应用基线和商家宠物状态列表接口 | 新增 home domain/application/http crates；新增 pet domain/application/infrastructure/http crates；`home_contract.rs` 覆盖普通用户、空态、seed 商家态、当前用户真实宠物聚合、当前用户认证商家真实窝次追溯聚合；`pet_contract.rs` 覆盖宠物档案、事件追加、时间线和商家在管宠物状态筛选 |
+| 后端基线 | 已完成首页聚合、宠物事件接口、商家追溯应用基线和商家宠物状态列表接口 | 新增 home domain/application/http crates；新增 pet domain/application/infrastructure/http crates；`home_contract.rs` 覆盖普通用户、空态、seed 商家态、当前用户真实宠物聚合、当前用户真实事件派生今日照护与提醒、当前用户认证商家真实窝次追溯聚合；`pet_contract.rs` 覆盖宠物档案、事件追加、时间线和商家在管宠物状态筛选 |
 | iOS 首页 | 已完成首页骨架、当前用户上下文、动作路由、Pet 写入基线和商家宠物列表目标页 | `HomeRootScreen` 已消费 `HomeDashboardSnapshot`，`AuthRootView` 将当前 user id 传入首页 Store，`.createPet` / `.recordDaily` / `.recordHealth` 已接入 `Features/Pet`，`.merchantPets` 已接入 `Features/Merchant` 真实读取流程，登录后新用户空态 UI 契约通过 |
 
 ## 2. Phase 进度
@@ -20,7 +20,7 @@
 | Phase | 状态 | 下一步 |
 |---|---|---|
 | 1. 文档与边界 | 已完成基线 | 提交 docs-only commit |
-| 2. 后端首页契约 | 已完成真实用户上下文基线 | `/api/v1/home/dashboard` 支持 `x-maohuoban-user-id` 聚合当前用户宠物和最近时间线 |
+| 2. 后端首页契约 | 已完成真实用户上下文基线 | `/api/v1/home/dashboard` 支持 `x-maohuoban-user-id` 聚合当前用户宠物、今日照护、提醒和最近时间线 |
 | 3. 宠物事件底座 | 已完成商家追溯应用基线 | 已新增宠物、事件、窝次、关系、证据快照数据库基线；已实现宠物档案创建、事件追加、时间线读取 HTTP 契约；已建立认证商家、窝次摘要、关系边和商家近期事件的应用读模型与首页聚合用例 |
 | 4. iOS 首页骨架 | 已完成当前用户上下文、单测 target、动作路由、Pet 写入基线和商家宠物列表页 | `HomeRouteDestinationScreen` 已将创建宠物、记录日常、健康记录替换为真实 Pet 写入页面；商家宠物状态筛选进入真实 `MerchantPetsScreen`；新增商家宠物、医院、交易和窝次详情继续等待对应业务模块接管 |
 | 5. 端到端验证 | 已完成当前阶段验证 | Rust、DesignSystem、iOS build、首页新用户空态 UI 契约和模拟器截图复核已通过 |
@@ -33,12 +33,12 @@
 | Goal 进度文档落地 | 当前文档 | 已完成基线 |
 | 实施计划落地 | `docs/engineering/home/02_首页与宠物工作台实施计划.md` | 已完成基线 |
 | 后端分层可扩展 | `maohuoban-home-domain`、`maohuoban-home-application`、`maohuoban-home-http` | 已完成首页基线 |
-| 首页接口契约 | `maohuoban-rust/tests/home_contract.rs` | 已完成基线，覆盖无上下文 seed、当前用户无宠物空态、创建宠物后真实首页聚合、认证商家真实窝次追溯聚合 |
+| 首页接口契约 | `maohuoban-rust/tests/home_contract.rs` | 已完成基线，覆盖无上下文 seed、当前用户无宠物空态、创建宠物后真实首页聚合、真实事件派生今日照护与提醒、认证商家真实窝次追溯聚合 |
 | UUID 策略 | 文档 + DTO + 数据库迁移 | 首页快照模型已使用 UUID；`0005_pet_home_baseline.sql` 使用 PostgreSQL `uuid` |
 | 宠物数据库基线 | `maohuoban-rust/migrations/0005_pet_home_baseline.sql` | 已完成 |
 | 宠物迁移契约测试 | `maohuoban-rust/tests/pet_schema_contract.rs` | 已通过 |
 | 宠物档案、事件与商家宠物接口 | `maohuoban-rust/tests/pet_contract.rs` | 已通过，覆盖 `POST /api/v1/pets`、`POST /api/v1/pets/{pet_id}/events`、`GET /api/v1/pets/{pet_id}/timeline`、`GET /api/v1/merchants/{merchant_id}/pets?status=available` 和缺失用户上下文 401 |
-| 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线；后端可读取当前用户宠物档案；创建宠物、记录日常、健康记录进入真实写入流程 | 已完成写入基线 |
+| 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线；后端可读取当前用户宠物档案，并从真实 `PetEvent` 派生食欲、体重、驱虫提醒和驱虫 / 疫苗时间线类型；创建宠物、记录日常、健康记录进入真实写入流程 | 已完成写入基线 |
 | 新用户空态 | 无宠物时展示创建宠物和辅助内容入口；创建宠物主操作进入真实 `PetCreateScreen`；UI 测试覆盖登录后键盘消失和创建宠物入口 | 已完成当前用户上下文基线 |
 | 商家首页 | 展示机构宠物工作台、窝次入口、待补记录和近期事件；后端可从真实认证商家、在管宠物、窝次、关系和事件聚合；状态看板可进入真实商家宠物列表 | 已完成商家追溯应用基线和列表目标页 |
 | SwiftUI 架构约束 | Store 承载副作用，section 独立 View，DesignSystem token | 已完成基线 |

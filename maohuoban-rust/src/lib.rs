@@ -7,6 +7,7 @@
 )]
 
 mod home_dashboard;
+mod home_event_projection;
 pub mod test_support;
 
 use std::{env, sync::Arc};
