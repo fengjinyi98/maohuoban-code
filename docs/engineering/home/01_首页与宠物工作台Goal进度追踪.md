@@ -21,7 +21,7 @@
 |---|---|---|
 | 1. 文档与边界 | 已完成基线 | 提交 docs-only commit |
 | 2. 后端首页契约 | 已完成基线 | `/api/v1/home/dashboard` 契约测试通过 |
-| 3. 宠物事件底座 | 进行中 | 首页读模型已包含宠物主卡、时间线、窝次摘要；真实宠物持久化待实现 |
+| 3. 宠物事件底座 | 进行中 | 已新增宠物、事件、窝次、关系、证据快照数据库基线；HTTP 用例待实现 |
 | 4. iOS 首页骨架 | 已完成基线 | 后续补 Store 单测 target、动作路由和真实宠物详情入口 |
 | 5. 端到端验证 | 进行中 | Rust、DesignSystem、iOS build、首页 UI 契约已通过；截图复核待补 |
 
@@ -34,7 +34,9 @@
 | 实施计划落地 | `docs/engineering/home/02_首页与宠物工作台实施计划.md` | 已完成基线 |
 | 后端分层可扩展 | `maohuoban-home-domain`、`maohuoban-home-application`、`maohuoban-home-http` | 已完成首页基线 |
 | 首页接口契约 | `maohuoban-rust/tests/home_contract.rs` | 已完成基线 |
-| UUID 策略 | 文档 + DTO | 首页快照模型已使用 UUID；数据库 schema 待实现 |
+| UUID 策略 | 文档 + DTO + 数据库迁移 | 首页快照模型已使用 UUID；`0005_pet_home_baseline.sql` 使用 PostgreSQL `uuid` |
+| 宠物数据库基线 | `maohuoban-rust/migrations/0005_pet_home_baseline.sql` | 已完成 |
+| 宠物迁移契约测试 | `maohuoban-rust/tests/pet_schema_contract.rs` | 已通过 |
 | 普通用户首页 | iOS 首页渲染宠物主卡、今日照护、快捷动作、伙伴、时间线 | 已完成基线 |
 | 新用户空态 | 无宠物时展示创建宠物和辅助内容入口 | 已完成前端渲染基线 |
 | 商家首页 | 展示机构宠物工作台、窝次入口、待补记录 | 已完成前端渲染基线 |
