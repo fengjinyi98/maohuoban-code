@@ -7,6 +7,7 @@ import WebKit
 // - 避免相同 HTML 在 SwiftUI 更新时重复加载
 struct LegalHTMLWebView: UIViewRepresentable {
     let html: String
+    let safeAreaTop: CGFloat
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -29,7 +30,10 @@ struct LegalHTMLWebView: UIViewRepresentable {
         
         let overrideStyle = """
         <style>
-        body { background: transparent !important; }
+        body {
+            background: transparent !important;
+            padding-top: \(safeAreaTop + 16)px !important;
+        }
         main {
             background: transparent !important;
             border: none !important;

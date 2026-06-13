@@ -17,20 +17,32 @@ struct LegalDocumentView: View {
     }
 
     var body: some View {
-        LegalDocumentContentView(
-            document: viewModel.document,
-            isLoading: viewModel.isLoading,
-            errorMessage: viewModel.errorMessage,
-            onRetry: {
-                Task { await viewModel.load() }
-            }
-        )
-        .ignoresSafeArea(edges: .top)
+        GeometryReader { geometry in
+            let safeAreaTop = geometry.safeAreaInsets.top
+            LegalDocumentContentView(
+                document: viewModel.document,
+                isLoading: viewModel.isLoading,
+                errorMessage: viewModel.errorMessage,
+                safeAreaTop: safeAreaTop,
+                onRetry: {
+                    Task { await viewModel.load() }
+                }
+            )
+            .ignoresSafeArea(edges: .top)
+        }
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .scrollEdgeEffectStyle(.soft, for: .top)
+        .onAppear {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundColor = .clear
+            appearance.shadowColor = .clear
+            UINavigationBar.appearance().standardAppearance = appearance
+            UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        }
         .task {
             await viewModel.load()
         }
@@ -46,11 +58,12 @@ private struct LegalDocumentContentView: View {
     let document: LegalDocument?
     let isLoading: Bool
     let errorMessage: String?
+    let safeAreaTop: CGFloat
     let onRetry: () -> Void
 
     var body: some View {
         if let document {
-            LegalHTMLWebView(html: document.html)
+            LegalHTMLWebView(html: document.html, safeAreaTop: safeAreaTop)
                 .ignoresSafeArea(edges: .top)
                 .accessibilityIdentifier("legal.documentWebView")
         } else if isLoading {
