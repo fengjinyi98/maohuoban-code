@@ -25,6 +25,11 @@ struct AuthRootView: View {
         .task {
             await viewModel.bootstrapSession()
         }
+        .task(id: viewModel.isAuthenticated) {
+            if viewModel.isAuthenticated {
+                MHBKeyboardDismissal.dismissActiveKeyboard()
+            }
+        }
     }
 
     // handleLogout 处理退出登录事件

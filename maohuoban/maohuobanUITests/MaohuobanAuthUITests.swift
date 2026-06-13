@@ -19,6 +19,7 @@ final class MaohuobanAuthUITests: XCTestCase {
 
         sendPhoneCodeLogin(app: app, phone: phone)
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10))
+        assertKeyboardDismissed(app: app)
 
         logoutFromProfile(app: app)
         XCTAssertTrue(app.textFields["auth.phoneInput"].waitForExistence(timeout: 8))
@@ -32,6 +33,7 @@ final class MaohuobanAuthUITests: XCTestCase {
         XCTAssertTrue(waitUntilHittable(passwordLoginButton, timeout: 5), passwordLoginButton.debugDescription)
         passwordLoginButton.tap()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10))
+        assertKeyboardDismissed(app: app)
     }
 
     // testPhoneCodeButtonRequiresElevenDigitPhone 验证验证码入口手机号门禁
@@ -246,6 +248,15 @@ final class MaohuobanAuthUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         return !element.exists
+    }
+
+    // assertKeyboardDismissed 校验登录态切换后的键盘状态
+    // 核心职责：
+    // - 等待系统软键盘从可访问性树移除
+    // - 防止认证流程输入焦点泄漏到 App 主壳
+    @MainActor
+    private func assertKeyboardDismissed(app: XCUIApplication) {
+        XCTAssertTrue(waitUntilHidden(app.keyboards.firstMatch, timeout: 3), app.keyboards.debugDescription)
     }
 
     private func makeUniquePhone() -> String {
