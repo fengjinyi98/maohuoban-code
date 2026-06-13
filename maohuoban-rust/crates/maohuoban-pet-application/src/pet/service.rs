@@ -3,20 +3,29 @@ use std::sync::Arc;
 use maohuoban_pet_domain::pet::{PetError, PetEvent, PetProfile, PetResult, PetTimeline};
 use uuid::Uuid;
 
-use super::{NewPetEvent, NewPetProfile, PetRepository};
+use super::{
+    MerchantDashboardSummary, MerchantRepository, NewPetEvent, NewPetProfile, PetRepository,
+};
 
 /// PetService 宠物应用服务
 /// 核心职责：
 /// - 编排宠物档案创建、事件追加和时间线读取
-/// - 将输入校验和所有权检查保持在应用层
+/// - 编排商家多宠工作台、窝次和关系追溯读取
 pub struct PetService {
     repository: Arc<dyn PetRepository>,
+    merchant_repository: Arc<dyn MerchantRepository>,
 }
 
 impl PetService {
     #[must_use]
-    pub fn new(repository: Arc<dyn PetRepository>) -> Self {
-        Self { repository }
+    pub fn new(
+        repository: Arc<dyn PetRepository>,
+        merchant_repository: Arc<dyn MerchantRepository>,
+    ) -> Self {
+        Self {
+            repository,
+            merchant_repository,
+        }
     }
 
     pub async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
@@ -59,6 +68,44 @@ impl PetService {
         self.repository
             .load_pet_timeline(owner_user_id, pet_id, 50)
             .await
+    }
+
+    pub async fn load_merchant_dashboard(
+        &self,
+        owner_user_id: Uuid,
+    ) -> PetResult<Option<MerchantDashboardSummary>> {
+        let Some(merchant) = self
+            .merchant_repository
+            .find_verified_merchant_for_owner(owner_user_id)
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        let status_counts = self
+            .merchant_repository
+            .load_merchant_status_counts(merchant.id)
+            .await?;
+        let litters = self
+            .merchant_repository
+            .list_merchant_litter_summaries(merchant.id, 5)
+            .await?;
+        let relationships = self
+            .merchant_repository
+            .list_merchant_relationships(merchant.id, 20)
+            .await?;
+        let recent_events = self
+            .merchant_repository
+            .load_merchant_recent_events(merchant.id, 5)
+            .await?;
+
+        Ok(Some(MerchantDashboardSummary {
+            merchant,
+            status_counts,
+            litters,
+            relationships,
+            recent_events,
+        }))
     }
 }
 

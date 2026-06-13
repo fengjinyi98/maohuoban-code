@@ -15,7 +15,7 @@ use uuid::Uuid;
 /// - 通过数据库索引支撑首页和详情页时间线读取
 #[derive(Debug, Clone)]
 pub struct PostgresPetRepository {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 impl PostgresPetRepository {

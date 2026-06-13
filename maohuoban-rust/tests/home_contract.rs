@@ -288,3 +288,65 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
     );
     assert!(dashboard_body["data"]["empty_state"].is_null());
 }
+
+#[tokio::test]
+async fn home_dashboard_uses_current_user_merchant_tracking_workspace() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138221").await;
+    let merchant_id = app.seed_merchant_tracking_workspace(&user_id).await;
+
+    let dashboard_response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "GET",
+            "/api/v1/home/dashboard",
+            Some(&user_id),
+        ))
+        .await
+        .expect("load merchant tracking dashboard");
+    assert_eq!(dashboard_response.status(), StatusCode::OK);
+    let dashboard_body = response_json(dashboard_response).await;
+    assert_eq!(
+        dashboard_body["data"]["identity"]["kind"],
+        "certified_merchant"
+    );
+    assert!(dashboard_body["data"]["selected_pet"].is_null());
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["merchant_id"],
+        merchant_id
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["merchant_name"],
+        "梧桐猫舍"
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["status_counts"][0]["status"],
+        "available"
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["status_counts"][0]["count"],
+        2
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["litters"][0]["name"],
+        "2026 春季 A 窝"
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["litters"][0]["parent_text"],
+        "父亲 Leo · 母亲 Luna"
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["litters"][0]["available_count"],
+        2
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["pending_tasks"][0]["kind"],
+        "complete_health_record"
+    );
+    assert_eq!(
+        dashboard_body["data"]["merchant_dashboard"]["recent_events"][0]["title"],
+        "A 窝出生记录"
+    );
+    assert!(dashboard_body["data"]["empty_state"].is_null());
+}

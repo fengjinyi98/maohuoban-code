@@ -6,10 +6,13 @@
     clippy::needless_raw_string_hashes
 )]
 
+mod home_dashboard;
+pub mod test_support;
+
 use std::{env, sync::Arc};
 
 use axum::Router;
-use chrono::{Datelike, NaiveDate, Utc};
+use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_auth_application::auth::{AuthService, AuthServiceConfig};
 use maohuoban_auth_http::auth::build_auth_router;
 use maohuoban_auth_infrastructure::{
@@ -17,31 +20,17 @@ use maohuoban_auth_infrastructure::{
     redis::RedisOtpChallengeStore,
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
-use maohuoban_home_application::home::{
-    HomeDashboardContext, HomeDashboardProvider, HomeDashboardService, HomeError, HomeResult,
-    new_user_home_snapshot, pet_owner_home_snapshot,
-};
-use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind, HomeTimelineEvent,
-    HomeTimelineEventKind, PetHeroSummary, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
-    PetSwitchItem,
-};
+use maohuoban_home_application::home::{HomeDashboardService, pet_owner_home_snapshot};
 use maohuoban_home_http::home::build_home_router;
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
-use maohuoban_pet_domain::pet::{
-    EventKind, PetError, PetEvent, PetProfile, PetSex as DomainPetSex,
-    PetSpecies as DomainPetSpecies,
-};
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 
 /// BackendConfig 后端启动配置
 /// 核心职责：
@@ -111,211 +100,6 @@ pub struct BackendApp {
     pub pet_repository: PostgresPetRepository,
 }
 
-/// InMemoryHomeDashboardProvider 内存首页快照提供器
-/// 核心职责：
-/// - 为开发和契约测试提供可替换首页快照
-/// - 保持首页应用服务依赖端口而非具体数据库实现
-#[derive(Clone)]
-pub struct InMemoryHomeDashboardProvider {
-    snapshot: Arc<RwLock<HomeDashboardSnapshot>>,
-}
-
-impl InMemoryHomeDashboardProvider {
-    #[must_use]
-    pub fn new(snapshot: HomeDashboardSnapshot) -> Self {
-        Self {
-            snapshot: Arc::new(RwLock::new(snapshot)),
-        }
-    }
-
-    /// replace_snapshot 替换首页快照
-    /// 核心职责：
-    /// - 为测试和开发种子切换首页形态
-    /// - 通过写锁保证读取和替换的一致性
-    pub async fn replace_snapshot(&self, snapshot: HomeDashboardSnapshot) {
-        *self.snapshot.write().await = snapshot;
-    }
-}
-
-#[async_trait::async_trait]
-impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
-    async fn get_dashboard_snapshot(
-        &self,
-        _context: HomeDashboardContext,
-    ) -> HomeResult<HomeDashboardSnapshot> {
-        Ok(self.snapshot.read().await.clone())
-    }
-}
-
-/// HybridHomeDashboardProvider 混合首页快照提供器
-/// 核心职责：
-/// - 无用户上下文时保留开发 seed 快照
-/// - 有用户上下文时读取宠物档案和事件生成真实首页聚合
-#[derive(Clone)]
-pub struct HybridHomeDashboardProvider {
-    fallback: InMemoryHomeDashboardProvider,
-    pet_service: Arc<PetService>,
-}
-
-impl HybridHomeDashboardProvider {
-    #[must_use]
-    pub fn new(fallback: InMemoryHomeDashboardProvider, pet_service: Arc<PetService>) -> Self {
-        Self {
-            fallback,
-            pet_service,
-        }
-    }
-
-    /// replace_snapshot 替换无上下文首页快照
-    /// 核心职责：
-    /// - 支持首页契约测试切换开发 seed
-    /// - 不影响带用户上下文的真实聚合路径
-    pub async fn replace_snapshot(&self, snapshot: HomeDashboardSnapshot) {
-        self.fallback.replace_snapshot(snapshot).await;
-    }
-
-    async fn snapshot_for_user(&self, user_id: Uuid) -> HomeResult<HomeDashboardSnapshot> {
-        let pets = self
-            .pet_service
-            .list_pet_profiles(user_id)
-            .await
-            .map_err(|error| to_home_error(&error))?;
-        let Some(selected_pet) = pets.first() else {
-            return Ok(new_user_home_snapshot());
-        };
-
-        let timeline = self
-            .pet_service
-            .load_pet_timeline(user_id, selected_pet.id)
-            .await
-            .map_err(|error| to_home_error(&error))?;
-
-        let mut snapshot = pet_owner_home_snapshot();
-        snapshot.identity = HomeIdentity {
-            kind: HomeIdentityKind::PetOwner,
-            display_name: "毛伙伴用户".to_owned(),
-            city: None,
-            verification_badge: None,
-        };
-        snapshot.selected_pet = Some(pet_hero_summary(selected_pet));
-        snapshot.pet_switcher = pets
-            .iter()
-            .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id))
-            .collect();
-        snapshot.recent_timeline = timeline
-            .events
-            .iter()
-            .take(3)
-            .map(timeline_event_summary)
-            .collect();
-        snapshot.partner_recommendation = None;
-        snapshot.merchant_dashboard = None;
-        snapshot.empty_state = None;
-        snapshot.recommended_content = Vec::new();
-        Ok(snapshot)
-    }
-}
-
-#[async_trait::async_trait]
-impl HomeDashboardProvider for HybridHomeDashboardProvider {
-    async fn get_dashboard_snapshot(
-        &self,
-        context: HomeDashboardContext,
-    ) -> HomeResult<HomeDashboardSnapshot> {
-        if let Some(user_id) = context.user_id {
-            return self.snapshot_for_user(user_id).await;
-        }
-        self.fallback.get_dashboard_snapshot(context).await
-    }
-}
-
-fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
-    PetHeroSummary {
-        id: pet.id,
-        name: pet.name.clone(),
-        species: home_pet_species(pet.species),
-        breed: pet.breed.clone().unwrap_or_else(|| "未填写品种".to_owned()),
-        sex: home_pet_sex(pet.sex),
-        age_text: pet_age_text(pet.birthday),
-        status_text: "记录正在形成可信档案".to_owned(),
-        updated_text: "档案已同步".to_owned(),
-        avatar_url: None,
-    }
-}
-
-fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
-    PetSwitchItem {
-        id: pet.id,
-        name: pet.name.clone(),
-        species: home_pet_species(pet.species),
-        avatar_url: None,
-        is_selected,
-    }
-}
-
-fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
-    HomeTimelineEvent {
-        id: event.id,
-        event_kind: home_timeline_event_kind(event),
-        title: event.title.clone(),
-        subtitle: event
-            .summary
-            .clone()
-            .unwrap_or_else(|| "已记录到可信档案".to_owned()),
-        occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
-    }
-}
-
-fn home_pet_species(species: DomainPetSpecies) -> HomePetSpecies {
-    match species {
-        DomainPetSpecies::Dog => HomePetSpecies::Dog,
-        DomainPetSpecies::Cat => HomePetSpecies::Cat,
-        DomainPetSpecies::Other => HomePetSpecies::Other,
-    }
-}
-
-fn home_pet_sex(sex: DomainPetSex) -> HomePetSex {
-    match sex {
-        DomainPetSex::Female => HomePetSex::Female,
-        DomainPetSex::Male => HomePetSex::Male,
-        DomainPetSex::Unknown => HomePetSex::Unknown,
-    }
-}
-
-fn home_timeline_event_kind(event: &PetEvent) -> HomeTimelineEventKind {
-    match event.event_kind {
-        EventKind::Daily | EventKind::Growth | EventKind::Memorial => HomeTimelineEventKind::Daily,
-        EventKind::Health if event.event_subkind.as_deref() == Some("weight") => {
-            HomeTimelineEventKind::Weight
-        }
-        EventKind::Health | EventKind::Hospital | EventKind::Trade => HomeTimelineEventKind::Health,
-        EventKind::Merchant => HomeTimelineEventKind::Merchant,
-    }
-}
-
-fn pet_age_text(birthday: Option<NaiveDate>) -> String {
-    let Some(birthday) = birthday else {
-        return "未填写年龄".to_owned();
-    };
-    let today = Utc::now().date_naive();
-    if birthday > today {
-        return "未填写年龄".to_owned();
-    }
-    let mut years = today.year() - birthday.year();
-    if (today.month(), today.day()) < (birthday.month(), birthday.day()) {
-        years -= 1;
-    }
-    if years > 0 {
-        format!("{years}岁")
-    } else {
-        "未满1岁".to_owned()
-    }
-}
-
-fn to_home_error(error: &PetError) -> HomeError {
-    HomeError::Infrastructure(error.to_string())
-}
-
 /// build_backend_app 构建后端应用
 /// 核心职责：
 /// - 连接 PostgreSQL 和 Redis
@@ -352,7 +136,10 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
     let pet_repository = PostgresPetRepository::new(pool.clone());
-    let pet_service = Arc::new(PetService::new(Arc::new(pet_repository.clone())));
+    let pet_service = Arc::new(PetService::new(
+        Arc::new(pet_repository.clone()),
+        Arc::new(pet_repository.clone()),
+    ));
     let home_provider = HybridHomeDashboardProvider::new(
         InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot()),
         pet_service.clone(),
@@ -387,189 +174,4 @@ pub enum BackendError {
     Migration(#[from] sqlx::migrate::MigrateError),
     #[error("redis error: {0}")]
     Redis(#[from] redis::RedisError),
-}
-
-pub mod test_support {
-    use std::sync::{Arc, OnceLock};
-
-    use chrono::{Duration, Utc};
-    use maohuoban_auth_application::auth::{
-        NewDeviceSession, PasswordCredentialService, SessionRepository, TokenIssuer, UserRepository,
-    };
-    use maohuoban_auth_domain::auth::DeviceDescriptor;
-    use maohuoban_home_application::home::{
-        merchant_home_snapshot, new_user_home_snapshot, pet_owner_home_snapshot,
-    };
-    use tokio::sync::{Mutex, OwnedMutexGuard};
-    use uuid::Uuid;
-
-    use super::{BackendApp, BackendConfig, build_backend_app};
-
-    /// AuthTestApp 认证集成测试应用
-    /// 核心职责：
-    /// - 暴露可 clone 的 router 供契约测试调用
-    /// - 提供数据库和 Redis 重置、测试数据种子能力
-    pub struct AuthTestApp {
-        app: BackendApp,
-        _guard: OwnedMutexGuard<()>,
-    }
-
-    impl AuthTestApp {
-        #[must_use]
-        pub fn router(&self) -> axum::Router {
-            self.app.router.clone()
-        }
-
-        pub async fn reset(&self) {
-            sqlx::query(
-                r#"
-                TRUNCATE TABLE
-                    pet_relationships,
-                    pet_events,
-                    evidence_snapshots,
-                    litters,
-                    pet_profiles,
-                    merchant_profiles,
-                    auth_audit_events,
-                    device_sessions,
-                    password_credentials,
-                    user_identities,
-                    users
-                CASCADE
-                "#,
-            )
-            .execute(&self.app.pool)
-            .await
-            .expect("reset auth tables");
-
-            let mut connection = self.app.redis_connection.clone();
-            redis::cmd("FLUSHDB")
-                .query_async::<()>(&mut connection)
-                .await
-                .expect("flush test redis db");
-        }
-
-        pub async fn seed_user_with_password(&self, phone: &str, password: &str) {
-            let user = self
-                .app
-                .repository
-                .upsert_user_by_phone(phone)
-                .await
-                .expect("seed phone user");
-            let password_hash = self
-                .app
-                .password_service
-                .hash_password(password)
-                .expect("hash seed password");
-            self.app
-                .repository
-                .save_password_credential(user.id, &password_hash)
-                .await
-                .expect("save seed password");
-        }
-
-        pub async fn seed_login_session(&self, phone: &str, device_id: &str) -> SeedLoginSession {
-            let user = self
-                .app
-                .repository
-                .upsert_user_by_phone(phone)
-                .await
-                .expect("seed phone user");
-            let refresh_token = self
-                .app
-                .token_issuer
-                .generate_refresh_token()
-                .expect("generate seed refresh token");
-            let refresh_token_hash = self.app.token_issuer.hash_refresh_token(&refresh_token);
-            let expires_at =
-                Utc::now() + Duration::seconds(self.app.token_issuer.refresh_token_ttl_seconds());
-            self.app
-                .repository
-                .create_device_session(NewDeviceSession {
-                    session_id: Uuid::new_v4(),
-                    user_id: user.id,
-                    device: DeviceDescriptor {
-                        device_id: device_id.to_owned(),
-                        device_name: "iPhone 17 Pro".to_owned(),
-                        platform: "iOS".to_owned(),
-                        app_version: "1.0".to_owned(),
-                    },
-                    refresh_token_hash,
-                    expires_at,
-                })
-                .await
-                .expect("create seed session");
-
-            SeedLoginSession { refresh_token }
-        }
-
-        pub async fn audit_event_count(&self) -> i64 {
-            sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM auth_audit_events")
-                .fetch_one(&self.app.pool)
-                .await
-                .expect("count auth audit events")
-        }
-
-        /// seed_pet_owner_home 设置普通用户首页快照
-        /// 核心职责：
-        /// - 为首页契约测试提供普通用户场景
-        /// - 覆盖宠物主卡、照护、快捷动作和最近时间线
-        pub async fn seed_pet_owner_home(&self) {
-            self.app
-                .home_provider
-                .replace_snapshot(pet_owner_home_snapshot())
-                .await;
-        }
-
-        /// seed_new_user_home 设置新用户首页快照
-        /// 核心职责：
-        /// - 为首页契约测试提供无宠物空态
-        /// - 覆盖创建宠物主操作和辅助推荐内容
-        pub async fn seed_new_user_home(&self) {
-            self.app
-                .home_provider
-                .replace_snapshot(new_user_home_snapshot())
-                .await;
-        }
-
-        /// seed_merchant_home 设置认证商家首页快照
-        /// 核心职责：
-        /// - 为首页契约测试提供机构宠物工作台
-        /// - 覆盖多宠状态、窝次入口和待补记录
-        pub async fn seed_merchant_home(&self) {
-            self.app
-                .home_provider
-                .replace_snapshot(merchant_home_snapshot())
-                .await;
-        }
-    }
-
-    /// SeedLoginSession 测试登录会话
-    /// 核心职责：
-    /// - 向契约测试暴露 refresh token
-    /// - 隐藏服务端 session 持久化细节
-    pub struct SeedLoginSession {
-        pub refresh_token: String,
-    }
-
-    pub async fn spawn_auth_test_app() -> AuthTestApp {
-        let guard = auth_test_lock().lock_owned().await;
-        let app = build_backend_app(BackendConfig::local_test())
-            .await
-            .expect("build auth test app");
-        AuthTestApp { app, _guard: guard }
-    }
-
-    /// spawn_home_test_app 构建首页契约测试应用
-    /// 核心职责：
-    /// - 复用后端完整路由装配
-    /// - 暴露首页种子快照切换能力
-    pub async fn spawn_home_test_app() -> AuthTestApp {
-        spawn_auth_test_app().await
-    }
-
-    fn auth_test_lock() -> Arc<Mutex<()>> {
-        static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
-        LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
-    }
 }

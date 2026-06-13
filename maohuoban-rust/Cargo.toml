@@ -25,6 +25,7 @@ maohuoban-pet-http.workspace = true
 maohuoban-pet-infrastructure.workspace = true
 maohuoban_diagnostics.workspace = true
 redis.workspace = true
+serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -33,7 +34,6 @@ tracing-subscriber.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-serde_json.workspace = true
 tower.workspace = true
 
 [lints]
