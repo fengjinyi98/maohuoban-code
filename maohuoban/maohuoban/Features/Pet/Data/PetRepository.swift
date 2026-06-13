@@ -15,6 +15,11 @@ protocol PetRepository {
         draft: PetEventDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventSummary>
+
+    func loadEventDetail(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail>
 }
 
 // DefaultPetRepository 默认宠物写入仓库
@@ -47,6 +52,16 @@ struct DefaultPetRepository: PetRepository {
         try await client.post(
             path: "/api/v1/pets/\(petID)/events",
             body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func loadEventDetail(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
+        try await client.get(
+            path: "/api/v1/pet-events/\(eventID)",
             headers: userHeaders(currentUserID: currentUserID)
         )
     }

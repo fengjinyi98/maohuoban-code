@@ -190,6 +190,85 @@ async fn pet_profile_event_and_timeline_are_persisted() {
 }
 
 #[tokio::test]
+async fn pet_event_detail_returns_current_user_event() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138114").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "breed": "比熊犬",
+                "sex": "female",
+                "birthday": "2024-04-01"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    let create_event_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "weight",
+                "title": "体重记录",
+                "summary": "5.2kg，较上次稳定",
+                "visibility": "private",
+                "occurred_at": "2026-06-13T09:20:00Z",
+                "event_payload": {
+                    "weight_kg": 5.2
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet event");
+    assert_eq!(create_event_response.status(), StatusCode::CREATED);
+    let create_event_body = response_json(create_event_response).await;
+    let event_id = create_event_body["data"]["id"]
+        .as_str()
+        .expect("event id")
+        .to_owned();
+
+    let detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load event detail");
+
+    assert_eq!(detail_response.status(), StatusCode::OK);
+    let body = response_json(detail_response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "pet.event_loaded");
+    assert_eq!(body["message"], "宠物事件已加载");
+    assert_eq!(body["data"]["id"], event_id);
+    assert_eq!(body["data"]["pet_id"], pet_id);
+    assert_eq!(body["data"]["title"], "体重记录");
+    assert_eq!(body["data"]["summary"], "5.2kg，较上次稳定");
+    assert_eq!(body["data"]["event_kind"], "health");
+    assert_eq!(body["data"]["record_revision"], 1);
+}
+
+#[tokio::test]
 async fn pet_endpoints_require_user_context() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

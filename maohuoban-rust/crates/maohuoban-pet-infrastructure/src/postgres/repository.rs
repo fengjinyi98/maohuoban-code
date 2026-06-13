@@ -232,6 +232,54 @@ impl PetRepository for PostgresPetRepository {
             .collect::<PetResult<Vec<_>>>()?;
         Ok(PetTimeline { pet_id, events })
     }
+
+    async fn load_pet_event_detail(
+        &self,
+        owner_user_id: Uuid,
+        event_id: Uuid,
+    ) -> PetResult<Option<PetEvent>> {
+        let row = sqlx::query_as::<_, PetEventRow>(
+            r#"
+            SELECT
+                e.id,
+                e.pet_id,
+                e.litter_id,
+                e.event_kind,
+                e.event_subkind,
+                e.title,
+                e.summary,
+                e.visibility,
+                e.event_payload,
+                e.occurred_at,
+                e.actor_user_id,
+                e.evidence_snapshot_id,
+                e.record_revision,
+                e.created_at,
+                e.updated_at
+            FROM pet_events e
+            LEFT JOIN pet_profiles p ON p.id = e.pet_id
+            LEFT JOIN litters l ON l.id = e.litter_id
+            LEFT JOIN merchant_profiles merchant
+                ON merchant.id = COALESCE(p.merchant_id, l.merchant_id)
+            WHERE e.id = $1
+                AND (
+                    p.owner_user_id = $2
+                    OR e.actor_user_id = $2
+                    OR (
+                        merchant.owner_user_id = $2
+                        AND merchant.verification_status = 'verified'
+                    )
+                )
+            "#,
+        )
+        .bind(event_id)
+        .bind(owner_user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        row.map(TryInto::try_into).transpose()
+    }
 }
 
 #[derive(Debug, FromRow)]

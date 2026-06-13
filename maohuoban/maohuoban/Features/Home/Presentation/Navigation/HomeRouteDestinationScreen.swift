@@ -57,11 +57,15 @@ struct HomeRouteDestinationScreen: View {
                 litterID: litterID,
                 currentUserID: currentUserID
             )
+        case .timelineEvent(let eventID):
+            PetEventDetailScreen(
+                eventID: eventID,
+                currentUserID: currentUserID
+            )
         case .bookHospital,
              .importTradePet,
              .publishAvailableStatus,
-             .merchantTask,
-             .timelineEvent:
+             .merchantTask:
             MHBTabPlaceholderRootScreen(
                 systemImage: route.systemImage,
                 title: route.title,

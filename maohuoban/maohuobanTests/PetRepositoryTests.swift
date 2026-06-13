@@ -87,17 +87,21 @@ final class PetRepositoryTests: XCTestCase {
                   "success": true,
                   "code": "pet.event_created",
                   "message": "宠物事件已记录",
-                  "data": {
-                    "id": "event-1",
-                    "pet_id": "pet-1",
-                    "event_kind": "health",
-                    "event_subkind": "weight",
-                    "title": "体重记录",
-                    "summary": "5.2kg，较上次稳定",
-                    "visibility": "private",
-                    "occurred_at": "2026-06-13T09:20:00Z",
-                    "record_revision": 1
-                  }
+                    "data": {
+                      "id": "event-1",
+                      "pet_id": "pet-1",
+                      "litter_id": null,
+                      "event_kind": "health",
+                      "event_subkind": "weight",
+                      "title": "体重记录",
+                      "summary": "5.2kg，较上次稳定",
+                      "visibility": "private",
+                      "event_payload": {
+                        "weight_kg": 5.2
+                      },
+                      "occurred_at": "2026-06-13T09:20:00Z",
+                      "record_revision": 1
+                    }
                 }
                 """
             )
@@ -119,6 +123,48 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.message, "宠物事件已记录")
         XCTAssertEqual(response.data?.petID, "pet-1")
         XCTAssertEqual(response.data?.recordRevision, 1)
+    }
+
+    func testLoadEventDetailSendsUserContextAndDecodesEvent() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-events/event-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            return Self.jsonResponse(
+                statusCode: 200,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "pet.event_loaded",
+                  "message": "宠物事件已加载",
+                  "data": {
+                    "id": "event-1",
+                    "pet_id": "pet-1",
+                    "event_kind": "health",
+                    "event_subkind": "weight",
+                    "title": "体重记录",
+                    "summary": "5.2kg，较上次稳定",
+                    "visibility": "private",
+                    "occurred_at": "2026-06-13T09:20:00Z",
+                    "record_revision": 1
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.loadEventDetail(
+            eventID: "event-1",
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物事件已加载")
+        XCTAssertEqual(response.data?.id, "event-1")
+        XCTAssertEqual(response.data?.petID, "pet-1")
+        XCTAssertNil(response.data?.litterID)
+        XCTAssertEqual(response.data?.title, "体重记录")
     }
 
     private func makeRepository(

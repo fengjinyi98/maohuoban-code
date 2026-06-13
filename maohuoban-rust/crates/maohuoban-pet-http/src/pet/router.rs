@@ -42,6 +42,7 @@ impl PetHttpState {
 pub fn build_pet_router(pet: Arc<PetService>) -> Router {
     Router::new()
         .route("/api/v1/pets", post(create_pet_profile))
+        .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
         .route("/api/v1/pets/{pet_id}/events", post(create_pet_event))
         .route("/api/v1/pets/{pet_id}/timeline", get(load_pet_timeline))
         .route(
@@ -110,6 +111,29 @@ async fn load_pet_timeline(
             "pet.timeline_loaded",
             "宠物时间线已加载",
             PetTimelineData::from(timeline),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn load_pet_event_detail(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(event_id): Path<Uuid>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    match state
+        .pet
+        .load_pet_event_detail(owner_user_id, event_id)
+        .await
+    {
+        Ok(event) => ok_response(
+            "pet.event_loaded",
+            "宠物事件已加载",
+            PetEventData::from(event),
         ),
         Err(error) => error_response(&error),
     }

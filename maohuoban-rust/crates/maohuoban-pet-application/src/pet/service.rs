@@ -73,6 +73,17 @@ impl PetService {
             .await
     }
 
+    pub async fn load_pet_event_detail(
+        &self,
+        owner_user_id: Uuid,
+        event_id: Uuid,
+    ) -> PetResult<PetEvent> {
+        self.repository
+            .load_pet_event_detail(owner_user_id, event_id)
+            .await?
+            .ok_or(PetError::PetNotFound)
+    }
+
     pub async fn load_merchant_dashboard(
         &self,
         owner_user_id: Uuid,

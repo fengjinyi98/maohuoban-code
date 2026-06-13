@@ -63,4 +63,10 @@ pub trait PetRepository: Send + Sync {
         pet_id: Uuid,
         limit: i64,
     ) -> PetResult<PetTimeline>;
+
+    async fn load_pet_event_detail(
+        &self,
+        owner_user_id: Uuid,
+        event_id: Uuid,
+    ) -> PetResult<Option<PetEvent>>;
 }

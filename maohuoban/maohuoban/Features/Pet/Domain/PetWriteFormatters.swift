@@ -57,3 +57,14 @@ extension PetEventKind {
         }
     }
 }
+
+extension PetEventVisibility {
+    var displayTitle: LocalizedStringResource {
+        switch self {
+        case .private: "仅自己"
+        case .family: "家庭可见"
+        case .publicTimeline: "公开"
+        case .authorized: "授权可见"
+        }
+    }
+}
