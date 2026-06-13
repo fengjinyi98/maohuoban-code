@@ -24,6 +24,9 @@ use maohuoban_home_http::home::build_home_router;
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
+use maohuoban_pet_application::pet::PetService;
+use maohuoban_pet_http::pet::build_pet_router;
+use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
@@ -94,6 +97,7 @@ pub struct BackendApp {
     pub password_service: Argon2PasswordCredentialService,
     pub token_issuer: JwtTokenIssuer,
     pub home_provider: InMemoryHomeDashboardProvider,
+    pub pet_repository: PostgresPetRepository,
 }
 
 /// InMemoryHomeDashboardProvider 内存首页快照提供器
@@ -164,11 +168,14 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     ));
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
+    let pet_repository = PostgresPetRepository::new(pool.clone());
+    let pet_service = Arc::new(PetService::new(Arc::new(pet_repository.clone())));
     let home_provider = InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot());
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let router = build_auth_router(auth_service)
         .merge(build_legal_router(legal_service))
-        .merge(build_home_router(home_service));
+        .merge(build_home_router(home_service))
+        .merge(build_pet_router(pet_service));
 
     Ok(BackendApp {
         router,
@@ -178,6 +185,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         password_service,
         token_issuer,
         home_provider,
+        pet_repository,
     })
 }
 
@@ -230,6 +238,12 @@ pub mod test_support {
             sqlx::query(
                 r#"
                 TRUNCATE TABLE
+                    pet_relationships,
+                    pet_events,
+                    evidence_snapshots,
+                    litters,
+                    pet_profiles,
+                    merchant_profiles,
                     auth_audit_events,
                     device_sessions,
                     password_credentials,

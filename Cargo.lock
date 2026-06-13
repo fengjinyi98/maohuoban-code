@@ -1293,6 +1293,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "maohuoban-pet-application"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-pet-domain",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-pet-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-pet-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "maohuoban-pet-application",
+ "maohuoban-pet-domain",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-pet-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-pet-application",
+ "maohuoban-pet-domain",
+ "serde_json",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "maohuoban_diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -1333,6 +1381,10 @@ dependencies = [
  "maohuoban-legal-application",
  "maohuoban-legal-http",
  "maohuoban-legal-infrastructure",
+ "maohuoban-pet-application",
+ "maohuoban-pet-domain",
+ "maohuoban-pet-http",
+ "maohuoban-pet-infrastructure",
  "maohuoban_diagnostics",
  "redis",
  "serde_json",

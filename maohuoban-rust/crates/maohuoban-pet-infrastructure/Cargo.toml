@@ -1,0 +1,17 @@
+[package]
+name = "maohuoban-pet-infrastructure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+maohuoban-pet-application.workspace = true
+maohuoban-pet-domain.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true
