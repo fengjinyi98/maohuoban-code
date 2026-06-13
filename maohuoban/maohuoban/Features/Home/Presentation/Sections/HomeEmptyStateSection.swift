@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct HomeEmptyStateSection: View {
     let emptyState: HomeDashboardSnapshot.EmptyState
     let recommendedContent: [HomeDashboardSnapshot.RecommendedContent]
+    let routingContext: HomeActionRoutingContext
 
     var body: some View {
         HomeCardContainer(accessibilityIdentifier: "home.emptyStateSection") {
@@ -21,18 +22,20 @@ struct HomeEmptyStateSection: View {
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Button {
-                } label: {
-                    Label(emptyState.primaryAction.title, systemImage: "plus.circle.fill")
-                        .font(MHBTheme.Typography.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, MHBTheme.Spacing.s3)
-                        .background(MHBTheme.ColorToken.primary.color)
-                        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+                if let route = HomeActionRouteResolver.route(
+                    for: emptyState.primaryAction,
+                    context: routingContext
+                ) {
+                    NavigationLink(value: route) {
+                        HomeEmptyPrimaryActionLabel(title: emptyState.primaryAction.title)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.emptyState.primaryAction")
+                } else {
+                    HomeEmptyPrimaryActionLabel(title: emptyState.primaryAction.title)
+                        .opacity(0.45)
+                        .accessibilityIdentifier("home.emptyState.primaryAction.disabled")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("home.emptyState.primaryAction")
             }
 
             if !recommendedContent.isEmpty {
@@ -56,3 +59,20 @@ struct HomeEmptyStateSection: View {
     }
 }
 
+// HomeEmptyPrimaryActionLabel 首页空态主操作标签
+// 核心职责：
+// - 统一空态主操作视觉
+// - 让导航有效性和按钮外观解耦
+private struct HomeEmptyPrimaryActionLabel: View {
+    let title: String
+
+    var body: some View {
+        Label(title, systemImage: "plus.circle.fill")
+            .font(MHBTheme.Typography.headline)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, MHBTheme.Spacing.s3)
+            .background(MHBTheme.ColorToken.primary.color)
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+    }
+}

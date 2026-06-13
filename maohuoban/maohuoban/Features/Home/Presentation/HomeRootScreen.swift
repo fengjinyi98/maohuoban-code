@@ -30,6 +30,9 @@ struct HomeRootScreen: View {
         .task(id: currentUserID) {
             await store.load(currentUserID: currentUserID)
         }
+        .navigationDestination(for: HomeRoute.self) { route in
+            HomeRouteDestinationScreen(route: route)
+        }
     }
 }
 

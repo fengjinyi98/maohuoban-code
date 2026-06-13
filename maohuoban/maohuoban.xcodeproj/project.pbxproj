@@ -11,10 +11,18 @@
 		B9BC33642FD7100000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 		B9BC33702FD7200000F40E35 /* MaohuobanDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33712FD7200000F40E35 /* MaohuobanDesignSystem */; };
 		B9BC338B2FD8900000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
+		B9BC33972FD8A20000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B9BC334C2FD6C95400F40E35;
+			remoteInfo = maohuoban;
+		};
+		B9BC33922FD8A00000F40E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
 			proxyType = 1;
@@ -27,6 +35,7 @@
 		B9BC334D2FD6C95400F40E35 /* maohuoban.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = maohuoban.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BC33632FD7100000F40E35 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maohuobanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maohuobanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -38,6 +47,11 @@
 		B9BC33812FD8800000F40E35 /* maohuobanUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = maohuobanUITests;
+			sourceTree = "<group>";
+		};
+		B9BC338D2FD8A00000F40E35 /* maohuobanTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = maohuobanTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -61,6 +75,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC338F2FD8A00000F40E35 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B9BC33972FD8A20000F40E35 /* AppIntents.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -68,6 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334F2FD6C95400F40E35 /* maohuoban */,
+				B9BC338D2FD8A00000F40E35 /* maohuobanTests */,
 				B9BC33812FD8800000F40E35 /* maohuobanUITests */,
 				B9BC33652FD7100000F40E35 /* Frameworks */,
 				B9BC334E2FD6C95400F40E35 /* Products */,
@@ -78,6 +101,7 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334D2FD6C95400F40E35 /* maohuoban.app */,
+				B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */,
 				B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */,
 			);
 			name = Products;
@@ -141,6 +165,29 @@
 			productReference = B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		B9BC338E2FD8A00000F40E35 /* maohuobanTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9BC33942FD8A00000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanTests" */;
+			buildPhases = (
+				B9BC33902FD8A00000F40E35 /* Sources */,
+				B9BC338F2FD8A00000F40E35 /* Frameworks */,
+				B9BC33912FD8A00000F40E35 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B9BC33932FD8A00000F40E35 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B9BC338D2FD8A00000F40E35 /* maohuobanTests */,
+			);
+			name = maohuobanTests;
+			packageProductDependencies = (
+			);
+			productName = maohuobanTests;
+			productReference = B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -153,6 +200,10 @@
 				TargetAttributes = {
 					B9BC334C2FD6C95400F40E35 = {
 						CreatedOnToolsVersion = 27.0;
+					};
+					B9BC338E2FD8A00000F40E35 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = B9BC334C2FD6C95400F40E35;
 					};
 				};
 			};
@@ -175,6 +226,7 @@
 			projectRoot = "";
 			targets = (
 				B9BC334C2FD6C95400F40E35 /* maohuoban */,
+				B9BC338E2FD8A00000F40E35 /* maohuobanTests */,
 				B9BC33852FD8800000F40E35 /* maohuobanUITests */,
 			);
 		};
@@ -189,6 +241,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9BC33842FD8800000F40E35 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9BC33912FD8A00000F40E35 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -212,6 +271,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC33902FD8A00000F40E35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -219,6 +285,11 @@
 			isa = PBXTargetDependency;
 			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
 			targetProxy = B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */;
+		};
+		B9BC33932FD8A00000F40E35 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
+			targetProxy = B9BC33922FD8A00000F40E35 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -446,6 +517,54 @@
 			};
 			name = Release;
 		};
+		B9BC33952FD8A00000F40E35 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuobanTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/maohuoban.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/maohuoban";
+			};
+			name = Debug;
+		};
+		B9BC33962FD8A00000F40E35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuobanTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/maohuoban.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/maohuoban";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -472,6 +591,15 @@
 			buildConfigurations = (
 				B9BC33872FD8800000F40E35 /* Debug */,
 				B9BC33882FD8800000F40E35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B9BC33942FD8A00000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B9BC33952FD8A00000F40E35 /* Debug */,
+				B9BC33962FD8A00000F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

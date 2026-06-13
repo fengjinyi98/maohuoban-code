@@ -1,0 +1,54 @@
+import Foundation
+
+// HomeActionRoutingContext 首页动作路由上下文
+// 核心职责：
+// - 从首页快照提取当前宠物和商家主体 ID
+// - 让动作映射不直接依赖完整首页快照
+struct HomeActionRoutingContext: Equatable {
+    let selectedPetID: String?
+    let merchantID: String?
+
+    init(selectedPetID: String? = nil, merchantID: String? = nil) {
+        self.selectedPetID = selectedPetID
+        self.merchantID = merchantID
+    }
+
+    init(snapshot: HomeDashboardSnapshot) {
+        self.selectedPetID = snapshot.selectedPet?.id
+        self.merchantID = snapshot.merchantDashboard?.merchantID
+    }
+}
+
+// HomeActionRouteResolver 首页动作路由解析器
+// 核心职责：
+// - 将后端下发的首页动作语义映射为本地 HomeRoute
+// - 保持首页 section 只负责渲染和触发导航
+enum HomeActionRouteResolver {
+    static func route(
+        for action: HomeDashboardSnapshot.Action,
+        context: HomeActionRoutingContext
+    ) -> HomeRoute? {
+        switch action.kind {
+        case .createPet:
+            return .createPet
+        case .dailyRecord:
+            return .recordDaily(petID: context.selectedPetID)
+        case .healthRecord:
+            return .recordHealth(petID: context.selectedPetID)
+        case .bookHospital:
+            return .bookHospital(petID: context.selectedPetID)
+        case .importTradePet:
+            return .importTradePet
+        case .addMerchantPet:
+            guard let merchantID = context.merchantID, !merchantID.isEmpty else {
+                return nil
+            }
+            return .addMerchantPet(merchantID: merchantID)
+        case .publishAvailableStatus:
+            guard let merchantID = context.merchantID, !merchantID.isEmpty else {
+                return nil
+            }
+            return .publishAvailableStatus(merchantID: merchantID)
+        }
+    }
+}

@@ -9,6 +9,8 @@ struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
 
     var body: some View {
+        let routingContext = HomeActionRoutingContext(snapshot: snapshot)
+
         ScrollView {
             LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 HomeIdentityHeader(identity: snapshot.identity)
@@ -16,7 +18,8 @@ struct HomeDashboardLoadedView: View {
                 if let emptyState = snapshot.emptyState {
                     HomeEmptyStateSection(
                         emptyState: emptyState,
-                        recommendedContent: snapshot.recommendedContent
+                        recommendedContent: snapshot.recommendedContent,
+                        routingContext: routingContext
                     )
                 }
 
@@ -32,7 +35,10 @@ struct HomeDashboardLoadedView: View {
                 }
 
                 if !snapshot.quickActions.isEmpty {
-                    HomeQuickActionsSection(actions: snapshot.quickActions)
+                    HomeQuickActionsSection(
+                        actions: snapshot.quickActions,
+                        routingContext: routingContext
+                    )
                 }
 
                 if let partner = snapshot.partnerRecommendation {
@@ -90,4 +96,3 @@ private struct HomeIdentityHeader: View {
         .accessibilityIdentifier("home.identityHeader")
     }
 }
-
