@@ -52,10 +52,10 @@ struct AuthVerificationView: View {
                     Task { await viewModel.sendPhoneCode() }
                 }
             } label: {
-                Text(viewModel.resendButtonTitle)
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(viewModel.canResendCode ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.labelTertiary.color)
-                    .frame(maxWidth: .infinity)
+                AuthResendCodeButtonLabel(
+                    title: viewModel.resendButtonTitle,
+                    isEnabled: viewModel.canResendCode
+                )
             }
             .buttonStyle(.plain)
             .disabled(!viewModel.canResendCode)
@@ -78,5 +78,24 @@ struct AuthVerificationView: View {
                 viewModel.code = String(newValue.filter(\.isNumber).prefix(6))
             }
         )
+    }
+}
+
+// AuthResendCodeButtonLabel 验证码重发按钮文字
+// 核心职责：
+// - 使用 DesignSystem 滚轮文字动画展示倒计时变化
+// - 保持按钮文本尺寸、颜色和无障碍语义稳定
+private struct AuthResendCodeButtonLabel: View {
+    let title: String
+    let isEnabled: Bool
+
+    var body: some View {
+        MHBSlotText(
+            title,
+            font: MHBTheme.Typography.uiCallout,
+            textColor: isEnabled ? MHBTheme.ColorToken.primary.uiColor : MHBTheme.ColorToken.labelTertiary.uiColor
+        )
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
     }
 }
