@@ -24,8 +24,6 @@ struct AuthLoginView: View {
                         Task { await viewModel.oauth(provider: "apple") }
                     }
                 )
-
-                AuthDecorativeStrip()
             }
             .padding(.horizontal, MHBTheme.Spacing.s5)
             .padding(.top, MHBTheme.Spacing.s8)

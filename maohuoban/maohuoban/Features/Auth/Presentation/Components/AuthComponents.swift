@@ -3,33 +3,19 @@ import MaohuobanDesignSystem
 
 // AuthBrandHeader 登录品牌头部
 // 核心职责：
-// - 展示毛伙伴登录页品牌识别
-// - 承接设计稿中的标题与副标题区域
+// - 展示登录页标题与副标题
+// - 保持认证首页首屏层级简洁
 struct AuthBrandHeader: View {
     var body: some View {
-        VStack(spacing: MHBTheme.Spacing.s5) {
-            Text("MAOHUOBAN")
-                .font(MHBTheme.Typography.callout.weight(.bold))
-                .tracking(4)
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .padding(.vertical, MHBTheme.Spacing.s2)
-                .background(MHBTheme.ColorToken.primaryBackground.color, in: .rect(cornerRadius: MHBTheme.Radius.small))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MHBTheme.Radius.small)
-                        .stroke(MHBTheme.ColorToken.primaryLight.color.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
+        VStack(spacing: MHBTheme.Spacing.s2) {
+            Text("欢迎来到毛伙伴")
+                .font(MHBTheme.Typography.title)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-            VStack(spacing: MHBTheme.Spacing.s2) {
-                Text("欢迎来到毛伙伴")
-                    .font(MHBTheme.Typography.title)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                Text("让每只毛孩子被更好的记录与陪伴")
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .multilineTextAlignment(.center)
-            }
+            Text("让每只毛孩子被更好的记录与陪伴")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, MHBTheme.Spacing.s4)
@@ -245,14 +231,12 @@ struct AuthThirdPartyButtons: View {
 
             HStack(spacing: MHBTheme.Spacing.s5) {
                 AuthCircularIconButton(
-                    systemImage: "bubble.left.and.bubble.right.fill",
-                    tint: MHBTheme.ColorToken.success.color,
+                    assetName: "WechatIcon",
                     accessibilityIdentifier: "auth.wechatButton",
                     action: onWechat
                 )
                 AuthCircularIconButton(
                     systemImage: "apple.logo",
-                    tint: MHBTheme.ColorToken.labelPrimary.color,
                     accessibilityIdentifier: "auth.appleButton",
                     action: onApple
                 )
@@ -272,16 +256,36 @@ struct AuthThirdPartyButtons: View {
 // - 渲染第三方登录图标按钮
 // - 保持可点击区域稳定
 struct AuthCircularIconButton: View {
-    let systemImage: String
-    let tint: Color
+    let systemImage: String?
+    let assetName: String?
     var accessibilityIdentifier: String? = nil
     let action: () -> Void
 
+    init(
+        systemImage: String,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.systemImage = systemImage
+        self.assetName = nil
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.action = action
+    }
+
+    init(
+        assetName: String,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.systemImage = nil
+        self.assetName = assetName
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(tint)
+            icon
                 .frame(width: 44, height: 44)
                 .background(MHBTheme.ColorToken.cardSolid.color, in: .circle)
                 .overlay {
@@ -293,30 +297,20 @@ struct AuthCircularIconButton: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
     }
-}
 
-// AuthDecorativeStrip 登录页底部装饰条
-// 核心职责：
-// - 对齐设计稿中的轻量底部视觉区域
-// - 使用品牌色低饱和背景强化页面收束
-struct AuthDecorativeStrip: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: MHBTheme.Radius.large)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        .clear,
-                        MHBTheme.ColorToken.primaryBackground.color
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(height: 80)
-            .overlay {
-                RoundedRectangle(cornerRadius: MHBTheme.Radius.large)
-                    .stroke(MHBTheme.ColorToken.primary.color.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5, 5]))
-            }
+    @ViewBuilder
+    private var icon: some View {
+        if let assetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+        } else if let systemImage {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 24, height: 24)
+        }
     }
 }
 
