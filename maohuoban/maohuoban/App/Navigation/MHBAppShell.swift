@@ -12,23 +12,23 @@ struct MHBAppShell: View {
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            MHBRootTabStack(tab: .home, tabState: router.tabState) {
+            MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
                 HomeRootScreen()
             }
 
-            MHBRootTabStack(tab: .petWorld, tabState: router.tabState) {
+            MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
                 PetWorldRootScreen()
             }
 
-            MHBRootTabStack(tab: .sameCity, tabState: router.tabState) {
+            MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
                 SameCityRootScreen()
             }
 
-            MHBRootTabStack(tab: .message, tabState: router.tabState) {
+            MHBRootTabStack(tab: .message, tabState: router.tabState, isSelected: router.selectedTab == .message) {
                 MessageRootScreen()
             }
 
-            MHBRootTabStack(tab: .profile, tabState: router.tabState) {
+            MHBRootTabStack(tab: .profile, tabState: router.tabState, isSelected: router.selectedTab == .profile) {
                 ProfileRootScreen(onLogout: onLogout)
             }
         }

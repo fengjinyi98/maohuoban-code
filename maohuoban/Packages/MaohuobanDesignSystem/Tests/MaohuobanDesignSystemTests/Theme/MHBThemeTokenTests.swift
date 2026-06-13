@@ -72,6 +72,11 @@ struct MHBThemeTokenTests {
         #expect(MHBTheme.Radius.full == 9999)
     }
 
+    @Test("图标尺寸 token 使用页面占位根视图基准")
+    func iconSizesMatchPlaceholderSpec() {
+        #expect(MHBTheme.IconSize.tabRootPlaceholder == 48)
+    }
+
     @MainActor
     @Test("亮色模式下 UIColor 桥接颜色与 light 分量一致")
     func uiKitBridgeMatchesLightComponents() {

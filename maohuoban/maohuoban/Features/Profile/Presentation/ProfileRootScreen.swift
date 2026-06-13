@@ -27,6 +27,7 @@ struct ProfileRootScreen: View {
                 } label: {
                     Label("退出登录", systemImage: "rectangle.portrait.and.arrow.right")
                 }
+                .accessibilityIdentifier("profile.logoutButton")
             } header: {
                 Text("会话")
             }

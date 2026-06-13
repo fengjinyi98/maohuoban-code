@@ -18,9 +18,9 @@ final class MaohuobanAuthUITests: XCTestCase {
         let newPassword = "newpass123"
 
         sendPhoneCodeLogin(app: app, phone: phone)
-        XCTAssertTrue(app.buttons["home.logoutButton"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10))
 
-        app.buttons["home.logoutButton"].tap()
+        logoutFromProfile(app: app)
         XCTAssertTrue(app.textFields["auth.phoneInput"].waitForExistence(timeout: 8))
 
         app.buttons["auth.wechatButton"].tap()
@@ -31,7 +31,7 @@ final class MaohuobanAuthUITests: XCTestCase {
         let passwordLoginButton = app.buttons["auth.passwordLoginButton"]
         XCTAssertTrue(waitUntilHittable(passwordLoginButton, timeout: 5), passwordLoginButton.debugDescription)
         passwordLoginButton.tap()
-        XCTAssertTrue(app.buttons["home.logoutButton"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10))
     }
 
     // testPhoneCodeButtonRequiresElevenDigitPhone 验证验证码入口手机号门禁
@@ -183,6 +183,21 @@ final class MaohuobanAuthUITests: XCTestCase {
 
         app.buttons["auth.recovery.resetPasswordButton"].tap()
         XCTAssertTrue(app.buttons["auth.passwordLoginButton"].waitForExistence(timeout: 8))
+    }
+
+    // logoutFromProfile 从"我的"Tab 触发退出登录
+    // 核心职责：
+    // - 定位系统 TabBar 中的"我的"入口
+    // - 触发 Profile 页面登出按钮，验证真实登出链路
+    @MainActor
+    private func logoutFromProfile(app: XCUIApplication) {
+        let profileTab = app.tabBars.buttons["我的"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 5))
+        profileTab.tap()
+
+        let logoutButton = app.buttons["profile.logoutButton"]
+        XCTAssertTrue(logoutButton.waitForExistence(timeout: 5))
+        logoutButton.tap()
     }
 
     // dismissPasswordSavePromptIfPresent 关闭系统保存密码弹窗

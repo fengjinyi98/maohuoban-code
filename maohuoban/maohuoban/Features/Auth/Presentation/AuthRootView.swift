@@ -13,9 +13,7 @@ struct AuthRootView: View {
     var body: some View {
         ZStack {
             if viewModel.isAuthenticated {
-                MHBAppShell(router: router) {
-                    Task { await viewModel.logout() }
-                }
+                MHBAppShell(router: router, onLogout: handleLogout)
                 .transition(.opacity)
             } else {
                 AuthFlowView(viewModel: viewModel)
@@ -27,6 +25,15 @@ struct AuthRootView: View {
         .task {
             await viewModel.bootstrapSession()
         }
+    }
+
+    // handleLogout 处理退出登录事件
+    // 核心职责：
+    // - 清空跨 Tab 导航状态
+    // - 触发认证 ViewModel 的后端登出与本地会话清理
+    private func handleLogout() {
+        router.resetAll()
+        Task { await viewModel.logout() }
     }
 }
 

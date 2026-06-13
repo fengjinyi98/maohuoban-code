@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 // MHBAppTab 底部 Tab 枚举
 // 核心职责：
@@ -14,7 +14,7 @@ enum MHBAppTab: CaseIterable, Hashable, Identifiable {
     var id: Self { self }
 
     /// Tab 中文标题
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
         case .home:     "首页"
         case .petWorld: "宠物世界"
@@ -44,5 +44,10 @@ enum MHBAppTab: CaseIterable, Hashable, Identifiable {
         case .message:  "bubble.fill"
         case .profile:  "person.fill"
         }
+    }
+
+    /// 当前选中状态对应的 SF Symbol
+    func systemImage(isSelected: Bool) -> String {
+        isSelected ? selectedSystemImage : systemImage
     }
 }
