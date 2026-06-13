@@ -52,8 +52,10 @@ extension MHBTheme {
         public static let primaryBackgroundSoft = ColorToken(hex: "rgba(79,140,255,0.04)", red: 79 / 255, green: 140 / 255, blue: 255 / 255, alpha: 0.04)
         public static let card = ColorToken(hex: "rgba(255,255,255,0.75)", red: 1, green: 1, blue: 1, alpha: 0.75)
         public static let cardBorder = ColorToken(hex: "rgba(255,255,255,0.6)", red: 1, green: 1, blue: 1, alpha: 0.6)
-        public static let glass = ColorToken(hex: "rgba(255,255,255,0.6)", red: 1, green: 1, blue: 1, alpha: 0.6)
         public static let separator = ColorToken(hex: "rgba(0,0,0,0.05)", red: 0, green: 0, blue: 0, alpha: 0.05)
         public static let separatorSoft = ColorToken(hex: "rgba(0,0,0,0.03)", red: 0, green: 0, blue: 0, alpha: 0.03)
+
+        public static let toastBackground = ColorToken(hex: "#1C1C1E", red: 28 / 255, green: 28 / 255, blue: 30 / 255)
+        public static let toastBorder = ColorToken(hex: "rgba(255,255,255,0.08)", red: 1, green: 1, blue: 1, alpha: 0.08)
     }
 }

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="毛伙伴(Maohuoban)用户协议设计稿。本页展示了在App内嵌WebView场景下的高保真用户协议规范界面，采用冷白蓝灰与毛玻璃拟态的Apple风格进行排版。">
+  <title>毛伙伴 UI Design Spec — 用户协议</title>
+  <style>
+    /* ============================================================
+       毛伙伴 UI Design Spec — 用户协议
+       风格：Apple Health · WebView Style · 冷白蓝灰 · 低饱和
+       ============================================================ */
+
+    :root {
+      /* — Brand — */
+      --primary:     #4F8CFF;
+      --primary-lt:  #6BCBFF;
+      --primary-dk:  #3A6FCC;
+      --primary-bg:  rgba(79, 140, 255, 0.08);
+
+      /* — Neutral — */
+      --bg:          #F7F9FC;
+      --card:        rgba(255, 255, 255, 0.75);
+      --card-solid:  #FFFFFF;
+      --card-border: rgba(255, 255, 255, 0.6);
+      --glass:       rgba(255, 255, 255, 0.6);
+
+      --l1: #1A1D26;     /* primary text */
+      --l2: #6E7681;     /* secondary */
+      --l3: #9CA3AF;     /* tertiary */
+      --l4: #D1D5DB;     /* quaternary */
+
+      --sep: rgba(0,0,0,0.05);
+
+      /* — Radius — */
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 9999px;
+
+      /* — Spacing — */
+      --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
+
+      /* — Device Specs — */
+      --dw: 390px; --dh: 844px; --safe-t: 59px; --safe-b: 34px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--l1);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      padding-bottom: 80px;
+    }
+
+    /* ===== Background Glow Orbs ===== */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(100px);
+      opacity: 0.35;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary-lt); top: -100px; right: -100px; }
+    .orb-2 { width: 500px; height: 500px; background: rgba(90, 200, 250, 0.4); bottom: -150px; left: -150px; }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 var(--s6);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== Page Header ===== */
+    .pg-hd {
+      text-align: center;
+      padding: var(--s8) 0;
+      margin-bottom: var(--s6);
+    }
+    .pg-hd h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: var(--s2);
+    }
+    .pg-hd p {
+      font-size: 16px;
+      color: var(--l2);
+      max-width: 600px;
+      margin: 0 auto var(--s4);
+      line-height: 1.6;
+    }
+    .pg-hd .chips {
+      display: flex;
+      justify-content: center;
+      gap: var(--s2);
+    }
+    .pg-hd .chip {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--l2);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 6px 16px;
+      border-radius: var(--r-full);
+      border: 0.5px solid var(--card-border);
+    }
+
+    /* ===== Back to Login Spec Link ===== */
+    .back-nav {
+      margin-bottom: var(--s5);
+    }
+    .back-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s2);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-nav-link:hover {
+      color: var(--primary-dk);
+    }
+    .back-nav-link svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    /* ===== Split Layout ===== */
+    .split-layout {
+      display: grid;
+      grid-template-columns: var(--dw) 1fr;
+      gap: var(--s8);
+      align-items: flex-start;
+    }
+
+    /* ============================================================
+       IPHONE WEBVIEW MOCKUP
+       ============================================================ */
+    .iphone-frame {
+      width: var(--dw);
+      height: var(--dh);
+      background: var(--card-solid);
+      border-radius: 54px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.06),
+        0 0 0 4px var(--bg),
+        0 0 0 5px rgba(0,0,0,0.06),
+        0 20px 60px rgba(0,0,0,0.08);
+      border: 10px solid #1c1d24;
+    }
+
+    /* Dynamic Island & Status Bar */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 30px;
+      background: #000;
+      border-radius: 18px;
+      z-index: 110;
+    }
+    .iphone-stbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: var(--safe-t);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 32px 8px;
+      z-index: 100;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+      background: var(--card-solid);
+      border-bottom: 0.5px solid var(--sep);
+    }
+    .stbar-icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .stbar-icons svg { height: 12px; }
+
+    /* WebView Top Navigation Bar */
+    .webview-header {
+      position: absolute;
+      top: var(--safe-t);
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--s4);
+      border-bottom: 0.5px solid var(--sep);
+      z-index: 90;
+    }
+    .webview-back-btn {
+      font-size: 15px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .webview-back-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .webview-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--l1);
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .webview-close-btn {
+      font-size: 15px;
+      color: var(--l2);
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* WebView Scrollable Content */
+    .webview-content {
+      position: absolute;
+      top: calc(var(--safe-t) + 44px);
+      left: 0;
+      right: 0;
+      bottom: var(--safe-b);
+      overflow-y: auto;
+      padding: var(--s4);
+      background: var(--bg);
+    }
+    .webview-content::-webkit-scrollbar { display: none; }
+
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: var(--l1);
+      border-radius: 3px;
+      z-index: 100;
+      opacity: 0.2;
+    }
+
+    /* ============================================================
+       DOCUMENT READER (Right Panel)
+       ============================================================ */
+    .doc-reader {
+      background: var(--card);
+      backdrop-filter: blur(20px) saturate(1.6);
+      -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-2xl);
+      padding: var(--s6) var(--s8);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.03);
+    }
+    .doc-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: var(--s2);
+      color: var(--l1);
+    }
+    .doc-meta {
+      font-size: 13px;
+      color: var(--l3);
+      border-bottom: 0.5px solid var(--sep);
+      padding-bottom: var(--s4);
+      margin-bottom: var(--s5);
+      display: flex;
+      gap: var(--s4);
+    }
+
+    /* Document Body Styles */
+    .doc-body {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--l2);
+    }
+    .doc-intro {
+      margin-bottom: var(--s5);
+      font-weight: 500;
+      color: var(--l1);
+    }
+    .doc-sec {
+      margin-bottom: var(--s6);
+    }
+    .doc-sec-t {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--l1);
+      margin-bottom: var(--s3);
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+    }
+    .doc-sec-t::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 15px;
+      background: var(--primary);
+      border-radius: var(--r-full);
+    }
+    .doc-para {
+      margin-bottom: var(--s3);
+    }
+    .doc-list {
+      margin-bottom: var(--s4);
+      padding-left: var(--s5);
+    }
+    .doc-list li {
+      margin-bottom: var(--s2);
+      list-style-type: decimal;
+    }
+    .doc-highlight-box {
+      background: var(--primary-bg);
+      border-radius: var(--r-md);
+      padding: var(--s4);
+      margin: var(--s4) 0;
+      border: 0.5px solid rgba(79, 140, 255, 0.15);
+    }
+    .doc-highlight-box p {
+      font-size: 13.5px;
+      color: var(--primary-dk);
+      font-weight: 500;
+      line-height: 1.6;
+    }
+
+    /* Responsive adjustments */
+    @media(max-width: 1000px) {
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+      .iphone-frame {
+        margin: 0 auto var(--s6);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Glow Orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="pg-hd">
+      <h1>毛伙伴 UI Design Spec</h1>
+      <p>App 内嵌 WebView 规范稿 — 《用户服务协议》的高级文档排版及设备显示效果。</p>
+      <div class="chips">
+        <span class="chip">WebView Layout</span>
+        <span class="chip">Apple Minimalist Style</span>
+        <span class="chip">Radius md (12px)</span>
+        <span class="chip">Active Back Navigation</span>
+      </div>
+    </header>
+
+    <!-- Back Navigation -->
+    <div class="back-nav">
+      <a href="maohuoban-login-design.html" class="back-nav-link" id="nav-back-to-login">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        返回登录流程设计稿
+      </a>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="split-layout">
+
+      <!-- Left Column: WebView Simulator -->
+      <div class="iphone-frame">
+        <div class="dynamic-island"></div>
+        <!-- Status Bar -->
+        <div class="iphone-stbar">
+          <span>9:41</span>
+          <div class="stbar-icons">
+            <svg viewBox="0 0 24 24" width="16" fill="currentColor"><path d="M12 21a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0-7a9 9 0 0 0-9 9 2 2 0 1 0 4 0 5 5 0 0 1 10 0 2 2 0 1 0 4 0 9 9 0 0 0-9-9zm0-7a16 16 0 0 0-16 16 2 2 0 1 0 4 0 12 12 0 0 1 24 0 2 2 0 1 0 4 0 16 16 0 0 0-16-16z"/></svg>
+            <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="16" width="3" height="5" rx="1"/><rect x="7" y="12" width="3" height="9" rx="1"/><rect x="12" y="8" width="3" height="13" rx="1"/><rect x="17" y="3" width="3" height="18" rx="1"/></svg>
+            <svg viewBox="0 0 24 24" width="16" fill="currentColor"><rect x="2" y="5" width="17" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="8" width="11" height="8" rx="1"/><path d="M22 9v6"/></svg>
+          </div>
+        </div>
+
+        <!-- WebView Header -->
+        <div class="webview-header">
+          <button class="webview-back-btn" onclick="location.href='maohuoban-login-design.html'">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            返回
+          </button>
+          <span class="webview-title">用户协议</span>
+          <button class="webview-close-btn" onclick="location.href='maohuoban-login-design.html'">关闭</button>
+        </div>
+
+        <!-- WebView Content (Simulated) -->
+        <div class="webview-content">
+          <div class="doc-body" style="font-size: 12px; line-height: 1.6;">
+            <h2 style="font-size: 18px; font-weight: 800; color: var(--l1); margin-bottom: var(--s2);">用户服务协议</h2>
+            <div style="font-size: 10px; color: var(--l3); margin-bottom: var(--s4);">版本发布日期：2026年06月13日</div>
+            
+            <p style="margin-bottom: var(--s3); font-weight: 600; color: var(--l1);">欢迎您使用毛伙伴！在注册及使用前请仔细阅读本用户协议各条款。</p>
+            
+            <h3 style="font-size: 13px; font-weight: 700; color: var(--l1); margin-bottom: var(--s2); margin-top: var(--s4);">一、 账号注册与规范</h3>
+            <p style="margin-bottom: var(--s2);">1. 用户应通过本人手机号获取验证码完成注册，注册成功后自动生成宠物主人基本档案账号。</p>
+            <p style="margin-bottom: var(--s2);">2. 用户承诺提供真实、准确、合法的个人或宠物档案数据，不得使用虚假信息冒充他人或他人宠物建档。</p>
+            
+            <h3 style="font-size: 13px; font-weight: 700; color: var(--l1); margin-bottom: var(--s2); margin-top: var(--s4);">二、 宠物主体协同服务使用规则</h3>
+            <p style="margin-bottom: var(--s2);">1. 记录日常与健康：用户可录入宠物的日常事件和医疗健康数据，需承诺对数据的客观真实性负责。</p>
+            <p style="margin-bottom: var(--s2);">2. 同城及交易担保：使用平台同城医院预约、寄养及活体交易服务时，用户须严格遵守平台交易履约规范及防作弊机制。</p>
+            
+            <div style="background: var(--primary-bg); border-radius: var(--r-sm); padding: 8px; margin: var(--s3) 0; border: 0.5px solid rgba(79,140,255,0.1); font-size: 10.5px; color: var(--primary-dk);">
+              特别提示：关于同城交易保障中的资金存管条款，均由持牌金融机构提供托管，平台不进行资金池留存。
+            </div>
+            
+            <p style="color: var(--l3);">[向下滚动阅读更多条款...]</p>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+
+      <!-- Right Column: Document Reader -->
+      <div class="doc-reader">
+        <h2 class="doc-title">用户服务协议</h2>
+        <div class="doc-meta">
+          <span>版本发布日期：2026年06月13日</span>
+          <span>最新生效日期：2026年06月13日</span>
+        </div>
+
+        <div class="doc-body">
+          <p class="doc-intro">欢迎您使用毛伙伴（Maohuoban）平台服务！本用户服务协议（以下简称“本协议”）是由您与毛伙伴服务运营商之间就账号注册、服务使用及各项相关权益等事宜所订立的契约。请您在使用前务必认真阅读、充分理解各条款内容，特别是涉及免责、责任限制的加粗特别条款。</p>
+
+          <div class="doc-sec">
+            <h3 class="doc-sec-t">一、 账号注册与使用规范</h3>
+            <p class="doc-para">1. 注册凭证与实名关联：本平台支持通过中国大陆有效手机号码一键获取验证码的方式进行注册。为符合实名制网络安全管理规定，用户完成短信验证登录后，即完成实名关联。</p>
+            <p class="doc-para">2. 档案建立与管理：毛伙伴是一个以宠物为主体的协同记录平台。用户有权为自己合法饲养或托管的宠物建立独立的主页、健康档案和成长时间线。用户应对所上传的宠物头像、品种信息、接种证明等数据的真实性与合法性负责。</p>
+            <p class="doc-para">3. 账号安全责任：用户应当妥善保管手机账号的验证信息，任何通过用户手机号验证完成的登录、建档、预定等操作行为，均视为用户本人的真实意志表达，其法律后果由用户本人承担。</p>
+          </div>
+
+          <div class="doc-sec">
+            <h3 class="doc-sec-t">二、 宠物主体协同服务规则</h3>
+            <p class="doc-para">1. 照护记录真实性：用户可在平台记录宠物食欲、精神、排泄及日常体重等生命数据，以便于多家庭成员共享或就医协同。用户需承诺上传的宠物数据属于客观真实记录，不得滥用此工具进行虚假商业营销或误导性传播。</p>
+            <p class="doc-para">2. 同城就医与预约：当用户使用本平台提供的同城医院在线挂号、美容寄养等预定功能时，应遵守商家的预约规则和取消时限。由于用户个人原因导致爽约，商家有权按照既定规则扣除违约金。</p>
+            
+            <div class="doc-highlight-box">
+              <p>重要提示：关于“活体交易担保保障”模块，平台仅作为信息服务与技术存管协同工具。为防范交易风险，所有押金与款项均直接进入持牌金融存管机构进行冻结。在确认宠物健康无误、疫苗证明符合约定前，资金不会划转给卖家。</p>
+            </div>
+          </div>
+
+          <div class="doc-sec">
+            <h3 class="doc-sec-t">三、 用户行为与内容规范</h3>
+            <p class="doc-para">用户在使用毛伙伴服务过程中，发布的内容（包含但不限于宠物主页描述、健康科普动态、同窝寻亲信息等）必须遵守国家有关法律法规，严禁发布以下内容：</p>
+            <ul class="doc-list">
+              <li>侵害任何第三方名誉权、隐私权、肖像权或著作权等合法权益的言论或图片；</li>
+              <li>违背社会公德，展示或宣扬虐待动物、遗弃动物或非法宠物繁育交易的信息；</li>
+              <li>含有虚假虚构的宠物伤病求助，或带有诈骗倾向的筹款众筹链接。</li>
+            </ul>
+          </div>
+
+          <div class="doc-sec">
+            <h3 class="doc-sec-t">四、 平台免责声明</h3>
+            <p class="doc-para">1. 健康及记录数据免责：平台提供的“今日照护”及“疫苗驱虫提醒”属于非诊疗性质的日常关爱辅助工具。用户在平台录入和展示的任何健康状态数据，不得替代专业执业兽医师的临床诊断。对于根据平台日常状态提醒而引发的宠物健康决策纠纷，平台不承担医疗损害赔偿责任。</p>
+            <p class="doc-para">2. 第三方保险协同免责：平台直连的保险理赔协同接口仅作为便捷信息传输通道。具体的保险承保、费率计算、理赔核定等业务，均由对接的保险公司独立负责，理赔争议应依据保单与保险公司另行协商解决。</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer style="text-align: center; padding: 40px 0; color: var(--l3); font-size: 12px; border-top: 0.5px solid var(--sep); margin-top: 40px;">
+    毛伙伴 UI Design Spec v0.4 · WebView Style · 2026-06-13
+  </footer>
+
+</body>
+</html>

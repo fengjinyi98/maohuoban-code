@@ -1360,11 +1360,25 @@
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                     <input type="text" id="login-phone-input" placeholder="请输入手机号" value="">
                   </div>
+
+                  <!-- Password Input Group (Hidden by default) -->
+                  <div class="phone-input-group" id="login-password-group" style="display: none; margin-bottom: var(--s3);">
+                    <!-- Lock Icon -->
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <input type="password" id="login-password-input" placeholder="请输入密码">
+                  </div>
+
+                  <!-- Mode Toggle & Forgot Password -->
+                  <div style="display: flex; justify-content: space-between; margin-bottom: var(--s4); font-size: 13px;">
+                    <a href="javascript:void(0)" id="login-mode-toggle" style="color: var(--primary); text-decoration: none; font-weight: 600;">密码登录</a>
+                    <a href="#forgot-password-anchor" id="login-forgot-pwd" style="color: var(--l3); text-decoration: none; display: none;">忘记密码</a>
+                  </div>
+
                   <button class="primary-btn" id="login-submit-btn">获取验证码</button>
 
                   <div class="agreement-line">
                     <input type="checkbox" id="agreement" checked>
-                    <label for="agreement">我已阅读并同意 <a href="#">《用户协议》</a> 和 <a href="#">《隐私政策》</a></label>
+                    <label for="agreement">我已阅读并同意 <a href="maohuoban-user-agreement.html">《用户协议》</a> 和 <a href="maohuoban-privacy-policy.html">《隐私政策》</a></label>
                   </div>
                 </div>
 
@@ -1469,7 +1483,7 @@
         </div>
 
         <!-- Screen 3: 忘记密码页 -->
-        <div class="mockup-wrapper">
+        <div class="mockup-wrapper" id="forgot-password-anchor">
           <div class="iphone-frame">
             <div class="dynamic-island"></div>
             <!-- Status Bar -->
@@ -1745,5 +1759,38 @@
     毛伙伴 UI Design Spec v0.4 · Apple Health Style · 2026-06-13
   </footer>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var modeToggle = document.getElementById('login-mode-toggle');
+      var passwordGroup = document.getElementById('login-password-group');
+      var phoneInput = document.getElementById('login-phone-input');
+      var submitBtn = document.getElementById('login-submit-btn');
+      var forgotPwd = document.getElementById('login-forgot-pwd');
+      var tplSubtext = document.querySelector('.screen-login .tpl-subtext');
+      
+      var isPasswordMode = false;
+      
+      modeToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        isPasswordMode = !isPasswordMode;
+        
+        if (isPasswordMode) {
+          passwordGroup.style.display = 'block';
+          phoneInput.placeholder = '请输入手机号/用户名';
+          submitBtn.textContent = '登录';
+          forgotPwd.style.display = 'inline';
+          modeToggle.textContent = '验证码登录';
+          tplSubtext.textContent = '使用第三方账号或密码快捷登录';
+        } else {
+          passwordGroup.style.display = 'none';
+          phoneInput.placeholder = '请输入手机号';
+          submitBtn.textContent = '获取验证码';
+          forgotPwd.style.display = 'none';
+          modeToggle.textContent = '密码登录';
+          tplSubtext.textContent = '未注册手机号验证后将自动注册';
+        }
+      });
+    });
+  </script>
 </body>
 </html>

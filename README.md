@@ -84,7 +84,6 @@ maohuoban/Packages/MaohuobanDesignSystem
 | `MHBTheme.Spacing` | 4pt 栅格间距 |
 | `MHBTheme.Radius` | 卡片、按钮、标签和全圆形圆角 |
 | `MHBTheme.Typography` | SwiftUI Font 与 UIKit UIFont |
-| `MHBTheme.MaterialToken` | SwiftUI Material 与 UIKit blur effect |
 
 ## 常用命令
 
