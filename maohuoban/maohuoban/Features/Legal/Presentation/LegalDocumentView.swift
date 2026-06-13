@@ -28,6 +28,8 @@ struct LegalDocumentView: View {
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(viewModel.document?.title ?? viewModel.kind.fallbackTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .task {
             await viewModel.load()
         }
