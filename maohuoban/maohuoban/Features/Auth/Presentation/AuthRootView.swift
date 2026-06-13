@@ -4,15 +4,16 @@ import MaohuobanDesignSystem
 
 // AuthRootView 登录态根视图
 // 核心职责：
-// - 根据登录态切换认证流程与应用首页
+// - 根据登录态切换认证流程与应用主壳
 // - 挂载全局 Toast 容器和冷启动 refresh 流程
 struct AuthRootView: View {
     @Bindable var viewModel: AuthViewModel
+    let router: MHBAppRouter
 
     var body: some View {
         ZStack {
             if viewModel.isAuthenticated {
-                ContentView {
+                MHBAppShell(router: router) {
                     Task { await viewModel.logout() }
                 }
                 .transition(.opacity)

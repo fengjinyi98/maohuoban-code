@@ -79,7 +79,7 @@ public struct MHBToastView: View {
             ZStack {
                 if let toast = window.toast {
                     ConcentricRectangle(corners: .concentric(minimum: .fixed(30)), isUniform: true)
-                        .fill(.black)
+                        .fill(MHBTheme.ColorToken.toastBackground.color)
                         .overlay {
                             MHBToastContentView(
                                 toast: toast,

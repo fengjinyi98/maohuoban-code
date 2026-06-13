@@ -54,8 +54,8 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         description: String? = nil,
         type: MHBToastType = .info,
         duration: TimeInterval? = 3.0,
-        dismissible: Bool = true,      // 保留参数适配原有调用
-        action: MHBToastAction? = nil  // 保留参数适配原有调用
+        dismissible: Bool = true,
+        action: MHBToastAction? = nil
     ) {
         self.id = id
         self.title = title
@@ -67,19 +67,19 @@ public struct MHBToast: Identifiable, Sendable, Equatable {
         case .success:
             self.symbol = "checkmark.seal.fill"
             self.symbolForegroundStyleColor1 = .white
-            self.symbolForegroundStyleColor2 = .green
+            self.symbolForegroundStyleColor2 = MHBTheme.ColorToken.success.color
         case .danger:
             self.symbol = "xmark.seal.fill"
             self.symbolForegroundStyleColor1 = .white
-            self.symbolForegroundStyleColor2 = .red
+            self.symbolForegroundStyleColor2 = MHBTheme.ColorToken.danger.color
         case .warning:
             self.symbol = "exclamationmark.triangle.fill"
             self.symbolForegroundStyleColor1 = .white
-            self.symbolForegroundStyleColor2 = .orange
+            self.symbolForegroundStyleColor2 = MHBTheme.ColorToken.warning.color
         case .info, .loading:
             self.symbol = "info.circle.fill"
             self.symbolForegroundStyleColor1 = .white
-            self.symbolForegroundStyleColor2 = .blue
+            self.symbolForegroundStyleColor2 = MHBTheme.ColorToken.primary.color
         }
     }
 }

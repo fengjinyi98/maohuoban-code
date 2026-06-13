@@ -1,0 +1,2723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="毛伙伴(Maohuoban)以宠物为主体的首页及核心卡片UI设计规范设计稿。展示了包含宠物头像切换器、今日照护数据、快捷操作入口、今日伙伴卡片以及最近时间线的交互式高保真 Mockup。">
+  <title>毛伙伴 UI Design Spec — 宠物主页与核心卡片</title>
+  <style>
+    /* ============================================================
+       毛伙伴 UI Design Spec — 首页与核心卡片
+       风格：Apple Health · Frosted Glass · 冷白蓝灰 · 低饱和
+       设计规范遵循 docs/design/00_AI生图Prompt与视觉一致性规范.md
+       ============================================================ */
+
+    :root {
+      /* — Brand — */
+      --primary:     #4F8CFF;
+      --primary-lt:  #6BCBFF;
+      --primary-dk:  #3A6FCC;
+      --primary-bg:  rgba(79, 140, 255, 0.08);
+      --primary-bg2: rgba(79, 140, 255, 0.04);
+
+      /* — Semantic — */
+      --green:   #34C759;
+      --orange:  #FF9500;
+      --red:     #FF3B30;
+      --teal:    #5AC8FA;
+      --purple:  #AF52DE;
+
+      /* — Neutral — */
+      --bg:          #F7F9FC;
+      --card:        rgba(255, 255, 255, 0.75);
+      --card-solid:  #FFFFFF;
+      --card-border: rgba(255, 255, 255, 0.6);
+      --glass:       rgba(255, 255, 255, 0.6);
+
+      --l1: #1A1D26;     /* primary text */
+      --l2: #6E7681;     /* secondary */
+      --l3: #9CA3AF;     /* tertiary */
+      --l4: #D1D5DB;     /* quaternary */
+
+      --sep: rgba(0,0,0,0.05);
+      --sep2: rgba(0,0,0,0.03);
+
+      /* — Spacing — */
+      --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
+
+      /* — Radius — */
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 9999px;
+
+      /* — Font — */
+      --font: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+
+      /* — Device Specs — */
+      --dw: 390px; --dh: 844px; --safe-t: 59px; --safe-b: 34px; --tab-h: 83px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--l1);
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 80px;
+    }
+
+    /* ===== Background Glow Orbs ===== */
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(100px);
+      opacity: 0.35;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--primary-lt); top: -100px; right: -100px; }
+    .orb-2 { width: 500px; height: 500px; background: rgba(90, 200, 250, 0.3); top: 400px; left: -150px; }
+    .orb-3 { width: 350px; height: 350px; background: rgba(175, 82, 222, 0.2); bottom: 100px; right: -50px; }
+
+    /* ===== Layout Container ===== */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 var(--s6);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== Page Header ===== */
+    .pg-hd {
+      text-align: center;
+      padding: var(--s8) 0;
+      margin-bottom: var(--s6);
+    }
+    .pg-hd h1 {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      color: var(--l1);
+      margin-bottom: var(--s2);
+    }
+    .pg-hd p {
+      font-size: 16px;
+      color: var(--l2);
+      max-width: 650px;
+      margin: 0 auto var(--s4);
+      line-height: 1.6;
+    }
+    .pg-hd .chips {
+      display: flex;
+      justify-content: center;
+      gap: var(--s2);
+      flex-wrap: wrap;
+    }
+    .pg-hd .chip {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--l2);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 6px 16px;
+      border-radius: var(--r-full);
+      border: 0.5px solid var(--card-border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    /* ===== Divider ===== */
+    .dv {
+      border: none;
+      border-top: 0.5px solid var(--sep);
+      margin: var(--s8) 0;
+    }
+
+    /* ===== Main Workspace Layout ===== */
+    .workspace {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: var(--s8);
+      align-items: start;
+    }
+
+    /* ============================================================
+       LEFT COLUMN: Device Mockup Viewport & Controls
+       ============================================================ */
+    .mockup-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--s5);
+      position: sticky;
+      top: var(--s6);
+    }
+
+    /* Controls Panel */
+    .controls-card {
+      width: var(--dw);
+      padding: var(--s4);
+      border-radius: var(--r-xl);
+      background: var(--card);
+      border: 0.5px solid var(--card-border);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+    }
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .control-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+    }
+    /* Switch Style Toggle */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--l4);
+      transition: .3s;
+      border-radius: 34px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    input:checked + .toggle-slider {
+      background-color: var(--primary);
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* ============================================================
+       IPHONE 14 PRO CONTAINER (390 x 844pt)
+       ============================================================ */
+    .iphone-frame {
+      width: var(--dw);
+      height: var(--dh);
+      background: var(--bg);
+      border-radius: 54px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.06),
+        0 0 0 4px var(--bg),
+        0 0 0 5px rgba(0,0,0,0.06),
+        0 20px 60px rgba(0,0,0,0.08);
+      border: 10px solid #1c1d24;
+      user-select: none;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 30px;
+      background: #000;
+      border-radius: 18px;
+      z-index: 110;
+    }
+
+    /* iOS Status Bar */
+    .iphone-stbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: var(--safe-t);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 32px 8px;
+      z-index: 100;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+      background: transparent;
+    }
+    .stbar-icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .stbar-icons svg {
+      height: 12px;
+      width: auto;
+      fill: var(--l1);
+    }
+
+    /* Home Indicator */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: var(--l1);
+      border-radius: 3px;
+      z-index: 100;
+      opacity: 0.3;
+    }
+
+    /* iPhone Content Scroll Area */
+    .iphone-content {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: calc(var(--safe-t) + 88px); /* Adjusted for taller header */
+      padding-bottom: calc(var(--tab-h) + var(--safe-b));
+      display: flex;
+      flex-direction: column;
+      gap: var(--s4);
+      z-index: 50;
+      scrollbar-width: none;
+    }
+    .iphone-content::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Fixed Top Navigation Stack */
+    .nav-header {
+      position: absolute;
+      top: var(--safe-t);
+      left: 0; right: 0;
+      height: 88px; /* Taller height to fit avatar names */
+      background: rgba(247, 249, 252, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 0.5px solid var(--sep);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--s4);
+      z-index: 95;
+    }
+
+    /* Location & Weather Stack */
+    .loc-weather {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .loc-selector {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--l1);
+      cursor: pointer;
+    }
+    .loc-selector svg {
+      width: 10px;
+      height: 10px;
+      stroke: var(--l1);
+      stroke-width: 2.5;
+      fill: none;
+    }
+    .weather-info {
+      font-size: 11px;
+      color: var(--l2);
+      font-weight: 500;
+    }
+
+    /* Pet Switcher list */
+    .pet-avatar-list {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-left: var(--s1);
+    }
+    .pet-avatar-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Avatar Circles */
+    .pet-avatar-btn {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px; /* Space between circle and name */
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .pet-avatar-btn:active {
+      transform: scale(0.92);
+    }
+    .avatar-wrapper {
+      width: 48px; /* Increased from 38px */
+      height: 48px; /* Increased from 38px */
+      border-radius: 50%;
+      background: linear-gradient(135deg, #E8EDF5, #D8DEE8);
+      border: 1.5px solid transparent;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+    }
+    .pet-avatar-btn.active .avatar-wrapper {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px rgba(79, 140, 255, 0.2);
+    }
+    .avatar-wrapper svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .avatar-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .avatar-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--l2);
+      transition: color 0.2s;
+    }
+    .pet-avatar-btn.active .avatar-name {
+      color: var(--l1);
+      font-weight: 700;
+    }
+    .avatar-dot {
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 1px solid #FFF;
+      opacity: 0;
+      transform: scale(0);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
+      z-index: 10;
+    }
+    .pet-avatar-btn.active .avatar-dot {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Plus Button */
+    .avatar-add-btn {
+      width: 48px; /* Increased from 38px */
+      height: 48px; /* Increased from 38px */
+      border-radius: 50%;
+      border: 1px dashed var(--l3);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
+      margin-bottom: 14px; /* Align with avatar wrappers vertically */
+    }
+    .avatar-add-btn:hover {
+      border-color: var(--primary);
+    }
+    .avatar-add-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: var(--l3);
+      stroke-width: 2;
+      fill: none;
+      transition: stroke 0.2s;
+    }
+    .avatar-add-btn:hover svg {
+      stroke: var(--primary);
+    }
+
+    /* User Avatar with Badge */
+    .user-profile-btn {
+      width: 48px; /* Increased from 38px */
+      height: 48px; /* Increased from 38px */
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd3b6, #ffaaa5);
+      border: 1px solid var(--card-border);
+      position: relative;
+      overflow: visible;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-bottom: 14px; /* Align with avatar wrappers vertically */
+    }
+    .user-profile-btn img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .user-profile-btn svg {
+      width: 90%;
+      height: 90%;
+      transform: translateY(2px);
+    }
+    .user-v-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--orange);
+      border: 1.5px solid #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 900;
+      color: #FFF;
+      z-index: 10;
+    }
+
+    /* ============================================================
+       COMPONENTS (GROUPED INSET LIST PATTERN)
+       ============================================================ */
+    .iphone-content .card-inset {
+      margin: 0 var(--s4);
+      background: var(--card);
+      backdrop-filter: blur(20px) saturate(1.6);
+      -webkit-backdrop-filter: blur(20px) saturate(1.6);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-xl);
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.015);
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      flex-shrink: 0; /* Prevent browser flex-squishing cards */
+    }
+    .iphone-content .card-inset:active {
+      transform: scale(0.985);
+    }
+    .iphone-content .card-inset.selected-highlight {
+      box-shadow: 0 0 0 2px var(--primary);
+    }
+
+    /* Card Section Header */
+    .sec-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--s2) var(--s4) 0;
+    }
+    .sec-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .sec-more {
+      font-size: 12px;
+      color: var(--l3);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .sec-more svg {
+      width: 10px;
+      height: 10px;
+      stroke: var(--l3);
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    /* ------------------------------------------------------------
+       CARD 1: Selected Pet Hero Card (糯米)
+       ------------------------------------------------------------ */
+    .pet-hero-card {
+      height: 172px;
+      background: linear-gradient(135deg, #E8F1FF 0%, #D4E5FF 100%);
+      padding: var(--s5) var(--s5) var(--s4);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-radius: var(--r-xl) !important;
+      position: relative;
+      overflow: hidden !important;
+      transition: background 0.4s ease !important;
+    }
+    .pet-hero-card.naigai-theme {
+      background: linear-gradient(135deg, #F5EDFF 0%, #E3D4FF 100%);
+    }
+    .pet-hero-card.buding-theme {
+      background: linear-gradient(135deg, #FFF3E6 0%, #FFDFBE 100%);
+    }
+
+    /* Abstract Floating Hearts background */
+    .floating-decorations {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .floating-decorations svg {
+      position: absolute;
+      fill: rgba(79, 140, 255, 0.15);
+      transition: fill 0.4s;
+    }
+    .naigai-theme .floating-decorations svg {
+      fill: rgba(175, 82, 222, 0.15);
+    }
+    .buding-theme .floating-decorations svg {
+      fill: rgba(255, 149, 0, 0.15);
+    }
+
+    .hero-info {
+      display: flex;
+      flex-direction: column;
+      z-index: 2;
+      position: relative;
+    }
+    .hero-name-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      margin-bottom: var(--s1);
+    }
+    .hero-name {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--l1);
+    }
+    .gender-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .gender-icon.male {
+      background: rgba(79, 140, 255, 0.15);
+      color: var(--primary);
+    }
+    .gender-icon.female {
+      background: rgba(255, 59, 48, 0.12);
+      color: var(--red);
+    }
+    .hero-tags {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .hero-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--l2);
+      background: rgba(255,255,255,0.45);
+      padding: 3px 8px;
+      border-radius: var(--r-sm);
+      backdrop-filter: blur(4px);
+    }
+    .hero-status-bubble {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--l1);
+      margin-bottom: var(--s1);
+    }
+    .hero-update-time {
+      font-size: 11px;
+      color: var(--l3);
+      font-weight: 500;
+    }
+
+    /* Custom Pet Vector Containers */
+    .hero-portrait-container {
+      width: 140px;
+      height: 140px;
+      z-index: 2;
+      position: absolute;
+      right: 10px;
+      bottom: -5px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .hero-portrait-container svg {
+      width: 100%;
+      height: 100%;
+    }
+    .pet-portrait-svg {
+      display: none;
+    }
+    .pet-portrait-svg.active {
+      display: block;
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.85) translateY(15px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    /* ------------------------------------------------------------
+       CARD 2: Today's Care ("今日照护")
+       ------------------------------------------------------------ */
+    .care-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: var(--s4);
+      gap: var(--s2);
+    }
+    .care-metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--s1);
+    }
+    .care-metric-icon-bg {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+    }
+    .care-metric-item:hover .care-metric-icon-bg {
+      transform: scale(1.08);
+    }
+    .care-metric-icon-bg svg {
+      width: 22px;
+      height: 22px;
+    }
+    .care-metric-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--l3);
+      margin-top: 2px;
+    }
+    .care-metric-status {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--l1);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* Deworming Reminder nested subcard */
+    .deworming-reminder-box {
+      margin: 0 var(--s4) var(--s4);
+      background: var(--primary-bg);
+      border-radius: var(--r-md);
+      padding: var(--s3) var(--s4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s3);
+      transition: background 0.3s;
+    }
+    .deworming-reminder-box:hover {
+      background: rgba(79, 140, 255, 0.12);
+    }
+    .reminder-left {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+    }
+    .bell-icon-wrapper {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(79, 140, 255, 0.1);
+    }
+    .bell-icon-wrapper svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--primary);
+    }
+    .reminder-details {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .reminder-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .reminder-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .reminder-tag {
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(79, 140, 255, 0.12);
+      color: var(--primary);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .reminder-subtext {
+      font-size: 11px;
+      color: var(--l2);
+      font-weight: 500;
+    }
+    .reminder-right {
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .reminder-right svg {
+      width: 8px;
+      height: 12px;
+      stroke: var(--primary);
+      stroke-width: 2.5;
+      fill: none;
+    }
+
+    /* ------------------------------------------------------------
+       CARD 3: Quick Actions ("快捷操作")
+       ------------------------------------------------------------ */
+    .quick-actions-card {
+      padding: var(--s4) var(--s2) !important;
+    }
+    .quick-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      text-align: center;
+    }
+    .quick-action-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--s2);
+      cursor: pointer;
+    }
+    .quick-action-icon-bg {
+      width: 46px;
+      height: 46px;
+      border-radius: var(--r-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .quick-action-item:hover .quick-action-icon-bg {
+      transform: translateY(-3px) scale(1.05);
+    }
+    .quick-action-icon-bg svg {
+      width: 22px;
+      height: 22px;
+    }
+    .quick-action-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .quick-action-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--l1);
+      white-space: normal; /* Allow text wrapping */
+      line-height: 1.2;
+    }
+    .quick-action-subtitle {
+      font-size: 9px;
+      color: var(--l3);
+      white-space: normal; /* Allow text wrapping */
+      font-weight: 500;
+      line-height: 1.1;
+      margin-top: 1px;
+    }
+
+    /* ------------------------------------------------------------
+       CARD 4: Today's Partner ("今日伙伴")
+       ------------------------------------------------------------ */
+    .partner-card-body {
+      padding: var(--s4);
+      display: flex;
+      align-items: center;
+      gap: var(--s4);
+    }
+    .partner-avatar-wrapper {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      border-radius: var(--r-lg);
+      background: linear-gradient(135deg, #e3f6f5, #bae8e8);
+      border: 0.5px solid var(--card-border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .partner-avatar-wrapper svg {
+      width: 90%;
+      height: 90%;
+    }
+    .partner-heart-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #FFF;
+    }
+    .partner-heart-badge svg {
+      width: 8px;
+      height: 8px;
+      fill: #FFF;
+    }
+    .partner-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .partner-name-row {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+    }
+    .partner-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .partner-tag-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 1px;
+    }
+    .partner-tag-green {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--green);
+      background: rgba(52, 199, 89, 0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .partner-tag-gray {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--l2);
+      background: rgba(0,0,0,0.03);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .partner-desc {
+      font-size: 11px;
+      color: var(--l2);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .partner-action-btn {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      border-radius: var(--r-full);
+      padding: 6px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s, color 0.2s;
+    }
+    .partner-action-btn:hover {
+      background: var(--primary);
+      color: #FFF;
+    }
+
+    /* ------------------------------------------------------------
+       CARD 5: Recent Timeline ("最近时间线")
+       ------------------------------------------------------------ */
+    .timeline-card-body {
+      padding: var(--s3) var(--s4) !important;
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+    }
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      position: relative;
+    }
+    .timeline-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 36px;
+      bottom: -18px;
+      width: 1px;
+      background: var(--sep);
+    }
+    .timeline-thumb-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .timeline-thumb-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .timeline-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FFE8E8, #FFD4D4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .timeline-icon-box.green-bg {
+      background: linear-gradient(135deg, #EAFCEF, #D2F7DC);
+    }
+    .timeline-icon-box.blue-bg {
+      background: linear-gradient(135deg, #E8F2FF, #D4E5FF);
+    }
+    .timeline-icon-box svg {
+      width: 18px;
+      height: 18px;
+    }
+    .timeline-icon-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--orange);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 0.5px solid #FFF;
+    }
+    .timeline-icon-badge svg {
+      width: 8px;
+      height: 8px;
+      fill: #FFF;
+    }
+    .timeline-content-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .timeline-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--l1);
+    }
+    .timeline-subtitle {
+      font-size: 12px;
+      color: var(--l2);
+      font-weight: 500;
+    }
+    .timeline-time {
+      font-size: 12px;
+      color: var(--l3);
+      font-weight: 500;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ============================================================
+       FROSTED GLASS TAB BAR
+       ============================================================ */
+    .iphone-tbar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: var(--tab-h);
+      background: rgba(247, 249, 252, 0.76);
+      backdrop-filter: blur(24px) saturate(1.8);
+      -webkit-backdrop-filter: blur(24px) saturate(1.8);
+      border-top: 0.5px solid rgba(255, 255, 255, 0.5);
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      padding-top: 6px;
+      padding-bottom: var(--safe-b);
+      z-index: 150;
+      cursor: pointer;
+    }
+    .tbar-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: 55px;
+      text-align: center;
+    }
+    .tbar-item svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--l3);
+      stroke-width: 1.6;
+      fill: none;
+      transition: stroke 0.2s;
+    }
+    .tbar-item span {
+      font-size: 10px;
+      color: var(--l3);
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    /* Active State */
+    .tbar-item.active svg {
+      stroke: var(--primary);
+      fill: var(--primary-bg);
+    }
+    .tbar-item.active span {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Central Raised Button */
+    .tbar-center-btn {
+      position: relative;
+      margin-top: -12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: 55px;
+    }
+    .plus-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(79, 140, 255, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .tbar-center-btn:hover .plus-circle {
+      transform: scale(1.06);
+      box-shadow: 0 6px 18px rgba(79, 140, 255, 0.45);
+    }
+    .plus-circle svg {
+      width: 20px;
+      height: 20px;
+      stroke: #FFF;
+      stroke-width: 3;
+      fill: none;
+    }
+    .tbar-center-btn span {
+      font-size: 10px;
+      color: var(--l3);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* ============================================================
+       SPEC ANNOTATIONS OVERLAY
+       ============================================================ */
+    .spec-pin {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(79, 140, 255, 0.85);
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-family: monospace;
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.8), 0 2px 10px rgba(0,0,0,0.15);
+      z-index: 160;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.6);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+    }
+    .show-specs .spec-pin {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+    .spec-pin:hover {
+      background: var(--primary-dk);
+      transform: scale(1.15);
+    }
+
+    /* Dashed overlay borders and tags */
+    .spec-overlay-border {
+      position: absolute;
+      border: 1.5px dashed var(--primary);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 140;
+      transition: opacity 0.3s;
+      border-radius: inherit;
+    }
+    .show-specs .spec-overlay-border.active {
+      opacity: 1;
+    }
+
+    /* ============================================================
+       RIGHT COLUMN: SPECIFICATIONS & CODE EXPLORER
+       ============================================================ */
+    .specs-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s6);
+    }
+
+    .spec-card {
+      background: var(--card-solid);
+      border: 0.5px solid var(--card-border);
+      border-radius: var(--r-xl);
+      padding: var(--s6);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.02);
+    }
+    .spec-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: var(--s2);
+      color: var(--l1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .spec-card p {
+      font-size: 14px;
+      color: var(--l2);
+      line-height: 1.6;
+      margin-bottom: var(--s4);
+    }
+
+    /* Token grid table */
+    .tokens-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: var(--s4);
+      border: 0.5px solid var(--sep);
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+    .tokens-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.02);
+      font-weight: 700;
+      color: var(--l2);
+      border-bottom: 0.5px solid var(--sep);
+    }
+    .tokens-table td {
+      padding: 10px 14px;
+      border-bottom: 0.5px solid var(--sep);
+      color: var(--l1);
+    }
+    .tokens-table tr:last-child td {
+      border-bottom: none;
+    }
+    .color-swatch-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+
+    /* Code Snippet Viewer */
+    .code-viewer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--s3);
+    }
+    .code-viewer-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .btn-copy {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--l2);
+      background: var(--bg);
+      border: 0.5px solid var(--l4);
+      border-radius: var(--r-sm);
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-copy:hover {
+      background: #FFF;
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .code-block-wrapper {
+      background: #1A1D26;
+      border-radius: var(--r-md);
+      padding: var(--s4);
+      overflow-x: auto;
+      max-height: 280px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .code-block-wrapper pre {
+      margin: 0;
+    }
+    .code-block-wrapper code {
+      font-family: "SF Mono", "Menlo", monospace;
+      font-size: 12px;
+      color: #FFF;
+      line-height: 1.5;
+    }
+
+    /* Floating Specs Info Banner */
+    .spec-details-box {
+      background: var(--primary-bg);
+      border-left: 4px solid var(--primary);
+      padding: var(--s3) var(--s4);
+      border-radius: 0 var(--r-md) var(--r-md) 0;
+      margin-top: var(--s4);
+      display: none;
+    }
+    .spec-details-box.active {
+      display: block;
+    }
+    .spec-details-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary-dk);
+      margin-bottom: 2px;
+    }
+    .spec-details-desc {
+      font-size: 12px;
+      color: var(--l2);
+      line-height: 1.5;
+    }
+
+    /* Responsive Grid Adjustments */
+    @media (max-width: 960px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+      .mockup-column {
+        position: relative;
+        top: 0;
+        margin-bottom: var(--s8);
+      }
+      .specs-column {
+        width: 100%;
+        max-width: var(--dw);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="container">
+    <!-- Page Header -->
+    <header class="pg-hd">
+      <h1>毛伙伴 UI Design Spec</h1>
+      <p>首页与核心卡片设计规范 — 整体采用冷白蓝灰与 Frosted Glass 玻璃拟态设计，符合主页视觉一致性规范，宠物主体元素均可交互切换。</p>
+      <div class="chips">
+        <span class="chip">主色 #4F8CFF</span>
+        <span class="chip">iPhone 14 Pro Layout</span>
+        <span class="chip">可交互组件</span>
+        <span class="chip">Apple Health Style</span>
+      </div>
+    </header>
+
+    <hr class="dv">
+
+    <!-- Workspace Grid -->
+    <div class="workspace">
+
+      <!-- ==================== LEFT COLUMN: Mockup & Control ==================== -->
+      <div class="mockup-column">
+
+        <!-- Controls Card -->
+        <div class="controls-card">
+          <div class="control-row">
+            <span class="control-label">显示设计规格红线 (Spec Overlay)</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="specToggle" onchange="toggleSpecOverlay()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="font-size: 11px; color: var(--l3); line-height: 1.4; margin-top: -4px;">
+            开启后，可在 Mockup 上点击带有数字的标尺查看 CSS/HTML 代码与设计规范说明。
+          </div>
+        </div>
+
+        <!-- iPhone 14 Pro Frame -->
+        <div class="iphone-frame" id="iphoneFrame">
+          
+          <!-- Spec pins -->
+          <div class="spec-pin" style="top: 80px; left: 16px;" onclick="showSpecInfo(1, this)">1</div>
+          <div class="spec-pin" style="top: 140px; left: 16px;" onclick="showSpecInfo(2, this)">2</div>
+          <div class="spec-pin" style="top: 280px; right: 16px;" onclick="showSpecInfo(3, this)">3</div>
+          <div class="spec-pin" style="top: 410px; left: 16px;" onclick="showSpecInfo(4, this)">4</div>
+          <div class="spec-pin" style="top: 510px; right: 16px;" onclick="showSpecInfo(5, this)">5</div>
+          <div class="spec-pin" style="top: 610px; left: 16px;" onclick="showSpecInfo(6, this)">6</div>
+          <div class="spec-pin" style="top: 760px; left: 50%; transform: translateX(-50%);" onclick="showSpecInfo(7, this)">7</div>
+
+          <!-- Dynamic Island -->
+          <div class="dynamic-island"></div>
+
+          <!-- iOS Status Bar -->
+          <div class="iphone-stbar">
+            <span>9:41</span>
+            <div class="stbar-icons">
+              <!-- Signal icon -->
+              <svg viewBox="0 0 18 12" style="width: 17px; height: 11px;">
+                <path d="M1 9.5h2v2H1zm3.5-2h2v4h-2zm3.5-2h2v6h-2zm3.5-3.5h2v9.5h-2zm3.5-2h2v11.5h-2z" />
+              </svg>
+              <!-- Wifi Icon -->
+              <svg viewBox="0 0 18 12" style="width: 15px; height: 11px;">
+                <path d="M9 11.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm-4.3-4.3a6 6 0 0 1 8.6 0l-1 1a4.6 4.6 0 0 0-6.6 0zm-2.2-2.2a9.2 9.2 0 0 1 13 0l-1 1a7.8 7.8 0 0 0-11 0zm-2.2-2.2a12.5 12.5 0 0 1 17.4 0l-1 1c-4.2-4.2-11.2-4.2-15.4 0z"/>
+              </svg>
+              <!-- Battery icon -->
+              <svg viewBox="0 0 28 12" style="width: 23px; height: 11px;">
+                <rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="var(--l1)" stroke-width="1" fill="none" />
+                <rect x="2" y="2" width="16" height="8" rx="1.5" />
+                <path d="M24 3.5h1.5v5H24z" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Top Navigation Header -->
+          <div class="nav-header" id="comp-nav-header">
+            <div class="spec-overlay-border" id="border-nav-header" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+            <!-- Location Stack -->
+            <div class="loc-weather">
+              <div class="loc-selector">
+                <span>成都</span>
+                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+              <div class="weather-info">☀️ 26℃</div>
+            </div>
+
+            <!-- Pet avatar horizontal list -->
+            <div class="pet-avatar-list">
+              <!-- active Bichon -->
+              <div class="pet-avatar-btn active" id="avatar-nuomi" onclick="selectPet('nuomi')">
+                <div class="avatar-wrapper">
+                  <img src="assets/avatar_nuomi.png" alt="糯米" />
+                  <div class="avatar-dot"></div>
+                </div>
+                <span class="avatar-name">糯米</span>
+              </div>
+
+              <!-- Ragdoll Cat -->
+              <div class="pet-avatar-btn" id="avatar-naigai" onclick="selectPet('naigai')">
+                <div class="avatar-wrapper">
+                  <img src="assets/avatar_naigai.png" alt="奶盖" />
+                  <div class="avatar-dot"></div>
+                </div>
+                <span class="avatar-name">奶盖</span>
+              </div>
+
+              <!-- Poodle -->
+              <div class="pet-avatar-btn" id="avatar-buding" onclick="selectPet('buding')">
+                <div class="avatar-wrapper">
+                  <img src="assets/avatar_buding.png" alt="布丁" />
+                  <div class="avatar-dot"></div>
+                </div>
+                <span class="avatar-name">布丁</span>
+              </div>
+
+              <!-- Add Button -->
+              <div class="avatar-add-btn">
+                <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+            </div>
+
+            <!-- User Avatar with V badge -->
+            <div class="user-profile-btn">
+              <img src="assets/avatar_user.png" alt="用户" />
+              <div class="user-v-badge">v</div>
+            </div>
+          </div>
+
+          <!-- iPhone Main Content Area -->
+          <div class="iphone-content">
+
+            <!-- CARD 1: Selected Pet Hero Card -->
+            <div class="card-inset pet-hero-card" id="comp-hero-card" onclick="selectComponent('hero-card', event)">
+              <div class="spec-overlay-border" id="border-hero-card" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+              
+              <!-- Floating hearts decoration background -->
+              <div class="floating-decorations">
+                <svg style="top: 20px; left: 24px; width: 14px; height: 12px;" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <svg style="top: 90px; left: 180px; width: 18px; height: 16px;" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <svg style="top: 30px; left: 150px; width: 10px; height: 9px;" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </div>
+
+              <!-- Information Block -->
+              <div class="hero-info">
+                <div class="hero-name-row">
+                  <span class="hero-name" id="heroName">糯米</span>
+                  <div class="gender-icon male" id="heroGender">♂</div>
+                </div>
+                <div class="hero-tags">
+                  <span class="hero-tag" id="heroTagAge">1岁2个月</span>
+                  <span class="hero-tag" id="heroTagBreed">比熊犬</span>
+                </div>
+                <div class="hero-status-bubble" id="heroStatusText">今天状态很棒，元气满满！</div>
+                <div class="hero-update-time" id="heroUpdateTime">更新于 08:30</div>
+              </div>
+
+              <!-- Custom Pet Vector Portrait Illustrations -->
+              <div class="hero-portrait-container">
+                <!-- Bichon Frise -->
+                <svg class="pet-portrait-svg active" id="vector-nuomi" viewBox="0 0 100 100">
+                  <!-- Body and coat fluff -->
+                  <circle cx="50" cy="80" r="28" fill="#FFF" stroke="#4F8CFF" stroke-width="0.5" />
+                  <path d="M30 65c-6 0-10 6-10 12c0 10 10 18 30 18s30-8 30-18c0-6-4-12-10-12z" fill="#FFF" />
+                  <!-- Scarf -->
+                  <path d="M31 71c12 5 26 5 38 0c2-3-4-8-19-8s-21 5-19 8z" fill="#4F8CFF" />
+                  <path d="M33 71l3 12 5-2-3-10z" fill="#6BCBFF" />
+                  <circle cx="48" cy="72" r="2" fill="#E8EDF5" />
+                  <!-- Ears -->
+                  <circle cx="20" cy="46" r="18" fill="#FFF" />
+                  <circle cx="80" cy="46" r="18" fill="#FFF" />
+                  <!-- Head -->
+                  <circle cx="50" cy="48" r="32" fill="#FFF" />
+                  <!-- Eyes -->
+                  <circle cx="38" cy="44" r="5" fill="#1A1D26" />
+                  <circle cx="62" cy="44" r="5" fill="#1A1D26" />
+                  <circle cx="39.5" cy="42.5" r="1.5" fill="#FFF" />
+                  <circle cx="63.5" cy="42.5" r="1.5" fill="#FFF" />
+                  <!-- Blushes -->
+                  <ellipse cx="30" cy="52" rx="4" ry="2.5" fill="#FFAAA5" opacity="0.4" />
+                  <ellipse cx="70" cy="52" rx="4" ry="2.5" fill="#FFAAA5" opacity="0.4" />
+                  <!-- Nose structure -->
+                  <path d="M46 51h8c0 3-4 6-4 6s-4-3-4-6z" fill="#1A1D26" />
+                  <path d="M50 56v3" stroke="#1A1D26" stroke-width="1.5" />
+                  <!-- Tongue -->
+                  <path d="M47 59h6v3c0 1.5-1.5 3-3 3s-3-1.5-3-3z" fill="#FF8B94" />
+                </svg>
+
+                <!-- Ragdoll Cat -->
+                <svg class="pet-portrait-svg" id="vector-naigai" viewBox="0 0 100 100">
+                  <path d="M30 65c-6 0-10 6-10 12c0 10 10 18 30 18s30-8 30-18c0-6-4-12-10-12z" fill="#FFF" />
+                  <!-- Ears -->
+                  <polygon points="18,34 38,16 42,40" fill="#6E7681" />
+                  <polygon points="23,32 35,21 38,36" fill="#FFAAA5" />
+                  <polygon points="82,34 62,16 58,40" fill="#6E7681" />
+                  <polygon points="77,32 65,21 62,36" fill="#FFAAA5" />
+                  <!-- Head -->
+                  <circle cx="50" cy="50" r="30" fill="#FFF" />
+                  <!-- Grey Face mask -->
+                  <path d="M24 46c2 4 10 14 26 14s24-10 26-14c-4-9-12-11-26-11S28 37 24 46z" fill="#D8DEE8" />
+                  <!-- Eyes -->
+                  <ellipse cx="37" cy="46" rx="6" ry="5" fill="#4F8CFF" />
+                  <ellipse cx="63" cy="46" rx="6" ry="5" fill="#4F8CFF" />
+                  <ellipse cx="37" cy="46" rx="2.5" ry="4" fill="#1A1D26" />
+                  <ellipse cx="63" cy="46" rx="2.5" ry="4" fill="#1A1D26" />
+                  <circle cx="39" cy="44" r="1.5" fill="#FFF" />
+                  <circle cx="65" cy="44" r="1.5" fill="#FFF" />
+                  <!-- Nose & Mouth -->
+                  <polygon points="48,54 52,54 50,56" fill="#FFAAA5" />
+                  <path d="M46 59c1 1 4 1 4 0s3 1 4 0" stroke="#1A1D26" stroke-width="1.2" fill="none" />
+                </svg>
+
+                <!-- Poodle -->
+                <svg class="pet-portrait-svg" id="vector-buding" viewBox="0 0 100 100">
+                  <path d="M30 65c-6 0-10 6-10 12c0 10 10 18 30 18s30-8 30-18c0-6-4-12-10-12z" fill="#D08C50" />
+                  <!-- Fluffy Ears -->
+                  <path d="M16,36 c-6,12-3,24,5,24 c6,0,9-12,9-24z" fill="#9B6230" />
+                  <path d="M84,36 c6,12,3,24-5,24 c-6,0-9-12-9-24z" fill="#9B6230" />
+                  <!-- Head -->
+                  <circle cx="50" cy="46" r="28" fill="#D08C50" />
+                  <circle cx="50" cy="30" r="12" fill="#E89E5F" />
+                  <!-- Eyes -->
+                  <circle cx="38" cy="43" r="5" fill="#1A1D26" />
+                  <circle cx="62" cy="43" r="5" fill="#1A1D26" />
+                  <circle cx="39.5" cy="41" r="1.5" fill="#FFF" />
+                  <circle cx="63.5" cy="41" r="1.5" fill="#FFF" />
+                  <!-- Blushes -->
+                  <ellipse cx="30" cy="50" rx="3.5" ry="2" fill="#FF3B30" opacity="0.3" />
+                  <ellipse cx="70" cy="50" rx="3.5" ry="2" fill="#FF3B30" opacity="0.3" />
+                  <!-- Muzzle -->
+                  <ellipse cx="50" cy="53" rx="11" ry="8" fill="#B37843" />
+                  <ellipse cx="50" cy="50" rx="4.5" ry="3.5" fill="#1A1D26" />
+                  <path d="M50 54v2" stroke="#1A1D26" stroke-width="1.5" />
+                </svg>
+              </div>
+            </div>
+
+            <!-- CARD 2: Today's Care -->
+            <div class="card-inset" id="comp-care-card" onclick="selectComponent('care-card', event)">
+              <div class="spec-overlay-border" id="border-care-card" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+              <!-- Section Header -->
+              <div class="sec-header">
+                <span class="sec-title">今日照护</span>
+                <span class="sec-more">全部记录 <svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></span>
+              </div>
+
+              <!-- Care Grid -->
+              <div class="care-metrics-grid">
+                <!-- Food bowl -->
+                <div class="care-metric-item">
+                  <div class="care-metric-icon-bg" style="background: rgba(255, 149, 0, 0.12);">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M2 19a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V11H2z" fill="#FF9500" opacity="0.3" />
+                      <path d="M12 2a4 4 0 0 1 4 4v5H8V6a4 4 0 0 1 4-4zM2 11h20v2H2z" fill="#FF9500" />
+                    </svg>
+                  </div>
+                  <span class="care-metric-label">食欲</span>
+                  <span class="care-metric-status">
+                    <span class="status-dot" style="background: var(--orange);"></span>
+                    <span id="careAppetite">良好</span>
+                  </span>
+                </div>
+
+                <!-- Spirit (Smile) -->
+                <div class="care-metric-item">
+                  <div class="care-metric-icon-bg" style="background: rgba(52, 199, 89, 0.12);">
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" fill="#34C759" opacity="0.3" />
+                      <circle cx="12" cy="12" r="10" stroke="#34C759" stroke-width="2" fill="none" />
+                      <circle cx="9" cy="9" r="1.5" fill="#34C759" />
+                      <circle cx="15" cy="9" r="1.5" fill="#34C759" />
+                      <path d="M8 14.5c1.5 2 6.5 2 8 0" stroke="#34C759" stroke-width="2" stroke-linecap="round" fill="none" />
+                    </svg>
+                  </div>
+                  <span class="care-metric-label">精神</span>
+                  <span class="care-metric-status">
+                    <span class="status-dot" style="background: var(--green);"></span>
+                    <span id="careSpirit">活泼</span>
+                  </span>
+                </div>
+
+                <!-- Bowels (Poop) -->
+                <div class="care-metric-item">
+                  <div class="care-metric-icon-bg" style="background: rgba(90, 200, 250, 0.12);">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 21a6.5 6.5 0 0 0 6.5-6.5C18.5 11 12 3 12 3S5.5 11 5.5 14.5A6.5 6.5 0 0 0 12 21z" fill="#5AC8FA" opacity="0.3" />
+                      <path d="M12 21a6.5 6.5 0 0 0 6.5-6.5C18.5 11 12 3 12 3S5.5 11 5.5 14.5A6.5 6.5 0 0 0 12 21z" stroke="#5AC8FA" stroke-width="2" fill="none" />
+                    </svg>
+                  </div>
+                  <span class="care-metric-label">排泄</span>
+                  <span class="care-metric-status">
+                    <span class="status-dot" style="background: var(--teal);"></span>
+                    <span id="careBowel">正常</span>
+                  </span>
+                </div>
+
+                <!-- Weight (Scale) -->
+                <div class="care-metric-item">
+                  <div class="care-metric-icon-bg" style="background: rgba(175, 82, 222, 0.12);">
+                    <svg viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="18" height="18" rx="4" fill="#AF52DE" opacity="0.3" />
+                      <rect x="3" y="3" width="18" height="18" rx="4" stroke="#AF52DE" stroke-width="2" fill="none" />
+                      <circle cx="12" cy="9" r="3" fill="#AF52DE" />
+                    </svg>
+                  </div>
+                  <span class="care-metric-label">体重</span>
+                  <span class="care-metric-status">
+                    <span class="status-dot" style="background: var(--purple);"></span>
+                    <span id="careWeight">5.2kg</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Deworming reminder subcard -->
+              <div class="deworming-reminder-box">
+                <div class="reminder-left">
+                  <div class="bell-icon-wrapper">
+                    <!-- Bell Icon -->
+                    <svg viewBox="0 0 24 24">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" fill="none" />
+                    </svg>
+                  </div>
+                  <div class="reminder-details">
+                    <div class="reminder-title-row">
+                      <span class="reminder-title">3天后 内外驱虫</span>
+                      <span class="reminder-tag">待提醒</span>
+                    </div>
+                    <span class="reminder-subtext">预计6月16日提醒，提前3天提示</span>
+                  </div>
+                </div>
+                <div class="reminder-right">
+                  <span>6月16日</span>
+                  <svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD 3: Quick Actions -->
+            <div class="card-inset quick-actions-card" id="comp-quick-actions" onclick="selectComponent('quick-actions', event)">
+              <div class="spec-overlay-border" id="border-quick-actions" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+              
+              <div class="quick-actions-grid">
+                <!-- Record Daily -->
+                <div class="quick-action-item">
+                  <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #E8F1FF, #B3D1FF);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </div>
+                  <div class="quick-action-text-group">
+                    <span class="quick-action-title">记录日常</span>
+                    <span class="quick-action-subtitle">吃喝玩乐</span>
+                  </div>
+                </div>
+
+                <!-- Health Record -->
+                <div class="quick-action-item">
+                  <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #EAFCEF, #A3ECAE);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="12" y1="8" x2="12" y2="16" />
+                      <line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
+                  </div>
+                  <div class="quick-action-text-group">
+                    <span class="quick-action-title">健康记录</span>
+                    <span class="quick-action-subtitle">体重 / 疫苗</span>
+                  </div>
+                </div>
+
+                <!-- Book Hospital -->
+                <div class="quick-action-item">
+                  <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #E6F9FF, #8AE5FF);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#2292B5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="10" width="18" height="12" rx="2" />
+                      <path d="M9 22V10M15 22V10M12 2v4M12 6H9M12 6h3" />
+                    </svg>
+                  </div>
+                  <div class="quick-action-text-group">
+                    <span class="quick-action-title">预约医院</span>
+                    <span class="quick-action-subtitle">体检 / 复诊</span>
+                  </div>
+                </div>
+
+                <!-- Import Trade Pet -->
+                <div class="quick-action-item">
+                  <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #F9EFFF, #DCA8FF);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                  </div>
+                  <div class="quick-action-text-group">
+                    <span class="quick-action-title">导入交易</span>
+                    <span class="quick-action-subtitle">已购 / 待接</span>
+                  </div>
+                </div>
+
+                <!-- More -->
+                <div class="quick-action-item">
+                  <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #F3F4F6, #D1D5DB);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--l2)" stroke-width="3" stroke-linecap="round">
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                    </svg>
+                  </div>
+                  <div class="quick-action-text-group">
+                    <span class="quick-action-title">更多</span>
+                    <span class="quick-action-subtitle">全部功能</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD 4: Today's Partner -->
+            <div class="card-inset" id="comp-partner" onclick="selectComponent('partner', event)">
+              <div class="spec-overlay-border" id="border-partner" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+              
+              <div class="sec-header">
+                <span class="sec-title">今日伙伴</span>
+                <span class="sec-more" onclick="refreshPartner(event)">换一换 <svg viewBox="0 0 24 24" style="stroke: var(--l3); stroke-width: 2.5; fill: none; width: 12px; height: 12px; margin-left: 2px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.73-6.73"/></svg></span>
+              </div>
+
+              <div class="partner-card-body">
+                <!-- Partner Avatar -->
+                <div class="partner-avatar-wrapper" id="partnerAvatarBg">
+                  <!-- Cat Portrait (Default) -->
+                  <svg id="partnerCatSvg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="50" fill="#EBF9F7" />
+                    <!-- Ears -->
+                    <polygon points="20,38 35,20 40,42" fill="#D08C50" />
+                    <polygon points="80,38 65,20 60,42" fill="#D08C50" />
+                    <!-- Head -->
+                    <circle cx="50" cy="52" r="26" fill="#FFF" />
+                    <!-- Eyes -->
+                    <ellipse cx="38" cy="48" rx="4.5" ry="4" fill="#34C759" />
+                    <ellipse cx="62" cy="48" rx="4.5" ry="4" fill="#34C759" />
+                    <circle cx="38" cy="48" r="2" fill="#1A1D26" />
+                    <circle cx="62" cy="48" r="2" fill="#1A1D26" />
+                    <polygon points="49,55 51,55 50,56" fill="#FFAAA5" />
+                  </svg>
+                  <!-- Dog Portrait (Hidden initially) -->
+                  <svg id="partnerDogSvg" viewBox="0 0 100 100" style="display: none;">
+                    <circle cx="50" cy="50" r="50" fill="#FFF3E6" />
+                    <path d="M22,35 c-4,8-2,18,3,18 c4,0,7-8,7-18z" fill="#8B5E3C" />
+                    <path d="M78,35 c4,8,2,18-3,18 c-4,0-7-8-7-18z" fill="#8B5E3C" />
+                    <circle cx="50" cy="48" r="25" fill="#D08C50" />
+                    <ellipse cx="50" cy="55" rx="10" ry="7" fill="#8B5E3C" />
+                    <circle cx="41" cy="44" r="4.5" fill="#1A1D26" />
+                    <circle cx="59" cy="44" r="4.5" fill="#1A1D26" />
+                    <ellipse cx="50" cy="51" rx="3" ry="2" fill="#1A1D26" />
+                  </svg>
+                  <!-- Heart icon top-right -->
+                  <div class="partner-heart-badge">
+                    <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  </div>
+                </div>
+
+                <!-- Info -->
+                <div class="partner-info">
+                  <div class="partner-name-row">
+                    <span class="partner-name" id="partnerName">奶盖</span>
+                    <span class="gender-icon female" style="font-size: 9px; width: 14px; height: 14px;" id="partnerGender">♀</span>
+                  </div>
+                  <div class="partner-tag-row">
+                    <span class="partner-tag-green" id="partnerTagGreen">同案妹妹</span>
+                    <span class="partner-tag-gray" id="partnerTagGray">同城 · 2km</span>
+                  </div>
+                  <div class="partner-desc" id="partnerDesc">你们来自同一个猫舍，生日只差3天~</div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="partner-action-btn">查看主页</div>
+              </div>
+            </div>
+
+            <!-- CARD 5: Recent Timeline -->
+            <div class="card-inset" id="comp-timeline" onclick="selectComponent('timeline', event)">
+              <div class="spec-overlay-border" id="border-timeline" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+              
+              <div class="sec-header">
+                <span class="sec-title">最近时间线</span>
+                <span class="sec-more">全部 <svg viewBox="0 0 8 13"><polyline points="1 1 6 6.5 1 12"/></svg></span>
+              </div>
+
+              <div class="timeline-card-body">
+                <!-- Event 1 (Meal) -->
+                <div class="timeline-item">
+                  <div class="timeline-icon-box">
+                    <!-- Food bowl -->
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 2a4 4 0 0 1 4 4v5H8V6a4 4 0 0 1 4-4z" fill="#FF5E5E" />
+                    </svg>
+                    <!-- Small orange badge -->
+                    <div class="timeline-icon-badge">
+                      <!-- Spoon Fork -->
+                      <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>
+                    </div>
+                  </div>
+                  <div class="timeline-content-group">
+                    <span class="timeline-title">干饭真香 😋</span>
+                    <span class="timeline-subtitle">吃了满满一碗狗粮</span>
+                  </div>
+                  <span class="timeline-time">今天 12:30</span>
+                </div>
+
+                <!-- Event 2 (Weight) -->
+                <div class="timeline-item">
+                  <div class="timeline-icon-box green-bg">
+                    <!-- Cross / Briefcase -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="12" y1="8" x2="12" y2="16" />
+                      <line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
+                  </div>
+                  <div class="timeline-content-group">
+                    <span class="timeline-title">体重记录</span>
+                    <span class="timeline-subtitle">5.2kg，比上次 +0.1kg</span>
+                  </div>
+                  <span class="timeline-time">6月10日</span>
+                </div>
+
+                <!-- Event 3 (Vaccine) -->
+                <div class="timeline-item">
+                  <div class="timeline-icon-box blue-bg">
+                    <!-- Syringe -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94.77zM12.87 8.13l-6.3 6.3a2 2 0 0 0-.57 1.07l-.9 3.6a1 1 0 0 0 1.2 1.2l3.6-.9a2 2 0 0 0 1.07-.57l6.3-6.3M9 15l3 3" />
+                    </svg>
+                  </div>
+                  <div class="timeline-content-group">
+                    <span class="timeline-title">疫苗接种</span>
+                    <span class="timeline-subtitle">完成狂犬疫苗接种</span>
+                  </div>
+                  <span class="timeline-time">6月1日</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Navigation Tab Bar -->
+          <div class="iphone-tbar" id="comp-tab-bar" onclick="selectComponent('tab-bar', event)">
+            <div class="spec-overlay-border" id="border-tab-bar" style="top: 0; left: 0; right: 0; bottom: 0;"></div>
+            
+            <div class="tbar-item active">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/>
+                <path d="M9 22V12h6v10"/>
+              </svg>
+              <span>首页</span>
+            </div>
+            
+            <div class="tbar-item">
+              <!-- Paw Icon -->
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="3" />
+                <circle cx="5" cy="10" r="3" />
+                <circle cx="19" cy="10" r="3" />
+                <path d="M12 11c-4 0-7 2.5-7 5.5 0 2 2 3.5 5 3.5s3-1 4-1 1 1 4 1 5-1.5 5-3.5c0-3-3-5.5-7-5.5z"/>
+              </svg>
+              <span>宠物世界</span>
+            </div>
+            
+            <div class="tbar-center-btn">
+              <div class="plus-circle">
+                <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+              <span>记录事件</span>
+            </div>
+
+            <div class="tbar-item" style="position: relative;">
+              <!-- Message Icon with Red Badge "12" -->
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>消息</span>
+              <div style="position: absolute; top: -4px; right: 8px; background: var(--red); color: #FFF; width: 13px; height: 13px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 1px solid #FFF;">12</div>
+            </div>
+
+            <div class="tbar-item">
+              <svg viewBox="0 0 24 24">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <span>我的</span>
+            </div>
+          </div>
+
+          <div class="home-indicator"></div>
+        </div>
+
+      </div>
+
+      <!-- ==================== RIGHT COLUMN: Token Spec & Code Explorer ==================== -->
+      <div class="specs-column">
+
+        <!-- Spec Detail Explanations -->
+        <div class="spec-card">
+          <h2>设计说明与交互规范</h2>
+          <p>
+            本页面规范为毛伙伴（Maohuoban）首页，采用极简的 <strong>Apple Health</strong> 与 <strong>Notion</strong> 混合拟物卡片结构。主调使用低饱和度冷色系，通过细微的渐变与 75% 白色半透明磨砂玻璃卡片营造极具深度与呼吸感的层次。
+          </p>
+
+          <!-- Interactive Annotation explanation -->
+          <div class="spec-details-box" id="specInfoBox">
+            <div class="spec-details-title" id="specInfoTitle">交互指引</div>
+            <div class="spec-details-desc" id="specInfoDesc">开启红线规范后，点击左侧 iPhone 页面中的蓝色序号标记，即可在此处查看具体组件的设计规范并定位代码。</div>
+          </div>
+
+          <!-- Code Snippet Display Area -->
+          <div style="margin-top: var(--s5);">
+            <div class="code-viewer-header">
+              <span class="code-viewer-title" id="codeTitle">组件代码浏览器 (HTML/CSS)</span>
+              <button class="btn-copy" onclick="copySnippet()">复制代码</button>
+            </div>
+            <div class="code-block-wrapper">
+              <pre><code id="codeBlock">/* 点击左侧 iPhone 中的任何组件卡片或序号以浏览代码 */
+.card-inset {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.015);
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Design Token Table -->
+        <div class="spec-card">
+          <h2>页面设计 Token 值 (与系统一致)</h2>
+          <p>首页所有界面元素使用系统全局 Design Token 渲染，禁用非系统预设色彩，确保视觉统一。</p>
+          
+          <table class="tokens-table">
+            <thead>
+              <tr>
+                <th>Token 名称</th>
+                <th>预设色彩值</th>
+                <th>对应 CSS 属性</th>
+                <th>场景用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Primary Color</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#4F8CFF;"></span>#4F8CFF</div></td>
+                <td><code>--primary</code></td>
+                <td>选中状态、核心高亮、主按钮</td>
+              </tr>
+              <tr>
+                <td><strong>Success</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#34C759;"></span>#34C759</div></td>
+                <td><code>--green</code></td>
+                <td>今日照护正常、已接种、可售状态</td>
+              </tr>
+              <tr>
+                <td><strong>Warning</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#FF9500;"></span>#FF9500</div></td>
+                <td><code>--orange</code></td>
+                <td>日程待办、异常关注、已预定状态</td>
+              </tr>
+              <tr>
+                <td><strong>Danger</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#FF3B30;"></span>#FF3B30</td>
+                <td><code>--red</code></td>
+                <td>紧急预警、疾病护理、通知数字角标</td>
+              </tr>
+              <tr>
+                <td><strong>Secondary Blue</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#5AC8FA;"></span>#5AC8FA</td>
+                <td><code>--teal</code></td>
+                <td>排泄正常指标、医疗协同标记</td>
+              </tr>
+              <tr>
+                <td><strong>Background</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#F7F9FC;"></span>#F7F9FC</td>
+                <td><code>--bg</code></td>
+                <td>页面冷白蓝主背景</td>
+              </tr>
+              <tr>
+                <td><strong>Glass Card</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:rgba(255,255,255,0.75); backdrop-filter:blur(20px);"></span>75% White + Blur</td>
+                <td><code>--card</code></td>
+                <td>所有内容卡片磨砂玻璃层</td>
+              </tr>
+              <tr>
+                <td><strong>Text Primary</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#1A1D26;"></span>#1A1D26</div></td>
+                <td><code>--l1</code></td>
+                <td>主标题、关键大字、数值内容</td>
+              </tr>
+              <tr>
+                <td><strong>Text Secondary</strong></td>
+                <td><div class="color-swatch-row"><span class="color-swatch" style="background:#6E7681;"></span>#6E7681</div></td>
+                <td><code>--l2</code></td>
+                <td>辅助说明、卡片副标题</td>
+              </tr>
+              <tr>
+                <td><strong>Border Radius</strong></td>
+                <td>16px / 20px / 24px</td>
+                <td><code>--r-lg / --r-xl / --r-2xl</code></td>
+                <td>常规卡片圆角 / 顶卡圆角 / 档案大图圆角</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    毛伙伴 UI Design Spec v0.5 · Homepage Design Spec · 2026-06-13
+  </footer>
+
+  <script>
+    // Selected component highlighting active frame
+    let currentSelectedCompId = null;
+
+    // Component source code dictionaries
+    const snippets = {
+      'nav-header': {
+        title: '顶部导航与多宠切换器 (Nav Header & Pet Switcher)',
+        html: `<div class="nav-header">
+  <div class="loc-weather">
+    <div class="loc-selector">
+      <span>成都</span>
+      <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="weather-info">☀️ 26℃</div>
+  </div>
+
+  <div class="pet-avatar-list">
+    <div class="pet-avatar-btn active">
+      <div class="avatar-wrapper">
+        <svg viewBox="0 0 100 100"><!-- Bichon SVGs --></svg>
+      </div>
+      <div class="avatar-dot"></div>
+    </div>
+    <!-- Other avatars -->
+    <div class="avatar-add-btn">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+  </div>
+
+  <div class="user-profile-btn">
+    <img src="avatar.png" />
+    <div class="user-v-badge">v</div>
+  </div>
+</div>`,
+        css: `.nav-header {
+  height: 60px;
+  background: rgba(247, 249, 252, 0.88);
+  backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+.pet-avatar-btn.active .avatar-wrapper {
+  border-color: #4F8CFF;
+  box-shadow: 0 0 0 1px rgba(79, 140, 255, 0.2);
+}
+.avatar-dot {
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 7px; height: 7px;
+  background: #4F8CFF;
+  border: 1px solid #F7F9FC;
+}`
+      },
+      'hero-card': {
+        title: '宠物名片大卡 (Pet Hero Card)',
+        html: `<div class="pet-hero-card">
+  <div class="floating-decorations"><!-- SVGs --></div>
+  <div class="hero-info">
+    <div class="hero-name-row">
+      <span class="hero-name">糯米</span>
+      <div class="gender-icon male">♂</div>
+    </div>
+    <div class="hero-tags">
+      <span class="hero-tag">1岁2个月</span>
+      <span class="hero-tag">比熊犬</span>
+    </div>
+    <div class="hero-status-bubble">今天状态很棒，元气满满！</div>
+    <div class="hero-update-time">更新于 08:30</div>
+  </div>
+  <div class="hero-portrait-container">
+    <!-- Inline Pet SVG -->
+  </div>
+</div>`,
+        css: `.pet-hero-card {
+  height: 172px;
+  background: linear-gradient(135deg, #E8F1FF 0%, #D4E5FF 100%);
+  padding: 20px 20px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}`
+      },
+      'care-card': {
+        title: '今日照护与驱虫卡片 (Today\'s Care & Deworming)',
+        html: `<div class="card-inset">
+  <div class="sec-header">
+    <span class="sec-title">今日照护</span>
+    <span class="sec-more">全部记录 ></span>
+  </div>
+  <div class="care-metrics-grid">
+    <div class="care-metric-item">
+      <div class="care-metric-icon-bg" style="background: rgba(255, 149, 0, 0.12);"><!-- Icon --></div>
+      <span class="care-metric-label">食欲</span>
+      <span class="care-metric-status">
+        <span class="status-dot" style="background: #FF9500;"></span>
+        良好
+      </span>
+    </div>
+    <!-- ... Other 3 Metrics ... -->
+  </div>
+  
+  <!-- Deworming reminder banner -->
+  <div class="deworming-reminder-box">
+    <div class="reminder-left">
+      <div class="bell-icon-wrapper"><!-- Bell SVG --></div>
+      <div class="reminder-details">
+        <div class="reminder-title-row">
+          <span class="reminder-title">3天后 内外驱虫</span>
+          <span class="reminder-tag">待提醒</span>
+        </div>
+        <span class="reminder-subtext">预计6月16日提醒，提前3天提示</span>
+      </div>
+    </div>
+    <div class="reminder-right">6月16日 ></div>
+  </div>
+</div>`,
+        css: `.care-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 16px;
+  gap: 8px;
+}
+.deworming-reminder-box {
+  margin: 0 16px 16px;
+  background: rgba(79, 140, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}`
+      },
+      'quick-actions': {
+        title: '快捷操作网格 (Quick Actions Grid)',
+        html: `<div class="card-inset quick-actions-card">
+  <div class="quick-actions-grid">
+    <div class="quick-action-item">
+      <div class="quick-action-icon-bg" style="background: linear-gradient(135deg, #E8F1FF, #B3D1FF);">
+        <!-- Pencil SVG -->
+      </div>
+      <div class="quick-action-text-group">
+        <span class="quick-action-title">记录日常</span>
+        <span class="quick-action-subtitle">吃喝玩乐</span>
+      </div>
+    </div>
+    <!-- ... Other 4 action items ... -->
+  </div>
+</div>`,
+        css: `.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+.quick-action-icon-bg {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.quick-action-item:hover .quick-action-icon-bg {
+  transform: translateY(-3px) scale(1.05);
+}`
+      },
+      'partner': {
+        title: '今日伙伴推荐卡片 (Today\'s Partner Recommendation)',
+        html: `<div class="card-inset">
+  <div class="sec-header">
+    <span class="sec-title">今日伙伴</span>
+    <span class="sec-more">换一换 ↻</span>
+  </div>
+  <div class="partner-card-body">
+    <div class="partner-avatar-wrapper">
+      <svg><!-- Cat SVG --></svg>
+      <div class="partner-heart-badge"><!-- Heart SVG --></div>
+    </div>
+    <div class="partner-info">
+      <div class="partner-name-row">
+        <span class="partner-name">奶盖</span>
+        <span class="gender-icon female">♀</span>
+      </div>
+      <div class="partner-tag-row">
+        <span class="partner-tag-green">同案妹妹</span>
+        <span class="partner-tag-gray">同城 · 2km</span>
+      </div>
+      <div class="partner-desc">你们来自同一个猫舍，生日只差3天~</div>
+    </div>
+    <div class="partner-action-btn">查看主页</div>
+  </div>
+</div>`,
+        css: `.partner-card-body {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.partner-avatar-wrapper {
+  position: relative;
+  width: 52px; height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #e3f6f5, #bae8e8);
+}
+.partner-action-btn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4F8CFF;
+  border: 1px solid #4F8CFF;
+  border-radius: 9999px;
+  padding: 6px 14px;
+}`
+      },
+      'timeline': {
+        title: '最近时间线列表 (Recent Timeline Inset List)',
+        html: `<div class="card-inset">
+  <div class="sec-header">
+    <span class="sec-title">最近时间线</span>
+    <span class="sec-more">全部 ></span>
+  </div>
+  <div class="timeline-card-body">
+    <div class="timeline-item">
+      <div class="timeline-icon-box">
+        <!-- Meal SVG -->
+        <div class="timeline-icon-badge"><!-- Spoon/Fork --></div>
+      </div>
+      <div class="timeline-content-group">
+        <span class="timeline-title">干饭真香 😋</span>
+        <span class="timeline-subtitle">吃了满满一碗狗粮</span>
+      </div>
+      <span class="timeline-time">今天 12:30</span>
+    </div>
+    <!-- ... Other timeline items ... -->
+  </div>
+</div>`,
+        css: `.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 17px; top: 36px; bottom: -18px;
+  width: 1px; background: rgba(0,0,0,0.05);
+}
+.timeline-icon-box {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}`
+      },
+      'tab-bar': {
+        title: '底部常驻 Tab Bar 导航栏 (Sticky Bottom Tab Bar)',
+        html: `<div class="iphone-tbar">
+  <div class="tbar-item active">
+    <svg><!-- Home SVG --></svg>
+    <span>首页</span>
+  </div>
+  <div class="tbar-item">
+    <svg><!-- Paw SVG --></svg>
+    <span>宠物世界</span>
+  </div>
+  <div class="tbar-center-btn">
+    <div class="plus-circle">
+      <svg><!-- Plus SVG --></svg>
+    </div>
+    <span>记录事件</span>
+  </div>
+  <!-- Messages, Mine tabs -->
+</div>`,
+        css: `.iphone-tbar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 83px;
+  background: rgba(247, 249, 252, 0.76);
+  backdrop-filter: blur(24px) saturate(1.8);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 34px;
+}`
+      }
+    };
+
+    // Spec Overlay pins information dataset
+    const pinsInfo = [
+      {
+        title: "标尺 1: 顶部系统级导航与多宠切换器",
+        desc: "固定高度为 60pt。包含左侧系统定位（成都）与实时天气，中间是横向滑动的宠物头像选择列表，右侧是带 V 认证标识的用户头像。活跃态宠物头像有 var(--primary) (#4F8CFF) 2px 描边与底部呼吸蓝色定位小点。",
+        compId: "nav-header"
+      },
+      {
+        title: "标尺 2: 宠物主视觉档案名片 (Pet Hero Card)",
+        desc: "高度为 172pt。是页面视觉中心。背景色使用极淡的冷蓝/冷紫渐变。左侧放置宠物基本信息（姓名、性别标签、年龄段与品种标签、今日自定义状态气泡及更新时间）。右侧使用高精度 SVG 矢量插画表达宠物半身照（如比熊犬糯米带着格纹领巾）。",
+        compId: "hero-card"
+      },
+      {
+        title: "标尺 3: 今日照护卡片 (Today's Care Grid)",
+        desc: "由 4 列指标组成：食欲（橘色碗）、精神（绿色笑脸）、排泄（蓝色水滴）、体重（紫色天平）。下方嵌套一条内外驱虫提醒子卡，设计为 rgba(79, 140, 255, 0.08) 底色，左侧为白色钟摆呼吸铃铛，整体层级干净且具有极强的信息指示感。",
+        compId: "care-card"
+      },
+      {
+        title: "标尺 4: 快捷操作面板 (Quick Actions)",
+        desc: "网格化 5 列布局：记录日常、健康记录、预约医院、导入交易、更多。图标背景使用高光微度渐变（如 primary 渐变、green 渐变、teal 渐变及 purple 渐变）。整体内边距 var(--s4) (16px)，卡片间有 0.5px 的毛细分割线。",
+        compId: "quick-actions"
+      },
+      {
+        title: "标尺 5: 今日伙伴推荐 (Today's Partner)",
+        desc: "关系推荐卡片。采用 Flex 左中右结构。左侧是推荐伙伴的猫咪或狗狗头像，右上角盖有红色红心徽章；中间是匹配亲密度标签（同案妹妹、同城 2km）与描述句；右侧为 pill 型 direct-action 按钮「查看主页」，极力缩短操作路径。",
+        compId: "partner"
+      },
+      {
+        title: "标尺 6: 最近时间线 (Recent Timeline List)",
+        desc: "展示宠物最近 3 条日程事件。采用垂直线连接的时序轴设计。每个事件包含左侧微型状态圆形图章（如干饭有勺子角标、健康有医疗加号、疫苗有针筒图标），中间为干饭、体重、疫苗的主题状态字，右侧是精确对齐的右侧时间戳。",
+        compId: "timeline"
+      },
+      {
+        title: "标尺 7: 底部常驻 Tab Bar 导航栏",
+        desc: "高度为 83pt（包括 iOS 底部 Home 安全距离 34pt）。采用半透明毛玻璃材质，顶线为 0.5px 的纯白透明边。中间的「记录事件」设计为高出 TabBar 顶面的凸起浮动加号圆盘，伴有 var(--primary) (#4F8CFF) 弥散投影，利于强化用户记录的习惯。",
+        compId: "tab-bar"
+      }
+    ];
+
+    // Pet database for switcher interaction
+    const petsData = {
+      nuomi: {
+        name: "糯米",
+        gender: "♂",
+        genderClass: "male",
+        age: "1岁2个月",
+        breed: "比熊犬",
+        status: "今天状态很棒，元气满满！",
+        update: "更新于 08:30",
+        theme: "",
+        care: {
+          appetite: "良好",
+          spirit: "活泼",
+          bowel: "正常",
+          weight: "5.2kg"
+        },
+        partner: {
+          name: "奶盖",
+          gender: "♀",
+          genderClass: "female",
+          tagGreen: "同案妹妹",
+          tagGray: "同城 · 2km",
+          desc: "你们来自同一个猫舍，生日只差3天~",
+          isCat: true
+        }
+      },
+      naigai: {
+        name: "奶盖",
+        gender: "♀",
+        genderClass: "female",
+        age: "10个月",
+        breed: "布偶猫",
+        status: "今天有点懒洋洋的，喜欢打瞌睡 💤",
+        update: "更新于 09:15",
+        theme: "naigai-theme",
+        care: {
+          appetite: "一般",
+          spirit: "沉稳",
+          bowel: "正常",
+          weight: "4.5kg"
+        },
+        partner: {
+          name: "糯米",
+          gender: "♂",
+          genderClass: "male",
+          tagGreen: "同舍哥哥",
+          tagGray: "同城 · 2km",
+          desc: "你们今天在同城宠物社区刷到对方了哦",
+          isCat: false
+        }
+      },
+      buding: {
+        name: "布丁",
+        gender: "♂",
+        genderClass: "male",
+        age: "2岁",
+        breed: "贵宾犬",
+        status: "精神抖擞，随时准备出门拆家 ⚡",
+        update: "更新于 10:05",
+        theme: "buding-theme",
+        care: {
+          appetite: "旺盛",
+          spirit: "兴奋",
+          bowel: "正常",
+          weight: "6.8kg"
+        },
+        partner: {
+          name: "奶盖",
+          gender: "♀",
+          genderClass: "female",
+          tagGreen: "附近邻居",
+          tagGray: "同城 · 500m",
+          desc: "常常在同一块草坪上奔跑，去认识一下？",
+          isCat: true
+        }
+      }
+    };
+
+    // State parameters
+    let activePetId = "nuomi";
+
+    // Select active pet on avatar header switcher
+    function selectPet(petId) {
+      if (activePetId === petId) return;
+      activePetId = petId;
+
+      // Update switcher UI
+      document.querySelectorAll('.pet-avatar-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`avatar-${petId}`).classList.add('active');
+
+      const data = petsData[petId];
+
+      // Update Hero card text and gender
+      document.getElementById('heroName').textContent = data.name;
+      const genderEl = document.getElementById('heroGender');
+      genderEl.textContent = data.gender;
+      genderEl.className = `gender-icon ${data.genderClass}`;
+      document.getElementById('heroTagAge').textContent = data.age;
+      document.getElementById('heroTagBreed').textContent = data.breed;
+      document.getElementById('heroStatusText').textContent = data.status;
+      document.getElementById('heroUpdateTime').textContent = data.update;
+
+      // Swap hero card theme class
+      const heroCard = document.getElementById('comp-hero-card');
+      heroCard.className = `card-inset pet-hero-card ${data.theme}`;
+
+      // Swap active SVG vector portraits
+      document.querySelectorAll('.pet-portrait-svg').forEach(svg => {
+        svg.classList.remove('active');
+      });
+      document.getElementById(`vector-${petId}`).classList.add('active');
+
+      // Update Care Metrics values
+      document.getElementById('careAppetite').textContent = data.care.appetite;
+      document.getElementById('careSpirit').textContent = data.care.spirit;
+      document.getElementById('careBowel').textContent = data.care.bowel;
+      document.getElementById('careWeight').textContent = data.care.weight;
+
+      // Update Partner recommendations card
+      document.getElementById('partnerName').textContent = data.partner.name;
+      const pGenderEl = document.getElementById('partnerGender');
+      pGenderEl.textContent = data.partner.gender;
+      pGenderEl.className = `gender-icon ${data.partner.genderClass}`;
+      document.getElementById('partnerTagGreen').textContent = data.partner.tagGreen;
+      document.getElementById('partnerTagGray').textContent = data.partner.tagGray;
+      document.getElementById('partnerDesc').textContent = data.partner.desc;
+
+      // Swap partner avatar
+      const catSvg = document.getElementById('partnerCatSvg');
+      const dogSvg = document.getElementById('partnerDogSvg');
+      const avatarBg = document.getElementById('partnerAvatarBg');
+
+      if (data.partner.isCat) {
+        catSvg.style.display = 'block';
+        dogSvg.style.display = 'none';
+        avatarBg.style.background = 'linear-gradient(135deg, #e3f6f5, #bae8e8)';
+      } else {
+        catSvg.style.display = 'none';
+        dogSvg.style.display = 'block';
+        avatarBg.style.background = 'linear-gradient(135deg, #FFE8E8, #FFD4D4)';
+      }
+
+      // Automatically highlight the hero card in code viewer if selected
+      selectComponent('hero-card');
+    }
+
+    // Toggle design specification dashed layout borders
+    function toggleSpecOverlay() {
+      const isChecked = document.getElementById('specToggle').checked;
+      const frame = document.getElementById('iphoneFrame');
+      if (isChecked) {
+        frame.classList.add('show-specs');
+      } else {
+        frame.classList.remove('show-specs');
+        // Hide active borders
+        document.querySelectorAll('.spec-overlay-border').forEach(b => b.classList.remove('active'));
+        document.getElementById('specInfoBox').classList.remove('active');
+      }
+    }
+
+    // Show spec information on the side panel when pins are clicked
+    function showSpecInfo(pinNum, element) {
+      // Force toggle check if not checked
+      document.getElementById('specToggle').checked = true;
+      document.getElementById('iphoneFrame').classList.add('show-specs');
+
+      const info = pinsInfo[pinNum - 1];
+
+      // Update side panel detail box
+      document.getElementById('specInfoTitle').innerHTML = `<span style="color:var(--primary); font-weight:900;">${pinNum}</span>. ${info.title}`;
+      document.getElementById('specInfoDesc').textContent = info.desc;
+      document.getElementById('specInfoBox').classList.add('active');
+
+      // Highlight the corresponding card overlay border
+      selectComponent(info.compId);
+
+      // Stop propagation
+      event.stopPropagation();
+    }
+
+    // Highlight mock card element and load code snippet
+    function selectComponent(compId, event) {
+      if (event) event.stopPropagation();
+
+      // Clear all active borders
+      document.querySelectorAll('.spec-overlay-border').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.card-inset').forEach(c => c.classList.remove('selected-highlight'));
+
+      // Highlight border
+      const border = document.getElementById(`border-${compId}`);
+      if (border) {
+        border.classList.add('active');
+      }
+
+      // Highlight inset cards
+      const card = document.getElementById(`comp-${compId}`);
+      if (card) {
+        card.classList.add('selected-highlight');
+      }
+
+      // Load code snippet
+      const data = snippets[compId];
+      if (data) {
+        document.getElementById('codeTitle').textContent = data.title;
+        document.getElementById('codeBlock').textContent = `${data.html}\n\n/* Styling Specs */\n${data.css}`;
+      }
+    }
+
+    // Refresh partner card (mock interaction)
+    function refreshPartner(event) {
+      if (event) event.stopPropagation();
+      
+      const currentPartner = document.getElementById('partnerName').textContent;
+      const nameEl = document.getElementById('partnerName');
+      const descEl = document.getElementById('partnerDesc');
+      const tagGEl = document.getElementById('partnerTagGreen');
+      const tagGrEl = document.getElementById('partnerTagGray');
+      const catSvg = document.getElementById('partnerCatSvg');
+      const dogSvg = document.getElementById('partnerDogSvg');
+      const avatarBg = document.getElementById('partnerAvatarBg');
+      const pGenderEl = document.getElementById('partnerGender');
+
+      // Simple cycle interaction
+      if (currentPartner === "奶盖" || currentPartner === "糯米") {
+        nameEl.textContent = "布丁";
+        pGenderEl.textContent = "♂";
+        pGenderEl.className = "gender-icon male";
+        tagGEl.textContent = "同城玩伴";
+        tagGrEl.textContent = "同城 · 1.2km";
+        descEl.textContent = "布丁也喜欢下午去星光公园跑草坪哦！";
+        
+        catSvg.style.display = "none";
+        dogSvg.style.display = "block";
+        avatarBg.style.background = "linear-gradient(135deg, #FFF3E6, #FFDFBE)";
+      } else {
+        nameEl.textContent = "奶盖";
+        pGenderEl.textContent = "♀";
+        pGenderEl.className = "gender-icon female";
+        tagGEl.textContent = "同案妹妹";
+        tagGrEl.textContent = "同城 · 2km";
+        descEl.textContent = "你们来自同一个猫舍，生日只差3天~";
+        
+        catSvg.style.display = "block";
+        dogSvg.style.display = "none";
+        avatarBg.style.background = "linear-gradient(135deg, #e3f6f5, #bae8e8)";
+      }
+
+      // Re-trigger highlight
+      selectComponent('partner');
+    }
+
+    // Copy current snippet to clipboard
+    function copySnippet() {
+      const codeText = document.getElementById('codeBlock').textContent;
+      navigator.clipboard.writeText(codeText).then(() => {
+        const copyBtn = document.querySelector('.btn-copy');
+        copyBtn.textContent = "已复制！";
+        copyBtn.style.color = "var(--green)";
+        copyBtn.style.borderColor = "var(--green)";
+        setTimeout(() => {
+          copyBtn.textContent = "复制代码";
+          copyBtn.style.color = "var(--l2)";
+          copyBtn.style.borderColor = "var(--l4)";
+        }, 1500);
+      });
+    }
+
+    // Default load select hero card
+    window.onload = function() {
+      selectComponent('hero-card');
+    };
+  </script>
+</body>
+</html>

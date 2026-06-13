@@ -73,10 +73,10 @@ struct AuthInputField: View {
         }
         .frame(height: 48)
         .padding(.horizontal, MHBTheme.Spacing.s4)
-        .background(Color.black.opacity(0.02), in: .rect(cornerRadius: MHBTheme.Radius.medium))
+        .background(MHBTheme.ColorToken.separatorSoft.color, in: .rect(cornerRadius: MHBTheme.Radius.medium))
         .overlay {
             RoundedRectangle(cornerRadius: MHBTheme.Radius.medium)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
         }
     }
 }
@@ -109,10 +109,10 @@ struct AuthSecureField: View {
         }
         .frame(height: 48)
         .padding(.horizontal, MHBTheme.Spacing.s4)
-        .background(Color.black.opacity(0.02), in: .rect(cornerRadius: MHBTheme.Radius.medium))
+        .background(MHBTheme.ColorToken.separatorSoft.color, in: .rect(cornerRadius: MHBTheme.Radius.medium))
         .overlay {
             RoundedRectangle(cornerRadius: MHBTheme.Radius.medium)
-                .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
         }
     }
 }
@@ -278,7 +278,7 @@ struct AuthCircularIconButton: View {
                     Circle()
                         .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 0.5)
                 }
-                .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 2)
+                .shadow(color: MHBTheme.ColorToken.separatorSoft.color, radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
@@ -314,7 +314,7 @@ struct AuthBackButton: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .frame(width: 32, height: 32)
-                .background(Color.black.opacity(0.02), in: .circle)
+                .background(MHBTheme.ColorToken.separatorSoft.color, in: .circle)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
@@ -354,10 +354,10 @@ struct AuthCodeBox: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: MHBTheme.Radius.small)
-                .fill(isActive ? MHBTheme.ColorToken.cardSolid.color : Color.black.opacity(0.02))
+                .fill(isActive ? MHBTheme.ColorToken.cardSolid.color : MHBTheme.ColorToken.separatorSoft.color)
                 .overlay {
                     RoundedRectangle(cornerRadius: MHBTheme.Radius.small)
-                        .stroke(isActive ? MHBTheme.ColorToken.primary.color : Color.black.opacity(0.05), lineWidth: 1)
+                        .stroke(isActive ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separator.color, lineWidth: 1)
                 }
                 .shadow(color: isActive ? MHBTheme.ColorToken.primary.color.opacity(0.1) : .clear, radius: 6, x: 0, y: 0)
 
