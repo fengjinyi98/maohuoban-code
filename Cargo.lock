@@ -1225,6 +1225,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "maohuoban-legal-application"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "maohuoban-legal-domain",
+]
+
+[[package]]
+name = "maohuoban-legal-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "thiserror",
+]
+
+[[package]]
+name = "maohuoban-legal-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "maohuoban-legal-application",
+ "maohuoban-legal-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "maohuoban-legal-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-legal-application",
+ "maohuoban-legal-domain",
+ "sqlx",
+]
+
+[[package]]
 name = "maohuoban_diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -1258,6 +1296,9 @@ dependencies = [
  "maohuoban-auth-domain",
  "maohuoban-auth-http",
  "maohuoban-auth-infrastructure",
+ "maohuoban-legal-application",
+ "maohuoban-legal-http",
+ "maohuoban-legal-infrastructure",
  "maohuoban_diagnostics",
  "redis",
  "serde_json",

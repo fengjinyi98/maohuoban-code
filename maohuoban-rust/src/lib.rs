@@ -16,6 +16,9 @@ use maohuoban_auth_infrastructure::{
     redis::RedisOtpChallengeStore,
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
+use maohuoban_legal_application::legal::LegalDocumentService;
+use maohuoban_legal_http::legal::build_legal_router;
+use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
@@ -89,7 +92,7 @@ pub struct BackendApp {
 /// build_backend_app 构建后端应用
 /// 核心职责：
 /// - 连接 PostgreSQL 和 Redis
-/// - 运行数据库迁移并装配认证分层服务
+/// - 运行数据库迁移并装配认证、法务文档分层服务
 pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, BackendError> {
     let pool = PgPoolOptions::new()
         .max_connections(8)
@@ -119,7 +122,9 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         Arc::new(token_issuer.clone()),
         Arc::new(repository.clone()),
     ));
-    let router = build_auth_router(auth_service);
+    let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
+    let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
+    let router = build_auth_router(auth_service).merge(build_legal_router(legal_service));
 
     Ok(BackendApp {
         router,

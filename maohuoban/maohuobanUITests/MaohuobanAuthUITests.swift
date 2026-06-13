@@ -83,6 +83,28 @@ final class MaohuobanAuthUITests: XCTestCase {
         XCTAssertTrue(passwordLoginButton.isEnabled)
     }
 
+    // testAgreementLinksOpenLegalDocuments 验证登录页协议文档入口
+    // 核心职责：
+    // - 确认用户协议和隐私政策以可点击入口出现
+    // - 确认点击入口后打开后端托管的文档页
+    @MainActor
+    func testAgreementLinksOpenLegalDocuments() throws {
+        let app = launchResetApp()
+
+        let userAgreementLink = app.buttons["auth.userAgreementLink"]
+        XCTAssertTrue(userAgreementLink.waitForExistence(timeout: 8))
+        userAgreementLink.tap()
+        XCTAssertTrue(app.staticTexts["用户服务协议"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.webViews["legal.documentWebView"].waitForExistence(timeout: 8))
+        app.buttons["legal.closeButton"].tap()
+
+        let privacyPolicyLink = app.buttons["auth.privacyPolicyLink"]
+        XCTAssertTrue(privacyPolicyLink.waitForExistence(timeout: 8))
+        privacyPolicyLink.tap()
+        XCTAssertTrue(app.staticTexts["用户隐私政策"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.webViews["legal.documentWebView"].waitForExistence(timeout: 8))
+    }
+
     @MainActor
     private func launchResetApp() -> XCUIApplication {
         let app = XCUIApplication()

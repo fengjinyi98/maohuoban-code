@@ -191,33 +191,6 @@ struct AuthModeSwitchRow: View {
     }
 }
 
-// AuthAgreementRow 协议确认行
-// 核心职责：
-// - 展示用户协议和隐私政策确认状态
-// - 将协议勾选作为登录提交前置条件
-struct AuthAgreementRow: View {
-    @Binding var isAccepted: Bool
-
-    var body: some View {
-        Button {
-            isAccepted.toggle()
-        } label: {
-            HStack(alignment: .top, spacing: MHBTheme.Spacing.s2) {
-                Image(systemName: isAccepted ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(isAccepted ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.labelTertiary.color)
-
-                Text("我已阅读并同意《用户协议》和《隐私政策》")
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("auth.agreementButton")
-    }
-}
-
 // AuthThirdPartyButtons 第三方登录入口
 // 核心职责：
 // - 提供微信和 Apple 登录占位入口

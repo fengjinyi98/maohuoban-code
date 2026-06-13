@@ -1,0 +1,15 @@
+[package]
+name = "maohuoban-legal-http"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+maohuoban-legal-application.workspace = true
+maohuoban-legal-domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

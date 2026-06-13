@@ -7,13 +7,19 @@ import MaohuobanDesignSystem
 // - 承接第三方登录 TODO 入口和协议勾选
 struct AuthLoginView: View {
     @Bindable var viewModel: AuthViewModel
+    @State private var presentedLegalKind: LegalDocumentKind?
 
     var body: some View {
         ScrollView {
             VStack(spacing: MHBTheme.Spacing.s6) {
                 AuthBrandHeader()
 
-                AuthLoginForm(viewModel: viewModel)
+                AuthLoginForm(
+                    viewModel: viewModel,
+                    onOpenLegalDocument: { kind in
+                        presentedLegalKind = kind
+                    }
+                )
 
                 AuthThirdPartyButtons(
                     isSubmitting: viewModel.isSubmitting,
@@ -30,6 +36,9 @@ struct AuthLoginView: View {
             .padding(.bottom, MHBTheme.Spacing.s6)
         }
         .scrollIndicators(.hidden)
+        .sheet(item: $presentedLegalKind) { kind in
+            LegalDocumentView(kind: kind)
+        }
     }
 }
 
@@ -39,6 +48,7 @@ struct AuthLoginView: View {
 // - 将提交动作转发给 ViewModel
 private struct AuthLoginForm: View {
     @Bindable var viewModel: AuthViewModel
+    let onOpenLegalDocument: (LegalDocumentKind) -> Void
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s4) {
@@ -82,7 +92,15 @@ private struct AuthLoginForm: View {
                 }
             }
 
-            AuthAgreementRow(isAccepted: $viewModel.isAgreementAccepted)
+            AuthAgreementRow(
+                isAccepted: $viewModel.isAgreementAccepted,
+                onUserAgreement: {
+                    onOpenLegalDocument(.userAgreement)
+                },
+                onPrivacyPolicy: {
+                    onOpenLegalDocument(.privacyPolicy)
+                }
+            )
         }
     }
 }

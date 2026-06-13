@@ -39,6 +39,23 @@ struct MHBHTTPClient {
             throw .decoding(error.localizedDescription)
         }
 
+        return try await send(request)
+    }
+
+    func get<ResponseBody: Decodable>(
+        path: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        let url = baseURL.appending(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        return try await send(request)
+    }
+
+    private func send<ResponseBody: Decodable>(
+        _ request: URLRequest
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let data: Data
         let response: URLResponse
         do {
