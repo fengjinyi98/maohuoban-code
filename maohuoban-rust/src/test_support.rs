@@ -32,6 +32,7 @@ impl AuthTestApp {
         sqlx::query(
             r#"
             TRUNCATE TABLE
+                samecity_hospital_appointments,
                 pet_relationships,
                 pet_events,
                 evidence_snapshots,

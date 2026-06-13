@@ -7,15 +7,18 @@ import Foundation
 struct HomeActionRoutingContext: Equatable {
     let selectedPetID: String?
     let merchantID: String?
+    let city: String?
 
-    init(selectedPetID: String? = nil, merchantID: String? = nil) {
+    init(selectedPetID: String? = nil, merchantID: String? = nil, city: String? = nil) {
         self.selectedPetID = selectedPetID
         self.merchantID = merchantID
+        self.city = city
     }
 
     init(snapshot: HomeDashboardSnapshot) {
         self.selectedPetID = snapshot.selectedPet?.id
         self.merchantID = snapshot.merchantDashboard?.merchantID
+        self.city = snapshot.identity.city
     }
 }
 
@@ -36,7 +39,7 @@ enum HomeActionRouteResolver {
         case .healthRecord:
             return .recordHealth(petID: context.selectedPetID)
         case .bookHospital:
-            return .bookHospital(petID: context.selectedPetID)
+            return .bookHospital(petID: context.selectedPetID, city: context.city)
         case .importTradePet:
             return .importTradePet
         case .addMerchantPet:

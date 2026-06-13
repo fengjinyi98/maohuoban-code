@@ -1342,6 +1342,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "maohuoban-samecity-application"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-samecity-domain",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-samecity-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-samecity-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "maohuoban-samecity-application",
+ "maohuoban-samecity-domain",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-samecity-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-samecity-application",
+ "maohuoban-samecity-domain",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "maohuoban_diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -1386,6 +1431,9 @@ dependencies = [
  "maohuoban-pet-domain",
  "maohuoban-pet-http",
  "maohuoban-pet-infrastructure",
+ "maohuoban-samecity-application",
+ "maohuoban-samecity-http",
+ "maohuoban-samecity-infrastructure",
  "maohuoban_diagnostics",
  "redis",
  "serde_json",

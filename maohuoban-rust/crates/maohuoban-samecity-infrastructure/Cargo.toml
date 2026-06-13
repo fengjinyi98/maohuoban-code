@@ -1,0 +1,16 @@
+[package]
+name = "maohuoban-samecity-infrastructure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+maohuoban-samecity-application.workspace = true
+maohuoban-samecity-domain.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

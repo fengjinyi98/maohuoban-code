@@ -29,6 +29,9 @@ use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
+use maohuoban_samecity_application::samecity::SameCityService;
+use maohuoban_samecity_http::samecity::build_samecity_router;
+use maohuoban_samecity_infrastructure::postgres::PostgresSameCityRepository;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
@@ -99,6 +102,7 @@ pub struct BackendApp {
     pub token_issuer: JwtTokenIssuer,
     pub home_provider: HybridHomeDashboardProvider,
     pub pet_repository: PostgresPetRepository,
+    pub samecity_repository: PostgresSameCityRepository,
 }
 
 /// build_backend_app 构建后端应用
@@ -141,6 +145,8 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         Arc::new(pet_repository.clone()),
         Arc::new(pet_repository.clone()),
     ));
+    let samecity_repository = PostgresSameCityRepository::new(pool.clone());
+    let samecity_service = Arc::new(SameCityService::new(Arc::new(samecity_repository.clone())));
     let home_provider = HybridHomeDashboardProvider::new(
         InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot()),
         pet_service.clone(),
@@ -149,7 +155,8 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let router = build_auth_router(auth_service)
         .merge(build_legal_router(legal_service))
         .merge(build_home_router(home_service))
-        .merge(build_pet_router(pet_service));
+        .merge(build_pet_router(pet_service))
+        .merge(build_samecity_router(samecity_service));
 
     Ok(BackendApp {
         router,
@@ -160,6 +167,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         token_issuer,
         home_provider,
         pet_repository,
+        samecity_repository,
     })
 }
 

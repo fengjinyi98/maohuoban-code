@@ -16,6 +16,10 @@ members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-samecity-application",
+    "maohuoban-rust/crates/maohuoban-samecity-domain",
+    "maohuoban-rust/crates/maohuoban-samecity-http",
+    "maohuoban-rust/crates/maohuoban-samecity-infrastructure",
     "maohuoban-diagnostics-sdk/collector",
     "maohuoban-diagnostics-sdk/rust",
 ]
@@ -36,6 +40,10 @@ default-members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-samecity-application",
+    "maohuoban-rust/crates/maohuoban-samecity-domain",
+    "maohuoban-rust/crates/maohuoban-samecity-http",
+    "maohuoban-rust/crates/maohuoban-samecity-infrastructure",
     "maohuoban-diagnostics-sdk/collector",
     "maohuoban-diagnostics-sdk/rust",
 ]
@@ -68,6 +76,10 @@ maohuoban-pet-application = { path = "maohuoban-rust/crates/maohuoban-pet-applic
 maohuoban-pet-domain = { path = "maohuoban-rust/crates/maohuoban-pet-domain" }
 maohuoban-pet-http = { path = "maohuoban-rust/crates/maohuoban-pet-http" }
 maohuoban-pet-infrastructure = { path = "maohuoban-rust/crates/maohuoban-pet-infrastructure" }
+maohuoban-samecity-application = { path = "maohuoban-rust/crates/maohuoban-samecity-application" }
+maohuoban-samecity-domain = { path = "maohuoban-rust/crates/maohuoban-samecity-domain" }
+maohuoban-samecity-http = { path = "maohuoban-rust/crates/maohuoban-samecity-http" }
+maohuoban-samecity-infrastructure = { path = "maohuoban-rust/crates/maohuoban-samecity-infrastructure" }
 maohuoban_diagnostics = { path = "maohuoban-diagnostics-sdk/rust" }
 redis = { version = "1.2.2", features = ["tokio-comp", "connection-manager"] }
 serde = { version = "1.0.228", features = ["derive"] }

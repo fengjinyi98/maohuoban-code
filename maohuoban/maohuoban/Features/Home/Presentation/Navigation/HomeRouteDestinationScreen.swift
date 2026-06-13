@@ -79,12 +79,12 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID,
                 onImported: onHomeMutationCompleted
             )
-        case .bookHospital:
-            MHBTabPlaceholderRootScreen(
-                systemImage: route.systemImage,
-                title: route.title,
-                subtitle: route.subtitle,
-                accessibilityIdentifier: "home.routeDestination"
+        case .bookHospital(let petID, let city):
+            HospitalBookingScreen(
+                currentUserID: currentUserID,
+                petID: petID,
+                city: city,
+                onBooked: onHomeMutationCompleted
             )
         }
     }
