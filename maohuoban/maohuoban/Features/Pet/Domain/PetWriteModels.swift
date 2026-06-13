@@ -141,6 +141,69 @@ struct PetEventSummary: Decodable, Equatable, Identifiable {
     }
 }
 
+// TradePetImportDraft 交易宠物导入草稿
+// 核心职责：
+// - 承载交易完成后的宠物建档字段
+// - 将交易来源证据映射到后端导入接口
+struct TradePetImportDraft: Encodable, Equatable {
+    let name: String
+    let species: PetSpecies
+    let breed: String
+    let sex: PetSex
+    let birthday: String
+    let sellerName: String
+    let tradeReference: String
+    let summary: String
+    let occurredAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case species
+        case breed
+        case sex
+        case birthday
+        case sellerName = "seller_name"
+        case tradeReference = "trade_reference"
+        case summary
+        case occurredAt = "occurred_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .name)
+        try container.encode(species, forKey: .species)
+        try encodeOptionalText(breed, key: .breed, into: &container)
+        try container.encode(sex, forKey: .sex)
+        try encodeOptionalText(birthday, key: .birthday, into: &container)
+        try container.encode(sellerName.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .sellerName)
+        try encodeOptionalText(tradeReference, key: .tradeReference, into: &container)
+        try encodeOptionalText(summary, key: .summary, into: &container)
+        try container.encode(occurredAt, forKey: .occurredAt)
+    }
+
+    private func encodeOptionalText(
+        _ value: String,
+        key: CodingKeys,
+        into container: inout KeyedEncodingContainer<CodingKeys>
+    ) throws {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedValue.isEmpty {
+            try container.encodeNil(forKey: key)
+        } else {
+            try container.encode(trimmedValue, forKey: key)
+        }
+    }
+}
+
+// TradePetImportResult 交易宠物导入结果
+// 核心职责：
+// - 承接导入后的宠物档案摘要
+// - 承接同步生成的交易事件摘要
+struct TradePetImportResult: Decodable, Equatable {
+    let pet: PetProfileSummary
+    let event: PetEventSummary
+}
+
 // PetEventDetail 宠物事件详情读模型
 // 核心职责：
 // - 承接宠物事件详情接口的稳定字段

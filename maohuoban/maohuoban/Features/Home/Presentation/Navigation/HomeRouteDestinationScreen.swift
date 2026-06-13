@@ -74,8 +74,12 @@ struct HomeRouteDestinationScreen: View {
                 status: .needsRecord,
                 currentUserID: currentUserID
             )
-        case .bookHospital,
-             .importTradePet:
+        case .importTradePet:
+            PetTradeImportScreen(
+                currentUserID: currentUserID,
+                onImported: onHomeMutationCompleted
+            )
+        case .bookHospital:
             MHBTabPlaceholderRootScreen(
                 systemImage: route.systemImage,
                 title: route.title,

@@ -74,6 +74,13 @@ private final class CapturingPetEventDetailRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func importTradePet(
+        draft: TradePetImportDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<TradePetImportResult> {
+        throw .invalidResponse
+    }
+
     func loadEventDetail(
         eventID: String,
         currentUserID: String

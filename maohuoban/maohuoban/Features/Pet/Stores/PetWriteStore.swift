@@ -91,6 +91,42 @@ final class PetWriteStore {
         }
     }
 
+    func importTradePet(
+        draft: TradePetImportDraft,
+        currentUserID: String?
+    ) async {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return
+        }
+        guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            phase = .failed("请输入宠物名字")
+            return
+        }
+        guard !draft.sellerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            phase = .failed("请输入交易来源方")
+            return
+        }
+        guard phase != .submitting else { return }
+
+        phase = .submitting
+        successMessage = nil
+        do {
+            let response = try await repository.importTradePet(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+            guard let result = response.data else {
+                phase = .failed("交易导入数据为空")
+                return
+            }
+            successMessage = response.message
+            phase = .importedTradePet(result.pet.id)
+        } catch {
+            phase = .failed(error.toastMessage)
+        }
+    }
+
     func reset() {
         phase = .idle
         successMessage = nil
@@ -106,5 +142,6 @@ enum PetWritePhase: Equatable {
     case submitting
     case createdPet(String)
     case recordedEvent(String)
+    case importedTradePet(String)
     case failed(String)
 }

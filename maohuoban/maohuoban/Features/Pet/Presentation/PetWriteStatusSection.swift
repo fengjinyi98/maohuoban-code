@@ -13,7 +13,7 @@ struct PetWriteStatusSection: View {
         switch phase {
         case .idle, .submitting:
             EmptyView()
-        case .createdPet, .recordedEvent:
+        case .createdPet, .recordedEvent, .importedTradePet:
             PetWriteStatusBanner(
                 systemImage: "checkmark.circle.fill",
                 title: successMessage ?? "已保存",

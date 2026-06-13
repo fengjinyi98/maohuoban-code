@@ -15,6 +15,7 @@ use super::{
         CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest,
         MerchantAvailableStatusData, MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery,
         PetEventData, PetProfileData, PetTimelineData, PublishAvailableStatusRequest,
+        TradePetImportData, TradePetImportRequest,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -42,6 +43,7 @@ impl PetHttpState {
 pub fn build_pet_router(pet: Arc<PetService>) -> Router {
     Router::new()
         .route("/api/v1/pets", post(create_pet_profile))
+        .route("/api/v1/pets/imports/trade", post(import_trade_pet))
         .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
         .route("/api/v1/pets/{pet_id}/events", post(create_pet_event))
         .route("/api/v1/pets/{pet_id}/timeline", get(load_pet_timeline))
@@ -75,6 +77,26 @@ async fn create_pet_profile(
             "pet.created",
             "宠物档案已创建",
             PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn import_trade_pet(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Json(request): Json<TradePetImportRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = request.into_input(owner_user_id);
+    match state.pet.import_trade_pet(input).await {
+        Ok(import) => created_response(
+            "pet.trade_imported",
+            "交易宠物已导入",
+            TradePetImportData::from(import),
         ),
         Err(error) => error_response(&error),
     }

@@ -16,6 +16,11 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventSummary>
 
+    func importTradePet(
+        draft: TradePetImportDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<TradePetImportResult>
+
     func loadEventDetail(
         eventID: String,
         currentUserID: String
@@ -62,6 +67,17 @@ struct DefaultPetRepository: PetRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         try await client.get(
             path: "/api/v1/pet-events/\(eventID)",
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func importTradePet(
+        draft: TradePetImportDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<TradePetImportResult> {
+        try await client.post(
+            path: "/api/v1/pets/imports/trade",
+            body: draft,
             headers: userHeaders(currentUserID: currentUserID)
         )
     }

@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::{
     MerchantAvailableStatusPublication, MerchantDashboardSummary, MerchantLitterDetail,
     MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile, PetRepository,
-    PublishAvailableStatusInput,
+    PublishAvailableStatusInput, TradePetImport, TradePetImportInput,
 };
 
 /// PetService 宠物应用服务
@@ -48,6 +48,12 @@ impl PetService {
             return Err(PetError::PetNotFound);
         }
         self.repository.create_pet_event(input).await
+    }
+
+    pub async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport> {
+        validate_text("宠物名称", &input.name)?;
+        validate_text("来源方", &input.seller_name)?;
+        self.repository.import_trade_pet(input).await
     }
 
     pub async fn list_pet_profiles(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>> {

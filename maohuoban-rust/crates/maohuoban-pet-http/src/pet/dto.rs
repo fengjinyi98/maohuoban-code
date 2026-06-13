@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
     MerchantAvailableStatusPublication, MerchantLitterDetail, NewMerchantPetProfile, NewPetEvent,
-    NewPetProfile, PublishAvailableStatusInput,
+    NewPetProfile, PublishAvailableStatusInput, TradePetImport, TradePetImportInput,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, LitterStatus, ManagedPetStatus, PetEvent, PetProfile,
@@ -34,6 +34,40 @@ impl CreatePetProfileRequest {
             sex: self.sex.unwrap_or(PetSex::Unknown),
             birthday: self.birthday,
             source_kind: PetSourceKind::UserCreated,
+        }
+    }
+}
+
+/// TradePetImportRequest 交易宠物导入请求
+/// 核心职责：
+/// - 接收交易完成后的宠物建档字段
+/// - 将来源证据转换为应用层导入命令
+#[derive(Debug, Deserialize)]
+pub(super) struct TradePetImportRequest {
+    name: String,
+    species: PetSpecies,
+    breed: Option<String>,
+    sex: Option<PetSex>,
+    birthday: Option<NaiveDate>,
+    seller_name: String,
+    trade_reference: Option<String>,
+    summary: Option<String>,
+    occurred_at: DateTime<Utc>,
+}
+
+impl TradePetImportRequest {
+    pub(super) fn into_input(self, owner_user_id: Uuid) -> TradePetImportInput {
+        TradePetImportInput {
+            owner_user_id,
+            name: self.name,
+            species: self.species,
+            breed: self.breed,
+            sex: self.sex.unwrap_or(PetSex::Unknown),
+            birthday: self.birthday,
+            seller_name: self.seller_name,
+            trade_reference: self.trade_reference,
+            summary: self.summary,
+            occurred_at: self.occurred_at,
         }
     }
 }
@@ -154,6 +188,25 @@ pub(super) struct PetEventData {
 impl From<PetEvent> for PetEventData {
     fn from(event: PetEvent) -> Self {
         Self { event }
+    }
+}
+
+/// TradePetImportData 交易宠物导入响应
+/// 核心职责：
+/// - 返回新建宠物档案
+/// - 返回同步写入的交易事件
+#[derive(Debug, Serialize)]
+pub(super) struct TradePetImportData {
+    pet: PetProfileData,
+    event: PetEventData,
+}
+
+impl From<TradePetImport> for TradePetImportData {
+    fn from(import: TradePetImport) -> Self {
+        Self {
+            pet: PetProfileData::from(import.pet),
+            event: PetEventData::from(import.event),
+        }
     }
 }
 
