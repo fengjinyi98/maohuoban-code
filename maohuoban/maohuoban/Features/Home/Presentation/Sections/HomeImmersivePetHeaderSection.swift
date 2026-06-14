@@ -1,6 +1,16 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
+// HomeImmersivePetHeaderLayout 首页沉浸式头图布局参数
+// 核心职责：
+// - 统一管理头图高度和实验性雾化范围
+// - 为取色、头图和背景融合保持同一套几何基准
+enum HomeImmersivePetHeaderLayout {
+    static let imageHeight: CGFloat = 360
+    static let fogCanvasHeight: CGFloat = 400
+    static let fogTopRatio: CGFloat = 0.70
+}
+
 // HomeImmersivePetHeaderSection 首页沉浸式宠物头图
 // 核心职责：
 // - 展示当前宠物的首屏大图和核心状态
@@ -9,7 +19,7 @@ struct HomeImmersivePetHeaderSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
     let width: CGFloat
 
-    private let imageHeight: CGFloat = 360
+    private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
 
     var body: some View {
         let imageWidth = max(width, 1)
@@ -53,10 +63,12 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     let assetName: String
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
-    private let foregroundFadeHeight: CGFloat = 168
+    private var foregroundFadeHeight: CGFloat {
+        baseImageHeight * (1 - HomeImmersivePetHeaderLayout.fogTopRatio)
+    }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             HomeImmersivePetHeaderForegroundImage(
                 assetName: assetName,
                 imageWidth: imageWidth,
@@ -76,7 +88,6 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
             )
         }
         .frame(width: imageWidth, height: baseImageHeight)
-        .clipped()
         .visualEffect { content, proxy in
             let metrics = HomeImmersivePetHeaderStretchMetrics.make(
                 frameMinY: proxy.frame(in: .scrollView).minY,
@@ -92,7 +103,7 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
 // HomeImmersivePetHeaderForegroundImage 首页头图前景图片
 // 核心职责：
 // - 渲染顶部清晰宠物图
-// - 作为全屏模糊背景上的前景焦点层
+// - 作为提取色背景上的前景焦点层
 private struct HomeImmersivePetHeaderForegroundImage: View {
     let assetName: String
     let imageWidth: CGFloat
@@ -109,7 +120,7 @@ private struct HomeImmersivePetHeaderForegroundImage: View {
 
 // HomeImmersivePetHeaderForegroundFadeMask 首页头图前景淡出遮罩
 // 核心职责：
-// - 让清晰头图直接融入全屏模糊背景
+// - 让清晰头图直接融入提取色背景
 // - 避免头图和页面背景形成硬切换
 private struct HomeImmersivePetHeaderForegroundFadeMask: View {
     let width: CGFloat
@@ -138,7 +149,7 @@ private struct HomeImmersivePetHeaderForegroundFadeMask: View {
 // HomeImmersivePetHeaderReadabilityGradient 首页头图文字可读渐变
 // 核心职责：
 // - 为宠物文字提供独立暗底
-// - 让暗底自身也平滑融入页面背景
+// - 避免干扰页面级同色雾化实验
 private struct HomeImmersivePetHeaderReadabilityGradient: View {
     let width: CGFloat
     let height: CGFloat
@@ -147,9 +158,9 @@ private struct HomeImmersivePetHeaderReadabilityGradient: View {
         LinearGradient(
             stops: [
                 Gradient.Stop(color: .black.opacity(0.02), location: 0.0),
-                Gradient.Stop(color: .black.opacity(0.12), location: 0.42),
-                Gradient.Stop(color: .black.opacity(0.48), location: 0.72),
-                Gradient.Stop(color: .black.opacity(0.34), location: 0.88),
+                Gradient.Stop(color: .black.opacity(0.08), location: 0.42),
+                Gradient.Stop(color: .black.opacity(0.24), location: 0.72),
+                Gradient.Stop(color: .black.opacity(0.12), location: 0.88),
                 Gradient.Stop(color: .black.opacity(0), location: 1.0)
             ],
             startPoint: .top,
