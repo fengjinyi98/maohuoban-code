@@ -8,6 +8,14 @@
 3. 默认保留系统返回行为，必须支持系统手势侧滑返回。
 4. 仅允许做系统导航栏样式定制（标题、背景、按钮样式），不破坏系统交互。
 
+### 1.2 自定义头部与 Liquid Glass 规则
+1. 需要在系统导航栏位置承载业务头部控件时，优先使用自定义 SwiftUI 控件承载按钮和状态展示，并保持页面仍处于系统 `NavigationStack` 中。
+2. 自定义控件只要需要 Liquid Glass 效果，统一使用 SwiftUI 官方 `glassEffect(_:in:)` API，不使用自绘毛玻璃、半透明背景或 UIKit blur 替代。
+3. 自定义头部按钮默认使用 `.glassEffect(.regular.interactive(), in: .capsule)`；轻量或低强调按钮可使用 `.glassEffect(.clear.interactive(), in: .capsule)`，并确保内容对比度充足。
+4. 大尺寸自定义组件使用与形态匹配的 shape，例如 `.glassEffect(.regular, in: .rect(cornerRadius: <token>))`；胶囊按钮使用 `.capsule`。
+5. 多个 Liquid Glass 自定义控件同时出现时，使用 `GlassEffectContainer` 管理组合与性能；需要形态融合或转场时再配合 `glassEffectID` / `glassEffectTransition`。
+6. `glassEffect(_:in:)` 应放在影响控件外观和尺寸的 modifier 之后，例如 `frame`、`padding`、`font`、`foregroundStyle` 之后。
+
 ## 2. 项目定位
 
 毛伙伴以宠物为主体。

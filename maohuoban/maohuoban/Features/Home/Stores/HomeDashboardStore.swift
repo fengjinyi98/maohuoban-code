@@ -12,7 +12,7 @@ final class HomeDashboardStore {
 
     private let repository: HomeRepository
 
-    init(repository: HomeRepository = DefaultHomeRepository()) {
+    init(repository: HomeRepository = HomeRepositoryFactory.makeDefault()) {
         self.repository = repository
     }
 
