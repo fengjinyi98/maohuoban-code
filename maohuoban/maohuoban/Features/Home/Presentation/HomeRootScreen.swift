@@ -23,6 +23,11 @@ struct HomeRootScreen: View {
             case .loaded(let snapshot):
                 HomeDashboardLoadedView(
                     snapshot: snapshot,
+                    locationTitle: navigationLocationTitle,
+                    onRefreshLocation: {
+                        MHBLocationDiagnostics.homeToolbarTapped(displayName: locationService.displayName)
+                        locationService.refresh()
+                    },
                     onSelectPet: { petID in
                         selectedPetID = petID
                         Task {
@@ -46,14 +51,7 @@ struct HomeRootScreen: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                HomeLocationToolbarButton(title: navigationLocationTitle) {
-                    MHBLocationDiagnostics.homeToolbarTapped(displayName: locationService.displayName)
-                    locationService.refresh()
-                }
-            }
-        }
+        .toolbar(.hidden, for: .navigationBar)
         .task(id: currentUserID) {
             MHBLocationDiagnostics.homeTaskStarted(currentUserID: currentUserID)
             selectedPetID = nil
@@ -82,6 +80,7 @@ struct HomeRootScreen: View {
                     )
                 }
             }
+            .toolbar(.visible, for: .navigationBar)
         }
     }
 
@@ -104,40 +103,6 @@ struct HomeRootScreen: View {
         case .idle, .loading, .failed:
             return "我们的位置"
         }
-    }
-}
-
-// HomeLocationToolbarButton 首页位置切换入口
-// 核心职责：
-// - 在系统导航栏左侧展示当前首页位置
-// - 预留位置切换点击入口
-private struct HomeLocationToolbarButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                Image("LocationIcon")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: MHBTheme.IconSize.medium, height: MHBTheme.IconSize.medium)
-
-                Text(title)
-                    .font(MHBTheme.Typography.headline)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(1)
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-            }
-            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("切换位置，\(title)")
-        .accessibilityIdentifier("home.locationToolbarButton")
     }
 }
 

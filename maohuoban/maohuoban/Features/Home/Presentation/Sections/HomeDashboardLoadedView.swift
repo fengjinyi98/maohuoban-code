@@ -7,28 +7,40 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
+    let locationTitle: String
+    let onRefreshLocation: () -> Void
     let onSelectPet: (String) -> Void
 
     var body: some View {
         let routingContext = HomeActionRoutingContext(snapshot: snapshot)
 
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                if let selectedPet = snapshot.selectedPet {
-                    HomeImmersivePetHeaderSection(pet: selectedPet)
-                }
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+                    if let selectedPet = snapshot.selectedPet {
+                        HomeImmersivePetHeaderSection(
+                            pet: selectedPet,
+                            locationTitle: locationTitle,
+                            onRefreshLocation: onRefreshLocation,
+                            width: geometry.size.width,
+                            topSafeAreaInset: geometry.safeAreaInsets.top
+                        )
+                    }
 
-                HomeDashboardContentSections(
-                    snapshot: snapshot,
-                    routingContext: routingContext,
-                    onSelectPet: onSelectPet,
-                    showsTopSpacing: snapshot.selectedPet == nil
-                )
+                    HomeDashboardContentSections(
+                        snapshot: snapshot,
+                        routingContext: routingContext,
+                        onSelectPet: onSelectPet,
+                        showsTopSpacing: snapshot.selectedPet == nil
+                    )
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("home.dashboard")
             }
-            .accessibilityIdentifier("home.dashboard")
+            .background(MHBTheme.ColorToken.background.color)
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
         }
-        .background(MHBTheme.ColorToken.background.color)
-        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 }
 

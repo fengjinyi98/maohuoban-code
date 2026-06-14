@@ -50,7 +50,7 @@ enum HomeMockDashboardFixtures {
                     HomeDashboardSnapshot.CareMetric(
                         kind: .weight,
                         title: "体重",
-                        valueText: selectedPet.id == "pet-mochi" ? "6.4kg" : "4.2kg",
+                        valueText: selectedPet.id == "pet-mochi" ? "4.8kg" : "4.2kg",
                         statusText: "较上次记录稳定"
                     )
                 ]
@@ -76,7 +76,7 @@ enum HomeMockDashboardFixtures {
                 petID: "pet-neighbor-1",
                 petName: "布丁",
                 relationshipKind: .sameCity,
-                title: "附近也有一只活泼比熊",
+                title: "附近也有一只温顺布偶",
                 subtitle: "同城 2.4km，疫苗和驱虫节奏接近",
                 distanceText: "2.4km"
             ),
@@ -92,7 +92,7 @@ enum HomeMockDashboardFixtures {
                     id: "event-weight",
                     eventKind: .weight,
                     title: "体重记录",
-                    subtitle: "6.4kg，保持稳定",
+                    subtitle: "4.8kg，保持稳定",
                     occurredText: "昨天"
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
@@ -255,7 +255,7 @@ enum HomeMockDashboardFixtures {
             HomeDashboardSnapshot.PetSwitchItem(
                 id: "pet-mochi",
                 name: "糯米",
-                species: .dog,
+                species: .cat,
                 avatarURL: nil,
                 isSelected: selectedID == "pet-mochi"
             ),
@@ -288,8 +288,8 @@ enum HomeMockDashboardFixtures {
             HomeDashboardSnapshot.PetHeroSummary(
                 id: "pet-mochi",
                 name: "糯米",
-                species: .dog,
-                breed: "比熊犬",
+                species: .cat,
+                breed: "布偶猫",
                 sex: .female,
                 ageText: "2岁",
                 statusText: "记录正在形成可信档案",
