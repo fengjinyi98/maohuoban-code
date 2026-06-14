@@ -22,8 +22,15 @@ fn debug_bundle_includes_checksums_and_archive() {
     let manifest = fs::read_to_string(&bundle.manifest_path).expect("manifest");
     assert!(manifest.contains("\"timeline_sha256\""));
     assert!(manifest.contains("\"prompt_sha256\""));
+    assert!(manifest.contains("\"index_sha256\""));
     assert!(manifest.contains("\"archive_path\""));
     assert!(bundle.archive_path.exists());
+    assert!(bundle.index_path.exists());
+    let index = fs::read_to_string(&bundle.index_path).expect("index");
+    assert!(index.contains("\"schema\":\"maohuoban.diagnostics.index.v1\""));
+    assert!(index.contains("\"recommended_read_order\""));
+    assert!(index.contains("\"prompt.md\""));
+    assert!(index.contains("\"timeline.jsonl\""));
 
     let archive = fs::read(&bundle.archive_path).expect("archive");
     let entries = tar_entries(&archive);
@@ -59,6 +66,13 @@ fn debug_bundle_includes_checksums_and_archive() {
                 .expect("prompt data")
                 .as_slice()
         )
+    );
+    assert_eq!(
+        entries
+            .iter()
+            .find(|(name, _)| name == "index.json")
+            .map(|(_, data)| data.as_slice()),
+        Some(fs::read(&bundle.index_path).expect("index data").as_slice())
     );
 }
 

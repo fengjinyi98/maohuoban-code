@@ -42,15 +42,26 @@ extension DiagnosticsPipelineTests {
 
         #expect(manifest["timelineSHA256"]?.count == 64)
         #expect(manifest["promptSHA256"]?.count == 64)
+        #expect(manifest["indexSHA256"]?.count == 64)
+        #expect(manifest["indexPath"] == "index.json")
         #expect(manifest["archivePath"] == "archive.tar")
         #expect(FileManager.default.fileExists(atPath: bundle.archiveURL.path))
+        #expect(FileManager.default.fileExists(atPath: bundle.indexURL.path))
+
+        let index = try String(contentsOf: bundle.indexURL, encoding: .utf8)
+        #expect(index.contains("\"schema\":\"maohuoban.diagnostics.index.v1\""))
+        #expect(index.contains("\"recommended_read_order\""))
+        #expect(index.contains("\"prompt.md\""))
+        #expect(index.contains("\"timeline.jsonl\""))
 
         let archive = try Data(contentsOf: bundle.archiveURL)
         let entries = try tarEntries(from: archive)
         let manifestArchiveData = try Data(contentsOf: bundle.manifestURL)
+        let indexArchiveData = try Data(contentsOf: bundle.indexURL)
         let timelineArchiveData = try Data(contentsOf: bundle.timelineURL)
         let promptArchiveData = try Data(contentsOf: bundle.promptURL)
         #expect(entries["manifest.json"] == manifestArchiveData)
+        #expect(entries["index.json"] == indexArchiveData)
         #expect(entries["timeline.jsonl"] == timelineArchiveData)
         #expect(entries["prompt.md"] == promptArchiveData)
     }

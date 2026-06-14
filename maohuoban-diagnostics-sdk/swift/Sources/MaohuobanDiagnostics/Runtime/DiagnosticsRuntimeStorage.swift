@@ -14,8 +14,16 @@ extension DiagnosticsRuntime {
     }
 
     public func cleanup() async throws -> CleanupReport {
-        var report = try await store.cleanup(configuration.cleanup)
-        let exportReport = try exportRegistry.cleanup(policy: configuration.cleanup)
+        try await cleanup(policy: configuration.cleanup)
+    }
+
+    // cleanup 使用指定策略清理诊断存储
+    // 核心职责：
+    // - 支持调用方执行一次性全量清理
+    // - 复用段文件与导出包清理统计
+    public func cleanup(policy: CleanupPolicy) async throws -> CleanupReport {
+        var report = try await store.cleanup(policy)
+        let exportReport = try exportRegistry.cleanup(policy: policy)
         report.removedExports += exportReport.removedExports
         report.freedBytes += exportReport.freedBytes
         return report

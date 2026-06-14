@@ -424,8 +424,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 42LNLCG255;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Config/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，为首页和同城服务显示所在城市。";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -452,8 +457,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 42LNLCG255;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Config/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴";
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，为首页和同城服务显示所在城市。";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -575,7 +585,7 @@
 				B9BC33572FD6C95400F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		B9BC33582FD6C95400F40E35 /* Build configuration list for PBXNativeTarget "maohuoban" */ = {
 			isa = XCConfigurationList;
@@ -584,7 +594,7 @@
 				B9BC335A2FD6C95400F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		B9BC33862FD8800000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanUITests" */ = {
 			isa = XCConfigurationList;
@@ -593,7 +603,7 @@
 				B9BC33882FD8800000F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		B9BC33942FD8A00000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanTests" */ = {
 			isa = XCConfigurationList;
@@ -602,7 +612,7 @@
 				B9BC33962FD8A00000F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 

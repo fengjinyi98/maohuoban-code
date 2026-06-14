@@ -26,7 +26,7 @@
 | `maohuoban/Infrastructure/Security` | Keychain token、设备 ID、token store 协议 |
 | `maohuoban/Infrastructure/Toast` | Feature 侧 ToastPresenter 适配 |
 | `maohuoban/Infrastructure/UIKit` | UIKit 桥接与基础设施边界 |
-| `Config/Info.plist` | App plist 配置 |
+| App target build settings | 生成式 Info.plist 与权限文案配置 |
 | `Packages/MaohuobanDesignSystem` | 跨 Feature 复用主题和组件 |
 
 ## 运行配置

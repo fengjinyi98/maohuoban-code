@@ -1,4 +1,6 @@
-use maohuoban_diagnostics_collector::{CollectorConfig, collect_debug_bundle};
+use maohuoban_diagnostics_collector::{
+    CollectorConfig, WorkspaceReportConfig, collect_debug_bundle, collect_workspace_report,
+};
 use std::{env, path::PathBuf, process};
 
 /// main Collector CLI 入口
@@ -20,6 +22,8 @@ fn run(args: &[String]) -> Result<(), String> {
     let mut segments = Vec::new();
     let mut log_files = Vec::new();
     let mut output = None;
+    let mut workspace_root = None;
+    let mut clean_sources = false;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -41,6 +45,13 @@ fn run(args: &[String]) -> Result<(), String> {
                 index += 1;
                 output = args.get(index).map(PathBuf::from);
             }
+            "--workspace-root" => {
+                index += 1;
+                workspace_root = args.get(index).map(PathBuf::from);
+            }
+            "--clean-sources" => {
+                clean_sources = true;
+            }
             "--help" | "-h" => {
                 print_help();
                 return Ok(());
@@ -50,6 +61,24 @@ fn run(args: &[String]) -> Result<(), String> {
         index += 1;
     }
 
+    if let Some(workspace_root) = workspace_root {
+        if output.is_some() {
+            return Err("use either --workspace-root <path> or --output <path>".to_string());
+        }
+        let mut config = WorkspaceReportConfig::new(workspace_root)
+            .with_log_files(log_files)
+            .clean_sources(clean_sources);
+        if !segments.is_empty() {
+            config = config.with_segment_directories(segments);
+        }
+        let report = collect_workspace_report(config).map_err(|error| error.to_string())?;
+        println!("{}", report.bundle.directory.display());
+        return Ok(());
+    }
+
+    if clean_sources {
+        return Err("--clean-sources requires --workspace-root <path>".to_string());
+    }
     if segments.is_empty() && log_files.is_empty() {
         return Err("missing input: provide --segments <path> or --log-file <path>".to_string());
     }
@@ -64,7 +93,7 @@ fn run(args: &[String]) -> Result<(), String> {
 
 fn print_help() {
     println!(
-        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] --output <path>\n\n导出 Maohuoban Debug Bundle。"
+        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] (--output <path> | --workspace-root <path>) [--clean-sources]\n\n导出 Maohuoban Debug Bundle。"
     );
 }
 
@@ -167,5 +196,70 @@ mod tests {
         let timeline = std::fs::read_to_string(output.join("timeline.jsonl")).expect("timeline");
         assert!(timeline.contains("launch failed"));
         assert!(timeline.contains("missing entitlement"));
+    }
+
+    #[test]
+    fn cli_writes_workspace_report_under_hidden_root_directory() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join(".maohuoban-diagnostics").join("segments");
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Error,
+                Severity::Error,
+                "cli workspace input",
+            ))
+            .expect("append");
+
+        run(&[
+            "--workspace-root".to_string(),
+            root.path().display().to_string(),
+        ])
+        .expect("run collector");
+
+        let latest = root.path().join(".maohuoban-diagnostics").join("latest");
+        let timeline = std::fs::read_to_string(latest.join("timeline.jsonl")).expect("timeline");
+        assert!(latest.join("prompt.md").exists());
+        assert!(latest.join("index.json").exists());
+        assert!(timeline.contains("cli workspace input"));
+    }
+
+    #[test]
+    fn cli_can_clean_source_reports_after_workspace_export() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join("segments");
+        let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+        store
+            .append(&DiagnosticEvent::new(
+                EventKind::Breadcrumb,
+                Severity::Info,
+                "cli source cleanup input",
+            ))
+            .expect("append");
+
+        run(&[
+            "--segments".to_string(),
+            segments.display().to_string(),
+            "--workspace-root".to_string(),
+            root.path().display().to_string(),
+            "--clean-sources".to_string(),
+        ])
+        .expect("run collector");
+
+        let latest = root.path().join(".maohuoban-diagnostics").join("latest");
+        let timeline = std::fs::read_to_string(latest.join("timeline.jsonl")).expect("timeline");
+        assert!(timeline.contains("cli source cleanup input"));
+
+        let remaining_reports = std::fs::read_dir(&segments)
+            .expect("segments dir")
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .path()
+                    .extension()
+                    .is_some_and(|extension| extension == "jsonl")
+            })
+            .collect::<Vec<_>>();
+        assert!(remaining_reports.is_empty());
     }
 }

@@ -1,5 +1,6 @@
 mod bundle;
 mod checksum;
+mod index;
 mod prompt;
 mod tar;
 

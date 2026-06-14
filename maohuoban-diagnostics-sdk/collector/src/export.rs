@@ -1,7 +1,7 @@
 use crate::{CollectorConfig, multi_source_store::MultiSourceSegmentStore};
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, DebugBundle, DebugBundleExporter, Diagnostics, DiagnosticsConfig,
-    DiagnosticsError, EventStore, LlmPromptExporter, PrivacyPolicy,
+    DiagnosticsError, EventStore, PrivacyPolicy,
 };
 use std::path::Path;
 
@@ -37,8 +37,5 @@ fn collect_from_store(
         cleanup: CleanupPolicy::default(),
         store: Box::new(store),
     })?;
-    let bundle = DebugBundleExporter::new(output_directory.as_ref()).export(&diagnostics)?;
-    let prompt = LlmPromptExporter::new("分析 Maohuoban 诊断包").export_prompt(&diagnostics)?;
-    std::fs::write(bundle.directory.join("prompt.md"), prompt)?;
-    Ok(bundle)
+    DebugBundleExporter::new(output_directory.as_ref()).export(&diagnostics)
 }

@@ -127,6 +127,30 @@ extension DiagnosticsPipelineTests {
         #expect(try await diagnostics.readEvents().isEmpty)
     }
 
+    @Test("运行时可使用一次性策略清理全部段文件")
+    func runtimeCleanupAcceptsOneShotPolicy() async throws {
+        let root = try temporaryDirectory()
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("segments"),
+                cleanup: .init(maxTotalBytes: 1_024 * 1_024, maxSegmentAge: 7 * 24 * 60 * 60, maxExportAge: 24 * 60 * 60)
+            )
+        )
+
+        await diagnostics.error("device report to purge")
+        try await diagnostics.flush()
+        #expect(try await !diagnostics.readEvents().isEmpty)
+
+        let report = try await diagnostics.cleanup(
+            policy: .init(maxTotalBytes: 0, maxSegmentAge: 0, maxExportAge: 0)
+        )
+
+        #expect(report.removedSegments >= 1)
+        #expect(try await diagnostics.readEvents().isEmpty)
+    }
+
     @Test("清理策略会删除过期诊断包")
     func cleanupRemovesExpiredDebugBundles() async throws {
         let root = try temporaryDirectory()

@@ -234,26 +234,24 @@ diagnostics.set_context_metadata("worker", json!("scheduler"));
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --segments target/maohuoban-ios/segments \
-  --segments target/maohuoban-rust/segments \
-  --log-file target/xcode-run.log \
-  --output target/maohuoban-diagnostics/bundle
+  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
 ```
 
 输出：
 
 | 文件 | 内容 |
 | --- | --- |
+| `index.json` | LLM 首读索引、推荐读取顺序、文件用途和常用查询入口 |
 | `manifest.json` | schema、SDK 版本、事件数量、导出时间、内容校验值和归档路径 |
 | `timeline.jsonl` | 按时间排序的 SDK 诊断事件和外部日志事件 |
 | `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
-| `archive.tar` | 包含 manifest、timeline 和 prompt 的无压缩 tar，便于直接传输或附加给 LLM 工作流 |
+| `archive.tar` | 包含 index、manifest、timeline 和 prompt 的无压缩 tar，便于直接传输或附加给 LLM 工作流 |
 
-`--segments` 可以重复传入多个 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log` 事件，并识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记映射 `severity`，再按事件时间合并成同一个 timeline。
+`--workspace-root` 默认读取 `<workspace>/.maohuoban-diagnostics/segments`，输出到 `<workspace>/.maohuoban-diagnostics/latest`。`--segments` 可以重复传入显式准备好的 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log` 事件，并识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记映射 `severity`，再按事件时间合并成同一个 timeline。
 
-Collector 需要至少一种输入来源。SDK 还没接入某个进程时，可以只传 `--log-file` 生成 Debug Bundle，后续再逐步加入 `--segments`。
+显式 `--output` 模式需要至少一种输入来源。SDK 还没接入某个进程时，可以只传 `--log-file` 生成 Debug Bundle，后续再逐步加入 `--segments`。
 
-Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`、`prompt_sha256`、`archive_path`。Swift SDK 的 manifest 使用 camelCase 字段：`timelineSHA256`、`promptSHA256`、`archivePath`。
+Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`、`prompt_sha256`、`index_sha256`、`archive_path`。Swift SDK 的 manifest 使用 camelCase 字段：`timelineSHA256`、`promptSHA256`、`indexSHA256`、`archivePath`。
 
 ## 清理与导出工作流
 

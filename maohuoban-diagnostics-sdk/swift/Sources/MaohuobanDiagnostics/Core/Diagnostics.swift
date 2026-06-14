@@ -176,6 +176,10 @@ public enum Diagnostics {
         try await current()?.cleanup()
     }
 
+    public static func cleanup(policy: CleanupPolicy) async throws -> CleanupReport? {
+        try await current()?.cleanup(policy: policy)
+    }
+
     public static func exportDebugBundle(to outputDirectory: URL) async throws -> DebugBundle? {
         try await current()?.exportDebugBundle(to: outputDirectory)
     }

@@ -7,15 +7,19 @@ use std::{
     path::PathBuf,
 };
 
-use super::{checksum::sha256_file_hex, prompt::LlmPromptExporter, tar::write_tar_archive};
+use super::{
+    checksum::sha256_file_hex, index::bundle_index_json, prompt::LlmPromptExporter,
+    tar::write_tar_archive,
+};
 
 /// `DebugBundle` 诊断包导出结果
 /// 核心职责：
-/// - 暴露导出目录、清单和时间线文件路径
+/// - 暴露导出目录、索引、清单和时间线文件路径
 /// - 为 Collector 后续压缩和发送给 LLM 提供稳定边界
 #[derive(Clone, Debug)]
 pub struct DebugBundle {
     pub directory: PathBuf,
+    pub index_path: PathBuf,
     pub manifest_path: PathBuf,
     pub timeline_path: PathBuf,
     pub archive_path: PathBuf,
@@ -43,6 +47,7 @@ impl DebugBundleExporter {
 
     /// `export` 导出诊断包
     /// 核心职责：
+    /// - 写入 `index.json`
     /// - 写入 `manifest.json`
     /// - 写入 `timeline.jsonl`
     ///
@@ -53,6 +58,7 @@ impl DebugBundleExporter {
         fs::create_dir_all(&self.output_directory)?;
         let events = diagnostics.read_events()?;
         let manifest_path = self.output_directory.join("manifest.json");
+        let index_path = self.output_directory.join("index.json");
         let timeline_path = self.output_directory.join("timeline.jsonl");
         let prompt_path = self.output_directory.join("prompt.md");
         let archive_path = self.output_directory.join("archive.tar");
@@ -67,6 +73,8 @@ impl DebugBundleExporter {
         let prompt = LlmPromptExporter::new("分析 Maohuoban 诊断包").export_prompt(diagnostics)?;
         fs::write(&prompt_path, prompt)?;
 
+        fs::write(&index_path, bundle_index_json(&events)?)?;
+
         fs::write(
             &manifest_path,
             serde_json::to_vec_pretty(&json!({
@@ -76,6 +84,8 @@ impl DebugBundleExporter {
                 "created_at": Utc::now(),
                 "timeline_sha256": sha256_file_hex(&timeline_path)?,
                 "prompt_sha256": sha256_file_hex(&prompt_path)?,
+                "index_sha256": sha256_file_hex(&index_path)?,
+                "index_path": "index.json",
                 "archive_path": "archive.tar",
             }))?,
         )?;
@@ -84,6 +94,7 @@ impl DebugBundleExporter {
             &archive_path,
             [
                 ("manifest.json", manifest_path.clone()),
+                ("index.json", index_path.clone()),
                 ("timeline.jsonl", timeline_path.clone()),
                 ("prompt.md", prompt_path),
             ],
@@ -91,6 +102,7 @@ impl DebugBundleExporter {
 
         let bundle = DebugBundle {
             directory: self.output_directory.clone(),
+            index_path,
             manifest_path,
             timeline_path,
             archive_path,

@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct HomeRootScreen: View {
     let currentUserID: String?
     @State private var store = HomeDashboardStore()
+    @State private var locationService = MHBLocationService()
     @State private var selectedPetID: String?
 
     init(currentUserID: String? = nil) {
@@ -43,10 +44,31 @@ struct HomeRootScreen: View {
                 }
             }
         }
-        .navigationTitle("首页")
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HomeLocationToolbarButton(title: navigationLocationTitle) {
+                    MHBLocationDiagnostics.homeToolbarTapped(displayName: locationService.displayName)
+                    locationService.refresh()
+                }
+            }
+        }
         .task(id: currentUserID) {
+            MHBLocationDiagnostics.homeTaskStarted(currentUserID: currentUserID)
             selectedPetID = nil
+            locationService.refreshIfNeeded()
             await store.load(currentUserID: currentUserID)
+            MHBLocationDiagnostics.homeStoreLoaded(
+                locationDisplayName: locationService.displayName,
+                backendTitle: backendLocationTitle
+            )
+        }
+        .onChange(of: locationService.displayName) { _, displayName in
+            MHBLocationDiagnostics.homeDisplayNameChanged(
+                displayName: displayName,
+                backendTitle: backendLocationTitle
+            )
         }
         .navigationDestination(for: HomeRoute.self) { route in
             HomeRouteDestinationScreen(
@@ -61,6 +83,61 @@ struct HomeRootScreen: View {
                 }
             }
         }
+    }
+
+    private var navigationLocationTitle: String {
+        if let displayName = locationService.displayName {
+            return displayName
+        }
+
+        return backendLocationTitle
+    }
+
+    private var backendLocationTitle: String {
+        switch store.phase {
+        case .loaded(let snapshot):
+            let city = snapshot.identity.city?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let city, city.isEmpty == false {
+                return city
+            }
+            return "我们的位置"
+        case .idle, .loading, .failed:
+            return "我们的位置"
+        }
+    }
+}
+
+// HomeLocationToolbarButton 首页位置切换入口
+// 核心职责：
+// - 在系统导航栏左侧展示当前首页位置
+// - 预留位置切换点击入口
+private struct HomeLocationToolbarButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: MHBTheme.Spacing.s2) {
+                Image("LocationIcon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: MHBTheme.IconSize.medium, height: MHBTheme.IconSize.medium)
+
+                Text(title)
+                    .font(MHBTheme.Typography.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+            }
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("切换位置，\(title)")
+        .accessibilityIdentifier("home.locationToolbarButton")
     }
 }
 

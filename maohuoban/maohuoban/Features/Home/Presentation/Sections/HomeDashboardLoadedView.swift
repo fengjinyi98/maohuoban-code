@@ -73,22 +73,16 @@ struct HomeDashboardLoadedView: View {
 
 // HomeIdentityHeader 首页身份头部
 // 核心职责：
-// - 展示当前城市、身份名称和认证状态
+// - 展示当前身份名称和认证状态
 // - 为普通用户和商家首页建立上下文
 private struct HomeIdentityHeader: View {
     let identity: HomeDashboardSnapshot.Identity
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                Text(identity.city ?? "毛伙伴")
-                    .font(MHBTheme.Typography.footnote)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-
-                Text(identity.displayName)
-                    .font(MHBTheme.Typography.largeTitle)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            }
+            Text(identity.displayName)
+                .font(MHBTheme.Typography.largeTitle)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
             Spacer()
 
