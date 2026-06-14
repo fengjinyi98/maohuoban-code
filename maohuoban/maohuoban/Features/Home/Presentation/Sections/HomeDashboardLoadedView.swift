@@ -13,6 +13,7 @@ struct HomeDashboardLoadedView: View {
 
     var body: some View {
         let routingContext = HomeActionRoutingContext(snapshot: snapshot)
+        let backgroundAssetName = snapshot.selectedPet.map { $0.heroImageAssetName ?? "HomePetHeroMock" }
 
         GeometryReader { geometry in
             ScrollView {
@@ -37,7 +38,10 @@ struct HomeDashboardLoadedView: View {
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("home.dashboard")
             }
-            .background(MHBTheme.ColorToken.background.color)
+            .background {
+                HomeImageAverageGradientBackground(assetName: backgroundAssetName)
+                    .ignoresSafeArea()
+            }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
         }

@@ -12,7 +12,7 @@ struct HomeImmersivePetHeaderSection: View {
     let width: CGFloat
     let topSafeAreaInset: CGFloat
 
-    private let imageHeight: CGFloat = 460
+    private let imageHeight: CGFloat = 360
 
     var body: some View {
         let imageWidth = max(width, 1)
@@ -111,7 +111,7 @@ private struct HomeImmersivePetHeaderStretchMetrics {
     let verticalOffset: CGFloat
     let scale: CGFloat
 
-    static func make(frameMinY: CGFloat, baseHeroHeight: CGFloat) -> HomeImmersivePetHeaderStretchMetrics {
+    nonisolated static func make(frameMinY: CGFloat, baseHeroHeight: CGFloat) -> HomeImmersivePetHeaderStretchMetrics {
         let stretch = max(frameMinY, 0)
         let scale: CGFloat
 
