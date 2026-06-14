@@ -7,10 +7,7 @@ import MaohuobanDesignSystem
 // - 让首页根视图保持装载职责
 struct HomeImmersivePetHeaderSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
-    let locationTitle: String
-    let onRefreshLocation: () -> Void
     let width: CGFloat
-    let topSafeAreaInset: CGFloat
 
     private let imageHeight: CGFloat = 360
 
@@ -23,18 +20,6 @@ struct HomeImmersivePetHeaderSection: View {
                 imageWidth: imageWidth,
                 baseImageHeight: imageHeight
             )
-
-            VStack(alignment: .leading) {
-                HomeImmersiveLocationButton(
-                    title: locationTitle,
-                    action: onRefreshLocation
-                )
-                .padding(.top, max(topSafeAreaInset + MHBTheme.Spacing.s3, 64))
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-
-                Spacer()
-            }
-            .frame(width: imageWidth, height: imageHeight, alignment: .topLeading)
 
             HomeImmersivePetHeaderContent(
                 name: pet.name,
@@ -68,25 +53,27 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     let assetName: String
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
+    private let foregroundFadeHeight: CGFloat = 168
 
     var body: some View {
         ZStack {
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: imageWidth, height: baseImageHeight)
-                .clipped()
-
-            LinearGradient(
-                stops: [
-                    Gradient.Stop(color: .black.opacity(0.02), location: 0.0),
-                    Gradient.Stop(color: .black.opacity(0.18), location: 0.46),
-                    Gradient.Stop(color: .black.opacity(0.72), location: 1.0)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
+            HomeImmersivePetHeaderForegroundImage(
+                assetName: assetName,
+                imageWidth: imageWidth,
+                imageHeight: baseImageHeight
             )
-            .frame(width: imageWidth, height: baseImageHeight)
+            .mask {
+                HomeImmersivePetHeaderForegroundFadeMask(
+                    width: imageWidth,
+                    height: baseImageHeight,
+                    fadeHeight: foregroundFadeHeight
+                )
+            }
+
+            HomeImmersivePetHeaderReadabilityGradient(
+                width: imageWidth,
+                height: baseImageHeight
+            )
         }
         .frame(width: imageWidth, height: baseImageHeight)
         .clipped()
@@ -99,6 +86,76 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 .scaleEffect(x: metrics.scale, y: metrics.scale, anchor: .bottom)
                 .offset(y: metrics.verticalOffset)
         }
+    }
+}
+
+// HomeImmersivePetHeaderForegroundImage 首页头图前景图片
+// 核心职责：
+// - 渲染顶部清晰宠物图
+// - 作为全屏模糊背景上的前景焦点层
+private struct HomeImmersivePetHeaderForegroundImage: View {
+    let assetName: String
+    let imageWidth: CGFloat
+    let imageHeight: CGFloat
+
+    var body: some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFill()
+            .frame(width: imageWidth, height: imageHeight)
+            .clipped()
+    }
+}
+
+// HomeImmersivePetHeaderForegroundFadeMask 首页头图前景淡出遮罩
+// 核心职责：
+// - 让清晰头图直接融入全屏模糊背景
+// - 避免头图和页面背景形成硬切换
+private struct HomeImmersivePetHeaderForegroundFadeMask: View {
+    let width: CGFloat
+    let height: CGFloat
+    let fadeHeight: CGFloat
+
+    var body: some View {
+        let fadeStart = max((height - fadeHeight) / max(height, 1), 0)
+
+        LinearGradient(
+            stops: [
+                Gradient.Stop(color: .white, location: 0),
+                Gradient.Stop(color: .white, location: fadeStart),
+                Gradient.Stop(color: .white.opacity(0.78), location: min(fadeStart + 0.14, 0.78)),
+                Gradient.Stop(color: .white.opacity(0.36), location: 0.88),
+                Gradient.Stop(color: .white.opacity(0.08), location: 0.96),
+                Gradient.Stop(color: .white.opacity(0), location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(width: width, height: height)
+    }
+}
+
+// HomeImmersivePetHeaderReadabilityGradient 首页头图文字可读渐变
+// 核心职责：
+// - 为宠物文字提供独立暗底
+// - 让暗底自身也平滑融入页面背景
+private struct HomeImmersivePetHeaderReadabilityGradient: View {
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        LinearGradient(
+            stops: [
+                Gradient.Stop(color: .black.opacity(0.02), location: 0.0),
+                Gradient.Stop(color: .black.opacity(0.12), location: 0.42),
+                Gradient.Stop(color: .black.opacity(0.48), location: 0.72),
+                Gradient.Stop(color: .black.opacity(0.34), location: 0.88),
+                Gradient.Stop(color: .black.opacity(0), location: 1.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(width: width, height: height)
     }
 }
 
@@ -131,9 +188,9 @@ private struct HomeImmersivePetHeaderStretchMetrics {
 
 // HomeImmersiveLocationButton 首页沉浸式位置按钮
 // 核心职责：
-// - 在沉浸式头图中展示当前位置
+// - 作为首页固定顶层操作展示当前位置
 // - 使用 Liquid Glass 承载自定义头部操作
-private struct HomeImmersiveLocationButton: View {
+struct HomeImmersiveLocationButton: View {
     let title: String
     let action: () -> Void
 

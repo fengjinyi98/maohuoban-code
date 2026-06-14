@@ -13,37 +13,40 @@ struct HomeDashboardLoadedView: View {
 
     var body: some View {
         let routingContext = HomeActionRoutingContext(snapshot: snapshot)
-        let backgroundAssetName = snapshot.selectedPet.map { $0.heroImageAssetName ?? "HomePetHeroMock" }
 
         GeometryReader { geometry in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                    if let selectedPet = snapshot.selectedPet {
-                        HomeImmersivePetHeaderSection(
-                            pet: selectedPet,
-                            locationTitle: locationTitle,
-                            onRefreshLocation: onRefreshLocation,
-                            width: geometry.size.width,
-                            topSafeAreaInset: geometry.safeAreaInsets.top
+            ZStack(alignment: .topLeading) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+                        if let selectedPet = snapshot.selectedPet {
+                            HomeImmersivePetHeaderSection(
+                                pet: selectedPet,
+                                width: geometry.size.width
+                            )
+                        }
+
+                        HomeDashboardContentSections(
+                            snapshot: snapshot,
+                            routingContext: routingContext,
+                            onSelectPet: onSelectPet,
+                            showsTopSpacing: snapshot.selectedPet == nil
                         )
                     }
-
-                    HomeDashboardContentSections(
-                        snapshot: snapshot,
-                        routingContext: routingContext,
-                        onSelectPet: onSelectPet,
-                        showsTopSpacing: snapshot.selectedPet == nil
-                    )
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("home.dashboard")
                 }
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("home.dashboard")
+                .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
+
+                if snapshot.selectedPet != nil {
+                    HomeImmersiveLocationButton(
+                        title: locationTitle,
+                        action: onRefreshLocation
+                    )
+                    .padding(.top, MHBTheme.Spacing.s1)
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                }
             }
-            .background {
-                HomeImageAverageGradientBackground(assetName: backgroundAssetName)
-                    .ignoresSafeArea()
-            }
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
+            .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         }
     }
 }

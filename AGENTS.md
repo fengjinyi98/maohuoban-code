@@ -16,6 +16,13 @@
 5. 多个 Liquid Glass 自定义控件同时出现时，使用 `GlassEffectContainer` 管理组合与性能；需要形态融合或转场时再配合 `glassEffectID` / `glassEffectTransition`。
 6. `glassEffect(_:in:)` 应放在影响控件外观和尺寸的 modifier 之后，例如 `frame`、`padding`、`font`、`foregroundStyle` 之后。
 
+### 1.3 自定义导航栏定位记录
+1. 自定义导航栏控件必须放在滚动内容外层的顶层 overlay 中，滚动头图只负责图片和正文展示，避免下拉缩放时带动导航按钮。
+2. 当 overlay 容器已经从系统 safe area 顶部开始布局时，顶部定位只追加视觉间距；禁止再次叠加 `safeAreaInsets.top`。
+3. iPhone 17 Pro / iOS 27 调试参考值：窗口 `safeArea.top` 约 59pt，状态栏 frame 高约 54pt；自定义头部按钮使用 `padding(.top, MHBTheme.Spacing.s1)` 可贴近系统 top bar 内容区。
+4. 沉浸式头图页面顶部若需要图片直达屏幕顶部，优先让头图自身扩展到 safe area；不要用全屏 UIKit blur 或额外材质背景垫在状态栏区域。
+5. `scrollEdgeEffectStyle(.soft, for: .top)` 会生成顶部 `ScrollEdgeEffectView`，可能造成状态栏区域泛白；沉浸式头图首屏默认不使用该效果。
+
 ## 2. 项目定位
 
 毛伙伴以宠物为主体。
