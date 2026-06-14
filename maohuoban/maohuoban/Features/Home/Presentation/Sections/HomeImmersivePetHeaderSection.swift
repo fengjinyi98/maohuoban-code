@@ -3,12 +3,14 @@ import MaohuobanDesignSystem
 
 // HomeImmersivePetHeaderLayout 首页沉浸式头图布局参数
 // 核心职责：
-// - 统一管理头图高度和实验性雾化范围
-// - 为取色、头图和背景融合保持同一套几何基准
+// - 统一管理头图高度、底部过渡和滚动缩放参数
+// - 为头图裁剪、融合和滚动响应保持同一套几何基准
 enum HomeImmersivePetHeaderLayout {
-    static let imageHeight: CGFloat = 360
-    static let fogCanvasHeight: CGFloat = 400
-    static let fogTopRatio: CGFloat = 0.70
+    nonisolated static let imageHeight: CGFloat = 500
+    nonisolated static let fogTopRatio: CGFloat = 0.79
+    nonisolated static let fogMaximumOpacity: CGFloat = 1
+    nonisolated static let upwardShrinkMaximumRatio: CGFloat = 0.10
+    nonisolated static let upwardShrinkSpeedMultiplier: CGFloat = 8
 }
 
 // HomeImmersivePetHeaderSection 首页沉浸式宠物头图
@@ -18,6 +20,7 @@ enum HomeImmersivePetHeaderLayout {
 struct HomeImmersivePetHeaderSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
     let width: CGFloat
+    let fusionColor: Color
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
 
@@ -28,7 +31,8 @@ struct HomeImmersivePetHeaderSection: View {
             HomeImmersivePetHeaderBackgroundLayer(
                 assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
                 imageWidth: imageWidth,
-                baseImageHeight: imageHeight
+                baseImageHeight: imageHeight,
+                fusionColor: fusionColor
             )
 
             HomeImmersivePetHeaderContent(
@@ -63,11 +67,16 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     let assetName: String
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
+    let fusionColor: Color
+
     private var foregroundFadeHeight: CGFloat {
         baseImageHeight * (1 - HomeImmersivePetHeaderLayout.fogTopRatio)
     }
 
     var body: some View {
+        let upwardShrinkMaximumRatio = HomeImmersivePetHeaderLayout.upwardShrinkMaximumRatio
+        let upwardShrinkSpeedMultiplier = HomeImmersivePetHeaderLayout.upwardShrinkSpeedMultiplier
+
         ZStack(alignment: .top) {
             HomeImmersivePetHeaderForegroundImage(
                 assetName: assetName,
@@ -82,6 +91,12 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 )
             }
 
+            HomeImmersivePetHeaderColorFogOverlay(
+                color: fusionColor,
+                width: imageWidth,
+                height: baseImageHeight
+            )
+
             HomeImmersivePetHeaderReadabilityGradient(
                 width: imageWidth,
                 height: baseImageHeight
@@ -91,7 +106,9 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
         .visualEffect { content, proxy in
             let metrics = HomeImmersivePetHeaderStretchMetrics.make(
                 frameMinY: proxy.frame(in: .scrollView).minY,
-                baseHeroHeight: baseImageHeight
+                baseHeroHeight: baseImageHeight,
+                upwardShrinkMaximumRatio: upwardShrinkMaximumRatio,
+                upwardShrinkSpeedMultiplier: upwardShrinkSpeedMultiplier
             )
             return content
                 .scaleEffect(x: metrics.scale, y: metrics.scale, anchor: .bottom)
@@ -100,10 +117,37 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     }
 }
 
+// HomeImmersivePetHeaderColorFogOverlay 首页头图同色雾化层
+// 核心职责：
+// - 使用目标背景色压入图片底部
+// - 强化头图与默认页面背景之间的自然融合
+private struct HomeImmersivePetHeaderColorFogOverlay: View {
+    let color: Color
+    let width: CGFloat
+    let height: CGFloat
+
+    var body: some View {
+        LinearGradient(
+            stops: [
+                Gradient.Stop(color: color.opacity(0), location: 0),
+                Gradient.Stop(color: color.opacity(0), location: HomeImmersivePetHeaderLayout.fogTopRatio),
+                Gradient.Stop(color: color.opacity(0.20), location: 0.83),
+                Gradient.Stop(color: color.opacity(0.46), location: 0.89),
+                Gradient.Stop(color: color.opacity(0.76), location: 0.95),
+                Gradient.Stop(color: color.opacity(HomeImmersivePetHeaderLayout.fogMaximumOpacity), location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(width: width, height: height)
+        .allowsHitTesting(false)
+    }
+}
+
 // HomeImmersivePetHeaderForegroundImage 首页头图前景图片
 // 核心职责：
 // - 渲染顶部清晰宠物图
-// - 作为提取色背景上的前景焦点层
+// - 作为默认背景上的前景焦点层
 private struct HomeImmersivePetHeaderForegroundImage: View {
     let assetName: String
     let imageWidth: CGFloat
@@ -120,7 +164,7 @@ private struct HomeImmersivePetHeaderForegroundImage: View {
 
 // HomeImmersivePetHeaderForegroundFadeMask 首页头图前景淡出遮罩
 // 核心职责：
-// - 让清晰头图直接融入提取色背景
+// - 让清晰头图直接融入目标背景色
 // - 避免头图和页面背景形成硬切换
 private struct HomeImmersivePetHeaderForegroundFadeMask: View {
     let width: CGFloat
@@ -134,9 +178,9 @@ private struct HomeImmersivePetHeaderForegroundFadeMask: View {
             stops: [
                 Gradient.Stop(color: .white, location: 0),
                 Gradient.Stop(color: .white, location: fadeStart),
-                Gradient.Stop(color: .white.opacity(0.78), location: min(fadeStart + 0.14, 0.78)),
-                Gradient.Stop(color: .white.opacity(0.36), location: 0.88),
-                Gradient.Stop(color: .white.opacity(0.08), location: 0.96),
+                Gradient.Stop(color: .white.opacity(0.78), location: 0.86),
+                Gradient.Stop(color: .white.opacity(0.36), location: 0.94),
+                Gradient.Stop(color: .white.opacity(0.08), location: 0.98),
                 Gradient.Stop(color: .white.opacity(0), location: 1)
             ],
             startPoint: .top,
@@ -149,7 +193,7 @@ private struct HomeImmersivePetHeaderForegroundFadeMask: View {
 // HomeImmersivePetHeaderReadabilityGradient 首页头图文字可读渐变
 // 核心职责：
 // - 为宠物文字提供独立暗底
-// - 避免干扰页面级同色雾化实验
+// - 降低头图明暗变化对文字可读性的影响
 private struct HomeImmersivePetHeaderReadabilityGradient: View {
     let width: CGFloat
     let height: CGFloat
@@ -172,25 +216,46 @@ private struct HomeImmersivePetHeaderReadabilityGradient: View {
 
 // HomeImmersivePetHeaderStretchMetrics 首页头图拉伸指标
 // 核心职责：
-// - 根据头图在滚动容器中的位置计算纯视觉拉伸参数
-// - 保持下拉拉伸不改变滚动内容布局高度
+// - 根据头图在滚动容器中的位置计算纯视觉缩放参数
+// - 让头图默认预放大并在上滑时有限收敛到正常填充尺寸
 private struct HomeImmersivePetHeaderStretchMetrics {
     let stretch: CGFloat
+    let upwardScroll: CGFloat
+    let upwardShrinkProgress: CGFloat
     let verticalOffset: CGFloat
     let scale: CGFloat
 
-    nonisolated static func make(frameMinY: CGFloat, baseHeroHeight: CGFloat) -> HomeImmersivePetHeaderStretchMetrics {
+    nonisolated static func make(
+        frameMinY: CGFloat,
+        baseHeroHeight: CGFloat,
+        upwardShrinkMaximumRatio: CGFloat,
+        upwardShrinkSpeedMultiplier: CGFloat
+    ) -> HomeImmersivePetHeaderStretchMetrics {
         let stretch = max(frameMinY, 0)
+        let upwardScroll = max(-frameMinY, 0)
+        let shrinkRatio = max(upwardShrinkMaximumRatio, 0)
+        let shrinkSpeedMultiplier = max(upwardShrinkSpeedMultiplier, 0)
+        let defaultScale = 1 + shrinkRatio
+        let upwardShrinkProgress: CGFloat
         let scale: CGFloat
 
         if baseHeroHeight > 0 {
-            scale = (baseHeroHeight + stretch) / baseHeroHeight
+            upwardShrinkProgress = min(upwardScroll / baseHeroHeight * shrinkSpeedMultiplier, 1)
+
+            if stretch > 0 {
+                scale = defaultScale + stretch / baseHeroHeight
+            } else {
+                scale = defaultScale - upwardShrinkProgress * shrinkRatio
+            }
         } else {
-            scale = 1
+            upwardShrinkProgress = 0
+            scale = defaultScale
         }
 
         return HomeImmersivePetHeaderStretchMetrics(
             stretch: stretch,
+            upwardScroll: upwardScroll,
+            upwardShrinkProgress: upwardShrinkProgress,
             verticalOffset: 0,
             scale: scale
         )
