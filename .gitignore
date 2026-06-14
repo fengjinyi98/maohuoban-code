@@ -26,3 +26,6 @@ references/projects/
 
 # Repository migration backups
 .repo-backups/
+
+# 设计稿等参考资源（外部管理，主仓库不跟踪）
+docs/resources/

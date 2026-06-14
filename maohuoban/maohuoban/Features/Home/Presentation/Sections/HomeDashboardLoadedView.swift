@@ -14,60 +14,83 @@ struct HomeDashboardLoadedView: View {
 
         ScrollView {
             LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                HomeIdentityHeader(identity: snapshot.identity)
-
-                if !snapshot.petSwitcher.isEmpty {
-                    HomePetSwitcherSection(
-                        items: snapshot.petSwitcher,
-                        onSelectPet: onSelectPet
-                    )
-                }
-
-                if let emptyState = snapshot.emptyState {
-                    HomeEmptyStateSection(
-                        emptyState: emptyState,
-                        recommendedContent: snapshot.recommendedContent,
-                        routingContext: routingContext
-                    )
-                }
-
                 if let selectedPet = snapshot.selectedPet {
-                    HomePetHeroSection(pet: selectedPet)
+                    HomeImmersivePetHeaderSection(pet: selectedPet)
                 }
 
-                if let careSummary = snapshot.careSummary {
-                    HomeCareSummarySection(
-                        summary: careSummary,
-                        reminders: snapshot.reminders,
-                        routingContext: routingContext
-                    )
-                }
-
-                if !snapshot.quickActions.isEmpty {
-                    HomeQuickActionsSection(
-                        actions: snapshot.quickActions,
-                        routingContext: routingContext
-                    )
-                }
-
-                if let partner = snapshot.partnerRecommendation {
-                    HomePartnerSection(partner: partner)
-                }
-
-                if !snapshot.recentTimeline.isEmpty {
-                    HomeTimelineSection(events: snapshot.recentTimeline)
-                }
-
-                if let merchantDashboard = snapshot.merchantDashboard {
-                    HomeMerchantDashboardSection(summary: merchantDashboard)
-                }
+                HomeDashboardContentSections(
+                    snapshot: snapshot,
+                    routingContext: routingContext,
+                    onSelectPet: onSelectPet,
+                    showsTopSpacing: snapshot.selectedPet == nil
+                )
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.vertical, MHBTheme.Spacing.s4)
             .accessibilityIdentifier("home.dashboard")
         }
         .background(MHBTheme.ColorToken.background.color)
         .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+}
+
+// HomeDashboardContentSections 首页普通内容区
+// 核心职责：
+// - 组合沉浸式头图以外的首页业务模块
+// - 统一维护普通 section 的页面边距
+private struct HomeDashboardContentSections: View {
+    let snapshot: HomeDashboardSnapshot
+    let routingContext: HomeActionRoutingContext
+    let onSelectPet: (String) -> Void
+    let showsTopSpacing: Bool
+
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+            HomeIdentityHeader(identity: snapshot.identity)
+
+            if !snapshot.petSwitcher.isEmpty {
+                HomePetSwitcherSection(
+                    items: snapshot.petSwitcher,
+                    onSelectPet: onSelectPet
+                )
+            }
+
+            if let emptyState = snapshot.emptyState {
+                HomeEmptyStateSection(
+                    emptyState: emptyState,
+                    recommendedContent: snapshot.recommendedContent,
+                    routingContext: routingContext
+                )
+            }
+
+            if let careSummary = snapshot.careSummary {
+                HomeCareSummarySection(
+                    summary: careSummary,
+                    reminders: snapshot.reminders,
+                    routingContext: routingContext
+                )
+            }
+
+            if !snapshot.quickActions.isEmpty {
+                HomeQuickActionsSection(
+                    actions: snapshot.quickActions,
+                    routingContext: routingContext
+                )
+            }
+
+            if let partner = snapshot.partnerRecommendation {
+                HomePartnerSection(partner: partner)
+            }
+
+            if !snapshot.recentTimeline.isEmpty {
+                HomeTimelineSection(events: snapshot.recentTimeline)
+            }
+
+            if let merchantDashboard = snapshot.merchantDashboard {
+                HomeMerchantDashboardSection(summary: merchantDashboard)
+            }
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .padding(.top, showsTopSpacing ? MHBTheme.Spacing.s4 : 0)
+        .padding(.bottom, MHBTheme.Spacing.s4)
     }
 }
 

@@ -141,7 +141,8 @@ extension HomeDashboardSnapshot {
                     ageText: "2岁",
                     statusText: "记录正在形成可信档案",
                     updatedText: "档案已同步",
-                    avatarURL: nil
+                    avatarURL: nil,
+                    heroImageAssetName: "HomePetHeroMock"
                 )
             },
             petSwitcher: [],

@@ -281,7 +281,8 @@ enum HomeMockDashboardFixtures {
                 ageText: "1岁 4个月",
                 statusText: "近期食欲稳定，夜间活动偏多",
                 updatedText: "3 条事件已同步",
-                avatarURL: nil
+                avatarURL: nil,
+                heroImageAssetName: "HomePetHeroMock"
             )
         default:
             HomeDashboardSnapshot.PetHeroSummary(
@@ -293,7 +294,8 @@ enum HomeMockDashboardFixtures {
                 ageText: "2岁",
                 statusText: "记录正在形成可信档案",
                 updatedText: "档案已同步",
-                avatarURL: nil
+                avatarURL: nil,
+                heroImageAssetName: "HomePetHeroMock"
             )
         }
     }

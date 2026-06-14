@@ -77,6 +77,7 @@ extension HomeDashboardSnapshot {
         let statusText: String
         let updatedText: String
         let avatarURL: String?
+        let heroImageAssetName: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -88,6 +89,7 @@ extension HomeDashboardSnapshot {
             case statusText = "status_text"
             case updatedText = "updated_text"
             case avatarURL = "avatar_url"
+            case heroImageAssetName = "hero_image_asset_name"
         }
     }
 
@@ -131,4 +133,3 @@ extension HomeDashboardSnapshot {
         }
     }
 }
-
