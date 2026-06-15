@@ -15,6 +15,7 @@ struct HomeDashboardLoadedView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var baseThemeColor: Color = MHBTheme.ColorToken.background.color
     @State private var isQuickActionsPanelPresented = false
+    @State private var localColorScheme: ColorScheme = .light
 
     private var scrollProgress: CGFloat {
         let threshold: CGFloat = 300
@@ -102,16 +103,18 @@ struct HomeDashboardLoadedView: View {
         .onChange(of: snapshot.selectedPet?.id) { _, _ in
             updateThemeColor()
         }
+        .environment(\.colorScheme, localColorScheme)
+        .toolbarColorScheme(localColorScheme, for: .tabBar)
     }
 
     private func updateThemeColor() {
         guard let pet = snapshot.selectedPet else {
-            baseThemeColor = MHBTheme.ColorToken.background.color
+            applyFallbackThemeColor()
             return
         }
         let assetName = pet.heroImageAssetName ?? "HomePetHeroMock"
         guard let image = UIImage(named: assetName) else {
-            baseThemeColor = MHBTheme.ColorToken.background.color
+            applyFallbackThemeColor()
             return
         }
 
@@ -122,9 +125,53 @@ struct HomeDashboardLoadedView: View {
 
         if let extracted {
             baseThemeColor = Color(uiColor: extracted)
+            localColorScheme = Self.localColorScheme(for: extracted, current: localColorScheme)
         } else {
-            baseThemeColor = MHBTheme.ColorToken.background.color
+            applyFallbackThemeColor()
         }
+    }
+
+    private func applyFallbackThemeColor() {
+        baseThemeColor = MHBTheme.ColorToken.background.color
+        localColorScheme = .light
+    }
+
+    private static func localColorScheme(for color: UIColor, current: ColorScheme) -> ColorScheme {
+        let luminance = relativeLuminance(of: color)
+
+        switch current {
+        case .dark:
+            return luminance > 0.46 ? .light : .dark
+        case .light:
+            return luminance < 0.38 ? .dark : .light
+        @unknown default:
+            return luminance < 0.42 ? .dark : .light
+        }
+    }
+
+    private static func relativeLuminance(of color: UIColor) -> CGFloat {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return 1
+        }
+
+        let linearRed = linearizedSRGBComponent(red)
+        let linearGreen = linearizedSRGBComponent(green)
+        let linearBlue = linearizedSRGBComponent(blue)
+
+        return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue
+    }
+
+    private static func linearizedSRGBComponent(_ component: CGFloat) -> CGFloat {
+        if component <= 0.03928 {
+            return component / 12.92
+        }
+
+        return pow((component + 0.055) / 1.055, 2.4)
     }
 }
 
