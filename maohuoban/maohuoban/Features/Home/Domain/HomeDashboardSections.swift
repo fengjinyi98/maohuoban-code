@@ -46,6 +46,7 @@ extension HomeDashboardSnapshot {
         let title: String
         let subtitle: String
         let dueText: String
+        let remarks: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -53,6 +54,7 @@ extension HomeDashboardSnapshot {
             case title
             case subtitle
             case dueText = "due_text"
+            case remarks
         }
 
         enum Kind: String, Decodable, Equatable {
@@ -96,6 +98,7 @@ extension HomeDashboardSnapshot {
         let title: String
         let subtitle: String
         let distanceText: String?
+        let sex: Sex?
 
         enum CodingKeys: String, CodingKey {
             case petID = "pet_id"
@@ -104,6 +107,7 @@ extension HomeDashboardSnapshot {
             case title
             case subtitle
             case distanceText = "distance_text"
+            case sex
         }
 
         enum RelationshipKind: String, Decodable, Equatable {
@@ -141,6 +145,42 @@ extension HomeDashboardSnapshot {
             case deworming
             case health
             case merchant
+        }
+    }
+
+    // PetAlbumItem 宠物相册 (UGC) 相册项
+    // 核心职责：
+    // - 表达用户发布的、关联宠物的 UGC 相册内容
+    // - 驱动首页“专辑”横滑列表渲染
+    struct PetAlbumItem: Decodable, Equatable, Identifiable {
+        let id: String
+        let title: String
+        let dateText: String
+        let coverImageAssetName: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case title
+            case dateText = "date_text"
+            case coverImageAssetName = "cover_image_asset_name"
+        }
+    }
+
+    // PetGalleryAlbum 宠物精选相册
+    // 核心职责：
+    // - 表达用户创建的、用于分类整理照片的精选相册
+    // - 驱动首页“相册”横滑列表渲染
+    struct PetGalleryAlbum: Decodable, Equatable, Identifiable {
+        let id: String
+        let title: String
+        let dateText: String
+        let coverImageAssetName: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case title
+            case dateText = "date_text"
+            case coverImageAssetName = "cover_image_asset_name"
         }
     }
 }

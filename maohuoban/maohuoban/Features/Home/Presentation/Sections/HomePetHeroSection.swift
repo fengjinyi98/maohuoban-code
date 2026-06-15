@@ -9,47 +9,53 @@ struct HomePetHeroSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
 
     var body: some View {
-        HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
-            // 左侧：核心指标与动态信息
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                Text("\(pet.ageText) · \(pet.breed)")
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.mock
 
-                Text(pet.statusText)
-                    .font(MHBTheme.Typography.headline)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .center, spacing: 0) {
+            // 1. 体重
+            HomePetHeroStatColumn(
+                title: "体重",
+                value: stats.weightVal,
+                unit: "kg",
+                subtitle: stats.weightChange
+            )
+            .padding(.leading, MHBTheme.Spacing.s1)
 
-                Text(pet.updatedText)
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-            }
+            separator
 
-            Spacer()
+            // 2. 已记录
+            HomePetHeroStatColumn(
+                title: "已记录",
+                value: "\(stats.recordDays)",
+                unit: "天",
+                subtitle: stats.recordStreakText
+            )
+            .padding(.leading, MHBTheme.Spacing.s3)
 
-            // 右侧：查看档案操作入口
-            HStack(spacing: MHBTheme.Spacing.s1) {
-                Text("查看档案")
-                    .font(MHBTheme.Typography.footnote)
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 14))
-            }
-            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-            .padding(.horizontal, MHBTheme.Spacing.s3)
-            .padding(.vertical, MHBTheme.Spacing.s2)
-            .background {
-                Capsule()
-                    .fill(MHBTheme.ColorToken.primaryBackground.color)
-            }
-            .overlay {
-                Capsule()
-                    .stroke(MHBTheme.ColorToken.primary.color.opacity(0.3), lineWidth: 1)
-            }
+            separator
+
+            // 3. 距疫苗
+            HomePetHeroStatColumn(
+                title: "距疫苗",
+                value: "\(stats.vaccineDaysLeft)",
+                unit: "天",
+                subtitle: stats.vaccineDate
+            )
+            .padding(.leading, MHBTheme.Spacing.s3)
+
+            separator
+
+            // 4. 距驱虫
+            HomePetHeroStatColumn(
+                title: "距驱虫",
+                value: "\(stats.dewormingDaysLeft)",
+                unit: "天",
+                subtitle: stats.dewormingDate
+            )
+            .padding(.leading, MHBTheme.Spacing.s3)
         }
-        .padding(MHBTheme.Spacing.s4)
-        .frame(height: 110) // 较之前的 160 高度更加紧凑，匹配无头像卡片比例
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .frame(height: 110)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
         .overlay {
@@ -58,5 +64,44 @@ struct HomePetHeroSection: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.petHeroCard")
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.12))
+            .frame(width: 0.5, height: 48)
+    }
+}
+
+// HomePetHeroStatColumn 单个指标列组件
+private struct HomePetHeroStatColumn: View {
+    let title: String
+    let value: String
+    let unit: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+            Text(title)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text(unit)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+
+            Text(subtitle)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.white.opacity(0.5))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

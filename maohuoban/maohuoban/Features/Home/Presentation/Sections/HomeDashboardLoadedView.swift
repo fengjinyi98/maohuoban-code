@@ -82,20 +82,43 @@ private struct HomeDashboardContentSections: View {
                         onSelectPet: onSelectPet
                     )
                 }
+            } else {
+                // 当有选中宠物时，时间线显示在第一个卡片的下方
+                if !snapshot.recentTimeline.isEmpty {
+                    HomeTimelineSection(events: snapshot.recentTimeline)
+                }
+
+                // 时间线下方增加“今日伙伴”推荐模块
+                if let partner = snapshot.partnerRecommendation {
+                    HomePartnerSection(partner: partner)
+                }
+                
+                // 时间线下方增加“近期提醒”模块
+                if !snapshot.reminders.isEmpty {
+                    HomeRemindersSection(
+                        reminders: snapshot.reminders,
+                        routingContext: routingContext
+                    )
+                }
+
+                // 近期提醒下方增加“专辑”模块
+                if let albums = snapshot.petAlbums, !albums.isEmpty {
+                    HomePetAlbumsSection(
+                        albums: albums,
+                        petName: snapshot.selectedPet?.name
+                    )
+                }
+
+                // 专辑下方增加“相册”模块
+                if let gallery = snapshot.galleryAlbums, !gallery.isEmpty {
+                    HomePetGallerySection(albums: gallery)
+                }
             }
 
             if let emptyState = snapshot.emptyState {
                 HomeEmptyStateSection(
                     emptyState: emptyState,
                     recommendedContent: snapshot.recommendedContent,
-                    routingContext: routingContext
-                )
-            }
-
-            if let careSummary = snapshot.careSummary {
-                HomeCareSummarySection(
-                    summary: careSummary,
-                    reminders: snapshot.reminders,
                     routingContext: routingContext
                 )
             }
@@ -107,11 +130,8 @@ private struct HomeDashboardContentSections: View {
                 )
             }
 
-            if let partner = snapshot.partnerRecommendation {
-                HomePartnerSection(partner: partner)
-            }
-
-            if !snapshot.recentTimeline.isEmpty {
+            // 当没有选中宠物时，时间线显示在原位置（底部）
+            if snapshot.selectedPet == nil && !snapshot.recentTimeline.isEmpty {
                 HomeTimelineSection(events: snapshot.recentTimeline)
             }
 

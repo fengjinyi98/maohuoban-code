@@ -16,6 +16,8 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let merchantDashboard: MerchantDashboardSummary?
     let emptyState: EmptyState?
     let recommendedContent: [RecommendedContent]
+    let petAlbums: [PetAlbumItem]?
+    let galleryAlbums: [PetGalleryAlbum]?
 
     enum CodingKeys: String, CodingKey {
         case identity
@@ -29,6 +31,8 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case merchantDashboard = "merchant_dashboard"
         case emptyState = "empty_state"
         case recommendedContent = "recommended_content"
+        case petAlbums = "pet_albums"
+        case galleryAlbums = "gallery_albums"
     }
 }
 
@@ -82,6 +86,7 @@ extension HomeDashboardSnapshot {
         let heroImageAssetName: String?
         let birthday: String?
         let companionshipDays: Int?
+        let stats: PetHeroStats?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -96,7 +101,42 @@ extension HomeDashboardSnapshot {
             case heroImageAssetName = "hero_image_asset_name"
             case birthday
             case companionshipDays = "companionship_days"
+            case stats
         }
+    }
+
+    // PetHeroStats 宠物主卡核心指标 (Mock 数据支持)
+    struct PetHeroStats: Decodable, Equatable {
+        let weightVal: String
+        let weightChange: String
+        let recordDays: Int
+        let recordStreakText: String
+        let vaccineDaysLeft: Int
+        let vaccineDate: String
+        let dewormingDaysLeft: Int
+        let dewormingDate: String
+
+        enum CodingKeys: String, CodingKey {
+            case weightVal = "weight_val"
+            case weightChange = "weight_change"
+            case recordDays = "record_days"
+            case recordStreakText = "record_streak_text"
+            case vaccineDaysLeft = "vaccine_days_left"
+            case vaccineDate = "vaccine_date"
+            case dewormingDaysLeft = "deworming_days_left"
+            case dewormingDate = "deworming_date"
+        }
+
+        static let mock = PetHeroStats(
+            weightVal: "3.6",
+            weightChange: "较上周 +0.2",
+            recordDays: 27,
+            recordStreakText: "连续记录",
+            vaccineDaysLeft: 14,
+            vaccineDate: "2026.06.08",
+            dewormingDaysLeft: 3,
+            dewormingDate: "2026.05.28"
+        )
     }
 
     // Species 宠物物种
