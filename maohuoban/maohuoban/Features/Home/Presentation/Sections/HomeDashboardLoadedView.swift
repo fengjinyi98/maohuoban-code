@@ -14,6 +14,7 @@ struct HomeDashboardLoadedView: View {
 
     @State private var scrollOffset: CGFloat = 0
     @State private var baseThemeColor: Color = MHBTheme.ColorToken.background.color
+    @State private var isQuickActionsPanelPresented = false
 
     private var scrollProgress: CGFloat {
         let threshold: CGFloat = 300
@@ -81,6 +82,17 @@ struct HomeDashboardLoadedView: View {
                     )
                     .padding(.top, MHBTheme.Spacing.s1)
                     .padding(.horizontal, MHBTheme.Spacing.s4)
+                }
+
+                if !snapshot.quickActions.isEmpty {
+                    HomeQuickActionsFloatingMenu(
+                        actions: snapshot.quickActions,
+                        routingContext: routingContext,
+                        isPresented: $isQuickActionsPanelPresented
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, MHBTheme.Spacing.s4)
+                    .padding(.bottom, MHBTheme.Spacing.s6)
                 }
             }
         }
@@ -174,13 +186,6 @@ private struct HomeDashboardContentSections: View {
                 HomeEmptyStateSection(
                     emptyState: emptyState,
                     recommendedContent: snapshot.recommendedContent,
-                    routingContext: routingContext
-                )
-            }
-
-            if !snapshot.quickActions.isEmpty {
-                HomeQuickActionsSection(
-                    actions: snapshot.quickActions,
                     routingContext: routingContext
                 )
             }
