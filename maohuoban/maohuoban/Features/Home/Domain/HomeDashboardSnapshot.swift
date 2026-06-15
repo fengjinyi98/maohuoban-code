@@ -42,12 +42,14 @@ extension HomeDashboardSnapshot {
         let displayName: String
         let city: String?
         let verificationBadge: String?
+        let avatarURL: String?
 
         enum CodingKeys: String, CodingKey {
             case kind
             case displayName = "display_name"
             case city
             case verificationBadge = "verification_badge"
+            case avatarURL = "avatar_url"
         }
     }
 

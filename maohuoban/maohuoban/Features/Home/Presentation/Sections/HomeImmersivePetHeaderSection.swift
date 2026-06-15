@@ -262,11 +262,45 @@ private struct HomeImmersivePetHeaderStretchMetrics {
     }
 }
 
+// HomeImmersiveHeaderControls 首页沉浸式头部操作区
+// 核心职责：
+// - 在系统导航栏位置承载位置与用户入口
+// - 使用 Liquid Glass 统一管理自定义头部控件
+struct HomeImmersiveHeaderControls: View {
+    let title: String
+    let avatarURL: String?
+    let displayName: String
+    let onRefreshLocation: () -> Void
+    let onOpenProfile: () -> Void
+
+    var body: some View {
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
+                HomeImmersiveLocationButton(
+                    title: title,
+                    action: onRefreshLocation
+                )
+                .layoutPriority(1)
+
+                Spacer(minLength: MHBTheme.Spacing.s3)
+
+                HomeImmersiveUserAvatarButton(
+                    avatarURL: avatarURL,
+                    fallbackAssetName: "HomeUserAvatarMock",
+                    displayName: displayName,
+                    action: onOpenProfile
+                )
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
 // HomeImmersiveLocationButton 首页沉浸式位置按钮
 // 核心职责：
 // - 作为首页固定顶层操作展示当前位置
 // - 使用 Liquid Glass 承载自定义头部操作
-struct HomeImmersiveLocationButton: View {
+private struct HomeImmersiveLocationButton: View {
     let title: String
     let action: () -> Void
 
@@ -282,7 +316,8 @@ struct HomeImmersiveLocationButton: View {
                 Text(title)
                     .font(MHBTheme.Typography.headline)
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .truncationMode(.tail)
+                    .minimumScaleFactor(0.82)
                     .layoutPriority(1)
 
                 Image(systemName: "chevron.down")
@@ -300,6 +335,91 @@ struct HomeImmersiveLocationButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("切换位置，\(title)")
         .accessibilityIdentifier("home.locationHeaderButton")
+    }
+}
+
+// HomeImmersiveUserAvatarButton 首页沉浸式用户头像按钮
+// 核心职责：
+// - 展示当前登录用户头像入口
+// - 将点击事件转发给上层导航协调器
+private struct HomeImmersiveUserAvatarButton: View {
+    let avatarURL: String?
+    let fallbackAssetName: String
+    let displayName: String
+    let action: () -> Void
+
+    private let size: CGFloat = 44
+
+    var body: some View {
+        Button(action: action) {
+            // Inner Avatar with glass margin
+            HomeImmersiveUserAvatarImage(
+                avatarURL: avatarURL,
+                fallbackAssetName: fallbackAssetName
+            )
+            .frame(width: 36, height: 36)
+            .clipShape(Circle())
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.4), lineWidth: 1)
+            }
+            .padding(4) // Creates the glass ring spacing
+            .background {
+                Color.black.opacity(0.12)
+                    .clipShape(Circle())
+            }
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.8), lineWidth: 1.5)
+            }
+            .contentShape(Circle())
+            .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("打开我的主页，\(displayName)")
+        .accessibilityIdentifier("home.userAvatarButton")
+    }
+}
+
+// HomeImmersiveUserAvatarImage 首页用户头像图片
+// 核心职责：
+// - 优先渲染远端头像
+// - 在头像缺失或加载失败时使用本地 mock 资源兜底
+private struct HomeImmersiveUserAvatarImage: View {
+    let avatarURL: String?
+    let fallbackAssetName: String
+
+    var body: some View {
+        if let url = resolvedURL {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .empty, .failure:
+                    Image(fallbackAssetName)
+                        .resizable()
+                        .scaledToFill()
+                @unknown default:
+                    Image(fallbackAssetName)
+                        .resizable()
+                        .scaledToFill()
+                }
+            }
+        } else {
+            Image(fallbackAssetName)
+                .resizable()
+                .scaledToFill()
+        }
+    }
+
+    private var resolvedURL: URL? {
+        guard let avatarURL, avatarURL.isEmpty == false else {
+            return nil
+        }
+
+        return URL(string: avatarURL)
     }
 }
 

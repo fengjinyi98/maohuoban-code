@@ -9,6 +9,7 @@ struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
     let locationTitle: String
     let onRefreshLocation: () -> Void
+    let onOpenProfile: () -> Void
     let onSelectPet: (String) -> Void
 
     var body: some View {
@@ -44,9 +45,12 @@ struct HomeDashboardLoadedView: View {
                 .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
 
                 if snapshot.selectedPet != nil {
-                    HomeImmersiveLocationButton(
+                    HomeImmersiveHeaderControls(
                         title: locationTitle,
-                        action: onRefreshLocation
+                        avatarURL: snapshot.identity.avatarURL,
+                        displayName: snapshot.identity.displayName,
+                        onRefreshLocation: onRefreshLocation,
+                        onOpenProfile: onOpenProfile
                     )
                     .padding(.top, MHBTheme.Spacing.s1)
                     .padding(.horizontal, MHBTheme.Spacing.s4)

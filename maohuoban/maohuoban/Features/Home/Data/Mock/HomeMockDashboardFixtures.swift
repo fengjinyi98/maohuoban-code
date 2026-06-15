@@ -28,7 +28,8 @@ enum HomeMockDashboardFixtures {
                 kind: .petOwner,
                 displayName: "毛伙伴用户",
                 city: "上海",
-                verificationBadge: nil
+                verificationBadge: nil,
+                avatarURL: nil
             ),
             selectedPet: heroSummary(for: selectedPet.id),
             petSwitcher: pets,
@@ -115,7 +116,8 @@ enum HomeMockDashboardFixtures {
                 kind: .newUser,
                 displayName: "新毛伙伴",
                 city: "上海",
-                verificationBadge: nil
+                verificationBadge: nil,
+                avatarURL: nil
             ),
             selectedPet: nil,
             petSwitcher: [],
@@ -169,7 +171,8 @@ enum HomeMockDashboardFixtures {
                 kind: .certifiedMerchant,
                 displayName: "梧桐猫舍",
                 city: "成都",
-                verificationBadge: "已认证"
+                verificationBadge: "已认证",
+                avatarURL: nil
             ),
             selectedPet: nil,
             petSwitcher: [],
