@@ -80,6 +80,8 @@ extension HomeDashboardSnapshot {
         let updatedText: String
         let avatarURL: String?
         let heroImageAssetName: String?
+        let birthday: String?
+        let companionshipDays: Int?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -92,6 +94,8 @@ extension HomeDashboardSnapshot {
             case updatedText = "updated_text"
             case avatarURL = "avatar_url"
             case heroImageAssetName = "hero_image_asset_name"
+            case birthday
+            case companionshipDays = "companionship_days"
         }
     }
 

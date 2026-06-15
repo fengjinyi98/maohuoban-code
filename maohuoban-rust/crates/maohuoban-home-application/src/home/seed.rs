@@ -35,6 +35,8 @@ pub fn pet_owner_home_snapshot() -> HomeDashboardSnapshot {
             status_text: "今天精神很好".to_owned(),
             updated_text: "10 分钟前更新".to_owned(),
             avatar_url: None,
+            birthday: Some(chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap()),
+            companionship_days: Some(365),
         }),
         pet_switcher: vec![PetSwitchItem {
             id: seed_uuid("b4e47d94-9b31-4e91-9c20-51052d342d7b"),

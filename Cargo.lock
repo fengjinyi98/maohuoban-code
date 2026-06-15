@@ -1229,6 +1229,7 @@ name = "maohuoban-home-application"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "maohuoban-home-domain",
  "thiserror",
  "tokio",
@@ -1239,6 +1240,7 @@ dependencies = [
 name = "maohuoban-home-domain"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "uuid",
 ]

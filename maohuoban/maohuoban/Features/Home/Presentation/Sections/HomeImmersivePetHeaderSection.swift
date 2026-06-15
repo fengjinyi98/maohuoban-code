@@ -19,6 +19,7 @@ enum HomeImmersivePetHeaderLayout {
 // - 让首页根视图保持装载职责
 struct HomeImmersivePetHeaderSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
+    let displayName: String
     let width: CGFloat
     let fusionColor: Color
 
@@ -35,27 +36,67 @@ struct HomeImmersivePetHeaderSection: View {
                 fusionColor: fusionColor
             )
 
-            HomeImmersivePetHeaderContent(
-                name: pet.name,
-                breedText: "\(pet.ageText) · \(pet.breed)",
-                statusText: pet.statusText,
-                updatedText: pet.updatedText,
-                sexText: sexText
-            )
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.bottom, MHBTheme.Spacing.s6)
+            VStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
+                Spacer()
+
+                VStack(alignment: .center, spacing: MHBTheme.Spacing.s2) {
+                    // 居中宠物姓名（大字重圆体，风格对齐截图中的“孙燕姿”）
+                    Text(pet.name)
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.center)
+                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+
+                    // 陪伴数据副标题
+                    Text(companionshipText)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                }
+
+                HomePetHeroSection(pet: pet)
+            }
+            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.bottom, MHBTheme.Spacing.s4)
         }
         .frame(width: imageWidth, height: imageHeight)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home.immersivePetHeader")
     }
 
-    private var sexText: LocalizedStringResource {
-        switch pet.sex {
-        case .female: "妹妹"
-        case .male: "弟弟"
-        case .unknown: "未知"
-        }
+    private var companionshipText: String {
+        let name = pet.name
+        let bday = pet.birthday ?? "2024-04-01"
+        let todayText = formattedToday()
+        
+        // 计算来到世界的天数
+        let worldDays = daysSinceBirthday(bday) ?? 0
+        
+        let companionDays = pet.companionshipDays ?? 365
+        
+        return "\(todayText)。是\(name)来到世界的\(worldDays)天。已经陪伴了\(displayName)\(companionDays)天"
+    }
+
+    private func formattedToday() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yy.MM.dd"
+        return formatter.string(from: Date())
+    }
+
+    private func daysSinceBirthday(_ birthdayStr: String) -> Int? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        guard let birthDate = formatter.date(from: birthdayStr) else { return nil }
+        
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let birthToday = calendar.startOfDay(for: birthDate)
+        
+        let components = calendar.dateComponents([.day], from: birthToday, to: today)
+        return components.day
     }
 }
 
@@ -352,28 +393,21 @@ private struct HomeImmersiveUserAvatarButton: View {
 
     var body: some View {
         Button(action: action) {
-            // Inner Avatar with glass margin
             HomeImmersiveUserAvatarImage(
                 avatarURL: avatarURL,
                 fallbackAssetName: fallbackAssetName
             )
-            .frame(width: 36, height: 36)
+            .frame(width: size, height: size)
+            .background {
+                Circle()
+                    .fill(MHBTheme.ColorToken.primaryBackground.color)
+            }
             .clipShape(Circle())
             .overlay {
                 Circle()
-                    .stroke(.white.opacity(0.4), lineWidth: 1)
-            }
-            .padding(4) // Creates the glass ring spacing
-            .background {
-                Color.black.opacity(0.12)
-                    .clipShape(Circle())
-            }
-            .overlay {
-                Circle()
-                    .stroke(.white.opacity(0.8), lineWidth: 1.5)
+                    .stroke(MHBTheme.ColorToken.primary.color, lineWidth: 2)
             }
             .contentShape(Circle())
-            .glassEffect(.regular.interactive(), in: .circle)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("打开我的主页，\(displayName)")
@@ -423,56 +457,4 @@ private struct HomeImmersiveUserAvatarImage: View {
     }
 }
 
-// HomeImmersivePetHeaderContent 宠物头图文字层
-// 核心职责：
-// - 展示宠物名称、基础信息和档案状态
-// - 保持头图图片层与文字层职责分离
-private struct HomeImmersivePetHeaderContent: View {
-    let name: String
-    let breedText: String
-    let statusText: String
-    let updatedText: String
-    let sexText: LocalizedStringResource
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
-                Text(name)
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-
-                Text(sexText)
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, MHBTheme.Spacing.s2)
-                    .padding(.vertical, MHBTheme.Spacing.s1)
-                    .background {
-                        Color.black.opacity(0.18)
-                            .clipShape(Capsule())
-                    }
-                    .glassEffect(.clear.interactive(false), in: .capsule)
-            }
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                Text(breedText)
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(.white.opacity(0.86))
-                    .lineLimit(1)
-
-                Text(statusText)
-                    .font(MHBTheme.Typography.headline)
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(updatedText)
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}

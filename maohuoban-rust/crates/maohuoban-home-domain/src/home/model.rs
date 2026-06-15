@@ -61,6 +61,8 @@ pub struct PetHeroSummary {
     pub status_text: String,
     pub updated_text: String,
     pub avatar_url: Option<String>,
+    pub birthday: Option<chrono::NaiveDate>,
+    pub companionship_days: Option<i32>,
 }
 
 /// PetSpecies 宠物物种

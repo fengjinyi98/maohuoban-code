@@ -202,6 +202,11 @@ fn selected_pet(pets: &[PetProfile], selected_pet_id: Option<Uuid>) -> Option<&P
 }
 
 fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
+    let days_since_created = (Utc::now().date_naive() - pet.created_at.date_naive())
+        .num_days()
+        .max(0);
+    let companionship_days = Some(i32::try_from(days_since_created).unwrap_or(i32::MAX));
+
     PetHeroSummary {
         id: pet.id,
         name: pet.name.clone(),
@@ -212,6 +217,8 @@ fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
         status_text: "记录正在形成可信档案".to_owned(),
         updated_text: "档案已同步".to_owned(),
         avatar_url: None,
+        birthday: pet.birthday,
+        companionship_days,
     }
 }
 

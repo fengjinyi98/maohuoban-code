@@ -27,6 +27,7 @@ struct HomeDashboardLoadedView: View {
                         if let selectedPet = snapshot.selectedPet {
                             HomeImmersivePetHeaderSection(
                                 pet: selectedPet,
+                                displayName: snapshot.identity.displayName,
                                 width: heroImageWidth,
                                 fusionColor: MHBTheme.ColorToken.background.color
                             )
@@ -72,13 +73,15 @@ private struct HomeDashboardContentSections: View {
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-            HomeIdentityHeader(identity: snapshot.identity)
+            if snapshot.selectedPet == nil {
+                HomeIdentityHeader(identity: snapshot.identity)
 
-            if !snapshot.petSwitcher.isEmpty {
-                HomePetSwitcherSection(
-                    items: snapshot.petSwitcher,
-                    onSelectPet: onSelectPet
-                )
+                if !snapshot.petSwitcher.isEmpty {
+                    HomePetSwitcherSection(
+                        items: snapshot.petSwitcher,
+                        onSelectPet: onSelectPet
+                    )
+                }
             }
 
             if let emptyState = snapshot.emptyState {

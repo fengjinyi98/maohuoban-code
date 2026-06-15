@@ -285,7 +285,9 @@ enum HomeMockDashboardFixtures {
                 statusText: "近期食欲稳定，夜间活动偏多",
                 updatedText: "3 条事件已同步",
                 avatarURL: nil,
-                heroImageAssetName: "HomePetHeroMock"
+                heroImageAssetName: "HomePetHeroMock",
+                birthday: "2025-02-18",
+                companionshipDays: 120
             )
         default:
             HomeDashboardSnapshot.PetHeroSummary(
@@ -298,7 +300,9 @@ enum HomeMockDashboardFixtures {
                 statusText: "记录正在形成可信档案",
                 updatedText: "档案已同步",
                 avatarURL: nil,
-                heroImageAssetName: "HomePetHeroMock"
+                heroImageAssetName: "HomePetHeroMock",
+                birthday: "2024-04-01",
+                companionshipDays: 365
             )
         }
     }
