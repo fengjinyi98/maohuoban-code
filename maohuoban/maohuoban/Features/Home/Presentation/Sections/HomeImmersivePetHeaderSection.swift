@@ -7,8 +7,7 @@ import MaohuobanDesignSystem
 // - 为头图裁剪、融合和滚动响应保持同一套几何基准
 enum HomeImmersivePetHeaderLayout {
     nonisolated static let imageHeight: CGFloat = 500
-    nonisolated static let fogTopRatio: CGFloat = 0.79
-    nonisolated static let fogMaximumOpacity: CGFloat = 1
+    nonisolated static let colorFogTopRatio: CGFloat = 0.70
     nonisolated static let upwardShrinkMaximumRatio: CGFloat = 0.10
     nonisolated static let upwardShrinkSpeedMultiplier: CGFloat = 8
 }
@@ -28,11 +27,12 @@ struct HomeImmersivePetHeaderSection: View {
     var body: some View {
         let imageWidth = max(width, 1)
 
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .top) {
+            // 背景层独立控制在内容上方，避免软色场扩散到下方业务列表
             HomeImmersivePetHeaderBackgroundLayer(
                 assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
                 imageWidth: imageWidth,
-                baseImageHeight: imageHeight,
+                baseImageHeight: 440,
                 fusionColor: fusionColor
             )
 
@@ -60,6 +60,7 @@ struct HomeImmersivePetHeaderSection: View {
             }
             .padding(.horizontal, MHBTheme.Spacing.s4)
             .padding(.bottom, MHBTheme.Spacing.s4)
+            .frame(width: imageWidth, height: imageHeight)
         }
         .frame(width: imageWidth, height: imageHeight)
         .accessibilityElement(children: .combine)
@@ -70,12 +71,12 @@ struct HomeImmersivePetHeaderSection: View {
         let name = pet.name
         let bday = pet.birthday ?? "2024-04-01"
         let todayText = formattedToday()
-        
+
         // 计算来到世界的天数
         let worldDays = daysSinceBirthday(bday) ?? 0
-        
+
         let companionDays = pet.companionshipDays ?? 365
-        
+
         return "\(todayText)。是\(name)来到世界的\(worldDays)天。已经陪伴了\(displayName)\(companionDays)天"
     }
 
@@ -90,11 +91,11 @@ struct HomeImmersivePetHeaderSection: View {
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         guard let birthDate = formatter.date(from: birthdayStr) else { return nil }
-        
+
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let birthToday = calendar.startOfDay(for: birthDate)
-        
+
         let components = calendar.dateComponents([.day], from: birthToday, to: today)
         return components.day
     }
@@ -103,16 +104,12 @@ struct HomeImmersivePetHeaderSection: View {
 // HomeImmersivePetHeaderBackgroundLayer 首页沉浸式头图背景层
 // 核心职责：
 // - 承载宠物头图和渐变遮罩
-// - 对齐参考项目的下拉纯视觉拉伸方式
+// - 整合清晰前景图和背景色覆盖，实现头图向内容区的稳定融合
 private struct HomeImmersivePetHeaderBackgroundLayer: View {
     let assetName: String
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
     let fusionColor: Color
-
-    private var foregroundFadeHeight: CGFloat {
-        baseImageHeight * (1 - HomeImmersivePetHeaderLayout.fogTopRatio)
-    }
 
     var body: some View {
         let upwardShrinkMaximumRatio = HomeImmersivePetHeaderLayout.upwardShrinkMaximumRatio
@@ -124,13 +121,6 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 imageWidth: imageWidth,
                 imageHeight: baseImageHeight
             )
-            .mask {
-                HomeImmersivePetHeaderForegroundFadeMask(
-                    width: imageWidth,
-                    height: baseImageHeight,
-                    fadeHeight: foregroundFadeHeight
-                )
-            }
 
             HomeImmersivePetHeaderColorFogOverlay(
                 color: fusionColor,
@@ -143,7 +133,7 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 height: baseImageHeight
             )
         }
-        .frame(width: imageWidth, height: baseImageHeight)
+        .frame(width: imageWidth, height: baseImageHeight, alignment: .top)
         .visualEffect { content, proxy in
             let metrics = HomeImmersivePetHeaderStretchMetrics.make(
                 frameMinY: proxy.frame(in: .scrollView).minY,
@@ -158,24 +148,27 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     }
 }
 
-// HomeImmersivePetHeaderColorFogOverlay 首页头图同色雾化层
+// HomeImmersivePetHeaderColorFogOverlay 首页头图背景色覆盖层
 // 核心职责：
-// - 使用目标背景色压入图片底部
-// - 强化头图与默认页面背景之间的自然融合
+// - 用页面背景色柔化头图底部
+// - 为清晰头图到底色背景提供稳定过渡
 private struct HomeImmersivePetHeaderColorFogOverlay: View {
     let color: Color
     let width: CGFloat
     let height: CGFloat
 
     var body: some View {
+        let fogStart = HomeImmersivePetHeaderLayout.colorFogTopRatio
+
         LinearGradient(
             stops: [
                 Gradient.Stop(color: color.opacity(0), location: 0),
-                Gradient.Stop(color: color.opacity(0), location: HomeImmersivePetHeaderLayout.fogTopRatio),
-                Gradient.Stop(color: color.opacity(0.20), location: 0.83),
-                Gradient.Stop(color: color.opacity(0.46), location: 0.89),
-                Gradient.Stop(color: color.opacity(0.76), location: 0.95),
-                Gradient.Stop(color: color.opacity(HomeImmersivePetHeaderLayout.fogMaximumOpacity), location: 1)
+                Gradient.Stop(color: color.opacity(0), location: fogStart),
+                Gradient.Stop(color: color.opacity(0.12), location: fogStart + (1.0 - fogStart) * 0.22),
+                Gradient.Stop(color: color.opacity(0.35), location: fogStart + (1.0 - fogStart) * 0.48),
+                Gradient.Stop(color: color.opacity(0.68), location: fogStart + (1.0 - fogStart) * 0.70),
+                Gradient.Stop(color: color.opacity(0.88), location: fogStart + (1.0 - fogStart) * 0.86),
+                Gradient.Stop(color: color.opacity(1.0), location: 1.0)
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -187,8 +180,7 @@ private struct HomeImmersivePetHeaderColorFogOverlay: View {
 
 // HomeImmersivePetHeaderForegroundImage 首页头图前景图片
 // 核心职责：
-// - 渲染顶部清晰宠物图
-// - 作为默认背景上的前景焦点层
+// - 渲染清晰的宠物主体图
 private struct HomeImmersivePetHeaderForegroundImage: View {
     let assetName: String
     let imageWidth: CGFloat
@@ -203,38 +195,9 @@ private struct HomeImmersivePetHeaderForegroundImage: View {
     }
 }
 
-// HomeImmersivePetHeaderForegroundFadeMask 首页头图前景淡出遮罩
-// 核心职责：
-// - 让清晰头图直接融入目标背景色
-// - 避免头图和页面背景形成硬切换
-private struct HomeImmersivePetHeaderForegroundFadeMask: View {
-    let width: CGFloat
-    let height: CGFloat
-    let fadeHeight: CGFloat
-
-    var body: some View {
-        let fadeStart = max((height - fadeHeight) / max(height, 1), 0)
-
-        LinearGradient(
-            stops: [
-                Gradient.Stop(color: .white, location: 0),
-                Gradient.Stop(color: .white, location: fadeStart),
-                Gradient.Stop(color: .white.opacity(0.78), location: 0.86),
-                Gradient.Stop(color: .white.opacity(0.36), location: 0.94),
-                Gradient.Stop(color: .white.opacity(0.08), location: 0.98),
-                Gradient.Stop(color: .white.opacity(0), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(width: width, height: height)
-    }
-}
-
 // HomeImmersivePetHeaderReadabilityGradient 首页头图文字可读渐变
 // 核心职责：
-// - 为宠物文字提供独立暗底
-// - 降低头图明暗变化对文字可读性的影响
+// - 为宠物姓名和副标题提供底层微弱渐变阴影，确保在任何头图背景下文字皆清晰可读
 private struct HomeImmersivePetHeaderReadabilityGradient: View {
     let width: CGFloat
     let height: CGFloat
@@ -456,5 +419,3 @@ private struct HomeImmersiveUserAvatarImage: View {
         return URL(string: avatarURL)
     }
 }
-
-

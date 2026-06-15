@@ -12,6 +12,18 @@ struct HomeDashboardLoadedView: View {
     let onOpenProfile: () -> Void
     let onSelectPet: (String) -> Void
 
+    @State private var scrollOffset: CGFloat = 0
+    @State private var baseThemeColor: Color = MHBTheme.ColorToken.background.color
+
+    private var scrollProgress: CGFloat {
+        let threshold: CGFloat = 300
+        return min(max(scrollOffset / threshold, 0), 1)
+    }
+
+    private var dynamicBackgroundColor: Color {
+        baseThemeColor.adjustedForScroll(progress: scrollProgress)
+    }
+
     var body: some View {
         let routingContext = HomeActionRoutingContext(snapshot: snapshot)
 
@@ -19,7 +31,8 @@ struct HomeDashboardLoadedView: View {
             let heroImageWidth = max(geometry.size.width, 1)
 
             ZStack(alignment: .topLeading) {
-                MHBTheme.ColorToken.background.color
+                // 基底单色背景：滑动时只改变该单色背景的明暗度，彻底杜绝渐变层与滚动图层的错位与硬交界
+                dynamicBackgroundColor
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -29,7 +42,7 @@ struct HomeDashboardLoadedView: View {
                                 pet: selectedPet,
                                 displayName: snapshot.identity.displayName,
                                 width: heroImageWidth,
-                                fusionColor: MHBTheme.ColorToken.background.color
+                                fusionColor: dynamicBackgroundColor
                             )
                         }
 
@@ -41,9 +54,22 @@ struct HomeDashboardLoadedView: View {
                         )
                     }
                     .frame(maxWidth: .infinity)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: -geo.frame(in: .named("homeScrollView")).minY
+                                )
+                        }
+                    )
                     .accessibilityIdentifier("home.dashboard")
                 }
+                .coordinateSpace(name: "homeScrollView")
                 .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                    self.scrollOffset = offset
+                }
 
                 if snapshot.selectedPet != nil {
                     HomeImmersiveHeaderControls(
@@ -57,6 +83,35 @@ struct HomeDashboardLoadedView: View {
                     .padding(.horizontal, MHBTheme.Spacing.s4)
                 }
             }
+        }
+        .task {
+            updateThemeColor()
+        }
+        .onChange(of: snapshot.selectedPet?.id) { _, _ in
+            updateThemeColor()
+        }
+    }
+
+    private func updateThemeColor() {
+        guard let pet = snapshot.selectedPet else {
+            baseThemeColor = MHBTheme.ColorToken.background.color
+            return
+        }
+        let assetName = pet.heroImageAssetName ?? "HomePetHeroMock"
+        guard let image = UIImage(named: assetName) else {
+            baseThemeColor = MHBTheme.ColorToken.background.color
+            return
+        }
+
+        let extracted = MHBImageAverageColorExtractor.extractHighestAverageColor(
+            from: image,
+            segmentsCount: 5
+        )
+
+        if let extracted {
+            baseThemeColor = Color(uiColor: extracted)
+        } else {
+            baseThemeColor = MHBTheme.ColorToken.background.color
         }
     }
 }
@@ -92,7 +147,7 @@ private struct HomeDashboardContentSections: View {
                 if let partner = snapshot.partnerRecommendation {
                     HomePartnerSection(partner: partner)
                 }
-                
+
                 // 时间线下方增加“近期提醒”模块
                 if !snapshot.reminders.isEmpty {
                     HomeRemindersSection(
@@ -171,5 +226,57 @@ private struct HomeIdentityHeader: View {
             }
         }
         .accessibilityIdentifier("home.identityHeader")
+    }
+}
+
+// ScrollOffsetPreferenceKey 滚动位移偏好键
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// HSB 色彩调节与智能色彩泵扩展
+private extension Color {
+    func adjustedForScroll(progress: CGFloat) -> Color {
+        let uiColor = UIColor(self)
+        var h: CGFloat = 0
+        var s: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+
+        guard uiColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
+            return self
+        }
+
+        // 1. 智能色彩泵：让有色图片背景更饱满亮显 Liquid Glass，中性灰色背景强制去色防止暗部变脏变褐
+        let targetSaturation: CGFloat
+        let targetBrightness: CGFloat
+
+        if s < 0.10 {
+            // 中性白/灰背景图片：强制去色，防止调暗时发黄发褐，生成纯净冷银灰色
+            targetSaturation = 0.0
+            targetBrightness = 0.22
+        } else {
+            // 有彩色图片背景：提升饱和度，作为 Liquid Glass 折射的彩色温床
+            targetSaturation = max(s, 0.48)
+            targetBrightness = 0.28
+        }
+
+        // 2. 收拢到深色内容区暗夜色彩最低阈值
+        let minBrightness: CGFloat = 0.06
+        let minSaturation: CGFloat = s < 0.10 ? 0.0 : 0.12
+
+        // 随滑动进度线性插值
+        let currentSaturation = targetSaturation - (targetSaturation - minSaturation) * progress
+        let currentBrightness = targetBrightness - (targetBrightness - minBrightness) * progress
+
+        return Color(
+            hue: Double(h),
+            saturation: Double(currentSaturation),
+            brightness: Double(currentBrightness),
+            opacity: Double(a)
+        )
     }
 }

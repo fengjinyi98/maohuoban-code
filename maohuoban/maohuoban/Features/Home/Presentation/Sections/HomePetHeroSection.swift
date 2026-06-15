@@ -56,12 +56,7 @@ struct HomePetHeroSection: View {
         }
         .padding(.horizontal, MHBTheme.Spacing.s4)
         .frame(height: 110)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-        }
+        .glassEffect(.regular, in: .rect(cornerRadius: MHBTheme.Radius.large))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.petHeroCard")
     }

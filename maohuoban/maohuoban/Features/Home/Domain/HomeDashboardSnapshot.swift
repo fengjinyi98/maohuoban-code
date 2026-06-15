@@ -19,6 +19,36 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let petAlbums: [PetAlbumItem]?
     let galleryAlbums: [PetGalleryAlbum]?
 
+    init(
+        identity: Identity,
+        selectedPet: PetHeroSummary?,
+        petSwitcher: [PetSwitchItem],
+        careSummary: CareSummary?,
+        reminders: [Reminder],
+        quickActions: [Action],
+        partnerRecommendation: PartnerRecommendation? = nil,
+        recentTimeline: [TimelineEvent],
+        merchantDashboard: MerchantDashboardSummary?,
+        emptyState: EmptyState?,
+        recommendedContent: [RecommendedContent],
+        petAlbums: [PetAlbumItem]? = nil,
+        galleryAlbums: [PetGalleryAlbum]? = nil
+    ) {
+        self.identity = identity
+        self.selectedPet = selectedPet
+        self.petSwitcher = petSwitcher
+        self.careSummary = careSummary
+        self.reminders = reminders
+        self.quickActions = quickActions
+        self.partnerRecommendation = partnerRecommendation
+        self.recentTimeline = recentTimeline
+        self.merchantDashboard = merchantDashboard
+        self.emptyState = emptyState
+        self.recommendedContent = recommendedContent
+        self.petAlbums = petAlbums
+        self.galleryAlbums = galleryAlbums
+    }
+
     enum CodingKeys: String, CodingKey {
         case identity
         case selectedPet = "selected_pet"
@@ -47,6 +77,20 @@ extension HomeDashboardSnapshot {
         let city: String?
         let verificationBadge: String?
         let avatarURL: String?
+
+        init(
+            kind: IdentityKind,
+            displayName: String,
+            city: String?,
+            verificationBadge: String?,
+            avatarURL: String? = nil
+        ) {
+            self.kind = kind
+            self.displayName = displayName
+            self.city = city
+            self.verificationBadge = verificationBadge
+            self.avatarURL = avatarURL
+        }
 
         enum CodingKeys: String, CodingKey {
             case kind
@@ -87,6 +131,36 @@ extension HomeDashboardSnapshot {
         let birthday: String?
         let companionshipDays: Int?
         let stats: PetHeroStats?
+
+        init(
+            id: String,
+            name: String,
+            species: Species,
+            breed: String,
+            sex: Sex,
+            ageText: String,
+            statusText: String,
+            updatedText: String,
+            avatarURL: String?,
+            heroImageAssetName: String?,
+            birthday: String? = nil,
+            companionshipDays: Int? = nil,
+            stats: PetHeroStats? = nil
+        ) {
+            self.id = id
+            self.name = name
+            self.species = species
+            self.breed = breed
+            self.sex = sex
+            self.ageText = ageText
+            self.statusText = statusText
+            self.updatedText = updatedText
+            self.avatarURL = avatarURL
+            self.heroImageAssetName = heroImageAssetName
+            self.birthday = birthday
+            self.companionshipDays = companionshipDays
+            self.stats = stats
+        }
 
         enum CodingKeys: String, CodingKey {
             case id
