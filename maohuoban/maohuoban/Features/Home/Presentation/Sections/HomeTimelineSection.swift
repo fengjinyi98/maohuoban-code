@@ -26,7 +26,6 @@ struct HomeTimelineSection: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
             }
-            .padding(.bottom, MHBTheme.Spacing.s2)
 
             // 时间轴垂直列表
             VStack(spacing: 0) {
@@ -90,7 +89,8 @@ private struct HomeTimelineRow: View {
             // 5. 右侧特定修饰组件 (照片、变化值、箭头等)
             rightDecorationView
         }
-        .frame(height: 64)
+        .padding(.top, isFirst ? 0 : MHBTheme.Spacing.s3)
+        .padding(.bottom, MHBTheme.Spacing.s3)
     }
 
     private var iconView: some View {
@@ -168,31 +168,36 @@ private struct TimelineDotLine: View {
     let isLast: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 上半段连接线
-            if isFirst {
-                Color.clear
-                    .frame(width: 1, height: 29)
-            } else {
-                Rectangle()
-                    .fill(Color.white.opacity(0.15))
-                    .frame(width: 1, height: 29)
+        ZStack {
+            // 贯穿整行的垂直线，上下两段平分容器高度，保证圆点精确居中，且对齐行边缘
+            VStack(spacing: 0) {
+                if isFirst {
+                    Color.clear
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                } else {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.15))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                }
+
+                if isLast {
+                    Color.clear
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                } else {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.15))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                }
             }
 
             // 时间圆点
             Circle()
                 .fill(Color.white.opacity(0.5))
                 .frame(width: 6, height: 6)
-
-            // 下半段连接线
-            if isLast {
-                Color.clear
-                    .frame(width: 1, height: 29)
-            } else {
-                Rectangle()
-                    .fill(Color.white.opacity(0.15))
-                    .frame(width: 1, height: 29)
-            }
         }
         .frame(width: 16)
     }

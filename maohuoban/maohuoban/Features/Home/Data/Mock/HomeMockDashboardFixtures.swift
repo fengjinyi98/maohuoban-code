@@ -88,7 +88,7 @@ enum HomeMockDashboardFixtures {
                 petName: "奶盖",
                 relationshipKind: .sameLitter,
                 title: "今日伙伴",
-                subtitle: "你们来自同一个猫舍，生日只差3天~",
+                subtitle: "你们都来自 萌宠阁 猫舍，生日只差3天~",
                 distanceText: "2km",
                 sex: .female
             ),

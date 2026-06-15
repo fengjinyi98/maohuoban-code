@@ -36,25 +36,88 @@ struct HomeImmersivePetHeaderSection: View {
                 fusionColor: fusionColor
             )
 
-            VStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 Spacer()
 
-                VStack(alignment: .center, spacing: MHBTheme.Spacing.s2) {
-                    // 居中宠物姓名（大字重圆体，风格对齐截图中的“孙燕姿”）
-                    Text(pet.name)
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .multilineTextAlignment(.center)
-                        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+                    // 1. 顶部日期 (日历图标 + 格式化日期)
+                    HStack(spacing: 6) {
+                        HomeImmersiveCalendarIcon(day: currentDayString())
+                            .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
-                    // 陪伴数据副标题
-                    Text(companionshipText)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                        Text(formattedToday())
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .kerning(1.2)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                    }
+
+                    // 2. 靠左宠物姓名与性别彩色图标 (调整为右下角显示，使用 SF Symbols)
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text(pet.name)
+                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+
+                        if let genderIconSystemName {
+                            Image(systemName: genderIconSystemName)
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundStyle(genderColor)
+                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                                .padding(.bottom, 6)
+                        }
+                    }
+
+                    // 3. 陪伴数据与成长天数分段显示 (使用导入的定制图标)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image("IconWorld")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                            Text("来到世界的第 \(worldDays) 天")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.95))
+                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                        }
+
+                        HStack(spacing: 6) {
+                            Image("IconCompanion")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                            Text("已陪伴 \(displayName) \(pet.companionshipDays ?? 365) 天")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.95))
+                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                            Spacer()
+
+                            Button(action: {
+                                print("Clicked edit profile for pet: \(pet.id)")
+                            }) {
+                                Text("编辑档案")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background {
+                                        Color.black.opacity(0.18)
+                                            .clipShape(Capsule())
+                                    }
+                                    .glassEffect(.regular.interactive(), in: .capsule)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 HomePetHeroSection(pet: pet)
             }
@@ -67,17 +130,49 @@ struct HomeImmersivePetHeaderSection: View {
         .accessibilityIdentifier("home.immersivePetHeader")
     }
 
-    private var companionshipText: String {
-        let name = pet.name
+    private var genderIconSystemName: String? {
+        if pet.name.contains("汤圆") {
+            return "mars"
+        } else if pet.name.contains("糯米") {
+            return "venus"
+        }
+
+        switch pet.sex {
+        case .male:
+            return "mars"
+        case .female:
+            return "venus"
+        case .unknown:
+            return nil
+        }
+    }
+
+    private var genderColor: Color {
+        if pet.name.contains("汤圆") {
+            return Color(red: 59/255, green: 130/255, blue: 246/255) // #3B82F6 (Blue)
+        } else if pet.name.contains("糯米") {
+            return Color(red: 244/255, green: 63/255, blue: 94/255) // #F43F5E (Rose red)
+        }
+
+        switch pet.sex {
+        case .male:
+            return Color(red: 59/255, green: 130/255, blue: 246/255) // #3B82F6 (Blue)
+        case .female:
+            return Color(red: 244/255, green: 63/255, blue: 94/255) // #F43F5E (Rose red)
+        case .unknown:
+            return .white
+        }
+    }
+
+    private var worldDays: Int {
         let bday = pet.birthday ?? "2024-04-01"
-        let todayText = formattedToday()
+        return daysSinceBirthday(bday) ?? 0
+    }
 
-        // 计算来到世界的天数
-        let worldDays = daysSinceBirthday(bday) ?? 0
-
-        let companionDays = pet.companionshipDays ?? 365
-
-        return "\(todayText)。是\(name)来到世界的\(worldDays)天。已经陪伴了\(displayName)\(companionDays)天"
+    private func currentDayString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter.string(from: Date())
     }
 
     private func formattedToday() -> String {
@@ -98,6 +193,27 @@ struct HomeImmersivePetHeaderSection: View {
 
         let components = calendar.dateComponents([.day], from: birthToday, to: today)
         return components.day
+    }
+}
+
+// HomeImmersiveCalendarIcon 首页沉浸式日历图标
+// 核心职责：
+// - 渲染空白的日历卡片，并在页面中叠加居中显示当月的具体日期天数
+private struct HomeImmersiveCalendarIcon: View {
+    let day: String
+
+    var body: some View {
+        ZStack(alignment: .center) {
+            Image("CalendarTemplate")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+
+            Text(day)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(red: 76/255, green: 48/255, blue: 48/255)) // #4C3030
+                .offset(y: 2.2)
+        }
     }
 }
 

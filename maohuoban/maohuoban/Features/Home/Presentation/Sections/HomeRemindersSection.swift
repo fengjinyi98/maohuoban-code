@@ -27,19 +27,19 @@ struct HomeRemindersSection: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
             }
-            .padding(.bottom, MHBTheme.Spacing.s2)
 
             // 垂直扁平列表
             VStack(spacing: 0) {
                 ForEach(Array(reminders.enumerated()), id: \.element.id) { index, reminder in
+                    let isFirst = index == 0
                     if let route = HomeReminderRouteResolver.route(for: reminder, context: routingContext) {
                         NavigationLink(value: route) {
-                            HomeReminderListRow(reminder: reminder)
+                            HomeReminderListRow(reminder: reminder, isFirst: isFirst)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("home.reminder.\(reminder.id)")
                     } else {
-                        HomeReminderListRow(reminder: reminder)
+                        HomeReminderListRow(reminder: reminder, isFirst: isFirst)
                             .accessibilityIdentifier("home.reminder.\(reminder.id).disabled")
                     }
 
@@ -64,6 +64,7 @@ struct HomeRemindersSection: View {
 // HomeReminderListRow 垂直列表单行组件
 private struct HomeReminderListRow: View {
     let reminder: HomeDashboardSnapshot.Reminder
+    let isFirst: Bool
 
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
@@ -107,7 +108,8 @@ private struct HomeReminderListRow: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.white.opacity(0.3))
         }
-        .padding(.vertical, MHBTheme.Spacing.s3)
+        .padding(.top, isFirst ? 0 : MHBTheme.Spacing.s3)
+        .padding(.bottom, MHBTheme.Spacing.s3)
         .contentShape(Rectangle())
     }
 
