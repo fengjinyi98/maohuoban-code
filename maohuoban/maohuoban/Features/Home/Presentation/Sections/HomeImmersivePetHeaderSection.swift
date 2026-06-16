@@ -1,13 +1,17 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // HomeImmersivePetHeaderLayout 首页沉浸式头图布局参数
 // 核心职责：
 // - 统一管理头图高度、底部过渡和滚动缩放参数
 // - 为头图裁剪、融合和滚动响应保持同一套几何基准
 enum HomeImmersivePetHeaderLayout {
-    nonisolated static let imageHeight: CGFloat = 500
-    nonisolated static let colorFogTopRatio: CGFloat = 0.70
+    nonisolated static let backgroundImageHeight: CGFloat = 440
+    nonisolated static let petStatsCardHeight: CGFloat = 110
+    nonisolated static let imageHeight: CGFloat = backgroundImageHeight + petStatsCardHeight
+    nonisolated static let backgroundDimmingReferenceHeight: CGFloat = 500
+    nonisolated static let colorFogTopRatio: CGFloat = 0.82
     nonisolated static let upwardShrinkMaximumRatio: CGFloat = 0.10
     nonisolated static let upwardShrinkSpeedMultiplier: CGFloat = 8
 }
@@ -30,107 +34,113 @@ struct HomeImmersivePetHeaderSection: View {
 
     var body: some View {
         let imageWidth = max(width, 1)
+        let backgroundImageHeight = HomeImmersivePetHeaderLayout.backgroundImageHeight
         let presentation = HomeImmersivePetHeaderPresentation.make(
             pet: pet,
             displayName: displayName
         )
 
-        ZStack(alignment: .top) {
-            // 背景层独立控制在内容上方，避免软色场扩散到下方业务列表
-            HomeImmersivePetHeaderBackgroundLayer(
-                assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
-                imageWidth: imageWidth,
-                baseImageHeight: 440,
-                fusionColor: fusionColor
-            )
+        VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                // 背景层独立控制在内容上方，避免软色场扩散到下方业务列表
+                HomeImmersivePetHeaderBackgroundLayer(
+                    assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
+                    imageWidth: imageWidth,
+                    baseImageHeight: backgroundImageHeight,
+                    fusionColor: fusionColor
+                )
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                Spacer()
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+                    Spacer()
 
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                    HStack(spacing: 6) {
-                        HomeImmersiveCalendarIcon(day: presentation.calendarDay)
-                            .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-
-                        Text(presentation.formattedDate)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .kerning(1.2)
-                            .foregroundStyle(.white.opacity(0.85))
-                            .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-                    }
-
-                    HStack(alignment: .bottom, spacing: 4) {
-                        Text(pet.name)
-                            .font(.system(size: 38, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-
-                        if let genderIconSystemName = presentation.genderIconSystemName {
-                            Image(systemName: genderIconSystemName)
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .foregroundStyle(presentation.genderColor)
-                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-                                .padding(.bottom, 6)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                         HStack(spacing: 6) {
-                            Image("IconWorld")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(adaptiveIconColor)
-                                .frame(width: 16, height: 16)
+                            HomeImmersiveCalendarIcon(day: presentation.calendarDay)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
-                            Text(presentation.worldDaysText)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.95))
+                            Text(presentation.formattedDate)
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .kerning(1.2)
+                                .foregroundStyle(.white.opacity(0.85))
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
                         }
 
-                        HStack(spacing: 6) {
-                            Image("IconCompanion")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(adaptiveIconColor)
-                                .frame(width: 16, height: 16)
-                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(pet.name)
+                                .font(.system(size: 38, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
 
-                            Text(presentation.companionshipText)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.95))
-                                .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-
-                            Spacer()
-
-                            Button(action: {}) {
-                                Text("编辑档案")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background {
-                                        Color.black.opacity(0.18)
-                                            .clipShape(Capsule())
-                                    }
-                                    .glassEffect(.regular.interactive(), in: .capsule)
+                            if let genderIconSystemName = presentation.genderIconSystemName {
+                                Image(systemName: genderIconSystemName)
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundStyle(presentation.genderColor)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                                    .padding(.bottom, 6)
                             }
-                            .buttonStyle(.plain)
                         }
-                    }
-                    .padding(.top, 2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
 
-                HomePetHeroSection(pet: pet)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image("IconWorld")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundStyle(adaptiveIconColor)
+                                    .frame(width: 16, height: 16)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                                Text(presentation.worldDaysText)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.95))
+                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                            }
+
+                            HStack(spacing: 6) {
+                                Image("IconCompanion")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundStyle(adaptiveIconColor)
+                                    .frame(width: 16, height: 16)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                                Text(presentation.companionshipText)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.95))
+                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+
+                                Spacer()
+
+                                Button(action: {}) {
+                                    Text("编辑档案")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background {
+                                            Color.black.opacity(0.18)
+                                                .clipShape(Capsule())
+                                        }
+                                        .glassEffect(.regular.interactive(), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.bottom, MHBTheme.Spacing.s4)
+                .frame(width: imageWidth, height: backgroundImageHeight)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.bottom, MHBTheme.Spacing.s4)
-            .frame(width: imageWidth, height: imageHeight)
+            .frame(width: imageWidth, height: backgroundImageHeight)
+
+            HomePetHeroSection(pet: pet)
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .frame(width: imageWidth, height: HomeImmersivePetHeaderLayout.petStatsCardHeight)
         }
         .frame(width: imageWidth, height: imageHeight)
         .accessibilityElement(children: .combine)
@@ -172,6 +182,9 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     var body: some View {
         let upwardShrinkMaximumRatio = HomeImmersivePetHeaderLayout.upwardShrinkMaximumRatio
         let upwardShrinkSpeedMultiplier = HomeImmersivePetHeaderLayout.upwardShrinkSpeedMultiplier
+        let blurHeight = baseImageHeight * 0.36
+        let blurTopY = baseImageHeight - blurHeight
+        let colorFogTopY = baseImageHeight * HomeImmersivePetHeaderLayout.colorFogTopRatio
 
         ZStack(alignment: .top) {
             HomeImmersivePetHeaderForegroundImage(
@@ -179,6 +192,20 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 imageWidth: imageWidth,
                 imageHeight: baseImageHeight
             )
+
+            MHBVariableBlurView(
+                maxBlurRadius: 10,
+                direction: .blurredBottomClearTop,
+                startOffset: 0
+            )
+            .frame(width: imageWidth, height: blurHeight)
+            .frame(width: imageWidth, height: baseImageHeight, alignment: .bottom)
+            .allowsHitTesting(false)
+            .onAppear {
+                HomeHeroBlurDebug.log(
+                    "swiftUILayer appear assetName=\(assetName), imageWidth=\(HomeHeroBlurDebug.format(imageWidth)), baseImageHeight=\(HomeHeroBlurDebug.format(baseImageHeight)), blurRadius=10.000, blurHeight=\(HomeHeroBlurDebug.format(blurHeight)), blurTopY=\(HomeHeroBlurDebug.format(blurTopY)), blurBottomY=\(HomeHeroBlurDebug.format(baseImageHeight)), colorFogTopY=\(HomeHeroBlurDebug.format(colorFogTopY)), colorFogRatio=\(HomeHeroBlurDebug.format(HomeImmersivePetHeaderLayout.colorFogTopRatio)), layerOrder=0:image,1:variableBlur,2:colorFog,3:readabilityGradient,4:content"
+                )
+            }
 
             HomeImmersivePetHeaderColorFogOverlay(
                 color: fusionColor,
@@ -234,6 +261,11 @@ private struct HomeImmersivePetHeaderColorFogOverlay: View {
         )
         .frame(width: width, height: height)
         .allowsHitTesting(false)
+        .onAppear {
+            HomeHeroBlurDebug.log(
+                "colorFog appear color=\(HomeHeroBlurDebug.describe(color)), width=\(HomeHeroBlurDebug.format(width)), height=\(HomeHeroBlurDebug.format(height)), fogStart=\(HomeHeroBlurDebug.format(fogStart)), fogStartY=\(HomeHeroBlurDebug.format(height * fogStart)), stops=0@0/\(HomeHeroBlurDebug.format(fogStart))@0,0.12@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.22)),0.35@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.48)),0.68@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.70)),0.88@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.86)),1.00@1"
+            )
+        }
     }
 }
 
@@ -276,6 +308,41 @@ private struct HomeImmersivePetHeaderReadabilityGradient: View {
             endPoint: .bottom
         )
         .frame(width: width, height: height)
+        .onAppear {
+            HomeHeroBlurDebug.log(
+                "readabilityGradient appear color=\(HomeHeroBlurDebug.describe(color)), width=\(HomeHeroBlurDebug.format(width)), height=\(HomeHeroBlurDebug.format(height)), stops=0.02@0,0.08@0.42,0.24@0.72,0.12@0.88,0@1"
+            )
+        }
+    }
+}
+
+// HomeHeroBlurDebug 首页头图模糊临时诊断
+// 核心职责：
+// - 输出 SwiftUI 头图图层、融合色和几何参数
+// - 配合 UIKit 可变模糊日志定位模糊强度和边缘问题
+private enum HomeHeroBlurDebug {
+    static func log(_ message: String) {
+        #if DEBUG
+        print("[DEBUG:HomeHeroBlur] \(message)")
+        #endif
+    }
+
+    static func format(_ value: CGFloat) -> String {
+        String(format: "%.3f", Double(value))
+    }
+
+    static func describe(_ color: Color) -> String {
+        let uiColor = UIColor(color)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        if uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            return "rgba=r=\(format(red)),g=\(format(green)),b=\(format(blue)),a=\(format(alpha))"
+        }
+
+        return String(describing: color)
     }
 }
 

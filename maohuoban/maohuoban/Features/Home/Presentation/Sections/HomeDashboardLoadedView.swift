@@ -101,11 +101,11 @@ struct HomeDashboardLoadedView: View {
     }
 
     private static var backgroundDimmingStartOffset: CGFloat {
-        HomeImmersivePetHeaderLayout.imageHeight * 0.50
+        HomeImmersivePetHeaderLayout.backgroundDimmingReferenceHeight * 0.50
     }
 
     private static var backgroundDimmingEndOffset: CGFloat {
-        HomeImmersivePetHeaderLayout.imageHeight
+        HomeImmersivePetHeaderLayout.backgroundDimmingReferenceHeight
     }
 
     private static func backgroundDimmingProgress(for offset: CGFloat) -> CGFloat {
@@ -122,7 +122,7 @@ struct HomeDashboardLoadedView: View {
             selectedPet: selectedPet,
             heroImageSize: CGSize(
                 width: heroImageWidth,
-                height: HomeImmersivePetHeaderLayout.imageHeight
+                height: HomeImmersivePetHeaderLayout.backgroundDimmingReferenceHeight
             )
         )
     }
