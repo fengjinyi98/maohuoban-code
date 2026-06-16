@@ -129,8 +129,13 @@ struct HomeDashboardLoadedView: View {
                     .zIndex(2)
                 }
             }
-            .task(id: themeUpdateID(selectedPetID: snapshot.selectedPet?.id, width: heroImageWidth)) {
-                updateTheme(
+            .task(
+                id: themeUpdateID(
+                    selectedPet: snapshot.selectedPet,
+                    width: heroImageWidth
+                )
+            ) {
+                await updateTheme(
                     selectedPet: snapshot.selectedPet,
                     heroImageWidth: heroImageWidth
                 )
@@ -162,8 +167,8 @@ struct HomeDashboardLoadedView: View {
     private func updateTheme(
         selectedPet: HomeDashboardSnapshot.PetHeroSummary?,
         heroImageWidth: CGFloat
-    ) {
-        themeStore.update(
+    ) async {
+        await themeStore.update(
             selectedPet: selectedPet,
             heroImageSize: CGSize(
                 width: heroImageWidth,
@@ -173,10 +178,19 @@ struct HomeDashboardLoadedView: View {
     }
 
     private func themeUpdateID(
-        selectedPetID: String?,
+        selectedPet: HomeDashboardSnapshot.PetHeroSummary?,
         width: CGFloat
     ) -> String {
-        "\(selectedPetID ?? "none")-\(Int(width.rounded()))"
+        guard let selectedPet else {
+            return "none-\(Int(width.rounded()))"
+        }
+
+        switch selectedPet.heroMedia {
+        case .image(let assetName):
+            return "image-\(assetName)-\(Int(width.rounded()))"
+        case .video(let resourceName, let fileExtension, _):
+            return "video-\(resourceName).\(fileExtension)-\(Int(width.rounded()))"
+        }
     }
 }
 

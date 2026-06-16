@@ -11,27 +11,82 @@ final class HomeDashboardStore {
     var phase: HomeDashboardPhase = .idle
 
     private let repository: HomeRepository
+    private var dashboardRequestSequence = 0
 
     init(repository: HomeRepository = HomeRepositoryFactory.makeDefault()) {
         self.repository = repository
     }
 
     func load(currentUserID: String? = nil, selectedPetID: String? = nil) async {
-        guard phase != .loading else { return }
+        guard phase != .loading else {
+            return
+        }
+
+        let requestID = nextDashboardRequestID()
         phase = .loading
         do {
             let response = try await repository.dashboard(
                 currentUserID: currentUserID,
                 selectedPetID: selectedPetID
             )
+            guard isLatestDashboardRequest(requestID) else {
+                return
+            }
             guard let snapshot = response.data else {
                 phase = .failed("首页数据为空")
                 return
             }
             phase = .loaded(snapshot)
         } catch {
+            guard isLatestDashboardRequest(requestID) else {
+                return
+            }
             phase = .failed(error.toastMessage)
         }
+    }
+
+    func selectPet(currentUserID: String? = nil, petID: String) async {
+        guard case .loaded(let currentSnapshot) = phase else {
+            await load(currentUserID: currentUserID, selectedPetID: petID)
+            return
+        }
+
+        guard currentSnapshot.selectedPet?.id != petID else {
+            return
+        }
+
+        let requestID = nextDashboardRequestID()
+
+        if let optimisticSnapshot = currentSnapshot.optimisticallySelectingPet(id: petID) {
+            phase = .loaded(optimisticSnapshot)
+        }
+
+        do {
+            let response = try await repository.dashboard(
+                currentUserID: currentUserID,
+                selectedPetID: petID
+            )
+            guard isLatestDashboardRequest(requestID) else {
+                return
+            }
+            guard let snapshot = response.data else {
+                return
+            }
+            phase = .loaded(snapshot)
+        } catch {
+            guard isLatestDashboardRequest(requestID) else {
+                return
+            }
+        }
+    }
+
+    private func nextDashboardRequestID() -> Int {
+        dashboardRequestSequence += 1
+        return dashboardRequestSequence
+    }
+
+    private func isLatestDashboardRequest(_ requestID: Int) -> Bool {
+        requestID == dashboardRequestSequence
     }
 }
 

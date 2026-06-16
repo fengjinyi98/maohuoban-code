@@ -47,7 +47,7 @@ struct HomeImmersivePetHeaderSection: View {
             ZStack(alignment: .top) {
                 // 背景层独立控制在内容上方，避免软色场扩散到下方业务列表
                 HomeImmersivePetHeaderBackgroundLayer(
-                    assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
+                    media: pet.heroMedia,
                     imageWidth: imageWidth,
                     baseImageHeight: backgroundImageHeight,
                     fusionColor: fusionColor,
@@ -178,7 +178,7 @@ private struct HomeImmersiveCalendarIcon: View {
 // - 承载宠物头图和渐变遮罩
 // - 整合清晰前景图和背景色覆盖，实现头图向内容区的稳定融合
 private struct HomeImmersivePetHeaderBackgroundLayer: View {
-    let assetName: String
+    let media: HomeDashboardSnapshot.PetHeroSummary.HeroMedia
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
     let fusionColor: Color
@@ -194,8 +194,8 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
         let bottomBlurHeight = blurConfiguration.bottomBlurHeight
 
         ZStack(alignment: .top) {
-            HomeImmersivePetHeaderForegroundImage(
-                assetName: assetName,
+            HomeImmersivePetHeaderForegroundMedia(
+                media: media,
                 imageWidth: imageWidth,
                 imageHeight: baseImageHeight
             )
@@ -305,15 +305,37 @@ private struct HomeImmersivePetHeaderColorFogOverlay: View {
     }
 }
 
-// HomeImmersivePetHeaderForegroundImage 首页头图前景图片
+// HomeImmersivePetHeaderForegroundMedia 首页头图前景媒体
 // 核心职责：
-// - 渲染清晰的宠物主体图
-private struct HomeImmersivePetHeaderForegroundImage: View {
-    let assetName: String
+// - 渲染清晰的宠物主体图片或视频
+// - 为视频资源缺失时提供图片兜底
+private struct HomeImmersivePetHeaderForegroundMedia: View {
+    let media: HomeDashboardSnapshot.PetHeroSummary.HeroMedia
     let imageWidth: CGFloat
     let imageHeight: CGFloat
 
     var body: some View {
+        switch media {
+        case .image(let assetName):
+            foregroundImage(assetName: assetName)
+        case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
+            if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
+                MHBMutedLoopingVideoView(
+                    resourceName: resourceName,
+                    fileExtension: fileExtension
+                )
+                .frame(width: imageWidth, height: imageHeight)
+                .clipped()
+            } else if let fallbackImageAssetName {
+                foregroundImage(assetName: fallbackImageAssetName)
+            } else {
+                Color.clear
+                    .frame(width: imageWidth, height: imageHeight)
+            }
+        }
+    }
+
+    private func foregroundImage(assetName: String) -> some View {
         Image(assetName)
             .resizable()
             .scaledToFill()

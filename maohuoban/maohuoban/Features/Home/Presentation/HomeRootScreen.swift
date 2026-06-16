@@ -31,9 +31,9 @@ struct HomeRootScreen: View {
                     onSelectPet: { petID in
                         selectedPetID = petID
                         Task {
-                            await store.load(
+                            await store.selectPet(
                                 currentUserID: currentUserID,
-                                selectedPetID: petID
+                                petID: petID
                             )
                         }
                     }

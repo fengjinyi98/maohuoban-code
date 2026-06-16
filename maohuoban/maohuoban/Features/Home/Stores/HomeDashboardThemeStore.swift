@@ -8,6 +8,9 @@ import MaohuobanDesignSystem
 // - 根据当前宠物头图提取首页背景基色
 // - 固定首页 Liquid Glass 使用暗色局部模式
 // - 为头图内容提供独立的明暗派生状态
+// 设计约束：
+// - 正式后端链路应在用户上传图片或视频后生成并存储主题色
+// - 前端优先消费后端主题色字段，本地取色只作为字段缺失、mock 和本地预览兜底
 @MainActor
 @Observable
 final class HomeDashboardThemeStore {
@@ -22,15 +25,13 @@ final class HomeDashboardThemeStore {
     func update(
         selectedPet: HomeDashboardSnapshot.PetHeroSummary?,
         heroImageSize: CGSize = .zero
-    ) {
+    ) async {
         guard let selectedPet else {
             applyFallbackThemeColor()
             return
         }
 
-        let assetName = selectedPet.heroImageAssetName ?? "HomePetHeroMock"
-
-        guard let image = UIImage(named: assetName) else {
+        guard let image = await Self.heroImage(for: selectedPet.heroMedia) else {
             applyFallbackThemeColor()
             return
         }
@@ -62,6 +63,20 @@ final class HomeDashboardThemeStore {
         baseThemeColor = MHBTheme.ColorToken.background.color
         colorScheme = .dark
         heroContentColorScheme = .dark
+    }
+
+    private static func heroImage(
+        for media: HomeDashboardSnapshot.PetHeroSummary.HeroMedia
+    ) async -> UIImage? {
+        switch media {
+        case .image(let assetName):
+            return UIImage(named: assetName)
+        case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
+            return await MHBVideoFirstFrameExtractor.extract(
+                resourceName: resourceName,
+                fileExtension: fileExtension
+            ) ?? fallbackImageAssetName.flatMap { UIImage(named: $0) }
+        }
     }
 
     private static func localColorScheme(for color: UIColor, current: ColorScheme) -> ColorScheme {

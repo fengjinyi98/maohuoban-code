@@ -67,6 +67,61 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
 }
 
 extension HomeDashboardSnapshot {
+    // optimisticSelectingPet 构造宠物切换的乐观首页快照
+    // 核心职责：
+    // - 在后端新快照返回前立即更新选中宠物入口
+    // - 保持页面处于 loaded 状态，避免切换宠物时回到全屏加载态
+    func optimisticallySelectingPet(id petID: String) -> HomeDashboardSnapshot? {
+        guard let selectedItem = petSwitcher.first(where: { $0.id == petID }) else {
+            return nil
+        }
+
+        let updatedPetSwitcher = petSwitcher.map { item in
+            PetSwitchItem(
+                id: item.id,
+                name: item.name,
+                species: item.species,
+                avatarURL: item.avatarURL,
+                isSelected: item.id == petID
+            )
+        }
+
+        let optimisticPet = PetHeroSummary(
+            id: selectedItem.id,
+            name: selectedItem.name,
+            species: selectedItem.species,
+            breed: selectedPet?.breed ?? "",
+            sex: selectedPet?.sex ?? .unknown,
+            ageText: selectedPet?.ageText ?? "",
+            statusText: "正在同步档案",
+            updatedText: "同步中",
+            avatarURL: selectedItem.avatarURL,
+            heroImageAssetName: selectedPet?.heroImageAssetName,
+            heroVideoResourceName: selectedPet?.heroVideoResourceName,
+            birthday: selectedPet?.birthday,
+            companionshipDays: selectedPet?.companionshipDays,
+            stats: selectedPet?.stats
+        )
+
+        return HomeDashboardSnapshot(
+            identity: identity,
+            selectedPet: optimisticPet,
+            petSwitcher: updatedPetSwitcher,
+            careSummary: careSummary,
+            reminders: reminders,
+            quickActions: quickActions,
+            partnerRecommendation: partnerRecommendation,
+            recentTimeline: recentTimeline,
+            merchantDashboard: merchantDashboard,
+            emptyState: emptyState,
+            recommendedContent: recommendedContent,
+            petAlbums: petAlbums,
+            galleryAlbums: galleryAlbums
+        )
+    }
+}
+
+extension HomeDashboardSnapshot {
     // Identity 首页身份摘要
     // 核心职责：
     // - 表达当前首页形态
@@ -118,6 +173,15 @@ extension HomeDashboardSnapshot {
     // - 承载首页首屏宠物主体信息
     // - 避免首页依赖完整宠物档案字段
     struct PetHeroSummary: Decodable, Equatable, Identifiable {
+        // HeroMedia 首页头图媒体来源
+        // 核心职责：
+        // - 表达宠物头图当前使用图片或视频
+        // - 为渲染层和主题取色提供统一媒体入口
+        enum HeroMedia: Equatable {
+            case image(assetName: String)
+            case video(resourceName: String, fileExtension: String, fallbackImageAssetName: String?)
+        }
+
         let id: String
         let name: String
         let species: Species
@@ -128,9 +192,22 @@ extension HomeDashboardSnapshot {
         let updatedText: String
         let avatarURL: String?
         let heroImageAssetName: String?
+        let heroVideoResourceName: String?
         let birthday: String?
         let companionshipDays: Int?
         let stats: PetHeroStats?
+
+        var heroMedia: HeroMedia {
+            if let heroVideoResourceName {
+                return .video(
+                    resourceName: heroVideoResourceName,
+                    fileExtension: "mp4",
+                    fallbackImageAssetName: heroImageAssetName
+                )
+            }
+
+            return .image(assetName: heroImageAssetName ?? "HomePetHeroMock")
+        }
 
         init(
             id: String,
@@ -143,6 +220,7 @@ extension HomeDashboardSnapshot {
             updatedText: String,
             avatarURL: String?,
             heroImageAssetName: String?,
+            heroVideoResourceName: String? = nil,
             birthday: String? = nil,
             companionshipDays: Int? = nil,
             stats: PetHeroStats? = nil
@@ -157,6 +235,7 @@ extension HomeDashboardSnapshot {
             self.updatedText = updatedText
             self.avatarURL = avatarURL
             self.heroImageAssetName = heroImageAssetName
+            self.heroVideoResourceName = heroVideoResourceName
             self.birthday = birthday
             self.companionshipDays = companionshipDays
             self.stats = stats
@@ -173,6 +252,7 @@ extension HomeDashboardSnapshot {
             case updatedText = "updated_text"
             case avatarURL = "avatar_url"
             case heroImageAssetName = "hero_image_asset_name"
+            case heroVideoResourceName = "hero_video_resource_name"
             case birthday
             case companionshipDays = "companionship_days"
             case stats

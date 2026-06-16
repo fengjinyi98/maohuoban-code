@@ -26,14 +26,16 @@ struct MockHomeRepository: HomeRepository {
             throw MHBAPIError.transport("首页 Mock 请求已取消")
         }
 
+        let snapshot = HomeMockDashboardFixtures.snapshot(
+            scenario: scenario,
+            selectedPetID: selectedPetID
+        )
+
         return MHBAPIResponse(
             success: true,
             code: "mock.home.dashboard.loaded",
             message: "首页 Mock 数据已加载",
-            data: HomeMockDashboardFixtures.snapshot(
-                scenario: scenario,
-                selectedPetID: selectedPetID
-            )
+            data: snapshot
         )
     }
 }

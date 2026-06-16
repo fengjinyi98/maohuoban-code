@@ -354,7 +354,8 @@ enum HomeMockDashboardFixtures {
                 statusText: "近期食欲稳定，夜间活动偏多",
                 updatedText: "3 条事件已同步",
                 avatarURL: nil,
-                heroImageAssetName: "HomePetHeroMock",
+                heroImageAssetName: nil,
+                heroVideoResourceName: "HomePetTangyuanHeroMock",
                 birthday: "2025-02-18",
                 companionshipDays: 120,
                 stats: HomeDashboardSnapshot.PetHeroStats(
