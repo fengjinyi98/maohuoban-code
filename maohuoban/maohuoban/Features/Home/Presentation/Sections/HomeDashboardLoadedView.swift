@@ -17,8 +17,7 @@ struct HomeDashboardLoadedView: View {
     @State private var themeStore = HomeDashboardThemeStore()
 
     private var scrollProgress: CGFloat {
-        let threshold: CGFloat = 300
-        return min(max(scrollOffset / threshold, 0), 1)
+        Self.backgroundDimmingProgress(for: scrollOffset)
     }
 
     private var dynamicBackgroundColor: Color {
@@ -43,7 +42,8 @@ struct HomeDashboardLoadedView: View {
                                 pet: selectedPet,
                                 displayName: snapshot.identity.displayName,
                                 width: heroImageWidth,
-                                fusionColor: dynamicBackgroundColor
+                                fusionColor: dynamicBackgroundColor,
+                                contentColorScheme: themeStore.heroContentColorScheme
                             )
                         }
 
@@ -55,21 +55,15 @@ struct HomeDashboardLoadedView: View {
                         )
                     }
                     .frame(maxWidth: .infinity)
-                    .background(
-                        GeometryReader { geo in
-                            Color.clear
-                                .preference(
-                                    key: ScrollOffsetPreferenceKey.self,
-                                    value: -geo.frame(in: .named("homeScrollView")).minY
-                                )
-                        }
-                    )
                     .accessibilityIdentifier("home.dashboard")
                 }
                 .coordinateSpace(name: "homeScrollView")
                 .ignoresSafeArea(edges: snapshot.selectedPet == nil ? [] : .top)
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                    self.scrollOffset = offset
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.contentOffset.y
+                } action: { _, offset in
+                    let normalizedOffset = max(offset, 0)
+                    self.scrollOffset = normalizedOffset
                 }
 
                 if snapshot.selectedPet != nil {
@@ -95,15 +89,49 @@ struct HomeDashboardLoadedView: View {
                     .padding(.bottom, MHBTheme.Spacing.s6)
                 }
             }
-        }
-        .task {
-            themeStore.update(selectedPet: snapshot.selectedPet)
-        }
-        .onChange(of: snapshot.selectedPet?.id) { _, _ in
-            themeStore.update(selectedPet: snapshot.selectedPet)
+            .task(id: themeUpdateID(selectedPetID: snapshot.selectedPet?.id, width: heroImageWidth)) {
+                updateTheme(
+                    selectedPet: snapshot.selectedPet,
+                    heroImageWidth: heroImageWidth
+                )
+            }
         }
         .environment(\.colorScheme, themeStore.colorScheme)
         .toolbarColorScheme(themeStore.colorScheme, for: .tabBar)
+    }
+
+    private static var backgroundDimmingStartOffset: CGFloat {
+        HomeImmersivePetHeaderLayout.imageHeight * 0.50
+    }
+
+    private static var backgroundDimmingEndOffset: CGFloat {
+        HomeImmersivePetHeaderLayout.imageHeight
+    }
+
+    private static func backgroundDimmingProgress(for offset: CGFloat) -> CGFloat {
+        let dimmingRange = max(backgroundDimmingEndOffset - backgroundDimmingStartOffset, 1)
+        let rawProgress = (offset - backgroundDimmingStartOffset) / dimmingRange
+        return min(max(rawProgress, 0), 1)
+    }
+
+    private func updateTheme(
+        selectedPet: HomeDashboardSnapshot.PetHeroSummary?,
+        heroImageWidth: CGFloat
+    ) {
+        themeStore.update(
+            selectedPet: selectedPet,
+            heroImageSize: CGSize(
+                width: heroImageWidth,
+                height: HomeImmersivePetHeaderLayout.imageHeight
+            )
+        )
+    }
+
+    private func themeUpdateID(
+        selectedPetID: String?,
+        width: CGFloat
+    ) -> String {
+        "\(selectedPetID ?? "none")-\(Int(width.rounded()))"
     }
 }
 
@@ -210,13 +238,5 @@ private struct HomeIdentityHeader: View {
             }
         }
         .accessibilityIdentifier("home.identityHeader")
-    }
-}
-
-// ScrollOffsetPreferenceKey 滚动位移偏好键
-private struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }

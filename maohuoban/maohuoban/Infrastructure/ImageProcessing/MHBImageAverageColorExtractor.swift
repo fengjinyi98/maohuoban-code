@@ -56,6 +56,76 @@ enum MHBImageAverageColorExtractor {
         }
     }
 
+    static func extractScaledToFillVisibleHighestAverageColor(
+        from image: UIImage,
+        targetSize: CGSize,
+        segmentsCount: Int = 5,
+        maxDimension: CGFloat = 400
+    ) -> UIColor? {
+        guard targetSize.width > 0, targetSize.height > 0 else {
+            return nil
+        }
+
+        let segmentRatio = 1 / CGFloat(max(segmentsCount, 1))
+        let bands = (0..<max(segmentsCount, 1)).map { index in
+            let startRatio = CGFloat(index) * segmentRatio
+            let endRatio = CGFloat(index + 1) * segmentRatio
+            return (
+                label: "visibleSegment\(index)",
+                startRatio: startRatio,
+                endRatio: endRatio
+            )
+        }
+        let samples = extractScaledToFillVisibleBandColors(
+            from: image,
+            targetSize: targetSize,
+            bands: bands,
+            maxDimension: maxDimension
+        )
+
+        guard !samples.isEmpty else {
+            return nil
+        }
+
+        return samples.max { sample1, sample2 in
+            averageRGBBrightness(of: sample1.color) < averageRGBBrightness(of: sample2.color)
+        }?.color
+    }
+
+    static func extractScaledToFillVisibleAverageColor(
+        from image: UIImage,
+        targetSize: CGSize,
+        maxDimension: CGFloat = 400
+    ) -> UIColor? {
+        guard targetSize.width > 0, targetSize.height > 0 else {
+            return nil
+        }
+
+        let preparedImage = downsample(image: image, maxDimension: maxDimension)
+
+        guard let ciImage = CIImage(image: preparedImage) else {
+            return nil
+        }
+
+        let extent = ciImage.extent
+        let scale = max(targetSize.width / extent.width, targetSize.height / extent.height)
+        let visibleWidth = targetSize.width / scale
+        let visibleHeight = targetSize.height / scale
+        let visibleX = extent.midX - visibleWidth / 2
+        let visibleY = extent.midY - visibleHeight / 2
+        let visibleRect = CGRect(
+            x: visibleX,
+            y: visibleY,
+            width: visibleWidth,
+            height: visibleHeight
+        ).intersection(extent)
+
+        return extractAverageColor(
+            ciImage: ciImage,
+            cropRect: visibleRect
+        )
+    }
+
     static func extractScaledToFillVisibleBottomColor(
         from image: UIImage,
         targetSize: CGSize,
@@ -239,5 +309,15 @@ enum MHBImageAverageColorExtractor {
             blue: CGFloat(bytes[2]) / 255,
             alpha: CGFloat(bytes[3]) / 255
         )
+    }
+
+    private static func averageRGBBrightness(of color: UIColor) -> CGFloat {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (red + green + blue) / 3
     }
 }

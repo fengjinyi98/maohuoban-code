@@ -144,15 +144,14 @@ private struct HomeTimelineRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else if event.id == "event-weight" {
             // 显示 +0.2 kg 变化值胶囊 (深绿背景 + 浅绿字体)
-            Text("+0.2 kg")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(mhbHex: "A3E635")) // 浅绿
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background {
-                    Capsule()
-                        .fill(Color(mhbHex: "4D7C0F").opacity(0.25)) // 深绿背景
-                }
+            MHBTagView(
+                "+0.2 kg",
+                style: .custom(
+                    foreground: Color(mhbHex: "A3E635"),
+                    background: Color(mhbHex: "4D7C0F").opacity(0.25)
+                ),
+                size: .medium
+            )
         } else {
             // 显示灰色 chevron 箭头
             Image(systemName: "chevron.right")

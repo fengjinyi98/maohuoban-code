@@ -11,10 +11,7 @@ struct HomePetGallerySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
             // 头部 "相册 >"
-            Button(action: {
-                // Mock 点击响应，未来可连接至精选相册列表
-                print("Clicked gallery header")
-            }) {
+            Button(action: {}) {
                 HStack(spacing: MHBTheme.Spacing.s1) {
                     Text("相册")
                         .font(.system(size: 18, weight: .bold))
@@ -33,10 +30,7 @@ struct HomePetGallerySection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: MHBTheme.Spacing.s3) {
                     ForEach(albums) { album in
-                        Button(action: {
-                            // Mock 点击单个相册
-                            print("Clicked gallery album: \(album.title)")
-                        }) {
+                        Button(action: {}) {
                             HomeGalleryCard(album: album)
                         }
                         .buttonStyle(.plain)

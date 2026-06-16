@@ -81,27 +81,11 @@ struct HomePartnerSection: View {
                     // 第二行：标签列表 (同窝标签 + 距离标签)
                     HStack(spacing: 6) {
                         // 关系标签
-                        Text(relationTagText)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color(mhbHex: "10B981"))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background {
-                                Capsule()
-                                    .fill(Color(mhbHex: "10B981").opacity(0.12))
-                            }
+                        MHBTagView(relationTagText, style: .success, size: .small)
 
                         // 距离标签
                         if let distanceText = partner.distanceText {
-                            Text("同城 · \(distanceText)")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.6))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background {
-                                    Capsule()
-                                        .fill(Color.white.opacity(0.08))
-                                }
+                            MHBTagView("同城 · \(distanceText)", style: .whiteTranslucent, size: .small)
                         }
                     }
 

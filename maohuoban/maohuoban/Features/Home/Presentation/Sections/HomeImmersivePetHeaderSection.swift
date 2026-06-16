@@ -21,8 +21,12 @@ struct HomeImmersivePetHeaderSection: View {
     let displayName: String
     let width: CGFloat
     let fusionColor: Color
+    let contentColorScheme: ColorScheme
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
+    private var adaptiveIconColor: Color {
+        contentColorScheme == .dark ? .white.opacity(0.95) : .black.opacity(0.86)
+    }
 
     var body: some View {
         let imageWidth = max(width, 1)
@@ -74,8 +78,10 @@ struct HomeImmersivePetHeaderSection: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image("IconWorld")
+                                .renderingMode(.template)
                                 .resizable()
                                 .scaledToFit()
+                                .foregroundStyle(adaptiveIconColor)
                                 .frame(width: 16, height: 16)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
@@ -87,8 +93,10 @@ struct HomeImmersivePetHeaderSection: View {
 
                         HStack(spacing: 6) {
                             Image("IconCompanion")
+                                .renderingMode(.template)
                                 .resizable()
                                 .scaledToFit()
+                                .foregroundStyle(adaptiveIconColor)
                                 .frame(width: 16, height: 16)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
@@ -99,9 +107,7 @@ struct HomeImmersivePetHeaderSection: View {
 
                             Spacer()
 
-                            Button(action: {
-                                print("Clicked edit profile for pet: \(pet.id)")
-                            }) {
+                            Button(action: {}) {
                                 Text("编辑档案")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(.white)
@@ -181,6 +187,7 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
             )
 
             HomeImmersivePetHeaderReadabilityGradient(
+                color: fusionColor,
                 width: imageWidth,
                 height: baseImageHeight
             )
@@ -249,19 +256,21 @@ private struct HomeImmersivePetHeaderForegroundImage: View {
 
 // HomeImmersivePetHeaderReadabilityGradient 首页头图文字可读渐变
 // 核心职责：
-// - 为宠物姓名和副标题提供底层微弱渐变阴影，确保在任何头图背景下文字皆清晰可读
+// - 使用头图提取色派生层承托宠物姓名和副标题
+// - 避免纯黑渐变破坏头图与背景色融合
 private struct HomeImmersivePetHeaderReadabilityGradient: View {
+    let color: Color
     let width: CGFloat
     let height: CGFloat
 
     var body: some View {
         LinearGradient(
             stops: [
-                Gradient.Stop(color: .black.opacity(0.02), location: 0.0),
-                Gradient.Stop(color: .black.opacity(0.08), location: 0.42),
-                Gradient.Stop(color: .black.opacity(0.24), location: 0.72),
-                Gradient.Stop(color: .black.opacity(0.12), location: 0.88),
-                Gradient.Stop(color: .black.opacity(0), location: 1.0)
+                Gradient.Stop(color: color.opacity(0.02), location: 0.0),
+                Gradient.Stop(color: color.opacity(0.08), location: 0.42),
+                Gradient.Stop(color: color.opacity(0.24), location: 0.72),
+                Gradient.Stop(color: color.opacity(0.12), location: 0.88),
+                Gradient.Stop(color: color.opacity(0), location: 1.0)
             ],
             startPoint: .top,
             endPoint: .bottom

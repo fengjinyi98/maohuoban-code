@@ -12,10 +12,7 @@ struct HomePetAlbumsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
             // 头部 "[宠物名]的故事 >"
-            Button(action: {
-                // Mock 点击响应，未来可连接至动态列表
-                print("Clicked albums header")
-            }) {
+            Button(action: {}) {
                 HStack(spacing: MHBTheme.Spacing.s1) {
                     Text("\(petName ?? "它")的故事")
                         .font(.system(size: 18, weight: .bold))
@@ -34,10 +31,7 @@ struct HomePetAlbumsSection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: MHBTheme.Spacing.s3) {
                     ForEach(albums) { album in
-                        Button(action: {
-                            // Mock 点击单个相册
-                            print("Clicked album: \(album.title)")
-                        }) {
+                        Button(action: {}) {
                             HomeAlbumCard(album: album)
                         }
                         .buttonStyle(.plain)
