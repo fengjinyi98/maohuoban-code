@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // PetProfileEditScreen 宠物资料编辑页
 // 核心职责：
@@ -19,6 +20,8 @@ struct PetProfileEditScreen: View {
     @State private var editedWeights: [String: String] = [:]
     @State private var editedPersonalityTags: [String: [String]] = [:]
     @State private var editedNotes: [String: String] = [:]
+    @State private var editedAvatarImages: [String: UIImage] = [:]
+    @State private var editedHeroMedia: [String: PetProfileHeroMediaDraft] = [:]
     @State private var nameEditorProfileID: String?
     @State private var nameEditorDraft = ""
     @State private var isNameEditorPresented = false
@@ -55,6 +58,10 @@ struct PetProfileEditScreen: View {
     @State private var isNoteEditorPresented = false
     @State private var isNoteEditorChevronExpanded = false
     @State private var isAddPetPresented = false
+    @State private var avatarPreviewProfileID: String?
+    @State private var isAvatarPreviewPresented = false
+    @State private var backgroundPreviewProfileID: String?
+    @State private var isBackgroundPreviewPresented = false
     @State private var deleteConfirmationProfileID: String?
     @State private var isDeleteConfirmationPresented = false
     @State private var homePreviewSession: PetProfileHomePreviewSession?
@@ -75,6 +82,26 @@ struct PetProfileEditScreen: View {
 
     private var selectedProfile: PetProfileEditProfile {
         context.profiles.first(where: { $0.id == selectedProfileID }) ?? context.selectedProfile
+    }
+
+    private var avatarPreviewProfile: PetProfileEditProfile {
+        guard let avatarPreviewProfileID,
+              let profile = context.profiles.first(where: { $0.id == avatarPreviewProfileID })
+        else {
+            return selectedProfile
+        }
+
+        return profile
+    }
+
+    private var backgroundPreviewProfile: PetProfileEditProfile {
+        guard let backgroundPreviewProfileID,
+              let profile = context.profiles.first(where: { $0.id == backgroundPreviewProfileID })
+        else {
+            return selectedProfile
+        }
+
+        return profile
     }
 
     private var deleteConfirmationProfile: PetProfileEditProfile {
@@ -108,9 +135,15 @@ struct PetProfileEditScreen: View {
                             profiles: context.profiles,
                             selectedProfileID: profile.id,
                             displayName: { displayName(for: $0) },
+                            avatarImage: { editedAvatarImages[$0.id] },
                             onSelectProfile: { profileID in
                                 dismissSelectionMenus()
                                 selectedProfileID = profileID
+                            },
+                            onPreviewSelectedAvatar: { profileID in
+                                dismissSelectionMenus()
+                                avatarPreviewProfileID = profileID
+                                isAvatarPreviewPresented = true
                             },
                             onAddPet: {
                                 isAddPetPresented = true
@@ -157,8 +190,19 @@ struct PetProfileEditScreen: View {
                                     PetProfileEditValueText(value: chipNumber.isEmpty ? "未添加" : chipNumber)
                                 }
 
-                                PetProfileEditRow(title: "背景", showsSeparator: false) {
-                                    PetProfileEditMediaThumbnail(media: profile.heroMedia)
+                                PetProfileEditRow(
+                                    title: "背景",
+                                    showsSeparator: false,
+                                    action: {
+                                        dismissSelectionMenus()
+                                        backgroundPreviewProfileID = profile.id
+                                        isBackgroundPreviewPresented = true
+                                    }
+                                ) {
+                                    PetProfileEditMediaThumbnail(
+                                        media: profile.heroMedia,
+                                        localMedia: editedHeroMedia[profile.id]
+                                    )
                                 }
                             }
 
@@ -307,6 +351,43 @@ struct PetProfileEditScreen: View {
             PetProfileAddScreen(
                 currentUserID: currentUserID,
                 onCreated: onPetCreated
+            )
+        }
+        .fullScreenCover(
+            isPresented: $isAvatarPreviewPresented,
+            onDismiss: {
+                avatarPreviewProfileID = nil
+            }
+        ) {
+            let previewProfile = avatarPreviewProfile
+
+            PetProfileAvatarPreviewScreen(
+                petName: displayName(for: previewProfile),
+                avatarURL: previewProfile.avatarURL,
+                species: previewProfile.species,
+                localAvatarImage: editedAvatarImages[previewProfile.id],
+                onAvatarUpdated: { image in
+                    // TODO: 接入后端宠物头像上传接口后，将本地草稿替换为服务端返回的头像地址。
+                    editedAvatarImages[previewProfile.id] = image
+                }
+            )
+        }
+        .fullScreenCover(
+            isPresented: $isBackgroundPreviewPresented,
+            onDismiss: {
+                backgroundPreviewProfileID = nil
+            }
+        ) {
+            let previewProfile = backgroundPreviewProfile
+
+            PetProfileBackgroundPreviewScreen(
+                petName: displayName(for: previewProfile),
+                heroMedia: previewProfile.heroMedia,
+                localHeroMedia: editedHeroMedia[previewProfile.id],
+                onHeroMediaUpdated: { media in
+                    // TODO: 接入后端宠物背景上传接口后，将本地草稿替换为服务端返回的背景资源地址。
+                    editedHeroMedia[previewProfile.id] = media
+                }
             )
         }
         .fullScreenCover(
@@ -960,7 +1041,9 @@ private struct PetProfileEditPetPickerHeader: View {
     let profiles: [PetProfileEditProfile]
     let selectedProfileID: String
     let displayName: (PetProfileEditProfile) -> String
+    let avatarImage: (PetProfileEditProfile) -> UIImage?
     let onSelectProfile: (String) -> Void
+    let onPreviewSelectedAvatar: (String) -> Void
     let onAddPet: () -> Void
 
     private let avatarSize: CGFloat = 78
@@ -972,9 +1055,16 @@ private struct PetProfileEditPetPickerHeader: View {
                     PetProfileEditPetPickerItem(
                         profile: profile,
                         displayName: displayName(profile),
+                        localAvatarImage: avatarImage(profile),
                         isSelected: profile.id == selectedProfileID,
                         avatarSize: avatarSize,
-                        action: { onSelectProfile(profile.id) }
+                        action: {
+                            if profile.id == selectedProfileID {
+                                onPreviewSelectedAvatar(profile.id)
+                            } else {
+                                onSelectProfile(profile.id)
+                            }
+                        }
                     )
                     .accessibilityIdentifier("pet.profileEdit.petPicker.\(profile.id)")
                 }
@@ -999,6 +1089,7 @@ private struct PetProfileEditPetPickerHeader: View {
 private struct PetProfileEditPetPickerItem: View {
     let profile: PetProfileEditProfile
     let displayName: String
+    let localAvatarImage: UIImage?
     let isSelected: Bool
     let avatarSize: CGFloat
     let action: () -> Void
@@ -1020,13 +1111,14 @@ private struct PetProfileEditPetPickerItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isSelected ? "正在编辑\(displayName)" : "切换到\(displayName)")
+        .accessibilityLabel(isSelected ? "预览并编辑\(displayName)头像" : "切换到\(displayName)")
     }
 
     private var avatar: some View {
         ZStack(alignment: .bottomTrailing) {
             PetProfileEditAvatarImage(
                 avatarURL: profile.avatarURL,
+                localAvatarImage: localAvatarImage,
                 species: profile.species,
                 size: avatarSize
             )
@@ -1464,11 +1556,18 @@ private struct PetProfileEditValueText: View {
 // - 在头像缺失时按物种提供稳定兜底
 private struct PetProfileEditAvatarImage: View {
     let avatarURL: String?
+    let localAvatarImage: UIImage?
     let species: PetProfileEditProfile.Species
     let size: CGFloat
 
     var body: some View {
-        if let avatarURL, let url = URL(string: avatarURL) {
+        if let localAvatarImage {
+            Image(uiImage: localAvatarImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(Circle())
+        } else if let avatarURL, let url = URL(string: avatarURL) {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
@@ -1502,12 +1601,13 @@ private struct PetProfileEditAvatarImage: View {
 // - 兼容图片和本地视频 mock 资源
 private struct PetProfileEditMediaThumbnail: View {
     let media: PetProfileEditProfile.HeroMedia
+    let localMedia: PetProfileHeroMediaDraft?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             mediaContent
 
-            if case .video = media {
+            if isVideo {
                 Image(systemName: "play.fill")
                     .font(.system(size: 6, weight: .bold))
                     .foregroundStyle(.white)
@@ -1521,25 +1621,50 @@ private struct PetProfileEditMediaThumbnail: View {
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
+    private var isVideo: Bool {
+        if let localMedia,
+           case .video = localMedia {
+            return true
+        }
+
+        if localMedia == nil,
+           case .video = media {
+            return true
+        }
+
+        return false
+    }
+
     @ViewBuilder
     private var mediaContent: some View {
-        switch media {
-        case .image(let assetName):
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
-        case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
-            if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
-                MHBMutedLoopingVideoView(
-                    resourceName: resourceName,
-                    fileExtension: fileExtension
-                )
-            } else if let fallbackImageAssetName {
-                Image(fallbackImageAssetName)
+        if let localMedia {
+            switch localMedia {
+            case .image(let image):
+                Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-            } else {
-                MHBTheme.ColorToken.primaryBackground.color
+            case .video(let url):
+                MHBMutedLoopingVideoView(url: url)
+            }
+        } else {
+            switch media {
+            case .image(let assetName):
+                Image(assetName)
+                    .resizable()
+                    .scaledToFill()
+            case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
+                if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
+                    MHBMutedLoopingVideoView(
+                        resourceName: resourceName,
+                        fileExtension: fileExtension
+                    )
+                } else if let fallbackImageAssetName {
+                    Image(fallbackImageAssetName)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    MHBTheme.ColorToken.primaryBackground.color
+                }
             }
         }
     }

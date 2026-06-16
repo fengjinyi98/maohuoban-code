@@ -7,21 +7,36 @@ import UIKit
 // - 使用 AVPlayerLayer 渲染无控制条的本地视频
 // - 统一管理静音、循环和视图生命周期播放状态
 struct MHBMutedLoopingVideoView: UIViewRepresentable {
-    let resourceName: String
-    let fileExtension: String
+    private let source: Source
+
+    init(
+        resourceName: String,
+        fileExtension: String
+    ) {
+        self.source = .bundle(resourceName: resourceName, fileExtension: fileExtension)
+    }
+
+    init(url: URL) {
+        self.source = .url(url)
+    }
 
     func makeUIView(context: Context) -> LoopingVideoPlayerView {
         let view = LoopingVideoPlayerView()
-        view.configure(resourceName: resourceName, fileExtension: fileExtension)
+        view.configure(source)
         return view
     }
 
     func updateUIView(_ uiView: LoopingVideoPlayerView, context: Context) {
-        uiView.configure(resourceName: resourceName, fileExtension: fileExtension)
+        uiView.configure(source)
     }
 
     static func dismantleUIView(_ uiView: LoopingVideoPlayerView, coordinator: ()) {
         uiView.stop()
+    }
+
+    enum Source: Equatable {
+        case bundle(resourceName: String, fileExtension: String)
+        case url(URL)
     }
 }
 
@@ -65,6 +80,38 @@ final class LoopingVideoPlayerView: UIView {
             return
         }
 
+        guard currentURL != url else {
+            playIfVisible()
+            return
+        }
+
+        currentURL = url
+
+        let queuePlayer = AVQueuePlayer()
+        queuePlayer.isMuted = true
+        queuePlayer.actionAtItemEnd = .none
+        queuePlayer.preventsDisplaySleepDuringVideoPlayback = false
+
+        let item = AVPlayerItem(url: url)
+        let playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+
+        player = queuePlayer
+        looper = playerLooper
+        playerLayer.player = queuePlayer
+
+        playIfVisible()
+    }
+
+    func configure(_ source: MHBMutedLoopingVideoView.Source) {
+        switch source {
+        case .bundle(let resourceName, let fileExtension):
+            configure(resourceName: resourceName, fileExtension: fileExtension)
+        case .url(let url):
+            configure(url: url)
+        }
+    }
+
+    func configure(url: URL) {
         guard currentURL != url else {
             playIfVisible()
             return
