@@ -9,10 +9,24 @@ struct PetProfileEditScreen: View {
     let context: PetProfileEditContext
     @State private var selectedProfileID: String
     @State private var editedNames: [String: String] = [:]
+    @State private var editedChipNumbers: [String: String] = [:]
+    @State private var editedSexTexts: [String: String] = [:]
+    @State private var editedNeuterStatusTexts: [String: String] = [:]
     @State private var nameEditorProfileID: String?
     @State private var nameEditorDraft = ""
     @State private var isNameEditorPresented = false
     @State private var isNameEditorChevronExpanded = false
+    @State private var chipEditorProfileID: String?
+    @State private var chipEditorDraft = ""
+    @State private var isChipEditorPresented = false
+    @State private var isChipEditorChevronExpanded = false
+    @State private var isProfileCodeInfoPresented = false
+    @State private var sexPickerProfileID: String?
+    @State private var isSexPickerPresented = false
+    @State private var sexRowFrame = CGRect.zero
+    @State private var neuterStatusPickerProfileID: String?
+    @State private var isNeuterStatusPickerPresented = false
+    @State private var neuterStatusRowFrame = CGRect.zero
 
     init(context: PetProfileEditContext) {
         self.context = context
@@ -26,77 +40,152 @@ struct PetProfileEditScreen: View {
     var body: some View {
         let profile = selectedProfile
         let profileName = displayName(for: profile)
+        let profileCode = formattedProfileCode(profile.profileCode)
+        let chipNumber = displayChipNumber(for: profile)
+        let sexText = displaySexText(for: profile)
+        let neuterStatusText = displayNeuterStatusText(for: profile)
 
-        MHBScreenScrollView {
-            VStack(spacing: MHBTheme.Spacing.s6) {
-                PetProfileEditPetPickerHeader(
-                    profiles: context.profiles,
-                    selectedProfileID: profile.id,
-                    displayName: { displayName(for: $0) },
-                    onSelectProfile: { profileID in
-                        selectedProfileID = profileID
-                    },
-                    onAddPet: {
-                        // TODO: 接入添加宠物档案流程
-                    }
-                )
-
-                VStack(spacing: MHBTheme.Spacing.s4) {
-                    PetProfileEditSection {
-                        PetProfileEditRow(
-                            title: "宠物名字",
-                            isAccessoryExpanded: isNameEditorChevronExpanded && nameEditorProfileID == profile.id,
-                            action: {
-                                nameEditorProfileID = profile.id
-                                nameEditorDraft = profileName
-                                isNameEditorChevronExpanded = true
-                                isNameEditorPresented = true
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                MHBScreenScrollView {
+                    VStack(spacing: MHBTheme.Spacing.s6) {
+                        PetProfileEditPetPickerHeader(
+                            profiles: context.profiles,
+                            selectedProfileID: profile.id,
+                            displayName: { displayName(for: $0) },
+                            onSelectProfile: { profileID in
+                                dismissSelectionMenus()
+                                selectedProfileID = profileID
+                            },
+                            onAddPet: {
+                                // TODO: 接入添加宠物档案流程
                             }
-                        ) {
-                            PetProfileEditValueText(value: profileName)
-                        }
+                        )
 
-                        PetProfileEditRow(title: "芯片号") {
-                            PetProfileEditValueText(value: profile.chipNumber)
-                        }
+                        VStack(spacing: MHBTheme.Spacing.s4) {
+                            PetProfileEditSection {
+                                PetProfileEditRow(
+                                    title: "宠物名字",
+                                    isAccessoryExpanded: isNameEditorChevronExpanded && nameEditorProfileID == profile.id,
+                                    action: {
+                                        dismissSelectionMenus()
+                                        nameEditorProfileID = profile.id
+                                        nameEditorDraft = profileName
+                                        isNameEditorChevronExpanded = true
+                                        isNameEditorPresented = true
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: profileName)
+                                }
 
-                        PetProfileEditRow(title: "背景", showsSeparator: false) {
-                            PetProfileEditMediaThumbnail(media: profile.heroMedia)
+                                PetProfileEditRow(
+                                    title: "宠物档案号",
+                                    action: {
+                                        dismissSelectionMenus()
+                                        isProfileCodeInfoPresented = true
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: profileCode)
+                                }
+
+                                PetProfileEditRow(
+                                    title: "芯片号",
+                                    isAccessoryExpanded: isChipEditorChevronExpanded && chipEditorProfileID == profile.id,
+                                    action: {
+                                        dismissSelectionMenus()
+                                        chipEditorProfileID = profile.id
+                                        chipEditorDraft = chipNumber
+                                        isChipEditorChevronExpanded = true
+                                        isChipEditorPresented = true
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: chipNumber.isEmpty ? "未添加" : chipNumber)
+                                }
+
+                                PetProfileEditRow(title: "背景", showsSeparator: false) {
+                                    PetProfileEditMediaThumbnail(media: profile.heroMedia)
+                                }
+                            }
+
+                            PetProfileEditSection {
+                                PetProfileEditRow(
+                                    title: "性别",
+                                    isAccessoryExpanded: isSexPickerPresented && sexPickerProfileID == profile.id,
+                                    action: {
+                                        showSexPicker(for: profile.id)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: sexText)
+                                }
+                                .petProfileEditRowFrame(.sex)
+
+                                PetProfileEditRow(title: "出生日期") {
+                                    PetProfileEditValueText(value: profile.birthDateText)
+                                }
+
+                                PetProfileEditRow(title: "体重") {
+                                    PetProfileEditValueText(value: profile.weightText)
+                                }
+
+                                PetProfileEditRow(
+                                    title: "绝育状态",
+                                    showsSeparator: false,
+                                    isAccessoryExpanded: isNeuterStatusPickerPresented && neuterStatusPickerProfileID == profile.id,
+                                    action: {
+                                        showNeuterStatusPicker(for: profile.id)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: neuterStatusText)
+                                }
+                                .petProfileEditRowFrame(.neuterStatus)
+                            }
+
+                            PetProfileEditSection {
+                                PetProfileEditRow(title: "性格标签") {
+                                    PetProfileEditTagFlow(tags: profile.personalityTags)
+                                }
+
+                                PetProfileEditRow(title: "备注", showsSeparator: false) {
+                                    PetProfileEditValueText(value: profile.note)
+                                }
+                            }
                         }
                     }
-
-                    PetProfileEditSection {
-                        PetProfileEditRow(title: "性别") {
-                            PetProfileEditValueText(value: profile.sexText)
-                        }
-
-                        PetProfileEditRow(title: "出生日期") {
-                            PetProfileEditValueText(value: profile.birthDateText)
-                        }
-
-                        PetProfileEditRow(title: "体重") {
-                            PetProfileEditValueText(value: profile.weightText)
-                        }
-
-                        PetProfileEditRow(title: "绝育状态", showsSeparator: false) {
-                            PetProfileEditValueText(value: profile.neuterStatusText)
-                        }
-                    }
-
-                    PetProfileEditSection {
-                        PetProfileEditRow(title: "性格标签") {
-                            PetProfileEditTagFlow(tags: profile.personalityTags)
-                        }
-
-                        PetProfileEditRow(title: "备注", showsSeparator: false) {
-                            PetProfileEditValueText(value: profile.note)
-                        }
-                    }
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .padding(.top, MHBTheme.Spacing.s6)
+                    .padding(.bottom, MHBTheme.Spacing.s8)
                 }
+                .coordinateSpace(name: PetProfileEditCoordinateSpace.name)
+                .onPreferenceChange(PetProfileEditRowFramePreferenceKey.self) { frames in
+                    sexRowFrame = frames[.sex] ?? .zero
+                    neuterStatusRowFrame = frames[.neuterStatus] ?? .zero
+                }
+
+                if isSexPickerPresented || isNeuterStatusPickerPresented {
+                    MHBOutsideTapDismissLayer(onDismiss: dismissSelectionMenus)
+                        .zIndex(1)
+                }
+
+                PetProfileEditSelectionMenuOverlay(
+                    isPresented: isSexPickerPresented,
+                    containerWidth: proxy.size.width,
+                    rowFrame: sexRowFrame,
+                    selectedValue: sexText,
+                    options: ["公", "母"],
+                    onSelect: updateSexText
+                )
+                .zIndex(2)
+
+                PetProfileEditSelectionMenuOverlay(
+                    isPresented: isNeuterStatusPickerPresented,
+                    containerWidth: proxy.size.width,
+                    rowFrame: neuterStatusRowFrame,
+                    selectedValue: neuterStatusText,
+                    options: ["已绝育", "未绝育"],
+                    onSelect: updateNeuterStatusText
+                )
+                .zIndex(2)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -129,11 +218,269 @@ struct PetProfileEditScreen: View {
                 }
             )
         }
+        .alert(
+            "宠物档案号",
+            isPresented: $isProfileCodeInfoPresented
+        ) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text("宠物档案号是毛伙伴为每只宠物生成的平台内唯一身份编码。它不是芯片号，不需要植入芯片，也不可自行修改。当前档案号：\(profileCode)")
+        }
+        .sheet(
+            isPresented: $isChipEditorPresented,
+            onDismiss: {
+                isChipEditorChevronExpanded = false
+                chipEditorProfileID = nil
+            }
+        ) {
+            PetProfileChipEditorSheet(
+                chipNumber: $chipEditorDraft,
+                existingChipNumber: chipEditorProfileID.flatMap { profileID in
+                    context.profiles.first(where: { $0.id == profileID }).map(displayChipNumber)
+                } ?? "",
+                onWillDismiss: {
+                    isChipEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = chipEditorProfileID else { return }
+                    editedChipNumbers[profileID] = chipEditorDraft
+                    isChipEditorChevronExpanded = false
+                    isChipEditorPresented = false
+                }
+            )
+        }
         .accessibilityIdentifier("pet.profileEdit.screen")
     }
 
     private func displayName(for profile: PetProfileEditProfile) -> String {
         editedNames[profile.id] ?? profile.name
+    }
+
+    private func displayChipNumber(for profile: PetProfileEditProfile) -> String {
+        let chipNumber = editedChipNumbers[profile.id] ?? profile.chipNumber
+        let trimmedChipNumber = chipNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedChipNumber.isEmpty || trimmedChipNumber == "暂未录入" || trimmedChipNumber == "未添加" {
+            return ""
+        }
+
+        return trimmedChipNumber
+    }
+
+    private func displaySexText(for profile: PetProfileEditProfile) -> String {
+        let sexText = editedSexTexts[profile.id] ?? profile.sexText
+
+        return switch sexText {
+        case "男", "公": "公"
+        case "女", "母": "母"
+        default: "未知"
+        }
+    }
+
+    private func displayNeuterStatusText(for profile: PetProfileEditProfile) -> String {
+        let neuterStatusText = editedNeuterStatusTexts[profile.id] ?? profile.neuterStatusText
+
+        return switch neuterStatusText {
+        case "已绝育": "已绝育"
+        default: "未绝育"
+        }
+    }
+
+    private func showSexPicker(for profileID: String) {
+        let isOpeningSamePicker = isSexPickerPresented && sexPickerProfileID == profileID
+        dismissSelectionMenus()
+
+        if !isOpeningSamePicker {
+            sexPickerProfileID = profileID
+            isSexPickerPresented = true
+        }
+    }
+
+    private func showNeuterStatusPicker(for profileID: String) {
+        let isOpeningSamePicker = isNeuterStatusPickerPresented && neuterStatusPickerProfileID == profileID
+        dismissSelectionMenus()
+
+        if !isOpeningSamePicker {
+            neuterStatusPickerProfileID = profileID
+            isNeuterStatusPickerPresented = true
+        }
+    }
+
+    private func dismissSelectionMenus() {
+        isSexPickerPresented = false
+        sexPickerProfileID = nil
+        isNeuterStatusPickerPresented = false
+        neuterStatusPickerProfileID = nil
+    }
+
+    private func updateSexText(_ sexText: String) {
+        guard let profileID = sexPickerProfileID else { return }
+        editedSexTexts[profileID] = sexText
+        isSexPickerPresented = false
+        sexPickerProfileID = nil
+    }
+
+    private func updateNeuterStatusText(_ neuterStatusText: String) {
+        guard let profileID = neuterStatusPickerProfileID else { return }
+        editedNeuterStatusTexts[profileID] = neuterStatusText
+        isNeuterStatusPickerPresented = false
+        neuterStatusPickerProfileID = nil
+    }
+
+    private func formattedProfileCode(_ profileCode: String) -> String {
+        let digits = profileCode.filter { character in
+            character.unicodeScalars.count == 1
+                && character.unicodeScalars.first.map { (48...57).contains($0.value) } == true
+        }
+
+        guard digits.count == 16 else {
+            return profileCode
+        }
+
+        let first = digits.prefix(3)
+        let secondStart = digits.index(digits.startIndex, offsetBy: 3)
+        let secondEnd = digits.index(secondStart, offsetBy: 3)
+        let thirdEnd = digits.index(secondEnd, offsetBy: 2)
+        let fourthEnd = digits.index(thirdEnd, offsetBy: 7)
+
+        return [
+            String(first),
+            String(digits[secondStart..<secondEnd]),
+            String(digits[secondEnd..<thirdEnd]),
+            String(digits[thirdEnd..<fourthEnd]),
+            String(digits[fourthEnd...])
+        ].joined(separator: "-")
+    }
+}
+
+private enum PetProfileEditCoordinateSpace {
+    static let name = "PetProfileEditScreen"
+}
+
+private enum PetProfileEditRowAnchor: Hashable {
+    case sex
+    case neuterStatus
+}
+
+private struct PetProfileEditRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [PetProfileEditRowAnchor: CGRect] = [:]
+
+    static func reduce(
+        value: inout [PetProfileEditRowAnchor: CGRect],
+        nextValue: () -> [PetProfileEditRowAnchor: CGRect]
+    ) {
+        value.merge(nextValue(), uniquingKeysWith: { _, newValue in newValue })
+    }
+}
+
+private extension View {
+    func petProfileEditRowFrame(_ anchor: PetProfileEditRowAnchor) -> some View {
+        background {
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: PetProfileEditRowFramePreferenceKey.self,
+                    value: [anchor: proxy.frame(in: .named(PetProfileEditCoordinateSpace.name))]
+                )
+            }
+        }
+    }
+}
+
+// PetProfileEditSelectionMenuOverlay 编辑资料锚点选择菜单浮层
+// 核心职责：
+// - 使用统一锚点浮动面板承载资料字段选择项
+// - 根据 row 位置将菜单放置在触发入口附近
+private struct PetProfileEditSelectionMenuOverlay: View {
+    let isPresented: Bool
+    let containerWidth: CGFloat
+    let rowFrame: CGRect
+    let selectedValue: String
+    let options: [String]
+    let onSelect: (String) -> Void
+
+    private let menuWidth: CGFloat = 168
+
+    private var offset: CGSize {
+        let horizontalMargin = MHBTheme.Spacing.s4
+        let x = min(
+            max(rowFrame.maxX - menuWidth, horizontalMargin),
+            max(horizontalMargin, containerWidth - menuWidth - horizontalMargin)
+        )
+        let y = rowFrame.maxY + MHBTheme.Spacing.s1
+
+        return CGSize(width: x, height: y)
+    }
+
+    var body: some View {
+        MHBAnchoredFloatingPanel(
+            isPresented: isPresented && rowFrame != .zero,
+            offset: offset,
+            scaleAnchor: .topTrailing
+        ) {
+            PetProfileEditSelectionMenu(
+                selectedValue: selectedValue,
+                options: options,
+                onSelect: onSelect
+            )
+        }
+        .animation(.snappy(duration: 0.22), value: isPresented)
+    }
+}
+
+// PetProfileEditSelectionMenu 编辑资料选择菜单
+// 核心职责：
+// - 展示字段可选值
+// - 使用勾选标识表达当前值
+private struct PetProfileEditSelectionMenu: View {
+    let selectedValue: String
+    let options: [String]
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    onSelect(option)
+                } label: {
+                    PetProfileEditSelectionMenuRow(
+                        title: option,
+                        isSelected: option == selectedValue
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(MHBTheme.Spacing.s2)
+        .frame(width: 168)
+        .glassEffect(.regular, in: .rect(cornerRadius: MHBTheme.Radius.large))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+// PetProfileEditSelectionMenuRow 编辑资料选择菜单行
+// 核心职责：
+// - 展示单个选择项标题
+// - 为当前选中项展示勾选标识
+private struct PetProfileEditSelectionMenuRow: View {
+    let title: String
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s2) {
+            Text(title)
+                .font(MHBTheme.Typography.footnote)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .lineLimit(1)
+
+            Spacer(minLength: MHBTheme.Spacing.s3)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: MHBTheme.IconSize.small, weight: .bold))
+                .foregroundStyle(MHBTheme.ColorToken.primary.color.opacity(isSelected ? 1 : 0))
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s2)
+        .padding(.vertical, MHBTheme.Spacing.s2)
+        .contentShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 }
 
@@ -457,6 +804,172 @@ private struct PetProfileNameEditorSheet: View {
     }
 }
 
+// PetProfileChipEditorSheet 宠物芯片号编辑弹层
+// 核心职责：
+// - 校验 ISO 11784 / ISO 11785 FDX-B 的 15 位纯数字编码
+// - 在保存前要求用户二次确认不可修改的芯片号
+private struct PetProfileChipEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var chipNumber: String
+    let existingChipNumber: String
+    let onWillDismiss: () -> Void
+    let onSave: () -> Void
+
+    @State private var isConfirmingSave = false
+
+    private let chipNumberLength = 15
+
+    private var isExistingChipNumberLocked: Bool {
+        !existingChipNumber.isEmpty
+    }
+
+    private var trimmedChipNumber: String {
+        chipNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isChipNumberValid: Bool {
+        trimmedChipNumber.count == chipNumberLength
+            && normalizedChipNumber(from: trimmedChipNumber) == trimmedChipNumber
+    }
+
+    private var saveColor: Color {
+        MHBTheme.ColorToken.primary.color.opacity(isChipNumberValid ? 1 : 0.35)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+                if isExistingChipNumberLocked {
+                    lockedChipNumberContent
+                } else {
+                    editableChipNumberContent
+                }
+
+                Text("宠物芯片号采用 ISO 11784 / ISO 11785 FDX-B 标准，为 15 位纯数字编码。芯片号添加后不可自行修改，如需变更需通过申诉渠道处理。")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer()
+            }
+            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.top, MHBTheme.Spacing.s4)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle(isExistingChipNumberLocked ? "芯片号" : "添加芯片号")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        onWillDismiss()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .accessibilityLabel("关闭")
+                }
+
+                if !isExistingChipNumberLocked {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("保存") {
+                            isConfirmingSave = true
+                        }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(saveColor)
+                        .disabled(!isChipNumberValid)
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .background(MHBPresentationDismissObserver(onWillDismiss: onWillDismiss))
+        .onChange(of: chipNumber) { _, newValue in
+            let normalizedDigits = normalizedChipNumber(from: newValue)
+
+            if normalizedDigits != newValue {
+                chipNumber = normalizedDigits
+            }
+        }
+        .alert(
+            "确认芯片号",
+            isPresented: $isConfirmingSave
+        ) {
+            Button("返回检查", role: .cancel) {}
+
+            Button("确认添加") {
+                saveConfirmedChipNumber()
+            }
+        } message: {
+            Text("请确认芯片号 \(trimmedChipNumber) 准确无误。添加后不可自行修改，如需变更需通过申诉渠道处理。")
+        }
+        .accessibilityIdentifier("pet.profileEdit.chipEditor.sheet")
+    }
+
+    private var editableChipNumberContent: some View {
+        HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
+            TextField("请输入 15 位芯片号", text: $chipNumber)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .keyboardType(.numberPad)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Text("\(chipNumber.count)/\(chipNumberLength)")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .frame(minHeight: 56)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+    }
+
+    private var lockedChipNumberContent: some View {
+        HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
+            Text(existingChipNumber)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .monospacedDigit()
+
+            Spacer(minLength: MHBTheme.Spacing.s3)
+
+            Text("已添加")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .frame(minHeight: 56)
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+    }
+
+    private func saveConfirmedChipNumber() {
+        guard isChipNumberValid else { return }
+        chipNumber = trimmedChipNumber
+        onWillDismiss()
+        onSave()
+        dismiss()
+    }
+
+    private func normalizedChipNumber(from value: String) -> String {
+        let digits = value.compactMap { character -> Character? in
+            guard character.unicodeScalars.count == 1,
+                  let scalar = character.unicodeScalars.first,
+                  (48...57).contains(scalar.value) else {
+                return nil
+            }
+
+            return character
+        }
+
+        return String(digits.prefix(chipNumberLength))
+    }
+}
+
 // PetProfileEditValueText 编辑资料行文本值
 // 核心职责：
 // - 统一资料行右侧文本样式
@@ -465,7 +978,7 @@ private struct PetProfileEditValueText: View {
     let value: String
 
     var body: some View {
-        let isPlaceholder = value.isEmpty || value.hasPrefix("选择") || value == "暂未设置" || value == "暂无"
+        let isPlaceholder = value.isEmpty || value.hasPrefix("选择") || value == "暂未设置" || value == "暂无" || value == "未添加"
         Text(value)
             .font(.system(size: 16, weight: .regular))
             .foregroundStyle(isPlaceholder ? MHBTheme.ColorToken.labelTertiary.color : MHBTheme.ColorToken.labelPrimary.color)

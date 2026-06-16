@@ -227,6 +227,7 @@ struct HomeDashboardLoadedView: View {
             species: editSpecies(for: pet.species),
             avatarURL: pet.avatarURL,
             heroMedia: editHeroMedia(for: pet.heroMedia),
+            profileCode: profileCode(for: pet.id),
             chipNumber: chipNumber(for: pet.id),
             sexText: sexText(for: pet.sex),
             birthDateText: pet.birthday ?? "暂未设置",
@@ -252,6 +253,7 @@ struct HomeDashboardLoadedView: View {
             species: editSpecies(for: item.species),
             avatarURL: item.avatarURL,
             heroMedia: editHeroMedia(forPetID: item.id),
+            profileCode: profileCode(for: item.id),
             chipNumber: chipNumber(for: item.id),
             sexText: sexText(forPetID: item.id),
             birthDateText: birthDateText(for: item.id),
@@ -302,24 +304,32 @@ struct HomeDashboardLoadedView: View {
 
     private func chipNumber(for petID: String) -> String {
         switch petID {
-        case "pet-mochi": "MHB20240401"
-        case "pet-tangyuan": "MHB20250218"
+        case "pet-mochi": ""
+        case "pet-tangyuan": ""
         default: "暂未录入"
+        }
+    }
+
+    private func profileCode(for petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "9011562600000019"
+        case "pet-tangyuan": "9011562600000027"
+        default: "9011562600000001"
         }
     }
 
     private func sexText(for sex: HomeDashboardSnapshot.Sex) -> String {
         switch sex {
-        case .female: "女"
-        case .male: "男"
+        case .female: "母"
+        case .male: "公"
         case .unknown: "未知"
         }
     }
 
     private func sexText(forPetID petID: String) -> String {
         switch petID {
-        case "pet-mochi": "女"
-        case "pet-tangyuan": "男"
+        case "pet-mochi": "母"
+        case "pet-tangyuan": "公"
         default: "未知"
         }
     }
@@ -351,7 +361,7 @@ struct HomeDashboardLoadedView: View {
         switch petID {
         case "pet-mochi": "已绝育"
         case "pet-tangyuan": "未绝育"
-        default: "暂未记录"
+        default: "未绝育"
         }
     }
 

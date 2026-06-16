@@ -29,6 +29,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
     let species: Species
     let avatarURL: String?
     let heroMedia: HeroMedia
+    let profileCode: String
     let chipNumber: String
     let sexText: String
     let birthDateText: String
