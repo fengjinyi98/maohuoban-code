@@ -55,6 +55,10 @@ struct PetProfileEditScreen: View {
     @State private var isNoteEditorPresented = false
     @State private var isNoteEditorChevronExpanded = false
     @State private var isAddPetPresented = false
+    @State private var homePreviewSession: PetProfileHomePreviewSession?
+    @State private var homePreviewPreparationID: UUID?
+    @State private var isHomePreviewPreparing = false
+    @State private var homePreviewHeroImageWidth: CGFloat = 393
 
     init(
         context: PetProfileEditContext,
@@ -260,6 +264,12 @@ struct PetProfileEditScreen: View {
                 )
                 .zIndex(2)
             }
+            .onAppear {
+                updateHomePreviewHeroImageWidth(proxy.size.width)
+            }
+            .onChange(of: proxy.size.width) { _, newWidth in
+                updateHomePreviewHeroImageWidth(newWidth)
+            }
         }
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -273,9 +283,32 @@ struct PetProfileEditScreen: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("预览") {}
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                Button("预览") {
+                    showHomePreview(for: profile)
+                }
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .disabled(isHomePreviewPreparing)
+            }
+        }
+        .background {
+            HomePreviewUIKitPresenter(
+                session: homePreviewSession,
+                onDidDismiss: {
+                    homePreviewPreparationID = nil
+                    isHomePreviewPreparing = false
+                }
+            ) { session in
+                HomePreviewAnimatedPresentationContent {
+                    PetProfileHomePreviewScreen(
+                        context: session.context,
+                        initialThemeSnapshot: session.initialThemeSnapshot,
+                        topSafeAreaInset: session.topSafeAreaInset,
+                        onDismiss: {
+                            homePreviewSession = nil
+                        }
+                    )
+                }
             }
         }
         .sheet(
@@ -515,6 +548,72 @@ struct PetProfileEditScreen: View {
         return trimmedNoteText
     }
 
+    private func homePreviewContext(for profile: PetProfileEditProfile) -> PetProfileHomePreviewContext {
+        PetProfileHomePreviewContext(
+            profile: profile,
+            name: displayName(for: profile),
+            sexText: displaySexText(for: profile),
+            birthDateText: displayBirthDateText(for: profile),
+            arrivalDateText: displayArrivalDateText(for: profile),
+            weightText: displayWeightText(for: profile),
+            noteText: displayNoteText(for: profile)
+        )
+    }
+
+    private func showHomePreview(for profile: PetProfileEditProfile) {
+        guard !isHomePreviewPreparing else {
+            return
+        }
+
+        dismissSelectionMenus()
+
+        let sessionID = UUID()
+        let context = homePreviewContext(for: profile)
+        let heroImageWidth = max(homePreviewHeroImageWidth, 1)
+        let topSafeAreaInset = HomePreviewSafeAreaMetrics.currentWindowTopSafeAreaInset()
+        homePreviewPreparationID = sessionID
+        isHomePreviewPreparing = true
+
+        Task { @MainActor in
+            let themeStore = HomeDashboardThemeStore()
+            let themeSize = CGSize(
+                width: heroImageWidth,
+                height: HomeImmersivePetHeaderLayout.backgroundDimmingReferenceHeight
+            )
+
+            await themeStore.update(
+                selectedPet: context.pet,
+                heroImageSize: themeSize
+            )
+
+            let snapshot = themeStore.snapshot
+
+            guard homePreviewPreparationID == sessionID else {
+                return
+            }
+
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                homePreviewSession = PetProfileHomePreviewSession(
+                    id: sessionID,
+                    context: context,
+                    initialThemeSnapshot: snapshot,
+                    heroImageWidth: heroImageWidth,
+                    topSafeAreaInset: topSafeAreaInset
+                )
+            }
+            isHomePreviewPreparing = false
+        }
+    }
+
+    private func updateHomePreviewHeroImageWidth(_ width: CGFloat) {
+        let normalizedWidth = max(width, 1)
+        guard abs(homePreviewHeroImageWidth - normalizedWidth) > 0.5 else { return }
+
+        homePreviewHeroImageWidth = normalizedWidth
+    }
+
     private var suggestedPersonalityTags: [String] {
         ["亲人", "爱撒娇", "安静", "好奇", "活跃", "胆小", "黏人", "独立", "贪吃", "爱玩", "夜间活动多", "怕生"]
     }
@@ -667,6 +766,7 @@ struct PetProfileEditScreen: View {
             String(digits[fourthEnd...])
         ].joined(separator: "-")
     }
+
 }
 
 private enum PetProfileEditCoordinateSpace {

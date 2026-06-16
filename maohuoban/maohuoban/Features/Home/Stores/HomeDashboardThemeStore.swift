@@ -3,6 +3,20 @@ import SwiftUI
 import UIKit
 import MaohuobanDesignSystem
 
+// HomeDashboardThemeSnapshot 首页主题快照
+// 核心职责：
+// - 承载首页主题 Store 的首帧可复用状态
+// - 支持预览页在呈现前完成主题预热
+struct HomeDashboardThemeSnapshot {
+    let baseThemeColor: Color
+    let colorScheme: ColorScheme
+    let heroContentColorScheme: ColorScheme
+
+    func backgroundColor(scrollProgress: CGFloat) -> Color {
+        baseThemeColor.homeAdjustedForScroll(progress: scrollProgress)
+    }
+}
+
 // HomeDashboardThemeStore 首页主题状态模型
 // 核心职责：
 // - 根据当前宠物头图提取首页背景基色
@@ -17,6 +31,22 @@ final class HomeDashboardThemeStore {
     private(set) var baseThemeColor: Color = MHBTheme.ColorToken.background.color
     private(set) var colorScheme: ColorScheme = .dark
     private(set) var heroContentColorScheme: ColorScheme = .dark
+
+    init(snapshot: HomeDashboardThemeSnapshot? = nil) {
+        guard let snapshot else { return }
+
+        baseThemeColor = snapshot.baseThemeColor
+        colorScheme = snapshot.colorScheme
+        heroContentColorScheme = snapshot.heroContentColorScheme
+    }
+
+    var snapshot: HomeDashboardThemeSnapshot {
+        HomeDashboardThemeSnapshot(
+            baseThemeColor: baseThemeColor,
+            colorScheme: colorScheme,
+            heroContentColorScheme: heroContentColorScheme
+        )
+    }
 
     func backgroundColor(scrollProgress: CGFloat) -> Color {
         baseThemeColor.homeAdjustedForScroll(progress: scrollProgress)

@@ -30,6 +30,7 @@ struct HomeImmersivePetHeaderSection: View {
     let contentColorScheme: ColorScheme
     let scrollOffset: CGFloat
     let editProfileRoute: HomeRoute?
+    var showsEditProfileButton = true
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
     private var adaptiveIconColor: Color {
@@ -118,30 +119,18 @@ struct HomeImmersivePetHeaderSection: View {
 
                                 Spacer()
 
-                                if let editProfileRoute {
-                                    NavigationLink(value: editProfileRoute) {
-                                        Text("编辑档案")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
-                                            .background {
-                                                Color.black.opacity(0.18)
-                                                    .clipShape(Capsule())
-                                            }
-                                            .glassEffect(.regular.interactive(), in: .capsule)
-                                    }
-                                    .buttonStyle(.plain)
-                                } else {
-                                    Text("编辑档案")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(.white.opacity(0.5))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background {
-                                            Color.black.opacity(0.12)
-                                                .clipShape(Capsule())
+                                if showsEditProfileButton {
+                                    if let editProfileRoute {
+                                        NavigationLink(value: editProfileRoute) {
+                                            HomeImmersiveHeaderCapsuleLabel(title: "编辑档案")
                                         }
+                                        .buttonStyle(.plain)
+                                    } else {
+                                        HomeImmersiveHeaderCapsuleLabel(
+                                            title: "编辑档案",
+                                            isEnabled: false
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -162,6 +151,28 @@ struct HomeImmersivePetHeaderSection: View {
         .frame(width: imageWidth, height: imageHeight)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home.immersivePetHeader")
+    }
+}
+
+// HomeImmersiveHeaderCapsuleLabel 首页头图胶囊文字按钮标签
+// 核心职责：
+// - 统一首页头图内轻量操作按钮的尺寸和 Liquid Glass 外观
+// - 复用于编辑档案、退出预览等头图浮层操作
+struct HomeImmersiveHeaderCapsuleLabel: View {
+    let title: String
+    var isEnabled = true
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.58))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background {
+                Color.black.opacity(isEnabled ? 0.18 : 0.12)
+                    .clipShape(Capsule())
+            }
+            .glassEffect(.regular.interactive(), in: .capsule)
     }
 }
 
