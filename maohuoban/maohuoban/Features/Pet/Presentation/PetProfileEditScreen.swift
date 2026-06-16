@@ -55,6 +55,8 @@ struct PetProfileEditScreen: View {
     @State private var isNoteEditorPresented = false
     @State private var isNoteEditorChevronExpanded = false
     @State private var isAddPetPresented = false
+    @State private var deleteConfirmationProfileID: String?
+    @State private var isDeleteConfirmationPresented = false
     @State private var homePreviewSession: PetProfileHomePreviewSession?
     @State private var homePreviewPreparationID: UUID?
     @State private var isHomePreviewPreparing = false
@@ -73,6 +75,16 @@ struct PetProfileEditScreen: View {
 
     private var selectedProfile: PetProfileEditProfile {
         context.profiles.first(where: { $0.id == selectedProfileID }) ?? context.selectedProfile
+    }
+
+    private var deleteConfirmationProfile: PetProfileEditProfile {
+        guard let deleteConfirmationProfileID,
+              let profile = context.profiles.first(where: { $0.id == deleteConfirmationProfileID })
+        else {
+            return selectedProfile
+        }
+
+        return profile
     }
 
     var body: some View {
@@ -227,6 +239,22 @@ struct PetProfileEditScreen: View {
                                     PetProfileEditValueText(value: noteText)
                                 }
                             }
+
+                            PetProfileEditSection {
+                                PetProfileEditRow(
+                                    title: "删除宠物档案",
+                                    showsSeparator: false,
+                                    titleColor: MHBTheme.ColorToken.danger.color,
+                                    action: {
+                                        dismissSelectionMenus()
+                                        deleteConfirmationProfileID = profile.id
+                                        isDeleteConfirmationPresented = true
+                                    }
+                                ) {
+                                    EmptyView()
+                                }
+                                .accessibilityIdentifier("pet.profileEdit.deleteEntry")
+                            }
                         }
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -279,6 +307,26 @@ struct PetProfileEditScreen: View {
             PetProfileAddScreen(
                 currentUserID: currentUserID,
                 onCreated: onPetCreated
+            )
+        }
+        .fullScreenCover(
+            isPresented: $isDeleteConfirmationPresented,
+            onDismiss: {
+                deleteConfirmationProfileID = nil
+            }
+        ) {
+            let deletionProfile = deleteConfirmationProfile
+            let deletionName = displayName(for: deletionProfile)
+
+            PetProfileDeleteConfirmationScreen(
+                petName: deletionName,
+                profileCode: formattedProfileCode(deletionProfile.profileCode),
+                confirmationPhrase: deleteConfirmationPhrase(for: deletionName),
+                onDelete: {
+                    // TODO: 接入后端宠物删除接口后，在这里提交删除请求并刷新宠物档案列表。
+                    isDeleteConfirmationPresented = false
+                    deleteConfirmationProfileID = nil
+                }
             )
         }
         .toolbar {
@@ -767,6 +815,10 @@ struct PetProfileEditScreen: View {
         ].joined(separator: "-")
     }
 
+    private func deleteConfirmationPhrase(for petName: String) -> String {
+        "我确认删除\(petName)"
+    }
+
 }
 
 private enum PetProfileEditCoordinateSpace {
@@ -1063,6 +1115,7 @@ private struct PetProfileEditSection<Content: View>: View {
 private struct PetProfileEditRow<Value: View>: View {
     let title: String
     let showsSeparator: Bool
+    let titleColor: Color
     let isAccessoryExpanded: Bool
     let action: () -> Void
     @ViewBuilder let value: () -> Value
@@ -1070,12 +1123,14 @@ private struct PetProfileEditRow<Value: View>: View {
     init(
         title: String,
         showsSeparator: Bool = true,
+        titleColor: Color = MHBTheme.ColorToken.labelSecondary.color,
         isAccessoryExpanded: Bool = false,
         action: @escaping () -> Void = {},
         @ViewBuilder value: @escaping () -> Value
     ) {
         self.title = title
         self.showsSeparator = showsSeparator
+        self.titleColor = titleColor
         self.isAccessoryExpanded = isAccessoryExpanded
         self.action = action
         self.value = value
@@ -1087,7 +1142,7 @@ private struct PetProfileEditRow<Value: View>: View {
                 HStack(spacing: MHBTheme.Spacing.s2) {
                     Text(title)
                         .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .foregroundStyle(titleColor)
 
                     Spacer(minLength: MHBTheme.Spacing.s3)
 
