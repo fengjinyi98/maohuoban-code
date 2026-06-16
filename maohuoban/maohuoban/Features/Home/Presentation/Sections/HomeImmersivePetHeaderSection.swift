@@ -29,6 +29,7 @@ struct HomeImmersivePetHeaderSection: View {
     let fusionColor: Color
     let contentColorScheme: ColorScheme
     let scrollOffset: CGFloat
+    let editProfileRoute: HomeRoute?
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
     private var adaptiveIconColor: Color {
@@ -117,19 +118,31 @@ struct HomeImmersivePetHeaderSection: View {
 
                                 Spacer()
 
-                                Button(action: {}) {
+                                if let editProfileRoute {
+                                    NavigationLink(value: editProfileRoute) {
+                                        Text("编辑档案")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background {
+                                                Color.black.opacity(0.18)
+                                                    .clipShape(Capsule())
+                                            }
+                                            .glassEffect(.regular.interactive(), in: .capsule)
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
                                     Text("编辑档案")
                                         .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(.white.opacity(0.5))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 5)
                                         .background {
-                                            Color.black.opacity(0.18)
+                                            Color.black.opacity(0.12)
                                                 .clipShape(Capsule())
                                         }
-                                        .glassEffect(.regular.interactive(), in: .capsule)
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.top, 2)

@@ -16,6 +16,8 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID,
                 onCreated: onHomeMutationCompleted
             )
+        case .editPetProfile(let context):
+            PetProfileEditScreen(context: context)
         case .recordDaily(let petID):
             PetEventRecordScreen(
                 petID: petID,

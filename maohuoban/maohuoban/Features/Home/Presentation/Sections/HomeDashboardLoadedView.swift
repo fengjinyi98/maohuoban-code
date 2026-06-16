@@ -71,7 +71,11 @@ struct HomeDashboardLoadedView: View {
                                 width: heroImageWidth,
                                 fusionColor: dynamicBackgroundColor,
                                 contentColorScheme: themeStore.heroContentColorScheme,
-                                scrollOffset: scrollOffset
+                                scrollOffset: scrollOffset,
+                                editProfileRoute: editProfileRoute(
+                                    for: selectedPet,
+                                    pets: snapshot.petSwitcher
+                                )
                             )
                         }
 
@@ -192,6 +196,187 @@ struct HomeDashboardLoadedView: View {
             return "video-\(resourceName).\(fileExtension)-\(Int(width.rounded()))"
         }
     }
+
+    private func editProfileRoute(
+        for pet: HomeDashboardSnapshot.PetHeroSummary,
+        pets: [HomeDashboardSnapshot.PetSwitchItem]
+    ) -> HomeRoute {
+        let selectedProfile = editProfile(for: pet)
+        let profiles = pets.map { item in
+            editProfile(
+                for: item,
+                selectedPet: pet,
+                selectedProfile: selectedProfile
+            )
+        }
+
+        return HomeRoute.editPetProfile(
+            PetProfileEditContext(
+                selectedProfile: selectedProfile,
+                profiles: profiles
+            )
+        )
+    }
+
+    private func editProfile(
+        for pet: HomeDashboardSnapshot.PetHeroSummary
+    ) -> PetProfileEditProfile {
+        PetProfileEditProfile(
+            id: pet.id,
+            name: pet.name,
+            species: editSpecies(for: pet.species),
+            avatarURL: pet.avatarURL,
+            heroMedia: editHeroMedia(for: pet.heroMedia),
+            chipNumber: chipNumber(for: pet.id),
+            sexText: sexText(for: pet.sex),
+            birthDateText: pet.birthday ?? "暂未设置",
+            weightText: weightText(for: pet.id, stats: pet.stats),
+            neuterStatusText: neuterStatusText(for: pet.id),
+            personalityTags: personalityTags(for: pet.id),
+            note: pet.statusText
+        )
+    }
+
+    private func editProfile(
+        for item: HomeDashboardSnapshot.PetSwitchItem,
+        selectedPet: HomeDashboardSnapshot.PetHeroSummary,
+        selectedProfile: PetProfileEditProfile
+    ) -> PetProfileEditProfile {
+        guard item.id != selectedPet.id else {
+            return selectedProfile
+        }
+
+        return PetProfileEditProfile(
+            id: item.id,
+            name: item.name,
+            species: editSpecies(for: item.species),
+            avatarURL: item.avatarURL,
+            heroMedia: editHeroMedia(forPetID: item.id),
+            chipNumber: chipNumber(for: item.id),
+            sexText: sexText(forPetID: item.id),
+            birthDateText: birthDateText(for: item.id),
+            weightText: weightText(for: item.id, stats: nil),
+            neuterStatusText: neuterStatusText(for: item.id),
+            personalityTags: personalityTags(for: item.id),
+            note: statusText(for: item.id)
+        )
+    }
+
+    private func editSpecies(
+        for species: HomeDashboardSnapshot.Species
+    ) -> PetProfileEditProfile.Species {
+        switch species {
+        case .dog: .dog
+        case .cat: .cat
+        case .other: .other
+        }
+    }
+
+    private func editHeroMedia(
+        for media: HomeDashboardSnapshot.PetHeroSummary.HeroMedia
+    ) -> PetProfileEditProfile.HeroMedia {
+        switch media {
+        case .image(let assetName):
+            .image(assetName: assetName)
+        case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
+            .video(
+                resourceName: resourceName,
+                fileExtension: fileExtension,
+                fallbackImageAssetName: fallbackImageAssetName
+            )
+        }
+    }
+
+    private func editHeroMedia(forPetID petID: String) -> PetProfileEditProfile.HeroMedia {
+        switch petID {
+        case "pet-tangyuan":
+            .video(
+                resourceName: "HomePetTangyuanHeroMock",
+                fileExtension: "mp4",
+                fallbackImageAssetName: nil
+            )
+        default:
+            .image(assetName: "HomePetHeroMock")
+        }
+    }
+
+    private func chipNumber(for petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "MHB20240401"
+        case "pet-tangyuan": "MHB20250218"
+        default: "暂未录入"
+        }
+    }
+
+    private func sexText(for sex: HomeDashboardSnapshot.Sex) -> String {
+        switch sex {
+        case .female: "女"
+        case .male: "男"
+        case .unknown: "未知"
+        }
+    }
+
+    private func sexText(forPetID petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "女"
+        case "pet-tangyuan": "男"
+        default: "未知"
+        }
+    }
+
+    private func birthDateText(for petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "2024-04-01"
+        case "pet-tangyuan": "2025-02-18"
+        default: "暂未设置"
+        }
+    }
+
+    private func weightText(
+        for petID: String,
+        stats: HomeDashboardSnapshot.PetHeroStats?
+    ) -> String {
+        if let weight = stats?.weightVal, !weight.isEmpty {
+            return "\(weight) kg"
+        }
+
+        return switch petID {
+        case "pet-mochi": "3.6 kg"
+        case "pet-tangyuan": "3.6 kg"
+        default: "暂未记录"
+        }
+    }
+
+    private func neuterStatusText(for petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "已绝育"
+        case "pet-tangyuan": "未绝育"
+        default: "暂未记录"
+        }
+    }
+
+    private func personalityTags(for petID: String) -> [String] {
+        switch petID {
+        case "pet-mochi":
+            ["亲人", "爱撒娇", "安静"]
+        case "pet-tangyuan":
+            ["好奇", "活跃", "夜间活动多"]
+        default:
+            []
+        }
+    }
+
+    private func statusText(for petID: String) -> String {
+        switch petID {
+        case "pet-tangyuan":
+            "近期食欲稳定，夜间活动偏多"
+        case "pet-mochi":
+            "记录正在形成可信档案"
+        default:
+            "暂未设置"
+        }
+    }
+
 }
 
 // HomeDashboardContentSections 首页普通内容区
