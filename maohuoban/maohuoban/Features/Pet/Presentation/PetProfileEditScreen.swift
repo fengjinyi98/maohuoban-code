@@ -7,11 +7,18 @@ import MaohuobanDesignSystem
 // - 保持当前阶段只承载页面设计和导航入口
 struct PetProfileEditScreen: View {
     let context: PetProfileEditContext
+    let currentUserID: String?
+    let onPetCreated: () -> Void
     @State private var selectedProfileID: String
     @State private var editedNames: [String: String] = [:]
     @State private var editedChipNumbers: [String: String] = [:]
     @State private var editedSexTexts: [String: String] = [:]
     @State private var editedNeuterStatusTexts: [String: String] = [:]
+    @State private var editedBirthDates: [String: Date] = [:]
+    @State private var editedArrivalDates: [String: Date] = [:]
+    @State private var editedWeights: [String: String] = [:]
+    @State private var editedPersonalityTags: [String: [String]] = [:]
+    @State private var editedNotes: [String: String] = [:]
     @State private var nameEditorProfileID: String?
     @State private var nameEditorDraft = ""
     @State private var isNameEditorPresented = false
@@ -27,9 +34,36 @@ struct PetProfileEditScreen: View {
     @State private var neuterStatusPickerProfileID: String?
     @State private var isNeuterStatusPickerPresented = false
     @State private var neuterStatusRowFrame = CGRect.zero
+    @State private var birthDateEditorProfileID: String?
+    @State private var birthDateEditorDraft = Date.now
+    @State private var isBirthDateEditorPresented = false
+    @State private var isBirthDateEditorChevronExpanded = false
+    @State private var arrivalDateEditorProfileID: String?
+    @State private var arrivalDateEditorDraft = Date.now
+    @State private var isArrivalDateEditorPresented = false
+    @State private var isArrivalDateEditorChevronExpanded = false
+    @State private var weightEditorProfileID: String?
+    @State private var weightEditorDraft = ""
+    @State private var isWeightEditorPresented = false
+    @State private var isWeightEditorChevronExpanded = false
+    @State private var tagsEditorProfileID: String?
+    @State private var tagsEditorDraft: [String] = []
+    @State private var isTagsEditorPresented = false
+    @State private var isTagsEditorChevronExpanded = false
+    @State private var noteEditorProfileID: String?
+    @State private var noteEditorDraft = ""
+    @State private var isNoteEditorPresented = false
+    @State private var isNoteEditorChevronExpanded = false
+    @State private var isAddPetPresented = false
 
-    init(context: PetProfileEditContext) {
+    init(
+        context: PetProfileEditContext,
+        currentUserID: String? = nil,
+        onPetCreated: @escaping () -> Void = {}
+    ) {
         self.context = context
+        self.currentUserID = currentUserID
+        self.onPetCreated = onPetCreated
         _selectedProfileID = State(initialValue: context.selectedProfile.id)
     }
 
@@ -44,6 +78,11 @@ struct PetProfileEditScreen: View {
         let chipNumber = displayChipNumber(for: profile)
         let sexText = displaySexText(for: profile)
         let neuterStatusText = displayNeuterStatusText(for: profile)
+        let birthDateText = displayBirthDateText(for: profile)
+        let arrivalDateText = displayArrivalDateText(for: profile)
+        let weightText = displayWeightText(for: profile)
+        let personalityTags = displayPersonalityTags(for: profile)
+        let noteText = displayNoteText(for: profile)
 
         GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
@@ -58,7 +97,7 @@ struct PetProfileEditScreen: View {
                                 selectedProfileID = profileID
                             },
                             onAddPet: {
-                                // TODO: 接入添加宠物档案流程
+                                isAddPetPresented = true
                             }
                         )
 
@@ -119,12 +158,34 @@ struct PetProfileEditScreen: View {
                                 }
                                 .petProfileEditRowFrame(.sex)
 
-                                PetProfileEditRow(title: "出生日期") {
-                                    PetProfileEditValueText(value: profile.birthDateText)
+                                PetProfileEditRow(
+                                    title: "出生日期",
+                                    isAccessoryExpanded: isBirthDateEditorChevronExpanded && birthDateEditorProfileID == profile.id,
+                                    action: {
+                                        showBirthDateEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: birthDateText)
                                 }
 
-                                PetProfileEditRow(title: "体重") {
-                                    PetProfileEditValueText(value: profile.weightText)
+                                PetProfileEditRow(
+                                    title: "到家时间",
+                                    isAccessoryExpanded: isArrivalDateEditorChevronExpanded && arrivalDateEditorProfileID == profile.id,
+                                    action: {
+                                        showArrivalDateEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: arrivalDateText)
+                                }
+
+                                PetProfileEditRow(
+                                    title: "体重",
+                                    isAccessoryExpanded: isWeightEditorChevronExpanded && weightEditorProfileID == profile.id,
+                                    action: {
+                                        showWeightEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: weightText)
                                 }
 
                                 PetProfileEditRow(
@@ -141,12 +202,25 @@ struct PetProfileEditScreen: View {
                             }
 
                             PetProfileEditSection {
-                                PetProfileEditRow(title: "性格标签") {
-                                    PetProfileEditTagFlow(tags: profile.personalityTags)
+                                PetProfileEditRow(
+                                    title: "性格标签",
+                                    isAccessoryExpanded: isTagsEditorChevronExpanded && tagsEditorProfileID == profile.id,
+                                    action: {
+                                        showTagsEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditTagFlow(tags: personalityTags)
                                 }
 
-                                PetProfileEditRow(title: "备注", showsSeparator: false) {
-                                    PetProfileEditValueText(value: profile.note)
+                                PetProfileEditRow(
+                                    title: "备注",
+                                    showsSeparator: false,
+                                    isAccessoryExpanded: isNoteEditorChevronExpanded && noteEditorProfileID == profile.id,
+                                    action: {
+                                        showNoteEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: noteText)
                                 }
                             }
                         }
@@ -189,8 +263,14 @@ struct PetProfileEditScreen: View {
         }
         .frame(maxWidth: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("编辑资料")
+        .navigationTitle("编辑档案")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $isAddPetPresented) {
+            PetProfileAddScreen(
+                currentUserID: currentUserID,
+                onCreated: onPetCreated
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("预览") {}
@@ -249,6 +329,109 @@ struct PetProfileEditScreen: View {
                 }
             )
         }
+        .sheet(
+            isPresented: $isBirthDateEditorPresented,
+            onDismiss: {
+                isBirthDateEditorChevronExpanded = false
+                birthDateEditorProfileID = nil
+            }
+        ) {
+            PetProfileDateEditorSheet(
+                title: "出生日期",
+                date: $birthDateEditorDraft,
+                onWillDismiss: {
+                    isBirthDateEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = birthDateEditorProfileID else { return }
+                    editedBirthDates[profileID] = birthDateEditorDraft
+                    isBirthDateEditorChevronExpanded = false
+                    isBirthDateEditorPresented = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isArrivalDateEditorPresented,
+            onDismiss: {
+                isArrivalDateEditorChevronExpanded = false
+                arrivalDateEditorProfileID = nil
+            }
+        ) {
+            PetProfileDateEditorSheet(
+                title: "到家时间",
+                date: $arrivalDateEditorDraft,
+                onWillDismiss: {
+                    isArrivalDateEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = arrivalDateEditorProfileID else { return }
+                    editedArrivalDates[profileID] = arrivalDateEditorDraft
+                    isArrivalDateEditorChevronExpanded = false
+                    isArrivalDateEditorPresented = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isWeightEditorPresented,
+            onDismiss: {
+                isWeightEditorChevronExpanded = false
+                weightEditorProfileID = nil
+            }
+        ) {
+            PetProfileWeightEditorSheet(
+                weight: $weightEditorDraft,
+                onWillDismiss: {
+                    isWeightEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = weightEditorProfileID else { return }
+                    editedWeights[profileID] = weightEditorDraft
+                    isWeightEditorChevronExpanded = false
+                    isWeightEditorPresented = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isTagsEditorPresented,
+            onDismiss: {
+                isTagsEditorChevronExpanded = false
+                tagsEditorProfileID = nil
+            }
+        ) {
+            PetProfileTagsEditorSheet(
+                tags: $tagsEditorDraft,
+                suggestions: suggestedPersonalityTags,
+                onWillDismiss: {
+                    isTagsEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = tagsEditorProfileID else { return }
+                    editedPersonalityTags[profileID] = tagsEditorDraft
+                    isTagsEditorChevronExpanded = false
+                    isTagsEditorPresented = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isNoteEditorPresented,
+            onDismiss: {
+                isNoteEditorChevronExpanded = false
+                noteEditorProfileID = nil
+            }
+        ) {
+            PetProfileNoteEditorSheet(
+                note: $noteEditorDraft,
+                onWillDismiss: {
+                    isNoteEditorChevronExpanded = false
+                },
+                onSave: {
+                    guard let profileID = noteEditorProfileID else { return }
+                    editedNotes[profileID] = noteEditorDraft
+                    isNoteEditorChevronExpanded = false
+                    isNoteEditorPresented = false
+                }
+            )
+        }
         .accessibilityIdentifier("pet.profileEdit.screen")
     }
 
@@ -286,6 +469,97 @@ struct PetProfileEditScreen: View {
         }
     }
 
+    private func displayBirthDateText(for profile: PetProfileEditProfile) -> String {
+        if let date = editedBirthDates[profile.id] {
+            return formattedDate(date)
+        }
+
+        return normalizedDateText(profile.birthDateText)
+    }
+
+    private func displayArrivalDateText(for profile: PetProfileEditProfile) -> String {
+        if let date = editedArrivalDates[profile.id] {
+            return formattedDate(date)
+        }
+
+        return normalizedDateText(profile.arrivalDateText)
+    }
+
+    private func displayWeightText(for profile: PetProfileEditProfile) -> String {
+        let weightText = editedWeights[profile.id] ?? profile.weightText
+        let trimmedWeightText = weightText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedWeightText.isEmpty || trimmedWeightText == "暂未记录" || trimmedWeightText == "暂未设置" {
+            return "暂未记录"
+        }
+
+        if trimmedWeightText.lowercased().hasSuffix("kg") {
+            return trimmedWeightText
+        }
+
+        return "\(trimmedWeightText) kg"
+    }
+
+    private func displayPersonalityTags(for profile: PetProfileEditProfile) -> [String] {
+        editedPersonalityTags[profile.id] ?? profile.personalityTags
+    }
+
+    private func displayNoteText(for profile: PetProfileEditProfile) -> String {
+        let noteText = editedNotes[profile.id] ?? profile.note
+        let trimmedNoteText = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedNoteText.isEmpty || trimmedNoteText == "暂未设置" {
+            return "暂无"
+        }
+
+        return trimmedNoteText
+    }
+
+    private var suggestedPersonalityTags: [String] {
+        ["亲人", "爱撒娇", "安静", "好奇", "活跃", "胆小", "黏人", "独立", "贪吃", "爱玩", "夜间活动多", "怕生"]
+    }
+
+    private func showBirthDateEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        birthDateEditorProfileID = profile.id
+        birthDateEditorDraft = editedBirthDates[profile.id] ?? date(from: profile.birthDateText) ?? Date.now
+        isBirthDateEditorChevronExpanded = true
+        isBirthDateEditorPresented = true
+    }
+
+    private func showArrivalDateEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        arrivalDateEditorProfileID = profile.id
+        arrivalDateEditorDraft = editedArrivalDates[profile.id] ?? date(from: profile.arrivalDateText) ?? Date.now
+        isArrivalDateEditorChevronExpanded = true
+        isArrivalDateEditorPresented = true
+    }
+
+    private func showWeightEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        weightEditorProfileID = profile.id
+        weightEditorDraft = draftWeightText(from: editedWeights[profile.id] ?? profile.weightText)
+        isWeightEditorChevronExpanded = true
+        isWeightEditorPresented = true
+    }
+
+    private func showTagsEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        tagsEditorProfileID = profile.id
+        tagsEditorDraft = displayPersonalityTags(for: profile)
+        isTagsEditorChevronExpanded = true
+        isTagsEditorPresented = true
+    }
+
+    private func showNoteEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        noteEditorProfileID = profile.id
+        let noteText = editedNotes[profile.id] ?? profile.note
+        noteEditorDraft = noteText == "暂未设置" ? "" : noteText
+        isNoteEditorChevronExpanded = true
+        isNoteEditorPresented = true
+    }
+
     private func showSexPicker(for profileID: String) {
         let isOpeningSamePicker = isSexPickerPresented && sexPickerProfileID == profileID
         dismissSelectionMenus()
@@ -311,6 +585,48 @@ struct PetProfileEditScreen: View {
         sexPickerProfileID = nil
         isNeuterStatusPickerPresented = false
         neuterStatusPickerProfileID = nil
+    }
+
+    private func normalizedDateText(_ dateText: String) -> String {
+        let trimmedDateText = dateText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedDateText.isEmpty ? "暂未设置" : trimmedDateText
+    }
+
+    private func date(from dateText: String) -> Date? {
+        let components = dateText.split(separator: "-").compactMap { Int($0) }
+        guard components.count == 3 else {
+            return nil
+        }
+
+        var dateComponents = DateComponents()
+        dateComponents.calendar = Calendar(identifier: .gregorian)
+        dateComponents.year = components[0]
+        dateComponents.month = components[1]
+        dateComponents.day = components[2]
+
+        return dateComponents.date
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let components = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: date)
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day else {
+            return "暂未设置"
+        }
+
+        return String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
+    private func draftWeightText(from weightText: String) -> String {
+        let trimmedWeightText = weightText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedWeightText.isEmpty || trimmedWeightText == "暂未记录" || trimmedWeightText == "暂未设置" {
+            return ""
+        }
+
+        return trimmedWeightText
+            .replacingOccurrences(of: "kg", with: "", options: .caseInsensitive)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func updateSexText(_ sexText: String) {
@@ -700,7 +1016,7 @@ private struct PetProfileEditRow<Value: View>: View {
 // 核心职责：
 // - 承载宠物名字的临时编辑和字数提示
 // - 统一保存校验、禁用态和关闭行为
-private struct PetProfileNameEditorSheet: View {
+struct PetProfileNameEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var name: String
     let onWillDismiss: () -> Void
@@ -808,7 +1124,7 @@ private struct PetProfileNameEditorSheet: View {
 // 核心职责：
 // - 校验 ISO 11784 / ISO 11785 FDX-B 的 15 位纯数字编码
 // - 在保存前要求用户二次确认不可修改的芯片号
-private struct PetProfileChipEditorSheet: View {
+struct PetProfileChipEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var chipNumber: String
     let existingChipNumber: String

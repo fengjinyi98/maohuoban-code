@@ -40,7 +40,7 @@ extension HomeRoute {
 
     var title: LocalizedStringResource {
         switch self {
-        case .createPet: "创建宠物"
+        case .createPet: "添加宠物"
         case .editPetProfile: "编辑档案"
         case .recordDaily: "记录日常"
         case .recordHealth: "健康记录"
@@ -57,7 +57,7 @@ extension HomeRoute {
 
     var subtitle: LocalizedStringResource {
         switch self {
-        case .createPet: "建立第一只毛孩子主页"
+        case .createPet: "添加一只新的宠物档案"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"
         case .recordDaily: "为当前宠物补充一条日常事件"
         case .recordHealth: "记录体重、疫苗、驱虫或就诊信息"

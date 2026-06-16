@@ -33,6 +33,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
     let chipNumber: String
     let sexText: String
     let birthDateText: String
+    let arrivalDateText: String
     let weightText: String
     let neuterStatusText: String
     let personalityTags: [String]

@@ -190,8 +190,8 @@ enum HomeMockDashboardFixtures {
             quickActions: [
                 HomeDashboardSnapshot.Action(
                     kind: .createPet,
-                    title: "创建宠物",
-                    subtitle: "建立第一只毛孩子主页"
+                    title: "添加宠物",
+                    subtitle: "添加第一只毛孩子档案"
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .importTradePet,
@@ -208,7 +208,7 @@ enum HomeMockDashboardFixtures {
                 subtitle: "首页会围绕宠物档案、事件、照护和同城服务组织信息。",
                 primaryAction: HomeDashboardSnapshot.Action(
                     kind: .createPet,
-                    title: "创建宠物档案",
+                    title: "添加宠物档案",
                     subtitle: nil
                 )
             ),

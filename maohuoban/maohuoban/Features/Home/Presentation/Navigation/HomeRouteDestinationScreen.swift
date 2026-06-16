@@ -12,12 +12,16 @@ struct HomeRouteDestinationScreen: View {
     var body: some View {
         switch route {
         case .createPet:
-            PetCreateScreen(
+            PetProfileAddScreen(
                 currentUserID: currentUserID,
                 onCreated: onHomeMutationCompleted
             )
         case .editPetProfile(let context):
-            PetProfileEditScreen(context: context)
+            PetProfileEditScreen(
+                context: context,
+                currentUserID: currentUserID,
+                onPetCreated: onHomeMutationCompleted
+            )
         case .recordDaily(let petID):
             PetEventRecordScreen(
                 petID: petID,

@@ -231,6 +231,7 @@ struct HomeDashboardLoadedView: View {
             chipNumber: chipNumber(for: pet.id),
             sexText: sexText(for: pet.sex),
             birthDateText: pet.birthday ?? "暂未设置",
+            arrivalDateText: arrivalDateText(for: pet.id),
             weightText: weightText(for: pet.id, stats: pet.stats),
             neuterStatusText: neuterStatusText(for: pet.id),
             personalityTags: personalityTags(for: pet.id),
@@ -257,6 +258,7 @@ struct HomeDashboardLoadedView: View {
             chipNumber: chipNumber(for: item.id),
             sexText: sexText(forPetID: item.id),
             birthDateText: birthDateText(for: item.id),
+            arrivalDateText: arrivalDateText(for: item.id),
             weightText: weightText(for: item.id, stats: nil),
             neuterStatusText: neuterStatusText(for: item.id),
             personalityTags: personalityTags(for: item.id),
@@ -338,6 +340,14 @@ struct HomeDashboardLoadedView: View {
         switch petID {
         case "pet-mochi": "2024-04-01"
         case "pet-tangyuan": "2025-02-18"
+        default: "暂未设置"
+        }
+    }
+
+    private func arrivalDateText(for petID: String) -> String {
+        switch petID {
+        case "pet-mochi": "2024-06-16"
+        case "pet-tangyuan": "2025-03-08"
         default: "暂未设置"
         }
     }
