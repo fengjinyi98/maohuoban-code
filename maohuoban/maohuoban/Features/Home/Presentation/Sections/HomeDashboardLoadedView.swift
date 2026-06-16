@@ -13,9 +13,8 @@ struct HomeDashboardLoadedView: View {
     let onSelectPet: (String) -> Void
 
     @State private var scrollOffset: CGFloat = 0
-    @State private var baseThemeColor: Color = MHBTheme.ColorToken.background.color
     @State private var isQuickActionsPanelPresented = false
-    @State private var localColorScheme: ColorScheme = .light
+    @State private var themeStore = HomeDashboardThemeStore()
 
     private var scrollProgress: CGFloat {
         let threshold: CGFloat = 300
@@ -23,7 +22,7 @@ struct HomeDashboardLoadedView: View {
     }
 
     private var dynamicBackgroundColor: Color {
-        baseThemeColor.adjustedForScroll(progress: scrollProgress)
+        themeStore.backgroundColor(scrollProgress: scrollProgress)
     }
 
     var body: some View {
@@ -98,80 +97,13 @@ struct HomeDashboardLoadedView: View {
             }
         }
         .task {
-            updateThemeColor()
+            themeStore.update(selectedPet: snapshot.selectedPet)
         }
         .onChange(of: snapshot.selectedPet?.id) { _, _ in
-            updateThemeColor()
+            themeStore.update(selectedPet: snapshot.selectedPet)
         }
-        .environment(\.colorScheme, localColorScheme)
-        .toolbarColorScheme(localColorScheme, for: .tabBar)
-    }
-
-    private func updateThemeColor() {
-        guard let pet = snapshot.selectedPet else {
-            applyFallbackThemeColor()
-            return
-        }
-        let assetName = pet.heroImageAssetName ?? "HomePetHeroMock"
-        guard let image = UIImage(named: assetName) else {
-            applyFallbackThemeColor()
-            return
-        }
-
-        let extracted = MHBImageAverageColorExtractor.extractHighestAverageColor(
-            from: image,
-            segmentsCount: 5
-        )
-
-        if let extracted {
-            baseThemeColor = Color(uiColor: extracted)
-            localColorScheme = Self.localColorScheme(for: extracted, current: localColorScheme)
-        } else {
-            applyFallbackThemeColor()
-        }
-    }
-
-    private func applyFallbackThemeColor() {
-        baseThemeColor = MHBTheme.ColorToken.background.color
-        localColorScheme = .light
-    }
-
-    private static func localColorScheme(for color: UIColor, current: ColorScheme) -> ColorScheme {
-        let luminance = relativeLuminance(of: color)
-
-        switch current {
-        case .dark:
-            return luminance > 0.46 ? .light : .dark
-        case .light:
-            return luminance < 0.38 ? .dark : .light
-        @unknown default:
-            return luminance < 0.42 ? .dark : .light
-        }
-    }
-
-    private static func relativeLuminance(of color: UIColor) -> CGFloat {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-
-        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return 1
-        }
-
-        let linearRed = linearizedSRGBComponent(red)
-        let linearGreen = linearizedSRGBComponent(green)
-        let linearBlue = linearizedSRGBComponent(blue)
-
-        return 0.2126 * linearRed + 0.7152 * linearGreen + 0.0722 * linearBlue
-    }
-
-    private static func linearizedSRGBComponent(_ component: CGFloat) -> CGFloat {
-        if component <= 0.03928 {
-            return component / 12.92
-        }
-
-        return pow((component + 0.055) / 1.055, 2.4)
+        .environment(\.colorScheme, themeStore.colorScheme)
+        .toolbarColorScheme(themeStore.colorScheme, for: .tabBar)
     }
 }
 
@@ -286,49 +218,5 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
-    }
-}
-
-// HSB 色彩调节与智能色彩泵扩展
-private extension Color {
-    func adjustedForScroll(progress: CGFloat) -> Color {
-        let uiColor = UIColor(self)
-        var h: CGFloat = 0
-        var s: CGFloat = 0
-        var b: CGFloat = 0
-        var a: CGFloat = 0
-
-        guard uiColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
-            return self
-        }
-
-        // 1. 智能色彩泵：让有色图片背景更饱满亮显 Liquid Glass，中性灰色背景强制去色防止暗部变脏变褐
-        let targetSaturation: CGFloat
-        let targetBrightness: CGFloat
-
-        if s < 0.10 {
-            // 中性白/灰背景图片：强制去色，防止调暗时发黄发褐，生成纯净冷银灰色
-            targetSaturation = 0.0
-            targetBrightness = 0.22
-        } else {
-            // 有彩色图片背景：提升饱和度，作为 Liquid Glass 折射的彩色温床
-            targetSaturation = max(s, 0.48)
-            targetBrightness = 0.28
-        }
-
-        // 2. 收拢到深色内容区暗夜色彩最低阈值
-        let minBrightness: CGFloat = 0.06
-        let minSaturation: CGFloat = s < 0.10 ? 0.0 : 0.12
-
-        // 随滑动进度线性插值
-        let currentSaturation = targetSaturation - (targetSaturation - minSaturation) * progress
-        let currentBrightness = targetBrightness - (targetBrightness - minBrightness) * progress
-
-        return Color(
-            hue: Double(h),
-            saturation: Double(currentSaturation),
-            brightness: Double(currentBrightness),
-            opacity: Double(a)
-        )
     }
 }

@@ -52,7 +52,7 @@ struct HomePartnerSection: View {
 
                     // 爱心徽标挂件
                     Circle()
-                        .fill(Color(hex: "F43F5E")) // 蔷薇红
+                        .fill(Color(mhbHex: "F43F5E")) // 蔷薇红
                         .frame(width: 18, height: 18)
                         .overlay {
                             Image(systemName: "heart.fill")
@@ -73,7 +73,7 @@ struct HomePartnerSection: View {
                         if let sex = partner.sex {
                             Image(systemName: sex == .female ? "venus" : "mars")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(sex == .female ? Color(hex: "F43F5E") : Color(hex: "3B82F6"))
+                                .foregroundStyle(sex == .female ? Color(mhbHex: "F43F5E") : Color(mhbHex: "3B82F6"))
                                 .padding(.bottom, 2)
                         }
                     }
@@ -83,12 +83,12 @@ struct HomePartnerSection: View {
                         // 关系标签
                         Text(relationTagText)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color(hex: "10B981"))
+                            .foregroundStyle(Color(mhbHex: "10B981"))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
                             .background {
                                 Capsule()
-                                    .fill(Color(hex: "10B981").opacity(0.12))
+                                    .fill(Color(mhbHex: "10B981").opacity(0.12))
                             }
 
                         // 距离标签
@@ -165,32 +165,4 @@ private struct RoundedRectangleWithCutout: Shape {
         return path
     }
 }
-
-// 辅助 Color 的 Hex 初始化扩展
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 0, 0, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
-
 

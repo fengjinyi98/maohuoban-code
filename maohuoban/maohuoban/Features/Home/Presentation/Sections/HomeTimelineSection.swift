@@ -117,13 +117,13 @@ private struct HomeTimelineRow: View {
     private var iconFgColor: Color {
         switch event.id {
         case "event-breakfast":
-            return Color(hex: "E5A93C") // 暖金/黄色
+            return Color(mhbHex: "E5A93C") // 暖金/黄色
         case "event-weight":
-            return Color(hex: "B794F4") // 紫色
+            return Color(mhbHex: "B794F4") // 紫色
         case "event-deworming":
-            return Color(hex: "63B3ED") // 蓝色
+            return Color(mhbHex: "63B3ED") // 蓝色
         case "event-walk":
-            return Color(hex: "F6AD55") // 橙色
+            return Color(mhbHex: "F6AD55") // 橙色
         default:
             return .white
         }
@@ -146,12 +146,12 @@ private struct HomeTimelineRow: View {
             // 显示 +0.2 kg 变化值胶囊 (深绿背景 + 浅绿字体)
             Text("+0.2 kg")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(hex: "A3E635")) // 浅绿
+                .foregroundStyle(Color(mhbHex: "A3E635")) // 浅绿
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background {
                     Capsule()
-                        .fill(Color(hex: "4D7C0F").opacity(0.25)) // 深绿背景
+                        .fill(Color(mhbHex: "4D7C0F").opacity(0.25)) // 深绿背景
                 }
         } else {
             // 显示灰色 chevron 箭头
@@ -200,32 +200,5 @@ private struct TimelineDotLine: View {
                 .frame(width: 6, height: 6)
         }
         .frame(width: 16)
-    }
-}
-
-// 辅助 Color 的 Hex 初始化扩展
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 0, 0, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
     }
 }

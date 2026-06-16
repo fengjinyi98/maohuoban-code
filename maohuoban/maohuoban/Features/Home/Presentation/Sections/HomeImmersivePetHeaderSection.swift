@@ -26,6 +26,10 @@ struct HomeImmersivePetHeaderSection: View {
 
     var body: some View {
         let imageWidth = max(width, 1)
+        let presentation = HomeImmersivePetHeaderPresentation.make(
+            pet: pet,
+            displayName: displayName
+        )
 
         ZStack(alignment: .top) {
             // 背景层独立控制在内容上方，避免软色场扩散到下方业务列表
@@ -40,19 +44,17 @@ struct HomeImmersivePetHeaderSection: View {
                 Spacer()
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                    // 1. 顶部日期 (日历图标 + 格式化日期)
                     HStack(spacing: 6) {
-                        HomeImmersiveCalendarIcon(day: currentDayString())
+                        HomeImmersiveCalendarIcon(day: presentation.calendarDay)
                             .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
-                        Text(formattedToday())
+                        Text(presentation.formattedDate)
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                             .kerning(1.2)
                             .foregroundStyle(.white.opacity(0.85))
                             .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
                     }
 
-                    // 2. 靠左宠物姓名与性别彩色图标 (调整为右下角显示，使用 SF Symbols)
                     HStack(alignment: .bottom, spacing: 4) {
                         Text(pet.name)
                             .font(.system(size: 38, weight: .bold, design: .rounded))
@@ -60,16 +62,15 @@ struct HomeImmersivePetHeaderSection: View {
                             .lineLimit(1)
                             .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
 
-                        if let genderIconSystemName {
+                        if let genderIconSystemName = presentation.genderIconSystemName {
                             Image(systemName: genderIconSystemName)
                                 .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .foregroundStyle(genderColor)
+                                .foregroundStyle(presentation.genderColor)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
                                 .padding(.bottom, 6)
                         }
                     }
 
-                    // 3. 陪伴数据与成长天数分段显示 (使用导入的定制图标)
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 6) {
                             Image("IconWorld")
@@ -78,7 +79,7 @@ struct HomeImmersivePetHeaderSection: View {
                                 .frame(width: 16, height: 16)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
-                            Text("来到世界的第 \(worldDays) 天")
+                            Text(presentation.worldDaysText)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.95))
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
@@ -91,7 +92,7 @@ struct HomeImmersivePetHeaderSection: View {
                                 .frame(width: 16, height: 16)
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
 
-                            Text("已陪伴 \(displayName) \(pet.companionshipDays ?? 365) 天")
+                            Text(presentation.companionshipText)
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.95))
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
@@ -128,71 +129,6 @@ struct HomeImmersivePetHeaderSection: View {
         .frame(width: imageWidth, height: imageHeight)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home.immersivePetHeader")
-    }
-
-    private var genderIconSystemName: String? {
-        if pet.name.contains("汤圆") {
-            return "mars"
-        } else if pet.name.contains("糯米") {
-            return "venus"
-        }
-
-        switch pet.sex {
-        case .male:
-            return "mars"
-        case .female:
-            return "venus"
-        case .unknown:
-            return nil
-        }
-    }
-
-    private var genderColor: Color {
-        if pet.name.contains("汤圆") {
-            return Color(red: 59/255, green: 130/255, blue: 246/255) // #3B82F6 (Blue)
-        } else if pet.name.contains("糯米") {
-            return Color(red: 244/255, green: 63/255, blue: 94/255) // #F43F5E (Rose red)
-        }
-
-        switch pet.sex {
-        case .male:
-            return Color(red: 59/255, green: 130/255, blue: 246/255) // #3B82F6 (Blue)
-        case .female:
-            return Color(red: 244/255, green: 63/255, blue: 94/255) // #F43F5E (Rose red)
-        case .unknown:
-            return .white
-        }
-    }
-
-    private var worldDays: Int {
-        let bday = pet.birthday ?? "2024-04-01"
-        return daysSinceBirthday(bday) ?? 0
-    }
-
-    private func currentDayString() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: Date())
-    }
-
-    private func formattedToday() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yy.MM.dd"
-        return formatter.string(from: Date())
-    }
-
-    private func daysSinceBirthday(_ birthdayStr: String) -> Int? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        guard let birthDate = formatter.date(from: birthdayStr) else { return nil }
-
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let birthToday = calendar.startOfDay(for: birthDate)
-
-        let components = calendar.dateComponents([.day], from: birthToday, to: today)
-        return components.day
     }
 }
 

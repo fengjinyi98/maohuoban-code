@@ -97,7 +97,7 @@ private struct HomeReminderListRow: View {
                 // 第四行：显示多少天后
                 Text(reminder.dueText)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(hex: "F59E0B")) // 暖金/橘色强调
+                    .foregroundStyle(Color(mhbHex: "F59E0B")) // 暖金/橘色强调
             }
             .layoutPriority(1)
 
@@ -135,11 +135,11 @@ private struct HomeReminderListRow: View {
     private var iconFgColor: Color {
         switch reminder.kind {
         case .vaccine:
-            return Color(hex: "B794F4") // 紫色
+            return Color(mhbHex: "B794F4") // 紫色
         case .deworming:
-            return Color(hex: "A3E635") // 绿色
+            return Color(mhbHex: "A3E635") // 绿色
         case .followUp:
-            return Color(hex: "CBD5E0") // 浅灰
+            return Color(mhbHex: "CBD5E0") // 浅灰
         default:
             return .white
         }
@@ -147,32 +147,5 @@ private struct HomeReminderListRow: View {
 
     private var iconBgColor: Color {
         iconFgColor.opacity(0.12)
-    }
-}
-
-// 辅助 Color 的 Hex 初始化扩展
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 0, 0, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
     }
 }
