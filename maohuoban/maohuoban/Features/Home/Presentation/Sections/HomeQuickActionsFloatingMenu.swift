@@ -12,14 +12,17 @@ struct HomeQuickActionsFloatingMenu: View {
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
-            VStack(alignment: .trailing, spacing: MHBTheme.Spacing.s3) {
-                if isPresented {
+            ZStack(alignment: .bottomTrailing) {
+                MHBAnchoredFloatingPanel(
+                    isPresented: isPresented,
+                    offset: CGSize(width: 0, height: -70),
+                    scaleAnchor: .bottomTrailing
+                ) {
                     HomeQuickActionsFloatingPanel(
                         actions: actions,
                         routingContext: routingContext,
                         isPresented: $isPresented
                     )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
                 HomeQuickActionsFloatingButton(isPresented: $isPresented)

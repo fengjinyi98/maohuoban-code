@@ -407,7 +407,7 @@ struct HomeImmersiveHeaderControls: View {
     let onOpenProfile: () -> Void
     let onSelectPet: (String) -> Void
 
-    @State private var isPetSwitcherPresented = false
+    @Binding var isPetSwitcherPresented: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -425,13 +425,20 @@ struct HomeImmersiveHeaderControls: View {
                         avatarURL: avatarURL,
                         fallbackAssetName: "HomeUserAvatarMock",
                         displayName: displayName,
-                        action: onOpenProfile
+                        action: {
+                            isPetSwitcherPresented = false
+                            onOpenProfile()
+                        }
                     )
                 }
                 .frame(maxWidth: .infinity)
             }
 
-            if isPetSwitcherPresented {
+            MHBAnchoredFloatingPanel(
+                isPresented: isPetSwitcherPresented,
+                offset: CGSize(width: 0, height: 56),
+                scaleAnchor: .topLeading
+            ) {
                 HomeImmersivePetSwitchPanel(
                     pets: pets,
                     onSelectPet: { petID in
@@ -443,8 +450,6 @@ struct HomeImmersiveHeaderControls: View {
                         // TODO: 接入完整宠物列表入口
                     }
                 )
-                .padding(.top, 56)
-                .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(1)
             }
         }

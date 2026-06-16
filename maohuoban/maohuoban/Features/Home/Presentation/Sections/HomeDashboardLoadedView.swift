@@ -12,6 +12,7 @@ struct HomeDashboardLoadedView: View {
 
     @State private var scrollOffset: CGFloat = 0
     @State private var isQuickActionsPanelPresented = false
+    @State private var isPetSwitcherPresented = false
     @State private var themeStore = HomeDashboardThemeStore()
 
     private var scrollProgress: CGFloat {
@@ -20,6 +21,34 @@ struct HomeDashboardLoadedView: View {
 
     private var dynamicBackgroundColor: Color {
         themeStore.backgroundColor(scrollProgress: scrollProgress)
+    }
+
+    private var isAnyFloatingMenuPresented: Bool {
+        isQuickActionsPanelPresented || isPetSwitcherPresented
+    }
+
+    private var quickActionsPanelBinding: Binding<Bool> {
+        Binding(
+            get: { isQuickActionsPanelPresented },
+            set: { newValue in
+                if newValue {
+                    isPetSwitcherPresented = false
+                }
+                isQuickActionsPanelPresented = newValue
+            }
+        )
+    }
+
+    private var petSwitcherBinding: Binding<Bool> {
+        Binding(
+            get: { isPetSwitcherPresented },
+            set: { newValue in
+                if newValue {
+                    isQuickActionsPanelPresented = false
+                }
+                isPetSwitcherPresented = newValue
+            }
+        )
     }
 
     var body: some View {
@@ -64,6 +93,14 @@ struct HomeDashboardLoadedView: View {
                     let normalizedOffset = max(offset, 0)
                     self.scrollOffset = normalizedOffset
                 }
+                .zIndex(0)
+
+                if isAnyFloatingMenuPresented {
+                    MHBOutsideTapDismissLayer {
+                        dismissFloatingMenus()
+                    }
+                    .zIndex(1)
+                }
 
                 if snapshot.selectedPet != nil {
                     HomeImmersiveHeaderControls(
@@ -72,21 +109,24 @@ struct HomeDashboardLoadedView: View {
                         avatarURL: snapshot.identity.avatarURL,
                         displayName: snapshot.identity.displayName,
                         onOpenProfile: onOpenProfile,
-                        onSelectPet: onSelectPet
+                        onSelectPet: onSelectPet,
+                        isPetSwitcherPresented: petSwitcherBinding
                     )
                     .padding(.top, MHBTheme.Spacing.s1)
                     .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .zIndex(2)
                 }
 
                 if !snapshot.quickActions.isEmpty {
                     HomeQuickActionsFloatingMenu(
                         actions: snapshot.quickActions,
                         routingContext: routingContext,
-                        isPresented: $isQuickActionsPanelPresented
+                        isPresented: quickActionsPanelBinding
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, MHBTheme.Spacing.s4)
                     .padding(.bottom, MHBTheme.Spacing.s6)
+                    .zIndex(2)
                 }
             }
             .task(id: themeUpdateID(selectedPetID: snapshot.selectedPet?.id, width: heroImageWidth)) {
@@ -98,6 +138,11 @@ struct HomeDashboardLoadedView: View {
         }
         .environment(\.colorScheme, themeStore.colorScheme)
         .toolbarColorScheme(themeStore.colorScheme, for: .tabBar)
+    }
+
+    private func dismissFloatingMenus() {
+        isPetSwitcherPresented = false
+        isQuickActionsPanelPresented = false
     }
 
     private static var backgroundDimmingStartOffset: CGFloat {
