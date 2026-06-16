@@ -1,6 +1,5 @@
 import SwiftUI
 import MaohuobanDesignSystem
-import UIKit
 
 // HomeImmersivePetHeaderLayout 首页沉浸式头图布局参数
 // 核心职责：
@@ -12,6 +11,9 @@ enum HomeImmersivePetHeaderLayout {
     nonisolated static let imageHeight: CGFloat = backgroundImageHeight + petStatsCardHeight
     nonisolated static let backgroundDimmingReferenceHeight: CGFloat = 500
     nonisolated static let colorFogTopRatio: CGFloat = 0.82
+    nonisolated static let bottomBlurHeightRatio: CGFloat = 0.24
+    nonisolated static let fullBlurTransitionStartOffset: CGFloat = 40
+    nonisolated static let fullBlurTransitionEndOffset: CGFloat = 160
     nonisolated static let upwardShrinkMaximumRatio: CGFloat = 0.10
     nonisolated static let upwardShrinkSpeedMultiplier: CGFloat = 8
 }
@@ -26,6 +28,7 @@ struct HomeImmersivePetHeaderSection: View {
     let width: CGFloat
     let fusionColor: Color
     let contentColorScheme: ColorScheme
+    let scrollOffset: CGFloat
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
     private var adaptiveIconColor: Color {
@@ -47,7 +50,8 @@ struct HomeImmersivePetHeaderSection: View {
                     assetName: pet.heroImageAssetName ?? "HomePetHeroMock",
                     imageWidth: imageWidth,
                     baseImageHeight: backgroundImageHeight,
-                    fusionColor: fusionColor
+                    fusionColor: fusionColor,
+                    scrollOffset: scrollOffset
                 )
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -178,13 +182,16 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
     let imageWidth: CGFloat
     let baseImageHeight: CGFloat
     let fusionColor: Color
+    let scrollOffset: CGFloat
 
     var body: some View {
         let upwardShrinkMaximumRatio = HomeImmersivePetHeaderLayout.upwardShrinkMaximumRatio
         let upwardShrinkSpeedMultiplier = HomeImmersivePetHeaderLayout.upwardShrinkSpeedMultiplier
-        let blurHeight = baseImageHeight * 0.36
-        let blurTopY = baseImageHeight - blurHeight
-        let colorFogTopY = baseImageHeight * HomeImmersivePetHeaderLayout.colorFogTopRatio
+        let blurConfiguration = HomeImmersivePetHeaderBlurConfiguration.make(
+            scrollOffset: scrollOffset,
+            baseImageHeight: baseImageHeight
+        )
+        let bottomBlurHeight = blurConfiguration.bottomBlurHeight
 
         ZStack(alignment: .top) {
             HomeImmersivePetHeaderForegroundImage(
@@ -194,18 +201,22 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
             )
 
             MHBVariableBlurView(
-                maxBlurRadius: 10,
+                maxBlurRadius: blurConfiguration.bottomBlurRadius,
                 direction: .blurredBottomClearTop,
                 startOffset: 0
             )
-            .frame(width: imageWidth, height: blurHeight)
+            .frame(width: imageWidth, height: bottomBlurHeight)
             .frame(width: imageWidth, height: baseImageHeight, alignment: .bottom)
             .allowsHitTesting(false)
-            .onAppear {
-                HomeHeroBlurDebug.log(
-                    "swiftUILayer appear assetName=\(assetName), imageWidth=\(HomeHeroBlurDebug.format(imageWidth)), baseImageHeight=\(HomeHeroBlurDebug.format(baseImageHeight)), blurRadius=10.000, blurHeight=\(HomeHeroBlurDebug.format(blurHeight)), blurTopY=\(HomeHeroBlurDebug.format(blurTopY)), blurBottomY=\(HomeHeroBlurDebug.format(baseImageHeight)), colorFogTopY=\(HomeHeroBlurDebug.format(colorFogTopY)), colorFogRatio=\(HomeHeroBlurDebug.format(HomeImmersivePetHeaderLayout.colorFogTopRatio)), layerOrder=0:image,1:variableBlur,2:colorFog,3:readabilityGradient,4:content"
-                )
-            }
+
+            MHBVariableBlurView(
+                maxBlurRadius: blurConfiguration.fullBlurRadius,
+                direction: .blurredAll,
+                startOffset: 0
+            )
+            .frame(width: imageWidth, height: baseImageHeight)
+            .opacity(blurConfiguration.fullBlurOpacity)
+            .allowsHitTesting(false)
 
             HomeImmersivePetHeaderColorFogOverlay(
                 color: fusionColor,
@@ -231,6 +242,36 @@ private struct HomeImmersivePetHeaderBackgroundLayer: View {
                 .scaleEffect(x: metrics.scale, y: metrics.scale, anchor: .bottom)
                 .offset(y: metrics.verticalOffset)
         }
+    }
+}
+
+// HomeImmersivePetHeaderBlurConfiguration 首页头图模糊配置
+// 核心职责：
+// - 根据滚动偏移让整图模糊渐进叠加到底部短模糊之上
+// - 为头图氛围模糊输出稳定的几何参数
+private struct HomeImmersivePetHeaderBlurConfiguration: Equatable {
+    let bottomBlurHeight: CGFloat
+    let bottomBlurRadius: CGFloat
+    let fullBlurRadius: CGFloat
+    let fullBlurOpacity: CGFloat
+
+    nonisolated static func make(
+        scrollOffset: CGFloat,
+        baseImageHeight: CGFloat
+    ) -> HomeImmersivePetHeaderBlurConfiguration {
+        let transitionStart = HomeImmersivePetHeaderLayout.fullBlurTransitionStartOffset
+        let transitionEnd = HomeImmersivePetHeaderLayout.fullBlurTransitionEndOffset
+        let transitionRange = max(transitionEnd - transitionStart, 1)
+        let rawProgress = (scrollOffset - transitionStart) / transitionRange
+        let transitionProgress = min(max(rawProgress, 0), 1)
+        let easedProgress = transitionProgress * transitionProgress * (3 - 2 * transitionProgress)
+
+        return HomeImmersivePetHeaderBlurConfiguration(
+            bottomBlurHeight: baseImageHeight * HomeImmersivePetHeaderLayout.bottomBlurHeightRatio,
+            bottomBlurRadius: 10,
+            fullBlurRadius: 10,
+            fullBlurOpacity: easedProgress
+        )
     }
 }
 
@@ -261,11 +302,6 @@ private struct HomeImmersivePetHeaderColorFogOverlay: View {
         )
         .frame(width: width, height: height)
         .allowsHitTesting(false)
-        .onAppear {
-            HomeHeroBlurDebug.log(
-                "colorFog appear color=\(HomeHeroBlurDebug.describe(color)), width=\(HomeHeroBlurDebug.format(width)), height=\(HomeHeroBlurDebug.format(height)), fogStart=\(HomeHeroBlurDebug.format(fogStart)), fogStartY=\(HomeHeroBlurDebug.format(height * fogStart)), stops=0@0/\(HomeHeroBlurDebug.format(fogStart))@0,0.12@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.22)),0.35@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.48)),0.68@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.70)),0.88@\(HomeHeroBlurDebug.format(fogStart + (1.0 - fogStart) * 0.86)),1.00@1"
-            )
-        }
     }
 }
 
@@ -308,41 +344,6 @@ private struct HomeImmersivePetHeaderReadabilityGradient: View {
             endPoint: .bottom
         )
         .frame(width: width, height: height)
-        .onAppear {
-            HomeHeroBlurDebug.log(
-                "readabilityGradient appear color=\(HomeHeroBlurDebug.describe(color)), width=\(HomeHeroBlurDebug.format(width)), height=\(HomeHeroBlurDebug.format(height)), stops=0.02@0,0.08@0.42,0.24@0.72,0.12@0.88,0@1"
-            )
-        }
-    }
-}
-
-// HomeHeroBlurDebug 首页头图模糊临时诊断
-// 核心职责：
-// - 输出 SwiftUI 头图图层、融合色和几何参数
-// - 配合 UIKit 可变模糊日志定位模糊强度和边缘问题
-private enum HomeHeroBlurDebug {
-    static func log(_ message: String) {
-        #if DEBUG
-        print("[DEBUG:HomeHeroBlur] \(message)")
-        #endif
-    }
-
-    static func format(_ value: CGFloat) -> String {
-        String(format: "%.3f", Double(value))
-    }
-
-    static func describe(_ color: Color) -> String {
-        let uiColor = UIColor(color)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-
-        if uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
-            return "rgba=r=\(format(red)),g=\(format(green)),b=\(format(blue)),a=\(format(alpha))"
-        }
-
-        return String(describing: color)
     }
 }
 
@@ -396,56 +397,82 @@ private struct HomeImmersivePetHeaderStretchMetrics {
 
 // HomeImmersiveHeaderControls 首页沉浸式头部操作区
 // 核心职责：
-// - 在系统导航栏位置承载位置与用户入口
+// - 在系统导航栏位置承载宠物切换与用户入口
 // - 使用 Liquid Glass 统一管理自定义头部控件
 struct HomeImmersiveHeaderControls: View {
-    let title: String
+    let selectedPet: HomeDashboardSnapshot.PetHeroSummary?
+    let pets: [HomeDashboardSnapshot.PetSwitchItem]
     let avatarURL: String?
     let displayName: String
-    let onRefreshLocation: () -> Void
     let onOpenProfile: () -> Void
+    let onSelectPet: (String) -> Void
+
+    @State private var isPetSwitcherPresented = false
 
     var body: some View {
-        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                HomeImmersiveLocationButton(
-                    title: title,
-                    action: onRefreshLocation
-                )
-                .layoutPriority(1)
+        ZStack(alignment: .topLeading) {
+            GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    HomeImmersivePetSwitchButton(
+                        pet: selectedPet,
+                        isPresented: $isPetSwitcherPresented
+                    )
+                    .layoutPriority(1)
 
-                Spacer(minLength: MHBTheme.Spacing.s3)
+                    Spacer(minLength: MHBTheme.Spacing.s3)
 
-                HomeImmersiveUserAvatarButton(
-                    avatarURL: avatarURL,
-                    fallbackAssetName: "HomeUserAvatarMock",
-                    displayName: displayName,
-                    action: onOpenProfile
-                )
+                    HomeImmersiveUserAvatarButton(
+                        avatarURL: avatarURL,
+                        fallbackAssetName: "HomeUserAvatarMock",
+                        displayName: displayName,
+                        action: onOpenProfile
+                    )
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+
+            if isPetSwitcherPresented {
+                HomeImmersivePetSwitchPanel(
+                    pets: pets,
+                    onSelectPet: { petID in
+                        isPetSwitcherPresented = false
+                        onSelectPet(petID)
+                    },
+                    onShowMore: {
+                        isPetSwitcherPresented = false
+                        // TODO: 接入完整宠物列表入口
+                    }
+                )
+                .padding(.top, 56)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(1)
+            }
         }
+        .animation(.snappy(duration: 0.22), value: isPetSwitcherPresented)
     }
 }
 
-// HomeImmersiveLocationButton 首页沉浸式位置按钮
+// HomeImmersivePetSwitchButton 首页沉浸式宠物切换按钮
 // 核心职责：
-// - 作为首页固定顶层操作展示当前位置
-// - 使用 Liquid Glass 承载自定义头部操作
-private struct HomeImmersiveLocationButton: View {
-    let title: String
-    let action: () -> Void
+// - 在首页固定顶层展示当前宠物头像与名称
+// - 控制宠物切换菜单展开与收起
+private struct HomeImmersivePetSwitchButton: View {
+    let pet: HomeDashboardSnapshot.PetHeroSummary?
+    @Binding var isPresented: Bool
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            isPresented.toggle()
+        } label: {
             HStack(spacing: MHBTheme.Spacing.s2) {
-                Image("LocationIcon")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: MHBTheme.IconSize.medium, height: MHBTheme.IconSize.medium)
+                HomeImmersivePetAvatar(
+                    avatarURL: pet?.avatarURL,
+                    species: pet?.species ?? .other,
+                    isSelected: true,
+                    size: 42
+                )
 
-                Text(title)
+                Text(pet?.name ?? "宠物")
                     .font(MHBTheme.Typography.headline)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -453,11 +480,13 @@ private struct HomeImmersiveLocationButton: View {
                     .layoutPriority(1)
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .font(.system(size: 13, weight: .bold))
+                    .rotationEffect(.degrees(isPresented ? 180 : 0))
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.vertical, MHBTheme.Spacing.s3)
+            .padding(.leading, 5)
+            .padding(.trailing, MHBTheme.Spacing.s4)
+            .padding(.vertical, 5)
             .background {
                 Color.black.opacity(0.18)
                     .clipShape(Capsule())
@@ -465,8 +494,192 @@ private struct HomeImmersiveLocationButton: View {
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("切换位置，\(title)")
-        .accessibilityIdentifier("home.locationHeaderButton")
+        .accessibilityLabel("切换宠物，当前宠物 \(pet?.name ?? "未知")")
+        .accessibilityIdentifier("home.petHeaderSwitchButton")
+    }
+}
+
+// HomeImmersivePetSwitchPanel 首页沉浸式宠物切换面板
+// 核心职责：
+// - 展示最多三只可切换宠物
+// - 在宠物数量超过三只时提供查看更多入口
+private struct HomeImmersivePetSwitchPanel: View {
+    let pets: [HomeDashboardSnapshot.PetSwitchItem]
+    let onSelectPet: (String) -> Void
+    let onShowMore: () -> Void
+
+    private var visiblePets: [HomeDashboardSnapshot.PetSwitchItem] {
+        Array(pets.prefix(3))
+    }
+
+    private var showsMoreButton: Bool {
+        pets.count > 3
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+            ForEach(visiblePets) { pet in
+                Button {
+                    guard !pet.isSelected else { return }
+                    onSelectPet(pet.id)
+                } label: {
+                    HomeImmersivePetSwitchRow(pet: pet)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.petHeaderSwitchPanel.pet.\(pet.id)")
+            }
+
+            if showsMoreButton {
+                Divider()
+                    .overlay(.white.opacity(0.22))
+                    .padding(.vertical, MHBTheme.Spacing.s1)
+
+                Button(action: onShowMore) {
+                    HStack(spacing: MHBTheme.Spacing.s3) {
+                        Image(systemName: "ellipsis.circle.fill")
+                            .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.92))
+                            .frame(width: 34, height: 34)
+
+                        Text("查看更多")
+                            .font(MHBTheme.Typography.footnote)
+                            .foregroundStyle(.white.opacity(0.96))
+
+                        Spacer(minLength: MHBTheme.Spacing.s2)
+                    }
+                    .padding(.horizontal, MHBTheme.Spacing.s2)
+                    .padding(.vertical, MHBTheme.Spacing.s2)
+                    .contentShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.petHeaderSwitchPanel.more")
+            }
+        }
+        .padding(MHBTheme.Spacing.s2)
+        .frame(width: 190)
+        .background {
+            Color.black.opacity(0.16)
+                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: MHBTheme.Radius.large))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.petHeaderSwitchPanel")
+    }
+}
+
+// HomeImmersivePetSwitchRow 首页沉浸式宠物切换行
+// 核心职责：
+// - 展示宠物头像、名称和当前选中态
+// - 将行点击交给上层切换逻辑处理
+private struct HomeImmersivePetSwitchRow: View {
+    let pet: HomeDashboardSnapshot.PetSwitchItem
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s3) {
+            HomeImmersivePetAvatar(
+                avatarURL: pet.avatarURL,
+                species: pet.species,
+                isSelected: pet.isSelected,
+                size: 34
+            )
+
+            Text(pet.name)
+                .font(MHBTheme.Typography.footnote)
+                .foregroundStyle(.white.opacity(pet.isSelected ? 1 : 0.88))
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: MHBTheme.Spacing.s2)
+
+            if pet.isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.92))
+            }
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s2)
+        .padding(.vertical, MHBTheme.Spacing.s2)
+        .contentShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+        .opacity(pet.isSelected ? 1 : 0.92)
+    }
+}
+
+// HomeImmersivePetAvatar 首页沉浸式宠物头像
+// 核心职责：
+// - 优先展示宠物远端头像
+// - 在头像缺失时按物种展示稳定兜底图标
+private struct HomeImmersivePetAvatar: View {
+    let avatarURL: String?
+    let species: HomeDashboardSnapshot.Species
+    let isSelected: Bool
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.18))
+
+            if let url = resolvedURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty, .failure:
+                        fallbackIcon
+                    @unknown default:
+                        fallbackIcon
+                    }
+                }
+            } else {
+                fallbackIcon
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay {
+            Circle()
+                .stroke(
+                    isSelected ? MHBTheme.ColorToken.primary.color : .white.opacity(0.24),
+                    lineWidth: isSelected ? 2 : 1
+                )
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if isSelected {
+                Circle()
+                    .fill(MHBTheme.ColorToken.primary.color)
+                    .frame(width: max(size * 0.22, 8), height: max(size * 0.22, 8))
+                    .overlay {
+                        Circle()
+                            .stroke(.white.opacity(0.92), lineWidth: 1)
+                    }
+            }
+        }
+        .contentShape(Circle())
+    }
+
+    private var fallbackIcon: some View {
+        Image(systemName: iconName)
+            .font(.system(size: max(size * 0.42, 14), weight: .semibold))
+            .foregroundStyle(.white.opacity(0.92))
+            .frame(width: size, height: size)
+    }
+
+    private var iconName: String {
+        switch species {
+        case .dog: "pawprint.fill"
+        case .cat: "cat.fill"
+        case .other: "heart.fill"
+        }
+    }
+
+    private var resolvedURL: URL? {
+        guard let avatarURL, avatarURL.isEmpty == false else {
+            return nil
+        }
+
+        return URL(string: avatarURL)
     }
 }
 

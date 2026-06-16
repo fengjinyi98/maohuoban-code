@@ -7,8 +7,6 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
-    let locationTitle: String
-    let onRefreshLocation: () -> Void
     let onOpenProfile: () -> Void
     let onSelectPet: (String) -> Void
 
@@ -43,7 +41,8 @@ struct HomeDashboardLoadedView: View {
                                 displayName: snapshot.identity.displayName,
                                 width: heroImageWidth,
                                 fusionColor: dynamicBackgroundColor,
-                                contentColorScheme: themeStore.heroContentColorScheme
+                                contentColorScheme: themeStore.heroContentColorScheme,
+                                scrollOffset: scrollOffset
                             )
                         }
 
@@ -68,11 +67,12 @@ struct HomeDashboardLoadedView: View {
 
                 if snapshot.selectedPet != nil {
                     HomeImmersiveHeaderControls(
-                        title: locationTitle,
+                        selectedPet: snapshot.selectedPet,
+                        pets: snapshot.petSwitcher,
                         avatarURL: snapshot.identity.avatarURL,
                         displayName: snapshot.identity.displayName,
-                        onRefreshLocation: onRefreshLocation,
-                        onOpenProfile: onOpenProfile
+                        onOpenProfile: onOpenProfile,
+                        onSelectPet: onSelectPet
                     )
                     .padding(.top, MHBTheme.Spacing.s1)
                     .padding(.horizontal, MHBTheme.Spacing.s4)

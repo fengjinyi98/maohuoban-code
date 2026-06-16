@@ -9,7 +9,6 @@ struct HomeRootScreen: View {
     let currentUserID: String?
     let onOpenProfile: () -> Void
     @State private var store = HomeDashboardStore()
-    @State private var locationService = MHBLocationService()
     @State private var selectedPetID: String?
 
     init(
@@ -28,11 +27,6 @@ struct HomeRootScreen: View {
             case .loaded(let snapshot):
                 HomeDashboardLoadedView(
                     snapshot: snapshot,
-                    locationTitle: navigationLocationTitle,
-                    onRefreshLocation: {
-                        MHBLocationDiagnostics.homeToolbarTapped(displayName: locationService.displayName)
-                        locationService.refresh()
-                    },
                     onOpenProfile: onOpenProfile,
                     onSelectPet: { petID in
                         selectedPetID = petID
@@ -59,20 +53,8 @@ struct HomeRootScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: currentUserID) {
-            MHBLocationDiagnostics.homeTaskStarted(currentUserID: currentUserID)
             selectedPetID = nil
-            locationService.refreshIfNeeded()
             await store.load(currentUserID: currentUserID)
-            MHBLocationDiagnostics.homeStoreLoaded(
-                locationDisplayName: locationService.displayName,
-                backendTitle: backendLocationTitle
-            )
-        }
-        .onChange(of: locationService.displayName) { _, displayName in
-            MHBLocationDiagnostics.homeDisplayNameChanged(
-                displayName: displayName,
-                backendTitle: backendLocationTitle
-            )
         }
         .navigationDestination(for: HomeRoute.self) { route in
             HomeRouteDestinationScreen(
@@ -90,26 +72,6 @@ struct HomeRootScreen: View {
         }
     }
 
-    private var navigationLocationTitle: String {
-        if let displayName = locationService.displayName {
-            return displayName
-        }
-
-        return backendLocationTitle
-    }
-
-    private var backendLocationTitle: String {
-        switch store.phase {
-        case .loaded(let snapshot):
-            let city = snapshot.identity.city?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let city, city.isEmpty == false {
-                return city
-            }
-            return "我们的位置"
-        case .idle, .loading, .failed:
-            return "我们的位置"
-        }
-    }
 }
 
 // HomeDashboardLoadingView 首页加载态
