@@ -15,10 +15,8 @@ actor FileSegmentStore {
         self.directory = directory
         self.maxSegmentBytes = maxSegmentBytes
         currentURL = directory.appendingPathComponent("\(UUID().uuidString).jsonl")
-        encoder = JSONEncoder()
-        decoder = JSONDecoder()
-        encoder.dateEncodingStrategy = .iso8601
-        decoder.dateDecodingStrategy = .iso8601
+        encoder = .maohuobanDiagnostics
+        decoder = .maohuobanDiagnostics
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 

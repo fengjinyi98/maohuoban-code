@@ -11,6 +11,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     let captureState: DiagnosticsCaptureState
     let storageHealth = DiagnosticsStorageHealth()
     let exportRegistry: ExportDirectoryRegistry
+    let remoteMirror: DiagnosticsRemoteEventSink?
     let startedAt = Date()
 
     init(configuration: DiagnosticsConfiguration) throws {
@@ -19,6 +20,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         exportRegistry = ExportDirectoryRegistry(
             indexURL: configuration.storageDirectory.appendingPathComponent(".debug-bundles.jsonl")
         )
+        remoteMirror = configuration.remoteMirror.map(DiagnosticsRemoteEventSink.init(configuration:))
         store = try FileSegmentStore(
             directory: configuration.storageDirectory,
             maxSegmentBytes: configuration.maxSegmentBytes

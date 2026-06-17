@@ -312,8 +312,9 @@ extension PetProfileAddScreen {
                 onWillDismiss: {
                     isBreedEditorChevronExpanded = false
                 },
-                onSave: {
-                    breed = breedEditorDraft
+                onSave: { submission in
+                    breed = submission.value
+                    breedEditorDraft = submission.value
                     isBreedEditorChevronExpanded = false
                     isBreedEditorPresented = false
                 }

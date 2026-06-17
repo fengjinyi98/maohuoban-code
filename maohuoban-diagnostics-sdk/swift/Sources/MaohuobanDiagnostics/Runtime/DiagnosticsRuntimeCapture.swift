@@ -17,6 +17,11 @@ extension DiagnosticsRuntime {
         let event = configuration.privacy.apply(to: capturedEvent)
         do {
             try await store.append(event)
+            if let remoteMirror {
+                Task {
+                    await remoteMirror.append(event)
+                }
+            }
         } catch {
             await storageHealth.recordDroppedEvent(error)
         }

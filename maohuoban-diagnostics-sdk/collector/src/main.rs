@@ -1,6 +1,9 @@
 use maohuoban_diagnostics_collector::{
     CollectorConfig, WorkspaceReportConfig, collect_debug_bundle, collect_workspace_report,
 };
+mod remote_ingest;
+
+use remote_ingest::serve_remote_ingest;
 use std::{env, path::PathBuf, process};
 
 /// main Collector CLI 入口
@@ -24,6 +27,8 @@ fn run(args: &[String]) -> Result<(), String> {
     let mut output = None;
     let mut workspace_root = None;
     let mut clean_sources = false;
+    let mut serve_ingest = false;
+    let mut bind = "0.0.0.0:18081".to_string();
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -52,6 +57,16 @@ fn run(args: &[String]) -> Result<(), String> {
             "--clean-sources" => {
                 clean_sources = true;
             }
+            "--serve-ingest" => {
+                serve_ingest = true;
+            }
+            "--bind" => {
+                index += 1;
+                bind = args
+                    .get(index)
+                    .cloned()
+                    .ok_or_else(|| "missing value for --bind".to_string())?;
+            }
             "--help" | "-h" => {
                 print_help();
                 return Ok(());
@@ -59,6 +74,22 @@ fn run(args: &[String]) -> Result<(), String> {
             unknown => return Err(format!("unknown argument: {unknown}")),
         }
         index += 1;
+    }
+
+    if serve_ingest {
+        let segments_directory = if let Some(workspace_root) = workspace_root {
+            workspace_root
+                .join(".maohuoban-diagnostics")
+                .join("segments")
+        } else if segments.len() == 1 {
+            segments.remove(0)
+        } else {
+            return Err(
+                "--serve-ingest requires --workspace-root <path> or one --segments <path>"
+                    .to_string(),
+            );
+        };
+        return serve_remote_ingest(&bind, segments_directory);
     }
 
     if let Some(workspace_root) = workspace_root {
@@ -93,15 +124,23 @@ fn run(args: &[String]) -> Result<(), String> {
 
 fn print_help() {
     println!(
-        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] (--output <path> | --workspace-root <path>) [--clean-sources]\n\n导出 Maohuoban Debug Bundle。"
+        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] (--output <path> | --workspace-root <path>) [--clean-sources]\nmaohuoban_diagnostics_collector --serve-ingest [--bind <addr>] (--workspace-root <path> | --segments <path>)\n\n导出 Maohuoban Debug Bundle，或启动 Debug 真机诊断回流接收服务。"
     );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::remote_ingest::handle_remote_ingest_connection;
     use maohuoban_diagnostics::{
         DiagnosticEvent, EventKind, EventStore, FileSegmentStore, Severity,
+    };
+    use std::{
+        io::{Read as _, Write as _},
+        net::{TcpListener, TcpStream},
+        sync::{Arc, Mutex},
+        thread,
+        time::Duration,
     };
     use tempfile::tempdir;
 
@@ -261,5 +300,54 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert!(remaining_reports.is_empty());
+    }
+
+    #[test]
+    fn remote_ingest_writes_event_to_workspace_segments() {
+        let root = tempdir().expect("temp dir");
+        let segments = root.path().join(".maohuoban-diagnostics").join("segments");
+        let store = Arc::new(Mutex::new(
+            FileSegmentStore::new(&segments, 1024 * 1024).expect("store"),
+        ));
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let address = listener.local_addr().expect("local addr");
+        let server_store = Arc::clone(&store);
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            handle_remote_ingest_connection(stream, &server_store).expect("handle");
+        });
+
+        let mut client = TcpStream::connect(address).expect("connect");
+        client
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("timeout");
+        let body = serde_json::to_string(&DiagnosticEvent::new(
+            EventKind::Lifecycle,
+            Severity::Info,
+            "ios device event",
+        ))
+        .expect("body");
+        write!(
+            client,
+            "POST /ingest HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        )
+        .expect("write request");
+        let mut response = String::new();
+        client.read_to_string(&mut response).expect("read response");
+        server.join().expect("server");
+
+        assert!(response.starts_with("HTTP/1.1 202 Accepted"));
+        let timeline = store
+            .lock()
+            .expect("store lock")
+            .read_all()
+            .expect("events");
+        assert!(
+            timeline
+                .iter()
+                .any(|event| event.message == "ios device event")
+        );
     }
 }

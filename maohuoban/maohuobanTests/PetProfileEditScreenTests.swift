@@ -7,6 +7,43 @@ import XCTest
 // - 覆盖前端本地编辑态和后端写入契约的衔接
 @MainActor
 final class PetProfileEditScreenTests: XCTestCase {
+    func testBreedEditSubmissionRemovesWhitespaceBeforeSave() {
+        let submission = PetProfileBreedEditSubmission(rawValue: " 金 毛 寻 回 犬 ")
+
+        XCTAssertEqual(submission.value, "金毛寻回犬")
+    }
+
+    func testUpdateDraftUsesSubmittedBreed() throws {
+        let profile = PetProfileEditProfile(
+            id: "pet-1",
+            name: "糯米",
+            species: .dog,
+            breed: "",
+            avatarURL: nil,
+            heroMedia: .image(assetName: "HomePetHeroMock"),
+            heroThemeColorHex: nil,
+            heroContentColorScheme: nil,
+            profileCode: "0000000000000001",
+            chipNumber: "",
+            sexText: "母",
+            birthDateText: "2024-01-01",
+            arrivalDateText: "2024-05-01",
+            weightText: "4.2 kg",
+            neuterStatusText: "已绝育",
+            personalityTags: ["亲人"],
+            note: "喜欢晒太阳",
+            nameEditPolicy: nil
+        )
+        let screen = PetProfileEditScreen(
+            context: PetProfileEditContext(selectedProfile: profile, profiles: [profile])
+        )
+
+        let draft = screen.updateDraft(for: profile, breed: "金毛寻回犬")
+        let json = try Self.encodedJSONObject(draft)
+
+        XCTAssertEqual(json["breed"] as? String, "金毛寻回犬")
+    }
+
     func testUpdateDraftUsesEditedSpeciesText() throws {
         let profile = PetProfileEditProfile(
             id: "pet-1",

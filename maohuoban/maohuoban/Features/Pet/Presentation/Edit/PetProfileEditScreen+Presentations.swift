@@ -166,10 +166,11 @@ extension PetProfileEditScreen {
                     onWillDismiss: {
                         isBreedEditorChevronExpanded = false
                     },
-                    onSave: {
+                    onSave: { submission in
                         guard let profileID = breedEditorProfileID else { return }
+                        let breed = submission.value
                         Task {
-                            await saveBreed(for: profileID)
+                            await saveBreed(breed, for: profileID)
                         }
                     }
                 )

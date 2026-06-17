@@ -29,14 +29,14 @@ extension PetProfileEditScreen {
         isChipEditorPresented = false
     }
 
-    func saveBreed(for profileID: String) async {
+    func saveBreed(_ breed: String, for profileID: String) async {
         guard let profile = profile(for: profileID) else { return }
-        let draft = updateDraft(for: profile, breed: breedEditorDraft)
+        let draft = updateDraft(for: profile, breed: breed)
         await Diagnostics.track(
             "pet.breed_edit_save_started",
             properties: [
                 "pet_id_prefix": .string(profileID.diagnosticsPrefix),
-                "breed_length_non_whitespace": .int(breedEditorDraft.filter { !$0.isWhitespace }.count),
+                "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count),
                 "original_breed_present": .bool(profile.breed.isEmpty == false)
             ]
         )
@@ -46,19 +46,20 @@ extension PetProfileEditScreen {
                 "pet.breed_edit_save_failed",
                 properties: [
                     "pet_id_prefix": .string(profileID.diagnosticsPrefix),
-                    "breed_length_non_whitespace": .int(breedEditorDraft.filter { !$0.isWhitespace }.count)
+                    "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count)
                 ]
             )
             return
         }
-        editedBreeds[profileID] = breedEditorDraft
+        editedBreeds[profileID] = breed
+        breedEditorDraft = breed
         isBreedEditorChevronExpanded = false
         isBreedEditorPresented = false
         await Diagnostics.track(
             "pet.breed_edit_save_succeeded",
             properties: [
                 "pet_id_prefix": .string(profileID.diagnosticsPrefix),
-                "breed_length_non_whitespace": .int(breedEditorDraft.filter { !$0.isWhitespace }.count)
+                "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count)
             ]
         )
     }

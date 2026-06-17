@@ -76,6 +76,19 @@ fn empty_request(method: &str, uri: &str) -> Request<Body> {
     contextual_empty_request(method, uri, None)
 }
 
+/// `range_request` 构造媒体 Range 读取请求
+/// 核心职责：
+/// - 固定视频播放器所需的字节范围读取形态
+/// - 验证媒体内容接口返回 Partial Content 语义
+fn range_request(uri: &str, range: &str) -> Request<Body> {
+    Request::builder()
+        .method("GET")
+        .uri(uri)
+        .header("range", range)
+        .body(Body::empty())
+        .expect("build range request")
+}
+
 /// `contextual_empty_request` 构造携带用户上下文的无 body 请求
 /// 核心职责：
 /// - 支持首页真实聚合读取当前用户宠物数据
@@ -164,6 +177,49 @@ async fn bind_uploaded_media(
         .await
         .expect("bind uploaded media");
     assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+/// `assert_media_range_content` 验证媒体内容 Range 响应
+/// 核心职责：
+/// - 固定视频播放器依赖的 Partial Content 契约
+/// - 避免首页聚合测试承担底层响应头断言细节
+async fn assert_media_range_content(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    media_url: &str,
+    expected_bytes: &[u8],
+) {
+    let range_response = app
+        .router()
+        .oneshot(range_request(media_url, "bytes=0-15"))
+        .await
+        .expect("get media range content");
+    assert_eq!(range_response.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        range_response
+            .headers()
+            .get("accept-ranges")
+            .and_then(|value| value.to_str().ok()),
+        Some("bytes")
+    );
+    let expected_content_range = format!("bytes 0-15/{}", expected_bytes.len());
+    assert_eq!(
+        range_response
+            .headers()
+            .get("content-range")
+            .and_then(|value| value.to_str().ok()),
+        Some(expected_content_range.as_str())
+    );
+    assert_eq!(
+        range_response
+            .headers()
+            .get("content-length")
+            .and_then(|value| value.to_str().ok()),
+        Some("16")
+    );
+    let range_bytes = to_bytes(range_response.into_body(), 1024 * 1024)
+        .await
+        .expect("read media range content");
+    assert_eq!(&range_bytes[..], &expected_bytes[..16]);
 }
 
 /// `login_user_id` 使用真实验证码登录获取用户 id
@@ -652,6 +708,8 @@ async fn home_dashboard_returns_uploaded_pet_media_urls() {
         .await
         .expect("read media content");
     assert_eq!(&bytes[..], &avatar_bytes[..]);
+
+    assert_media_range_content(&app, &avatar_url, &avatar_bytes).await;
 }
 
 #[tokio::test]

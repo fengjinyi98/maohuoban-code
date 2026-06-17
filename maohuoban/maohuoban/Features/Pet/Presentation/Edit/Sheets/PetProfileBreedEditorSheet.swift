@@ -9,11 +9,7 @@ struct PetProfileBreedEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var breed: String
     let onWillDismiss: () -> Void
-    let onSave: () -> Void
-
-    private var normalizedBreed: String {
-        breed.filter { !$0.isWhitespace }
-    }
+    let onSave: (PetProfileBreedEditSubmission) -> Void
 
     var body: some View {
         NavigationStack {
@@ -68,9 +64,10 @@ struct PetProfileBreedEditorSheet: View {
     }
 
     private func saveIfNeeded() {
-        breed = normalizedBreed
+        let submission = PetProfileBreedEditSubmission(rawValue: breed)
+        breed = submission.value
+        onSave(submission)
         onWillDismiss()
-        onSave()
         dismiss()
     }
 }

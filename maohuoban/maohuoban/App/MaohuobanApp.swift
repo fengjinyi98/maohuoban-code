@@ -73,6 +73,7 @@ struct MaohuobanApp: App {
                 serviceName: "maohuoban-ios",
                 environment: "local",
                 storageDirectory: MaohuobanDiagnosticsStorageDirectory.resolve(),
+                remoteMirror: MaohuobanDiagnosticsRemoteMirror.resolve(),
                 privacy: diagnosticsPrivacyPolicy(),
                 capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
                 networkCapture: .globalURLProtocol,
@@ -95,6 +96,7 @@ struct MaohuobanApp: App {
                 serviceName: "maohuoban-ios",
                 environment: "local",
                 storageDirectory: MaohuobanDiagnosticsStorageDirectory.resolve(),
+                remoteMirror: MaohuobanDiagnosticsRemoteMirror.resolve(),
                 privacy: diagnosticsPrivacyPolicy(),
                 capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
                 cleanup: policy

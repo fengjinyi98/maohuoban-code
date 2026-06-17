@@ -13,10 +13,23 @@ Collector 是本地诊断采集器，负责把工作区内的 Swift SDK、Rust S
 
 ## 使用
 
+### 导出诊断包
+
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
   --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
 ```
+
+### 接收真机 Debug 回流
+
+```bash
+cargo run -p maohuoban_diagnostics_collector -- \
+  --serve-ingest \
+  --bind 0.0.0.0:18081 \
+  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
+```
+
+Debug 真机会把事件 POST 到 `http://<Mac 局域网 IP>:18081/ingest`，Collector 写入 `<workspace>/.maohuoban-diagnostics/segments`。App 默认从 `MHB_BACKEND_BASE_URL` 的 host 推导 Mac 地址，并使用 `18081` 端口；也可以通过 `MAOHUOBAN_DIAGNOSTICS_REMOTE_INGEST_URL` 显式覆盖完整接收 URL。
 
 ## 输入输出
 

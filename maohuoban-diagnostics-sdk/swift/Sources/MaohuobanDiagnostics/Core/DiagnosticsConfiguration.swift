@@ -8,6 +8,7 @@ public struct DiagnosticsConfiguration: Sendable {
     public var serviceName: String
     public var environment: String
     public var storageDirectory: URL
+    public var remoteMirror: DiagnosticsRemoteMirrorConfiguration?
     public var privacy: PrivacyPolicy
     public var capture: CapturePolicy
     public var cleanup: CleanupPolicy
@@ -18,6 +19,7 @@ public struct DiagnosticsConfiguration: Sendable {
         serviceName: String,
         environment: String,
         storageDirectory: URL = DiagnosticsConfiguration.defaultStorageDirectory(),
+        remoteMirror: DiagnosticsRemoteMirrorConfiguration? = nil,
         privacy: PrivacyPolicy = .init(),
         capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
@@ -27,6 +29,7 @@ public struct DiagnosticsConfiguration: Sendable {
         self.serviceName = serviceName
         self.environment = environment
         self.storageDirectory = storageDirectory
+        self.remoteMirror = remoteMirror
         self.privacy = privacy
         self.capture = capture
         self.cleanup = cleanup
@@ -66,6 +69,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
         serviceName: String,
         environment: String,
         storageDirectory: URL = DiagnosticsConfiguration.defaultStorageDirectory(),
+        remoteMirror: DiagnosticsRemoteMirrorConfiguration? = nil,
         privacy: PrivacyPolicy = .init(),
         capture: CapturePolicy = .init(),
         cleanup: CleanupPolicy = .init(),
@@ -81,6 +85,7 @@ public struct DiagnosticsBootstrapConfiguration: Sendable {
             serviceName: serviceName,
             environment: environment,
             storageDirectory: storageDirectory,
+            remoteMirror: remoteMirror,
             privacy: privacy,
             capture: capture,
             cleanup: cleanup,
