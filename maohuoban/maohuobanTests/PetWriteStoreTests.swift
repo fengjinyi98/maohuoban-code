@@ -242,7 +242,7 @@ final class PetWriteStoreTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "avatar.jpg",
                 mimeType: "image/jpeg",
-                content: "avatar-content",
+                content: Data("avatar-content".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
@@ -264,7 +264,7 @@ final class PetWriteStoreTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "background.jpg",
                 mimeType: "image/jpeg",
-                content: "background-content",
+                content: Data("background-content".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
@@ -287,7 +287,7 @@ final class PetWriteStoreTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "background.mp4",
                 mimeType: "video/mp4",
-                content: "background-video-content",
+                content: Data("background-video-content".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"

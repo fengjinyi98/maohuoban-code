@@ -140,7 +140,7 @@ extension PetProfileEditScreen {
         return PetMediaUploadDraft(
             fileName: fileName,
             mimeType: mimeType,
-            content: data.base64EncodedString(),
+            content: data,
             sourceClient: "ios"
         )
     }

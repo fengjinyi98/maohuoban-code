@@ -220,20 +220,13 @@ struct DeletePetProfileDraft: Encodable, Equatable {
 
 // PetMediaUploadDraft 宠物媒体上传草稿
 // 核心职责：
-// - 承载媒体文件名、类型、内容和来源客户端
-// - 为头像与背景上传复用同一请求形态
-struct PetMediaUploadDraft: Encodable, Equatable {
+// - 承载媒体文件名、类型、二进制内容和来源客户端
+// - 为头像与背景 multipart 上传复用同一请求形态
+struct PetMediaUploadDraft: Equatable {
     let fileName: String
     let mimeType: String
-    let content: String
+    let content: Data
     let sourceClient: String
-
-    enum CodingKeys: String, CodingKey {
-        case fileName = "file_name"
-        case mimeType = "mime_type"
-        case content
-        case sourceClient = "source_client"
-    }
 }
 
 // PetMediaUploadResult 宠物媒体上传结果

@@ -118,9 +118,10 @@ struct DefaultPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.post(
+        try await client.postMultipart(
             path: "/api/v1/pets/\(petID)/media/avatar",
-            body: draft,
+            file: multipartFile(from: draft),
+            fields: multipartFields(from: draft),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
@@ -130,9 +131,10 @@ struct DefaultPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.post(
+        try await client.postMultipart(
             path: "/api/v1/pets/\(petID)/media/background-image",
-            body: draft,
+            file: multipartFile(from: draft),
+            fields: multipartFields(from: draft),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
@@ -142,9 +144,10 @@ struct DefaultPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.post(
+        try await client.postMultipart(
             path: "/api/v1/pets/\(petID)/media/background-video",
-            body: draft,
+            file: multipartFile(from: draft),
+            fields: multipartFields(from: draft),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
@@ -174,5 +177,18 @@ struct DefaultPetRepository: PetRepository {
 
     private func userHeaders(currentUserID: String) -> [String: String] {
         ["x-maohuoban-user-id": currentUserID]
+    }
+
+    private func multipartFile(from draft: PetMediaUploadDraft) -> MHBMultipartFile {
+        MHBMultipartFile(
+            fieldName: "file",
+            fileName: draft.fileName,
+            mimeType: draft.mimeType,
+            data: draft.content
+        )
+    }
+
+    private func multipartFields(from draft: PetMediaUploadDraft) -> [String: String] {
+        ["source_client": draft.sourceClient]
     }
 }

@@ -316,12 +316,13 @@ final class PetRepositoryTests: XCTestCase {
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/avatar")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
 
-            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
-            let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
-            XCTAssertEqual(json?["file_name"] as? String, "avatar.txt")
-            XCTAssertEqual(json?["mime_type"] as? String, "text/plain")
-            XCTAssertEqual(json?["content"] as? String, "avatar-bytes")
-            XCTAssertEqual(json?["source_client"] as? String, "ios")
+            try Self.assertMultipartMediaRequest(
+                request,
+                fileName: "avatar.txt",
+                mimeType: "text/plain",
+                contentText: "avatar-bytes",
+                sourceClient: "ios"
+            )
 
             return Self.jsonResponse(
                 statusCode: 201,
@@ -369,7 +370,7 @@ final class PetRepositoryTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "avatar.txt",
                 mimeType: "text/plain",
-                content: "avatar-bytes",
+                content: Data("avatar-bytes".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
@@ -385,6 +386,13 @@ final class PetRepositoryTests: XCTestCase {
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-image")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            try Self.assertMultipartMediaRequest(
+                request,
+                fileName: "background.jpg",
+                mimeType: "image/jpeg",
+                contentText: "image-bytes",
+                sourceClient: "ios"
+            )
 
             return Self.mediaUploadResponse(
                 usageKind: "pet.background.image",
@@ -397,7 +405,7 @@ final class PetRepositoryTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "background.jpg",
                 mimeType: "image/jpeg",
-                content: "image-bytes",
+                content: Data("image-bytes".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
@@ -414,6 +422,13 @@ final class PetRepositoryTests: XCTestCase {
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-video")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            try Self.assertMultipartMediaRequest(
+                request,
+                fileName: "background.mp4",
+                mimeType: "video/mp4",
+                contentText: "video-bytes",
+                sourceClient: "ios"
+            )
 
             return Self.mediaUploadResponse(
                 usageKind: "pet.background.video",
@@ -426,7 +441,7 @@ final class PetRepositoryTests: XCTestCase {
             draft: PetMediaUploadDraft(
                 fileName: "background.mp4",
                 mimeType: "video/mp4",
-                content: "video-bytes",
+                content: Data("video-bytes".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
@@ -582,6 +597,27 @@ final class PetRepositoryTests: XCTestCase {
             }
             """
         )
+    }
+
+    private static func assertMultipartMediaRequest(
+        _ request: URLRequest,
+        fileName: String,
+        mimeType: String,
+        contentText: String,
+        sourceClient: String
+    ) throws {
+        let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
+        XCTAssertTrue(contentType.hasPrefix("multipart/form-data; boundary="))
+        let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+        let bodyText = String(decoding: body, as: UTF8.self)
+
+        XCTAssertTrue(
+            bodyText.contains("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"")
+        )
+        XCTAssertTrue(bodyText.contains("Content-Type: \(mimeType)"))
+        XCTAssertTrue(bodyText.contains(contentText))
+        XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"source_client\""))
+        XCTAssertTrue(bodyText.contains(sourceClient))
     }
 }
 
