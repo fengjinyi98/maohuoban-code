@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use maohuoban_samecity_domain::samecity::{Hospital, HospitalAppointment, SameCityError, SameCityResult};
+use maohuoban_samecity_domain::samecity::{
+    Hospital, HospitalAppointment, SameCityError, SameCityResult,
+};
 use uuid::Uuid;
 
 use super::{BookHospitalAppointmentInput, SameCityRepository};

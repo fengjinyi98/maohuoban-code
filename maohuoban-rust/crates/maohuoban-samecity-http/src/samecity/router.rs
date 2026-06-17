@@ -11,9 +11,7 @@ use maohuoban_samecity_application::samecity::SameCityService;
 use uuid::Uuid;
 
 use super::{
-    dto::{
-        BookHospitalAppointmentRequest, HospitalAppointmentData, HospitalsData, HospitalsQuery,
-    },
+    dto::{BookHospitalAppointmentRequest, HospitalAppointmentData, HospitalsData, HospitalsQuery},
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
 

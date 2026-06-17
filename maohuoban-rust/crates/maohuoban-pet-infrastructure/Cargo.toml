@@ -7,9 +7,12 @@ rust-version.workspace = true
 [dependencies]
 async-trait.workspace = true
 chrono.workspace = true
+image.workspace = true
+maohuoban-media-storage.workspace = true
 maohuoban-pet-application.workspace = true
 maohuoban-pet-domain.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 sqlx.workspace = true
 uuid.workspace = true
 

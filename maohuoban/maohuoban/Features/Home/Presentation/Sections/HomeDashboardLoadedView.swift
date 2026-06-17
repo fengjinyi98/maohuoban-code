@@ -227,15 +227,15 @@ struct HomeDashboardLoadedView: View {
             species: editSpecies(for: pet.species),
             avatarURL: pet.avatarURL,
             heroMedia: editHeroMedia(for: pet.heroMedia),
-            profileCode: profileCode(for: pet.id),
-            chipNumber: chipNumber(for: pet.id),
+            profileCode: pet.profileNumber ?? "平台生成",
+            chipNumber: pet.microchipNumber ?? "",
             sexText: sexText(for: pet.sex),
             birthDateText: pet.birthday ?? "暂未设置",
-            arrivalDateText: arrivalDateText(for: pet.id),
-            weightText: weightText(for: pet.id, stats: pet.stats),
-            neuterStatusText: neuterStatusText(for: pet.id),
-            personalityTags: personalityTags(for: pet.id),
-            note: pet.statusText
+            arrivalDateText: pet.arrivalDate ?? "暂未设置",
+            weightText: weightText(weightGrams: pet.weightGrams, stats: pet.stats),
+            neuterStatusText: neuterStatusText(for: pet.neuterStatus),
+            personalityTags: pet.personalityTags,
+            note: pet.note ?? pet.statusText
         )
     }
 
@@ -253,16 +253,16 @@ struct HomeDashboardLoadedView: View {
             name: item.name,
             species: editSpecies(for: item.species),
             avatarURL: item.avatarURL,
-            heroMedia: editHeroMedia(forPetID: item.id),
-            profileCode: profileCode(for: item.id),
-            chipNumber: chipNumber(for: item.id),
-            sexText: sexText(forPetID: item.id),
-            birthDateText: birthDateText(for: item.id),
-            arrivalDateText: arrivalDateText(for: item.id),
-            weightText: weightText(for: item.id, stats: nil),
-            neuterStatusText: neuterStatusText(for: item.id),
-            personalityTags: personalityTags(for: item.id),
-            note: statusText(for: item.id)
+            heroMedia: .image(assetName: "HomePetHeroMock"),
+            profileCode: item.profileNumber ?? "平台生成",
+            chipNumber: item.microchipNumber ?? "",
+            sexText: "未知",
+            birthDateText: item.birthday ?? "暂未设置",
+            arrivalDateText: item.arrivalDate ?? "暂未设置",
+            weightText: weightText(weightGrams: item.weightGrams, stats: nil),
+            neuterStatusText: neuterStatusText(for: item.neuterStatus),
+            personalityTags: item.personalityTags,
+            note: item.note ?? "暂未设置"
         )
     }
 
@@ -291,35 +291,6 @@ struct HomeDashboardLoadedView: View {
         }
     }
 
-    private func editHeroMedia(forPetID petID: String) -> PetProfileEditProfile.HeroMedia {
-        switch petID {
-        case "pet-tangyuan":
-            .video(
-                resourceName: "HomePetTangyuanHeroMock",
-                fileExtension: "mp4",
-                fallbackImageAssetName: nil
-            )
-        default:
-            .image(assetName: "HomePetHeroMock")
-        }
-    }
-
-    private func chipNumber(for petID: String) -> String {
-        switch petID {
-        case "pet-mochi": ""
-        case "pet-tangyuan": ""
-        default: "暂未录入"
-        }
-    }
-
-    private func profileCode(for petID: String) -> String {
-        switch petID {
-        case "pet-mochi": "9011562600000019"
-        case "pet-tangyuan": "9011562600000027"
-        default: "9011562600000001"
-        }
-    }
-
     private func sexText(for sex: HomeDashboardSnapshot.Sex) -> String {
         switch sex {
         case .female: "母"
@@ -328,72 +299,27 @@ struct HomeDashboardLoadedView: View {
         }
     }
 
-    private func sexText(forPetID petID: String) -> String {
-        switch petID {
-        case "pet-mochi": "母"
-        case "pet-tangyuan": "公"
-        default: "未知"
-        }
-    }
-
-    private func birthDateText(for petID: String) -> String {
-        switch petID {
-        case "pet-mochi": "2024-04-01"
-        case "pet-tangyuan": "2025-02-18"
-        default: "暂未设置"
-        }
-    }
-
-    private func arrivalDateText(for petID: String) -> String {
-        switch petID {
-        case "pet-mochi": "2024-06-16"
-        case "pet-tangyuan": "2025-03-08"
-        default: "暂未设置"
-        }
-    }
-
     private func weightText(
-        for petID: String,
+        weightGrams: Int?,
         stats: HomeDashboardSnapshot.PetHeroStats?
     ) -> String {
+        if let weightGrams {
+            let kilograms = Double(weightGrams) / 1000
+            return String(format: "%.1f kg", kilograms)
+        }
+
         if let weight = stats?.weightVal, !weight.isEmpty {
             return "\(weight) kg"
         }
 
-        return switch petID {
-        case "pet-mochi": "3.6 kg"
-        case "pet-tangyuan": "3.6 kg"
-        default: "暂未记录"
-        }
+        return "暂未记录"
     }
 
-    private func neuterStatusText(for petID: String) -> String {
-        switch petID {
-        case "pet-mochi": "已绝育"
-        case "pet-tangyuan": "未绝育"
-        default: "未绝育"
-        }
-    }
-
-    private func personalityTags(for petID: String) -> [String] {
-        switch petID {
-        case "pet-mochi":
-            ["亲人", "爱撒娇", "安静"]
-        case "pet-tangyuan":
-            ["好奇", "活跃", "夜间活动多"]
-        default:
-            []
-        }
-    }
-
-    private func statusText(for petID: String) -> String {
-        switch petID {
-        case "pet-tangyuan":
-            "近期食欲稳定，夜间活动偏多"
-        case "pet-mochi":
-            "记录正在形成可信档案"
-        default:
-            "暂未设置"
+    private func neuterStatusText(for neuterStatus: PetNeuterStatus?) -> String {
+        switch neuterStatus {
+        case .neutered: "已绝育"
+        case .intact: "未绝育"
+        case .unknown, nil: "未知"
         }
     }
 

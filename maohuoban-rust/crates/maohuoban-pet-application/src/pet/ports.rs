@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, PetEvent, PetProfile, PetResult, PetSex, PetSourceKind, PetSpecies,
-    PetTimeline,
+    EventKind, EventVisibility, MediaUsageKind, PetEvent, PetMediaUploadResult, PetNeuterStatus,
+    PetProfile, PetResult, PetSex, PetSourceKind, PetSpecies, PetTimeline,
 };
 use serde_json::Value;
 use uuid::Uuid;
@@ -19,7 +19,70 @@ pub struct NewPetProfile {
     pub breed: Option<String>,
     pub sex: PetSex,
     pub birthday: Option<NaiveDate>,
+    pub microchip_number: Option<String>,
+    pub arrival_date: Option<NaiveDate>,
+    pub weight_grams: Option<i32>,
+    pub neuter_status: PetNeuterStatus,
+    pub personality_tags: Vec<String>,
+    pub note: Option<String>,
     pub source_kind: PetSourceKind,
+}
+
+/// UpdatePetProfile 宠物档案更新输入
+/// 核心职责：
+/// - 表达用户可编辑档案字段
+/// - 保持不可编辑字段由应用服务校验
+#[derive(Debug, Clone, Default)]
+pub struct UpdatePetProfile {
+    pub pet_id: Uuid,
+    pub owner_user_id: Uuid,
+    pub name: Option<String>,
+    pub species: Option<PetSpecies>,
+    pub breed: Option<String>,
+    pub sex: Option<PetSex>,
+    pub birthday: Option<NaiveDate>,
+    pub microchip_number: Option<String>,
+    pub arrival_date: Option<NaiveDate>,
+    pub weight_grams: Option<i32>,
+    pub neuter_status: Option<PetNeuterStatus>,
+    pub personality_tags: Option<Vec<String>>,
+    pub note: Option<String>,
+}
+
+/// DeletePetProfile 宠物档案删除输入
+/// 核心职责：
+/// - 表达软删除请求
+/// - 保留恢复窗口和审计所需字段
+#[derive(Debug, Clone)]
+pub struct DeletePetProfile {
+    pub pet_id: Uuid,
+    pub owner_user_id: Uuid,
+    pub reason: Option<String>,
+}
+
+/// RestorePetProfile 恢复宠物档案输入
+/// 核心职责：
+/// - 表达恢复软删除宠物档案请求
+/// - 保持恢复权限由当前用户和宠物归属共同约束
+#[derive(Debug, Clone)]
+pub struct RestorePetProfile {
+    pub pet_id: Uuid,
+    pub owner_user_id: Uuid,
+}
+
+/// PetMediaUploadInput 宠物媒体上传输入
+/// 核心职责：
+/// - 汇总对象存储写入所需原始内容和来源
+/// - 固定媒体资产与宠物绑定所需上下文
+#[derive(Debug, Clone)]
+pub struct PetMediaUploadInput {
+    pub pet_id: Uuid,
+    pub owner_user_id: Uuid,
+    pub usage_kind: MediaUsageKind,
+    pub file_name: String,
+    pub mime_type: String,
+    pub content: Vec<u8>,
+    pub source_client: Option<String>,
 }
 
 /// NewPetEvent 新建宠物事件输入
@@ -82,6 +145,15 @@ pub trait PetRepository: Send + Sync {
     ) -> PetResult<Option<PetProfile>>;
 
     async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>>;
+
+    async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile>;
+
+    async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile>;
+
+    async fn restore_pet_profile(&self, input: RestorePetProfile) -> PetResult<PetProfile>;
+
+    async fn upload_pet_media(&self, input: PetMediaUploadInput)
+    -> PetResult<PetMediaUploadResult>;
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 

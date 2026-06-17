@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_legal_application::legal::LegalDocumentRepository;
-use maohuoban_legal_domain::legal::{
-    LegalDocument, LegalDocumentKind, LegalError, LegalResult,
-};
+use maohuoban_legal_domain::legal::{LegalDocument, LegalDocumentKind, LegalError, LegalResult};
 use sqlx::{FromRow, PgPool};
 
 /// `PostgresLegalDocumentRepository` `PostgreSQL` 法务文档仓储
@@ -24,10 +22,7 @@ impl PostgresLegalDocumentRepository {
 
 #[async_trait]
 impl LegalDocumentRepository for PostgresLegalDocumentRepository {
-    async fn find_document(
-        &self,
-        kind: LegalDocumentKind,
-    ) -> LegalResult<Option<LegalDocument>> {
+    async fn find_document(&self, kind: LegalDocumentKind) -> LegalResult<Option<LegalDocument>> {
         let row = sqlx::query_as::<_, LegalDocumentRow>(
             r"
             SELECT kind, title, version, effective_date, published_at, updated_at, html

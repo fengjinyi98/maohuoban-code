@@ -8,17 +8,27 @@ import MaohuobanDesignSystem
 struct PetWriteStatusSection: View {
     let phase: PetWritePhase
     let successMessage: String?
+    let derivativeMessage: String?
 
     var body: some View {
         switch phase {
         case .idle, .submitting:
             EmptyView()
-        case .createdPet, .recordedEvent, .importedTradePet:
-            PetWriteStatusBanner(
-                systemImage: "checkmark.circle.fill",
-                title: successMessage ?? "已保存",
-                color: MHBTheme.ColorToken.primary.color
-            )
+        case .createdPet, .recordedEvent, .importedTradePet, .updatedPet, .uploadedAvatar, .uploadedBackground, .deletedPet:
+            VStack(spacing: MHBTheme.Spacing.s2) {
+                PetWriteStatusBanner(
+                    systemImage: "checkmark.circle.fill",
+                    title: successMessage ?? "已保存",
+                    color: MHBTheme.ColorToken.primary.color
+                )
+                if let derivativeMessage {
+                    PetWriteStatusBanner(
+                        systemImage: "sparkles",
+                        title: derivativeMessage,
+                        color: MHBTheme.ColorToken.teal.color
+                    )
+                }
+            }
         case .failed(let message):
             PetWriteStatusBanner(
                 systemImage: "exclamationmark.triangle.fill",

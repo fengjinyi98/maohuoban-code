@@ -26,7 +26,8 @@ struct PetTradeImportScreen: View {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 PetWriteStatusSection(
                     phase: store.phase,
-                    successMessage: store.successMessage
+                    successMessage: store.successMessage,
+                    derivativeMessage: nil
                 )
 
                 PetTradeImportPetFields(name: $name, breed: $breed)

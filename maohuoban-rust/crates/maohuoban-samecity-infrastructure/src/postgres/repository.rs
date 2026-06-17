@@ -1,8 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use maohuoban_samecity_application::samecity::{
-    BookHospitalAppointmentInput, SameCityRepository,
-};
+use maohuoban_samecity_application::samecity::{BookHospitalAppointmentInput, SameCityRepository};
 use maohuoban_samecity_domain::samecity::{
     Hospital, HospitalAppointment, HospitalAppointmentStatus, SameCityError, SameCityResult,
     VerificationStatus,
@@ -96,7 +94,13 @@ impl SameCityRepository for PostgresSameCityRepository {
         .bind(input.hospital_id)
         .bind(input.scheduled_at)
         .bind(input.reason.trim())
-        .bind(input.note.as_deref().map(str::trim).filter(|value| !value.is_empty()))
+        .bind(
+            input
+                .note
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty()),
+        )
         .fetch_one(&self.pool)
         .await
         .map_err(to_infrastructure_error)?;

@@ -53,13 +53,18 @@ final class HomeRouteTests: XCTestCase {
             kind: .deworming,
             title: "内外驱虫",
             subtitle: "预计 2026-06-16 提醒",
-            dueText: "待提醒"
+            dueText: "待提醒",
+            remarks: nil
         )
         let context = HomeActionRoutingContext(selectedPetID: "pet-1")
 
         let route = HomeReminderRouteResolver.route(for: reminder, context: context)
 
-        XCTAssertEqual(route, .timelineEvent(eventID: "event-1"))
+        guard case .timelineEvent(let eventID) = route else {
+            XCTFail("Expected timeline event route")
+            return
+        }
+        XCTAssertEqual(eventID, "event-1")
     }
 
     @MainActor
@@ -69,19 +74,19 @@ final class HomeRouteTests: XCTestCase {
             kind: .merchantTask,
             title: "待补健康记录",
             subtitle: "3 只宠物缺少买家可见健康信息",
-            dueText: "今日"
+            dueText: "今日",
+            remarks: nil
         )
         let context = HomeActionRoutingContext(merchantID: "merchant-1")
 
         let route = HomeReminderRouteResolver.route(for: reminder, context: context)
 
-        XCTAssertEqual(
-            route,
-            .merchantTask(
-                merchantID: "merchant-1",
-                reminderID: "merchant-task-needs-record"
-            )
-        )
+        guard case .merchantTask(let merchantID, let reminderID) = route else {
+            XCTFail("Expected merchant task route")
+            return
+        }
+        XCTAssertEqual(merchantID, "merchant-1")
+        XCTAssertEqual(reminderID, "merchant-task-needs-record")
     }
 
     @MainActor
@@ -91,7 +96,8 @@ final class HomeRouteTests: XCTestCase {
             kind: .merchantTask,
             title: "待补健康记录",
             subtitle: "3 只宠物缺少买家可见健康信息",
-            dueText: "今日"
+            dueText: "今日",
+            remarks: nil
         )
 
         let route = HomeReminderRouteResolver.route(

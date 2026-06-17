@@ -241,6 +241,250 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.title, "体重记录")
     }
 
+    func testUpdatePetSendsExtendedProfileFieldsAndDecodesProfile() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "PATCH")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            XCTAssertEqual(json?["name"] as? String, "奶盖宝")
+            XCTAssertEqual(json?["microchip_number"] as? String, "156000000000001")
+            XCTAssertEqual(json?["arrival_date"] as? String, "2024-05-01")
+            XCTAssertEqual(json?["weight_grams"] as? Int, 4350)
+            XCTAssertEqual(json?["neuter_status"] as? String, "neutered")
+            XCTAssertEqual(json?["personality_tags"] as? [String], ["亲人", "安静"])
+            XCTAssertEqual(json?["note"] as? String, "鸡肉过敏")
+
+            return Self.jsonResponse(
+                statusCode: 200,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "pet.updated",
+                  "message": "宠物档案已更新",
+                  "data": {
+                    "id": "pet-1",
+                    "owner_user_id": "user-1",
+                    "name": "奶盖宝",
+                    "species": "cat",
+                    "breed": "布偶猫",
+                    "sex": "female",
+                    "birthday": "2024-03-20",
+                    "profile_number": "0000000000000001",
+                    "microchip_number": "156000000000001",
+                    "arrival_date": "2024-05-01",
+                    "weight_grams": 4350,
+                    "neuter_status": "neutered",
+                    "personality_tags": ["亲人", "安静"],
+                    "note": "鸡肉过敏"
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.updatePet(
+            petID: "pet-1",
+            draft: PetProfileUpdateDraft(
+                name: "奶盖宝",
+                species: .cat,
+                breed: "布偶猫",
+                sex: .female,
+                birthday: "2024-03-20",
+                microchipNumber: "156000000000001",
+                arrivalDate: "2024-05-01",
+                weightGrams: 4350,
+                neuterStatus: .neutered,
+                personalityTags: ["亲人", "安静"],
+                note: "鸡肉过敏"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物档案已更新")
+        XCTAssertEqual(response.data?.profileNumber, "0000000000000001")
+        XCTAssertEqual(response.data?.microchipNumber, "156000000000001")
+        XCTAssertEqual(response.data?.weightGrams, 4350)
+    }
+
+    func testUploadAvatarSendsUserContextAndDecodesMediaBinding() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/avatar")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            XCTAssertEqual(json?["file_name"] as? String, "avatar.txt")
+            XCTAssertEqual(json?["mime_type"] as? String, "text/plain")
+            XCTAssertEqual(json?["content"] as? String, "avatar-bytes")
+            XCTAssertEqual(json?["source_client"] as? String, "ios")
+
+            return Self.jsonResponse(
+                statusCode: 201,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "pet.avatar_uploaded",
+                  "message": "宠物头像已上传",
+                  "data": {
+                    "asset": {
+                      "id": "asset-1",
+                      "uploaded_by_user_id": "user-1",
+                      "owner_pet_id": "pet-1",
+                      "usage_kind": "pet.avatar",
+                      "source_client": "ios",
+                      "original_file_name": "avatar.txt",
+                      "mime_type": "text/plain",
+                      "byte_size": 12,
+                      "sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "bucket": "maohuoban-pet-media",
+                      "object_key": "pets/pet-1/pet/avatar/avatar.txt",
+                      "status": "bound",
+                      "created_at": "2026-06-17T00:00:00Z",
+                      "updated_at": "2026-06-17T00:00:00Z"
+                    },
+                    "binding": {
+                      "id": "binding-1",
+                      "asset_id": "asset-1",
+                      "pet_id": "pet-1",
+                      "usage_kind": "pet.avatar",
+                      "status": "active",
+                      "bound_by_user_id": "user-1",
+                      "bound_at": "2026-06-17T00:00:00Z",
+                      "created_at": "2026-06-17T00:00:00Z"
+                    }
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.uploadAvatar(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "avatar.txt",
+                mimeType: "text/plain",
+                content: "avatar-bytes",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物头像已上传")
+        XCTAssertEqual(response.data?.asset.id, "asset-1")
+        XCTAssertEqual(response.data?.binding.petID, "pet-1")
+    }
+
+    func testUploadBackgroundImageSendsUserContextAndDecodesMediaBinding() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-image")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            return Self.mediaUploadResponse(
+                usageKind: "pet.background.image",
+                objectKey: "pets/pet-1/pet/background/image/background.jpg"
+            )
+        }
+
+        let response = try await repository.uploadBackgroundImage(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "background.jpg",
+                mimeType: "image/jpeg",
+                content: "image-bytes",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物背景已上传")
+        XCTAssertEqual(response.data?.asset.usageKind, .backgroundImage)
+        XCTAssertEqual(response.data?.derivatives.count, 2)
+        XCTAssertEqual(response.data?.themeColorHex, "#FF0000")
+    }
+
+    func testUploadBackgroundVideoSendsUserContextAndDecodesMediaBinding() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-video")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            return Self.mediaUploadResponse(
+                usageKind: "pet.background.video",
+                objectKey: "pets/pet-1/pet/background/video/background.mp4"
+            )
+        }
+
+        let response = try await repository.uploadBackgroundVideo(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "background.mp4",
+                mimeType: "video/mp4",
+                content: "video-bytes",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物背景已上传")
+        XCTAssertEqual(response.data?.asset.usageKind, .backgroundVideo)
+        XCTAssertEqual(response.data?.coverFrame?.objectKey, "pets/pet-1/cover-frame.png")
+    }
+
+    func testDeletePetSendsReasonAndDecodesRecoverableProfile() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "DELETE")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            XCTAssertEqual(json?["reason"] as? String, "用户主动删除")
+
+            return Self.jsonResponse(
+                statusCode: 200,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "pet.deleted",
+                  "message": "宠物档案已删除",
+                  "data": {
+                    "id": "pet-1",
+                    "owner_user_id": "user-1",
+                    "name": "豆包",
+                    "species": "cat",
+                    "breed": null,
+                    "sex": "unknown",
+                    "birthday": null,
+                    "profile_number": "0000000000000002",
+                    "deleted_at": "2026-06-17T00:00:00Z",
+                    "delete_requested_by_user_id": "user-1",
+                    "recoverable_until": "2026-07-17T00:00:00Z",
+                    "delete_reason": "用户主动删除"
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.deletePet(
+            petID: "pet-1",
+            reason: "用户主动删除",
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "宠物档案已删除")
+        XCTAssertEqual(response.data?.deletedAt, "2026-06-17T00:00:00Z")
+        XCTAssertEqual(response.data?.recoverableUntil, "2026-07-17T00:00:00Z")
+    }
+
     private func makeRepository(
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultPetRepository {
@@ -261,6 +505,82 @@ final class PetRepositoryTests: XCTestCase {
                 headerFields: ["Content-Type": "application/json"]
             )!,
             Data(body.utf8)
+        )
+    }
+
+    private static func mediaUploadResponse(
+        usageKind: String,
+        objectKey: String
+    ) -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: 201,
+            body:
+            """
+            {
+              "success": true,
+              "code": "pet.background_uploaded",
+              "message": "宠物背景已上传",
+              "data": {
+                "asset": {
+                  "id": "asset-1",
+                  "uploaded_by_user_id": "user-1",
+                  "owner_pet_id": "pet-1",
+                  "usage_kind": "\(usageKind)",
+                  "source_client": "ios",
+                  "original_file_name": "background",
+                  "mime_type": "application/octet-stream",
+                  "byte_size": 12,
+                  "sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "bucket": "maohuoban-pet-media",
+                  "object_key": "\(objectKey)",
+                  "status": "bound",
+                  "created_at": "2026-06-17T00:00:00Z",
+                  "updated_at": "2026-06-17T00:00:00Z"
+                },
+                "binding": {
+                  "id": "binding-1",
+                  "asset_id": "asset-1",
+                  "pet_id": "pet-1",
+                  "usage_kind": "\(usageKind)",
+                  "status": "active",
+                  "bound_by_user_id": "user-1",
+                  "bound_at": "2026-06-17T00:00:00Z",
+                  "created_at": "2026-06-17T00:00:00Z"
+                },
+                "derivatives": [
+                  {
+                    "id": "derivative-1",
+                    "parent_asset_id": "asset-1",
+                    "derivative_kind": "video_cover_frame",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pets/pet-1/cover-frame.png",
+                    "mime_type": "image/png",
+                    "byte_size": 12,
+                    "sha256_hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "metadata": {
+                      "width": 512,
+                      "height": 512
+                    },
+                    "created_at": "2026-06-17T00:00:00Z"
+                  },
+                  {
+                    "id": "derivative-2",
+                    "parent_asset_id": "asset-1",
+                    "derivative_kind": "theme_color_frame",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pets/pet-1/theme-color.json",
+                    "mime_type": "application/json",
+                    "byte_size": 24,
+                    "sha256_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "metadata": {
+                      "theme_color_hex": "#FF0000"
+                    },
+                    "created_at": "2026-06-17T00:00:00Z"
+                  }
+                ]
+              }
+            }
+            """
         )
     }
 }

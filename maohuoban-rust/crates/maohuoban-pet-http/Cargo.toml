@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 axum.workspace = true
+base64.workspace = true
 chrono.workspace = true
 maohuoban-pet-application.workspace = true
 maohuoban-pet-domain.workspace = true

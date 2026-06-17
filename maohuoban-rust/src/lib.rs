@@ -21,7 +21,7 @@ use maohuoban_auth_infrastructure::{
     redis::RedisOtpChallengeStore,
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
-use maohuoban_home_application::home::{HomeDashboardService, pet_owner_home_snapshot};
+use maohuoban_home_application::home::{HomeDashboardService, new_user_home_snapshot};
 use maohuoban_home_http::home::build_home_router;
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
@@ -155,7 +155,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let samecity_repository = PostgresSameCityRepository::new(pool.clone());
     let samecity_service = Arc::new(SameCityService::new(Arc::new(samecity_repository.clone())));
     let home_provider = HybridHomeDashboardProvider::new(
-        InMemoryHomeDashboardProvider::new(pet_owner_home_snapshot()),
+        InMemoryHomeDashboardProvider::new(new_user_home_snapshot()),
         pet_service.clone(),
         recommendation_service,
     );

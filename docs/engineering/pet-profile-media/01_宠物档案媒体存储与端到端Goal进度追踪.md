@@ -7,15 +7,15 @@
 
 | 项 | 状态 | 证据 |
 |---|---|---|
-| 前端宠物档案交互 | 已完成原型闭环，待接后端真实写入 | 编辑档案、添加宠物、删除确认、头像预览、背景预览、图片裁剪、视频选择、本地草稿预览已在 iOS 侧完成 |
-| 后端宠物档案基础 | 已完成基础宠物、事件和首页聚合能力，待扩展完整档案字段 | `pet_profiles` 当前包含 `name`、`species`、`breed`、`sex`、`birthday`、`avatar_asset_id`；缺少档案号、芯片号、到家日期、体重、绝育状态、性格标签、备注、背景媒体等字段 |
-| 媒体存储 | 待实现 | 目标对象存储为 RustFS；PostgreSQL 记录媒体资产、派生物、绑定关系、来源、清理状态和审计事件 |
-| 视频主题色与封面帧 | 当前前端兜底，待后端实现 | `MHBVideoFirstFrameExtractor` 注释已说明后续由后端生成视频封面帧和主题色 |
-| 前端工程约束 | 存在明显治理项 | `PetProfileEditScreen.swift` 1691 行、`PetProfileAddScreen.swift` 798 行、`PetProfileEditFieldSheets.swift` 468 行，超过 AGENTS Swift 文件行数建议；多个 sheet、预览、编辑状态和业务规则混在单文件 |
-| 前端 MVVM | 存在明显治理项 | 快速实现阶段部分页面把编辑状态、字段规则、媒体草稿、弹窗状态和保存流程放在 View 内，需要恢复 View / ViewModel / Store / Repository 的单向数据流边界 |
-| 后端工程约束 | 存在治理项 | `maohuoban-pet-infrastructure/src/postgres/merchant_repository.rs` 861 行、`repository.rs` 516 行，超过 Rust 文件建议；测试辅助 seed 集中在 `test_support.rs` 457 行 |
-| 前端 mock 清理 | 待执行 | `HomeDashboardLoadedView` 仍按 `pet-mochi/pet-tangyuan` 派生芯片号、档案号、生日、到家日期、绝育、性格标签、备注和背景媒体；`HomePetHeroMock`、`HomePetTangyuanHeroMock` 仍作为当前档案媒体样例资源 |
-| 后端 seed 清理 | 待执行 | `maohuoban-home-application/src/home/seed.rs` 和 `home_dashboard.rs` 仍保留无用户上下文开发 seed 回退；测试 seed 仍分散在 `test_support.rs` |
+| 前端宠物档案交互 | 已接真实写入链路 | `PetRepository`、`PetWriteStore` 已覆盖创建、更新、删除、头像上传、背景图片上传、背景视频上传；编辑页和添加页调用真实 API |
+| 后端宠物档案基础 | 已完成 | `0007_pet_profile_media.sql`、`PetProfile`、HTTP DTO、application port 已补齐档案号、芯片号、到家日期、体重、绝育、标签、备注、背景媒体、软删除恢复字段和后端恢复接口 |
+| 媒体存储 | 已完成元数据、本地对象根、真实 RustFS S3 客户端和派生物生成 | `maohuoban-media-storage` 统一封装 local / RustFS S3 put、get、delete；上传和 GC worker 共用该对象存储层；`media_assets`、`media_derivatives`、`media_bindings`、`media_cleanup_jobs`、`media_audit_events` 已建表并记录 bucket/object key 与 metadata |
+| 视频主题色与封面帧 | 已完成后端基础生成 | 图片上传生成缩略图和主题色；视频上传在 ffmpeg 可用且内容可解码时生成首帧 PNG 和主题色；响应通过 `derivatives` 返回派生对象与 `theme_color_hex` |
+| 前端工程约束 | 已完成主要拆分 | 编辑页拆为 `Edit` 下 Body、Actions、Presentations、Components、Sheets、Preview；添加页拆为 `Add` 下 Body、Actions、Components；`PetProfileEditFieldSheets.swift` 和 `PetProfileHomePreviewScreen.swift` 已拆除 |
+| 前端 MVVM | 已完成目标内写入 Store / Repository 下沉 | 网络写入、媒体上传、删除、派生物状态提示进入 `PetWriteStore` / `PetRepository`；sheet 展开、菜单定位、本地预览作为页面局部 UI 状态保留 |
+| 后端工程约束 | 已完成主要拆分 | pet domain model、HTTP DTO、pet repository、merchant repository、test support 已按职责拆到子模块，主 Rust 文件均低于 500 行 |
+| 前端 mock 清理 | 已完成目标内清理 | `HomeDashboardLoadedView` 已移除按 `pet-mochi/pet-tangyuan` 派生档案字段；首页未开发模块和无媒体空态按目标边界保留本地 mock / fallback 资源 |
+| 后端 seed 清理 | 已完成目标内清理 | 运行时默认新用户首页空态；测试 seed 已拆到 `test_support/merchant.rs`、`test_support/media.rs`，home seed 仅作为测试和 mock 场景 fixture 保留 |
 | 保留的前端 mock | 明确保留 | 首页尚未开发的数据模块可保留前端 mock，例如 state 卡片、相册故事、部分首页辅助内容 |
 
 ## 2. 目标边界
@@ -27,7 +27,7 @@
 | 芯片号 | 用户可添加 15 位 ISO 11784 / ISO 11785 FDX-B 芯片号；保存前二次确认；保存后默认不可修改，后续通过申诉链路处理 |
 | 头像媒体 | 用户上传新头像后，RustFS 保存新对象，PostgreSQL 记录新媒体资产和 `pet.avatar` 绑定；旧头像进入可清理状态 |
 | 背景媒体 | 支持图片和视频；图片裁剪后上传，视频原文件上传；后端生成封面帧、主题色和派生图 |
-| 媒体追溯 | 每个媒体资产记录上传用户、所属宠物、业务用途、来源客户端、原始文件哈希、对象 key、派生关系和绑定历史 |
+| 媒体追溯 | 每个媒体资产记录上传用户、所属宠物、业务用途、来源客户端、原始文件哈希、对象 key、派生关系、主题色 metadata 和绑定历史 |
 | 媒体清理 | 替换头像或背景时旧绑定失效；无有效绑定且超过保留窗口的对象进入清理队列；清理任务删除 RustFS 对象并记录结果 |
 | 端到端测试 | 覆盖 iOS UI 到后端 API、PostgreSQL 元数据、RustFS 对象写入与清理状态 |
 | 工程治理 | 将宠物档案前端大文件拆分到明确子目录；后端 repository、DTO 和测试 seed 按职责拆分；删除已被真实接口替代的 mock |
@@ -51,26 +51,27 @@
 | 阶段 | 行为 | 持久化要求 |
 |---|---|---|
 | 选择 | iOS 选择图片或视频，本地预览和裁剪 | 前端只保留临时草稿，不写长期状态 |
-| 上传 | iOS 将文件上传到后端 | 后端写 RustFS 原始对象，记录 `media_assets.status = uploaded` |
-| 处理 | 后端生成缩略图、视频封面帧和主题色 | 派生物写 RustFS，记录 `media_derivatives`，主题色写宠物档案或媒体元数据 |
+| 上传 | iOS 将文件以 base64 内容上传到后端 | 后端解码后写 RustFS 原始对象，记录 `media_assets.status = uploaded` |
+| 处理 | 后端生成缩略图、视频封面帧和主题色 | 派生物写 RustFS，记录 `media_derivatives`；主题色写入派生物 `metadata.theme_color_hex` 并返回前端 |
 | 绑定 | 用户确认保存头像或背景 | `media_bindings` 新增有效绑定，宠物档案指向新媒体 |
 | 替换 | 新媒体替换旧媒体 | 旧绑定标记 `replaced`，旧媒体进入可清理候选 |
 | 清理 | 后台任务清理无有效绑定对象 | 删除 RustFS 对象，写 `media_cleanup_jobs` 和 `media_audit_events` |
-| 删除宠物 | 删除宠物档案 | 宠物关联媒体绑定失效，媒体进入清理候选；审计记录保留必要业务字段 |
+| 删除宠物 | 删除宠物档案 | 宠物关联媒体绑定失效，媒体进入清理队列；审计记录保留必要业务字段 |
+| 恢复宠物 | 恢复窗口内撤销软删除 | 当前头像和背景媒体恢复有效绑定，待执行清理任务撤销，历史替换媒体继续按清理策略处理 |
 
 ## 5. Phase 进度
 
 | Phase | 状态 | 下一步 |
 |---|---|---|
 | 1. 当前审查 | 已完成基线审查 | 以本文档作为后续实施目标 |
-| 2. 后端档案模型补齐 | 未开始 | 扩展迁移、domain model、application port 和 HTTP DTO |
-| 3. RustFS 媒体存储 | 未开始 | 新增 media domain/application/infrastructure/http 或共享 media crate，接入 RustFS |
-| 4. iOS Repository 接口化 | 未开始 | 新增 PetProfileRepository / MediaUploadRepository，替换本地 mock 派生 |
-| 5. 前端结构治理 | 未开始 | 拆分宠物档案 Presentation 子目录和大文件 |
-| 6. mock 与 seed 清理 | 未开始 | 删除档案媒体相关 mock 资源和运行时 seed 回退，保留未开发模块 mock |
-| 7. E2E 验证 | 未开始 | 覆盖创建、编辑、上传、替换、删除和媒体清理 |
-| 8. 独立 worktree 实施 | 未开始 | 为该目标创建独立 git worktree，按阶段完成、验证并提交 |
-| 9. 媒体 GC worker | 未开始 | 使用独立进程清理到期旧媒体对象，删除 RustFS 对象后回写媒体资产状态 |
+| 2. 后端档案模型补齐 | 已完成 | 后续补更完整审计查询 |
+| 3. RustFS 媒体存储 | 已完成 | `maohuoban-media-storage` 支持 local 与 RustFS S3；真实 RustFS S3 put/get/delete 和 GC delete 已验证 |
+| 4. iOS Repository 接口化 | 已完成 | `PetMediaUploadResult` 已解析 `derivatives`，`PetWriteStore` 已展示派生处理中态、主题色和封面帧状态 |
+| 5. 前端结构治理 | 已完成主要拆分 | 编辑页 Actions 已继续拆为展示格式化、首页预览、媒体提交和菜单动作 extension 文件 |
+| 6. mock 与 seed 清理 | 已完成目标内清理 | 档案字段派生 mock 已清理；未开发首页模块 mock 作为明确保留边界 |
+| 7. E2E 验证 | 已完成契约级和 RustFS 进程级验证 | 现有测试覆盖创建、读取、编辑、上传、替换、删除、GC、图片主题色和视频封面帧；真实 RustFS 进程级验证覆盖 S3 put/get/delete 和 GC delete |
+| 8. 独立 worktree 实施 | 已完成 | 当前实施分支为 `codex/pet-profile-media-e2e` |
+| 9. 媒体 GC worker | 已完成 | `maohuoban-media-gc-worker` 支持 run once、领取到期对象、删除原始对象和派生对象、回写状态和审计 |
 
 ## 6. RustFS 本地运行方式
 
@@ -82,9 +83,11 @@
 | API 端口 | `9000` |
 | Console 端口 | `9001` |
 | 访问密钥 | 本地开发使用 `rustfsadmin` / `rustfsadmin` |
+| 默认 bucket | `maohuoban-pet-media`，首次运行需预创建 |
 | 数据目录 | 当前项目使用独立目录，建议为 `~/.local/share/maohuoban-code-rustfs-data` |
 | 日志路径 | 建议为 `~/Library/Logs/maohuoban-code-rustfs.log` |
 | 端口冲突策略 | 启动前检查 `9000/9001`，不得复用旧项目 RustFS 实例 |
+| 后端配置 | `MAOHUOBAN_MEDIA_STORAGE_BACKEND=s3`、`MAOHUOBAN_MEDIA_S3_ENDPOINT=http://127.0.0.1:9000`、`MAOHUOBAN_MEDIA_S3_ACCESS_KEY_ID=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_REGION=us-east-1`、`MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media`、`MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true` |
 
 本地启动命令目标形态：
 
@@ -111,6 +114,19 @@ lsof -nP -iTCP -sTCP:LISTEN | rg "(:9000|:9001|rustfs|RustFS)" || true
 launchctl list | rg "com.maohuoban.rustfs"
 lsof -nP -iTCP -sTCP:LISTEN | rg "(:9000|:9001)"
 curl -I http://127.0.0.1:9000/ || true
+```
+
+真实 RustFS S3 验证：
+
+```bash
+MAOHUOBAN_MEDIA_STORAGE_BACKEND=s3 \
+MAOHUOBAN_MEDIA_S3_ENDPOINT=http://127.0.0.1:9000 \
+MAOHUOBAN_MEDIA_S3_ACCESS_KEY_ID=rustfsadmin \
+MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin \
+MAOHUOBAN_MEDIA_S3_REGION=us-east-1 \
+MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media \
+MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true \
+cargo test -p maohuoban-media-storage --test media_object_store_contract -- --ignored s3_store_round_trips_against_configured_rustfs
 ```
 
 ## 7. 媒体 GC worker 运行方式
@@ -145,20 +161,33 @@ ps aux | rg -i "[m]aohuoban.*media-gc|[m]edia-gc-worker"
 MEDIA_GC_WORKER_RUN_ONCE=true cargo run -p maohuoban-media-gc-worker
 ```
 
+真实 RustFS S3 清理验证：
+
+```bash
+MAOHUOBAN_MEDIA_STORAGE_BACKEND=s3 \
+MAOHUOBAN_MEDIA_S3_ENDPOINT=http://127.0.0.1:9000 \
+MAOHUOBAN_MEDIA_S3_ACCESS_KEY_ID=rustfsadmin \
+MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin \
+MAOHUOBAN_MEDIA_S3_REGION=us-east-1 \
+MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media \
+MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true \
+cargo test -p maohuoban-media-gc-worker --test gc_worker_contract -- --ignored run_once_deletes_due_rustfs_s3_object_when_env_configured
+```
+
 ## 8. 前端治理清单
 
 | 文件 / 区域 | 问题 | 目标处理 |
 |---|---|---|
-| `PetProfileEditScreen.swift` | 1691 行，混合页面容器、sheet、头像/背景预览、删除入口、字段编辑和局部状态 | 拆为 `Presentation/Edit`、`Presentation/Edit/Rows`、`Presentation/Edit/Sheets`、`Presentation/Edit/Preview`、`Presentation/Edit/Delete` |
-| `PetProfileAddScreen.swift` | 798 行，添加表单、菜单、sheet、日期、芯片号、标签和提交状态集中 | 拆为 `Presentation/Add`、`Presentation/Add/Rows`、`Presentation/Add/Sheets`，与编辑页复用字段组件 |
-| `PetProfileEditFieldSheets.swift` | 468 行，多个 sheet 类型集中 | 一个 sheet 一个文件，公共输入组件下沉到 `Presentation/Common` 或 DesignSystem 候选 |
-| `PetProfileHomePreviewScreen.swift` | 445 行，包含预览上下文、session、SwiftUI 页面、UIKit presenter、安全区计算 | UIKit presenter 和动画容器沉淀到 `Infrastructure/UIKit` 或 `Infrastructure/Presentation`；业务页面只保留宠物首页预览 |
-| 宠物档案编辑状态 | View 内承载大量字段状态、弹窗状态、媒体草稿和保存分支 | 新增 `PetProfileEditViewModel` / `PetProfileEditStore`，View 只渲染状态并转发事件 |
-| 添加宠物表单状态 | View 内承载输入状态、选择菜单、sheet 和提交逻辑 | 新增 `PetProfileAddViewModel` / `PetProfileAddStore`，字段校验和提交命令移出 View |
-| 媒体草稿状态 | 头像、背景图片、背景视频草稿由页面局部状态串联 | 引入明确的媒体草稿模型和上传状态机，后端接入后由 Store 统一提交 |
-| `HomeDashboardLoadedView` | 按宠物 mock id 派生完整档案字段 | 后端档案字段补齐后删除 `pet-mochi/pet-tangyuan` 分支 |
-| `PetProfileHeroMediaDraft` | 本地草稿只适合上传前预览 | 接入上传后改为 `PetProfileMediaDraft`，明确临时生命周期 |
-| 裁剪与媒体选择 | 已在 Infrastructure 下，但未来 UGC 也会复用 | 保持基础设施归属，补充单元测试和复用说明 |
+| `PetProfileEditScreen.swift` | 已拆分 | 主文件 122 行；Body 248 行；Presentations 268 行；Actions 89 行；Display 187 行；HomePreviewActions 70 行；MediaActions 147 行；组件、sheet、预览进入 `Presentation/Edit` 子目录 |
+| `PetProfileAddScreen.swift` | 已拆分 | 主文件 62 行；Body 308 行；Actions 148 行；头像头部、row、菜单组件进入 `Presentation/Add/Components` |
+| `PetProfileEditFieldSheets.swift` | 已拆分 | 原文件删除；日期、体重、标签、备注 sheet 分别进入 `Presentation/Edit/Sheets` |
+| `PetProfileHomePreviewScreen.swift` | 已拆分 | 原文件删除；Context、SwiftUI Screen、UIKit Presenter 分别进入 `Presentation/Edit/Preview` |
+| 宠物档案编辑状态 | 已完成目标内治理 | 网络写入、删除、上传和派生物状态在 `PetWriteStore`；sheet、菜单、局部媒体预览作为 View 局部 UI 状态保留 |
+| 添加宠物表单状态 | 已完成目标内治理 | 创建命令进入 `PetWriteStore`；输入草稿和 sheet 展开作为页面局部状态保留 |
+| 媒体草稿状态 | 已完成目标内治理 | `PetProfileHeroMediaDraft` 仅用于上传前本地预览；上传提交和结果状态由 Store 统一调用真实 API |
+| `HomeDashboardLoadedView` | 已完成档案字段 mock 分支清理 | 已删除 `pet-mochi/pet-tangyuan` 业务派生分支，改用后端快照字段 |
+| `PetProfileHeroMediaDraft` | 已完成目标内治理 | 保留为上传前预览模型；派生物状态由后端 `derivatives` 和 `PetWriteStore.mediaDerivativeMessage` 承接 |
+| 裁剪与媒体选择 | 保持现状 | 基础设施归属未变，本轮未新增复用说明测试 |
 
 ## 9. UI/UX 保持清单
 
@@ -178,7 +207,7 @@ MEDIA_GC_WORKER_RUN_ONCE=true cargo run -p maohuoban-media-gc-worker
 |---|---|
 | 删除语义 | 用户删除宠物档案时进入软删除状态，前端展示为已删除，后端保留恢复窗口 |
 | 恢复窗口 | 后端记录 `deleted_at`、`delete_requested_by_user_id`、`recoverable_until` 和删除原因 |
-| 恢复链路 | 后续可通过账号安全验证或申诉渠道恢复宠物档案、头像、背景和关键事件 |
+| 恢复链路 | 后端提供恢复窗口内的宠物档案恢复接口；账号安全验证或申诉渠道作为后续入口策略 |
 | 媒体清理延迟 | 宠物删除后关联媒体先解除可见绑定，RustFS 对象在恢复窗口结束后进入可物理清理状态 |
 | 事件与审计 | 删除、恢复、清理都写审计事件，保留可追溯最小必要字段 |
 | 首页与列表 | 软删除宠物默认不出现在首页、多宠切换和编辑列表；恢复成功后重新出现 |
@@ -198,12 +227,13 @@ MEDIA_GC_WORKER_RUN_ONCE=true cargo run -p maohuoban-media-gc-worker
 
 | 文件 / 区域 | 问题 | 目标处理 |
 |---|---|---|
-| `maohuoban-pet-infrastructure/src/postgres/merchant_repository.rs` | 861 行，商家宠物、窝次、关系、事件查询混合 | 拆分 `merchant_pets.rs`、`litters.rs`、`relationships.rs`、`merchant_events.rs` |
-| `maohuoban-pet-infrastructure/src/postgres/repository.rs` | 516 行，宠物档案和事件读写混合 | 拆分 `profiles.rs`、`events.rs`、`timeline.rs` |
-| `maohuoban-pet-http/src/pet/dto.rs` | 347 行，创建、事件、商家、详情 DTO 集中 | 按接口域拆 DTO 文件 |
-| `maohuoban-pet-domain/src/pet/model.rs` | 322 行，基础档案和事件模型集中 | 扩展档案字段前先拆 `profile.rs`、`event.rs`、`value_objects.rs` |
-| `maohuoban-home-application/src/home/seed.rs` | 运行时代码保留开发 seed | 真实前后端打通后只保留测试 fixture，运行时无上下文返回真实空态或认证错误 |
-| `maohuoban-rust/src/test_support.rs` | 457 行，认证、宠物、商家、关系 seed 集中 | 拆到 `test_support/auth.rs`、`pet.rs`、`merchant.rs`、`media.rs` |
+| `maohuoban-pet-infrastructure/src/postgres/merchant_repository.rs` | 已拆分 | 主文件 456 行；详情、helper、row mapper 进入 `merchant_repository/` 子模块 |
+| `maohuoban-pet-infrastructure/src/postgres/repository.rs` | 已拆分 | 主文件 459 行；media command、profile command、profile query、row mapper、storage、trade import 进入 `repository/` 子模块 |
+| `maohuoban-pet-infrastructure/src/postgres/repository/media_commands.rs` | 已拆分 | 主文件 482 行；视频首帧、主题色和派生对象写入进入 `repository/media_commands/derivatives.rs`，派生子模块 171 行 |
+| `maohuoban-pet-http/src/pet/dto.rs` | 已拆分 | 主文件 16 行；requests、responses、merchant DTO 进入 `dto/` 子模块 |
+| `maohuoban-pet-domain/src/pet/model.rs` | 已拆分 | 主文件 15 行；profile、media、event、value objects 进入 `model/` 子模块 |
+| `maohuoban-home-application/src/home/seed.rs` | 部分完成 | 运行时默认新用户空态；seed 函数仍作为 fixture 供测试和 mock 场景使用 |
+| `maohuoban-rust/src/test_support.rs` | 已拆分 | 主文件 220 行；媒体状态和商家追溯 seed 进入 `test_support/` 子模块 |
 
 ## 13. mock 与资源清理策略
 
@@ -224,24 +254,24 @@ MEDIA_GC_WORKER_RUN_ONCE=true cargo run -p maohuoban-media-gc-worker
 | 目标文档落地 | 当前文档 | 已完成 |
 | RustFS 本地运行方式 | 本文档记录 LaunchAgent 运行方式、端口、数据目录和验证命令 | 已完成 |
 | GC worker 运行方式 | 本文档记录独立 GC worker 进程、LaunchAgent、状态机和验证命令 | 已完成 |
-| 宠物档案迁移补齐 | 新迁移包含档案号、芯片号、到家日期、体重、绝育状态、性格标签、备注、背景媒体字段 | 未开始 |
-| 媒体表迁移 | 新迁移包含 `media_assets`、`media_derivatives`、`media_bindings`、`media_cleanup_jobs`、`media_audit_events` | 未开始 |
-| RustFS 写入 | 契约测试断言上传头像 / 背景后 RustFS 对象存在 | 未开始 |
-| RustFS 清理 | 契约测试断言替换头像 / 背景后旧对象进入清理队列并可被删除 | 未开始 |
-| GC worker 清理 | 契约测试断言 GC worker 可领取到期旧媒体、删除 RustFS 对象并回写状态 | 未开始 |
-| 后端主题色 | 视频第一帧 / 图片主题色由后端生成并返回前端 | 未开始 |
-| 前端真实 Repository | 编辑档案、添加宠物、删除宠物、头像上传、背景上传调用真实 API | 未开始 |
-| 前端 MVVM 治理 | View 只渲染状态并转发事件；字段规则、保存流程、媒体上传状态进入 ViewModel / Store | 未开始 |
-| UI/UX 无回归 | 关键页面截图或 UI 测试证据显示编辑档案、添加宠物、头像/背景预览、裁剪页体验保持一致 | 未开始 |
-| 删除可恢复 | 后端支持软删除、恢复窗口和恢复所需审计字段，媒体物理清理延迟到恢复窗口之后 | 未开始 |
-| 前端大文件拆分 | Swift 文件控制在 AGENTS 建议范围内，业务页面按子目录组织 | 未开始 |
-| mock 清理 | 档案相关 mock id、mock 资源和运行时 seed 回退被移除 | 未开始 |
-| iOS 单元测试 | Repository / Store / 路由 / 字段校验测试通过 | 未开始 |
-| Rust 测试 | `cargo test --workspace` 通过 | 未开始 |
-| Rust lint | `cargo clippy --workspace --all-targets` 通过 | 未开始 |
-| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` 通过 | 未开始 |
-| E2E | 创建宠物、编辑档案、替换头像、替换背景图、替换背景视频、删除宠物全链路通过 | 未开始 |
-| Git 节奏 | 独立 worktree 中每个可验证切片都有独立提交 | 未开始 |
+| 宠物档案迁移补齐 | `maohuoban-rust/migrations/0007_pet_profile_media.sql` | 已完成 |
+| 媒体表迁移 | `0007_pet_profile_media.sql` 包含 `media_assets`、`media_derivatives`、`media_bindings`、`media_cleanup_jobs`、`media_audit_events`；`0008_media_derivative_metadata.sql` 为派生物补 metadata | 已完成 |
+| RustFS 写入 | `pet_contract.rs` 断言本地对象根写入；`maohuoban-media-storage/tests/media_object_store_contract.rs` 真实 RustFS S3 put/get/delete 通过 | 已完成 |
+| RustFS 清理 | `pet_contract.rs` 与 GC worker 契约测试覆盖替换、删除入队、恢复撤销清理和到期删除；真实 RustFS S3 GC delete 通过 | 已完成 |
+| GC worker 清理 | `maohuoban-media-gc-worker/tests/gc_worker_contract.rs` 覆盖原始对象和派生对象删除、状态回写、真实 RustFS S3 删除 | 已完成 |
+| 后端主题色 | `pet_contract.rs` 覆盖图片主题色、视频首帧和视频主题色；响应 `derivatives[].metadata.theme_color_hex` 返回前端 | 已完成后端基础能力 |
+| 前端真实 Repository | `PetRepository`、`PetWriteStore`、`PetRepositoryTests`、`PetWriteStoreTests`；上传响应解析 `derivatives` 并展示派生状态 | 已完成 |
+| 前端 MVVM 治理 | 写入命令、媒体上传、派生物状态进入 Store / Repository；页面 UI 草稿状态按局部状态保留 | 已完成目标内治理 |
+| UI/UX 无回归 | `xcodebuild ... Debug build` 通过；状态条新增派生物提示，原编辑 / 添加结构保持 | 已完成 |
+| 删除可恢复 | 后端支持软删除、恢复窗口、恢复接口、媒体绑定恢复和清理任务撤销；账号安全 / 申诉入口未接入 | 已完成后端基础能力 |
+| 前端大文件拆分 | `Presentation/Edit`、`Presentation/Add`、`Presentation/Edit/Sheets`、`Presentation/Edit/Preview` | 已完成主要拆分 |
+| mock 清理 | 档案字段派生 mock 已移除；未开发首页模块 mock / fallback 明确保留 | 已完成目标内清理 |
+| iOS 单元测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanTests`，60 tests，0 failures，`** TEST SUCCEEDED **` | 已完成 |
+| Rust 测试 | `CARGO_TARGET_DIR=/tmp/maohuoban-test-target cargo test --workspace`，workspace 全量测试和 doctest 通过 | 已完成 |
+| Rust lint | `CARGO_TARGET_DIR=/tmp/maohuoban-clippy-target cargo clippy --workspace --all-targets`，0 error / 0 warning | 已完成 |
+| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build`，`** BUILD SUCCEEDED **` | 已完成 |
+| E2E | 后端契约和 iOS Repository / Store 覆盖创建、编辑、上传、替换、删除、派生物生成；真实 RustFS 进程级 S3 写入和 GC 删除已验证 | 已完成契约级与 RustFS 进程级验证 |
+| Git 节奏 | 当前在独立 worktree / branch `codex/pet-profile-media-e2e` 实施；收尾门禁通过后提交交付 | 已完成 |
 
 ## 15. 上下文恢复要点
 
@@ -252,7 +282,7 @@ MEDIA_GC_WORKER_RUN_ONCE=true cargo run -p maohuoban-media-gc-worker
 | 媒体 GC | 使用独立 GC worker 进程清理到期旧媒体，流程为领取候选、删除 RustFS 对象、回写状态、记录审计 |
 | 元数据 | PostgreSQL 记录媒体资产、绑定、派生、清理和审计 |
 | 图片裁剪 | 前端负责头像圆形裁剪和背景全宽比例裁剪，上传裁剪结果 |
-| 视频背景 | 前端选择视频后上传原文件；后端生成封面帧和主题色；前端播放静音循环视频 |
+| 视频背景 | 前端选择视频后上传原文件；后端通过 ffmpeg 生成封面帧和主题色派生物；前端播放静音循环视频 |
 | 清理策略 | 新媒体绑定生效后旧绑定失效，旧对象进入清理队列，保留窗口后删除 RustFS 对象 |
 | 可追溯 | 媒体资产必须能追溯上传人、宠物、业务用途、原始哈希、对象 key、派生链路和绑定历史 |
 | 删除宠物 | 删除宠物会让关联媒体失效并进入清理候选；审计事件保留必要追溯字段 |

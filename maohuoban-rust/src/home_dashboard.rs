@@ -13,14 +13,15 @@ use maohuoban_home_domain::home::{
     HomeReminder, HomeReminderKind, MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
     MerchantStatusCount as HomeMerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind,
-    PetHeroSummary, PetSex as HomePetSex, PetSpecies as HomePetSpecies, PetSwitchItem,
-    RecommendedContent, RecommendedContentKind,
+    PetHeroSummary, PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex,
+    PetSpecies as HomePetSpecies, PetSwitchItem, RecommendedContent, RecommendedContentKind,
 };
 use maohuoban_pet_application::pet::{
     MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
 };
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, PetError, PetProfile, PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
+    ManagedPetStatus, PetError, PetNeuterStatus as DomainPetNeuterStatus, PetProfile,
+    PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -71,7 +72,7 @@ impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
 
 /// HybridHomeDashboardProvider 混合首页快照提供器
 /// 核心职责：
-/// - 无用户上下文时保留开发 seed 快照
+/// - 无用户上下文时返回真实空态快照
 /// - 有用户上下文时读取宠物档案、商家窝次和事件生成真实首页聚合
 #[derive(Clone)]
 pub struct HybridHomeDashboardProvider {
@@ -96,7 +97,7 @@ impl HybridHomeDashboardProvider {
 
     /// replace_snapshot 替换无上下文首页快照
     /// 核心职责：
-    /// - 支持首页契约测试切换开发 seed
+    /// - 支持首页契约测试切换内存快照
     /// - 不影响带用户上下文的真实聚合路径
     pub async fn replace_snapshot(&self, snapshot: HomeDashboardSnapshot) {
         self.fallback.replace_snapshot(snapshot).await;
@@ -217,7 +218,14 @@ fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
         status_text: "记录正在形成可信档案".to_owned(),
         updated_text: "档案已同步".to_owned(),
         avatar_url: None,
+        profile_number: Some(pet.profile_number.clone()),
+        microchip_number: pet.microchip_number.clone(),
         birthday: pet.birthday,
+        arrival_date: pet.arrival_date,
+        weight_grams: pet.weight_grams,
+        neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
+        personality_tags: pet.personality_tags.clone(),
+        note: pet.note.clone(),
         companionship_days,
     }
 }
@@ -228,6 +236,14 @@ fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
         name: pet.name.clone(),
         species: home_pet_species(pet.species),
         avatar_url: None,
+        profile_number: Some(pet.profile_number.clone()),
+        microchip_number: pet.microchip_number.clone(),
+        birthday: pet.birthday,
+        arrival_date: pet.arrival_date,
+        weight_grams: pet.weight_grams,
+        neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
+        personality_tags: pet.personality_tags.clone(),
+        note: pet.note.clone(),
         is_selected,
     }
 }
@@ -410,6 +426,14 @@ fn home_pet_sex(sex: DomainPetSex) -> HomePetSex {
         DomainPetSex::Female => HomePetSex::Female,
         DomainPetSex::Male => HomePetSex::Male,
         DomainPetSex::Unknown => HomePetSex::Unknown,
+    }
+}
+
+fn home_pet_neuter_status(status: DomainPetNeuterStatus) -> HomePetNeuterStatus {
+    match status {
+        DomainPetNeuterStatus::Unknown => HomePetNeuterStatus::Unknown,
+        DomainPetNeuterStatus::Intact => HomePetNeuterStatus::Intact,
+        DomainPetNeuterStatus::Neutered => HomePetNeuterStatus::Neutered,
     }
 }
 

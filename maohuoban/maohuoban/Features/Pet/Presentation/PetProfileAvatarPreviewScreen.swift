@@ -13,7 +13,7 @@ struct PetProfileAvatarPreviewScreen: View {
     let avatarURL: String?
     let species: PetProfileEditProfile.Species
     let localAvatarImage: UIImage?
-    let onAvatarUpdated: (UIImage) -> Void
+    let onAvatarUpdated: (UIImage) async -> Bool
 
     @State private var previewImage: UIImage?
     @State private var isMediaPickerPresented = false
@@ -25,7 +25,7 @@ struct PetProfileAvatarPreviewScreen: View {
         avatarURL: String?,
         species: PetProfileEditProfile.Species,
         localAvatarImage: UIImage?,
-        onAvatarUpdated: @escaping (UIImage) -> Void
+        onAvatarUpdated: @escaping (UIImage) async -> Bool
     ) {
         self.petName = petName
         self.avatarURL = avatarURL
@@ -210,10 +210,8 @@ struct PetProfileAvatarPreviewScreen: View {
         uploadState = .uploading
 
         Task { @MainActor in
-            // TODO: 接入后端宠物头像上传接口后，将这里替换为真实上传状态。
-            try? await Task.sleep(for: .milliseconds(450))
-            onAvatarUpdated(image)
-            uploadState = .saved
+            let didSave = await onAvatarUpdated(image)
+            uploadState = didSave ? .saved : .idle
         }
     }
 }

@@ -13,9 +13,10 @@ use uuid::Uuid;
 use super::{
     dto::{
         CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest,
-        MerchantAvailableStatusData, MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery,
-        PetEventData, PetProfileData, PetTimelineData, PublishAvailableStatusRequest,
-        TradePetImportData, TradePetImportRequest,
+        DeletePetProfileRequest, MerchantAvailableStatusData, MerchantLitterDetailData,
+        MerchantPetsData, MerchantPetsQuery, PetEventData, PetMediaUploadData, PetProfileData,
+        PetProfilesData, PetTimelineData, PublishAvailableStatusRequest, TradePetImportData,
+        TradePetImportRequest, UpdatePetProfileRequest, UploadPetMediaRequest,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -42,7 +43,29 @@ impl PetHttpState {
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
 pub fn build_pet_router(pet: Arc<PetService>) -> Router {
     Router::new()
-        .route("/api/v1/pets", post(create_pet_profile))
+        .route(
+            "/api/v1/pets",
+            get(list_pet_profiles).post(create_pet_profile),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}",
+            get(load_pet_profile)
+                .patch(update_pet_profile)
+                .delete(delete_pet_profile),
+        )
+        .route("/api/v1/pets/{pet_id}/restore", post(restore_pet_profile))
+        .route(
+            "/api/v1/pets/{pet_id}/media/avatar",
+            post(upload_pet_avatar),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/media/background-image",
+            post(upload_pet_background_image),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/media/background-video",
+            post(upload_pet_background_video),
+        )
         .route("/api/v1/pets/imports/trade", post(import_trade_pet))
         .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
         .route("/api/v1/pets/{pet_id}/events", post(create_pet_event))
@@ -60,6 +83,177 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(load_merchant_litter_detail),
         )
         .with_state(PetHttpState::new(pet))
+}
+
+async fn list_pet_profiles(State(state): State<PetHttpState>, headers: HeaderMap) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    match state.pet.list_pet_profiles(owner_user_id).await {
+        Ok(profiles) => ok_response(
+            "pet.list_loaded",
+            "宠物档案列表已加载",
+            PetProfilesData::from(profiles),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn load_pet_profile(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    match state.pet.load_pet_profile(owner_user_id, pet_id).await {
+        Ok(profile) => ok_response(
+            "pet.loaded",
+            "宠物档案已加载",
+            PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn update_pet_profile(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+    Json(request): Json<UpdatePetProfileRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = request.into_input(pet_id, owner_user_id);
+    match state.pet.update_pet_profile(input).await {
+        Ok(profile) => ok_response(
+            "pet.updated",
+            "宠物档案已更新",
+            PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn delete_pet_profile(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+    Json(request): Json<DeletePetProfileRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = request.into_input(pet_id, owner_user_id);
+    match state.pet.delete_pet_profile(input).await {
+        Ok(profile) => ok_response(
+            "pet.deleted",
+            "宠物档案已删除",
+            PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn restore_pet_profile(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = maohuoban_pet_application::pet::RestorePetProfile {
+        pet_id,
+        owner_user_id,
+    };
+    match state.pet.restore_pet_profile(input).await {
+        Ok(profile) => ok_response(
+            "pet.restored",
+            "宠物档案已恢复",
+            PetProfileData::from(profile),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn upload_pet_avatar(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+    Json(request): Json<UploadPetMediaRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = match request.into_avatar_input(pet_id, owner_user_id) {
+        Ok(input) => input,
+        Err(error) => return error_response(&error),
+    };
+    match state.pet.upload_pet_media(input).await {
+        Ok(upload) => created_response(
+            "pet.avatar_uploaded",
+            "宠物头像已上传",
+            PetMediaUploadData::from(upload),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn upload_pet_background_image(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+    Json(request): Json<UploadPetMediaRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = match request.into_background_image_input(pet_id, owner_user_id) {
+        Ok(input) => input,
+        Err(error) => return error_response(&error),
+    };
+    match state.pet.upload_pet_media(input).await {
+        Ok(upload) => created_response(
+            "pet.background_uploaded",
+            "宠物背景已上传",
+            PetMediaUploadData::from(upload),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn upload_pet_background_video(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    Path(pet_id): Path<Uuid>,
+    Json(request): Json<UploadPetMediaRequest>,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let input = match request.into_background_video_input(pet_id, owner_user_id) {
+        Ok(input) => input,
+        Err(error) => return error_response(&error),
+    };
+    match state.pet.upload_pet_media(input).await {
+        Ok(upload) => created_response(
+            "pet.background_uploaded",
+            "宠物背景已上传",
+            PetMediaUploadData::from(upload),
+        ),
+        Err(error) => error_response(&error),
+    }
 }
 
 async fn create_pet_profile(

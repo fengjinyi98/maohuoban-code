@@ -193,7 +193,14 @@ extension HomeDashboardSnapshot {
         let avatarURL: String?
         let heroImageAssetName: String?
         let heroVideoResourceName: String?
+        let profileNumber: String?
+        let microchipNumber: String?
         let birthday: String?
+        let arrivalDate: String?
+        let weightGrams: Int?
+        let neuterStatus: PetNeuterStatus?
+        let personalityTags: [String]
+        let note: String?
         let companionshipDays: Int?
         let stats: PetHeroStats?
 
@@ -221,7 +228,14 @@ extension HomeDashboardSnapshot {
             avatarURL: String?,
             heroImageAssetName: String?,
             heroVideoResourceName: String? = nil,
+            profileNumber: String? = nil,
+            microchipNumber: String? = nil,
             birthday: String? = nil,
+            arrivalDate: String? = nil,
+            weightGrams: Int? = nil,
+            neuterStatus: PetNeuterStatus? = nil,
+            personalityTags: [String] = [],
+            note: String? = nil,
             companionshipDays: Int? = nil,
             stats: PetHeroStats? = nil
         ) {
@@ -236,7 +250,14 @@ extension HomeDashboardSnapshot {
             self.avatarURL = avatarURL
             self.heroImageAssetName = heroImageAssetName
             self.heroVideoResourceName = heroVideoResourceName
+            self.profileNumber = profileNumber
+            self.microchipNumber = microchipNumber
             self.birthday = birthday
+            self.arrivalDate = arrivalDate
+            self.weightGrams = weightGrams
+            self.neuterStatus = neuterStatus
+            self.personalityTags = personalityTags
+            self.note = note
             self.companionshipDays = companionshipDays
             self.stats = stats
         }
@@ -253,9 +274,41 @@ extension HomeDashboardSnapshot {
             case avatarURL = "avatar_url"
             case heroImageAssetName = "hero_image_asset_name"
             case heroVideoResourceName = "hero_video_resource_name"
+            case profileNumber = "profile_number"
+            case microchipNumber = "microchip_number"
             case birthday
+            case arrivalDate = "arrival_date"
+            case weightGrams = "weight_grams"
+            case neuterStatus = "neuter_status"
+            case personalityTags = "personality_tags"
+            case note
             case companionshipDays = "companionship_days"
             case stats
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            species = try container.decode(Species.self, forKey: .species)
+            breed = try container.decode(String.self, forKey: .breed)
+            sex = try container.decode(Sex.self, forKey: .sex)
+            ageText = try container.decode(String.self, forKey: .ageText)
+            statusText = try container.decode(String.self, forKey: .statusText)
+            updatedText = try container.decode(String.self, forKey: .updatedText)
+            avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+            heroImageAssetName = try container.decodeIfPresent(String.self, forKey: .heroImageAssetName)
+            heroVideoResourceName = try container.decodeIfPresent(String.self, forKey: .heroVideoResourceName)
+            profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
+            microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
+            birthday = try container.decodeIfPresent(String.self, forKey: .birthday)
+            arrivalDate = try container.decodeIfPresent(String.self, forKey: .arrivalDate)
+            weightGrams = try container.decodeIfPresent(Int.self, forKey: .weightGrams)
+            neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)
+            personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []
+            note = try container.decodeIfPresent(String.self, forKey: .note)
+            companionshipDays = try container.decodeIfPresent(Int.self, forKey: .companionshipDays)
+            stats = try container.decodeIfPresent(PetHeroStats.self, forKey: .stats)
         }
     }
 
@@ -322,6 +375,14 @@ extension HomeDashboardSnapshot {
         let name: String
         let species: Species
         let avatarURL: String?
+        let profileNumber: String?
+        let microchipNumber: String?
+        let birthday: String?
+        let arrivalDate: String?
+        let weightGrams: Int?
+        let neuterStatus: PetNeuterStatus?
+        let personalityTags: [String]
+        let note: String?
         let isSelected: Bool
 
         enum CodingKeys: String, CodingKey {
@@ -329,7 +390,62 @@ extension HomeDashboardSnapshot {
             case name
             case species
             case avatarURL = "avatar_url"
+            case profileNumber = "profile_number"
+            case microchipNumber = "microchip_number"
+            case birthday
+            case arrivalDate = "arrival_date"
+            case weightGrams = "weight_grams"
+            case neuterStatus = "neuter_status"
+            case personalityTags = "personality_tags"
+            case note
             case isSelected = "is_selected"
+        }
+
+        init(
+            id: String,
+            name: String,
+            species: Species,
+            avatarURL: String?,
+            profileNumber: String? = nil,
+            microchipNumber: String? = nil,
+            birthday: String? = nil,
+            arrivalDate: String? = nil,
+            weightGrams: Int? = nil,
+            neuterStatus: PetNeuterStatus? = nil,
+            personalityTags: [String] = [],
+            note: String? = nil,
+            isSelected: Bool
+        ) {
+            self.id = id
+            self.name = name
+            self.species = species
+            self.avatarURL = avatarURL
+            self.profileNumber = profileNumber
+            self.microchipNumber = microchipNumber
+            self.birthday = birthday
+            self.arrivalDate = arrivalDate
+            self.weightGrams = weightGrams
+            self.neuterStatus = neuterStatus
+            self.personalityTags = personalityTags
+            self.note = note
+            self.isSelected = isSelected
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            species = try container.decode(Species.self, forKey: .species)
+            avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+            profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
+            microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
+            birthday = try container.decodeIfPresent(String.self, forKey: .birthday)
+            arrivalDate = try container.decodeIfPresent(String.self, forKey: .arrivalDate)
+            weightGrams = try container.decodeIfPresent(Int.self, forKey: .weightGrams)
+            neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)
+            personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []
+            note = try container.decodeIfPresent(String.self, forKey: .note)
+            isSelected = try container.decode(Bool.self, forKey: .isSelected)
         }
     }
 }

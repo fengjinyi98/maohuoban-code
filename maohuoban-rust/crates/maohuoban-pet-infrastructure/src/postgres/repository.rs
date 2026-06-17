@@ -1,15 +1,26 @@
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
-    NewPetEvent, NewPetProfile, PetRepository, TradePetImport, TradePetImportInput,
+    DeletePetProfile, NewPetEvent, NewPetProfile, PetMediaUploadInput, PetRepository,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, ManagedPetStatus, PetError, PetEvent, PetProfile, PetResult,
-    PetSex, PetSourceKind, PetSpecies, PetTimeline,
+    PetError, PetEvent, PetMediaUploadResult, PetNeuterStatus, PetProfile, PetResult, PetSex,
+    PetSpecies, PetTimeline,
 };
-use serde_json::Value;
-use sqlx::{FromRow, PgPool, Postgres, Transaction};
+use sqlx::PgPool;
 use uuid::Uuid;
+
+mod media_commands;
+mod profile_commands;
+mod profile_queries;
+mod rows;
+mod storage;
+mod trade_import;
+
+use profile_queries::load_pet_profile_for_update;
+use rows::{PetEventRow, PetProfileRow};
+use storage::{profile_number_from_uuid, to_infrastructure_error};
+use trade_import::{insert_trade_import_event, insert_trade_import_pet};
 
 /// PostgresPetRepository PostgreSQL 宠物仓储
 /// 核心职责：
@@ -41,10 +52,17 @@ impl PetRepository for PostgresPetRepository {
                 breed,
                 sex,
                 birthday,
+                profile_number,
+                microchip_number,
+                arrival_date,
+                weight_grams,
+                neuter_status,
+                personality_tags,
+                note,
                 managed_status,
                 source_kind
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 'family', $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'family', $15)
             RETURNING
                 id,
                 owner_user_id,
@@ -54,6 +72,20 @@ impl PetRepository for PostgresPetRepository {
                 breed,
                 sex,
                 birthday,
+                profile_number,
+                microchip_number,
+                arrival_date,
+                weight_grams,
+                neuter_status,
+                personality_tags,
+                note,
+                avatar_asset_id,
+                background_asset_id,
+                background_media_kind,
+                deleted_at,
+                delete_requested_by_user_id,
+                recoverable_until,
+                delete_reason,
                 managed_status,
                 source_kind,
                 created_at,
@@ -67,6 +99,13 @@ impl PetRepository for PostgresPetRepository {
         .bind(input.breed)
         .bind(input.sex.as_str())
         .bind(input.birthday)
+        .bind(profile_number_from_uuid(pet_id))
+        .bind(input.microchip_number)
+        .bind(input.arrival_date)
+        .bind(input.weight_grams)
+        .bind(input.neuter_status.as_str())
+        .bind(serde_json::json!(input.personality_tags))
+        .bind(input.note)
         .bind(input.source_kind.as_str())
         .fetch_one(&self.pool)
         .await
@@ -91,12 +130,26 @@ impl PetRepository for PostgresPetRepository {
                 breed,
                 sex,
                 birthday,
+                profile_number,
+                microchip_number,
+                arrival_date,
+                weight_grams,
+                neuter_status,
+                personality_tags,
+                note,
+                avatar_asset_id,
+                background_asset_id,
+                background_media_kind,
+                deleted_at,
+                delete_requested_by_user_id,
+                recoverable_until,
+                delete_reason,
                 managed_status,
                 source_kind,
                 created_at,
                 updated_at
             FROM pet_profiles
-            WHERE id = $1 AND owner_user_id = $2
+            WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
             "#,
         )
         .bind(pet_id)
@@ -120,12 +173,26 @@ impl PetRepository for PostgresPetRepository {
                 breed,
                 sex,
                 birthday,
+                profile_number,
+                microchip_number,
+                arrival_date,
+                weight_grams,
+                neuter_status,
+                personality_tags,
+                note,
+                avatar_asset_id,
+                background_asset_id,
+                background_media_kind,
+                deleted_at,
+                delete_requested_by_user_id,
+                recoverable_until,
+                delete_reason,
                 managed_status,
                 source_kind,
                 created_at,
                 updated_at
             FROM pet_profiles
-            WHERE owner_user_id = $1
+            WHERE owner_user_id = $1 AND deleted_at IS NULL
             ORDER BY created_at ASC
             "#,
         )
@@ -137,6 +204,101 @@ impl PetRepository for PostgresPetRepository {
         rows.into_iter().map(TryInto::try_into).collect()
     }
 
+    async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
+        let current = load_pet_profile_for_update(&self.pool, input.pet_id, input.owner_user_id)
+            .await?
+            .ok_or(PetError::PetNotFound)?;
+        let requested_microchip = input.microchip_number.as_deref().map(str::trim);
+        if let (Some(existing), Some(requested)) =
+            (current.microchip_number.as_deref(), requested_microchip)
+            && existing != requested
+        {
+            return Err(PetError::InvalidInput(
+                "芯片号已锁定，如需变更请通过申诉渠道处理".to_owned(),
+            ));
+        }
+
+        let row = sqlx::query_as::<_, PetProfileRow>(
+            r#"
+            UPDATE pet_profiles
+            SET
+                name = COALESCE($3, name),
+                species = COALESCE($4, species),
+                breed = COALESCE($5, breed),
+                sex = COALESCE($6, sex),
+                birthday = COALESCE($7, birthday),
+                microchip_number = COALESCE($8, microchip_number),
+                arrival_date = COALESCE($9, arrival_date),
+                weight_grams = COALESCE($10, weight_grams),
+                neuter_status = COALESCE($11, neuter_status),
+                personality_tags = COALESCE($12, personality_tags),
+                note = COALESCE($13, note),
+                updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
+            RETURNING
+                id,
+                owner_user_id,
+                merchant_id,
+                name,
+                species,
+                breed,
+                sex,
+                birthday,
+                profile_number,
+                microchip_number,
+                arrival_date,
+                weight_grams,
+                neuter_status,
+                personality_tags,
+                note,
+                avatar_asset_id,
+                background_asset_id,
+                background_media_kind,
+                deleted_at,
+                delete_requested_by_user_id,
+                recoverable_until,
+                delete_reason,
+                managed_status,
+                source_kind,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(input.pet_id)
+        .bind(input.owner_user_id)
+        .bind(input.name.map(|value| value.trim().to_owned()))
+        .bind(input.species.map(PetSpecies::as_str))
+        .bind(input.breed)
+        .bind(input.sex.map(PetSex::as_str))
+        .bind(input.birthday)
+        .bind(requested_microchip.map(str::to_owned))
+        .bind(input.arrival_date)
+        .bind(input.weight_grams)
+        .bind(input.neuter_status.map(PetNeuterStatus::as_str))
+        .bind(input.personality_tags.map(|tags| serde_json::json!(tags)))
+        .bind(input.note)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?
+        .ok_or(PetError::PetNotFound)?;
+
+        row.try_into()
+    }
+
+    async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile> {
+        self.soft_delete_pet_profile_command(input).await
+    }
+
+    async fn restore_pet_profile(&self, input: RestorePetProfile) -> PetResult<PetProfile> {
+        self.restore_pet_profile_command(input).await
+    }
+
+    async fn upload_pet_media(
+        &self,
+        input: PetMediaUploadInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        self.upload_pet_media_command(input).await
+    }
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         let event_id = Uuid::new_v4();
         let row = sqlx::query_as::<_, PetEventRow>(
@@ -299,218 +461,4 @@ impl PetRepository for PostgresPetRepository {
 
         row.map(TryInto::try_into).transpose()
     }
-}
-
-/// insert_trade_import_pet 写入交易导入宠物档案
-/// 核心职责：
-/// - 在同一事务中创建家庭管理宠物档案
-/// - 固定交易导入来源类型
-async fn insert_trade_import_pet(
-    transaction: &mut Transaction<'_, Postgres>,
-    pet_id: Uuid,
-    input: &TradePetImportInput,
-) -> PetResult<PetProfileRow> {
-    sqlx::query_as::<_, PetProfileRow>(
-        r#"
-        INSERT INTO pet_profiles (
-            id,
-            owner_user_id,
-            name,
-            species,
-            breed,
-            sex,
-            birthday,
-            managed_status,
-            source_kind
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'family', 'trade_imported')
-        RETURNING
-            id,
-            owner_user_id,
-            merchant_id,
-            name,
-            species,
-            breed,
-            sex,
-            birthday,
-            managed_status,
-            source_kind,
-            created_at,
-            updated_at
-        "#,
-    )
-    .bind(pet_id)
-    .bind(input.owner_user_id)
-    .bind(&input.name)
-    .bind(input.species.as_str())
-    .bind(input.breed.as_deref())
-    .bind(input.sex.as_str())
-    .bind(input.birthday)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(to_infrastructure_error)
-}
-
-/// insert_trade_import_event 写入交易导入事件
-/// 核心职责：
-/// - 在同一事务中追加私有交易事件
-/// - 将来源方和交易编号作为事件载荷保留
-async fn insert_trade_import_event(
-    transaction: &mut Transaction<'_, Postgres>,
-    pet_id: Uuid,
-    input: &TradePetImportInput,
-) -> PetResult<PetEventRow> {
-    sqlx::query_as::<_, PetEventRow>(
-        r#"
-        INSERT INTO pet_events (
-            id,
-            pet_id,
-            event_kind,
-            event_subkind,
-            title,
-            summary,
-            visibility,
-            event_payload,
-            occurred_at,
-            actor_user_id,
-            record_revision
-        )
-        VALUES (
-            $1,
-            $2,
-            'trade',
-            'trade_imported',
-            '交易宠物导入',
-            $3,
-            'private',
-            $4,
-            $5,
-            $6,
-            1
-        )
-        RETURNING
-            id,
-            pet_id,
-            litter_id,
-            event_kind,
-            event_subkind,
-            title,
-            summary,
-            visibility,
-            event_payload,
-            occurred_at,
-            actor_user_id,
-            evidence_snapshot_id,
-            record_revision,
-            created_at,
-            updated_at
-        "#,
-    )
-    .bind(Uuid::new_v4())
-    .bind(pet_id)
-    .bind(input.summary.as_deref())
-    .bind(serde_json::json!({
-        "seller_name": input.seller_name,
-        "trade_reference": input.trade_reference
-    }))
-    .bind(input.occurred_at)
-    .bind(input.owner_user_id)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(to_infrastructure_error)
-}
-
-#[derive(Debug, FromRow)]
-struct PetProfileRow {
-    id: Uuid,
-    owner_user_id: Option<Uuid>,
-    merchant_id: Option<Uuid>,
-    name: String,
-    species: String,
-    breed: Option<String>,
-    sex: String,
-    birthday: Option<NaiveDate>,
-    managed_status: String,
-    source_kind: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
-
-impl TryFrom<PetProfileRow> for PetProfile {
-    type Error = PetError;
-
-    fn try_from(row: PetProfileRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            owner_user_id: row.owner_user_id,
-            merchant_id: row.merchant_id,
-            name: row.name,
-            species: PetSpecies::try_from(row.species.as_str()).map_err(|_| {
-                PetError::Infrastructure("unknown species from database".to_owned())
-            })?,
-            breed: row.breed,
-            sex: PetSex::try_from(row.sex.as_str())
-                .map_err(|_| PetError::Infrastructure("unknown sex from database".to_owned()))?,
-            birthday: row.birthday,
-            managed_status: ManagedPetStatus::try_from(row.managed_status.as_str()).map_err(
-                |_| PetError::Infrastructure("unknown managed status from database".to_owned()),
-            )?,
-            source_kind: PetSourceKind::try_from(row.source_kind.as_str()).map_err(|_| {
-                PetError::Infrastructure("unknown source kind from database".to_owned())
-            })?,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-        })
-    }
-}
-
-#[derive(Debug, FromRow)]
-struct PetEventRow {
-    id: Uuid,
-    pet_id: Option<Uuid>,
-    litter_id: Option<Uuid>,
-    event_kind: String,
-    event_subkind: Option<String>,
-    title: String,
-    summary: Option<String>,
-    visibility: String,
-    event_payload: Value,
-    occurred_at: DateTime<Utc>,
-    actor_user_id: Option<Uuid>,
-    evidence_snapshot_id: Option<Uuid>,
-    record_revision: i32,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
-
-impl TryFrom<PetEventRow> for PetEvent {
-    type Error = PetError;
-
-    fn try_from(row: PetEventRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            pet_id: row.pet_id,
-            litter_id: row.litter_id,
-            event_kind: EventKind::try_from(row.event_kind.as_str()).map_err(|_| {
-                PetError::Infrastructure("unknown event kind from database".to_owned())
-            })?,
-            event_subkind: row.event_subkind,
-            title: row.title,
-            summary: row.summary,
-            visibility: EventVisibility::try_from(row.visibility.as_str()).map_err(|_| {
-                PetError::Infrastructure("unknown visibility from database".to_owned())
-            })?,
-            event_payload: row.event_payload,
-            occurred_at: row.occurred_at,
-            actor_user_id: row.actor_user_id,
-            evidence_snapshot_id: row.evidence_snapshot_id,
-            record_revision: row.record_revision,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-        })
-    }
-}
-
-fn to_infrastructure_error(error: sqlx::Error) -> PetError {
-    PetError::Infrastructure(error.to_string())
 }

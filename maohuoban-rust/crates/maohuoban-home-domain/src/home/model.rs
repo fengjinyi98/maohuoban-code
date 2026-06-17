@@ -61,7 +61,21 @@ pub struct PetHeroSummary {
     pub status_text: String,
     pub updated_text: String,
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub profile_number: Option<String>,
+    #[serde(default)]
+    pub microchip_number: Option<String>,
     pub birthday: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub arrival_date: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub weight_grams: Option<i32>,
+    #[serde(default)]
+    pub neuter_status: Option<PetNeuterStatus>,
+    #[serde(default)]
+    pub personality_tags: Vec<String>,
+    #[serde(default)]
+    pub note: Option<String>,
     pub companionship_days: Option<i32>,
 }
 
@@ -89,6 +103,18 @@ pub enum PetSex {
     Unknown,
 }
 
+/// PetNeuterStatus 宠物绝育状态
+/// 核心职责：
+/// - 承载首页进入编辑页所需档案字段
+/// - 与宠物档案后端枚举保持同名语义
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PetNeuterStatus {
+    Unknown,
+    Intact,
+    Neutered,
+}
+
 /// PetSwitchItem 宠物切换项
 /// 核心职责：
 /// - 承载多宠用户和商家多宠切换入口
@@ -99,6 +125,22 @@ pub struct PetSwitchItem {
     pub name: String,
     pub species: PetSpecies,
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub profile_number: Option<String>,
+    #[serde(default)]
+    pub microchip_number: Option<String>,
+    #[serde(default)]
+    pub birthday: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub arrival_date: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub weight_grams: Option<i32>,
+    #[serde(default)]
+    pub neuter_status: Option<PetNeuterStatus>,
+    #[serde(default)]
+    pub personality_tags: Vec<String>,
+    #[serde(default)]
+    pub note: Option<String>,
     pub is_selected: bool,
 }
 

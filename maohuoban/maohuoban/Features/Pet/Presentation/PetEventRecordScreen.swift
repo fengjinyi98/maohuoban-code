@@ -34,7 +34,8 @@ struct PetEventRecordScreen: View {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 PetWriteStatusSection(
                     phase: store.phase,
-                    successMessage: store.successMessage
+                    successMessage: store.successMessage,
+                    derivativeMessage: nil
                 )
 
                 if petID == nil {

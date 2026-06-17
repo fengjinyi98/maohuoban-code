@@ -10,6 +10,7 @@ import Observation
 final class PetWriteStore {
     var phase: PetWritePhase = .idle
     var successMessage: String?
+    var mediaDerivativeMessage: String?
 
     var isSubmitting: Bool {
         phase == .submitting
@@ -37,6 +38,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        mediaDerivativeMessage = nil
         do {
             let response = try await repository.createPet(
                 draft: draft,
@@ -74,6 +76,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        mediaDerivativeMessage = nil
         do {
             let response = try await repository.createEvent(
                 petID: petID,
@@ -111,6 +114,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        mediaDerivativeMessage = nil
         do {
             let response = try await repository.importTradePet(
                 draft: draft,
@@ -127,9 +131,168 @@ final class PetWriteStore {
         }
     }
 
+    func updatePet(
+        petID: String?,
+        draft: PetProfileUpdateDraft,
+        currentUserID: String?
+    ) async {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return
+        }
+        guard let petID, !petID.isEmpty else {
+            phase = .failed("请先选择宠物")
+            return
+        }
+        guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            phase = .failed("请输入宠物名字")
+            return
+        }
+        guard phase != .submitting else { return }
+
+        phase = .submitting
+        successMessage = nil
+        mediaDerivativeMessage = nil
+        do {
+            let response = try await repository.updatePet(
+                petID: petID,
+                draft: draft,
+                currentUserID: currentUserID
+            )
+            guard let profile = response.data else {
+                phase = .failed("宠物数据为空")
+                return
+            }
+            successMessage = response.message
+            phase = .updatedPet(profile.id)
+        } catch {
+            phase = .failed(error.toastMessage)
+        }
+    }
+
+    func uploadAvatar(
+        petID: String?,
+        draft: PetMediaUploadDraft,
+        currentUserID: String?
+    ) async {
+        await uploadMedia(
+            petID: petID,
+            draft: draft,
+            currentUserID: currentUserID,
+            emptyMessage: "头像数据为空",
+            perform: repository.uploadAvatar,
+            successPhase: { .uploadedAvatar($0) }
+        )
+    }
+
+    func uploadBackgroundImage(
+        petID: String?,
+        draft: PetMediaUploadDraft,
+        currentUserID: String?
+    ) async {
+        await uploadMedia(
+            petID: petID,
+            draft: draft,
+            currentUserID: currentUserID,
+            emptyMessage: "背景数据为空",
+            perform: repository.uploadBackgroundImage,
+            successPhase: { .uploadedBackground($0) }
+        )
+    }
+
+    func uploadBackgroundVideo(
+        petID: String?,
+        draft: PetMediaUploadDraft,
+        currentUserID: String?
+    ) async {
+        await uploadMedia(
+            petID: petID,
+            draft: draft,
+            currentUserID: currentUserID,
+            emptyMessage: "背景数据为空",
+            perform: repository.uploadBackgroundVideo,
+            successPhase: { .uploadedBackground($0) }
+        )
+    }
+
+    func deletePet(
+        petID: String?,
+        reason: String,
+        currentUserID: String?
+    ) async {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return
+        }
+        guard let petID, !petID.isEmpty else {
+            phase = .failed("请先选择宠物")
+            return
+        }
+        guard phase != .submitting else { return }
+
+        phase = .submitting
+        successMessage = nil
+        mediaDerivativeMessage = nil
+        do {
+            let response = try await repository.deletePet(
+                petID: petID,
+                reason: reason,
+                currentUserID: currentUserID
+            )
+            guard let profile = response.data else {
+                phase = .failed("宠物数据为空")
+                return
+            }
+            successMessage = response.message
+            phase = .deletedPet(profile.id)
+        } catch {
+            phase = .failed(error.toastMessage)
+        }
+    }
+
     func reset() {
         phase = .idle
         successMessage = nil
+        mediaDerivativeMessage = nil
+    }
+
+    private func uploadMedia(
+        petID: String?,
+        draft: PetMediaUploadDraft,
+        currentUserID: String?,
+        emptyMessage: String,
+        perform: (String, PetMediaUploadDraft, String) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>,
+        successPhase: (String) -> PetWritePhase
+    ) async {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return
+        }
+        guard let petID, !petID.isEmpty else {
+            phase = .failed("请先选择宠物")
+            return
+        }
+        guard !draft.content.isEmpty else {
+            phase = .failed(emptyMessage)
+            return
+        }
+        guard phase != .submitting else { return }
+
+        phase = .submitting
+        successMessage = nil
+        mediaDerivativeMessage = nil
+        do {
+            let response = try await perform(petID, draft, currentUserID)
+            guard let upload = response.data else {
+                phase = .failed(emptyMessage)
+                return
+            }
+            successMessage = response.message
+            mediaDerivativeMessage = upload.derivativeStatusMessage
+            phase = successPhase(upload.asset.id)
+        } catch {
+            phase = .failed(error.toastMessage)
+        }
     }
 }
 
@@ -143,5 +306,9 @@ enum PetWritePhase: Equatable {
     case createdPet(String)
     case recordedEvent(String)
     case importedTradePet(String)
+    case updatedPet(String)
+    case uploadedAvatar(String)
+    case uploadedBackground(String)
+    case deletedPet(String)
     case failed(String)
 }

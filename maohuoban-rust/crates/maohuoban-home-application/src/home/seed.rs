@@ -1,10 +1,12 @@
+#![allow(clippy::too_many_lines)]
+
 use maohuoban_home_domain::home::{
     CareMetric, CareMetricKind, CareSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot,
     HomeEmptyState, HomeEmptyStateKind, HomeIdentity, HomeIdentityKind, HomeReminder,
     HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind, MerchantDashboardSummary,
     MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount, PartnerRecommendation,
-    PartnerRelationshipKind, PetHeroSummary, PetSex, PetSpecies, PetSwitchItem, RecommendedContent,
-    RecommendedContentKind,
+    PartnerRelationshipKind, PetHeroSummary, PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem,
+    RecommendedContent, RecommendedContentKind,
 };
 use uuid::Uuid;
 
@@ -35,7 +37,14 @@ pub fn pet_owner_home_snapshot() -> HomeDashboardSnapshot {
             status_text: "今天精神很好".to_owned(),
             updated_text: "10 分钟前更新".to_owned(),
             avatar_url: None,
+            profile_number: Some("9011562600000019".to_owned()),
+            microchip_number: None,
             birthday: Some(chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap()),
+            arrival_date: Some(chrono::NaiveDate::from_ymd_opt(2024, 6, 16).unwrap()),
+            weight_grams: Some(5200),
+            neuter_status: Some(PetNeuterStatus::Neutered),
+            personality_tags: vec!["亲人".to_owned(), "爱撒娇".to_owned()],
+            note: Some("今天精神很好".to_owned()),
             companionship_days: Some(365),
         }),
         pet_switcher: vec![PetSwitchItem {
@@ -43,6 +52,14 @@ pub fn pet_owner_home_snapshot() -> HomeDashboardSnapshot {
             name: "糯米".to_owned(),
             species: PetSpecies::Dog,
             avatar_url: None,
+            profile_number: Some("9011562600000019".to_owned()),
+            microchip_number: None,
+            birthday: Some(chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap()),
+            arrival_date: Some(chrono::NaiveDate::from_ymd_opt(2024, 6, 16).unwrap()),
+            weight_grams: Some(5200),
+            neuter_status: Some(PetNeuterStatus::Neutered),
+            personality_tags: vec!["亲人".to_owned(), "爱撒娇".to_owned()],
+            note: Some("今天精神很好".to_owned()),
             is_selected: true,
         }],
         care_summary: Some(CareSummary {

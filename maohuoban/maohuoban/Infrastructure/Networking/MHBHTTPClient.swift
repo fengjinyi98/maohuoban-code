@@ -28,9 +28,34 @@ struct MHBHTTPClient {
         body: RequestBody,
         headers: [String: String] = [:]
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        try await sendJSON(method: "POST", path: path, body: body, headers: headers)
+    }
+
+    func patch<RequestBody: Encodable, ResponseBody: Decodable>(
+        path: String,
+        body: RequestBody,
+        headers: [String: String] = [:]
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        try await sendJSON(method: "PATCH", path: path, body: body, headers: headers)
+    }
+
+    func delete<RequestBody: Encodable, ResponseBody: Decodable>(
+        path: String,
+        body: RequestBody,
+        headers: [String: String] = [:]
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        try await sendJSON(method: "DELETE", path: path, body: body, headers: headers)
+    }
+
+    private func sendJSON<RequestBody: Encodable, ResponseBody: Decodable>(
+        method: String,
+        path: String,
+        body: RequestBody,
+        headers: [String: String]
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         for (field, value) in headers {

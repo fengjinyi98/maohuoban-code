@@ -6,9 +6,10 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::{
-    MerchantAvailableStatusPublication, MerchantDashboardSummary, MerchantLitterDetail,
-    MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile, PetRepository,
-    PublishAvailableStatusInput, TradePetImport, TradePetImportInput,
+    DeletePetProfile, MerchantAvailableStatusPublication, MerchantDashboardSummary,
+    MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
+    PetMediaUploadInput, PetRepository, PublishAvailableStatusInput, RestorePetProfile,
+    TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 
 /// PetService 宠物应用服务
@@ -34,7 +35,62 @@ impl PetService {
 
     pub async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
         validate_text("宠物名称", &input.name)?;
+        validate_optional_microchip(input.microchip_number.as_deref())?;
+        validate_optional_weight(input.weight_grams)?;
         self.repository.create_pet_profile(input).await
+    }
+
+    pub async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
+        if let Some(name) = input.name.as_deref() {
+            validate_text("宠物名称", name)?;
+        }
+        validate_optional_microchip(input.microchip_number.as_deref())?;
+        validate_optional_weight(input.weight_grams)?;
+        if self
+            .repository
+            .find_pet_for_owner(input.pet_id, input.owner_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository.update_pet_profile(input).await
+    }
+
+    pub async fn delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile> {
+        if self
+            .repository
+            .find_pet_for_owner(input.pet_id, input.owner_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository.soft_delete_pet_profile(input).await
+    }
+
+    pub async fn restore_pet_profile(&self, input: RestorePetProfile) -> PetResult<PetProfile> {
+        self.repository.restore_pet_profile(input).await
+    }
+
+    pub async fn upload_pet_media(
+        &self,
+        input: PetMediaUploadInput,
+    ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
+        validate_text("文件名", &input.file_name)?;
+        validate_text("媒体类型", &input.mime_type)?;
+        if input.content.is_empty() {
+            return Err(PetError::InvalidInput("媒体内容不能为空".to_owned()));
+        }
+        if self
+            .repository
+            .find_pet_for_owner(input.pet_id, input.owner_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository.upload_pet_media(input).await
     }
 
     pub async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
@@ -60,6 +116,17 @@ impl PetService {
         self.repository
             .list_pet_profiles_for_owner(owner_user_id)
             .await
+    }
+
+    pub async fn load_pet_profile(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<PetProfile> {
+        self.repository
+            .find_pet_for_owner(pet_id, owner_user_id)
+            .await?
+            .ok_or(PetError::PetNotFound)
     }
 
     pub async fn load_pet_timeline(
@@ -227,6 +294,26 @@ impl PetService {
 fn validate_text(label: &str, value: &str) -> PetResult<()> {
     if value.trim().is_empty() {
         return Err(PetError::InvalidInput(format!("{label}不能为空")));
+    }
+    Ok(())
+}
+
+fn validate_optional_microchip(value: Option<&str>) -> PetResult<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let trimmed = value.trim();
+    if trimmed.len() != 15 || !trimmed.chars().all(|character| character.is_ascii_digit()) {
+        return Err(PetError::InvalidInput(
+            "芯片号必须是 15 位纯数字".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_optional_weight(value: Option<i32>) -> PetResult<()> {
+    if value.is_some_and(|weight| weight <= 0) {
+        return Err(PetError::InvalidInput("体重必须大于 0".to_owned()));
     }
     Ok(())
 }

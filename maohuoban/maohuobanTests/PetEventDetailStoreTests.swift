@@ -81,6 +81,46 @@ private final class CapturingPetEventDetailRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func updatePet(
+        petID: String,
+        draft: PetProfileUpdateDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        throw .invalidResponse
+    }
+
+    func uploadAvatar(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
+    func uploadBackgroundImage(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
+    func uploadBackgroundVideo(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
+    func deletePet(
+        petID: String,
+        reason: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        throw .invalidResponse
+    }
+
     func loadEventDetail(
         eventID: String,
         currentUserID: String

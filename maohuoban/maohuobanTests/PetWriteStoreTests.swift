@@ -180,6 +180,228 @@ final class PetWriteStoreTests: XCTestCase {
         XCTAssertEqual(store.phase, .failed("请输入交易来源方"))
         XCTAssertNil(repository.receivedImportDraft)
     }
+
+    func testUpdatePetTransitionsToUpdatedAndPassesUserContext() async {
+        let repository = CapturingPetRepository()
+        repository.updatePetResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.updated",
+                message: "宠物档案已更新",
+                data: PetProfileSummary(
+                    id: "pet-1",
+                    ownerUserID: "user-1",
+                    name: "糯米",
+                    species: .dog,
+                    breed: "",
+                    sex: .female,
+                    birthday: "2024-04-01",
+                    microchipNumber: "901156260000001",
+                    arrivalDate: "2024-06-16",
+                    weightGrams: 4800,
+                    neuterStatus: .neutered,
+                    personalityTags: ["亲人"],
+                    note: "喜欢晒太阳"
+                )
+            )
+        )
+        let store = PetWriteStore(repository: repository)
+
+        await store.updatePet(
+            petID: "pet-1",
+            draft: PetProfileUpdateDraft(
+                name: "糯米",
+                species: .dog,
+                breed: "",
+                sex: .female,
+                birthday: "2024-04-01",
+                microchipNumber: "901156260000001",
+                arrivalDate: "2024-06-16",
+                weightGrams: 4800,
+                neuterStatus: .neutered,
+                personalityTags: ["亲人"],
+                note: "喜欢晒太阳"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .updatedPet("pet-1"))
+        XCTAssertEqual(store.successMessage, "宠物档案已更新")
+        XCTAssertEqual(repository.receivedUpdatePetID, "pet-1")
+        XCTAssertEqual(repository.receivedUpdateUserID, "user-1")
+        XCTAssertEqual(repository.receivedUpdateDraft?.weightGrams, 4800)
+    }
+
+    func testUploadAvatarTransitionsToUploadedAndPassesUserContext() async {
+        let repository = CapturingPetRepository()
+        repository.uploadAvatarResult = .success(Self.mediaUploadResponse(usageKind: .avatar))
+        let store = PetWriteStore(repository: repository)
+
+        await store.uploadAvatar(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "avatar.jpg",
+                mimeType: "image/jpeg",
+                content: "avatar-content",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .uploadedAvatar("asset-1"))
+        XCTAssertEqual(repository.receivedAvatarPetID, "pet-1")
+        XCTAssertEqual(repository.receivedAvatarUserID, "user-1")
+        XCTAssertEqual(repository.receivedAvatarDraft?.fileName, "avatar.jpg")
+    }
+
+    func testUploadBackgroundImageTransitionsToUploadedAndPassesUserContext() async {
+        let repository = CapturingPetRepository()
+        repository.uploadBackgroundImageResult = .success(Self.mediaUploadResponse(usageKind: .backgroundImage))
+        let store = PetWriteStore(repository: repository)
+
+        await store.uploadBackgroundImage(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "background.jpg",
+                mimeType: "image/jpeg",
+                content: "background-content",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .uploadedBackground("asset-1"))
+        XCTAssertEqual(store.mediaDerivativeMessage, "已生成主题色 #FF0000 和 1 个派生资源")
+        XCTAssertEqual(repository.receivedBackgroundImagePetID, "pet-1")
+        XCTAssertEqual(repository.receivedBackgroundImageUserID, "user-1")
+        XCTAssertEqual(repository.receivedBackgroundImageDraft?.mimeType, "image/jpeg")
+    }
+
+    func testUploadBackgroundVideoTransitionsToUploadedAndPassesUserContext() async {
+        let repository = CapturingPetRepository()
+        repository.uploadBackgroundVideoResult = .success(Self.mediaUploadResponse(usageKind: .backgroundVideo))
+        let store = PetWriteStore(repository: repository)
+
+        await store.uploadBackgroundVideo(
+            petID: "pet-1",
+            draft: PetMediaUploadDraft(
+                fileName: "background.mp4",
+                mimeType: "video/mp4",
+                content: "background-video-content",
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .uploadedBackground("asset-1"))
+        XCTAssertEqual(store.mediaDerivativeMessage, "已生成封面帧、主题色 #FF0000 和 2 个派生资源")
+        XCTAssertEqual(repository.receivedBackgroundVideoPetID, "pet-1")
+        XCTAssertEqual(repository.receivedBackgroundVideoUserID, "user-1")
+        XCTAssertEqual(repository.receivedBackgroundVideoDraft?.mimeType, "video/mp4")
+    }
+
+    func testDeletePetTransitionsToDeletedAndPassesUserContext() async {
+        let repository = CapturingPetRepository()
+        repository.deletePetResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.deleted",
+                message: "宠物档案已删除",
+                data: PetProfileSummary(
+                    id: "pet-1",
+                    ownerUserID: "user-1",
+                    name: "糯米",
+                    species: .dog,
+                    breed: "",
+                    sex: .female,
+                    birthday: "2024-04-01",
+                    deletedAt: "2026-06-17T00:00:00Z",
+                    deleteRequestedByUserID: "user-1",
+                    recoverableUntil: "2026-07-17T00:00:00Z",
+                    deleteReason: "用户主动删除"
+                )
+            )
+        )
+        let store = PetWriteStore(repository: repository)
+
+        await store.deletePet(
+            petID: "pet-1",
+            reason: "用户主动删除",
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .deletedPet("pet-1"))
+        XCTAssertEqual(store.successMessage, "宠物档案已删除")
+        XCTAssertEqual(repository.receivedDeletePetID, "pet-1")
+        XCTAssertEqual(repository.receivedDeleteReason, "用户主动删除")
+        XCTAssertEqual(repository.receivedDeleteUserID, "user-1")
+    }
+
+    private static func mediaUploadResponse(
+        usageKind: PetMediaUsageKind
+    ) -> MHBAPIResponse<PetMediaUploadResult> {
+        MHBAPIResponse(
+            success: true,
+            code: "pet.media_uploaded",
+            message: "媒体已上传",
+            data: PetMediaUploadResult(
+                asset: PetMediaAsset(
+                    id: "asset-1",
+                    uploadedByUserID: "user-1",
+                    ownerPetID: "pet-1",
+                    usageKind: usageKind,
+                    sourceClient: "ios",
+                    originalFileName: "media",
+                    mimeType: "image/jpeg",
+                    byteSize: 16,
+                    sha256Hex: "hash",
+                    bucket: "maohuoban-pet-media",
+                    objectKey: "pets/pet-1/media",
+                    status: .bound,
+                    createdAt: "2026-06-17T00:00:00Z",
+                    updatedAt: "2026-06-17T00:00:00Z"
+                ),
+                binding: PetMediaBinding(
+                    id: "binding-1",
+                    assetID: "asset-1",
+                    petID: "pet-1",
+                    usageKind: usageKind,
+                    status: .active,
+                    boundByUserID: "user-1",
+                    boundAt: "2026-06-17T00:00:00Z",
+                    createdAt: "2026-06-17T00:00:00Z"
+                ),
+                derivatives: [
+                    PetMediaDerivative(
+                        id: "derivative-cover",
+                        parentAssetID: "asset-1",
+                        derivativeKind: .videoCoverFrame,
+                        bucket: "maohuoban-pet-media",
+                        objectKey: "pets/pet-1/cover-frame.png",
+                        mimeType: "image/png",
+                        byteSize: 12,
+                        sha256Hex: "hash",
+                        metadata: PetMediaDerivativeMetadata(width: 512, height: 512),
+                        createdAt: "2026-06-17T00:00:00Z"
+                    ),
+                    PetMediaDerivative(
+                        id: "derivative-theme",
+                        parentAssetID: "asset-1",
+                        derivativeKind: .themeColorFrame,
+                        bucket: "maohuoban-pet-media",
+                        objectKey: "pets/pet-1/theme-color.json",
+                        mimeType: "application/json",
+                        byteSize: 24,
+                        sha256Hex: "hash",
+                        metadata: PetMediaDerivativeMetadata(themeColorHex: "#FF0000"),
+                        createdAt: "2026-06-17T00:00:00Z"
+                    )
+                ].filter { derivative in
+                    usageKind == .backgroundVideo || derivative.derivativeKind == .themeColorFrame
+                }
+            )
+        )
+    }
 }
 
 // CapturingPetRepository 宠物写入测试仓库
@@ -191,6 +413,11 @@ private final class CapturingPetRepository: PetRepository {
     var createPetResult: Result<MHBAPIResponse<PetProfileSummary>, MHBAPIError> = .failure(.invalidResponse)
     var createEventResult: Result<MHBAPIResponse<PetEventSummary>, MHBAPIError> = .failure(.invalidResponse)
     var importTradePetResult: Result<MHBAPIResponse<TradePetImportResult>, MHBAPIError> = .failure(.invalidResponse)
+    var updatePetResult: Result<MHBAPIResponse<PetProfileSummary>, MHBAPIError> = .failure(.invalidResponse)
+    var uploadAvatarResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
+    var uploadBackgroundImageResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
+    var uploadBackgroundVideoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
+    var deletePetResult: Result<MHBAPIResponse<PetProfileSummary>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var receivedCreateDraft: PetProfileDraft?
     private(set) var receivedCreateUserID: String?
     private(set) var receivedEventPetID: String?
@@ -198,6 +425,21 @@ private final class CapturingPetRepository: PetRepository {
     private(set) var receivedEventUserID: String?
     private(set) var receivedImportDraft: TradePetImportDraft?
     private(set) var receivedImportUserID: String?
+    private(set) var receivedUpdatePetID: String?
+    private(set) var receivedUpdateDraft: PetProfileUpdateDraft?
+    private(set) var receivedUpdateUserID: String?
+    private(set) var receivedAvatarPetID: String?
+    private(set) var receivedAvatarDraft: PetMediaUploadDraft?
+    private(set) var receivedAvatarUserID: String?
+    private(set) var receivedBackgroundImagePetID: String?
+    private(set) var receivedBackgroundImageDraft: PetMediaUploadDraft?
+    private(set) var receivedBackgroundImageUserID: String?
+    private(set) var receivedBackgroundVideoPetID: String?
+    private(set) var receivedBackgroundVideoDraft: PetMediaUploadDraft?
+    private(set) var receivedBackgroundVideoUserID: String?
+    private(set) var receivedDeletePetID: String?
+    private(set) var receivedDeleteReason: String?
+    private(set) var receivedDeleteUserID: String?
 
     func createPet(
         draft: PetProfileDraft,
@@ -234,6 +476,86 @@ private final class CapturingPetRepository: PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         throw .invalidResponse
+    }
+
+    func updatePet(
+        petID: String,
+        draft: PetProfileUpdateDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        receivedUpdatePetID = petID
+        receivedUpdateDraft = draft
+        receivedUpdateUserID = currentUserID
+        switch updatePetResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func uploadAvatar(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        receivedAvatarPetID = petID
+        receivedAvatarDraft = draft
+        receivedAvatarUserID = currentUserID
+        switch uploadAvatarResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func uploadBackgroundImage(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        receivedBackgroundImagePetID = petID
+        receivedBackgroundImageDraft = draft
+        receivedBackgroundImageUserID = currentUserID
+        switch uploadBackgroundImageResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func uploadBackgroundVideo(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        receivedBackgroundVideoPetID = petID
+        receivedBackgroundVideoDraft = draft
+        receivedBackgroundVideoUserID = currentUserID
+        switch uploadBackgroundVideoResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func deletePet(
+        petID: String,
+        reason: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        receivedDeletePetID = petID
+        receivedDeleteReason = reason
+        receivedDeleteUserID = currentUserID
+        switch deletePetResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
     }
 
     func importTradePet(

@@ -12,7 +12,7 @@ struct PetProfileBackgroundPreviewScreen: View {
     let petName: String
     let heroMedia: PetProfileEditProfile.HeroMedia
     let localHeroMedia: PetProfileHeroMediaDraft?
-    let onHeroMediaUpdated: (PetProfileHeroMediaDraft) -> Void
+    let onHeroMediaUpdated: (PetProfileHeroMediaDraft) async -> Bool
 
     @State private var previewMedia: PetProfileHeroMediaDraft?
     @State private var isImagePickerPresented = false
@@ -26,7 +26,7 @@ struct PetProfileBackgroundPreviewScreen: View {
         petName: String,
         heroMedia: PetProfileEditProfile.HeroMedia,
         localHeroMedia: PetProfileHeroMediaDraft?,
-        onHeroMediaUpdated: @escaping (PetProfileHeroMediaDraft) -> Void
+        onHeroMediaUpdated: @escaping (PetProfileHeroMediaDraft) async -> Bool
     ) {
         self.petName = petName
         self.heroMedia = heroMedia
@@ -238,10 +238,8 @@ struct PetProfileBackgroundPreviewScreen: View {
         uploadState = .uploading
 
         Task { @MainActor in
-            // TODO: 接入后端宠物背景上传接口后，将这里替换为真实上传状态。
-            try? await Task.sleep(for: .milliseconds(450))
-            onHeroMediaUpdated(media)
-            uploadState = .saved
+            let didSave = await onHeroMediaUpdated(media)
+            uploadState = didSave ? .saved : .idle
         }
     }
 }

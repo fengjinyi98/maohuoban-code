@@ -1,9 +1,12 @@
 #![allow(clippy::needless_pass_by_value)]
 
+use std::{env, fs, process::Command};
+
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -45,6 +48,54 @@ async fn response_json(response: axum::response::Response) -> Value {
         .await
         .expect("read response body");
     serde_json::from_slice(&bytes).expect("parse response json")
+}
+
+/// `red_video_base64` 生成红色视频测试样本
+/// 核心职责：
+/// - 使用本机 ffmpeg 创建最小 mp4
+/// - 返回接口上传所需 base64 内容
+fn red_video_base64() -> Option<String> {
+    let output_path =
+        env::temp_dir().join(format!("maohuoban-red-video-{}.mp4", uuid::Uuid::new_v4()));
+    let status = Command::new("ffmpeg")
+        .arg("-v")
+        .arg("error")
+        .arg("-y")
+        .arg("-f")
+        .arg("lavfi")
+        .arg("-i")
+        .arg("color=c=red:s=16x16:d=1")
+        .arg("-frames:v")
+        .arg("1")
+        .arg("-pix_fmt")
+        .arg("yuv420p")
+        .arg(&output_path)
+        .status()
+        .ok()?;
+    if !status.success() {
+        return None;
+    }
+
+    let content = fs::read(&output_path).ok()?;
+    let _ = fs::remove_file(output_path);
+    Some(STANDARD.encode(content))
+}
+
+/// `assert_media_cleanup_state` 校验媒体清理状态
+/// 核心职责：
+/// - 固定资产、绑定和清理任务三项断言
+/// - 降低媒体生命周期契约测试重复代码
+async fn assert_media_cleanup_state(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    asset_id: &str,
+    asset_status: &str,
+    binding_status: &str,
+    job_status: &str,
+) {
+    let cleanup_state = app.media_cleanup_state(asset_id).await;
+    assert_eq!(cleanup_state.asset_status, asset_status);
+    assert_eq!(cleanup_state.binding_status, binding_status);
+    assert_eq!(cleanup_state.job_status, job_status);
 }
 
 /// `login_user_id` 使用真实验证码登录获取用户 id
@@ -569,4 +620,593 @@ async fn merchant_pet_list_requires_user_context() {
     assert_eq!(body["success"], false);
     assert_eq!(body["code"], "pet.unauthorized");
     assert_eq!(body["message"], "请先登录");
+}
+
+#[tokio::test]
+async fn pet_profile_crud_persists_extended_profile_fields() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138131").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶盖",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": "2024-03-20",
+                "microchip_number": "156000000000001",
+                "arrival_date": "2024-05-01",
+                "weight_grams": 4200,
+                "neuter_status": "neutered",
+                "personality_tags": ["亲人", "爱玩"],
+                "note": "对鸡肉过敏"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create extended pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    assert_eq!(
+        create_body["data"]["profile_number"]
+            .as_str()
+            .unwrap()
+            .len(),
+        16
+    );
+    assert_eq!(create_body["data"]["microchip_number"], "156000000000001");
+    assert_eq!(create_body["data"]["arrival_date"], "2024-05-01");
+    assert_eq!(create_body["data"]["weight_grams"], 4200);
+    assert_eq!(create_body["data"]["neuter_status"], "neutered");
+    assert_eq!(create_body["data"]["personality_tags"][0], "亲人");
+    assert_eq!(create_body["data"]["note"], "对鸡肉过敏");
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let update_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({
+                "name": "奶盖宝",
+                "breed": "布偶猫",
+                "weight_grams": 4350,
+                "personality_tags": ["亲人", "安静"],
+                "note": "鸡肉过敏，优先喂鸭肉"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("update pet");
+    assert_eq!(update_response.status(), StatusCode::OK);
+    let update_body = response_json(update_response).await;
+    assert_eq!(update_body["code"], "pet.updated");
+    assert_eq!(update_body["data"]["id"], pet_id);
+    assert_eq!(update_body["data"]["name"], "奶盖宝");
+    assert_eq!(update_body["data"]["breed"], "布偶猫");
+    assert_eq!(update_body["data"]["weight_grams"], 4350);
+    assert_eq!(update_body["data"]["microchip_number"], "156000000000001");
+
+    let detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load pet detail");
+    assert_eq!(detail_response.status(), StatusCode::OK);
+    let detail_body = response_json(detail_response).await;
+    assert_eq!(detail_body["code"], "pet.loaded");
+    assert_eq!(detail_body["data"]["id"], pet_id);
+    assert_eq!(
+        detail_body["data"]["profile_number"],
+        create_body["data"]["profile_number"]
+    );
+
+    let list_response = app
+        .router()
+        .oneshot(empty_request("GET", "/api/v1/pets", Some(&user_id)))
+        .await
+        .expect("list pets");
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let list_body = response_json(list_response).await;
+    assert_eq!(list_body["code"], "pet.list_loaded");
+    assert!(
+        list_body["data"]["pets"]
+            .as_array()
+            .expect("pets")
+            .iter()
+            .any(|pet| pet["id"] == pet_id)
+    );
+}
+
+#[tokio::test]
+async fn pet_profile_rejects_microchip_replacement_after_it_is_locked() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138132").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "汤圆",
+                "species": "dog",
+                "sex": "male",
+                "microchip_number": "156000000000002"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let update_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({
+                "microchip_number": "156000000000099"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("replace chip");
+
+    assert_eq!(update_response.status(), StatusCode::BAD_REQUEST);
+    let body = response_json(update_response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "pet.invalid_input");
+}
+
+#[tokio::test]
+async fn pet_avatar_upload_creates_traceable_media_binding() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138133").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "摩卡",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let upload_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/avatar"),
+            json!({
+                "file_name": "avatar.txt",
+                "mime_type": "text/plain",
+                "content": "YXZhdGFyLWJ5dGVz",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload avatar");
+    assert_eq!(upload_response.status(), StatusCode::CREATED);
+    let upload_body = response_json(upload_response).await;
+    assert_eq!(upload_body["code"], "pet.avatar_uploaded");
+    assert_eq!(upload_body["data"]["binding"]["pet_id"], pet_id);
+    assert_eq!(upload_body["data"]["binding"]["usage_kind"], "pet.avatar");
+    assert_eq!(upload_body["data"]["asset"]["uploaded_by_user_id"], user_id);
+    assert_eq!(upload_body["data"]["asset"]["owner_pet_id"], pet_id);
+    assert_eq!(upload_body["data"]["asset"]["status"], "bound");
+    assert!(
+        upload_body["data"]["asset"]["sha256_hex"]
+            .as_str()
+            .unwrap()
+            .len()
+            >= 64
+    );
+    assert!(
+        upload_body["data"]["asset"]["object_key"]
+            .as_str()
+            .unwrap()
+            .contains(pet_id)
+    );
+    let bucket = upload_body["data"]["asset"]["bucket"]
+        .as_str()
+        .expect("asset bucket");
+    let object_key = upload_body["data"]["asset"]["object_key"]
+        .as_str()
+        .expect("asset object key");
+    assert_eq!(
+        app.media_object_content(bucket, object_key),
+        b"avatar-bytes"
+    );
+}
+
+#[tokio::test]
+async fn pet_background_uploads_support_image_and_video_media_bindings() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138135").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "花卷",
+                "species": "cat",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let image_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/background-image"),
+            json!({
+                "file_name": "background.jpg",
+                "mime_type": "image/jpeg",
+                "content": "aW1hZ2UtYnl0ZXM=",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload background image");
+    assert_eq!(image_response.status(), StatusCode::CREATED);
+    let image_body = response_json(image_response).await;
+    assert_eq!(image_body["code"], "pet.background_uploaded");
+    assert_eq!(
+        image_body["data"]["binding"]["usage_kind"],
+        "pet.background.image"
+    );
+
+    let video_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/background-video"),
+            json!({
+                "file_name": "background.mp4",
+                "mime_type": "video/mp4",
+                "content": "dmlkZW8tYnl0ZXM=",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload background video");
+    assert_eq!(video_response.status(), StatusCode::CREATED);
+    let video_body = response_json(video_response).await;
+    assert_eq!(video_body["code"], "pet.background_uploaded");
+    assert_eq!(
+        video_body["data"]["binding"]["usage_kind"],
+        "pet.background.video"
+    );
+    assert!(
+        video_body["data"]["asset"]["object_key"]
+            .as_str()
+            .unwrap()
+            .contains("background/video")
+    );
+}
+
+#[tokio::test]
+async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138136").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "红豆",
+                "species": "cat",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let upload_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/background-image"),
+            json!({
+                "file_name": "red.png",
+                "mime_type": "image/png",
+                "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload valid background image");
+    assert_eq!(upload_response.status(), StatusCode::CREATED);
+    let body = response_json(upload_response).await;
+    let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
+
+    assert!(
+        derivatives
+            .iter()
+            .any(|item| item["derivative_kind"] == "thumbnail")
+    );
+    let theme = derivatives
+        .iter()
+        .find(|item| item["derivative_kind"] == "theme_color_frame")
+        .expect("theme color derivative");
+    assert_eq!(theme["metadata"]["theme_color_hex"], "#FF0000");
+    assert!(
+        theme["object_key"]
+            .as_str()
+            .expect("theme object key")
+            .contains("theme_color_frame")
+    );
+}
+
+#[tokio::test]
+async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
+    let Some(video_content) = red_video_base64() else {
+        return;
+    };
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138137").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "火花",
+                "species": "dog",
+                "sex": "male"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let upload_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/background-video"),
+            json!({
+                "file_name": "red.mp4",
+                "mime_type": "video/mp4",
+                "content": video_content,
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload valid background video");
+    assert_eq!(upload_response.status(), StatusCode::CREATED);
+    let body = response_json(upload_response).await;
+    let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
+
+    assert!(
+        derivatives
+            .iter()
+            .any(|item| item["derivative_kind"] == "video_cover_frame")
+    );
+    let theme = derivatives
+        .iter()
+        .find(|item| item["derivative_kind"] == "theme_color_frame")
+        .expect("theme color derivative");
+    assert_eq!(theme["metadata"]["theme_color_hex"], "#FE0000");
+}
+
+#[tokio::test]
+async fn replacing_avatar_queues_previous_media_for_cleanup() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138136").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "芝麻",
+                "species": "dog",
+                "sex": "male"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let first_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/avatar"),
+            json!({
+                "file_name": "avatar-1.txt",
+                "mime_type": "text/plain",
+                "content": "YXZhdGFyLW9uZQ==",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload first avatar");
+    assert_eq!(first_response.status(), StatusCode::CREATED);
+    let first_body = response_json(first_response).await;
+    let old_asset_id = first_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("asset id");
+
+    let second_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/avatar"),
+            json!({
+                "file_name": "avatar-2.txt",
+                "mime_type": "text/plain",
+                "content": "YXZhdGFyLXR3bw==",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload replacement avatar");
+    assert_eq!(second_response.status(), StatusCode::CREATED);
+
+    assert_media_cleanup_state(&app, old_asset_id, "cleanup_pending", "replaced", "queued").await;
+}
+
+#[tokio::test]
+async fn pet_profile_delete_is_soft_and_recoverable() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138134").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "豆包",
+                "species": "cat",
+                "sex": "unknown"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let upload_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media/avatar"),
+            json!({
+                "file_name": "restore-avatar.txt",
+                "mime_type": "text/plain",
+                "content": "YXZhdGFyLWJlZm9yZS1kZWxldGU=",
+                "source_client": "ios"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("upload avatar before delete");
+    assert_eq!(upload_response.status(), StatusCode::CREATED);
+    let upload_body = response_json(upload_response).await;
+    let asset_id = upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("asset id");
+
+    let delete_response = app
+        .router()
+        .oneshot(json_request(
+            "DELETE",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({
+                "reason": "用户主动删除"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete pet");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let delete_body = response_json(delete_response).await;
+    assert_eq!(delete_body["code"], "pet.deleted");
+    assert_eq!(delete_body["data"]["id"], pet_id);
+    assert!(delete_body["data"]["deleted_at"].as_str().is_some());
+    assert_eq!(delete_body["data"]["delete_requested_by_user_id"], user_id);
+    assert!(delete_body["data"]["recoverable_until"].as_str().is_some());
+
+    assert_media_cleanup_state(&app, asset_id, "cleanup_pending", "deleted", "queued").await;
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load deleted pet timeline");
+    assert_eq!(timeline_response.status(), StatusCode::NOT_FOUND);
+
+    let restore_response = app
+        .router()
+        .oneshot(empty_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/restore"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("restore pet");
+    assert_eq!(restore_response.status(), StatusCode::OK);
+    let restore_body = response_json(restore_response).await;
+    assert_eq!(restore_body["code"], "pet.restored");
+    assert_eq!(restore_body["data"]["id"], pet_id);
+    assert!(restore_body["data"]["deleted_at"].is_null());
+    assert!(restore_body["data"]["delete_requested_by_user_id"].is_null());
+    assert!(restore_body["data"]["recoverable_until"].is_null());
+
+    assert_media_cleanup_state(&app, asset_id, "bound", "active", "none").await;
+
+    let list_response = app
+        .router()
+        .oneshot(empty_request("GET", "/api/v1/pets", Some(&user_id)))
+        .await
+        .expect("list restored pets");
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let list_body = response_json(list_response).await;
+    assert_eq!(list_body["data"]["pets"][0]["id"], pet_id);
 }

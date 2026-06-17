@@ -7,8 +7,5 @@ use maohuoban_legal_domain::legal::{LegalDocument, LegalDocumentKind, LegalResul
 /// - 让应用层不依赖 `PostgreSQL` 实现细节
 #[async_trait]
 pub trait LegalDocumentRepository: Send + Sync {
-    async fn find_document(
-        &self,
-        kind: LegalDocumentKind,
-    ) -> LegalResult<Option<LegalDocument>>;
+    async fn find_document(&self, kind: LegalDocumentKind) -> LegalResult<Option<LegalDocument>>;
 }

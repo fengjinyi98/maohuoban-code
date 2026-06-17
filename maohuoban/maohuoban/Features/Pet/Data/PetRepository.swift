@@ -21,6 +21,36 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<TradePetImportResult>
 
+    func updatePet(
+        petID: String,
+        draft: PetProfileUpdateDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary>
+
+    func uploadAvatar(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
+    func uploadBackgroundImage(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
+    func uploadBackgroundVideo(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
+    func deletePet(
+        petID: String,
+        reason: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary>
+
     func loadEventDetail(
         eventID: String,
         currentUserID: String
@@ -67,6 +97,66 @@ struct DefaultPetRepository: PetRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         try await client.get(
             path: "/api/v1/pet-events/\(eventID)",
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func updatePet(
+        petID: String,
+        draft: PetProfileUpdateDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        try await client.patch(
+            path: "/api/v1/pets/\(petID)",
+            body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func uploadAvatar(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await client.post(
+            path: "/api/v1/pets/\(petID)/media/avatar",
+            body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func uploadBackgroundImage(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await client.post(
+            path: "/api/v1/pets/\(petID)/media/background-image",
+            body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func uploadBackgroundVideo(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await client.post(
+            path: "/api/v1/pets/\(petID)/media/background-video",
+            body: draft,
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func deletePet(
+        petID: String,
+        reason: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        try await client.delete(
+            path: "/api/v1/pets/\(petID)",
+            body: DeletePetProfileDraft(reason: reason),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
