@@ -25,6 +25,12 @@ final class PetRepositoryTests: XCTestCase {
             XCTAssertEqual(json?["breed"] as? String, "比熊犬")
             XCTAssertEqual(json?["sex"] as? String, "female")
             XCTAssertEqual(json?["birthday"] as? String, "2024-04-01")
+            XCTAssertEqual(json?["microchip_number"] as? String, "156000000000001")
+            XCTAssertEqual(json?["arrival_date"] as? String, "2024-05-01")
+            XCTAssertEqual(json?["weight_grams"] as? Int, 4200)
+            XCTAssertEqual(json?["neuter_status"] as? String, "neutered")
+            XCTAssertEqual(json?["personality_tags"] as? [String], ["亲人", "爱玩"])
+            XCTAssertEqual(json?["note"] as? String, "对鸡肉过敏")
 
             return Self.jsonResponse(
                 statusCode: 201,
@@ -41,7 +47,13 @@ final class PetRepositoryTests: XCTestCase {
                     "species": "dog",
                     "breed": "比熊犬",
                     "sex": "female",
-                    "birthday": "2024-04-01"
+                    "birthday": "2024-04-01",
+                    "microchip_number": "156000000000001",
+                    "arrival_date": "2024-05-01",
+                    "weight_grams": 4200,
+                    "neuter_status": "neutered",
+                    "personality_tags": ["亲人", "爱玩"],
+                    "note": "对鸡肉过敏"
                   }
                 }
                 """
@@ -54,7 +66,13 @@ final class PetRepositoryTests: XCTestCase {
                 species: .dog,
                 breed: "比熊犬",
                 sex: .female,
-                birthday: "2024-04-01"
+                birthday: "2024-04-01",
+                microchipNumber: "156000000000001",
+                arrivalDate: "2024-05-01",
+                weightGrams: 4200,
+                neuterStatus: .neutered,
+                personalityTags: ["亲人", "爱玩"],
+                note: "对鸡肉过敏"
             ),
             currentUserID: "user-1"
         )
@@ -62,6 +80,8 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.message, "宠物档案已创建")
         XCTAssertEqual(response.data?.id, "pet-1")
         XCTAssertEqual(response.data?.ownerUserID, "user-1")
+        XCTAssertEqual(response.data?.arrivalDate, "2024-05-01")
+        XCTAssertEqual(response.data?.personalityTags, ["亲人", "爱玩"])
     }
 
     func testCreateEventSendsUserContextAndDecodesEvent() async throws {

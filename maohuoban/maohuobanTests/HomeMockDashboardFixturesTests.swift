@@ -50,7 +50,20 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                 statusText: "记录正在形成可信档案",
                 updatedText: "档案已同步",
                 avatarURL: "/api/v1/media/assets/avatar/content",
-                heroImageAssetName: nil
+                heroImageURL: "/api/v1/media/assets/background/content",
+                heroImageWidth: 1200,
+                heroImageHeight: 900,
+                heroThemeColorHex: "#AABBCC",
+                heroImageAssetName: nil,
+                profileNumber: "MHB-REAL-001",
+                microchipNumber: "CHIP-REAL-001",
+                birthday: "2024-01-02",
+                arrivalDate: "2024-03-04",
+                weightGrams: 5200,
+                neuterStatus: .neutered,
+                personalityTags: ["真实标签"],
+                note: "真实备注",
+                companionshipDays: 88
             ),
             petSwitcher: [
                 HomeDashboardSnapshot.PetSwitchItem(
@@ -58,6 +71,16 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                     name: "测试宠物 1",
                     species: .dog,
                     avatarURL: "/api/v1/media/assets/avatar/content",
+                    avatarWidth: 320,
+                    avatarHeight: 320,
+                    profileNumber: "MHB-REAL-001",
+                    microchipNumber: "CHIP-REAL-001",
+                    birthday: "2024-01-02",
+                    arrivalDate: "2024-03-04",
+                    weightGrams: 5200,
+                    neuterStatus: .neutered,
+                    personalityTags: ["真实标签"],
+                    note: "真实备注",
                     isSelected: true
                 )
             ],
@@ -79,7 +102,32 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
 
         XCTAssertEqual(supplemented.selectedPet?.id, "real-pet")
         XCTAssertEqual(supplemented.selectedPet?.name, "测试宠物 1")
+        XCTAssertEqual(supplemented.selectedPet?.avatarURL, "/api/v1/media/assets/avatar/content")
+        XCTAssertEqual(supplemented.selectedPet?.heroImageURL, "/api/v1/media/assets/background/content")
+        XCTAssertEqual(supplemented.selectedPet?.heroImageWidth, 1200)
+        XCTAssertEqual(supplemented.selectedPet?.heroImageHeight, 900)
+        XCTAssertEqual(supplemented.selectedPet?.heroThemeColorHex, "#AABBCC")
+        XCTAssertEqual(supplemented.selectedPet?.profileNumber, "MHB-REAL-001")
+        XCTAssertEqual(supplemented.selectedPet?.microchipNumber, "CHIP-REAL-001")
+        XCTAssertEqual(supplemented.selectedPet?.birthday, "2024-01-02")
+        XCTAssertEqual(supplemented.selectedPet?.arrivalDate, "2024-03-04")
+        XCTAssertEqual(supplemented.selectedPet?.weightGrams, 5200)
+        XCTAssertEqual(supplemented.selectedPet?.neuterStatus, .neutered)
+        XCTAssertEqual(supplemented.selectedPet?.personalityTags, ["真实标签"])
+        XCTAssertEqual(supplemented.selectedPet?.note, "真实备注")
+        XCTAssertEqual(supplemented.selectedPet?.companionshipDays, 88)
         XCTAssertEqual(supplemented.petSwitcher.map(\.id), ["real-pet"])
+        XCTAssertEqual(supplemented.petSwitcher.first?.avatarURL, "/api/v1/media/assets/avatar/content")
+        XCTAssertEqual(supplemented.petSwitcher.first?.avatarWidth, 320)
+        XCTAssertEqual(supplemented.petSwitcher.first?.avatarHeight, 320)
+        XCTAssertEqual(supplemented.petSwitcher.first?.profileNumber, "MHB-REAL-001")
+        XCTAssertEqual(supplemented.petSwitcher.first?.microchipNumber, "CHIP-REAL-001")
+        XCTAssertEqual(supplemented.petSwitcher.first?.birthday, "2024-01-02")
+        XCTAssertEqual(supplemented.petSwitcher.first?.arrivalDate, "2024-03-04")
+        XCTAssertEqual(supplemented.petSwitcher.first?.weightGrams, 5200)
+        XCTAssertEqual(supplemented.petSwitcher.first?.neuterStatus, .neutered)
+        XCTAssertEqual(supplemented.petSwitcher.first?.personalityTags, ["真实标签"])
+        XCTAssertEqual(supplemented.petSwitcher.first?.note, "真实备注")
         XCTAssertNotNil(supplemented.partnerRecommendation)
         XCTAssertFalse(supplemented.recentTimeline.isEmpty)
         XCTAssertFalse(supplemented.reminders.isEmpty)

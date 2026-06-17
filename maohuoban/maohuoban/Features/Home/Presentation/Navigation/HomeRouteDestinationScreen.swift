@@ -7,34 +7,42 @@ import SwiftUI
 struct HomeRouteDestinationScreen: View {
     let route: HomeRoute
     let currentUserID: String?
-    let onHomeMutationCompleted: () -> Void
+    let onHomeMutationCompleted: (String?) -> Void
 
     var body: some View {
         switch route {
         case .createPet:
             PetProfileAddScreen(
                 currentUserID: currentUserID,
-                onCreated: onHomeMutationCompleted
+                onCreated: { petID in
+                    onHomeMutationCompleted(petID)
+                }
             )
         case .editPetProfile(let context):
             PetProfileEditScreen(
                 context: context,
                 currentUserID: currentUserID,
-                onPetCreated: onHomeMutationCompleted
+                onPetCreated: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .recordDaily(let petID):
             PetEventRecordScreen(
                 petID: petID,
                 currentUserID: currentUserID,
                 mode: .daily,
-                onRecorded: onHomeMutationCompleted
+                onRecorded: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .recordHealth(let petID):
             PetEventRecordScreen(
                 petID: petID,
                 currentUserID: currentUserID,
                 mode: .health,
-                onRecorded: onHomeMutationCompleted
+                onRecorded: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .merchantPets(let merchantID, let status):
             if let status = MerchantPetStatus(rawValue: status) {
@@ -55,7 +63,9 @@ struct HomeRouteDestinationScreen: View {
             MerchantPetCreateScreen(
                 merchantID: merchantID,
                 currentUserID: currentUserID,
-                onCreated: onHomeMutationCompleted
+                onCreated: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .merchantLitter(let merchantID, let litterID):
             MerchantLitterDetailScreen(
@@ -72,7 +82,9 @@ struct HomeRouteDestinationScreen: View {
             MerchantAvailableStatusScreen(
                 merchantID: merchantID,
                 currentUserID: currentUserID,
-                onPublished: onHomeMutationCompleted
+                onPublished: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .merchantTask(let merchantID, _):
             MerchantPetsScreen(
@@ -83,14 +95,18 @@ struct HomeRouteDestinationScreen: View {
         case .importTradePet:
             PetTradeImportScreen(
                 currentUserID: currentUserID,
-                onImported: onHomeMutationCompleted
+                onImported: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .bookHospital(let petID, let city):
             HospitalBookingScreen(
                 currentUserID: currentUserID,
                 petID: petID,
                 city: city,
-                onBooked: onHomeMutationCompleted
+                onBooked: {
+                    onHomeMutationCompleted(nil)
+                }
             )
         }
     }

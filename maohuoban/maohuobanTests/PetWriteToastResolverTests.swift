@@ -37,16 +37,13 @@ final class PetWriteToastResolverTests: XCTestCase {
         XCTAssertEqual(events, [.danger("请先登录")])
     }
 
-    func testDerivativeMessageAddsWarningAfterSuccess() {
+    func testDerivativeMessageIsHiddenAfterSuccess() {
         let events = PetWriteToastResolver.events(
             phase: .uploadedBackground("asset-1"),
             successMessage: "宠物背景已上传",
             derivativeMessage: "派生资源处理中"
         )
 
-        XCTAssertEqual(events, [
-            .success("宠物背景已上传"),
-            .warning("派生资源处理中")
-        ])
+        XCTAssertEqual(events, [.success("宠物背景已上传")])
     }
 }

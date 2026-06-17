@@ -221,10 +221,10 @@ fn pet_hero_summary(
     pet: &PetProfile,
     media_metadata: &HashMap<Uuid, MediaAssetDisplayMetadata>,
 ) -> PetHeroSummary {
-    let days_since_created = (Utc::now().date_naive() - pet.created_at.date_naive())
-        .num_days()
-        .max(0);
-    let companionship_days = Some(i32::try_from(days_since_created).unwrap_or(i32::MAX));
+    let companionship_start_date = pet
+        .arrival_date
+        .unwrap_or_else(|| pet.created_at.date_naive());
+    let companionship_days = Some(companionship_days_since(companionship_start_date));
     let avatar_metadata = pet
         .avatar_asset_id
         .and_then(|asset_id| media_metadata.get(&asset_id));
@@ -272,6 +272,15 @@ fn pet_hero_summary(
         note: pet.note.clone(),
         companionship_days,
     }
+}
+
+/// `companionship_days_since` 计算宠物陪伴天数
+/// 核心职责：
+/// - 按业务起始日期派生首页陪伴天数
+/// - 保证未来日期不会产生负数展示
+fn companionship_days_since(start_date: chrono::NaiveDate) -> i32 {
+    let days = (Utc::now().date_naive() - start_date).num_days().max(0);
+    i32::try_from(days).unwrap_or(i32::MAX)
 }
 
 fn pet_switch_item(

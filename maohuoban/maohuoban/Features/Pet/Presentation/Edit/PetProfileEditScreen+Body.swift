@@ -39,12 +39,6 @@ extension PetProfileEditScreen {
                             }
                         )
 
-                        PetWriteStatusSection(
-                            phase: store.phase,
-                            successMessage: store.successMessage,
-                            derivativeMessage: store.mediaDerivativeMessage
-                        )
-
                         VStack(spacing: MHBTheme.Spacing.s4) {
                             PetProfileEditSection {
                                 PetProfileEditRow(

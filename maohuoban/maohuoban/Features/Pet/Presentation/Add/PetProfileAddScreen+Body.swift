@@ -14,12 +14,6 @@ extension PetProfileAddScreen {
                             action: showAvatarEntry
                         )
 
-                        PetWriteStatusSection(
-                            phase: store.phase,
-                            successMessage: store.successMessage,
-                            derivativeMessage: store.mediaDerivativeMessage
-                        )
-
                         VStack(spacing: MHBTheme.Spacing.s4) {
                             PetProfileAddSection {
                                 PetProfileAddRow(

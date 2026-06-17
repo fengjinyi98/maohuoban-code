@@ -39,10 +39,6 @@ enum PetWriteToastResolver {
             events.append(.danger(message))
         }
 
-        if let derivativeMessage, !derivativeMessage.isEmpty {
-            events.append(.warning(derivativeMessage))
-        }
-
         return events
     }
 }

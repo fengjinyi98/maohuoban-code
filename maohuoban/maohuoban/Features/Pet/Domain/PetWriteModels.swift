@@ -10,6 +10,12 @@ struct PetProfileDraft: Encodable, Equatable {
     let breed: String
     let sex: PetSex
     let birthday: String
+    let microchipNumber: String
+    let arrivalDate: String
+    let weightGrams: Int?
+    let neuterStatus: PetNeuterStatus
+    let personalityTags: [String]
+    let note: String
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -17,6 +23,60 @@ struct PetProfileDraft: Encodable, Equatable {
         case breed
         case sex
         case birthday
+        case microchipNumber = "microchip_number"
+        case arrivalDate = "arrival_date"
+        case weightGrams = "weight_grams"
+        case neuterStatus = "neuter_status"
+        case personalityTags = "personality_tags"
+        case note
+    }
+
+    init(
+        name: String,
+        species: PetSpecies,
+        breed: String,
+        sex: PetSex,
+        birthday: String
+    ) {
+        self.init(
+            name: name,
+            species: species,
+            breed: breed,
+            sex: sex,
+            birthday: birthday,
+            microchipNumber: "",
+            arrivalDate: "",
+            weightGrams: nil,
+            neuterStatus: .unknown,
+            personalityTags: [],
+            note: ""
+        )
+    }
+
+    init(
+        name: String,
+        species: PetSpecies,
+        breed: String,
+        sex: PetSex,
+        birthday: String,
+        microchipNumber: String = "",
+        arrivalDate: String = "",
+        weightGrams: Int? = nil,
+        neuterStatus: PetNeuterStatus = .unknown,
+        personalityTags: [String] = [],
+        note: String = ""
+    ) {
+        self.name = name
+        self.species = species
+        self.breed = breed
+        self.sex = sex
+        self.birthday = birthday
+        self.microchipNumber = microchipNumber
+        self.arrivalDate = arrivalDate
+        self.weightGrams = weightGrams
+        self.neuterStatus = neuterStatus
+        self.personalityTags = personalityTags
+        self.note = note
     }
 
     func encode(to encoder: Encoder) throws {
@@ -26,6 +86,12 @@ struct PetProfileDraft: Encodable, Equatable {
         try encodeOptionalText(breed, key: .breed, into: &container)
         try container.encode(sex, forKey: .sex)
         try encodeOptionalText(birthday, key: .birthday, into: &container)
+        try encodeOptionalText(microchipNumber, key: .microchipNumber, into: &container)
+        try encodeOptionalText(arrivalDate, key: .arrivalDate, into: &container)
+        try container.encodeIfPresent(weightGrams, forKey: .weightGrams)
+        try container.encode(neuterStatus, forKey: .neuterStatus)
+        try container.encode(personalityTags, forKey: .personalityTags)
+        try encodeOptionalText(note, key: .note, into: &container)
     }
 
     private func encodeOptionalText(

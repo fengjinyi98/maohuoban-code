@@ -289,6 +289,14 @@ struct PetProfileHeroMediaPreviewContent: View {
                     .resizable()
                     .scaledToFill()
             }
+        case .remoteImage(let urlString, let fallbackAssetName):
+            if let url = MHBBackendEndpoint.resolve(urlString) {
+                MHBRemoteImage(url: url, contentMode: .fill) {
+                    fallbackImage(fallbackAssetName)
+                }
+            } else {
+                fallbackImage(fallbackAssetName)
+            }
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
                 MHBMutedLoopingVideoView(
@@ -302,6 +310,28 @@ struct PetProfileHeroMediaPreviewContent: View {
             } else {
                 fallbackColor
             }
+        case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
+            if let url = MHBBackendEndpoint.resolve(urlString) {
+                MHBMutedLoopingVideoView(url: url)
+            } else if let fallbackImageURLString,
+                      let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
+                MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
+                    fallbackImage(fallbackImageAssetName)
+                }
+            } else {
+                fallbackImage(fallbackImageAssetName)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fallbackImage(_ assetName: String?) -> some View {
+        if let assetName, assetName.isEmpty == false {
+            Image(assetName)
+                .resizable()
+                .scaledToFill()
+        } else {
+            fallbackColor
         }
     }
 }

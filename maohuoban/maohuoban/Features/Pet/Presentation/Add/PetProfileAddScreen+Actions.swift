@@ -45,6 +45,22 @@ extension PetProfileAddScreen {
         return trimmedWeight.isEmpty ? "暂未记录" : "\(trimmedWeight) kg"
     }
 
+    var submitWeightGrams: Int? {
+        let trimmedWeight = weight.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmedWeight), value > 0 else {
+            return nil
+        }
+        return Int((value * 1000).rounded())
+    }
+
+    var submitNeuterStatus: PetNeuterStatus {
+        switch neuterStatus {
+        case "已绝育": .neutered
+        case "未绝育": .intact
+        default: .unknown
+        }
+    }
+
     func showNameEditor() {
         dismissSelectionMenus()
         nameEditorDraft = name
@@ -283,17 +299,23 @@ extension PetProfileAddScreen {
                 species: species,
                 breed: "",
                 sex: sex,
-                birthday: PetWriteFormatters.birthdayString(from: birthDate)
+                birthday: PetWriteFormatters.birthdayString(from: birthDate),
+                microchipNumber: chipNumber,
+                arrivalDate: formattedDate(arrivalDate),
+                weightGrams: submitWeightGrams,
+                neuterStatus: submitNeuterStatus,
+                personalityTags: personalityTags,
+                note: note
             ),
             mediaDrafts: await addPetMediaDrafts(),
             currentUserID: currentUserID
         )
 
-        if case .createdPet = store.phase {
-            onCreated()
+        if case .createdPet(let petID) = store.phase {
+            onCreated(petID)
         }
-        if case .createdPetWithPartialMedia = store.phase {
-            onCreated()
+        if case .createdPetWithPartialMedia(let petID) = store.phase {
+            onCreated(petID)
         }
     }
 }

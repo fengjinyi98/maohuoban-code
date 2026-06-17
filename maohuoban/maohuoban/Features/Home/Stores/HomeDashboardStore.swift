@@ -20,6 +20,21 @@ final class HomeDashboardStore {
         self.repository = repository
     }
 
+    // load 加载首页聚合快照
+    // 核心职责：
+    // - 为测试和旧调用点提供稳定的两参入口
+    // - 复用带 force 参数的主加载流程
+    func load(
+        currentUserID: String? = nil,
+        selectedPetID: String? = nil
+    ) async {
+        await load(
+            currentUserID: currentUserID,
+            selectedPetID: selectedPetID,
+            force: false
+        )
+    }
+
     func load(
         currentUserID: String? = nil,
         selectedPetID: String? = nil,

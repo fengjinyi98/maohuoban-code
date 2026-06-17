@@ -128,6 +128,33 @@ final class HomeDashboardDecodingTests: XCTestCase {
     }
 
     @MainActor
+    func testEditProfileMappingKeepsRemoteHeroImageURL() throws {
+        let pet = HomeDashboardSnapshot.PetHeroSummary(
+            id: "pet-1",
+            name: "糯米",
+            species: .dog,
+            breed: "比熊犬",
+            sex: .female,
+            ageText: "2岁",
+            statusText: "记录正在形成可信档案",
+            updatedText: "档案已同步",
+            avatarURL: "/api/v1/media/assets/avatar-1/content",
+            heroImageURL: "/api/v1/media/assets/background-1/content",
+            heroImageAssetName: "HomePetHeroMock"
+        )
+
+        let profile = HomePetProfileEditMapper.editProfile(for: pet)
+
+        XCTAssertEqual(profile.avatarURL, "/api/v1/media/assets/avatar-1/content")
+        if case let .remoteImage(urlString, fallbackAssetName) = profile.heroMedia {
+            XCTAssertEqual(urlString, "/api/v1/media/assets/background-1/content")
+            XCTAssertEqual(fallbackAssetName, "HomePetHeroMock")
+        } else {
+            XCTFail("edit profile should keep remote hero image")
+        }
+    }
+
+    @MainActor
     func testMerchantDashboardJSONDecodesIntoSnapshot() throws {
         let data = Data(
             #"""

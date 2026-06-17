@@ -8,7 +8,7 @@ import UIKit
 // - 隐藏平台生成的宠物档案号，提交后由后端生成
 struct PetProfileAddScreen: View {
     let currentUserID: String?
-    let onCreated: () -> Void
+    let onCreated: (String) -> Void
 
     @State var store = PetWriteStore()
     @State var name = ""

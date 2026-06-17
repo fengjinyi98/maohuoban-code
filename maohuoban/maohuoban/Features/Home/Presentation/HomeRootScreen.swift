@@ -68,7 +68,10 @@ struct HomeRootScreen: View {
             HomeRouteDestinationScreen(
                 route: route,
                 currentUserID: currentUserID
-            ) {
+            ) { mutatedPetID in
+                if let mutatedPetID {
+                    selectedPetID = mutatedPetID
+                }
                 Task {
                     await store.load(
                         currentUserID: currentUserID,
@@ -78,6 +81,11 @@ struct HomeRootScreen: View {
                 }
             }
             .toolbar(.visible, for: .navigationBar)
+        }
+        .onChange(of: store.phase) { _, phase in
+            if case .loaded(let snapshot) = phase {
+                selectedPetID = snapshot.selectedPet?.id
+            }
         }
     }
 

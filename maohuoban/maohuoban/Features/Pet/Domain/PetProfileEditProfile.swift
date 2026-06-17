@@ -21,7 +21,9 @@ struct PetProfileEditProfile: Hashable, Identifiable {
 
     enum HeroMedia: Hashable {
         case image(assetName: String)
+        case remoteImage(urlString: String, fallbackAssetName: String)
         case video(resourceName: String, fileExtension: String, fallbackImageAssetName: String?)
+        case remoteVideo(urlString: String, fallbackImageURLString: String?, fallbackImageAssetName: String?)
     }
 
     let id: String

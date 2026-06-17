@@ -26,6 +26,8 @@ struct PetProfileHomePreviewContext {
             statusText: noteText == "暂无" ? "档案预览中" : noteText,
             updatedText: "预览中",
             avatarURL: profile.avatarURL,
+            heroImageURL: heroMedia.imageURLString,
+            heroVideoURL: heroMedia.videoURLString,
             heroImageAssetName: heroMedia.imageAssetName,
             heroVideoResourceName: heroMedia.videoResourceName,
             birthday: Self.normalizedDateText(birthDateText),
@@ -55,15 +57,19 @@ struct PetProfileHomePreviewContext {
 
     private static func homeHeroMedia(
         from media: PetProfileEditProfile.HeroMedia
-    ) -> (imageAssetName: String?, videoResourceName: String?) {
+    ) -> (imageURLString: String?, imageAssetName: String?, videoURLString: String?, videoResourceName: String?) {
         switch media {
         case .image(let assetName):
-            return (assetName, nil)
+            return (nil, assetName, nil, nil)
+        case .remoteImage(let urlString, let fallbackAssetName):
+            return (urlString, fallbackAssetName, nil, nil)
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             guard fileExtension.lowercased() == "mp4" else {
-                return (fallbackImageAssetName, nil)
+                return (nil, fallbackImageAssetName, nil, nil)
             }
-            return (fallbackImageAssetName, resourceName)
+            return (nil, fallbackImageAssetName, nil, resourceName)
+        case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
+            return (fallbackImageURLString, fallbackImageAssetName, urlString, nil)
         }
     }
 

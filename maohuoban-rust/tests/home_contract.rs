@@ -378,6 +378,43 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
 }
 
 #[tokio::test]
+async fn home_dashboard_derives_companionship_days_from_arrival_date() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138228").await;
+    let arrival_date = chrono::Utc::now().date_naive() - chrono::Duration::days(5);
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶油",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": "2024-03-20",
+                "arrival_date": arrival_date.to_string()
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet with arrival date");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["arrival_date"],
+        arrival_date.to_string()
+    );
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["companionship_days"],
+        5
+    );
+}
+
+#[tokio::test]
 async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;

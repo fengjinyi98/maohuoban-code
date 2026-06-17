@@ -75,15 +75,15 @@ extension PetProfileEditScreen {
 
     func updateSexText(_ sexText: String) {
         guard let profileID = sexPickerProfileID else { return }
-        editedSexTexts[profileID] = sexText
-        isSexPickerPresented = false
-        sexPickerProfileID = nil
+        Task {
+            await saveSexText(sexText, for: profileID)
+        }
     }
 
     func updateNeuterStatusText(_ neuterStatusText: String) {
         guard let profileID = neuterStatusPickerProfileID else { return }
-        editedNeuterStatusTexts[profileID] = neuterStatusText
-        isNeuterStatusPickerPresented = false
-        neuterStatusPickerProfileID = nil
+        Task {
+            await saveNeuterStatusText(neuterStatusText, for: profileID)
+        }
     }
 }

@@ -19,12 +19,6 @@ struct PetCreateScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                PetWriteStatusSection(
-                    phase: store.phase,
-                    successMessage: store.successMessage,
-                    derivativeMessage: nil
-                )
-
                 PetCreateIdentityFields(name: $name, breed: $breed)
                 PetCreateClassificationFields(
                     species: $species,

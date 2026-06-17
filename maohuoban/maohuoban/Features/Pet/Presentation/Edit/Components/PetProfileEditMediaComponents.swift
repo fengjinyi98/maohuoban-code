@@ -36,7 +36,7 @@ struct PetProfileEditAvatarImage: View {
                 .scaledToFill()
                 .frame(width: size, height: size)
                 .clipShape(Circle())
-        } else if let avatarURL, let url = URL(string: avatarURL) {
+        } else if let avatarURL, let url = MHBBackendEndpoint.resolve(avatarURL) {
             MHBRemoteImage(url: url, contentMode: .fill) {
                 fallbackAvatar
             }
@@ -94,6 +94,11 @@ struct PetProfileEditMediaThumbnail: View {
             return true
         }
 
+        if localMedia == nil,
+           case .remoteVideo = media {
+            return true
+        }
+
         return false
     }
 
@@ -114,6 +119,18 @@ struct PetProfileEditMediaThumbnail: View {
                 Image(assetName)
                     .resizable()
                     .scaledToFill()
+            case .remoteImage(let urlString, let fallbackAssetName):
+                if let url = MHBBackendEndpoint.resolve(urlString) {
+                    MHBRemoteImage(url: url, contentMode: .fill) {
+                        Image(fallbackAssetName)
+                            .resizable()
+                            .scaledToFill()
+                    }
+                } else {
+                    Image(fallbackAssetName)
+                        .resizable()
+                        .scaledToFill()
+                }
             case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
                 if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
                     MHBMutedLoopingVideoView(
@@ -127,7 +144,29 @@ struct PetProfileEditMediaThumbnail: View {
                 } else {
                     MHBTheme.ColorToken.primaryBackground.color
                 }
+            case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
+                if let url = MHBBackendEndpoint.resolve(urlString) {
+                    MHBMutedLoopingVideoView(url: url)
+                } else if let fallbackImageURLString,
+                          let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
+                    MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
+                        fallbackRemoteVideoImage(fallbackImageAssetName)
+                    }
+                } else {
+                    fallbackRemoteVideoImage(fallbackImageAssetName)
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func fallbackRemoteVideoImage(_ assetName: String?) -> some View {
+        if let assetName {
+            Image(assetName)
+                .resizable()
+                .scaledToFill()
+        } else {
+            MHBTheme.ColorToken.primaryBackground.color
         }
     }
 }

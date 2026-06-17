@@ -12,7 +12,9 @@ extension PetProfileEditScreen {
             .navigationDestination(isPresented: $isAddPetPresented) {
                 PetProfileAddScreen(
                     currentUserID: currentUserID,
-                    onCreated: onPetCreated
+                    onCreated: { _ in
+                        onPetCreated()
+                    }
                 )
             }
             .fullScreenCover(
@@ -72,15 +74,6 @@ extension PetProfileEditScreen {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("保存") {
-                        Task {
-                            await submitProfile(profile)
-                        }
-                    }
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.primary.color.opacity(canSave ? 1 : 0.35))
-                    .disabled(!canSave)
-
                     Button("预览") {
                         showHomePreview(for: profile)
                     }
@@ -123,9 +116,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = nameEditorProfileID else { return }
-                        editedNames[profileID] = nameEditorDraft
-                        isNameEditorChevronExpanded = false
-                        isNameEditorPresented = false
+                        Task {
+                            await saveName(for: profileID)
+                        }
                     }
                 )
             }
@@ -154,9 +147,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = chipEditorProfileID else { return }
-                        editedChipNumbers[profileID] = chipEditorDraft
-                        isChipEditorChevronExpanded = false
-                        isChipEditorPresented = false
+                        Task {
+                            await saveChipNumber(for: profileID)
+                        }
                     }
                 )
             }
@@ -175,9 +168,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = birthDateEditorProfileID else { return }
-                        editedBirthDates[profileID] = birthDateEditorDraft
-                        isBirthDateEditorChevronExpanded = false
-                        isBirthDateEditorPresented = false
+                        Task {
+                            await saveBirthDate(for: profileID)
+                        }
                     }
                 )
             }
@@ -196,9 +189,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = arrivalDateEditorProfileID else { return }
-                        editedArrivalDates[profileID] = arrivalDateEditorDraft
-                        isArrivalDateEditorChevronExpanded = false
-                        isArrivalDateEditorPresented = false
+                        Task {
+                            await saveArrivalDate(for: profileID)
+                        }
                     }
                 )
             }
@@ -216,9 +209,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = weightEditorProfileID else { return }
-                        editedWeights[profileID] = weightEditorDraft
-                        isWeightEditorChevronExpanded = false
-                        isWeightEditorPresented = false
+                        Task {
+                            await saveWeight(for: profileID)
+                        }
                     }
                 )
             }
@@ -237,9 +230,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = tagsEditorProfileID else { return }
-                        editedPersonalityTags[profileID] = tagsEditorDraft
-                        isTagsEditorChevronExpanded = false
-                        isTagsEditorPresented = false
+                        Task {
+                            await savePersonalityTags(for: profileID)
+                        }
                     }
                 )
             }
@@ -257,9 +250,9 @@ extension PetProfileEditScreen {
                     },
                     onSave: {
                         guard let profileID = noteEditorProfileID else { return }
-                        editedNotes[profileID] = noteEditorDraft
-                        isNoteEditorChevronExpanded = false
-                        isNoteEditorPresented = false
+                        Task {
+                            await saveNote(for: profileID)
+                        }
                     }
                 )
             }

@@ -119,7 +119,7 @@ struct PetProfileAvatarPreviewScreen: View {
                 .scaledToFill()
                 .frame(width: 320, height: 320)
                 .clipShape(Circle())
-        } else if let avatarURL, let url = URL(string: avatarURL) {
+        } else if let avatarURL, let url = MHBBackendEndpoint.resolve(avatarURL) {
             MHBRemoteImage(url: url, contentMode: .fill) {
                 fallbackAvatar
             }

@@ -2,15 +2,100 @@ import UIKit
 
 extension PetProfileEditScreen {
     func submitProfile(_ profile: PetProfileEditProfile) async {
-        await store.updatePet(
+        _ = await saveProfileDraft(
             petID: profile.id,
-            draft: updateDraft(for: profile),
-            currentUserID: currentUserID
+            draft: updateDraft(for: profile)
         )
+    }
 
-        if case .updatedPet = store.phase {
-            onPetCreated()
-        }
+    func saveName(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, name: nameEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedNames[profileID] = nameEditorDraft
+        isNameEditorChevronExpanded = false
+        isNameEditorPresented = false
+    }
+
+    func saveChipNumber(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, chipNumber: chipEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedChipNumbers[profileID] = chipEditorDraft
+        isChipEditorChevronExpanded = false
+        isChipEditorPresented = false
+    }
+
+    func saveBirthDate(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, birthDate: birthDateEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedBirthDates[profileID] = birthDateEditorDraft
+        isBirthDateEditorChevronExpanded = false
+        isBirthDateEditorPresented = false
+    }
+
+    func saveArrivalDate(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, arrivalDate: arrivalDateEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedArrivalDates[profileID] = arrivalDateEditorDraft
+        isArrivalDateEditorChevronExpanded = false
+        isArrivalDateEditorPresented = false
+    }
+
+    func saveWeight(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, weightText: weightEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedWeights[profileID] = weightEditorDraft
+        isWeightEditorChevronExpanded = false
+        isWeightEditorPresented = false
+    }
+
+    func savePersonalityTags(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, personalityTags: tagsEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedPersonalityTags[profileID] = tagsEditorDraft
+        isTagsEditorChevronExpanded = false
+        isTagsEditorPresented = false
+    }
+
+    func saveNote(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, note: noteEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedNotes[profileID] = noteEditorDraft
+        isNoteEditorChevronExpanded = false
+        isNoteEditorPresented = false
+    }
+
+    func saveSexText(_ sexText: String, for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, sexText: sexText)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedSexTexts[profileID] = sexText
+        isSexPickerPresented = false
+        sexPickerProfileID = nil
+    }
+
+    func saveNeuterStatusText(_ neuterStatusText: String, for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, neuterStatusText: neuterStatusText)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedNeuterStatusTexts[profileID] = neuterStatusText
+        isNeuterStatusPickerPresented = false
+        neuterStatusPickerProfileID = nil
     }
 
     func saveAvatar(_ image: UIImage, for profileID: String) async -> Bool {
@@ -83,20 +168,53 @@ extension PetProfileEditScreen {
         }
     }
 
-    func updateDraft(for profile: PetProfileEditProfile) -> PetProfileUpdateDraft {
+    func updateDraft(
+        for profile: PetProfileEditProfile,
+        name: String? = nil,
+        chipNumber: String? = nil,
+        sexText: String? = nil,
+        birthDate: Date? = nil,
+        arrivalDate: Date? = nil,
+        weightText: String? = nil,
+        neuterStatusText: String? = nil,
+        personalityTags: [String]? = nil,
+        note: String? = nil
+    ) -> PetProfileUpdateDraft {
         PetProfileUpdateDraft(
-            name: displayName(for: profile),
+            name: name ?? displayName(for: profile),
             species: PetSpecies(rawValue: profile.species.rawValue) ?? .other,
             breed: "",
-            sex: petSex(from: displaySexText(for: profile)),
-            birthday: optionalDateText(displayBirthDateText(for: profile)),
-            microchipNumber: displayChipNumber(for: profile),
-            arrivalDate: optionalDateText(displayArrivalDateText(for: profile)),
-            weightGrams: weightGrams(from: displayWeightText(for: profile)),
-            neuterStatus: petNeuterStatus(from: displayNeuterStatusText(for: profile)),
-            personalityTags: displayPersonalityTags(for: profile),
-            note: optionalNoteText(displayNoteText(for: profile))
+            sex: petSex(from: sexText ?? displaySexText(for: profile)),
+            birthday: optionalDateText(birthDate.map(formattedDate) ?? displayBirthDateText(for: profile)),
+            microchipNumber: chipNumber ?? displayChipNumber(for: profile),
+            arrivalDate: optionalDateText(arrivalDate.map(formattedDate) ?? displayArrivalDateText(for: profile)),
+            weightGrams: weightGrams(from: weightText ?? displayWeightText(for: profile)),
+            neuterStatus: petNeuterStatus(from: neuterStatusText ?? displayNeuterStatusText(for: profile)),
+            personalityTags: personalityTags ?? displayPersonalityTags(for: profile),
+            note: optionalNoteText(note ?? displayNoteText(for: profile))
         )
+    }
+
+    func profile(for profileID: String) -> PetProfileEditProfile? {
+        context.profiles.first(where: { $0.id == profileID })
+    }
+
+    func saveProfileDraft(
+        petID: String,
+        draft: PetProfileUpdateDraft
+    ) async -> Bool {
+        await store.updatePet(
+            petID: petID,
+            draft: draft,
+            currentUserID: currentUserID
+        )
+
+        if case .updatedPet = store.phase {
+            onPetCreated()
+            return true
+        }
+
+        return false
     }
 
     func avatarUploadDraft(from image: UIImage, profileID: String) -> PetMediaUploadDraft? {
