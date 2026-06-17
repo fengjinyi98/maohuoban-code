@@ -8,7 +8,11 @@ extension PetProfileAddScreen {
             ZStack(alignment: .topLeading) {
                 MHBScreenScrollView {
                     VStack(spacing: MHBTheme.Spacing.s6) {
-                        PetProfileAddAvatarHeader(species: species)
+                        PetProfileAddAvatarHeader(
+                            species: species,
+                            localAvatarImage: localAvatarImage,
+                            action: showAvatarEntry
+                        )
 
                         PetWriteStatusSection(
                             phase: store.phase,
@@ -43,8 +47,19 @@ extension PetProfileAddScreen {
                                     PetProfileAddValueText(value: chipNumber.isEmpty ? "未添加" : chipNumber)
                                 }
 
-                                PetProfileAddRow(title: "背景", showsSeparator: false) {
-                                    PetProfileAddValueText(value: "未设置")
+                                PetProfileAddRow(
+                                    title: "背景",
+                                    showsSeparator: false,
+                                    action: showBackgroundEntry
+                                ) {
+                                    if let localHeroMedia {
+                                        PetProfileEditMediaThumbnail(
+                                            media: addPetFallbackHeroMedia,
+                                            localMedia: localHeroMedia
+                                        )
+                                    } else {
+                                        PetProfileAddValueText(value: "未设置")
+                                    }
                                 }
                             }
 
@@ -173,6 +188,70 @@ extension PetProfileAddScreen {
                 .foregroundStyle(MHBTheme.ColorToken.primary.color.opacity(canSave ? 1 : 0.35))
                 .disabled(!canSave || store.isSubmitting)
             }
+        }
+        .fullScreenCover(isPresented: $isAvatarPreviewPresented) {
+            PetProfileAvatarPreviewScreen(
+                petName: addPetPreviewName,
+                avatarURL: nil,
+                species: addPetPreviewSpecies,
+                localAvatarImage: localAvatarImage,
+                onAvatarUpdated: saveLocalAvatar
+            )
+        }
+        .fullScreenCover(isPresented: $isBackgroundPreviewPresented) {
+            PetProfileBackgroundPreviewScreen(
+                petName: addPetPreviewName,
+                heroMedia: addPetFallbackHeroMedia,
+                localHeroMedia: localHeroMedia,
+                onHeroMediaUpdated: saveLocalHeroMedia
+            )
+        }
+        .sheet(isPresented: $isAvatarPickerPresented) {
+            MHBSystemMediaPicker(
+                request: .singleImage,
+                onComplete: { result in
+                    isAvatarPickerPresented = false
+                    handleAvatarPickerResult(result)
+                },
+                onCancel: {
+                    isAvatarPickerPresented = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $isBackgroundPickerPresented) {
+            MHBSystemMediaPicker(
+                request: MHBMediaPickerRequest(maxSelectionCount: 1, filter: .all),
+                onComplete: { result in
+                    isBackgroundPickerPresented = false
+                    handleBackgroundPickerResult(result)
+                },
+                onCancel: {
+                    isBackgroundPickerPresented = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .fullScreenCover(item: $avatarCropTarget) { target in
+            MHBCircularImageCropScreen(
+                originalImage: target.image,
+                title: "裁剪宠物头像",
+                onCancel: {
+                    avatarCropTarget = nil
+                },
+                onSave: handleCroppedAvatar
+            )
+        }
+        .fullScreenCover(item: $backgroundCropTarget) { target in
+            MHBRectImageCropScreen(
+                originalImage: target.image,
+                title: "裁剪宠物背景",
+                cropAspectRatio: addPetBackgroundCropAspectRatio,
+                onCancel: {
+                    backgroundCropTarget = nil
+                },
+                onSave: handleCroppedBackgroundImage
+            )
         }
         .sheet(
             isPresented: $isNameEditorPresented,

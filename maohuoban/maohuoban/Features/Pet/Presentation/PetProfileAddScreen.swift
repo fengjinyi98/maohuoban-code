@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // PetProfileAddScreen 添加宠物档案页
 // 核心职责：
@@ -20,6 +21,14 @@ struct PetProfileAddScreen: View {
     @State var neuterStatus = "未绝育"
     @State var personalityTags: [String] = []
     @State var note = ""
+    @State var localAvatarImage: UIImage?
+    @State var localHeroMedia: PetProfileHeroMediaDraft?
+    @State var isAvatarPreviewPresented = false
+    @State var isBackgroundPreviewPresented = false
+    @State var isAvatarPickerPresented = false
+    @State var isBackgroundPickerPresented = false
+    @State var avatarCropTarget: MHBIdentifiableUIImage?
+    @State var backgroundCropTarget: MHBIdentifiableUIImage?
     @State var nameEditorDraft = ""
     @State var isNameEditorPresented = false
     @State var isNameEditorChevronExpanded = false

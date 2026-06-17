@@ -1,7 +1,29 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 extension PetProfileAddScreen {
+    var addPetPreviewName: String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedName.isEmpty ? "新宠物" : trimmedName
+    }
+
+    var addPetPreviewSpecies: PetProfileEditProfile.Species {
+        switch species {
+        case .dog: .dog
+        case .cat: .cat
+        case .other: .other
+        }
+    }
+
+    var addPetFallbackHeroMedia: PetProfileEditProfile.HeroMedia {
+        .image(assetName: "")
+    }
+
+    var addPetBackgroundCropAspectRatio: CGFloat {
+        CGFloat(393.0 / 440.0)
+    }
+
     var speciesDisplayText: String {
         switch species {
         case .dog: "狗狗"
@@ -70,6 +92,69 @@ extension PetProfileAddScreen {
         noteEditorDraft = note
         isNoteEditorChevronExpanded = true
         isNoteEditorPresented = true
+    }
+
+    func showAvatarEntry() {
+        dismissSelectionMenus()
+
+        switch PetProfileAddMediaRoute.avatar(hasLocalAvatar: localAvatarImage != nil) {
+        case .picker:
+            isAvatarPickerPresented = true
+        case .preview:
+            isAvatarPreviewPresented = true
+        }
+    }
+
+    func showBackgroundEntry() {
+        dismissSelectionMenus()
+
+        switch PetProfileAddMediaRoute.background(hasLocalHeroMedia: localHeroMedia != nil) {
+        case .picker:
+            isBackgroundPickerPresented = true
+        case .preview:
+            isBackgroundPreviewPresented = true
+        }
+    }
+
+    func handleAvatarPickerResult(_ result: MHBMediaPickerResult) {
+        guard let image = result.images.first else {
+            return
+        }
+
+        avatarCropTarget = MHBIdentifiableUIImage(image: image)
+    }
+
+    func handleBackgroundPickerResult(_ result: MHBMediaPickerResult) {
+        if let image = result.images.first {
+            backgroundCropTarget = MHBIdentifiableUIImage(image: image)
+            return
+        }
+
+        guard let video = result.videos.first else {
+            return
+        }
+
+        localHeroMedia = .video(video.url)
+    }
+
+    func handleCroppedAvatar(_ image: UIImage) {
+        avatarCropTarget = nil
+        localAvatarImage = image
+    }
+
+    func handleCroppedBackgroundImage(_ image: UIImage) {
+        backgroundCropTarget = nil
+        localHeroMedia = .image(image)
+    }
+
+    func saveLocalAvatar(_ image: UIImage) async -> Bool {
+        localAvatarImage = image
+        return true
+    }
+
+    func saveLocalHeroMedia(_ media: PetProfileHeroMediaDraft) async -> Bool {
+        localHeroMedia = media
+        return true
     }
 
     func toggleSpeciesMenu() {
