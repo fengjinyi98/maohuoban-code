@@ -1,5 +1,25 @@
 import Foundation
 
+// PetWriteTextNormalizer 宠物写入文本规范化
+// 核心职责：
+// - 统一宠物名称和品种提交前的空白处理
+// - 保持 iOS 请求体与后端写入契约一致
+private enum PetWriteTextNormalizer {
+    static func compactText(_ value: String) -> String {
+        value.filter { !$0.isWhitespace }
+    }
+
+    static func optionalText(_ value: String) -> String? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+
+    static func optionalCompactText(_ value: String) -> String? {
+        let compactValue = compactText(value)
+        return compactValue.isEmpty ? nil : compactValue
+    }
+}
+
 // PetProfileDraft 宠物档案创建草稿
 // 核心职责：
 // - 承载创建宠物接口所需输入
@@ -81,9 +101,9 @@ struct PetProfileDraft: Encodable, Equatable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .name)
+        try container.encode(PetWriteTextNormalizer.compactText(name), forKey: .name)
         try container.encode(species, forKey: .species)
-        try encodeOptionalText(breed, key: .breed, into: &container)
+        try encodeOptionalCompactText(breed, key: .breed, into: &container)
         try container.encode(sex, forKey: .sex)
         try encodeOptionalText(birthday, key: .birthday, into: &container)
         try encodeOptionalText(microchipNumber, key: .microchipNumber, into: &container)
@@ -99,11 +119,22 @@ struct PetProfileDraft: Encodable, Equatable {
         key: CodingKeys,
         into container: inout KeyedEncodingContainer<CodingKeys>
     ) throws {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedValue.isEmpty {
-            try container.encodeNil(forKey: key)
+        if let normalizedValue = PetWriteTextNormalizer.optionalText(value) {
+            try container.encode(normalizedValue, forKey: key)
         } else {
-            try container.encode(trimmedValue, forKey: key)
+            try container.encodeNil(forKey: key)
+        }
+    }
+
+    private func encodeOptionalCompactText(
+        _ value: String,
+        key: CodingKeys,
+        into container: inout KeyedEncodingContainer<CodingKeys>
+    ) throws {
+        if let normalizedValue = PetWriteTextNormalizer.optionalCompactText(value) {
+            try container.encode(normalizedValue, forKey: key)
+        } else {
+            try container.encodeNil(forKey: key)
         }
     }
 }
@@ -297,9 +328,9 @@ struct PetProfileUpdateDraft: Encodable, Equatable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .name)
+        try container.encode(PetWriteTextNormalizer.compactText(name), forKey: .name)
         try container.encode(species, forKey: .species)
-        try encodeOptionalText(breed, key: .breed, into: &container)
+        try encodeOptionalCompactText(breed, key: .breed, into: &container)
         try container.encode(sex, forKey: .sex)
         try encodeOptionalText(birthday, key: .birthday, into: &container)
         try encodeOptionalText(microchipNumber, key: .microchipNumber, into: &container)
@@ -315,11 +346,22 @@ struct PetProfileUpdateDraft: Encodable, Equatable {
         key: CodingKeys,
         into container: inout KeyedEncodingContainer<CodingKeys>
     ) throws {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedValue.isEmpty {
-            try container.encodeNil(forKey: key)
+        if let normalizedValue = PetWriteTextNormalizer.optionalText(value) {
+            try container.encode(normalizedValue, forKey: key)
         } else {
-            try container.encode(trimmedValue, forKey: key)
+            try container.encodeNil(forKey: key)
+        }
+    }
+
+    private func encodeOptionalCompactText(
+        _ value: String,
+        key: CodingKeys,
+        into container: inout KeyedEncodingContainer<CodingKeys>
+    ) throws {
+        if let normalizedValue = PetWriteTextNormalizer.optionalCompactText(value) {
+            try container.encode(normalizedValue, forKey: key)
+        } else {
+            try container.encodeNil(forKey: key)
         }
     }
 }
@@ -645,9 +687,9 @@ struct TradePetImportDraft: Encodable, Equatable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .name)
+        try container.encode(PetWriteTextNormalizer.compactText(name), forKey: .name)
         try container.encode(species, forKey: .species)
-        try encodeOptionalText(breed, key: .breed, into: &container)
+        try encodeOptionalCompactText(breed, key: .breed, into: &container)
         try container.encode(sex, forKey: .sex)
         try encodeOptionalText(birthday, key: .birthday, into: &container)
         try container.encode(sellerName.trimmingCharacters(in: .whitespacesAndNewlines), forKey: .sellerName)
@@ -661,11 +703,22 @@ struct TradePetImportDraft: Encodable, Equatable {
         key: CodingKeys,
         into container: inout KeyedEncodingContainer<CodingKeys>
     ) throws {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedValue.isEmpty {
-            try container.encodeNil(forKey: key)
+        if let normalizedValue = PetWriteTextNormalizer.optionalText(value) {
+            try container.encode(normalizedValue, forKey: key)
         } else {
-            try container.encode(trimmedValue, forKey: key)
+            try container.encodeNil(forKey: key)
+        }
+    }
+
+    private func encodeOptionalCompactText(
+        _ value: String,
+        key: CodingKeys,
+        into container: inout KeyedEncodingContainer<CodingKeys>
+    ) throws {
+        if let normalizedValue = PetWriteTextNormalizer.optionalCompactText(value) {
+            try container.encode(normalizedValue, forKey: key)
+        } else {
+            try container.encodeNil(forKey: key)
         }
     }
 }

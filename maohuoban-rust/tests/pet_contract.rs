@@ -304,6 +304,107 @@ async fn pet_profile_event_and_timeline_are_persisted() {
 }
 
 #[tokio::test]
+async fn pet_profile_create_normalizes_name_and_breed_whitespace() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138111").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶  盖 宝 宝 兔 兔",
+                "species": "cat",
+                "breed": "英 国 长 毛 猫 稀 有 毛 色 版 本",
+                "sex": "female",
+                "birthday": "2024-04-01"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let body = response_json(create_pet_response).await;
+    assert_eq!(body["data"]["name"], "奶盖宝宝兔兔");
+    assert_eq!(body["data"]["breed"], "英国长毛猫稀有毛色版本");
+}
+
+#[tokio::test]
+async fn pet_profile_update_allows_six_name_characters_after_whitespace_normalization() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138112").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "汤圆",
+                "species": "dog",
+                "sex": "male"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let update_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({
+                "name": "奶 盖 宝 宝 兔 兔",
+                "breed": "超 长 长 长 长 长 长 长 长 长 长 品 种"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("update pet");
+
+    assert_eq!(update_response.status(), StatusCode::OK);
+    let body = response_json(update_response).await;
+    assert_eq!(body["data"]["name"], "奶盖宝宝兔兔");
+    assert_eq!(body["data"]["breed"], "超长长长长长长长长长长品种");
+}
+
+#[tokio::test]
+async fn pet_profile_rejects_name_over_six_non_whitespace_characters() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138113").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "一 二 三 四 五 六 七",
+                "species": "cat",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+
+    assert_eq!(create_pet_response.status(), StatusCode::BAD_REQUEST);
+    let body = response_json(create_pet_response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "pet.invalid_input");
+    assert_eq!(body["message"], "宠物名称最多 6 个字");
+}
+
+#[tokio::test]
 async fn pet_event_detail_returns_current_user_event() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

@@ -13,17 +13,17 @@ struct PetProfileNameEditorSheet: View {
     let onWillDismiss: () -> Void
     let onSave: () -> Void
 
-    private let nameLimit = 5
+    private let nameLimit = 6
     private let invalidCharacterSet = CharacterSet(charactersIn: "@<>/")
 
-    private var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var normalizedName: String {
+        name.filter { !$0.isWhitespace }
     }
 
     private var isNameValid: Bool {
-        !trimmedName.isEmpty
-            && trimmedName.count <= nameLimit
-            && trimmedName.rangeOfCharacter(from: invalidCharacterSet) == nil
+        !normalizedName.isEmpty
+            && normalizedName.count <= nameLimit
+            && normalizedName.rangeOfCharacter(from: invalidCharacterSet) == nil
     }
 
     private var saveColor: Color {
@@ -44,7 +44,7 @@ struct PetProfileNameEditorSheet: View {
                             saveIfNeeded()
                         }
 
-                    Text("\(name.count)/\(nameLimit)")
+                    Text("\(normalizedName.count)/\(nameLimit)")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
                         .monospacedDigit()
@@ -96,8 +96,9 @@ struct PetProfileNameEditorSheet: View {
         .presentationDragIndicator(.visible)
         .background(MHBPresentationDismissObserver(onWillDismiss: onWillDismiss))
         .onChange(of: name) { _, newValue in
-            if newValue.count > nameLimit {
-                name = String(newValue.prefix(nameLimit))
+            let limitedName = limitedNameInput(newValue)
+            if limitedName != newValue {
+                name = limitedName
             }
         }
         .accessibilityIdentifier("pet.profileEdit.nameEditor.sheet")
@@ -105,9 +106,30 @@ struct PetProfileNameEditorSheet: View {
 
     private func saveIfNeeded() {
         guard isNameValid else { return }
-        name = trimmedName
+        name = normalizedName
         onWillDismiss()
         onSave()
         dismiss()
+    }
+
+    private func limitedNameInput(_ value: String) -> String {
+        var text = ""
+        var visibleCharacterCount = 0
+
+        for character in value {
+            if character.isWhitespace {
+                text.append(character)
+                continue
+            }
+
+            guard visibleCharacterCount < nameLimit else {
+                continue
+            }
+
+            text.append(character)
+            visibleCharacterCount += 1
+        }
+
+        return text
     }
 }

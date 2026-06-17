@@ -33,14 +33,18 @@ impl PetService {
         }
     }
 
-    pub async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
+    pub async fn create_pet_profile(&self, mut input: NewPetProfile) -> PetResult<PetProfile> {
+        input.name = normalize_compact_text(&input.name);
+        input.breed = normalize_optional_compact_text(input.breed);
         validate_pet_name(&input.name)?;
         validate_optional_microchip(input.microchip_number.as_deref())?;
         validate_optional_weight(input.weight_grams)?;
         self.repository.create_pet_profile(input).await
     }
 
-    pub async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
+    pub async fn update_pet_profile(&self, mut input: UpdatePetProfile) -> PetResult<PetProfile> {
+        input.name = input.name.map(|name| normalize_compact_text(&name));
+        input.breed = normalize_optional_compact_text(input.breed);
         if let Some(name) = input.name.as_deref() {
             validate_pet_name(name)?;
         }
@@ -113,7 +117,12 @@ impl PetService {
         self.repository.create_pet_event(input).await
     }
 
-    pub async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport> {
+    pub async fn import_trade_pet(
+        &self,
+        mut input: TradePetImportInput,
+    ) -> PetResult<TradePetImport> {
+        input.name = normalize_compact_text(&input.name);
+        input.breed = normalize_optional_compact_text(input.breed);
         validate_pet_name(&input.name)?;
         validate_text("来源方", &input.seller_name)?;
         self.repository.import_trade_pet(input).await
@@ -228,8 +237,10 @@ impl PetService {
     pub async fn create_merchant_pet(
         &self,
         owner_user_id: Uuid,
-        input: NewMerchantPetProfile,
+        mut input: NewMerchantPetProfile,
     ) -> PetResult<PetProfile> {
+        input.name = normalize_compact_text(&input.name);
+        input.breed = normalize_optional_compact_text(input.breed);
         validate_pet_name(&input.name)?;
         if input.managed_status == ManagedPetStatus::Family {
             return Err(PetError::InvalidInput("商家宠物状态无效".to_owned()));
@@ -305,12 +316,38 @@ fn validate_text(label: &str, value: &str) -> PetResult<()> {
     Ok(())
 }
 
+/// validate_pet_name 校验宠物名称
+/// 核心职责：
+/// - 按去除空白后的文字数限制名称长度
+/// - 输出稳定的领域错误文案
 fn validate_pet_name(value: &str) -> PetResult<()> {
-    validate_text("宠物名称", value)?;
-    if value.trim().chars().count() > 5 {
-        return Err(PetError::InvalidInput("宠物名称最多 5 个字".to_owned()));
+    let normalized = normalize_compact_text(value);
+    validate_text("宠物名称", &normalized)?;
+    if normalized.chars().count() > 6 {
+        return Err(PetError::InvalidInput("宠物名称最多 6 个字".to_owned()));
     }
     Ok(())
+}
+
+/// normalize_compact_text 去除文本内全部空白字符
+/// 核心职责：
+/// - 统一宠物名称和品种的写入规范
+/// - 让长度校验与最终持久化值保持一致
+fn normalize_compact_text(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect()
+}
+
+/// normalize_optional_compact_text 规范化可选紧凑文本
+/// 核心职责：
+/// - 去除文本内全部空白字符
+/// - 将空白结果映射为空值，避免持久化无意义文本
+fn normalize_optional_compact_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|text| normalize_compact_text(&text))
+        .filter(|text| !text.is_empty())
 }
 
 fn validate_optional_microchip(value: Option<&str>) -> PetResult<()> {
