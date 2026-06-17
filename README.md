@@ -32,7 +32,7 @@
 | iOS App | Swift 6.4 toolchain、SwiftUI、UIKit、iOS 27 SDK |
 | iOS 架构 | MVVM、单向数据流、模块化 DesignSystem |
 | 低层 UI 控制 | UIKit 承接导航、手势、输入、材质、宿主控制器等精细能力 |
-| 后端 | Rust 2024 edition、workspace crates、分层架构 |
+| 后端 | Rust 1.96 stable、Rust 2024 edition、workspace crates、分层架构 |
 | 诊断 | `maohuoban-diagnostics-sdk` |
 
 ## 目录结构
@@ -118,6 +118,8 @@ xcodebuild -scheme MaohuobanDesignSystem \
   -configuration Debug test
 
 # Rust 后端检查
+cargo fmt --all --check
+cargo check --workspace --all-targets
 cargo test --workspace
 cargo clippy --workspace --all-targets
 

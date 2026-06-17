@@ -2,6 +2,14 @@
 
 `maohuoban-diagnostics-sdk` 是独立诊断 SDK 目录，服务于 `maohuoban` App 和 `maohuoban-rust` 后端项目。
 
+## 技术基线
+
+| 项 | 规则 |
+| --- | --- |
+| Rust SDK / Collector | Rust 1.96 stable、Rust 2024 edition，继承 workspace `rust-version` |
+| Swift SDK | Swift 6.4 toolchain，随产品 App Debug 构建验证 |
+| Rust API 约定 | 校验值输出保持小写十六进制；测试形态断言可使用 `std::{assert_matches, debug_assert_matches}` |
+
 ## 架构边界
 
 | 目录 | 角色 |

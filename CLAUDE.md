@@ -22,8 +22,15 @@
 | SwiftUI | 用于声明式页面、状态驱动 UI、功能页面组合 |
 | UIKit | 用于导航、手势、输入、材质、宿主控制器、底层精细控制 |
 | iOS 架构 | MVVM、单向数据流、模块化基础设施 |
-| 后端 | Rust 2024 edition、分层架构、workspace 管理 |
+| 后端 | Rust 1.96 stable、Rust 2024 edition、分层架构、workspace 管理 |
 | 设计系统 | 主题 token 来源于 `docs/html/maohuoban-ui-design.html` |
+
+### 3.1 Rust 1.96 使用约定
+1. Rust 版本以根 `Cargo.toml` 的 `[workspace.package] rust-version` 为准；新增 workspace crate 必须使用 `edition.workspace = true` 和 `rust-version.workspace = true`。
+2. 测试中需要断言 `Result`、`Option`、枚举或错误类型形态时，优先使用 Rust 1.96 稳定的 `std::{assert_matches, debug_assert_matches}`，减少手写 `match + panic`。
+3. 新增全局惰性状态时，已知初始值或闭包初始化优先用 `std::sync::LazyLock`；需要外部显式安装、可延迟一次性写入的运行时句柄继续用 `OnceLock`。
+4. 表达小时级、分钟级时间策略时，优先使用 `Duration::from_hours` / `Duration::from_mins` 等语义化构造函数，避免手写秒数乘法。
+5. 新增代码必须在 Rust 1.96 下保持 `cargo clippy --workspace --all-targets` 无 warning。
 
 ## 4. 目录与文件规则
 
@@ -125,6 +132,8 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 |---|---|
 | iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
 | DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug test` |
+| Rust 格式 | `cargo fmt --all --check` |
+| Rust 编译 | `cargo check --workspace --all-targets` |
 | Rust 后端 | `cargo test --workspace` |
 | Rust lint | `cargo clippy --workspace --all-targets` |
 

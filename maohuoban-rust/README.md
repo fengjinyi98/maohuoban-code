@@ -2,6 +2,15 @@
 
 `maohuoban-rust` 是毛伙伴产品后端入口，当前承载认证系统与法务文档服务。工程采用 Rust workspace + 分层 crate，根 crate 只负责配置、迁移、依赖装配、路由聚合和运行时启动。
 
+## 技术基线
+
+| 项 | 规则 |
+|---|---|
+| Rust | `1.96` stable，根 `Cargo.toml` 的 `rust-version` 是 workspace MSRV 来源 |
+| Edition | Rust 2024 edition，新 crate 使用 `edition.workspace = true` |
+| 依赖解析 | Cargo resolver 3，新增 crate 使用 `rust-version.workspace = true` |
+| 推荐 API | 测试断言优先用 `std::{assert_matches, debug_assert_matches}`；全局惰性状态优先评估 `LazyLock` / `OnceLock` 的职责差异 |
+
 ## 当前能力
 
 | 领域 | 能力 | 存储/依赖 |
@@ -66,6 +75,8 @@ cargo run
 
 | 场景 | 命令 |
 |---|---|
+| 格式 | `cargo fmt --all --check` |
+| 编译 | `cargo check --workspace --all-targets` |
 | 全量测试 | `cargo test --workspace` |
 | lint | `cargo clippy --workspace --all-targets` |
 | Auth 契约 | `cargo test --test auth_contract` |
