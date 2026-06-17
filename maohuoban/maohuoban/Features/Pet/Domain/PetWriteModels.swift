@@ -324,6 +324,8 @@ struct PetMediaAsset: Decodable, Equatable, Identifiable {
     let bucket: String
     let objectKey: String
     let status: PetMediaAssetStatus
+    let width: Int?
+    let height: Int?
     let createdAt: String
     let updatedAt: String
 
@@ -340,6 +342,8 @@ struct PetMediaAsset: Decodable, Equatable, Identifiable {
         case bucket
         case objectKey = "object_key"
         case status
+        case width
+        case height
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }

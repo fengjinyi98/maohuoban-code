@@ -436,6 +436,8 @@ final class PetWriteStoreTests: XCTestCase {
                     bucket: "maohuoban-pet-media",
                     objectKey: "pets/pet-1/media",
                     status: .bound,
+                    width: 1280,
+                    height: 720,
                     createdAt: "2026-06-17T00:00:00Z",
                     updatedAt: "2026-06-17T00:00:00Z"
                 ),

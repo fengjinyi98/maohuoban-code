@@ -232,6 +232,8 @@ async fn pet_profile_media_migration_adds_media_lifecycle_tables() {
         ("media_assets", "object_key", "text"),
         ("media_assets", "sha256_hex", "text"),
         ("media_assets", "status", "text"),
+        ("media_assets", "width", "integer"),
+        ("media_assets", "height", "integer"),
         ("media_assets", "delete_after", "timestamp with time zone"),
         ("media_derivatives", "parent_asset_id", "uuid"),
         ("media_derivatives", "metadata", "jsonb"),

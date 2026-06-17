@@ -23,6 +23,8 @@ pub struct MediaAsset {
     pub bucket: String,
     pub object_key: String,
     pub status: MediaAssetStatus,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub delete_after: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,

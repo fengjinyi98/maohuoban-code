@@ -346,6 +346,8 @@ final class PetRepositoryTests: XCTestCase {
                       "bucket": "maohuoban-pet-media",
                       "object_key": "pets/pet-1/pet/avatar/avatar.txt",
                       "status": "bound",
+                      "width": null,
+                      "height": null,
                       "created_at": "2026-06-17T00:00:00Z",
                       "updated_at": "2026-06-17T00:00:00Z"
                     },
@@ -378,6 +380,8 @@ final class PetRepositoryTests: XCTestCase {
 
         XCTAssertEqual(response.message, "宠物头像已上传")
         XCTAssertEqual(response.data?.asset.id, "asset-1")
+        XCTAssertNil(response.data?.asset.width)
+        XCTAssertNil(response.data?.asset.height)
         XCTAssertEqual(response.data?.binding.petID, "pet-1")
     }
 
@@ -413,6 +417,8 @@ final class PetRepositoryTests: XCTestCase {
 
         XCTAssertEqual(response.message, "宠物背景已上传")
         XCTAssertEqual(response.data?.asset.usageKind, .backgroundImage)
+        XCTAssertEqual(response.data?.asset.width, 1280)
+        XCTAssertEqual(response.data?.asset.height, 720)
         XCTAssertEqual(response.data?.derivatives.count, 2)
         XCTAssertEqual(response.data?.themeColorHex, "#FF0000")
     }
@@ -449,6 +455,8 @@ final class PetRepositoryTests: XCTestCase {
 
         XCTAssertEqual(response.message, "宠物背景已上传")
         XCTAssertEqual(response.data?.asset.usageKind, .backgroundVideo)
+        XCTAssertEqual(response.data?.asset.width, 1280)
+        XCTAssertEqual(response.data?.asset.height, 720)
         XCTAssertEqual(response.data?.coverFrame?.objectKey, "pets/pet-1/cover-frame.png")
     }
 
@@ -549,6 +557,8 @@ final class PetRepositoryTests: XCTestCase {
                   "bucket": "maohuoban-pet-media",
                   "object_key": "\(objectKey)",
                   "status": "bound",
+                  "width": 1280,
+                  "height": 720,
                   "created_at": "2026-06-17T00:00:00Z",
                   "updated_at": "2026-06-17T00:00:00Z"
                 },

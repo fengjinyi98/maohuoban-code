@@ -30,6 +30,8 @@ pub(super) struct PreparedMediaObject {
     pub(super) object_key: String,
     pub(super) sha256_hex: String,
     pub(super) byte_size: i64,
+    pub(super) width: Option<i32>,
+    pub(super) height: Option<i32>,
 }
 
 /// PreparedMediaDerivative 已持久化派生媒体对象
@@ -54,9 +56,10 @@ impl PostgresPetRepository {
     ) -> PetResult<PetMediaUploadResult> {
         let media_store = MediaObjectStore::from_env()
             .map_err(|error| PetError::Infrastructure(error.to_string()))?;
-        let prepared = Self::prepare_media_object(&media_store, &input).await?;
+        let mut prepared = Self::prepare_media_object(&media_store, &input).await?;
         let prepared_derivatives =
             Self::prepare_media_derivatives(&media_store, &input, &prepared).await?;
+        Self::apply_video_asset_dimensions(&mut prepared, &input, &prepared_derivatives)?;
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
 
         Self::queue_replaced_media(&mut transaction, input.pet_id, input.usage_kind).await?;
@@ -86,6 +89,29 @@ impl PostgresPetRepository {
         })
     }
 
+    /// apply_video_asset_dimensions 回填视频资产尺寸
+    /// 核心职责：
+    /// - 从视频封面帧派生元数据读取原始展示尺寸
+    /// - 让视频资产响应与图片资产保持同一尺寸契约
+    fn apply_video_asset_dimensions(
+        media: &mut PreparedMediaObject,
+        input: &PetMediaUploadInput,
+        derivatives: &[PreparedMediaDerivative],
+    ) -> PetResult<()> {
+        if input.usage_kind != MediaUsageKind::PetBackgroundVideo {
+            return Ok(());
+        }
+        let Some(cover_frame) = derivatives
+            .iter()
+            .find(|derivative| derivative.derivative_kind == MediaDerivativeKind::VideoCoverFrame)
+        else {
+            return Ok(());
+        };
+        media.width = metadata_i32(&cover_frame.metadata, "width")?;
+        media.height = metadata_i32(&cover_frame.metadata, "height")?;
+        Ok(())
+    }
+
     /// prepare_media_object 持久化媒体对象并生成元数据
     /// 核心职责：
     /// - 写入对象存储根目录
@@ -111,6 +137,7 @@ impl PostgresPetRepository {
         let sha256_hex = sha256_hex(&input.content);
         let byte_size = i64::try_from(input.content.len())
             .map_err(|_| PetError::InvalidInput("媒体内容过大".to_owned()))?;
+        let (width, height) = image_dimensions(&input.content)?;
 
         Ok(PreparedMediaObject {
             asset_id,
@@ -119,6 +146,8 @@ impl PostgresPetRepository {
             object_key,
             sha256_hex,
             byte_size,
+            width,
+            height,
         })
     }
 
@@ -265,9 +294,11 @@ impl PostgresPetRepository {
                 sha256_hex,
                 bucket,
                 object_key,
-                status
+                status,
+                width,
+                height
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'bound')
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'bound', $12, $13)
             RETURNING
                 id,
                 uploaded_by_user_id,
@@ -281,6 +312,8 @@ impl PostgresPetRepository {
                 bucket,
                 object_key,
                 status,
+                width,
+                height,
                 delete_after,
                 deleted_at,
                 created_at,
@@ -298,6 +331,8 @@ impl PostgresPetRepository {
         .bind(&prepared.sha256_hex)
         .bind(&prepared.bucket)
         .bind(&prepared.object_key)
+        .bind(prepared.width)
+        .bind(prepared.height)
         .fetch_one(&mut **transaction)
         .await
         .map_err(to_infrastructure_error)
@@ -479,4 +514,39 @@ impl PostgresPetRepository {
 
         Ok(())
     }
+}
+
+/// image_dimensions 读取原始图片尺寸
+/// 核心职责：
+/// - 为可解码图片资产提供原始宽高
+/// - 对非图片媒体保持空尺寸由其他派生链路补齐
+fn image_dimensions(content: &[u8]) -> PetResult<(Option<i32>, Option<i32>)> {
+    let Ok(image) = image::load_from_memory(content) else {
+        return Ok((None, None));
+    };
+    Ok((
+        Some(to_i32_dimension(image.width())?),
+        Some(to_i32_dimension(image.height())?),
+    ))
+}
+
+/// metadata_i32 读取派生元数据尺寸
+/// 核心职责：
+/// - 从 JSON metadata 中提取可写入资产表的整数尺寸
+/// - 对缺失字段保持空值兼容
+fn metadata_i32(metadata: &Value, key: &str) -> PetResult<Option<i32>> {
+    let Some(value) = metadata.get(key).and_then(serde_json::Value::as_u64) else {
+        return Ok(None);
+    };
+    i32::try_from(value)
+        .map(Some)
+        .map_err(|_| PetError::InvalidInput("媒体尺寸过大".to_owned()))
+}
+
+/// to_i32_dimension 转换媒体尺寸
+/// 核心职责：
+/// - 保护数据库 integer 字段边界
+/// - 统一尺寸溢出的错误语义
+pub(super) fn to_i32_dimension(value: u32) -> PetResult<i32> {
+    i32::try_from(value).map_err(|_| PetError::InvalidInput("媒体尺寸过大".to_owned()))
 }

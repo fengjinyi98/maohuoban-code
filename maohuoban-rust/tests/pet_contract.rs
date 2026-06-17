@@ -1004,6 +1004,8 @@ async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
         .expect("upload valid background image");
     assert_eq!(upload_response.status(), StatusCode::CREATED);
     let body = response_json(upload_response).await;
+    assert_eq!(body["data"]["asset"]["width"], 1);
+    assert_eq!(body["data"]["asset"]["height"], 1);
     let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
 
     assert!(
@@ -1065,6 +1067,8 @@ async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
         .expect("upload valid background video");
     assert_eq!(upload_response.status(), StatusCode::CREATED);
     let body = response_json(upload_response).await;
+    assert_eq!(body["data"]["asset"]["width"], 16);
+    assert_eq!(body["data"]["asset"]["height"], 16);
     let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
 
     assert!(

@@ -108,6 +108,8 @@ pub(super) struct MediaAssetRow {
     bucket: String,
     object_key: String,
     status: String,
+    width: Option<i32>,
+    height: Option<i32>,
     delete_after: Option<DateTime<Utc>>,
     deleted_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
@@ -135,6 +137,8 @@ impl TryFrom<MediaAssetRow> for MediaAsset {
             status: MediaAssetStatus::try_from(row.status.as_str()).map_err(|_| {
                 PetError::Infrastructure("unknown media asset status from database".to_owned())
             })?,
+            width: row.width,
+            height: row.height,
             delete_after: row.delete_after,
             deleted_at: row.deleted_at,
             created_at: row.created_at,

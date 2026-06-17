@@ -229,6 +229,38 @@ async fn refresh_rotates_refresh_token_and_rejects_old_token() {
 }
 
 #[tokio::test]
+async fn refresh_token_survives_backend_app_rebuild() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let login = app
+        .seed_login_session("13800138008", "ios-simulator-restart-test")
+        .await;
+    let restarted_app =
+        maohuoban_rust::build_backend_app(maohuoban_rust::BackendConfig::local_test())
+            .await
+            .expect("rebuild backend app");
+
+    let refresh_response = restarted_app
+        .router
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/refresh",
+            json!({
+                "refresh_token": login.refresh_token,
+                "device_id": "ios-simulator-restart-test"
+            }),
+        ))
+        .await
+        .expect("refresh token after rebuild");
+    assert_eq!(refresh_response.status(), StatusCode::OK);
+
+    let refresh_body = response_json(refresh_response).await;
+    assert_eq!(refresh_body["success"], true);
+    assert_eq!(refresh_body["code"], "auth.refresh_success");
+    assert!(refresh_body["data"]["refresh_token"].as_str().is_some());
+}
+
+#[tokio::test]
 async fn oauth_provider_endpoint_keeps_stable_todo_contract() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

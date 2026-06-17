@@ -61,8 +61,24 @@ final class AuthViewModel {
             try tokenStore.saveTokens(session.storedTokens)
             currentUser = session.user
             isAuthenticated = true
+        } catch let error as MHBAPIError {
+            if shouldClearStoredTokens(afterRefreshError: error) {
+                try? tokenStore.clearTokens()
+            }
         } catch {
-            try? tokenStore.clearTokens()
+        }
+    }
+
+    // shouldClearStoredTokens 判断 refresh 失败后的本地凭证处理
+    // 核心职责：
+    // - 服务端明确判定 refresh 失效时清理本地凭证
+    // - 网络中断或后端重启期间保留 refresh token 以便恢复
+    private func shouldClearStoredTokens(afterRefreshError error: MHBAPIError) -> Bool {
+        switch error {
+        case .business(let code, _, let statusCode):
+            return statusCode == 401 && ["auth.refresh_invalid", "auth.refresh_reused"].contains(code)
+        case .invalidResponse, .transport, .decoding:
+            return false
         }
     }
 
