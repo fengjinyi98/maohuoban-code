@@ -331,11 +331,22 @@ extension PetProfileEditScreen {
         )
 
         if case .updatedPet = store.phase {
+            mergeLatestPetProfileIfNeeded(petID: petID)
             onPetCreated()
             return true
         }
 
         return false
+    }
+
+    func mergeLatestPetProfileIfNeeded(petID: String) {
+        guard let profile = store.latestPetProfile,
+              profile.id == petID,
+              let nameEditPolicy = profile.nameEditPolicy else {
+            return
+        }
+
+        editedNameEditPolicies[petID] = nameEditPolicy
     }
 
     func avatarUploadDraft(from image: UIImage, profileID: String) -> PetMediaUploadDraft? {

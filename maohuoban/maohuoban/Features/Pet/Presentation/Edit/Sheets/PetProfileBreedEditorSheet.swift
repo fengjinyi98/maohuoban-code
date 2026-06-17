@@ -27,8 +27,7 @@ struct PetProfileBreedEditorSheet: View {
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .frame(height: 56)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+                .mhbStableTextInputContainer(isError: false)
 
                 Spacer()
             }

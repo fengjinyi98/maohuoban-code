@@ -5,6 +5,10 @@ extension PetProfileEditScreen {
         editedNames[profile.id] ?? profile.name
     }
 
+    func displayNameEditPolicy(for profile: PetProfileEditProfile) -> PetNameEditPolicy? {
+        editedNameEditPolicies[profile.id] ?? profile.nameEditPolicy
+    }
+
     func displayBreed(for profile: PetProfileEditProfile) -> String {
         let breed = editedBreeds[profile.id] ?? profile.breed
         let trimmedBreed = breed.trimmingCharacters(in: .whitespacesAndNewlines)

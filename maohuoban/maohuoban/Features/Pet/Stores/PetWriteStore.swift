@@ -10,6 +10,7 @@ import Observation
 final class PetWriteStore {
     var phase: PetWritePhase = .idle
     var successMessage: String?
+    var latestPetProfile: PetProfileSummary?
 
     var isSubmitting: Bool {
         phase == .submitting
@@ -39,6 +40,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        latestPetProfile = nil
         do {
             let response = try await repository.createPet(
                 draft: draft,
@@ -48,6 +50,7 @@ final class PetWriteStore {
                 phase = .failed("宠物数据为空")
                 return
             }
+            latestPetProfile = profile
             successMessage = response.message
             phase = .createdPet(profile.id)
         } catch {
@@ -99,6 +102,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        latestPetProfile = nil
         do {
             let response = try await repository.createEvent(
                 petID: petID,
@@ -136,6 +140,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        latestPetProfile = nil
         do {
             let response = try await repository.importTradePet(
                 draft: draft,
@@ -145,6 +150,7 @@ final class PetWriteStore {
                 phase = .failed("交易导入数据为空")
                 return
             }
+            latestPetProfile = result.pet
             successMessage = response.message
             phase = .importedTradePet(result.pet.id)
         } catch {
@@ -173,6 +179,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        latestPetProfile = nil
         do {
             let response = try await repository.updatePet(
                 petID: petID,
@@ -183,6 +190,7 @@ final class PetWriteStore {
                 phase = .failed("宠物数据为空")
                 return
             }
+            latestPetProfile = profile
             successMessage = response.message
             phase = .updatedPet(profile.id)
         } catch {
@@ -207,6 +215,7 @@ final class PetWriteStore {
 
         phase = .submitting
         successMessage = nil
+        latestPetProfile = nil
         do {
             let response = try await repository.deletePet(
                 petID: petID,
@@ -217,6 +226,7 @@ final class PetWriteStore {
                 phase = .failed("宠物数据为空")
                 return
             }
+            latestPetProfile = profile
             successMessage = response.message
             phase = .deletedPet(profile.id)
         } catch {
@@ -227,6 +237,7 @@ final class PetWriteStore {
     func reset() {
         phase = .idle
         successMessage = nil
+        latestPetProfile = nil
     }
 }
 

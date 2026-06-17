@@ -14,7 +14,7 @@ struct PetProfileNameEditorSheet: View {
     let onWillDismiss: () -> Void
     let onSave: () -> Void
 
-    private let nameLimit = 6
+    private let nameInputLimit = MHBStableTextInputLimit(maxCount: 6, countingRule: .nonWhitespace)
     private let invalidCharacterSet = CharacterSet(charactersIn: "@<>/")
 
     private var normalizedName: String {
@@ -23,8 +23,12 @@ struct PetProfileNameEditorSheet: View {
 
     private var isNameValid: Bool {
         !normalizedName.isEmpty
-            && normalizedName.count <= nameLimit
+            && !nameLimitState.isExceeded
             && normalizedName.rangeOfCharacter(from: invalidCharacterSet) == nil
+    }
+
+    private var nameLimitState: MHBStableTextInputLimitState {
+        nameInputLimit.state(for: name)
     }
 
     private var isSaveEnabled: Bool {
@@ -47,22 +51,29 @@ struct PetProfileNameEditorSheet: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24, alignment: .leading)
 
-                    Text("\(normalizedName.count)/\(nameLimit)")
+                    Text("\(nameLimitState.count)/\(nameLimitState.maxCount)")
                         .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                        .foregroundStyle(nameLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
                         .monospacedDigit()
                 }
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .frame(minHeight: 56)
-                .background(Color(uiColor: .secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+                .mhbStableTextInputContainer(isError: nameLimitState.isExceeded)
 
-                if let policyText {
-                    Text(policyText)
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text("最多输入 \(nameLimitState.maxCount) 个字符，空格不计入字数。")
                         .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .foregroundStyle(nameLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let policyText {
+                        Text(policyText)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
                 Spacer()
@@ -98,12 +109,6 @@ struct PetProfileNameEditorSheet: View {
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
         .background(MHBPresentationDismissObserver(onWillDismiss: onWillDismiss))
-        .onChange(of: name) { _, newValue in
-            let limitedName = limitedNameInput(newValue)
-            if limitedName != newValue {
-                name = limitedName
-            }
-        }
         .accessibilityIdentifier("pet.profileEdit.nameEditor.sheet")
     }
 
@@ -113,26 +118,5 @@ struct PetProfileNameEditorSheet: View {
         onWillDismiss()
         onSave()
         dismiss()
-    }
-
-    private func limitedNameInput(_ value: String) -> String {
-        var text = ""
-        var visibleCharacterCount = 0
-
-        for character in value {
-            if character.isWhitespace {
-                text.append(character)
-                continue
-            }
-
-            guard visibleCharacterCount < nameLimit else {
-                continue
-            }
-
-            text.append(character)
-            visibleCharacterCount += 1
-        }
-
-        return text
     }
 }

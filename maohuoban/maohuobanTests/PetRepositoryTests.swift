@@ -145,7 +145,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -194,7 +194,7 @@ final class PetRepositoryTests: XCTestCase {
                       "remaining_count": 5,
                       "window_days": 30,
                       "window_ends_at": null,
-                      "display_text": "30 天内可修改 5 次名字，本周期还可修改 5 次。"
+                      "display_text": "30 天内最多修改 5 次名字。"
                     }
                   }
                 }
@@ -230,14 +230,14 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.backgroundAssetID, "background-asset-1")
         XCTAssertEqual(response.data?.backgroundMediaKind, .image)
         XCTAssertEqual(response.data?.nameEditPolicy?.remainingCount, 5)
-        XCTAssertEqual(response.data?.nameEditPolicy?.displayText, "30 天内可修改 5 次名字，本周期还可修改 5 次。")
+        XCTAssertEqual(response.data?.nameEditPolicy?.displayText, "30 天内最多修改 5 次名字。")
     }
 
     func testCreateEventSendsUserContextAndDecodesEvent() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/events")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -298,7 +298,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/imports/trade")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -372,7 +372,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/v1/pet-events/event-1")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             return Self.jsonResponse(
                 statusCode: 200,
@@ -414,7 +414,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "PATCH")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -455,7 +455,7 @@ final class PetRepositoryTests: XCTestCase {
                       "remaining_count": 4,
                       "window_days": 30,
                       "window_ends_at": "2026-07-17T00:00:00Z",
-                      "display_text": "30 天内可修改 5 次名字，本周期还可修改 4 次。"
+                      "display_text": "7月17日前还可以修改 4 次名字。"
                     }
                   }
                 }
@@ -493,7 +493,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pet-media/avatar")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             try Self.assertMultipartMediaRequest(
                 request,
@@ -563,7 +563,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media-bindings")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -589,7 +589,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pet-media/background-image")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
             try Self.assertMultipartMediaRequest(
                 request,
                 fileName: "background.jpg",
@@ -629,7 +629,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/pet-media/background-video")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
             try Self.assertMultipartMediaRequest(
                 request,
                 fileName: "background.mp4",
@@ -668,7 +668,7 @@ final class PetRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "DELETE")
             XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
@@ -716,7 +716,12 @@ final class PetRepositoryTests: XCTestCase {
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultPetRepository {
         let client = makeHTTPClient(handler: handler)
-        return DefaultPetRepository(client: client)
+        return DefaultPetRepository(
+            client: client,
+            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
+                tokenStore: PetRepositoryTestTokenStore()
+            )
+        )
     }
 
     private func makeHTTPClient(
@@ -961,6 +966,26 @@ private final class PetRepositoryURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+// PetRepositoryTestTokenStore 宠物仓库测试 token 存储
+// 核心职责：
+// - 为仓库契约测试提供固定 Authorization 请求头
+// - 避免测试读取真实 Keychain 登录状态
+private struct PetRepositoryTestTokenStore: MHBTokenStore {
+    func loadTokens() throws -> MHBStoredTokens? {
+        MHBStoredTokens(
+            accessToken: "test-access-token",
+            refreshToken: "test-refresh-token",
+            tokenType: "Bearer",
+            expiresInSeconds: 3600,
+            refreshExpiresInSeconds: 86_400
+        )
+    }
+
+    func saveTokens(_ tokens: MHBStoredTokens) throws {}
+
+    func clearTokens() throws {}
 }
 
 private extension URLRequest {

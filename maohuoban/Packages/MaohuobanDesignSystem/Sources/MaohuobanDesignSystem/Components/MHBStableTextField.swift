@@ -54,7 +54,7 @@ public struct MHBStableTextField: UIViewRepresentable {
 
     public func updateUIView(_ uiView: UITextField, context: Context) {
         context.coordinator.parent = self
-        uiView.placeholder = placeholder
+        uiView.placeholder = isComposing ? nil : placeholder
         uiView.font = font
         uiView.textColor = textColor
         uiView.returnKeyType = returnKeyType
@@ -114,14 +114,19 @@ public struct MHBStableTextField: UIViewRepresentable {
                 text: textField.text ?? "",
                 hasMarkedText: textField.hasMarkedText
             )
+            updatePlaceholder(for: textField, isComposing: result.isComposing)
             apply(result)
         }
 
         private func apply(_ result: MHBStableTextInputCommitResult) {
-            parent.isComposing = result.isComposing
             if let committedText = result.committedText {
                 parent.text = committedText
             }
+            parent.isComposing = result.isComposing
+        }
+
+        private func updatePlaceholder(for textField: UITextField, isComposing: Bool) {
+            textField.placeholder = isComposing ? nil : parent.placeholder
         }
     }
 }

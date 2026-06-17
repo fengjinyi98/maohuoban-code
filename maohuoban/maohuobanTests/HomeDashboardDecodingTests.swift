@@ -149,7 +149,7 @@ final class HomeDashboardDecodingTests: XCTestCase {
                 remainingCount: 3,
                 windowDays: 30,
                 windowEndsAt: "2026-07-17T00:00:00Z",
-                displayText: "30 天内可修改 5 次名字，本周期还可修改 3 次。"
+                displayText: "7月17日前还可以修改 3 次名字。"
             )
         )
 
@@ -160,7 +160,7 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(profile.heroThemeColorHex, "#AABBCC")
         XCTAssertEqual(profile.heroContentColorScheme, .light)
         XCTAssertEqual(profile.nameEditPolicy?.remainingCount, 3)
-        XCTAssertEqual(profile.nameEditPolicy?.displayText, "30 天内可修改 5 次名字，本周期还可修改 3 次。")
+        XCTAssertEqual(profile.nameEditPolicy?.displayText, "7月17日前还可以修改 3 次名字。")
         if case let .remoteImage(urlString, fallbackAssetName) = profile.heroMedia {
             XCTAssertEqual(urlString, "/api/v1/media/assets/background-1/content")
             XCTAssertEqual(fallbackAssetName, "HomePetHeroMock")

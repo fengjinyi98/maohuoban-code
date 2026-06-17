@@ -14,6 +14,7 @@ struct PetProfileEditScreen: View {
     @State var mediaUploadStore = PetMediaUploadStore()
     @State var selectedProfileID: String
     @State var editedNames: [String: String] = [:]
+    @State var editedNameEditPolicies: [String: PetNameEditPolicy] = [:]
     @State var editedBreeds: [String: String] = [:]
     @State var editedSpeciesTexts: [String: String] = [:]
     @State var editedChipNumbers: [String: String] = [:]

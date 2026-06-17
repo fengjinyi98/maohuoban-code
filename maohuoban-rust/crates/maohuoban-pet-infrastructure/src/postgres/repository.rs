@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
     NewPetProfile, PendingPetMediaUploadInput, PetProfileDiagnostics, PetRepository,
@@ -113,6 +113,16 @@ fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) ->
     let remaining_count = NAME_EDIT_MAX_COUNT.saturating_sub(used_count).max(0);
     let window_ends_at = first_changed_at
         .map(|changed_at| changed_at + Duration::days(i64::from(NAME_EDIT_WINDOW_DAYS)));
+    let display_text = window_ends_at.map_or_else(
+        || format!("{NAME_EDIT_WINDOW_DAYS} 天内最多修改 {NAME_EDIT_MAX_COUNT} 次名字。"),
+        |ends_at| {
+            format!(
+                "{}月{}日前还可以修改 {remaining_count} 次名字。",
+                ends_at.month(),
+                ends_at.day()
+            )
+        },
+    );
 
     PetNameEditPolicy {
         max_count: NAME_EDIT_MAX_COUNT,
@@ -120,9 +130,7 @@ fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) ->
         remaining_count,
         window_days: NAME_EDIT_WINDOW_DAYS,
         window_ends_at,
-        display_text: format!(
-            "{NAME_EDIT_WINDOW_DAYS} 天内可修改 {NAME_EDIT_MAX_COUNT} 次名字，本周期还可修改 {remaining_count} 次。"
-        ),
+        display_text,
     }
 }
 

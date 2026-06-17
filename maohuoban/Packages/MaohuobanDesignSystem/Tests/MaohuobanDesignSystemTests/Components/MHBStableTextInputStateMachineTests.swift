@@ -33,4 +33,17 @@ struct MHBStableTextInputStateMachineTests {
         #expect(result.committedText == "")
         #expect(result.isComposing == false)
     }
+
+    @Test("输入限制可以按非空格字符计数并标记越界")
+    func inputLimitCountsNonWhitespaceCharacters() {
+        let limit = MHBStableTextInputLimit(maxCount: 6, countingRule: .nonWhitespace)
+
+        let validState = limit.state(for: "奶 盖 宝 宝 兔 兔")
+        #expect(validState.count == 6)
+        #expect(validState.isExceeded == false)
+
+        let exceededState = limit.state(for: "奶 盖 宝 宝 兔 兔 猫")
+        #expect(exceededState.count == 7)
+        #expect(exceededState.isExceeded == true)
+    }
 }

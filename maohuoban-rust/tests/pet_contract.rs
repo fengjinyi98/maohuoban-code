@@ -168,6 +168,18 @@ fn assert_name_edit_policy(data: &Value, used_count: i64, remaining_count: i64) 
     assert_eq!(data["name_edit_policy"]["max_count"], 5);
     assert_eq!(data["name_edit_policy"]["used_count"], used_count);
     assert_eq!(data["name_edit_policy"]["remaining_count"], remaining_count);
+    if used_count == 0 {
+        assert_eq!(
+            data["name_edit_policy"]["display_text"],
+            "30 天内最多修改 5 次名字。"
+        );
+    } else {
+        let display_text = data["name_edit_policy"]["display_text"]
+            .as_str()
+            .expect("name edit display text");
+        assert!(display_text.contains("日前还可以修改"));
+        assert!(!display_text.contains("本周期"));
+    }
 }
 
 /// `red_video_base64` 生成红色视频测试样本
@@ -1066,7 +1078,7 @@ async fn pet_profile_limits_name_changes_within_thirty_days() {
     let create_body = response_json(create_response).await;
     assert_eq!(
         create_body["data"]["name_edit_policy"]["display_text"],
-        "30 天内可修改 5 次名字，本周期还可修改 5 次。"
+        "30 天内最多修改 5 次名字。"
     );
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 

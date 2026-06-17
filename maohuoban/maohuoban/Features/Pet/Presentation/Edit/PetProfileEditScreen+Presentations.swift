@@ -111,7 +111,7 @@ extension PetProfileEditScreen {
             ) {
                 PetProfileNameEditorSheet(
                     name: $nameEditorDraft,
-                    policyText: profile.nameEditPolicy?.displayText,
+                    policyText: displayNameEditPolicy(for: profile)?.displayText,
                     onWillDismiss: {
                         isNameEditorChevronExpanded = false
                     },

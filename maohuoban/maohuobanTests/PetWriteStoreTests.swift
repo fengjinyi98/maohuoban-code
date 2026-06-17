@@ -227,7 +227,15 @@ final class PetWriteStoreTests: XCTestCase {
                     weightGrams: 4800,
                     neuterStatus: .neutered,
                     personalityTags: ["亲人"],
-                    note: "喜欢晒太阳"
+                    note: "喜欢晒太阳",
+                    nameEditPolicy: PetNameEditPolicy(
+                        maxCount: 5,
+                        usedCount: 2,
+                        remainingCount: 3,
+                        windowDays: 30,
+                        windowEndsAt: "2026-07-17T00:00:00Z",
+                        displayText: "7月17日前还可以修改 3 次名字。"
+                    )
                 )
             )
         )
@@ -253,6 +261,8 @@ final class PetWriteStoreTests: XCTestCase {
 
         XCTAssertEqual(store.phase, .updatedPet("pet-1"))
         XCTAssertEqual(store.successMessage, "宠物档案已更新")
+        XCTAssertEqual(store.latestPetProfile?.nameEditPolicy?.remainingCount, 3)
+        XCTAssertEqual(store.latestPetProfile?.nameEditPolicy?.displayText, "7月17日前还可以修改 3 次名字。")
         XCTAssertEqual(repository.receivedUpdatePetID, "pet-1")
         XCTAssertEqual(repository.receivedUpdateUserID, "user-1")
         XCTAssertEqual(repository.receivedUpdateDraft?.weightGrams, 4800)

@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // PetProfileTagsEditorSheet 宠物性格标签编辑弹层
 // 核心职责：
@@ -13,9 +14,10 @@ struct PetProfileTagsEditorSheet: View {
     let onSave: () -> Void
 
     @State private var customTag = ""
+    @State private var isCustomTagComposing = false
 
     private let tagLimit = 8
-    private let customTagLimit = 8
+    private let customTagInputLimit = MHBStableTextInputLimit(maxCount: 8, countingRule: .nonWhitespace)
     private let columns = [
         GridItem(.adaptive(minimum: 76), spacing: MHBTheme.Spacing.s2, alignment: .leading)
     ]
@@ -28,6 +30,12 @@ struct PetProfileTagsEditorSheet: View {
         !normalizedCustomTag.isEmpty
             && !tags.contains(normalizedCustomTag)
             && tags.count < tagLimit
+            && !customTagLimitState.isExceeded
+            && !isCustomTagComposing
+    }
+
+    private var customTagLimitState: MHBStableTextInputLimitState {
+        customTagInputLimit.state(for: customTag)
     }
 
     var body: some View {
@@ -72,11 +80,6 @@ struct PetProfileTagsEditorSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .background(MHBPresentationDismissObserver(onWillDismiss: onWillDismiss))
-        .onChange(of: customTag) { _, newValue in
-            if newValue.count > customTagLimit {
-                customTag = String(newValue.prefix(customTagLimit))
-            }
-        }
     }
 
     private var selectedTagsSection: some View {
@@ -138,13 +141,19 @@ struct PetProfileTagsEditorSheet: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
             HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                TextField("输入标签", text: $customTag)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit(addCustomTagIfNeeded)
+                MHBStableTextField(
+                    "输入标签",
+                    text: $customTag,
+                    isComposing: $isCustomTagComposing,
+                    font: .systemFont(ofSize: 16, weight: .regular),
+                    onSubmit: addCustomTagIfNeeded
+                )
+                .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24, alignment: .leading)
+
+                Text("\(customTagLimitState.count)/\(customTagLimitState.maxCount)")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(customTagLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
+                    .monospacedDigit()
 
                 Button("添加") {
                     addCustomTagIfNeeded()
@@ -155,12 +164,11 @@ struct PetProfileTagsEditorSheet: View {
             }
             .padding(.horizontal, MHBTheme.Spacing.s4)
             .frame(minHeight: 52)
-            .background(Color(uiColor: .secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+            .mhbStableTextInputContainer(isError: customTagLimitState.isExceeded)
 
-            Text("最多选择 \(tagLimit) 个标签，每个标签最多 \(customTagLimit) 个字符。")
+            Text("最多选择 \(tagLimit) 个标签，每个标签最多 \(customTagLimitState.maxCount) 个字符。")
                 .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .foregroundStyle(customTagLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
         }
     }
 
