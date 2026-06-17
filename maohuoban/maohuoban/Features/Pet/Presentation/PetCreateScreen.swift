@@ -45,6 +45,11 @@ struct PetCreateScreen: View {
         .navigationTitle("创建宠物")
         .navigationBarTitleDisplayMode(.inline)
         .scrollEdgeEffectStyle(.soft, for: .top)
+        .petWriteToastBridge(
+            phase: store.phase,
+            successMessage: store.successMessage,
+            derivativeMessage: store.mediaDerivativeMessage
+        )
         .accessibilityIdentifier("pet.create.screen")
     }
 

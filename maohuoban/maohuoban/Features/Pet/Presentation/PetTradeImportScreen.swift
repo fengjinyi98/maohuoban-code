@@ -56,6 +56,11 @@ struct PetTradeImportScreen: View {
         .navigationTitle("导入交易宠物")
         .navigationBarTitleDisplayMode(.inline)
         .scrollEdgeEffectStyle(.soft, for: .top)
+        .petWriteToastBridge(
+            phase: store.phase,
+            successMessage: store.successMessage,
+            derivativeMessage: store.mediaDerivativeMessage
+        )
         .accessibilityIdentifier("pet.tradeImport.screen")
     }
 

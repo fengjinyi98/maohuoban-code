@@ -383,6 +383,11 @@ extension PetProfileAddScreen {
                 }
             )
         }
+        .petWriteToastBridge(
+            phase: store.phase,
+            successMessage: store.successMessage,
+            derivativeMessage: store.mediaDerivativeMessage
+        )
         .accessibilityIdentifier("pet.profileAdd.screen")
     }
 }

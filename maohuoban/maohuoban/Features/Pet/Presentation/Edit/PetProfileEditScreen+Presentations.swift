@@ -263,6 +263,11 @@ extension PetProfileEditScreen {
                     }
                 )
             }
+            .petWriteToastBridge(
+                phase: store.phase,
+                successMessage: store.successMessage,
+                derivativeMessage: store.mediaDerivativeMessage
+            )
             .accessibilityIdentifier("pet.profileEdit.screen")
     }
 }
