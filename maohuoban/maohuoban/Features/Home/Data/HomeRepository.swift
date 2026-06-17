@@ -17,19 +17,21 @@ protocol HomeRepository {
 // - 返回后端聚合好的首页快照
 struct DefaultHomeRepository: HomeRepository {
     private let client: MHBHTTPClient
+    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
-    init(client: MHBHTTPClient = MHBHTTPClient()) {
+    init(
+        client: MHBHTTPClient = MHBHTTPClient(),
+        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+    ) {
         self.client = client
+        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func dashboard(
         currentUserID: String?,
         selectedPetID: String?
     ) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
-        var headers: [String: String] = [:]
-        if let currentUserID {
-            headers["x-maohuoban-user-id"] = currentUserID
-        }
+        let headers = try userHeaders(currentUserID: currentUserID)
         let queryItems = selectedPetID
             .flatMap { $0.isEmpty ? nil : URLQueryItem(name: "selected_pet_id", value: $0) }
             .map { [$0] } ?? []
@@ -38,6 +40,17 @@ struct DefaultHomeRepository: HomeRepository {
             queryItems: queryItems,
             headers: headers
         )
+    }
+
+    private func userHeaders(currentUserID: String?) throws(MHBAPIError) -> [String: String] {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            throw .business(
+                code: "auth.session_expired",
+                message: "登录状态已过期，请重新登录",
+                statusCode: 401
+            )
+        }
+        return try authorizationHeaderProvider.headers()
     }
 }
 

@@ -228,7 +228,6 @@ final class PetWriteStore {
         phase = .idle
         successMessage = nil
     }
-
 }
 
 // PetWritePhase 宠物写入阶段

@@ -64,6 +64,16 @@ extension PetProfileEditScreen {
         }
     }
 
+    func showSpeciesPicker(for profileID: String) {
+        let isOpeningSamePicker = isSpeciesPickerPresented && speciesPickerProfileID == profileID
+        dismissSelectionMenus()
+
+        if !isOpeningSamePicker {
+            speciesPickerProfileID = profileID
+            isSpeciesPickerPresented = true
+        }
+    }
+
     func showNeuterStatusPicker(for profileID: String) {
         let isOpeningSamePicker = isNeuterStatusPickerPresented && neuterStatusPickerProfileID == profileID
         dismissSelectionMenus()
@@ -75,10 +85,19 @@ extension PetProfileEditScreen {
     }
 
     func dismissSelectionMenus() {
+        isSpeciesPickerPresented = false
+        speciesPickerProfileID = nil
         isSexPickerPresented = false
         sexPickerProfileID = nil
         isNeuterStatusPickerPresented = false
         neuterStatusPickerProfileID = nil
+    }
+
+    func updateSpeciesText(_ speciesText: String) {
+        guard let profileID = speciesPickerProfileID else { return }
+        Task {
+            await saveSpeciesText(speciesText, for: profileID)
+        }
     }
 
     func updateSexText(_ sexText: String) {

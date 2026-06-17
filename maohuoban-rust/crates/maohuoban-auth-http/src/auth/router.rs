@@ -255,6 +255,21 @@ fn error_response(error: AuthError) -> Response {
             "auth.refresh_reused",
             "登录状态异常，请重新登录".to_owned(),
         ),
+        AuthError::AccessInvalid => (
+            StatusCode::UNAUTHORIZED,
+            "auth.token_invalid",
+            "登录状态无效，请重新登录".to_owned(),
+        ),
+        AuthError::SessionInvalid => (
+            StatusCode::UNAUTHORIZED,
+            "auth.session_expired",
+            "登录状态已过期，请重新登录".to_owned(),
+        ),
+        AuthError::AccountDisabled => (
+            StatusCode::UNAUTHORIZED,
+            "auth.account_disabled",
+            "账号状态异常，请联系客服".to_owned(),
+        ),
         AuthError::OAuthTodo(provider) => (
             StatusCode::NOT_IMPLEMENTED,
             "auth.oauth_todo",

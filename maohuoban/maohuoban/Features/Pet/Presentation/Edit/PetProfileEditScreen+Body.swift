@@ -69,10 +69,15 @@ extension PetProfileEditScreen {
                                 }
 
                                 PetProfileEditRow(
-                                    title: "宠物类型"
+                                    title: "宠物类型",
+                                    isAccessoryExpanded: isSpeciesPickerPresented && speciesPickerProfileID == profile.id,
+                                    action: {
+                                        showSpeciesPicker(for: profile.id)
+                                    }
                                 ) {
                                     PetProfileEditValueText(value: speciesText)
                                 }
+                                .petProfileEditRowFrame(.species)
 
                                 PetProfileEditRow(
                                     title: "宠物品种",
@@ -216,14 +221,25 @@ extension PetProfileEditScreen {
                 }
                 .coordinateSpace(name: PetProfileEditCoordinateSpace.name)
                 .onPreferenceChange(PetProfileEditRowFramePreferenceKey.self) { frames in
+                    speciesRowFrame = frames[.species] ?? .zero
                     sexRowFrame = frames[.sex] ?? .zero
                     neuterStatusRowFrame = frames[.neuterStatus] ?? .zero
                 }
 
-                if isSexPickerPresented || isNeuterStatusPickerPresented {
+                if isSpeciesPickerPresented || isSexPickerPresented || isNeuterStatusPickerPresented {
                     MHBOutsideTapDismissLayer(onDismiss: dismissSelectionMenus)
                         .zIndex(1)
                 }
+
+                PetProfileEditSelectionMenuOverlay(
+                    isPresented: isSpeciesPickerPresented,
+                    containerWidth: proxy.size.width,
+                    rowFrame: speciesRowFrame,
+                    selectedValue: speciesText,
+                    options: ["狗狗", "猫咪", "其他"],
+                    onSelect: updateSpeciesText
+                )
+                .zIndex(2)
 
                 PetProfileEditSelectionMenuOverlay(
                     isPresented: isSexPickerPresented,

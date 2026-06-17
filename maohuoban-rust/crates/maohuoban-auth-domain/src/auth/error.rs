@@ -26,6 +26,12 @@ pub enum AuthError {
     InvalidCredentials,
     #[error("user not found")]
     UserNotFound,
+    #[error("access token invalid")]
+    AccessInvalid,
+    #[error("session invalid")]
+    SessionInvalid,
+    #[error("account disabled")]
+    AccountDisabled,
     #[error("refresh token invalid")]
     RefreshInvalid,
     #[error("refresh token reused")]

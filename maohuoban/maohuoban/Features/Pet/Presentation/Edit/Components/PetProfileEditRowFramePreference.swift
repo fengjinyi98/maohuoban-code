@@ -7,6 +7,7 @@ enum PetProfileEditCoordinateSpace {
 }
 
 enum PetProfileEditRowAnchor: Hashable {
+    case species
     case sex
     case neuterStatus
 }

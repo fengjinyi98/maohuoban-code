@@ -2,8 +2,8 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{Duration, Utc};
 use maohuoban_auth_domain::auth::{
-    AuthError, AuthResult, AuthSession, DeviceDescriptor, OAuthProvider, PhoneCodeChallenge,
-    RefreshTokenResolution, TokenPair,
+    AuthError, AuthResult, AuthSession, AuthUser, DeviceDescriptor, OAuthProvider,
+    PhoneCodeChallenge, RefreshTokenResolution, TokenPair,
 };
 use uuid::Uuid;
 
@@ -236,6 +236,24 @@ impl AuthService {
             }
             RefreshTokenResolution::Missing => Err(AuthError::RefreshInvalid),
         }
+    }
+
+    pub async fn authenticate_access_token(&self, access_token: &str) -> AuthResult<AuthUser> {
+        let subject = self.tokens.verify_access_token(access_token)?;
+        let session = self
+            .sessions
+            .find_active_session(subject.user_id, subject.session_id)
+            .await?
+            .ok_or(AuthError::SessionInvalid)?;
+        let user = self
+            .users
+            .find_active_user_by_id(subject.user_id)
+            .await?
+            .ok_or(AuthError::AccessInvalid)?;
+        if user.id != session.user.id {
+            return Err(AuthError::AccessInvalid);
+        }
+        Ok(user)
     }
 
     pub async fn logout(&self, refresh_token: &str, device_id: &str) -> AuthResult<()> {

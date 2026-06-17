@@ -342,6 +342,8 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
         switch media {
         case .image(let assetName):
             foregroundImage(assetName: assetName)
+                .onAppear {
+                }
         case .remoteImage(let urlString, let fallbackAssetName):
             if let url = MHBBackendEndpoint.resolve(urlString) {
                 MHBRemoteImage(url: url, contentMode: .fill) {
@@ -349,8 +351,12 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 }
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
+                .onAppear {
+                }
             } else {
                 foregroundImage(assetName: fallbackAssetName)
+                    .onAppear {
+                    }
             }
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
@@ -360,17 +366,25 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 )
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
+                .onAppear {
+                }
             } else if let fallbackImageAssetName {
                 foregroundImage(assetName: fallbackImageAssetName)
+                    .onAppear {
+                    }
             } else {
                 Color.clear
                     .frame(width: imageWidth, height: imageHeight)
+                    .onAppear {
+                    }
             }
         case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
             if let url = MHBBackendEndpoint.resolve(urlString) {
                 MHBMutedLoopingVideoView(url: url)
                     .frame(width: imageWidth, height: imageHeight)
                     .clipped()
+                    .onAppear {
+                    }
             } else if let fallbackImageURLString, let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
                 MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
                     if let fallbackImageAssetName {
@@ -382,11 +396,17 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 }
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
+                .onAppear {
+                }
             } else if let fallbackImageAssetName {
                 foregroundImage(assetName: fallbackImageAssetName)
+                    .onAppear {
+                    }
             } else {
                 Color.clear
                     .frame(width: imageWidth, height: imageHeight)
+                    .onAppear {
+                    }
             }
         }
     }

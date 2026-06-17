@@ -161,7 +161,6 @@ extension PetProfileAddScreen {
         guard let video = result.videos.first else {
             return
         }
-
         localHeroMedia = .video(video.url)
         Task { await uploadLocalBackgroundVideo(url: video.url) }
     }
@@ -204,10 +203,11 @@ extension PetProfileAddScreen {
             guard let draft = await addPetBackgroundVideoUploadDraft() else {
                 return false
             }
-            return await mediaUploadStore.uploadBackgroundVideo(
+            let didUpload = await mediaUploadStore.uploadBackgroundVideo(
                 draft: draft,
                 currentUserID: currentUserID
             )
+            return didUpload
         }
     }
 
@@ -372,6 +372,7 @@ extension PetProfileAddScreen {
     }
 
     func submit() async {
+        let bindings = mediaUploadStore.uploadedBindings
         await store.createPetWithUploadedMedia(
             draft: PetProfileDraft(
                 name: name,
@@ -386,7 +387,7 @@ extension PetProfileAddScreen {
                 personalityTags: personalityTags,
                 note: note
             ),
-            mediaBindings: mediaUploadStore.uploadedBindings,
+            mediaBindings: bindings,
             currentUserID: currentUserID
         )
 

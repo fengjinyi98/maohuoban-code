@@ -32,6 +32,7 @@ impl AuthTestApp {
     }
 
     pub async fn reset(&self) {
+        assert_test_database(&self.app.pool).await;
         sqlx::query(
             r#"
             TRUNCATE TABLE
@@ -184,6 +185,17 @@ impl AuthTestApp {
 /// - 隐藏服务端 session 持久化细节
 pub struct SeedLoginSession {
     pub refresh_token: String,
+}
+
+async fn assert_test_database(pool: &sqlx::PgPool) {
+    let database_name = sqlx::query_scalar::<_, String>("SELECT current_database()")
+        .fetch_one(pool)
+        .await
+        .expect("read current database");
+    assert!(
+        database_name.ends_with("_test") || database_name.contains("test"),
+        "refuse to reset non-test database: {database_name}"
+    );
 }
 
 pub async fn spawn_auth_test_app() -> AuthTestApp {

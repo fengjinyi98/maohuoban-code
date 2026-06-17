@@ -7,6 +7,8 @@ rust-version.workspace = true
 [dependencies]
 axum = { workspace = true, features = ["multipart"] }
 chrono.workspace = true
+maohuoban-auth-application.workspace = true
+maohuoban-auth-domain.workspace = true
 maohuoban-pet-application.workspace = true
 maohuoban-pet-domain.workspace = true
 serde.workspace = true

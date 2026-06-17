@@ -69,9 +69,14 @@ protocol PetRepository {
 // - 在写入请求中传递当前用户上下文
 struct DefaultPetRepository: PetRepository {
     private let client: MHBHTTPClient
+    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
-    init(client: MHBHTTPClient = MHBHTTPClient()) {
+    init(
+        client: MHBHTTPClient = MHBHTTPClient(),
+        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+    ) {
         self.client = client
+        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func createPet(
@@ -81,7 +86,7 @@ struct DefaultPetRepository: PetRepository {
         return try await client.post(
             path: "/api/v1/pets",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -93,7 +98,7 @@ struct DefaultPetRepository: PetRepository {
         try await client.post(
             path: "/api/v1/pets/\(petID)/events",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -103,7 +108,7 @@ struct DefaultPetRepository: PetRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         try await client.get(
             path: "/api/v1/pet-events/\(eventID)",
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -115,7 +120,7 @@ struct DefaultPetRepository: PetRepository {
         try await client.patch(
             path: "/api/v1/pets/\(petID)",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -166,7 +171,7 @@ struct DefaultPetRepository: PetRepository {
         try await client.post(
             path: "/api/v1/pets/\(petID)/media-bindings",
             body: BindUploadedPetMediaDraft(assetID: assetID),
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -178,7 +183,7 @@ struct DefaultPetRepository: PetRepository {
         try await client.delete(
             path: "/api/v1/pets/\(petID)",
             body: DeletePetProfileDraft(reason: reason),
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -189,12 +194,19 @@ struct DefaultPetRepository: PetRepository {
         try await client.post(
             path: "/api/v1/pets/imports/trade",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
-    private func userHeaders(currentUserID: String) -> [String: String] {
-        ["x-maohuoban-user-id": currentUserID]
+    private func userHeaders(currentUserID: String) throws(MHBAPIError) -> [String: String] {
+        guard !currentUserID.isEmpty else {
+            throw .business(
+                code: "auth.session_expired",
+                message: "登录状态已过期，请重新登录",
+                statusCode: 401
+            )
+        }
+        return try authorizationHeaderProvider.headers()
     }
 
     private func multipartFile(from draft: PetMediaUploadDraft) -> MHBMultipartFile {
@@ -220,7 +232,7 @@ struct DefaultPetRepository: PetRepository {
             path: path,
             file: multipartFile(from: draft),
             fields: multipartFields(from: draft),
-            headers: userHeaders(currentUserID: currentUserID),
+            headers: try userHeaders(currentUserID: currentUserID),
             onUploadProgress: onUploadProgress
         )
     }

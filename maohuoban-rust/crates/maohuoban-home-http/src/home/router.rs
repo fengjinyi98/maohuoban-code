@@ -7,6 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use maohuoban_auth_application::auth::AuthService;
+use maohuoban_auth_domain::auth::{AuthError, AuthResult};
 use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
 use serde::{Deserialize, Serialize};
@@ -20,12 +22,13 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct HomeHttpState {
     home: Arc<HomeDashboardService>,
+    auth: Arc<AuthService>,
 }
 
 impl HomeHttpState {
     #[must_use]
-    pub const fn new(home: Arc<HomeDashboardService>) -> Self {
-        Self { home }
+    pub const fn new(home: Arc<HomeDashboardService>, auth: Arc<AuthService>) -> Self {
+        Self { home, auth }
     }
 }
 
@@ -34,10 +37,10 @@ impl HomeHttpState {
 /// - 注册首页聚合快照接口
 /// - 将 HTTP 层限制在统一响应和 DTO 转换范围内
 #[must_use]
-pub fn build_home_router(home: Arc<HomeDashboardService>) -> Router {
+pub fn build_home_router(home: Arc<HomeDashboardService>, auth: Arc<AuthService>) -> Router {
     Router::new()
         .route("/api/v1/home/dashboard", get(get_home_dashboard))
-        .with_state(HomeHttpState::new(home))
+        .with_state(HomeHttpState::new(home, auth))
 }
 
 async fn get_home_dashboard(
@@ -45,8 +48,11 @@ async fn get_home_dashboard(
     headers: HeaderMap,
     Query(query): Query<HomeDashboardQuery>,
 ) -> Response {
+    let Ok(user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
     let context = HomeDashboardContext {
-        user_id: current_user_id(&headers),
+        user_id: Some(user_id),
         selected_pet_id: selected_pet_id(&query),
     };
     match state.home.get_dashboard_snapshot(context).await {
@@ -68,11 +74,20 @@ struct HomeDashboardQuery {
     selected_pet_id: Option<String>,
 }
 
-fn current_user_id(headers: &HeaderMap) -> Option<Uuid> {
-    headers
-        .get("x-maohuoban-user-id")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|raw_user_id| Uuid::parse_str(raw_user_id).ok())
+async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
+    let token = bearer_token(headers)?;
+    let user = auth.authenticate_access_token(token).await?;
+    Ok(user.id)
+}
+
+fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
+    let value = headers
+        .get("authorization")
+        .ok_or(AuthError::AccessInvalid)?;
+    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
+    raw.strip_prefix("Bearer ")
+        .filter(|token| !token.is_empty())
+        .ok_or(AuthError::AccessInvalid)
 }
 
 fn selected_pet_id(query: &HomeDashboardQuery) -> Option<Uuid> {
@@ -113,6 +128,19 @@ fn error_response(error: &HomeError) -> Response {
             success: false,
             code,
             message,
+            data: None,
+        }),
+    )
+        .into_response()
+}
+
+fn unauthorized_response() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(ApiResponse::<Value> {
+            success: false,
+            code: "auth.session_expired",
+            message: "登录状态已过期，请重新登录".to_owned(),
             data: None,
         }),
     )

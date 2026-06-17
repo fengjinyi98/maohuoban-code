@@ -22,9 +22,14 @@ protocol SameCityRepository {
 // - 在请求中传递当前用户上下文
 struct DefaultSameCityRepository: SameCityRepository {
     private let client: MHBHTTPClient
+    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
-    init(client: MHBHTTPClient = MHBHTTPClient()) {
+    init(
+        client: MHBHTTPClient = MHBHTTPClient(),
+        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+    ) {
         self.client = client
+        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func listHospitals(
@@ -36,7 +41,7 @@ struct DefaultSameCityRepository: SameCityRepository {
             queryItems: [
                 URLQueryItem(name: "city", value: city)
             ],
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -47,11 +52,18 @@ struct DefaultSameCityRepository: SameCityRepository {
         try await client.post(
             path: "/api/v1/same-city/hospital-appointments",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
-    private func userHeaders(currentUserID: String) -> [String: String] {
-        ["x-maohuoban-user-id": currentUserID]
+    private func userHeaders(currentUserID: String) throws(MHBAPIError) -> [String: String] {
+        guard !currentUserID.isEmpty else {
+            throw .business(
+                code: "auth.session_expired",
+                message: "登录状态已过期，请重新登录",
+                statusCode: 401
+            )
+        }
+        return try authorizationHeaderProvider.headers()
     }
 }

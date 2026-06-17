@@ -37,9 +37,14 @@ protocol MerchantRepository {
 // - 在商家请求中传递当前用户上下文和业务筛选
 struct DefaultMerchantRepository: MerchantRepository {
     private let client: MHBHTTPClient
+    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
-    init(client: MHBHTTPClient = MHBHTTPClient()) {
+    init(
+        client: MHBHTTPClient = MHBHTTPClient(),
+        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+    ) {
         self.client = client
+        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func listPets(
@@ -52,7 +57,7 @@ struct DefaultMerchantRepository: MerchantRepository {
             queryItems: [
                 URLQueryItem(name: "status", value: status.rawValue)
             ],
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -64,7 +69,7 @@ struct DefaultMerchantRepository: MerchantRepository {
         try await client.post(
             path: "/api/v1/merchants/\(merchantID)/pets",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -75,7 +80,7 @@ struct DefaultMerchantRepository: MerchantRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<MerchantLitterDetail> {
         try await client.get(
             path: "/api/v1/merchants/\(merchantID)/litters/\(litterID)",
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
@@ -88,11 +93,18 @@ struct DefaultMerchantRepository: MerchantRepository {
         try await client.post(
             path: "/api/v1/merchants/\(merchantID)/pets/\(petID)/available-status",
             body: draft,
-            headers: userHeaders(currentUserID: currentUserID)
+            headers: try userHeaders(currentUserID: currentUserID)
         )
     }
 
-    private func userHeaders(currentUserID: String) -> [String: String] {
-        ["x-maohuoban-user-id": currentUserID]
+    private func userHeaders(currentUserID: String) throws(MHBAPIError) -> [String: String] {
+        guard !currentUserID.isEmpty else {
+            throw .business(
+                code: "auth.session_expired",
+                message: "登录状态已过期，请重新登录",
+                statusCode: 401
+            )
+        }
+        return try authorizationHeaderProvider.headers()
     }
 }

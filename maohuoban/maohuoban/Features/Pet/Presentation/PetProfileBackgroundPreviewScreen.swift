@@ -224,7 +224,6 @@ struct PetProfileBackgroundPreviewScreen: View {
         guard let video = result.videos.first else {
             return
         }
-
         saveHeroMedia(.video(video.url))
     }
 

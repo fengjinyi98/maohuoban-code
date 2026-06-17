@@ -29,6 +29,11 @@ struct AuthRootView: View {
         .task {
             await viewModel.bootstrapSession()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .mhbAuthenticationInvalidated)) { notification in
+            let message = notification.object as? String ?? "登录状态已过期，请重新登录"
+            router.resetAll()
+            viewModel.handleAuthenticationInvalidated(message: message)
+        }
         .task(id: viewModel.isAuthenticated) {
             if viewModel.isAuthenticated {
                 MHBKeyboardDismissal.dismissActiveKeyboard()

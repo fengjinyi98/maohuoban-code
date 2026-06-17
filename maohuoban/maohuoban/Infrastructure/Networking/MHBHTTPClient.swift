@@ -194,11 +194,13 @@ struct MHBHTTPClient {
             if apiResponse.success, (200..<300).contains(httpResponse.statusCode) {
                 return apiResponse
             }
-            throw MHBAPIError.business(
+            let apiError = MHBAPIError.business(
                 code: apiResponse.code,
                 message: apiResponse.message,
                 statusCode: httpResponse.statusCode
             )
+            postAuthenticationInvalidationIfNeeded(apiError)
+            throw apiError
         } catch let apiError as MHBAPIError {
             throw apiError
         } catch {
@@ -262,16 +264,28 @@ struct MHBHTTPClient {
             if apiResponse.success, (200..<300).contains(httpResponse.statusCode) {
                 return apiResponse
             }
-            throw MHBAPIError.business(
+            let apiError = MHBAPIError.business(
                 code: apiResponse.code,
                 message: apiResponse.message,
                 statusCode: httpResponse.statusCode
             )
+            postAuthenticationInvalidationIfNeeded(apiError)
+            throw apiError
         } catch let apiError as MHBAPIError {
             throw apiError
         } catch {
             throw .decoding(error.localizedDescription)
         }
+    }
+
+    private func postAuthenticationInvalidationIfNeeded(_ error: MHBAPIError) {
+        guard error.isAuthenticationInvalidation else {
+            return
+        }
+        NotificationCenter.default.post(
+            name: .mhbAuthenticationInvalidated,
+            object: error.toastMessage
+        )
     }
 }
 

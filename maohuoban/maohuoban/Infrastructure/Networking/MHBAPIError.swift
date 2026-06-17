@@ -26,4 +26,24 @@ enum MHBAPIError: LocalizedError, Equatable {
     var toastMessage: String {
         errorDescription ?? "服务暂时不可用，请稍后再试"
     }
+
+    var isAuthenticationInvalidation: Bool {
+        guard case .business(let code, _, let statusCode) = self else {
+            return false
+        }
+        return statusCode == 401 && [
+            "auth.session_expired",
+            "auth.session_revoked",
+            "auth.token_invalid",
+            "auth.account_disabled"
+        ].contains(code)
+    }
+}
+
+extension Notification.Name {
+    // mhbAuthenticationInvalidated 认证失效通知
+    // 核心职责：
+    // - 让网络层把服务端认证失效事件交给 App 根状态处理
+    // - 避免业务页面各自实现回登录逻辑
+    static let mhbAuthenticationInvalidated = Notification.Name("MHBAuthenticationInvalidated")
 }

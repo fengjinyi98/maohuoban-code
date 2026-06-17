@@ -25,8 +25,8 @@ pub(super) fn unauthorized_response() -> Response {
     api_response::<Value>(
         StatusCode::UNAUTHORIZED,
         false,
-        "samecity.unauthorized",
-        "请先登录",
+        "auth.session_expired",
+        "登录状态已过期，请重新登录",
         None,
     )
 }

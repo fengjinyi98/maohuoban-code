@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_auth_domain::auth::{
-    AuthResult, AuthUser, DeviceDescriptor, PhoneCodeChallenge, RefreshTokenResolution,
+    AccessTokenSubject, AuthResult, AuthUser, DeviceDescriptor, PhoneCodeChallenge, RefreshSession,
+    RefreshTokenResolution,
 };
 use uuid::Uuid;
 
@@ -65,6 +66,8 @@ pub trait OtpChallengeStore: Send + Sync {
 /// - 读取和保存密码凭证
 #[async_trait]
 pub trait UserRepository: Send + Sync {
+    async fn find_active_user_by_id(&self, user_id: Uuid) -> AuthResult<Option<AuthUser>>;
+
     async fn find_user_by_phone(&self, phone: &str) -> AuthResult<Option<AuthUser>>;
 
     async fn upsert_user_by_phone(&self, phone: &str) -> AuthResult<AuthUser>;
@@ -103,6 +106,12 @@ pub trait SessionRepository: Send + Sync {
         device_id: &str,
     ) -> AuthResult<RefreshTokenResolution>;
 
+    async fn find_active_session(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<Option<RefreshSession>>;
+
     async fn rotate_refresh_token(
         &self,
         session_id: Uuid,
@@ -122,6 +131,8 @@ pub trait SessionRepository: Send + Sync {
 /// - 生成和 hash refresh token
 pub trait TokenIssuer: Send + Sync {
     fn issue_access_token(&self, user: &AuthUser, session_id: Uuid) -> AuthResult<String>;
+
+    fn verify_access_token(&self, access_token: &str) -> AuthResult<AccessTokenSubject>;
 
     fn generate_refresh_token(&self) -> AuthResult<String>;
 

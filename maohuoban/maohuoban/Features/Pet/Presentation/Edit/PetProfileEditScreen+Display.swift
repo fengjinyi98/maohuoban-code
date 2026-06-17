@@ -12,7 +12,11 @@ extension PetProfileEditScreen {
     }
 
     func displaySpeciesText(for profile: PetProfileEditProfile) -> String {
-        switch profile.species {
+        if let editedSpeciesText = editedSpeciesTexts[profile.id] {
+            return editedSpeciesText
+        }
+
+        return switch profile.species {
         case .dog: "狗狗"
         case .cat: "猫咪"
         case .other: "其他"
@@ -142,6 +146,14 @@ extension PetProfileEditScreen {
         case "公": .male
         case "母": .female
         default: .unknown
+        }
+    }
+
+    func petSpecies(from speciesText: String) -> PetSpecies {
+        switch speciesText {
+        case "狗狗": .dog
+        case "猫咪": .cat
+        default: .other
         }
     }
 

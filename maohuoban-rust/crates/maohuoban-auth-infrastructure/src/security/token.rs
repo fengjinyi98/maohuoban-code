@@ -1,8 +1,8 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{EncodingKey, Header, encode};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use maohuoban_auth_application::auth::TokenIssuer;
-use maohuoban_auth_domain::auth::{AuthError, AuthResult, AuthUser};
-use serde::Serialize;
+use maohuoban_auth_domain::auth::{AccessTokenSubject, AuthError, AuthResult, AuthUser};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::sha256_hex;
@@ -52,6 +52,23 @@ impl TokenIssuer for JwtTokenIssuer {
         .map_err(|error| AuthError::Token(error.to_string()))
     }
 
+    fn verify_access_token(&self, access_token: &str) -> AuthResult<AccessTokenSubject> {
+        let token = decode::<AccessTokenClaims>(
+            access_token,
+            &DecodingKey::from_secret(self.secret.as_bytes()),
+            &Validation::default(),
+        )
+        .map_err(|_| AuthError::AccessInvalid)?;
+        let user_id = Uuid::parse_str(&token.claims.sub).map_err(|_| AuthError::AccessInvalid)?;
+        let session_id =
+            Uuid::parse_str(&token.claims.session_id).map_err(|_| AuthError::AccessInvalid)?;
+
+        Ok(AccessTokenSubject {
+            user_id,
+            session_id,
+        })
+    }
+
     fn generate_refresh_token(&self) -> AuthResult<String> {
         Ok(format!(
             "mhbr_{}_{}",
@@ -77,7 +94,7 @@ impl TokenIssuer for JwtTokenIssuer {
 /// 核心职责：
 /// - 固定 JWT 中的用户、手机号、session 和时效字段
 /// - 为后续业务接口鉴权提供最小身份上下文
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AccessTokenClaims {
     sub: String,
     phone: String,

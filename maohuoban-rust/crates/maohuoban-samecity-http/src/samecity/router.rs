@@ -7,6 +7,8 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use maohuoban_auth_application::auth::AuthService;
+use maohuoban_auth_domain::auth::{AuthError, AuthResult};
 use maohuoban_samecity_application::samecity::SameCityService;
 use uuid::Uuid;
 
@@ -22,12 +24,13 @@ use super::{
 #[derive(Clone)]
 pub struct SameCityHttpState {
     samecity: Arc<SameCityService>,
+    auth: Arc<AuthService>,
 }
 
 impl SameCityHttpState {
     #[must_use]
-    pub const fn new(samecity: Arc<SameCityService>) -> Self {
-        Self { samecity }
+    pub const fn new(samecity: Arc<SameCityService>, auth: Arc<AuthService>) -> Self {
+        Self { samecity, auth }
     }
 }
 
@@ -35,14 +38,14 @@ impl SameCityHttpState {
 /// 核心职责：
 /// - 注册同城医院列表和医院预约接口
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
-pub fn build_samecity_router(samecity: Arc<SameCityService>) -> Router {
+pub fn build_samecity_router(samecity: Arc<SameCityService>, auth: Arc<AuthService>) -> Router {
     Router::new()
         .route("/api/v1/same-city/hospitals", get(list_hospitals))
         .route(
             "/api/v1/same-city/hospital-appointments",
             post(create_hospital_appointment),
         )
-        .with_state(SameCityHttpState::new(samecity))
+        .with_state(SameCityHttpState::new(samecity, auth))
 }
 
 async fn list_hospitals(
@@ -50,7 +53,7 @@ async fn list_hospitals(
     headers: HeaderMap,
     Query(query): Query<HospitalsQuery>,
 ) -> Response {
-    let Ok(_) = current_user_id(&headers) else {
+    let Ok(_) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -69,7 +72,7 @@ async fn create_hospital_appointment(
     headers: HeaderMap,
     Json(request): Json<BookHospitalAppointmentRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -84,10 +87,18 @@ async fn create_hospital_appointment(
     }
 }
 
-fn current_user_id(headers: &HeaderMap) -> Result<Uuid, ()> {
-    headers
-        .get("x-maohuoban-user-id")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| Uuid::parse_str(value).ok())
-        .ok_or(())
+async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
+    let token = bearer_token(headers)?;
+    let user = auth.authenticate_access_token(token).await?;
+    Ok(user.id)
+}
+
+fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
+    let value = headers
+        .get("authorization")
+        .ok_or(AuthError::AccessInvalid)?;
+    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
+    raw.strip_prefix("Bearer ")
+        .filter(|token| !token.is_empty())
+        .ok_or(AuthError::AccessInvalid)
 }

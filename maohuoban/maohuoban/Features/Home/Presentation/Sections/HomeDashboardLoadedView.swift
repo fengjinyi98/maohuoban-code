@@ -145,6 +145,8 @@ struct HomeDashboardLoadedView: View {
                 )
             }
         }
+        .onAppear {
+        }
         .environment(\.colorScheme, themeStore.colorScheme)
         .toolbarColorScheme(themeStore.colorScheme, for: .tabBar)
     }

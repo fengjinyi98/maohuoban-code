@@ -35,6 +35,26 @@ impl PostgresAuthRepository {
 
 #[async_trait]
 impl UserRepository for PostgresAuthRepository {
+    async fn find_active_user_by_id(&self, user_id: Uuid) -> AuthResult<Option<AuthUser>> {
+        let user = sqlx::query_as::<_, AuthUserRow>(
+            r#"
+            SELECT u.id, ui.identifier AS phone
+            FROM users u
+            INNER JOIN user_identities ui ON ui.user_id = u.id
+            WHERE u.id = $1
+              AND u.status = 'active'
+              AND ui.provider = 'phone'
+            "#,
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?
+        .map(Into::into);
+
+        Ok(user)
+    }
+
     async fn find_user_by_phone(&self, phone: &str) -> AuthResult<Option<AuthUser>> {
         let user = sqlx::query_as::<_, AuthUserRow>(
             r#"
@@ -216,6 +236,37 @@ impl SessionRepository for PostgresAuthRepository {
         }
 
         Ok(RefreshTokenResolution::Missing)
+    }
+
+    async fn find_active_session(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<Option<RefreshSession>> {
+        let session = sqlx::query_as::<_, RefreshSessionRow>(
+            r#"
+            SELECT ds.id AS session_id,
+                   u.id AS user_id,
+                   ui.identifier AS phone,
+                   ds.device_id
+            FROM device_sessions ds
+            INNER JOIN users u ON u.id = ds.user_id
+            INNER JOIN user_identities ui ON ui.user_id = u.id AND ui.provider = 'phone'
+            WHERE ds.id = $1
+              AND ds.user_id = $2
+              AND ds.revoked_at IS NULL
+              AND ds.expires_at > now()
+              AND u.status = 'active'
+            "#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?
+        .map(Into::into);
+
+        Ok(session)
     }
 
     async fn rotate_refresh_token(

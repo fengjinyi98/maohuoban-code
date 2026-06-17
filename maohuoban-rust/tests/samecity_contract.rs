@@ -1,5 +1,10 @@
 #![allow(clippy::doc_markdown, clippy::needless_pass_by_value)]
 
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
+
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
@@ -7,17 +12,22 @@ use axum::{
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
+static ACCESS_TOKENS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// json_request 构造 JSON HTTP 请求
 /// 核心职责：
 /// - 固定测试请求的 Content-Type
-/// - 支持附加用户上下文请求头
+/// - 支持附加服务端签发的 Bearer token
 fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder()
         .method(method)
         .uri(uri)
         .header("content-type", "application/json");
-    if let Some(user_id) = user_id {
-        builder = builder.header("x-maohuoban-user-id", user_id);
+    if let Some(user_id) = user_id
+        && let Some(token) = ACCESS_TOKENS.lock().expect("access token map").get(user_id)
+    {
+        builder = builder.header("authorization", format!("Bearer {token}"));
     }
     builder
         .body(Body::from(body.to_string()))
@@ -27,11 +37,13 @@ fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> 
 /// empty_request 构造无 body HTTP 请求
 /// 核心职责：
 /// - 固定 GET 请求形态
-/// - 支持附加用户上下文请求头
+/// - 支持附加服务端签发的 Bearer token
 fn empty_request(method: &str, uri: &str, user_id: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder().method(method).uri(uri);
-    if let Some(user_id) = user_id {
-        builder = builder.header("x-maohuoban-user-id", user_id);
+    if let Some(user_id) = user_id
+        && let Some(token) = ACCESS_TOKENS.lock().expect("access token map").get(user_id)
+    {
+        builder = builder.header("authorization", format!("Bearer {token}"));
     }
     builder.body(Body::empty()).expect("build empty request")
 }
@@ -98,10 +110,19 @@ async fn login_user_id(app: &maohuoban_rust::test_support::AuthTestApp, phone: &
         .expect("verify phone code");
     assert_eq!(verify_response.status(), StatusCode::OK);
     let verify_body = response_json(verify_response).await;
-    verify_body["data"]["user"]["id"]
+    let user_id = verify_body["data"]["user"]["id"]
         .as_str()
         .expect("user id")
-        .to_owned()
+        .to_owned();
+    let access_token = verify_body["data"]["access_token"]
+        .as_str()
+        .expect("access token")
+        .to_owned();
+    ACCESS_TOKENS
+        .lock()
+        .expect("access token map")
+        .insert(user_id.clone(), access_token);
+    user_id
 }
 
 #[tokio::test]

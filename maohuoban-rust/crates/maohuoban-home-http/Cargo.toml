@@ -6,6 +6,8 @@ rust-version.workspace = true
 
 [dependencies]
 axum.workspace = true
+maohuoban-auth-application.workspace = true
+maohuoban-auth-domain.workspace = true
 maohuoban-home-application.workspace = true
 maohuoban-home-domain.workspace = true
 serde.workspace = true

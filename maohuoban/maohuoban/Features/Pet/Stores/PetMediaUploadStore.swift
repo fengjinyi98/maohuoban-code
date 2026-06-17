@@ -33,6 +33,7 @@ final class PetMediaUploadStore {
         currentUserID: String?
     ) async -> Bool {
         await uploadPendingMedia(
+            debugKind: "avatar",
             draft: draft,
             currentUserID: currentUserID,
             setState: { self.avatarState = $0 },
@@ -45,6 +46,7 @@ final class PetMediaUploadStore {
         currentUserID: String?
     ) async -> Bool {
         await uploadPendingMedia(
+            debugKind: "backgroundImage",
             draft: draft,
             currentUserID: currentUserID,
             setState: { self.backgroundState = $0 },
@@ -57,6 +59,7 @@ final class PetMediaUploadStore {
         currentUserID: String?
     ) async -> Bool {
         await uploadPendingMedia(
+            debugKind: "backgroundVideo",
             draft: draft,
             currentUserID: currentUserID,
             setState: { self.backgroundState = $0 },
@@ -85,6 +88,7 @@ final class PetMediaUploadStore {
     }
 
     private func uploadPendingMedia(
+        debugKind: String,
         draft: PetMediaUploadDraft,
         currentUserID: String?,
         setState: @escaping (PetMediaUploadSlotState) -> Void,
@@ -102,7 +106,6 @@ final class PetMediaUploadStore {
             setState(.failed("媒体数据为空"))
             return false
         }
-
         setState(.uploading(progress: 0))
         do {
             let response = try await perform(draft, currentUserID) { progress in

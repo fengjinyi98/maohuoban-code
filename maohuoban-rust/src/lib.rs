@@ -81,7 +81,7 @@ impl BackendConfig {
         Self {
             server_bind_addr: "127.0.0.1:0".to_owned(),
             database_url: env::var("TEST_DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://fengjinyi@localhost/maohuoban".to_owned()),
+                .unwrap_or_else(|_| "postgres://fengjinyi@localhost/maohuoban_test".to_owned()),
             redis_url: env::var("TEST_REDIS_URL")
                 .unwrap_or_else(|_| "redis://127.0.0.1:6379/15".to_owned()),
             redis_key_prefix: "maohuoban:test:auth".to_owned(),
@@ -162,12 +162,12 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
-    let router = build_auth_router(auth_service)
+    let router = build_auth_router(auth_service.clone())
         .merge(build_legal_router(legal_service))
-        .merge(build_home_router(home_service))
+        .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
-        .merge(build_pet_router(pet_service))
-        .merge(build_samecity_router(samecity_service));
+        .merge(build_pet_router(pet_service, auth_service.clone()))
+        .merge(build_samecity_router(samecity_service, auth_service));
 
     Ok(BackendApp {
         router,

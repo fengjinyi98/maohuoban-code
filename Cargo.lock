@@ -1480,6 +1480,8 @@ name = "maohuoban-home-http"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "maohuoban-auth-application",
+ "maohuoban-auth-domain",
  "maohuoban-home-application",
  "maohuoban-home-domain",
  "serde",
@@ -1578,6 +1580,8 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
+ "maohuoban-auth-application",
+ "maohuoban-auth-domain",
  "maohuoban-pet-application",
  "maohuoban-pet-domain",
  "serde",
@@ -1656,6 +1660,8 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
+ "maohuoban-auth-application",
+ "maohuoban-auth-domain",
  "maohuoban-samecity-application",
  "maohuoban-samecity-domain",
  "serde",

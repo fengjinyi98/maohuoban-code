@@ -231,6 +231,12 @@ final class AuthViewModel {
         resetLocalSession()
     }
 
+    func handleAuthenticationInvalidated(message: String) {
+        guard isAuthenticated else { return }
+        resetLocalSession()
+        toast.danger(message)
+    }
+
     func backToLogin() {
         step = .login
         recoveryCode = ""

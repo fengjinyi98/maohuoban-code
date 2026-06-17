@@ -7,6 +7,8 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
+use maohuoban_auth_application::auth::AuthService;
+use maohuoban_auth_domain::auth::{AuthError, AuthResult};
 use maohuoban_pet_application::pet::PetService;
 use uuid::Uuid;
 
@@ -32,12 +34,13 @@ const PET_VIDEO_UPLOAD_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 #[derive(Clone)]
 pub struct PetHttpState {
     pet: Arc<PetService>,
+    auth: Arc<AuthService>,
 }
 
 impl PetHttpState {
     #[must_use]
-    pub const fn new(pet: Arc<PetService>) -> Self {
-        Self { pet }
+    pub const fn new(pet: Arc<PetService>, auth: Arc<AuthService>) -> Self {
+        Self { pet, auth }
     }
 }
 
@@ -45,7 +48,7 @@ impl PetHttpState {
 /// 核心职责：
 /// - 注册宠物档案、事件追加和时间线接口
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
-pub fn build_pet_router(pet: Arc<PetService>) -> Router {
+pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router {
     Router::new()
         .route(
             "/api/v1/pets",
@@ -93,11 +96,11 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             "/api/v1/merchants/{merchant_id}/litters/{litter_id}",
             get(load_merchant_litter_detail),
         )
-        .with_state(PetHttpState::new(pet))
+        .with_state(PetHttpState::new(pet, auth))
 }
 
 async fn list_pet_profiles(State(state): State<PetHttpState>, headers: HeaderMap) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -116,7 +119,7 @@ async fn load_pet_profile(
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -136,7 +139,7 @@ async fn update_pet_profile(
     Path(pet_id): Path<Uuid>,
     Json(request): Json<UpdatePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -157,7 +160,7 @@ async fn delete_pet_profile(
     Path(pet_id): Path<Uuid>,
     Json(request): Json<DeletePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -177,7 +180,7 @@ async fn restore_pet_profile(
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -200,7 +203,7 @@ async fn upload_pending_pet_avatar(
     headers: HeaderMap,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -225,7 +228,7 @@ async fn bind_uploaded_pet_media(
     Path(pet_id): Path<Uuid>,
     Json(request): Json<BindUploadedPetMediaRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -245,7 +248,7 @@ async fn upload_pending_pet_background_image(
     headers: HeaderMap,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -269,7 +272,7 @@ async fn upload_pending_pet_background_video(
     headers: HeaderMap,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -293,7 +296,7 @@ async fn create_pet_profile(
     headers: HeaderMap,
     Json(request): Json<CreatePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -313,7 +316,7 @@ async fn import_trade_pet(
     headers: HeaderMap,
     Json(request): Json<TradePetImportRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -334,7 +337,7 @@ async fn create_pet_event(
     Path(pet_id): Path<Uuid>,
     Json(request): Json<CreatePetEventRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&headers) else {
+    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -354,7 +357,7 @@ async fn load_pet_timeline(
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -373,7 +376,7 @@ async fn load_pet_event_detail(
     headers: HeaderMap,
     Path(event_id): Path<Uuid>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -397,7 +400,7 @@ async fn list_merchant_pets(
     Path(merchant_id): Path<Uuid>,
     Query(query): Query<MerchantPetsQuery>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -421,7 +424,7 @@ async fn create_merchant_pet(
     Path(merchant_id): Path<Uuid>,
     Json(request): Json<CreateMerchantPetRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -442,7 +445,7 @@ async fn publish_available_status(
     Path((merchant_id, pet_id)): Path<(Uuid, Uuid)>,
     Json(request): Json<PublishAvailableStatusRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -466,7 +469,7 @@ async fn load_merchant_litter_detail(
     headers: HeaderMap,
     Path((merchant_id, litter_id)): Path<(Uuid, Uuid)>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&headers) else {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
@@ -484,12 +487,18 @@ async fn load_merchant_litter_detail(
     }
 }
 
-fn current_user_id(headers: &HeaderMap) -> Result<Uuid, ()> {
-    let Some(value) = headers.get("x-maohuoban-user-id") else {
-        return Err(());
-    };
-    let Ok(raw_user_id) = value.to_str() else {
-        return Err(());
-    };
-    Uuid::parse_str(raw_user_id).map_err(|_| ())
+async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
+    let token = bearer_token(headers)?;
+    let user = auth.authenticate_access_token(token).await?;
+    Ok(user.id)
+}
+
+fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
+    let value = headers
+        .get("authorization")
+        .ok_or(AuthError::AccessInvalid)?;
+    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
+    raw.strip_prefix("Bearer ")
+        .filter(|token| !token.is_empty())
+        .ok_or(AuthError::AccessInvalid)
 }

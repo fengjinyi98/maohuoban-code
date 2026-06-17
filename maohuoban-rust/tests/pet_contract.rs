@@ -1,5 +1,9 @@
 #![allow(clippy::needless_pass_by_value)]
 
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
 use std::{env, fs, process::Command};
 
 use axum::{
@@ -10,17 +14,22 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
+static ACCESS_TOKENS: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// `json_request` 构造 JSON HTTP 请求
 /// 核心职责：
 /// - 固定测试请求的 Content-Type
-/// - 支持附加用户上下文请求头
+/// - 支持附加服务端签发的 Bearer token
 fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder()
         .method(method)
         .uri(uri)
         .header("content-type", "application/json");
-    if let Some(user_id) = user_id {
-        builder = builder.header("x-maohuoban-user-id", user_id);
+    if let Some(user_id) = user_id
+        && let Some(token) = ACCESS_TOKENS.lock().expect("access token map").get(user_id)
+    {
+        builder = builder.header("authorization", format!("Bearer {token}"));
     }
     builder
         .body(Body::from(body.to_string()))
@@ -30,7 +39,7 @@ fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> 
 /// `multipart_media_request` 构造媒体上传 multipart 请求
 /// 核心职责：
 /// - 固定媒体上传测试的 multipart 协议
-/// - 同时提交 file 和 `source_client` 两个业务字段
+/// - 同时提交 file、`source_client` 和 Bearer token
 fn multipart_media_request(
     uri: &str,
     file_name: &str,
@@ -60,6 +69,13 @@ fn multipart_media_request(
     );
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
+    let token = ACCESS_TOKENS
+        .lock()
+        .expect("access token map")
+        .get(user_id)
+        .cloned()
+        .expect("access token for user");
+
     Request::builder()
         .method("POST")
         .uri(uri)
@@ -67,7 +83,7 @@ fn multipart_media_request(
             "content-type",
             format!("multipart/form-data; boundary={boundary}"),
         )
-        .header("x-maohuoban-user-id", user_id)
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::from(body))
         .expect("build multipart media request")
 }
@@ -75,11 +91,13 @@ fn multipart_media_request(
 /// `empty_request` 构造无 body HTTP 请求
 /// 核心职责：
 /// - 固定 GET 请求形态
-/// - 支持附加用户上下文请求头
+/// - 支持附加服务端签发的 Bearer token
 fn empty_request(method: &str, uri: &str, user_id: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder().method(method).uri(uri);
-    if let Some(user_id) = user_id {
-        builder = builder.header("x-maohuoban-user-id", user_id);
+    if let Some(user_id) = user_id
+        && let Some(token) = ACCESS_TOKENS.lock().expect("access token map").get(user_id)
+    {
+        builder = builder.header("authorization", format!("Bearer {token}"));
     }
     builder.body(Body::empty()).expect("build empty request")
 }
@@ -259,10 +277,19 @@ async fn login_user_id(app: &maohuoban_rust::test_support::AuthTestApp, phone: &
         .expect("verify phone code");
     assert_eq!(verify_response.status(), StatusCode::OK);
     let verify_body = response_json(verify_response).await;
-    verify_body["data"]["user"]["id"]
+    let user_id = verify_body["data"]["user"]["id"]
         .as_str()
         .expect("user id")
-        .to_owned()
+        .to_owned();
+    let access_token = verify_body["data"]["access_token"]
+        .as_str()
+        .expect("access token")
+        .to_owned();
+    ACCESS_TOKENS
+        .lock()
+        .expect("access token map")
+        .insert(user_id.clone(), access_token);
+    user_id
 }
 
 #[tokio::test]
@@ -609,8 +636,39 @@ async fn pet_endpoints_require_user_context() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     let body = response_json(response).await;
     assert_eq!(body["success"], false);
-    assert_eq!(body["code"], "pet.unauthorized");
-    assert_eq!(body["message"], "请先登录");
+    assert_eq!(body["code"], "auth.session_expired");
+    assert_eq!(body["message"], "登录状态已过期，请重新登录");
+}
+
+#[tokio::test]
+async fn pet_endpoints_reject_legacy_user_header_without_access_token() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let response = app
+        .router()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/pets")
+                .header("content-type", "application/json")
+                .header("x-maohuoban-user-id", uuid::Uuid::new_v4().to_string())
+                .body(Body::from(
+                    json!({
+                        "name": "糯米",
+                        "species": "dog"
+                    })
+                    .to_string(),
+                ))
+                .expect("build legacy user header request"),
+        )
+        .await
+        .expect("create pet with legacy user header");
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "auth.session_expired");
+    assert_eq!(body["message"], "登录状态已过期，请重新登录");
 }
 
 #[tokio::test]
@@ -829,8 +887,8 @@ async fn merchant_pet_list_requires_user_context() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     let body = response_json(response).await;
     assert_eq!(body["success"], false);
-    assert_eq!(body["code"], "pet.unauthorized");
-    assert_eq!(body["message"], "请先登录");
+    assert_eq!(body["code"], "auth.session_expired");
+    assert_eq!(body["message"], "登录状态已过期，请重新登录");
 }
 
 #[tokio::test]

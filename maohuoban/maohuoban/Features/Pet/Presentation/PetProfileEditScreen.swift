@@ -15,6 +15,7 @@ struct PetProfileEditScreen: View {
     @State var selectedProfileID: String
     @State var editedNames: [String: String] = [:]
     @State var editedBreeds: [String: String] = [:]
+    @State var editedSpeciesTexts: [String: String] = [:]
     @State var editedChipNumbers: [String: String] = [:]
     @State var editedSexTexts: [String: String] = [:]
     @State var editedNeuterStatusTexts: [String: String] = [:]
@@ -38,6 +39,9 @@ struct PetProfileEditScreen: View {
     @State var isChipEditorPresented = false
     @State var isChipEditorChevronExpanded = false
     @State var isProfileCodeInfoPresented = false
+    @State var speciesPickerProfileID: String?
+    @State var isSpeciesPickerPresented = false
+    @State var speciesRowFrame = CGRect.zero
     @State var sexPickerProfileID: String?
     @State var isSexPickerPresented = false
     @State var sexRowFrame = CGRect.zero

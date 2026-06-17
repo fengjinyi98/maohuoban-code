@@ -38,6 +38,16 @@ extension PetProfileEditScreen {
         isBreedEditorPresented = false
     }
 
+    func saveSpeciesText(_ speciesText: String, for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, speciesText: speciesText)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedSpeciesTexts[profileID] = speciesText
+        isSpeciesPickerPresented = false
+        speciesPickerProfileID = nil
+    }
+
     func saveBirthDate(for profileID: String) async {
         guard let profile = profile(for: profileID) else { return }
         let draft = updateDraft(for: profile, birthDate: birthDateEditorDraft)
@@ -162,11 +172,13 @@ extension PetProfileEditScreen {
                 return false
             }
 
-            guard await mediaUploadStore.uploadBackgroundVideo(
+            let didUpload = await mediaUploadStore.uploadBackgroundVideo(
                 draft: draft,
                 currentUserID: currentUserID
-            ),
-                let assetID = mediaUploadStore.backgroundState.assetID,
+            )
+            let assetID = mediaUploadStore.backgroundState.assetID
+            guard didUpload,
+                let assetID,
                 await mediaUploadStore.bindUploadedMedia(
                     petID: profileID,
                     assetID: assetID,
@@ -201,6 +213,7 @@ extension PetProfileEditScreen {
         for profile: PetProfileEditProfile,
         name: String? = nil,
         breed: String? = nil,
+        speciesText: String? = nil,
         chipNumber: String? = nil,
         sexText: String? = nil,
         birthDate: Date? = nil,
@@ -212,7 +225,7 @@ extension PetProfileEditScreen {
     ) -> PetProfileUpdateDraft {
         PetProfileUpdateDraft(
             name: name ?? displayName(for: profile),
-            species: PetSpecies(rawValue: profile.species.rawValue) ?? .other,
+            species: petSpecies(from: speciesText ?? displaySpeciesText(for: profile)),
             breed: breed ?? displayBreed(for: profile),
             sex: petSex(from: sexText ?? displaySexText(for: profile)),
             birthday: optionalDateText(birthDate.map(formattedDate) ?? displayBirthDateText(for: profile)),

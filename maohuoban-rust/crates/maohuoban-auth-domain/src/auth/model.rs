@@ -59,6 +59,16 @@ pub struct AuthSession {
     pub tokens: TokenPair,
 }
 
+/// AccessTokenSubject access token 认证主体
+/// 核心职责：
+/// - 承载 access token 中可验证的账号与设备会话标识
+/// - 为业务接口建立服务端可信用户上下文
+#[derive(Debug, Clone)]
+pub struct AccessTokenSubject {
+    pub user_id: Uuid,
+    pub session_id: Uuid,
+}
+
 /// RefreshSession 服务端 refresh 会话
 /// 核心职责：
 /// - 承载 refresh token 命中后的设备会话状态

@@ -82,23 +82,54 @@ impl PostgresPetRepository {
         input: PendingPetMediaUploadInput,
     ) -> PetResult<PetMediaUploadResult> {
         let object_input = MediaUploadObjectInput::from(&input);
-        let media_store = MediaObjectStore::from_env()
-            .map_err(|error| PetError::Infrastructure(error.to_string()))?;
-        let mut prepared = Self::prepare_media_object(&media_store, &object_input).await?;
+        let media_store = match MediaObjectStore::from_env() {
+            Ok(media_store) => media_store,
+            Err(error) => {
+                return Err(PetError::Infrastructure(error.to_string()));
+            }
+        };
+        let mut prepared = match Self::prepare_media_object(&media_store, &object_input).await {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                return Err(error);
+            }
+        };
         let prepared_derivatives =
-            Self::prepare_media_derivatives(&media_store, &object_input, &prepared).await?;
+            match Self::prepare_media_derivatives(&media_store, &object_input, &prepared).await {
+                Ok(derivatives) => derivatives,
+                Err(error) => {
+                    return Err(error);
+                }
+            };
         Self::apply_video_asset_dimensions(&mut prepared, &object_input, &prepared_derivatives)?;
-        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        let mut transaction = match self.pool.begin().await.map_err(to_infrastructure_error) {
+            Ok(transaction) => transaction,
+            Err(error) => {
+                return Err(error);
+            }
+        };
 
         let asset_row =
-            Self::insert_media_asset(&mut transaction, &object_input, &prepared, "uploaded")
-                .await?;
-        let derivative_rows = Self::insert_media_derivatives(
+            match Self::insert_media_asset(&mut transaction, &object_input, &prepared, "uploaded")
+                .await
+            {
+                Ok(asset_row) => asset_row,
+                Err(error) => {
+                    return Err(error);
+                }
+            };
+        let derivative_rows = match Self::insert_media_derivatives(
             &mut transaction,
             prepared.asset_id,
             &prepared_derivatives,
         )
-        .await?;
+        .await
+        {
+            Ok(derivative_rows) => derivative_rows,
+            Err(error) => {
+                return Err(error);
+            }
+        };
 
         transaction
             .commit()
