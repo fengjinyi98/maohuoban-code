@@ -62,6 +62,11 @@ struct PetEventRecordScreen: View {
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .scrollEdgeEffectStyle(.soft, for: .top)
+        .petWriteToastBridge(
+            phase: store.phase,
+            successMessage: store.successMessage,
+            derivativeMessage: store.mediaDerivativeMessage
+        )
         .accessibilityIdentifier("pet.eventRecord.screen")
     }
 

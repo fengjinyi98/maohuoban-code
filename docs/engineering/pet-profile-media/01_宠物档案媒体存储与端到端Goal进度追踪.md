@@ -87,7 +87,8 @@
 | 数据目录 | 当前项目使用独立目录，建议为 `~/.local/share/maohuoban-code-rustfs-data` |
 | 日志路径 | 建议为 `~/Library/Logs/maohuoban-code-rustfs.log` |
 | 端口冲突策略 | 启动前检查 `9000/9001`，不得复用旧项目 RustFS 实例 |
-| 后端配置 | `MAOHUOBAN_MEDIA_STORAGE_BACKEND=s3`、`MAOHUOBAN_MEDIA_S3_ENDPOINT=http://127.0.0.1:9000`、`MAOHUOBAN_MEDIA_S3_ACCESS_KEY_ID=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_REGION=us-east-1`、`MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media`、`MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true` |
+| 后端配置 | `MAOHUOBAN_MEDIA_STORAGE_BACKEND=s3`、`MAOHUOBAN_MEDIA_S3_ENDPOINT=http://127.0.0.1:9000`、`MAOHUOBAN_MEDIA_S3_ACCESS_KEY_ID=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin`、`MAOHUOBAN_MEDIA_S3_REGION=us-east-1`、`MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media`、`MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true`、`MAOHUOBAN_MEDIA_CACHE_CONTROL=public, max-age=31536000, immutable` |
+| 缓存响应头 | 上传对象写入 `Cache-Control` 元数据；生成浏览器访问 URL 时追加 S3 `response-cache-control=public, max-age=31536000, immutable`，确保 RustFS GET 响应返回标准 `cache-control` 头 |
 
 本地启动命令目标形态：
 
@@ -126,8 +127,17 @@ MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin \
 MAOHUOBAN_MEDIA_S3_REGION=us-east-1 \
 MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media \
 MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true \
+MAOHUOBAN_MEDIA_CACHE_CONTROL='public, max-age=31536000, immutable' \
 cargo test -p maohuoban-media-storage --test media_object_store_contract -- --ignored s3_store_round_trips_against_configured_rustfs
 ```
+
+浏览器可见缓存头验证：
+
+```bash
+curl -D - '<RustFS 签名对象 URL，包含 response-cache-control 查询参数>' -o /tmp/maohuoban-rustfs-cache-body.txt
+```
+
+成功标准：响应头包含 `cache-control: public, max-age=31536000, immutable`。
 
 ## 7. 媒体 GC worker 运行方式
 
@@ -171,6 +181,7 @@ MAOHUOBAN_MEDIA_S3_SECRET_ACCESS_KEY=rustfsadmin \
 MAOHUOBAN_MEDIA_S3_REGION=us-east-1 \
 MAOHUOBAN_MEDIA_S3_BUCKET=maohuoban-pet-media \
 MAOHUOBAN_MEDIA_S3_ALLOW_HTTP=true \
+MAOHUOBAN_MEDIA_CACHE_CONTROL='public, max-age=31536000, immutable' \
 cargo test -p maohuoban-media-gc-worker --test gc_worker_contract -- --ignored run_once_deletes_due_rustfs_s3_object_when_env_configured
 ```
 

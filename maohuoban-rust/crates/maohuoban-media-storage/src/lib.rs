@@ -3,12 +3,13 @@
 use std::{env, fs, io, path::PathBuf};
 
 use object_store::{
-    Error as ObjectStoreError, ObjectStore, ObjectStoreExt, aws::AmazonS3Builder,
-    local::LocalFileSystem, path::Path,
+    Attribute, Attributes, Error as ObjectStoreError, ObjectStore, ObjectStoreExt, PutOptions,
+    aws::AmazonS3Builder, local::LocalFileSystem, path::Path,
 };
 use thiserror::Error;
 
 const DEFAULT_BUCKET: &str = "maohuoban-pet-media";
+const DEFAULT_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 
 /// MediaStorageConfig 媒体对象存储配置
 /// 核心职责：
@@ -19,6 +20,7 @@ pub enum MediaStorageConfig {
     Local {
         root: PathBuf,
         default_bucket: String,
+        cache_control: Option<String>,
     },
     S3 {
         endpoint: String,
@@ -27,6 +29,7 @@ pub enum MediaStorageConfig {
         region: String,
         default_bucket: String,
         allow_http: bool,
+        cache_control: Option<String>,
     },
 }
 
@@ -36,6 +39,7 @@ impl MediaStorageConfig {
         Self::Local {
             root,
             default_bucket: default_bucket.into(),
+            cache_control: Some(DEFAULT_CACHE_CONTROL.to_owned()),
         }
     }
 
@@ -55,7 +59,25 @@ impl MediaStorageConfig {
             region: region.into(),
             default_bucket: default_bucket.into(),
             allow_http,
+            cache_control: Some(DEFAULT_CACHE_CONTROL.to_owned()),
         }
+    }
+
+    #[must_use]
+    pub fn with_cache_control(mut self, cache_control: Option<String>) -> Self {
+        match &mut self {
+            Self::Local {
+                cache_control: current,
+                ..
+            }
+            | Self::S3 {
+                cache_control: current,
+                ..
+            } => {
+                *current = cache_control;
+            }
+        }
+        self
     }
 
     /// from_env 读取媒体对象存储环境配置
@@ -67,6 +89,7 @@ impl MediaStorageConfig {
             env::var("MAOHUOBAN_MEDIA_STORAGE_BACKEND").unwrap_or_else(|_| "local".to_owned());
         let default_bucket =
             env::var("MAOHUOBAN_MEDIA_S3_BUCKET").unwrap_or_else(|_| DEFAULT_BUCKET.to_owned());
+        let cache_control = cache_control_from_env();
         if backend.eq_ignore_ascii_case("s3") {
             return Ok(Self::s3(
                 required_env("MAOHUOBAN_MEDIA_S3_ENDPOINT")?,
@@ -76,20 +99,30 @@ impl MediaStorageConfig {
                 default_bucket,
                 env::var("MAOHUOBAN_MEDIA_S3_ALLOW_HTTP")
                     .is_ok_and(|value| value == "true" || value == "1"),
-            ));
+            )
+            .with_cache_control(cache_control));
         }
 
         let root = env::var("MAOHUOBAN_MEDIA_STORAGE_ROOT").map_or_else(
             |_| env::temp_dir().join("maohuoban-code-rustfs-media"),
             PathBuf::from,
         );
-        Ok(Self::local(root, default_bucket))
+        Ok(Self::local(root, default_bucket).with_cache_control(cache_control))
     }
 
     #[must_use]
     pub fn default_bucket(&self) -> &str {
         match self {
             Self::Local { default_bucket, .. } | Self::S3 { default_bucket, .. } => default_bucket,
+        }
+    }
+
+    #[must_use]
+    pub fn cache_control(&self) -> Option<&str> {
+        match self {
+            Self::Local { cache_control, .. } | Self::S3 { cache_control, .. } => {
+                cache_control.as_deref()
+            }
         }
     }
 
@@ -130,10 +163,23 @@ impl MediaObjectStore {
         content: &[u8],
     ) -> MediaStorageResult<()> {
         let (store, location) = self.store_for(bucket, object_key)?;
-        store
-            .put(&location, content.to_vec().into())
-            .await
-            .map_err(MediaStorageError::from)?;
+        if let Some(cache_control) = self.config.cache_control().filter(|_| self.config.is_s3()) {
+            let mut attributes = Attributes::new();
+            attributes.insert(Attribute::CacheControl, cache_control.to_owned().into());
+            let options = PutOptions {
+                attributes,
+                ..Default::default()
+            };
+            store
+                .put_opts(&location, content.to_vec().into(), options)
+                .await
+                .map_err(MediaStorageError::from)?;
+        } else {
+            store
+                .put(&location, content.to_vec().into())
+                .await
+                .map_err(MediaStorageError::from)?;
+        }
         Ok(())
     }
 
@@ -212,4 +258,18 @@ pub type MediaStorageResult<T> = Result<T, MediaStorageError>;
 
 fn required_env(key: &'static str) -> MediaStorageResult<String> {
     env::var(key).map_err(|_| MediaStorageError::MissingEnv(key))
+}
+
+fn cache_control_from_env() -> Option<String> {
+    env::var("MAOHUOBAN_MEDIA_CACHE_CONTROL").map_or_else(
+        |_| Some(DEFAULT_CACHE_CONTROL.to_owned()),
+        |value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_owned())
+            }
+        },
+    )
 }

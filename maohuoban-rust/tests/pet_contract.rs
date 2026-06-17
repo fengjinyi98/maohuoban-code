@@ -27,6 +27,51 @@ fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> 
         .expect("build json request")
 }
 
+/// `multipart_media_request` 构造媒体上传 multipart 请求
+/// 核心职责：
+/// - 固定媒体上传测试的 multipart 协议
+/// - 同时提交 file 和 `source_client` 两个业务字段
+fn multipart_media_request(
+    uri: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+    source_client: &str,
+    user_id: &str,
+) -> Request<Body> {
+    let boundary = format!("maohuoban-test-{}", uuid::Uuid::new_v4());
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n\
+             Content-Type: {mime_type}\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(content);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"source_client\"\r\n\r\n{source_client}\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .header("x-maohuoban-user-id", user_id)
+        .body(Body::from(body))
+        .expect("build multipart media request")
+}
+
 /// `empty_request` 构造无 body HTTP 请求
 /// 核心职责：
 /// - 固定 GET 请求形态
@@ -79,6 +124,14 @@ fn red_video_base64() -> Option<String> {
     let content = fs::read(&output_path).ok()?;
     let _ = fs::remove_file(output_path);
     Some(STANDARD.encode(content))
+}
+
+/// `red_video_bytes` 生成红色视频测试样本
+/// 核心职责：
+/// - 复用当前视频 fixture 生成方式
+/// - 为 multipart 视频上传提供原始二进制内容
+fn red_video_bytes() -> Option<Vec<u8>> {
+    red_video_base64().and_then(|content| STANDARD.decode(content).ok())
 }
 
 /// `assert_media_cleanup_state` 校验媒体清理状态
@@ -797,16 +850,13 @@ async fn pet_avatar_upload_creates_traceable_media_binding() {
 
     let upload_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            json!({
-                "file_name": "avatar.txt",
-                "mime_type": "text/plain",
-                "content": "YXZhdGFyLWJ5dGVz",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "avatar.txt",
+            "text/plain",
+            b"avatar-bytes",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload avatar");
@@ -869,16 +919,13 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
 
     let image_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/background-image"),
-            json!({
-                "file_name": "background.jpg",
-                "mime_type": "image/jpeg",
-                "content": "aW1hZ2UtYnl0ZXM=",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "background.jpg",
+            "image/jpeg",
+            b"image-bytes",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload background image");
@@ -892,16 +939,13 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
 
     let video_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/background-video"),
-            json!({
-                "file_name": "background.mp4",
-                "mime_type": "video/mp4",
-                "content": "dmlkZW8tYnl0ZXM=",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "background.mp4",
+            "video/mp4",
+            b"video-bytes",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload background video");
@@ -946,16 +990,15 @@ async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
 
     let upload_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/background-image"),
-            json!({
-                "file_name": "red.png",
-                "mime_type": "image/png",
-                "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "red.png",
+            "image/png",
+            &STANDARD
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+                .expect("red png bytes"),
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload valid background image");
@@ -983,7 +1026,7 @@ async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
 
 #[tokio::test]
 async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
-    let Some(video_content) = red_video_base64() else {
+    let Some(video_content) = red_video_bytes() else {
         return;
     };
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
@@ -1010,16 +1053,13 @@ async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
 
     let upload_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/background-video"),
-            json!({
-                "file_name": "red.mp4",
-                "mime_type": "video/mp4",
-                "content": video_content,
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "red.mp4",
+            "video/mp4",
+            &video_content,
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload valid background video");
@@ -1065,16 +1105,13 @@ async fn replacing_avatar_queues_previous_media_for_cleanup() {
 
     let first_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            json!({
-                "file_name": "avatar-1.txt",
-                "mime_type": "text/plain",
-                "content": "YXZhdGFyLW9uZQ==",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "avatar-1.txt",
+            "text/plain",
+            b"avatar-one",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload first avatar");
@@ -1086,16 +1123,13 @@ async fn replacing_avatar_queues_previous_media_for_cleanup() {
 
     let second_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            json!({
-                "file_name": "avatar-2.txt",
-                "mime_type": "text/plain",
-                "content": "YXZhdGFyLXR3bw==",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "avatar-2.txt",
+            "text/plain",
+            b"avatar-two",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload replacement avatar");
@@ -1130,16 +1164,13 @@ async fn pet_profile_delete_is_soft_and_recoverable() {
 
     let upload_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
+        .oneshot(multipart_media_request(
             &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            json!({
-                "file_name": "restore-avatar.txt",
-                "mime_type": "text/plain",
-                "content": "YXZhdGFyLWJlZm9yZS1kZWxldGU=",
-                "source_client": "ios"
-            }),
-            Some(&user_id),
+            "restore-avatar.txt",
+            "text/plain",
+            b"avatar-before-delete",
+            "ios",
+            &user_id,
         ))
         .await
         .expect("upload avatar before delete");

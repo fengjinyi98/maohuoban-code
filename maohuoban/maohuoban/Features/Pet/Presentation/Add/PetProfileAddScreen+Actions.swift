@@ -157,6 +157,68 @@ extension PetProfileAddScreen {
         return true
     }
 
+    func addPetMediaDrafts() async -> PetCreateMediaDrafts {
+        PetCreateMediaDrafts(
+            avatar: addPetAvatarUploadDraft(),
+            backgroundImage: addPetBackgroundImageUploadDraft(),
+            backgroundVideo: await addPetBackgroundVideoUploadDraft()
+        )
+    }
+
+    func addPetAvatarUploadDraft() -> PetMediaUploadDraft? {
+        mediaUploadDraft(
+            data: localAvatarImage?.jpegData(compressionQuality: 0.88),
+            fileName: "pet-avatar.jpg",
+            mimeType: "image/jpeg"
+        )
+    }
+
+    func addPetBackgroundImageUploadDraft() -> PetMediaUploadDraft? {
+        guard case .image(let image) = localHeroMedia else {
+            return nil
+        }
+
+        return mediaUploadDraft(
+            data: image.jpegData(compressionQuality: 0.9),
+            fileName: "pet-background.jpg",
+            mimeType: "image/jpeg"
+        )
+    }
+
+    func addPetBackgroundVideoUploadDraft() async -> PetMediaUploadDraft? {
+        guard case .video(let url) = localHeroMedia else {
+            return nil
+        }
+
+        let videoData = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: url)
+        }.value
+        let fileName = url.lastPathComponent.isEmpty ? "pet-background.mp4" : url.lastPathComponent
+
+        return mediaUploadDraft(
+            data: videoData,
+            fileName: fileName,
+            mimeType: "video/mp4"
+        )
+    }
+
+    func mediaUploadDraft(
+        data: Data?,
+        fileName: String,
+        mimeType: String
+    ) -> PetMediaUploadDraft? {
+        guard let data, !data.isEmpty else {
+            return nil
+        }
+
+        return PetMediaUploadDraft(
+            fileName: fileName,
+            mimeType: mimeType,
+            content: data,
+            sourceClient: "ios"
+        )
+    }
+
     func toggleSpeciesMenu() {
         let shouldOpen = !isSpeciesMenuPresented
         dismissSelectionMenus()
@@ -215,7 +277,7 @@ extension PetProfileAddScreen {
     }
 
     func submit() async {
-        await store.createPet(
+        await store.createPetWithMedia(
             draft: PetProfileDraft(
                 name: name,
                 species: species,
@@ -223,10 +285,14 @@ extension PetProfileAddScreen {
                 sex: sex,
                 birthday: PetWriteFormatters.birthdayString(from: birthDate)
             ),
+            mediaDrafts: await addPetMediaDrafts(),
             currentUserID: currentUserID
         )
 
         if case .createdPet = store.phase {
+            onCreated()
+        }
+        if case .createdPetWithPartialMedia = store.phase {
             onCreated()
         }
     }

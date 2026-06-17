@@ -1,4 +1,4 @@
-use base64::{Engine as _, engine::general_purpose::STANDARD};
+use axum::extract::Multipart;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
     DeletePetProfile, NewMerchantPetProfile, NewPetEvent, NewPetProfile, PetMediaUploadInput,
@@ -111,22 +111,82 @@ impl DeletePetProfileRequest {
 
 /// UploadPetMediaRequest 上传宠物媒体请求
 /// 核心职责：
-/// - 接收客户端上传的媒体内容
+/// - 承接 multipart 解包后的媒体内容
 /// - 转换为媒体资产和业务绑定命令
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct UploadPetMediaRequest {
     file_name: String,
     mime_type: String,
-    content: String,
+    content: Vec<u8>,
     source_client: Option<String>,
 }
 
 impl UploadPetMediaRequest {
+    pub(crate) async fn from_multipart(mut multipart: Multipart) -> PetResult<Self> {
+        let mut file_name = None;
+        let mut mime_type = None;
+        let mut content = None;
+        let mut source_client = None;
+
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|_| PetError::InvalidInput("媒体上传表单无法解析".to_owned()))?
+        {
+            match field.name() {
+                Some("file") => {
+                    file_name = Some(
+                        field
+                            .file_name()
+                            .filter(|value| !value.trim().is_empty())
+                            .unwrap_or("upload.bin")
+                            .to_owned(),
+                    );
+                    mime_type = Some(
+                        field
+                            .content_type()
+                            .filter(|value| !value.trim().is_empty())
+                            .unwrap_or("application/octet-stream")
+                            .to_owned(),
+                    );
+                    let bytes = field
+                        .bytes()
+                        .await
+                        .map_err(|_| PetError::InvalidInput("媒体文件读取失败".to_owned()))?;
+                    content = Some(bytes.to_vec());
+                }
+                Some("source_client") => {
+                    let value = field
+                        .text()
+                        .await
+                        .map_err(|_| PetError::InvalidInput("媒体来源客户端读取失败".to_owned()))?;
+                    let trimmed = value.trim();
+                    if !trimmed.is_empty() {
+                        source_client = Some(trimmed.to_owned());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let content = content.ok_or_else(|| PetError::InvalidInput("请上传媒体文件".to_owned()))?;
+        if content.is_empty() {
+            return Err(PetError::InvalidInput("媒体文件不能为空".to_owned()));
+        }
+
+        Ok(Self {
+            file_name: file_name.unwrap_or_else(|| "upload.bin".to_owned()),
+            mime_type: mime_type.unwrap_or_else(|| "application/octet-stream".to_owned()),
+            content,
+            source_client,
+        })
+    }
+
     pub(crate) fn into_avatar_input(
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetAvatar)
     }
 
@@ -134,7 +194,7 @@ impl UploadPetMediaRequest {
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundImage)
     }
 
@@ -142,7 +202,7 @@ impl UploadPetMediaRequest {
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundVideo)
     }
 
@@ -151,19 +211,16 @@ impl UploadPetMediaRequest {
         pet_id: Uuid,
         owner_user_id: Uuid,
         usage_kind: MediaUsageKind,
-    ) -> PetResult<PetMediaUploadInput> {
-        let content = STANDARD
-            .decode(self.content.trim())
-            .map_err(|_| PetError::InvalidInput("媒体内容必须是 base64 编码".to_owned()))?;
-        Ok(PetMediaUploadInput {
+    ) -> PetMediaUploadInput {
+        PetMediaUploadInput {
             pet_id,
             owner_user_id,
             usage_kind,
             file_name: self.file_name,
             mime_type: self.mime_type,
-            content,
+            content: self.content,
             source_client: self.source_client,
-        })
+        }
     }
 }
 

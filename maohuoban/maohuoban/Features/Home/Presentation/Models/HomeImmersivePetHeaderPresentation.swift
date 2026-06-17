@@ -28,12 +28,6 @@ struct HomeImmersivePetHeaderPresentation {
     }
 
     private static func genderIconSystemName(for pet: HomeDashboardSnapshot.PetHeroSummary) -> String? {
-        if pet.name.contains("汤圆") {
-            return "mars"
-        } else if pet.name.contains("糯米") {
-            return "venus"
-        }
-
         switch pet.sex {
         case .male:
             return "mars"
@@ -45,12 +39,6 @@ struct HomeImmersivePetHeaderPresentation {
     }
 
     private static func genderColor(for pet: HomeDashboardSnapshot.PetHeroSummary) -> Color {
-        if pet.name.contains("汤圆") {
-            return maleColor
-        } else if pet.name.contains("糯米") {
-            return femaleColor
-        }
-
         switch pet.sex {
         case .male:
             return maleColor

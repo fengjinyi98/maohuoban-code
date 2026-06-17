@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
     http::HeaderMap,
     response::Response,
     routing::{get, post},
@@ -20,6 +20,9 @@ use super::{
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
+
+const PET_IMAGE_UPLOAD_LIMIT_BYTES: usize = 16 * 1024 * 1024;
+const PET_VIDEO_UPLOAD_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 
 /// PetHttpState 宠物 HTTP 状态
 /// 核心职责：
@@ -56,15 +59,17 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route("/api/v1/pets/{pet_id}/restore", post(restore_pet_profile))
         .route(
             "/api/v1/pets/{pet_id}/media/avatar",
-            post(upload_pet_avatar),
+            post(upload_pet_avatar).layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
         )
         .route(
             "/api/v1/pets/{pet_id}/media/background-image",
-            post(upload_pet_background_image),
+            post(upload_pet_background_image)
+                .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
         )
         .route(
             "/api/v1/pets/{pet_id}/media/background-video",
-            post(upload_pet_background_video),
+            post(upload_pet_background_video)
+                .layer(DefaultBodyLimit::max(PET_VIDEO_UPLOAD_LIMIT_BYTES)),
         )
         .route("/api/v1/pets/imports/trade", post(import_trade_pet))
         .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
@@ -188,16 +193,17 @@ async fn upload_pet_avatar(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
-    Json(request): Json<UploadPetMediaRequest>,
+    multipart: Multipart,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
         return unauthorized_response();
     };
 
-    let input = match request.into_avatar_input(pet_id, owner_user_id) {
-        Ok(input) => input,
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
         Err(error) => return error_response(&error),
     };
+    let input = request.into_avatar_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.avatar_uploaded",
@@ -212,16 +218,17 @@ async fn upload_pet_background_image(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
-    Json(request): Json<UploadPetMediaRequest>,
+    multipart: Multipart,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
         return unauthorized_response();
     };
 
-    let input = match request.into_background_image_input(pet_id, owner_user_id) {
-        Ok(input) => input,
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
         Err(error) => return error_response(&error),
     };
+    let input = request.into_background_image_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.background_uploaded",
@@ -236,16 +243,17 @@ async fn upload_pet_background_video(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
-    Json(request): Json<UploadPetMediaRequest>,
+    multipart: Multipart,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
         return unauthorized_response();
     };
 
-    let input = match request.into_background_video_input(pet_id, owner_user_id) {
-        Ok(input) => input,
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
         Err(error) => return error_response(&error),
     };
+    let input = request.into_background_video_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.background_uploaded",
