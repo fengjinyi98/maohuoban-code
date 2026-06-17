@@ -282,9 +282,13 @@ struct PetProfileHeroMediaPreviewContent: View {
     private var profileMediaContent: some View {
         switch heroMedia {
         case .image(let assetName):
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
+            if assetName.isEmpty {
+                fallbackColor
+            } else {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFill()
+            }
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
                 MHBMutedLoopingVideoView(
