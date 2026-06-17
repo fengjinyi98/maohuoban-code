@@ -671,17 +671,8 @@ private struct HomeImmersivePetAvatar: View {
                 .fill(.white.opacity(0.18))
 
             if let url = resolvedURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .empty, .failure:
-                        fallbackIcon
-                    @unknown default:
-                        fallbackIcon
-                    }
+                MHBRemoteImage(url: url, contentMode: .fill) {
+                    fallbackIcon
                 }
             } else {
                 fallbackIcon
@@ -780,21 +771,10 @@ private struct HomeImmersiveUserAvatarImage: View {
 
     var body: some View {
         if let url = resolvedURL {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .empty, .failure:
-                    Image(fallbackAssetName)
-                        .resizable()
-                        .scaledToFill()
-                @unknown default:
-                    Image(fallbackAssetName)
-                        .resizable()
-                        .scaledToFill()
-                }
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                Image(fallbackAssetName)
+                    .resizable()
+                    .scaledToFill()
             }
         } else {
             Image(fallbackAssetName)

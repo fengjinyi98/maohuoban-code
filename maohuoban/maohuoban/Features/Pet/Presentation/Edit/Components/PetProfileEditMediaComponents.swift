@@ -37,15 +37,8 @@ struct PetProfileEditAvatarImage: View {
                 .frame(width: size, height: size)
                 .clipShape(Circle())
         } else if let avatarURL, let url = URL(string: avatarURL) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                default:
-                    fallbackAvatar
-                }
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                fallbackAvatar
             }
             .frame(width: size, height: size)
             .clipShape(Circle())
