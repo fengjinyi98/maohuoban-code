@@ -5,8 +5,8 @@ mod value_objects;
 
 pub use event::{EventKind, EventVisibility, PetEvent, PetTimeline};
 pub use media::{
-    MediaAsset, MediaAssetStatus, MediaBinding, MediaBindingStatus, MediaDerivative,
-    MediaDerivativeKind, MediaUsageKind, PetMediaUploadResult,
+    MediaAsset, MediaAssetComponent, MediaAssetComponentKind, MediaAssetStatus, MediaBinding,
+    MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetMediaUploadResult,
 };
 pub use profile::{
     ManagedPetStatus, PetBackgroundMediaKind, PetNameEditPolicy, PetNeuterStatus, PetProfile,

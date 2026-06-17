@@ -2,7 +2,8 @@ use axum::extract::Multipart;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
     BindUploadedPetMediaInput, DeletePetProfile, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
-    PendingPetMediaUploadInput, PublishAvailableStatusInput, TradePetImportInput, UpdatePetProfile,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PublishAvailableStatusInput,
+    TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, MediaUsageKind, PetError, PetNeuterStatus,
@@ -125,6 +126,21 @@ pub(crate) struct UploadPetMediaRequest {
     source_client: Option<String>,
 }
 
+/// UploadPetLivePhotoRequest 上传宠物 Live Photo 请求
+/// 核心职责：
+/// - 承接静态图和配对视频 multipart 字段
+/// - 转换为 Live Photo 背景上传命令
+#[derive(Debug)]
+pub(crate) struct UploadPetLivePhotoRequest {
+    still_file_name: String,
+    still_mime_type: String,
+    still_content: Vec<u8>,
+    paired_video_file_name: String,
+    paired_video_mime_type: String,
+    paired_video_content: Vec<u8>,
+    source_client: Option<String>,
+}
+
 impl UploadPetMediaRequest {
     pub(crate) async fn from_multipart(mut multipart: Multipart) -> PetResult<Self> {
         let mut file_name = None;
@@ -221,6 +237,109 @@ impl UploadPetMediaRequest {
             source_client: self.source_client,
         }
     }
+}
+
+impl UploadPetLivePhotoRequest {
+    pub(crate) async fn from_multipart(mut multipart: Multipart) -> PetResult<Self> {
+        let mut still_file = None;
+        let mut paired_video_file = None;
+        let mut source_client = None;
+
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|_| PetError::InvalidInput("Live Photo 上传表单无法解析".to_owned()))?
+        {
+            match field.name() {
+                Some("still_file") => {
+                    still_file = Some(read_upload_field(field, "live-still.bin").await?);
+                }
+                Some("paired_video_file") => {
+                    paired_video_file = Some(read_upload_field(field, "live-motion.mov").await?);
+                }
+                Some("source_client") => {
+                    let value = field
+                        .text()
+                        .await
+                        .map_err(|_| PetError::InvalidInput("媒体来源客户端读取失败".to_owned()))?;
+                    let trimmed = value.trim();
+                    if !trimmed.is_empty() {
+                        source_client = Some(trimmed.to_owned());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let still_file = still_file
+            .ok_or_else(|| PetError::InvalidInput("请上传 Live Photo 静态图".to_owned()))?;
+        let paired_video_file = paired_video_file
+            .ok_or_else(|| PetError::InvalidInput("请上传 Live Photo 配对视频".to_owned()))?;
+        if still_file.content.is_empty() || paired_video_file.content.is_empty() {
+            return Err(PetError::InvalidInput("Live Photo 资源不能为空".to_owned()));
+        }
+
+        Ok(Self {
+            still_file_name: still_file.file_name,
+            still_mime_type: still_file.mime_type,
+            still_content: still_file.content,
+            paired_video_file_name: paired_video_file.file_name,
+            paired_video_mime_type: paired_video_file.mime_type,
+            paired_video_content: paired_video_file.content,
+            source_client,
+        })
+    }
+
+    pub(crate) fn into_pending_live_photo_input(
+        self,
+        owner_user_id: Uuid,
+    ) -> PendingPetLivePhotoUploadInput {
+        PendingPetLivePhotoUploadInput {
+            owner_user_id,
+            still_file_name: self.still_file_name,
+            still_mime_type: self.still_mime_type,
+            still_content: self.still_content,
+            paired_video_file_name: self.paired_video_file_name,
+            paired_video_mime_type: self.paired_video_mime_type,
+            paired_video_content: self.paired_video_content,
+            source_client: self.source_client,
+        }
+    }
+}
+
+/// MultipartUploadFile multipart 文件字段
+/// 核心职责：
+/// - 保存单个上传字段的文件名、媒体类型和内容
+/// - 复用 Live Photo 成对字段读取逻辑
+struct MultipartUploadFile {
+    file_name: String,
+    mime_type: String,
+    content: Vec<u8>,
+}
+
+async fn read_upload_field(
+    field: axum::extract::multipart::Field<'_>,
+    fallback_file_name: &str,
+) -> PetResult<MultipartUploadFile> {
+    let file_name = field
+        .file_name()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(fallback_file_name)
+        .to_owned();
+    let mime_type = field
+        .content_type()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("application/octet-stream")
+        .to_owned();
+    let bytes = field
+        .bytes()
+        .await
+        .map_err(|_| PetError::InvalidInput("媒体文件读取失败".to_owned()))?;
+    Ok(MultipartUploadFile {
+        file_name,
+        mime_type,
+        content: bytes.to_vec(),
+    })
 }
 
 /// BindUploadedPetMediaRequest 绑定已上传宠物媒体请求

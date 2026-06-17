@@ -6,17 +6,19 @@ use std::io::Cursor;
 use chrono::{Duration, Utc};
 use image::ImageFormat;
 use maohuoban_media_storage::MediaObjectStore;
-use maohuoban_pet_application::pet::{BindUploadedPetMediaInput, PendingPetMediaUploadInput};
+use maohuoban_pet_application::pet::{
+    BindUploadedPetMediaInput, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+};
 use maohuoban_pet_domain::pet::{
-    MediaAsset, MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetBackgroundMediaKind,
-    PetError, PetMediaUploadResult, PetResult,
+    MediaAsset, MediaAssetComponent, MediaAssetComponentKind, MediaDerivative, MediaDerivativeKind,
+    MediaUsageKind, PetBackgroundMediaKind, PetError, PetMediaUploadResult, PetResult,
 };
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use super::PostgresPetRepository;
-use super::rows::{MediaAssetRow, MediaBindingRow, MediaDerivativeRow};
+use super::rows::{MediaAssetComponentRow, MediaAssetRow, MediaBindingRow, MediaDerivativeRow};
 use super::storage::{sanitized_file_name, sha256_hex, to_infrastructure_error};
 use derivatives::{average_theme_color, prepare_derivative_object, prepare_video_derivatives};
 use diagnostics::{record_binding_stage, record_upload_failure, record_upload_stage};
@@ -78,6 +80,23 @@ pub(super) struct PreparedMediaDerivative {
     pub(super) metadata: Value,
 }
 
+/// PreparedMediaComponent 已持久化媒体组件对象
+/// 核心职责：
+/// - 保存组合媒体组件对象字段
+/// - 为 Live Photo 静态图和配对视频提供独立寻址
+pub(super) struct PreparedMediaComponent {
+    pub(super) id: Uuid,
+    pub(super) component_kind: MediaAssetComponentKind,
+    pub(super) bucket: String,
+    pub(super) object_key: String,
+    pub(super) mime_type: String,
+    pub(super) byte_size: i64,
+    pub(super) sha256_hex: String,
+    pub(super) width: Option<i32>,
+    pub(super) height: Option<i32>,
+    pub(super) duration_ms: Option<i32>,
+}
+
 impl PostgresPetRepository {
     pub(super) async fn upload_pending_pet_media_command(
         &self,
@@ -112,6 +131,7 @@ impl PostgresPetRepository {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<PetResult<Vec<MediaDerivative>>>()?,
+            components: Vec::new(),
         };
         record_upload_stage(
             "repository.committed",
@@ -120,6 +140,60 @@ impl PostgresPetRepository {
             upload.derivatives.len(),
         );
         Ok(upload)
+    }
+
+    pub(super) async fn upload_pending_pet_live_photo_command(
+        &self,
+        input: PendingPetLivePhotoUploadInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        let media_store = MediaObjectStore::from_env()
+            .map_err(|error| PetError::Infrastructure(error.to_string()))?;
+        let mut primary_input = MediaUploadObjectInput {
+            owner_user_id: input.owner_user_id,
+            pet_id: None,
+            usage_kind: MediaUsageKind::PetBackgroundLivePhoto,
+            file_name: &input.still_file_name,
+            mime_type: &input.still_mime_type,
+            content: &input.still_content,
+            source_client: input.source_client.as_deref(),
+        };
+        let mut prepared = Self::prepare_media_object(&media_store, &primary_input).await?;
+        let paired_video_component = Self::prepare_live_photo_component(
+            &media_store,
+            &prepared,
+            MediaAssetComponentKind::PairedVideo,
+            &input.paired_video_file_name,
+            &input.paired_video_mime_type,
+            &input.paired_video_content,
+        )
+        .await?;
+        let still_component =
+            Self::prepared_still_component_from_primary(&prepared, &input.still_mime_type);
+        let components = vec![still_component, paired_video_component];
+        let prepared_derivatives =
+            Self::prepare_upload_derivatives(&media_store, &primary_input, &mut prepared).await?;
+        primary_input.source_client = input.source_client.as_deref();
+
+        let (asset_row, component_rows, derivative_rows) = self
+            .insert_pending_live_photo_upload(
+                &primary_input,
+                &prepared,
+                &components,
+                &prepared_derivatives,
+            )
+            .await?;
+        Ok(PetMediaUploadResult {
+            asset: asset_row.try_into()?,
+            binding: None,
+            derivatives: derivative_rows
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<PetResult<Vec<MediaDerivative>>>()?,
+            components: component_rows
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<PetResult<Vec<MediaAssetComponent>>>()?,
+        })
     }
 
     async fn prepare_upload_derivatives(
@@ -223,6 +297,39 @@ impl PostgresPetRepository {
         Ok((asset_row, derivative_rows))
     }
 
+    async fn insert_pending_live_photo_upload(
+        &self,
+        object_input: &MediaUploadObjectInput<'_>,
+        prepared: &PreparedMediaObject,
+        prepared_components: &[PreparedMediaComponent],
+        prepared_derivatives: &[PreparedMediaDerivative],
+    ) -> PetResult<(
+        MediaAssetRow,
+        Vec<MediaAssetComponentRow>,
+        Vec<MediaDerivativeRow>,
+    )> {
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        let asset_row =
+            Self::insert_media_asset(&mut transaction, object_input, prepared, "uploaded").await?;
+        let component_rows = Self::insert_media_asset_components(
+            &mut transaction,
+            prepared.asset_id,
+            prepared_components,
+        )
+        .await?;
+        let derivative_rows = Self::insert_media_derivatives(
+            &mut transaction,
+            prepared.asset_id,
+            prepared_derivatives,
+        )
+        .await?;
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
+        Ok((asset_row, component_rows, derivative_rows))
+    }
+
     pub(super) async fn bind_uploaded_pet_media_command(
         &self,
         input: BindUploadedPetMediaInput,
@@ -234,16 +341,17 @@ impl PostgresPetRepository {
                 return Err(error);
             }
         };
-        let (asset_row, binding_row, derivative_rows) = Self::bind_uploaded_media_in_transaction(
-            &mut transaction,
-            input.pet_id,
-            input.owner_user_id,
-            input.asset_id,
-        )
-        .await
-        .inspect_err(|_error| {
-            record_binding_stage("repository.bound", &input, None, 0, false);
-        })?;
+        let (asset_row, binding_row, derivative_rows, component_rows) =
+            Self::bind_uploaded_media_in_transaction(
+                &mut transaction,
+                input.pet_id,
+                input.owner_user_id,
+                input.asset_id,
+            )
+            .await
+            .inspect_err(|_error| {
+                record_binding_stage("repository.bound", &input, None, 0, false);
+            })?;
         if let Err(error) = transaction.commit().await.map_err(to_infrastructure_error) {
             record_binding_stage("repository.committed", &input, None, 0, false);
             return Err(error);
@@ -256,6 +364,10 @@ impl PostgresPetRepository {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<PetResult<Vec<MediaDerivative>>>()?,
+            components: component_rows
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<PetResult<Vec<MediaAssetComponent>>>()?,
         };
         record_binding_stage(
             "repository.committed",
@@ -272,7 +384,12 @@ impl PostgresPetRepository {
         pet_id: Uuid,
         owner_user_id: Uuid,
         asset_id: Uuid,
-    ) -> PetResult<(MediaAssetRow, MediaBindingRow, Vec<MediaDerivativeRow>)> {
+    ) -> PetResult<(
+        MediaAssetRow,
+        MediaBindingRow,
+        Vec<MediaDerivativeRow>,
+        Vec<MediaAssetComponentRow>,
+    )> {
         let current_asset =
             Self::select_owned_media_asset_for_binding(transaction, asset_id, owner_user_id)
                 .await?;
@@ -305,8 +422,9 @@ impl PostgresPetRepository {
         )
         .await?;
         let derivative_rows = Self::select_media_derivatives(transaction, asset_id).await?;
+        let component_rows = Self::select_media_asset_components(transaction, asset_id).await?;
 
-        Ok((asset_row, binding_row, derivative_rows))
+        Ok((asset_row, binding_row, derivative_rows, component_rows))
     }
 
     /// apply_video_asset_dimensions 回填视频资产尺寸
@@ -384,7 +502,9 @@ impl PostgresPetRepository {
 
         if !matches!(
             input.usage_kind,
-            MediaUsageKind::PetAvatar | MediaUsageKind::PetBackgroundImage
+            MediaUsageKind::PetAvatar
+                | MediaUsageKind::PetBackgroundImage
+                | MediaUsageKind::PetBackgroundLivePhoto
         ) {
             return Ok(Vec::new());
         }
@@ -614,6 +734,63 @@ impl PostgresPetRepository {
         Ok(rows)
     }
 
+    async fn insert_media_asset_components(
+        transaction: &mut Transaction<'_, Postgres>,
+        asset_id: Uuid,
+        components: &[PreparedMediaComponent],
+    ) -> PetResult<Vec<MediaAssetComponentRow>> {
+        let mut rows = Vec::with_capacity(components.len());
+        for component in components {
+            let row = sqlx::query_as::<_, MediaAssetComponentRow>(
+                r#"
+                INSERT INTO media_asset_components (
+                    id,
+                    asset_id,
+                    component_kind,
+                    bucket,
+                    object_key,
+                    mime_type,
+                    byte_size,
+                    sha256_hex,
+                    width,
+                    height,
+                    duration_ms
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING
+                    id,
+                    asset_id,
+                    component_kind,
+                    bucket,
+                    object_key,
+                    mime_type,
+                    byte_size,
+                    sha256_hex,
+                    width,
+                    height,
+                    duration_ms,
+                    created_at
+                "#,
+            )
+            .bind(component.id)
+            .bind(asset_id)
+            .bind(component.component_kind.as_str())
+            .bind(&component.bucket)
+            .bind(&component.object_key)
+            .bind(&component.mime_type)
+            .bind(component.byte_size)
+            .bind(&component.sha256_hex)
+            .bind(component.width)
+            .bind(component.height)
+            .bind(component.duration_ms)
+            .fetch_one(&mut **transaction)
+            .await
+            .map_err(to_infrastructure_error)?;
+            rows.push(row);
+        }
+        Ok(rows)
+    }
+
     async fn select_owned_media_asset_for_binding(
         transaction: &mut Transaction<'_, Postgres>,
         asset_id: Uuid,
@@ -755,6 +932,11 @@ impl PostgresPetRepository {
                 Some(asset_id),
                 Some(PetBackgroundMediaKind::Video.as_str()),
             ),
+            MediaUsageKind::PetBackgroundLivePhoto => (
+                None,
+                Some(asset_id),
+                Some(PetBackgroundMediaKind::LivePhoto.as_str()),
+            ),
         };
         sqlx::query(
             r#"
@@ -837,6 +1019,94 @@ impl PostgresPetRepository {
         .fetch_all(&mut **transaction)
         .await
         .map_err(to_infrastructure_error)
+    }
+
+    async fn select_media_asset_components(
+        transaction: &mut Transaction<'_, Postgres>,
+        asset_id: Uuid,
+    ) -> PetResult<Vec<MediaAssetComponentRow>> {
+        sqlx::query_as::<_, MediaAssetComponentRow>(
+            r#"
+            SELECT
+                id,
+                asset_id,
+                component_kind,
+                bucket,
+                object_key,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                width,
+                height,
+                duration_ms,
+                created_at
+            FROM media_asset_components
+            WHERE asset_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(asset_id)
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)
+    }
+
+    fn prepared_still_component_from_primary(
+        prepared: &PreparedMediaObject,
+        mime_type: &str,
+    ) -> PreparedMediaComponent {
+        PreparedMediaComponent {
+            id: Uuid::new_v4(),
+            component_kind: MediaAssetComponentKind::Still,
+            bucket: prepared.bucket.clone(),
+            object_key: prepared.object_key.clone(),
+            mime_type: mime_type.to_owned(),
+            byte_size: prepared.byte_size,
+            sha256_hex: prepared.sha256_hex.clone(),
+            width: prepared.width,
+            height: prepared.height,
+            duration_ms: None,
+        }
+    }
+
+    async fn prepare_live_photo_component(
+        media_store: &MediaObjectStore,
+        media: &PreparedMediaObject,
+        component_kind: MediaAssetComponentKind,
+        file_name: &str,
+        mime_type: &str,
+        content: &[u8],
+    ) -> PetResult<PreparedMediaComponent> {
+        let id = Uuid::new_v4();
+        let object_prefix = media
+            .object_key
+            .rsplit_once('/')
+            .map_or(media.object_key.as_str(), |(prefix, _)| prefix);
+        let object_key = format!(
+            "{}/live_photo/{}/{}",
+            object_prefix,
+            component_kind.as_str(),
+            sanitized_file_name(file_name)
+        );
+        media_store
+            .put(&media.bucket, &object_key, content)
+            .await
+            .map_err(|error| PetError::Infrastructure(error.to_string()))?;
+        let byte_size = i64::try_from(content.len())
+            .map_err(|_| PetError::InvalidInput("Live Photo 组件内容过大".to_owned()))?;
+        let (width, height) = image_dimensions(content)?;
+        Ok(PreparedMediaComponent {
+            id,
+            component_kind,
+            bucket: media.bucket.clone(),
+            object_key,
+            mime_type: mime_type.to_owned(),
+            byte_size,
+            sha256_hex: sha256_hex(content),
+            width,
+            height,
+            duration_ms: None,
+        })
     }
 }
 

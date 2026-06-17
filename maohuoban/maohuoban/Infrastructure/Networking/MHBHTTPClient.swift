@@ -49,6 +49,22 @@ struct MHBHTTPClient {
         headers: [String: String] = [:],
         onUploadProgress: (@MainActor (Double) -> Void)? = nil
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        try await postMultipart(
+            path: path,
+            files: [file],
+            fields: fields,
+            headers: headers,
+            onUploadProgress: onUploadProgress
+        )
+    }
+
+    func postMultipart<ResponseBody: Decodable>(
+        path: String,
+        files: [MHBMultipartFile],
+        fields: [String: String] = [:],
+        headers: [String: String] = [:],
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let boundary = "maohuoban-\(UUID().uuidString)"
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
@@ -58,7 +74,7 @@ struct MHBHTTPClient {
         for (field, value) in headers {
             request.setValue(value, forHTTPHeaderField: field)
         }
-        let body = multipartBody(boundary: boundary, file: file, fields: fields)
+        let body = multipartBody(boundary: boundary, files: files, fields: fields)
         request.httpBody = body
 
         guard let onUploadProgress else {
@@ -113,16 +129,26 @@ struct MHBHTTPClient {
         file: MHBMultipartFile,
         fields: [String: String]
     ) -> Data {
+        multipartBody(boundary: boundary, files: [file], fields: fields)
+    }
+
+    private func multipartBody(
+        boundary: String,
+        files: [MHBMultipartFile],
+        fields: [String: String]
+    ) -> Data {
         var body = Data()
         let lineBreak = "\r\n"
 
-        body.append("--\(boundary)\(lineBreak)")
-        body.append(
-            "Content-Disposition: form-data; name=\"\(file.fieldName)\"; filename=\"\(file.fileName)\"\(lineBreak)"
-        )
-        body.append("Content-Type: \(file.mimeType)\(lineBreak)\(lineBreak)")
-        body.append(file.data)
-        body.append(lineBreak)
+        for file in files {
+            body.append("--\(boundary)\(lineBreak)")
+            body.append(
+                "Content-Disposition: form-data; name=\"\(file.fieldName)\"; filename=\"\(file.fileName)\"\(lineBreak)"
+            )
+            body.append("Content-Type: \(file.mimeType)\(lineBreak)\(lineBreak)")
+            body.append(file.data)
+            body.append(lineBreak)
+        }
 
         for (name, value) in fields.sorted(by: { $0.key < $1.key }) {
             body.append("--\(boundary)\(lineBreak)")

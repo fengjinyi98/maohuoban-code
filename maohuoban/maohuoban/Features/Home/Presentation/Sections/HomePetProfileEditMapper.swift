@@ -91,6 +91,12 @@ enum HomePetProfileEditMapper {
                 fallbackImageURLString: fallbackImageURLString,
                 fallbackImageAssetName: fallbackImageAssetName
             )
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+            .remoteLivePhoto(
+                stillURLString: stillURLString,
+                pairedVideoURLString: pairedVideoURLString,
+                fallbackImageAssetName: fallbackImageAssetName
+            )
         }
     }
 

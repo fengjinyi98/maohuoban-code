@@ -46,6 +46,12 @@ protocol PetRepository {
         onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
+    func uploadPendingBackgroundLivePhoto(
+        draft: PetLivePhotoUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
     func bindUploadedMedia(
         petID: String,
         assetID: String,
@@ -211,6 +217,54 @@ struct DefaultPetRepository: PetRepository {
         )
     }
 
+    func uploadPendingBackgroundLivePhoto(
+        draft: PetLivePhotoUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        await Diagnostics.track(
+            "pet.media_upload_request_prepared",
+            properties: [
+                "path": "/api/v1/pet-media/background-live-photo",
+                "file_extension": .string((draft.still.fileName as NSString).pathExtension.lowercased()),
+                "paired_video_extension": .string((draft.pairedVideo.fileName as NSString).pathExtension.lowercased()),
+                "mime_type": .string(draft.still.mimeType),
+                "paired_video_mime_type": .string(draft.pairedVideo.mimeType),
+                "byte_size": .int(draft.byteSize),
+                "user_id_prefix": .string(diagnosticsPrefix(currentUserID))
+            ]
+        )
+        do {
+            let response: MHBAPIResponse<PetMediaUploadResult> = try await client.postMultipart(
+                path: "/api/v1/pet-media/background-live-photo",
+                files: multipartFiles(from: draft),
+                fields: multipartFields(from: draft),
+                headers: try userHeaders(currentUserID: currentUserID),
+                onUploadProgress: onUploadProgress
+            )
+            await recordMediaResponse(
+                eventName: "pet.media_upload_response_received",
+                response: response,
+                currentUserID: currentUserID,
+                metadata: ["path": .string("/api/v1/pet-media/background-live-photo")]
+            )
+            return response
+        } catch {
+            await recordPetFailure(
+                eventName: "pet.media_upload_request_failed",
+                error: error,
+                currentUserID: currentUserID,
+                metadata: [
+                    "path": .string("/api/v1/pet-media/background-live-photo"),
+                    "mime_type": .string(draft.still.mimeType),
+                    "paired_video_mime_type": .string(draft.pairedVideo.mimeType),
+                    "byte_size": .int(draft.byteSize)
+                ]
+            )
+            throw error
+        }
+    }
+
     func bindUploadedMedia(
         petID: String,
         assetID: String,
@@ -295,6 +349,27 @@ struct DefaultPetRepository: PetRepository {
     }
 
     private func multipartFields(from draft: PetMediaUploadDraft) -> [String: String] {
+        ["source_client": draft.sourceClient]
+    }
+
+    private func multipartFiles(from draft: PetLivePhotoUploadDraft) -> [MHBMultipartFile] {
+        [
+            MHBMultipartFile(
+                fieldName: "still_file",
+                fileName: draft.still.fileName,
+                mimeType: draft.still.mimeType,
+                data: draft.still.content
+            ),
+            MHBMultipartFile(
+                fieldName: "paired_video_file",
+                fileName: draft.pairedVideo.fileName,
+                mimeType: draft.pairedVideo.mimeType,
+                data: draft.pairedVideo.content
+            )
+        ]
+    }
+
+    private func multipartFields(from draft: PetLivePhotoUploadDraft) -> [String: String] {
         ["source_client": draft.sourceClient]
     }
 

@@ -136,6 +136,7 @@ extension HomeDashboardSnapshot {
             heroVideoURL: selectedPet?.heroVideoURL,
             heroVideoWidth: selectedPet?.heroVideoWidth,
             heroVideoHeight: selectedPet?.heroVideoHeight,
+            heroLivePhoto: selectedPet?.heroLivePhoto,
             heroThemeColorHex: selectedPet?.heroThemeColorHex,
             heroContentColorScheme: selectedPet?.heroContentColorScheme,
             heroImageAssetName: selectedPet?.heroImageAssetName,
@@ -225,6 +226,11 @@ extension HomeDashboardSnapshot {
             case remoteImage(urlString: String, fallbackAssetName: String)
             case video(resourceName: String, fileExtension: String, fallbackImageAssetName: String?)
             case remoteVideo(urlString: String, fallbackImageURLString: String?, fallbackImageAssetName: String?)
+            case remoteLivePhoto(
+                stillURLString: String,
+                pairedVideoURLString: String,
+                fallbackImageAssetName: String?
+            )
         }
 
         let id: String
@@ -244,6 +250,7 @@ extension HomeDashboardSnapshot {
         let heroVideoURL: String?
         let heroVideoWidth: Int?
         let heroVideoHeight: Int?
+        let heroLivePhoto: HeroLivePhotoSummary?
         let heroThemeColorHex: String?
         let heroContentColorScheme: HeroContentColorScheme?
         let heroImageAssetName: String?
@@ -261,6 +268,13 @@ extension HomeDashboardSnapshot {
         let stats: PetHeroStats?
 
         var heroMedia: HeroMedia {
+            if let heroLivePhoto {
+                return .remoteLivePhoto(
+                    stillURLString: heroLivePhoto.stillURL,
+                    pairedVideoURLString: heroLivePhoto.pairedVideoURL,
+                    fallbackImageAssetName: heroImageAssetName ?? "HomePetHeroMock"
+                )
+            }
             if let heroVideoURL {
                 return .remoteVideo(
                     urlString: heroVideoURL,
@@ -303,6 +317,7 @@ extension HomeDashboardSnapshot {
             heroVideoURL: String? = nil,
             heroVideoWidth: Int? = nil,
             heroVideoHeight: Int? = nil,
+            heroLivePhoto: HeroLivePhotoSummary? = nil,
             heroThemeColorHex: String? = nil,
             heroContentColorScheme: HeroContentColorScheme? = nil,
             heroImageAssetName: String?,
@@ -336,6 +351,7 @@ extension HomeDashboardSnapshot {
             self.heroVideoURL = heroVideoURL
             self.heroVideoWidth = heroVideoWidth
             self.heroVideoHeight = heroVideoHeight
+            self.heroLivePhoto = heroLivePhoto
             self.heroThemeColorHex = heroThemeColorHex
             self.heroContentColorScheme = heroContentColorScheme
             self.heroImageAssetName = heroImageAssetName
@@ -440,6 +456,7 @@ extension HomeDashboardSnapshot {
             case heroVideoURL = "hero_video_url"
             case heroVideoWidth = "hero_video_width"
             case heroVideoHeight = "hero_video_height"
+            case heroLivePhoto = "hero_live_photo"
             case heroThemeColorHex = "hero_theme_color_hex"
             case heroContentColorScheme = "hero_content_color_scheme"
             case heroImageAssetName = "hero_image_asset_name"
@@ -476,6 +493,7 @@ extension HomeDashboardSnapshot {
             heroVideoURL = try container.decodeIfPresent(String.self, forKey: .heroVideoURL)
             heroVideoWidth = try container.decodeIfPresent(Int.self, forKey: .heroVideoWidth)
             heroVideoHeight = try container.decodeIfPresent(Int.self, forKey: .heroVideoHeight)
+            heroLivePhoto = try container.decodeIfPresent(HeroLivePhotoSummary.self, forKey: .heroLivePhoto)
             heroThemeColorHex = try container.decodeIfPresent(String.self, forKey: .heroThemeColorHex)
             heroContentColorScheme = try container.decodeIfPresent(
                 HeroContentColorScheme.self,
@@ -558,6 +576,30 @@ extension HomeDashboardSnapshot {
     enum HeroContentColorScheme: String, Decodable, Equatable {
         case light
         case dark
+    }
+
+    // HeroLivePhotoSummary 首页 Live Photo 背景摘要
+    // 核心职责：
+    // - 承载后端返回的静态图和配对视频组件 URL
+    // - 为 Live Photo 重建和兜底渲染提供尺寸信息
+    struct HeroLivePhotoSummary: Decodable, Equatable {
+        let stillURL: String
+        let stillWidth: Int?
+        let stillHeight: Int?
+        let pairedVideoURL: String
+        let pairedVideoWidth: Int?
+        let pairedVideoHeight: Int?
+        let pairedVideoDurationMS: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case stillURL = "still_url"
+            case stillWidth = "still_width"
+            case stillHeight = "still_height"
+            case pairedVideoURL = "paired_video_url"
+            case pairedVideoWidth = "paired_video_width"
+            case pairedVideoHeight = "paired_video_height"
+            case pairedVideoDurationMS = "paired_video_duration_ms"
+        }
     }
 
     // PetSwitchItem 宠物切换项

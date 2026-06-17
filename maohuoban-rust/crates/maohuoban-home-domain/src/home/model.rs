@@ -78,6 +78,8 @@ pub struct PetHeroSummary {
     #[serde(default)]
     pub hero_video_height: Option<i32>,
     #[serde(default)]
+    pub hero_live_photo: Option<HeroLivePhotoSummary>,
+    #[serde(default)]
     pub hero_theme_color_hex: Option<String>,
     #[serde(default)]
     pub hero_content_color_scheme: Option<String>,
@@ -99,6 +101,26 @@ pub struct PetHeroSummary {
     #[serde(default)]
     pub name_edit_policy: Option<PetNameEditPolicy>,
     pub companionship_days: Option<i32>,
+}
+
+/// HeroLivePhotoSummary 首页 Live Photo 背景摘要
+/// 核心职责：
+/// - 返回 Live Photo 静态图和配对视频组件
+/// - 为客户端重建 PHLivePhoto 提供尺寸与 URL 契约
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HeroLivePhotoSummary {
+    pub still_url: String,
+    #[serde(default)]
+    pub still_width: Option<i32>,
+    #[serde(default)]
+    pub still_height: Option<i32>,
+    pub paired_video_url: String,
+    #[serde(default)]
+    pub paired_video_width: Option<i32>,
+    #[serde(default)]
+    pub paired_video_height: Option<i32>,
+    #[serde(default)]
+    pub paired_video_duration_ms: Option<i32>,
 }
 
 /// PetNameEditPolicy 宠物名字编辑策略

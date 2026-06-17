@@ -9,8 +9,9 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind,
-    HomeReminder, HomeReminderKind, MerchantDashboardSummary as HomeMerchantDashboardSummary,
+    HeroLivePhotoSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity,
+    HomeIdentityKind, HomeReminder, HomeReminderKind,
+    MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
     MerchantStatusCount as HomeMerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind,
     PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
@@ -383,6 +384,7 @@ fn pet_hero_summary(
         hero_video_url: hero_video_url(pet),
         hero_video_width: hero_video_dimensions(pet, background_metadata).0,
         hero_video_height: hero_video_dimensions(pet, background_metadata).1,
+        hero_live_photo: hero_live_photo(pet, background_metadata),
         hero_theme_color_hex,
         hero_content_color_scheme,
         profile_number: Some(pet.profile_number.clone()),
@@ -480,6 +482,25 @@ fn hero_video_dimensions(
         Some(PetBackgroundMediaKind::Video) => media_dimensions(metadata),
         _ => (None, None),
     }
+}
+
+fn hero_live_photo(
+    pet: &PetProfile,
+    metadata: Option<&MediaAssetDisplayMetadata>,
+) -> Option<HeroLivePhotoSummary> {
+    if pet.background_media_kind != Some(PetBackgroundMediaKind::LivePhoto) {
+        return None;
+    }
+    let metadata = metadata?;
+    Some(HeroLivePhotoSummary {
+        still_url: metadata.live_photo_still_url.clone()?,
+        still_width: metadata.live_photo_still_width,
+        still_height: metadata.live_photo_still_height,
+        paired_video_url: metadata.live_photo_paired_video_url.clone()?,
+        paired_video_width: metadata.live_photo_paired_video_width,
+        paired_video_height: metadata.live_photo_paired_video_height,
+        paired_video_duration_ms: metadata.live_photo_paired_video_duration_ms,
+    })
 }
 
 fn media_dimensions(metadata: Option<&MediaAssetDisplayMetadata>) -> (Option<i32>, Option<i32>) {

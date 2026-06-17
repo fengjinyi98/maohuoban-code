@@ -664,6 +664,59 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.coverFrame?.objectKey, "pets/pet-1/cover-frame.png")
     }
 
+    func testUploadPendingBackgroundLivePhotoSendsPairedResourcesAndDecodesComponents() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-media/background-live-photo")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+            try Self.assertMultipartLivePhotoRequest(
+                request,
+                stillFileName: "background.heic",
+                stillMimeType: "image/heic",
+                stillContentText: "still-bytes",
+                pairedVideoFileName: "background.mov",
+                pairedVideoMimeType: "video/quicktime",
+                pairedVideoContentText: "video-bytes",
+                sourceClient: "ios"
+            )
+
+            return Self.pendingLivePhotoUploadResponse()
+        }
+
+        let response = try await repository.uploadPendingBackgroundLivePhoto(
+            draft: PetLivePhotoUploadDraft(
+                still: PetMediaUploadDraft(
+                    fileName: "background.heic",
+                    mimeType: "image/heic",
+                    content: Data("still-bytes".utf8),
+                    sourceClient: "ios"
+                ),
+                pairedVideo: PetMediaUploadDraft(
+                    fileName: "background.mov",
+                    mimeType: "video/quicktime",
+                    content: Data("video-bytes".utf8),
+                    sourceClient: "ios"
+                )
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.message, "媒体已上传")
+        XCTAssertEqual(response.data?.asset.usageKind, .backgroundLivePhoto)
+        XCTAssertEqual(response.data?.components.count, 2)
+        XCTAssertTrue(response.data?.components.contains { component in
+            component.componentKind == .still
+                && component.url == "/api/v1/media/assets/asset-1/components/component-still/content"
+                && component.width == 1200
+                && component.height == 1600
+        } == true)
+        XCTAssertTrue(response.data?.components.contains { component in
+            component.componentKind == .pairedVideo
+                && component.url == "/api/v1/media/assets/asset-1/components/component-video/content"
+                && component.durationMS == 1800
+        } == true)
+    }
+
     func testDeletePetSendsReasonAndDecodesRecoverableProfile() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "DELETE")
@@ -894,6 +947,75 @@ final class PetRepositoryTests: XCTestCase {
         )
     }
 
+    private static func pendingLivePhotoUploadResponse() -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: 201,
+            body:
+            """
+            {
+              "success": true,
+              "code": "pet.media_uploaded",
+              "message": "媒体已上传",
+              "data": {
+                "asset": {
+                  "id": "asset-1",
+                  "url": null,
+                  "uploaded_by_user_id": "user-1",
+                  "owner_pet_id": null,
+                  "usage_kind": "pet.background.live_photo",
+                  "source_client": "ios",
+                  "original_file_name": "background.heic",
+                  "mime_type": "image/heic",
+                  "byte_size": 32,
+                  "sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "bucket": "maohuoban-pet-media",
+                  "object_key": "pet-media/pet/background/live-photo/asset-1/background.heic",
+                  "status": "uploaded",
+                  "width": 1200,
+                  "height": 1600,
+                  "created_at": "2026-06-17T00:00:00Z",
+                  "updated_at": "2026-06-17T00:00:00Z"
+                },
+                "binding": null,
+                "components": [
+                  {
+                    "id": "component-still",
+                    "asset_id": "asset-1",
+                    "url": "/api/v1/media/assets/asset-1/components/component-still/content",
+                    "component_kind": "still",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pet-media/pet/background/live-photo/asset-1/still.heic",
+                    "mime_type": "image/heic",
+                    "byte_size": 12,
+                    "sha256_hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "width": 1200,
+                    "height": 1600,
+                    "duration_ms": null,
+                    "created_at": "2026-06-17T00:00:00Z"
+                  },
+                  {
+                    "id": "component-video",
+                    "asset_id": "asset-1",
+                    "url": "/api/v1/media/assets/asset-1/components/component-video/content",
+                    "component_kind": "paired_video",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pet-media/pet/background/live-photo/asset-1/paired.mov",
+                    "mime_type": "video/quicktime",
+                    "byte_size": 20,
+                    "sha256_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "width": 1200,
+                    "height": 1600,
+                    "duration_ms": 1800,
+                    "created_at": "2026-06-17T00:00:00Z"
+                  }
+                ],
+                "derivatives": []
+              }
+            }
+            """
+        )
+    }
+
     private static func assertMultipartMediaRequest(
         _ request: URLRequest,
         fileName: String,
@@ -911,6 +1033,37 @@ final class PetRepositoryTests: XCTestCase {
         )
         XCTAssertTrue(bodyText.contains("Content-Type: \(mimeType)"))
         XCTAssertTrue(bodyText.contains(contentText))
+        XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"source_client\""))
+        XCTAssertTrue(bodyText.contains(sourceClient))
+    }
+
+    private static func assertMultipartLivePhotoRequest(
+        _ request: URLRequest,
+        stillFileName: String,
+        stillMimeType: String,
+        stillContentText: String,
+        pairedVideoFileName: String,
+        pairedVideoMimeType: String,
+        pairedVideoContentText: String,
+        sourceClient: String
+    ) throws {
+        let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
+        XCTAssertTrue(contentType.hasPrefix("multipart/form-data; boundary="))
+        let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+        let bodyText = String(decoding: body, as: UTF8.self)
+
+        XCTAssertTrue(
+            bodyText.contains("Content-Disposition: form-data; name=\"still_file\"; filename=\"\(stillFileName)\"")
+        )
+        XCTAssertTrue(bodyText.contains("Content-Type: \(stillMimeType)"))
+        XCTAssertTrue(bodyText.contains(stillContentText))
+        XCTAssertTrue(
+            bodyText.contains(
+                "Content-Disposition: form-data; name=\"paired_video_file\"; filename=\"\(pairedVideoFileName)\""
+            )
+        )
+        XCTAssertTrue(bodyText.contains("Content-Type: \(pairedVideoMimeType)"))
+        XCTAssertTrue(bodyText.contains(pairedVideoContentText))
         XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"source_client\""))
         XCTAssertTrue(bodyText.contains(sourceClient))
     }

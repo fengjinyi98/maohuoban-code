@@ -495,6 +495,14 @@ private final class CapturingPetRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func uploadPendingBackgroundLivePhoto(
+        draft: PetLivePhotoUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
     func bindUploadedMedia(
         petID: String,
         assetID: String,

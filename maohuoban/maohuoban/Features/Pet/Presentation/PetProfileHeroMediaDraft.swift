@@ -8,4 +8,5 @@ import Foundation
 enum PetProfileHeroMediaDraft {
     case image(UIImage)
     case video(URL)
+    case livePhoto(MHBPickedLivePhoto)
 }

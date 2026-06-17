@@ -73,6 +73,39 @@ final class PetMediaUploadStoreTests: XCTestCase {
         })
     }
 
+    func testUploadBackgroundLivePhotoStoresUploadedAssetForCreateBinding() async {
+        let repository = CapturingPetMediaUploadRepository()
+        repository.uploadPendingBackgroundLivePhotoResult = .success(Self.mediaUploadResponse(usageKind: .backgroundLivePhoto))
+        let store = PetMediaUploadStore(repository: repository)
+
+        let didUpload = await store.uploadBackgroundLivePhoto(
+            draft: PetLivePhotoUploadDraft(
+                still: PetMediaUploadDraft(
+                    fileName: "background.heic",
+                    mimeType: "image/heic",
+                    content: Data("still-content".utf8),
+                    sourceClient: "ios"
+                ),
+                pairedVideo: PetMediaUploadDraft(
+                    fileName: "background.mov",
+                    mimeType: "video/quicktime",
+                    content: Data("video-content".utf8),
+                    sourceClient: "ios"
+                )
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertTrue(didUpload)
+        XCTAssertEqual(store.backgroundState.assetID, "asset-1")
+        XCTAssertEqual(store.uploadedBindings.backgroundAssetID, "asset-1")
+        XCTAssertEqual(repository.callOrder, ["uploadPendingBackgroundLivePhoto"])
+        XCTAssertEqual(repository.receivedLivePhotoDraft?.still.fileName, "background.heic")
+        XCTAssertEqual(repository.receivedLivePhotoDraft?.pairedVideo.fileName, "background.mov")
+        XCTAssertEqual(repository.receivedLivePhotoUserID, "user-1")
+        XCTAssertEqual(repository.observedProgressValues, [0.5, 1.0])
+    }
+
     func testBindUploadedMediaUsesSharedBindingEndpointForEditMode() async {
         let repository = CapturingPetMediaUploadRepository()
         repository.bindUploadedMediaResult = .success(Self.mediaUploadResponse(usageKind: .backgroundImage))
@@ -167,10 +200,13 @@ private final class CapturingPetMediaUploadRepository: PetRepository {
     var uploadPendingAvatarResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var uploadPendingBackgroundImageResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var uploadPendingBackgroundVideoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
+    var uploadPendingBackgroundLivePhotoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var bindUploadedMediaResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var callOrder: [String] = []
     private(set) var receivedAvatarDraft: PetMediaUploadDraft?
     private(set) var receivedAvatarUserID: String?
+    private(set) var receivedLivePhotoDraft: PetLivePhotoUploadDraft?
+    private(set) var receivedLivePhotoUserID: String?
     private(set) var receivedBindPetID: String?
     private(set) var receivedBindAssetID: String?
     private(set) var receivedBindUserID: String?
@@ -247,6 +283,28 @@ private final class CapturingPetMediaUploadRepository: PetRepository {
         onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         switch uploadPendingBackgroundVideoResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func uploadPendingBackgroundLivePhoto(
+        draft: PetLivePhotoUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        callOrder.append("uploadPendingBackgroundLivePhoto")
+        receivedLivePhotoDraft = draft
+        receivedLivePhotoUserID = currentUserID
+        if let onUploadProgress {
+            onUploadProgress(0.5)
+            observedProgressValues.append(0.5)
+            onUploadProgress(1.0)
+            observedProgressValues.append(1.0)
+        }
+        switch uploadPendingBackgroundLivePhotoResult {
         case .success(let response):
             return response
         case .failure(let error):

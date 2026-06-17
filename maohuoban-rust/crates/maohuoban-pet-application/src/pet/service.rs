@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
+    ManagedPetStatus, MediaUsageKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
 };
 use uuid::Uuid;
 
@@ -9,9 +9,10 @@ use super::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata,
     MediaBindingDiagnostics, MediaUploadDiagnostics, MerchantAvailableStatusPublication,
     MerchantDashboardSummary, MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile,
-    NewPetEvent, NewPetProfile, PendingPetMediaUploadInput, PetProfileDiagnostics, PetRepository,
-    PublishAvailableStatusInput, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile, record_media_binding, record_media_upload, record_pet_profile,
+    NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+    PetProfileDiagnostics, PetRepository, PublishAvailableStatusInput, RestorePetProfile,
+    TradePetImport, TradePetImportInput, UpdatePetProfile, record_media_binding,
+    record_media_upload, record_pet_profile,
 };
 
 /// PetService 宠物应用服务
@@ -184,6 +185,67 @@ impl PetService {
                 user_id: owner_user_id,
                 asset_id: None,
                 usage_kind,
+                mime_type: &mime_type,
+                byte_size,
+                width: None,
+                height: None,
+                derivative_count: 0,
+                success: false,
+                error_kind: Some(pet_error_kind(error)),
+            }),
+        }
+        result
+    }
+
+    pub async fn upload_pending_pet_live_photo(
+        &self,
+        input: PendingPetLivePhotoUploadInput,
+    ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
+        validate_text("静态图文件名", &input.still_file_name)?;
+        validate_text("静态图媒体类型", &input.still_mime_type)?;
+        validate_text("配对视频文件名", &input.paired_video_file_name)?;
+        validate_text("配对视频媒体类型", &input.paired_video_mime_type)?;
+        if input.still_content.is_empty() || input.paired_video_content.is_empty() {
+            return Err(PetError::InvalidInput("Live Photo 资源不能为空".to_owned()));
+        }
+
+        let owner_user_id = input.owner_user_id;
+        let mime_type = input.still_mime_type.clone();
+        let byte_size = i64::try_from(input.still_content.len() + input.paired_video_content.len())
+            .unwrap_or(i64::MAX);
+        record_media_upload(MediaUploadDiagnostics {
+            stage: "service.request",
+            user_id: owner_user_id,
+            asset_id: None,
+            usage_kind: MediaUsageKind::PetBackgroundLivePhoto,
+            mime_type: &mime_type,
+            byte_size,
+            width: None,
+            height: None,
+            derivative_count: 0,
+            success: true,
+            error_kind: None,
+        });
+        let result = self.repository.upload_pending_pet_live_photo(input).await;
+        match &result {
+            Ok(upload) => record_media_upload(MediaUploadDiagnostics {
+                stage: "service.result",
+                user_id: owner_user_id,
+                asset_id: Some(upload.asset.id),
+                usage_kind: upload.asset.usage_kind,
+                mime_type: &upload.asset.mime_type,
+                byte_size: upload.asset.byte_size,
+                width: upload.asset.width,
+                height: upload.asset.height,
+                derivative_count: upload.derivatives.len(),
+                success: true,
+                error_kind: None,
+            }),
+            Err(error) => record_media_upload(MediaUploadDiagnostics {
+                stage: "service.result",
+                user_id: owner_user_id,
+                asset_id: None,
+                usage_kind: MediaUsageKind::PetBackgroundLivePhoto,
                 mime_type: &mime_type,
                 byte_size,
                 width: None,

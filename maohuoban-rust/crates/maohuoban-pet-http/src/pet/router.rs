@@ -23,7 +23,7 @@ use super::{
         MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery, PetEventData,
         PetMediaUploadData, PetProfileData, PetProfilesData, PetTimelineData,
         PublishAvailableStatusRequest, TradePetImportData, TradePetImportRequest,
-        UpdatePetProfileRequest, UploadPetMediaRequest,
+        UpdatePetProfileRequest, UploadPetLivePhotoRequest, UploadPetMediaRequest,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -79,6 +79,12 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
             "/api/v1/pet-media/background-video",
             post(upload_pending_pet_background_video)
                 .layer(DefaultBodyLimit::max(PET_VIDEO_UPLOAD_LIMIT_BYTES)),
+        )
+        .route(
+            "/api/v1/pet-media/background-live-photo",
+            post(upload_pending_pet_background_live_photo).layer(DefaultBodyLimit::max(
+                PET_IMAGE_UPLOAD_LIMIT_BYTES + PET_VIDEO_UPLOAD_LIMIT_BYTES,
+            )),
         )
         .route(
             "/api/v1/pets/{pet_id}/media-bindings",
@@ -318,6 +324,30 @@ async fn upload_pending_pet_background_video(
                 PetMediaUploadData::from(upload),
             )
         }
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn upload_pending_pet_background_live_photo(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    let request = match UploadPetLivePhotoRequest::from_multipart(multipart).await {
+        Ok(request) => request,
+        Err(error) => return error_response(&error),
+    };
+    let input = request.into_pending_live_photo_input(owner_user_id);
+    match state.pet.upload_pending_pet_live_photo(input).await {
+        Ok(upload) => created_response(
+            "pet.media_uploaded",
+            "媒体已上传",
+            PetMediaUploadData::from(upload),
+        ),
         Err(error) => error_response(&error),
     }
 }

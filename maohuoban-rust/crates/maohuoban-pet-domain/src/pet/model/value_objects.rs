@@ -8,6 +8,7 @@ pub enum PetErrorKind {
     MediaAssetStatus,
     MediaBindingStatus,
     MediaDerivativeKind,
+    MediaAssetComponentKind,
     ManagedStatus,
     SourceKind,
     EventKind,

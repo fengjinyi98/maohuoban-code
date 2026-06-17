@@ -14,7 +14,7 @@ pub use merchant::{
 };
 pub use ports::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
-    NewPetProfile, PendingPetMediaUploadInput, PetRepository, RestorePetProfile, TradePetImport,
-    TradePetImportInput, UpdatePetProfile,
+    NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 pub use service::PetService;

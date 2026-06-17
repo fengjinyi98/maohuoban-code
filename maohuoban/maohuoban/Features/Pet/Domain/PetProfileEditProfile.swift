@@ -24,6 +24,11 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         case remoteImage(urlString: String, fallbackAssetName: String)
         case video(resourceName: String, fileExtension: String, fallbackImageAssetName: String?)
         case remoteVideo(urlString: String, fallbackImageURLString: String?, fallbackImageAssetName: String?)
+        case remoteLivePhoto(
+            stillURLString: String,
+            pairedVideoURLString: String,
+            fallbackImageAssetName: String?
+        )
     }
 
     enum HeroContentColorScheme: Hashable {

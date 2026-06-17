@@ -449,6 +449,52 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                         )
                     }
             }
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+            if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
+               let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
+                MHBRemoteLivePhotoView(
+                    stillURL: stillURL,
+                    pairedVideoURL: pairedVideoURL
+                ) {
+                    if let fallbackImageAssetName {
+                        foregroundImage(assetName: fallbackImageAssetName)
+                    } else {
+                        Color.clear
+                            .frame(width: imageWidth, height: imageHeight)
+                    }
+                }
+                .frame(width: imageWidth, height: imageHeight)
+                .clipped()
+                .onAppear {
+                    recordHeroMediaAppearance(
+                        branch: "remote_live_photo",
+                        resolved: true,
+                        urlString: stillURLString,
+                        hasFallback: fallbackImageAssetName != nil
+                    )
+                }
+            } else if let fallbackImageAssetName {
+                foregroundImage(assetName: fallbackImageAssetName)
+                    .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_live_photo_fallback_local_image",
+                            resolved: false,
+                            urlString: stillURLString,
+                            hasFallback: true
+                        )
+                    }
+            } else {
+                Color.clear
+                    .frame(width: imageWidth, height: imageHeight)
+                    .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_live_photo_empty",
+                            resolved: false,
+                            urlString: stillURLString,
+                            hasFallback: false
+                        )
+                    }
+            }
         }
     }
 

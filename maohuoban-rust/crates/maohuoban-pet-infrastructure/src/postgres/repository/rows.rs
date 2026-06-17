@@ -1,9 +1,9 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, ManagedPetStatus, MediaAsset, MediaAssetStatus, MediaBinding,
-    MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind,
-    PetBackgroundMediaKind, PetError, PetEvent, PetNeuterStatus, PetProfile, PetSex, PetSourceKind,
-    PetSpecies,
+    EventKind, EventVisibility, ManagedPetStatus, MediaAsset, MediaAssetComponent,
+    MediaAssetComponentKind, MediaAssetStatus, MediaBinding, MediaBindingStatus, MediaDerivative,
+    MediaDerivativeKind, MediaUsageKind, PetBackgroundMediaKind, PetError, PetEvent,
+    PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies,
 };
 use serde_json::Value;
 use sqlx::FromRow;
@@ -218,6 +218,52 @@ impl TryFrom<MediaDerivativeRow> for MediaDerivative {
             byte_size: row.byte_size,
             sha256_hex: row.sha256_hex,
             metadata: row.metadata,
+            created_at: row.created_at,
+        })
+    }
+}
+
+#[derive(Debug, FromRow)]
+pub(super) struct MediaAssetComponentRow {
+    id: Uuid,
+    asset_id: Uuid,
+    component_kind: String,
+    bucket: String,
+    object_key: String,
+    mime_type: String,
+    byte_size: i64,
+    sha256_hex: String,
+    width: Option<i32>,
+    height: Option<i32>,
+    duration_ms: Option<i32>,
+    created_at: DateTime<Utc>,
+}
+
+impl TryFrom<MediaAssetComponentRow> for MediaAssetComponent {
+    type Error = PetError;
+
+    fn try_from(row: MediaAssetComponentRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            asset_id: row.asset_id,
+            url: format!(
+                "/api/v1/media/assets/{}/components/{}/content",
+                row.asset_id, row.id
+            ),
+            component_kind: MediaAssetComponentKind::try_from(row.component_kind.as_str())
+                .map_err(|_| {
+                    PetError::Infrastructure(
+                        "unknown media asset component kind from database".to_owned(),
+                    )
+                })?,
+            bucket: row.bucket,
+            object_key: row.object_key,
+            mime_type: row.mime_type,
+            byte_size: row.byte_size,
+            sha256_hex: row.sha256_hex,
+            width: row.width,
+            height: row.height,
+            duration_ms: row.duration_ms,
             created_at: row.created_at,
         })
     }
