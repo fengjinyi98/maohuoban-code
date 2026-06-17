@@ -12,6 +12,7 @@ struct PetProfileAddScreen: View {
 
     @Environment(\.dismiss) var dismiss
     @State var store = PetWriteStore()
+    @State var mediaUploadStore = PetMediaUploadStore()
     @State var name = ""
     @State var species = PetSpecies.dog
     @State var breed = ""
@@ -63,7 +64,13 @@ struct PetProfileAddScreen: View {
     @State var neuterStatusRowFrame = CGRect.zero
 
     var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && isMediaReadyForSave
+    }
+
+    var isMediaReadyForSave: Bool {
+        let isAvatarReady = localAvatarImage == nil || mediaUploadStore.avatarState.assetID != nil
+        let isBackgroundReady = localHeroMedia == nil || mediaUploadStore.backgroundState.assetID != nil
+        return isAvatarReady && isBackgroundReady && !mediaUploadStore.isUploading
     }
 
     var isAnyMenuPresented: Bool {

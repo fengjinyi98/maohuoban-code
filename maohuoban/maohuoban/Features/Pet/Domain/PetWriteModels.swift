@@ -36,6 +36,8 @@ struct PetProfileDraft: Encodable, Equatable {
     let neuterStatus: PetNeuterStatus
     let personalityTags: [String]
     let note: String
+    let avatarAssetID: String?
+    let backgroundAssetID: String?
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -49,6 +51,8 @@ struct PetProfileDraft: Encodable, Equatable {
         case neuterStatus = "neuter_status"
         case personalityTags = "personality_tags"
         case note
+        case avatarAssetID = "avatar_asset_id"
+        case backgroundAssetID = "background_asset_id"
     }
 
     init(
@@ -84,7 +88,9 @@ struct PetProfileDraft: Encodable, Equatable {
         weightGrams: Int? = nil,
         neuterStatus: PetNeuterStatus = .unknown,
         personalityTags: [String] = [],
-        note: String = ""
+        note: String = "",
+        avatarAssetID: String? = nil,
+        backgroundAssetID: String? = nil
     ) {
         self.name = name
         self.species = species
@@ -97,6 +103,8 @@ struct PetProfileDraft: Encodable, Equatable {
         self.neuterStatus = neuterStatus
         self.personalityTags = personalityTags
         self.note = note
+        self.avatarAssetID = avatarAssetID
+        self.backgroundAssetID = backgroundAssetID
     }
 
     func encode(to encoder: Encoder) throws {
@@ -112,6 +120,8 @@ struct PetProfileDraft: Encodable, Equatable {
         try container.encode(neuterStatus, forKey: .neuterStatus)
         try container.encode(personalityTags, forKey: .personalityTags)
         try encodeOptionalText(note, key: .note, into: &container)
+        try container.encodeIfPresent(avatarAssetID, forKey: .avatarAssetID)
+        try container.encodeIfPresent(backgroundAssetID, forKey: .backgroundAssetID)
     }
 
     private func encodeOptionalText(
@@ -158,6 +168,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let neuterStatus: PetNeuterStatus?
     let personalityTags: [String]?
     let note: String?
+    let avatarAssetID: String?
+    let backgroundAssetID: String?
+    let backgroundMediaKind: PetBackgroundMediaKind?
     let deletedAt: String?
     let deleteRequestedByUserID: String?
     let recoverableUntil: String?
@@ -179,6 +192,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         case neuterStatus = "neuter_status"
         case personalityTags = "personality_tags"
         case note
+        case avatarAssetID = "avatar_asset_id"
+        case backgroundAssetID = "background_asset_id"
+        case backgroundMediaKind = "background_media_kind"
         case deletedAt = "deleted_at"
         case deleteRequestedByUserID = "delete_requested_by_user_id"
         case recoverableUntil = "recoverable_until"
@@ -201,6 +217,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         neuterStatus: PetNeuterStatus? = nil,
         personalityTags: [String]? = nil,
         note: String? = nil,
+        avatarAssetID: String? = nil,
+        backgroundAssetID: String? = nil,
+        backgroundMediaKind: PetBackgroundMediaKind? = nil,
         deletedAt: String? = nil,
         deleteRequestedByUserID: String? = nil,
         recoverableUntil: String? = nil,
@@ -221,6 +240,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         self.neuterStatus = neuterStatus
         self.personalityTags = personalityTags
         self.note = note
+        self.avatarAssetID = avatarAssetID
+        self.backgroundAssetID = backgroundAssetID
+        self.backgroundMediaKind = backgroundMediaKind
         self.deletedAt = deletedAt
         self.deleteRequestedByUserID = deleteRequestedByUserID
         self.recoverableUntil = recoverableUntil
@@ -263,6 +285,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
             neuterStatus: neuterStatus,
             personalityTags: personalityTags,
             note: note,
+            avatarAssetID: nil,
+            backgroundAssetID: nil,
+            backgroundMediaKind: nil,
             deletedAt: deletedAt,
             deleteRequestedByUserID: deleteRequestedByUserID,
             recoverableUntil: recoverableUntil,
@@ -287,6 +312,9 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)
         personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags)
         note = try container.decodeIfPresent(String.self, forKey: .note)
+        avatarAssetID = try container.decodeIfPresent(String.self, forKey: .avatarAssetID)
+        backgroundAssetID = try container.decodeIfPresent(String.self, forKey: .backgroundAssetID)
+        backgroundMediaKind = try container.decodeIfPresent(PetBackgroundMediaKind.self, forKey: .backgroundMediaKind)
         deletedAt = try container.decodeIfPresent(String.self, forKey: .deletedAt)
         deleteRequestedByUserID = try container.decodeIfPresent(String.self, forKey: .deleteRequestedByUserID)
         recoverableUntil = try container.decodeIfPresent(String.self, forKey: .recoverableUntil)
@@ -385,17 +413,29 @@ struct PetMediaUploadDraft: Equatable {
     let sourceClient: String
 }
 
-// PetCreateMediaDrafts 添加宠物媒体上传草稿集合
+// PetUploadedMediaBindings 已上传宠物媒体绑定输入
 // 核心职责：
-// - 承载添加宠物保存时可选的头像和背景媒体
-// - 让 Store 在创建成功后按宠物 ID 串联上传媒体
-struct PetCreateMediaDrafts: Equatable {
-    let avatar: PetMediaUploadDraft?
-    let backgroundImage: PetMediaUploadDraft?
-    let backgroundVideo: PetMediaUploadDraft?
+// - 承载创建宠物时需要绑定的 pending 资产
+// - 让保存宠物字段时无需再等待文件上传
+struct PetUploadedMediaBindings: Equatable {
+    let avatarAssetID: String?
+    let backgroundAssetID: String?
 
-    var isEmpty: Bool {
-        avatar == nil && backgroundImage == nil && backgroundVideo == nil
+    static let empty = PetUploadedMediaBindings(
+        avatarAssetID: nil,
+        backgroundAssetID: nil
+    )
+}
+
+// BindUploadedPetMediaDraft 绑定已上传宠物媒体请求
+// 核心职责：
+// - 将 pending 资产 ID 提交给后端
+// - 供编辑档案替换头像和背景复用
+struct BindUploadedPetMediaDraft: Encodable, Equatable {
+    let assetID: String
+
+    enum CodingKeys: String, CodingKey {
+        case assetID = "asset_id"
     }
 }
 
@@ -405,7 +445,7 @@ struct PetCreateMediaDrafts: Equatable {
 // - 承接当前有效业务绑定
 struct PetMediaUploadResult: Decodable, Equatable {
     let asset: PetMediaAsset
-    let binding: PetMediaBinding
+    let binding: PetMediaBinding?
     let derivatives: [PetMediaDerivative]
 
     var themeColorHex: String? {
@@ -447,7 +487,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
 
     init(
         asset: PetMediaAsset,
-        binding: PetMediaBinding,
+        binding: PetMediaBinding?,
         derivatives: [PetMediaDerivative] = []
     ) {
         self.asset = asset
@@ -458,7 +498,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         asset = try container.decode(PetMediaAsset.self, forKey: .asset)
-        binding = try container.decode(PetMediaBinding.self, forKey: .binding)
+        binding = try container.decodeIfPresent(PetMediaBinding.self, forKey: .binding)
         derivatives = try container.decodeIfPresent([PetMediaDerivative].self, forKey: .derivatives) ?? []
     }
 }
@@ -469,6 +509,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
 // - 支持后续清理状态展示和诊断
 struct PetMediaAsset: Decodable, Equatable, Identifiable {
     let id: String
+    let url: String?
     let uploadedByUserID: String?
     let ownerPetID: String?
     let usageKind: PetMediaUsageKind
@@ -487,6 +528,7 @@ struct PetMediaAsset: Decodable, Equatable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case url
         case uploadedByUserID = "uploaded_by_user_id"
         case ownerPetID = "owner_pet_id"
         case usageKind = "usage_kind"
@@ -503,6 +545,53 @@ struct PetMediaAsset: Decodable, Equatable, Identifiable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
+
+    init(
+        id: String,
+        url: String? = nil,
+        uploadedByUserID: String?,
+        ownerPetID: String?,
+        usageKind: PetMediaUsageKind,
+        sourceClient: String?,
+        originalFileName: String?,
+        mimeType: String,
+        byteSize: Int,
+        sha256Hex: String,
+        bucket: String,
+        objectKey: String,
+        status: PetMediaAssetStatus,
+        width: Int?,
+        height: Int?,
+        createdAt: String,
+        updatedAt: String
+    ) {
+        self.id = id
+        self.url = url
+        self.uploadedByUserID = uploadedByUserID
+        self.ownerPetID = ownerPetID
+        self.usageKind = usageKind
+        self.sourceClient = sourceClient
+        self.originalFileName = originalFileName
+        self.mimeType = mimeType
+        self.byteSize = byteSize
+        self.sha256Hex = sha256Hex
+        self.bucket = bucket
+        self.objectKey = objectKey
+        self.status = status
+        self.width = width
+        self.height = height
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+// PetBackgroundMediaKind 宠物背景媒体类型
+// 核心职责：
+// - 区分背景图片和背景视频
+// - 与后端宠物档案 DTO 保持稳定映射
+enum PetBackgroundMediaKind: String, Codable, Equatable {
+    case image
+    case video
 }
 
 // PetMediaBinding 宠物媒体绑定

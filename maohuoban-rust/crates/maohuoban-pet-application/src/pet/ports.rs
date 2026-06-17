@@ -37,6 +37,8 @@ pub struct NewPetProfile {
     pub neuter_status: PetNeuterStatus,
     pub personality_tags: Vec<String>,
     pub note: Option<String>,
+    pub avatar_asset_id: Option<Uuid>,
+    pub background_asset_id: Option<Uuid>,
     pub source_kind: PetSourceKind,
 }
 
@@ -82,19 +84,29 @@ pub struct RestorePetProfile {
     pub owner_user_id: Uuid,
 }
 
-/// PetMediaUploadInput 宠物媒体上传输入
+/// PendingPetMediaUploadInput 未绑定宠物媒体上传输入
 /// 核心职责：
-/// - 汇总对象存储写入所需原始内容和来源
-/// - 固定媒体资产与宠物绑定所需上下文
+/// - 支持建档前先上传媒体资产
+/// - 保持媒体资产归属和业务绑定分步完成
 #[derive(Debug, Clone)]
-pub struct PetMediaUploadInput {
-    pub pet_id: Uuid,
+pub struct PendingPetMediaUploadInput {
     pub owner_user_id: Uuid,
     pub usage_kind: MediaUsageKind,
     pub file_name: String,
     pub mime_type: String,
     pub content: Vec<u8>,
     pub source_client: Option<String>,
+}
+
+/// BindUploadedPetMediaInput 绑定已上传宠物媒体输入
+/// 核心职责：
+/// - 将 pending 媒体资产绑定到指定宠物
+/// - 支持创建宠物和编辑宠物复用同一绑定能力
+#[derive(Debug, Clone)]
+pub struct BindUploadedPetMediaInput {
+    pub pet_id: Uuid,
+    pub owner_user_id: Uuid,
+    pub asset_id: Uuid,
 }
 
 /// NewPetEvent 新建宠物事件输入
@@ -164,8 +176,15 @@ pub trait PetRepository: Send + Sync {
 
     async fn restore_pet_profile(&self, input: RestorePetProfile) -> PetResult<PetProfile>;
 
-    async fn upload_pet_media(&self, input: PetMediaUploadInput)
-    -> PetResult<PetMediaUploadResult>;
+    async fn upload_pending_pet_media(
+        &self,
+        input: PendingPetMediaUploadInput,
+    ) -> PetResult<PetMediaUploadResult>;
+
+    async fn bind_uploaded_pet_media(
+        &self,
+        input: BindUploadedPetMediaInput,
+    ) -> PetResult<PetMediaUploadResult>;
 
     async fn list_media_display_metadata(
         &self,

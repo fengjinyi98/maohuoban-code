@@ -79,6 +79,8 @@ final class PetRepositoryTests: XCTestCase {
             XCTAssertEqual(json?["neuter_status"] as? String, "neutered")
             XCTAssertEqual(json?["personality_tags"] as? [String], ["亲人", "爱玩"])
             XCTAssertEqual(json?["note"] as? String, "对鸡肉过敏")
+            XCTAssertEqual(json?["avatar_asset_id"] as? String, "avatar-asset-1")
+            XCTAssertEqual(json?["background_asset_id"] as? String, "background-asset-1")
 
             return Self.jsonResponse(
                 statusCode: 201,
@@ -102,6 +104,9 @@ final class PetRepositoryTests: XCTestCase {
                     "neuter_status": "neutered",
                     "personality_tags": ["亲人", "爱玩"],
                     "note": "对鸡肉过敏",
+                    "avatar_asset_id": "avatar-asset-1",
+                    "background_asset_id": "background-asset-1",
+                    "background_media_kind": "image",
                     "name_edit_policy": {
                       "max_count": 5,
                       "used_count": 0,
@@ -128,7 +133,9 @@ final class PetRepositoryTests: XCTestCase {
                 weightGrams: 4200,
                 neuterStatus: .neutered,
                 personalityTags: ["亲人", "爱玩"],
-                note: "对鸡肉过敏"
+                note: "对鸡肉过敏",
+                avatarAssetID: "avatar-asset-1",
+                backgroundAssetID: "background-asset-1"
             ),
             currentUserID: "user-1"
         )
@@ -138,6 +145,9 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.ownerUserID, "user-1")
         XCTAssertEqual(response.data?.arrivalDate, "2024-05-01")
         XCTAssertEqual(response.data?.personalityTags, ["亲人", "爱玩"])
+        XCTAssertEqual(response.data?.avatarAssetID, "avatar-asset-1")
+        XCTAssertEqual(response.data?.backgroundAssetID, "background-asset-1")
+        XCTAssertEqual(response.data?.backgroundMediaKind, .image)
         XCTAssertEqual(response.data?.nameEditPolicy?.remainingCount, 5)
         XCTAssertEqual(response.data?.nameEditPolicy?.displayText, "30 天内可修改 5 次名字，本周期还可修改 5 次。")
     }
@@ -398,16 +408,16 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.nameEditPolicy?.remainingCount, 4)
     }
 
-    func testUploadAvatarSendsUserContextAndDecodesMediaBinding() async throws {
+    func testUploadPendingAvatarSendsUserContextAndDecodesUnboundAssetURL() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/avatar")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-media/avatar")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
 
             try Self.assertMultipartMediaRequest(
                 request,
-                fileName: "avatar.txt",
-                mimeType: "text/plain",
+                fileName: "avatar.png",
+                mimeType: "image/png",
                 contentText: "avatar-bytes",
                 sourceClient: "ios"
             )
@@ -418,65 +428,86 @@ final class PetRepositoryTests: XCTestCase {
                 """
                 {
                   "success": true,
-                  "code": "pet.avatar_uploaded",
-                  "message": "宠物头像已上传",
+                  "code": "pet.media_uploaded",
+                  "message": "媒体已上传",
                   "data": {
                     "asset": {
                       "id": "asset-1",
+                      "url": "/api/v1/media/assets/asset-1/content",
                       "uploaded_by_user_id": "user-1",
-                      "owner_pet_id": "pet-1",
+                      "owner_pet_id": null,
                       "usage_kind": "pet.avatar",
                       "source_client": "ios",
-                      "original_file_name": "avatar.txt",
-                      "mime_type": "text/plain",
+                      "original_file_name": "avatar.png",
+                      "mime_type": "image/png",
                       "byte_size": 12,
                       "sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                       "bucket": "maohuoban-pet-media",
-                      "object_key": "pets/pet-1/pet/avatar/avatar.txt",
-                      "status": "bound",
-                      "width": null,
-                      "height": null,
+                      "object_key": "pet-media/pet/avatar/asset-1/avatar.png",
+                      "status": "uploaded",
+                      "width": 96,
+                      "height": 96,
                       "created_at": "2026-06-17T00:00:00Z",
                       "updated_at": "2026-06-17T00:00:00Z"
                     },
-                    "binding": {
-                      "id": "binding-1",
-                      "asset_id": "asset-1",
-                      "pet_id": "pet-1",
-                      "usage_kind": "pet.avatar",
-                      "status": "active",
-                      "bound_by_user_id": "user-1",
-                      "bound_at": "2026-06-17T00:00:00Z",
-                      "created_at": "2026-06-17T00:00:00Z"
-                    }
+                    "binding": null,
+                    "derivatives": []
                   }
                 }
                 """
             )
         }
 
-        let response = try await repository.uploadAvatar(
-            petID: "pet-1",
+        let response = try await repository.uploadPendingAvatar(
             draft: PetMediaUploadDraft(
-                fileName: "avatar.txt",
-                mimeType: "text/plain",
+                fileName: "avatar.png",
+                mimeType: "image/png",
                 content: Data("avatar-bytes".utf8),
                 sourceClient: "ios"
             ),
             currentUserID: "user-1"
         )
 
-        XCTAssertEqual(response.message, "宠物头像已上传")
+        XCTAssertEqual(response.message, "媒体已上传")
         XCTAssertEqual(response.data?.asset.id, "asset-1")
-        XCTAssertNil(response.data?.asset.width)
-        XCTAssertNil(response.data?.asset.height)
-        XCTAssertEqual(response.data?.binding.petID, "pet-1")
+        XCTAssertEqual(response.data?.asset.url, "/api/v1/media/assets/asset-1/content")
+        XCTAssertNil(response.data?.asset.ownerPetID)
+        XCTAssertEqual(response.data?.asset.status, .uploaded)
+        XCTAssertEqual(response.data?.asset.width, 96)
+        XCTAssertEqual(response.data?.asset.height, 96)
+        XCTAssertNil(response.data?.binding)
     }
 
-    func testUploadBackgroundImageSendsUserContextAndDecodesMediaBinding() async throws {
+    func testBindUploadedMediaSendsAssetIDAndDecodesMediaBinding() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-image")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media-bindings")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            XCTAssertEqual(json?["asset_id"] as? String, "asset-1")
+
+            return Self.mediaUploadResponse(
+                usageKind: "pet.avatar",
+                objectKey: "pets/pet-1/pet/avatar/asset-1/avatar.png"
+            )
+        }
+
+        let response = try await repository.bindUploadedMedia(
+            petID: "pet-1",
+            assetID: "asset-1",
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(response.data?.asset.status, .bound)
+        XCTAssertEqual(response.data?.binding?.petID, "pet-1")
+    }
+
+    func testUploadPendingBackgroundImageSendsUserContextAndDecodesUnboundAsset() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-media/background-image")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
             try Self.assertMultipartMediaRequest(
                 request,
@@ -486,14 +517,13 @@ final class PetRepositoryTests: XCTestCase {
                 sourceClient: "ios"
             )
 
-            return Self.mediaUploadResponse(
+            return Self.pendingMediaUploadResponse(
                 usageKind: "pet.background.image",
-                objectKey: "pets/pet-1/pet/background/image/background.jpg"
+                objectKey: "pet-media/pet/background/image/asset-1/background.jpg"
             )
         }
 
-        let response = try await repository.uploadBackgroundImage(
-            petID: "pet-1",
+        let response = try await repository.uploadPendingBackgroundImage(
             draft: PetMediaUploadDraft(
                 fileName: "background.jpg",
                 mimeType: "image/jpeg",
@@ -503,18 +533,21 @@ final class PetRepositoryTests: XCTestCase {
             currentUserID: "user-1"
         )
 
-        XCTAssertEqual(response.message, "宠物背景已上传")
+        XCTAssertEqual(response.message, "媒体已上传")
         XCTAssertEqual(response.data?.asset.usageKind, .backgroundImage)
+        XCTAssertNil(response.data?.asset.ownerPetID)
+        XCTAssertEqual(response.data?.asset.status, .uploaded)
         XCTAssertEqual(response.data?.asset.width, 1280)
         XCTAssertEqual(response.data?.asset.height, 720)
+        XCTAssertNil(response.data?.binding)
         XCTAssertEqual(response.data?.derivatives.count, 2)
         XCTAssertEqual(response.data?.themeColorHex, "#FF0000")
     }
 
-    func testUploadBackgroundVideoSendsUserContextAndDecodesMediaBinding() async throws {
+    func testUploadPendingBackgroundVideoSendsUserContextAndDecodesUnboundAsset() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/media/background-video")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-media/background-video")
             XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
             try Self.assertMultipartMediaRequest(
                 request,
@@ -524,14 +557,13 @@ final class PetRepositoryTests: XCTestCase {
                 sourceClient: "ios"
             )
 
-            return Self.mediaUploadResponse(
+            return Self.pendingMediaUploadResponse(
                 usageKind: "pet.background.video",
-                objectKey: "pets/pet-1/pet/background/video/background.mp4"
+                objectKey: "pet-media/pet/background/video/asset-1/background.mp4"
             )
         }
 
-        let response = try await repository.uploadBackgroundVideo(
-            petID: "pet-1",
+        let response = try await repository.uploadPendingBackgroundVideo(
             draft: PetMediaUploadDraft(
                 fileName: "background.mp4",
                 mimeType: "video/mp4",
@@ -541,10 +573,13 @@ final class PetRepositoryTests: XCTestCase {
             currentUserID: "user-1"
         )
 
-        XCTAssertEqual(response.message, "宠物背景已上传")
+        XCTAssertEqual(response.message, "媒体已上传")
         XCTAssertEqual(response.data?.asset.usageKind, .backgroundVideo)
+        XCTAssertNil(response.data?.asset.ownerPetID)
+        XCTAssertEqual(response.data?.asset.status, .uploaded)
         XCTAssertEqual(response.data?.asset.width, 1280)
         XCTAssertEqual(response.data?.asset.height, 720)
+        XCTAssertNil(response.data?.binding)
         XCTAssertEqual(response.data?.coverFrame?.objectKey, "pets/pet-1/cover-frame.png")
     }
 
@@ -660,6 +695,76 @@ final class PetRepositoryTests: XCTestCase {
                   "bound_at": "2026-06-17T00:00:00Z",
                   "created_at": "2026-06-17T00:00:00Z"
                 },
+                "derivatives": [
+                  {
+                    "id": "derivative-1",
+                    "parent_asset_id": "asset-1",
+                    "derivative_kind": "video_cover_frame",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pets/pet-1/cover-frame.png",
+                    "mime_type": "image/png",
+                    "byte_size": 12,
+                    "sha256_hex": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "metadata": {
+                      "width": 512,
+                      "height": 512
+                    },
+                    "created_at": "2026-06-17T00:00:00Z"
+                  },
+                  {
+                    "id": "derivative-2",
+                    "parent_asset_id": "asset-1",
+                    "derivative_kind": "theme_color_frame",
+                    "bucket": "maohuoban-pet-media",
+                    "object_key": "pets/pet-1/theme-color.json",
+                    "mime_type": "application/json",
+                    "byte_size": 24,
+                    "sha256_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                    "metadata": {
+                      "theme_color_hex": "#FF0000"
+                    },
+                    "created_at": "2026-06-17T00:00:00Z"
+                  }
+                ]
+              }
+            }
+            """
+        )
+    }
+
+    private static func pendingMediaUploadResponse(
+        usageKind: String,
+        objectKey: String
+    ) -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: 201,
+            body:
+            """
+            {
+              "success": true,
+              "code": "pet.media_uploaded",
+              "message": "媒体已上传",
+              "data": {
+                "asset": {
+                  "id": "asset-1",
+                  "url": "/api/v1/media/assets/asset-1/content",
+                  "uploaded_by_user_id": "user-1",
+                  "owner_pet_id": null,
+                  "usage_kind": "\(usageKind)",
+                  "source_client": "ios",
+                  "original_file_name": "background",
+                  "mime_type": "application/octet-stream",
+                  "byte_size": 12,
+                  "sha256_hex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "bucket": "maohuoban-pet-media",
+                  "object_key": "\(objectKey)",
+                  "status": "uploaded",
+                  "width": 1280,
+                  "height": 720,
+                  "created_at": "2026-06-17T00:00:00Z",
+                  "updated_at": "2026-06-17T00:00:00Z"
+                },
+                "binding": null,
                 "derivatives": [
                   {
                     "id": "derivative-1",

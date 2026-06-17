@@ -11,6 +11,7 @@ struct PetProfileEditPetPickerHeader: View {
     let selectedProfileID: String
     let displayName: (PetProfileEditProfile) -> String
     let avatarImage: (PetProfileEditProfile) -> UIImage?
+    let avatarUploadState: PetMediaUploadSlotState
     let onSelectProfile: (String) -> Void
     let onPreviewSelectedAvatar: (String) -> Void
     let onAddPet: () -> Void
@@ -25,6 +26,7 @@ struct PetProfileEditPetPickerHeader: View {
                         profile: profile,
                         displayName: displayName(profile),
                         localAvatarImage: avatarImage(profile),
+                        uploadState: profile.id == selectedProfileID ? avatarUploadState : .idle,
                         isSelected: profile.id == selectedProfileID,
                         avatarSize: avatarSize,
                         action: {
@@ -59,6 +61,7 @@ struct PetProfileEditPetPickerItem: View {
     let profile: PetProfileEditProfile
     let displayName: String
     let localAvatarImage: UIImage?
+    let uploadState: PetMediaUploadSlotState
     let isSelected: Bool
     let avatarSize: CGFloat
     let action: () -> Void
@@ -91,6 +94,10 @@ struct PetProfileEditPetPickerItem: View {
                 species: profile.species,
                 size: avatarSize
             )
+            .overlay {
+                PetMediaUploadProgressOverlay(state: uploadState)
+                    .clipShape(Circle())
+            }
             .overlay {
                 Circle()
                     .strokeBorder(

@@ -5,10 +5,10 @@ use std::io::Cursor;
 use chrono::{Duration, Utc};
 use image::ImageFormat;
 use maohuoban_media_storage::MediaObjectStore;
-use maohuoban_pet_application::pet::PetMediaUploadInput;
+use maohuoban_pet_application::pet::{BindUploadedPetMediaInput, PendingPetMediaUploadInput};
 use maohuoban_pet_domain::pet::{
-    MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetBackgroundMediaKind, PetError,
-    PetMediaUploadResult, PetResult,
+    MediaAsset, MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetBackgroundMediaKind,
+    PetError, PetMediaUploadResult, PetResult,
 };
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
@@ -25,13 +25,40 @@ use derivatives::{average_theme_color, prepare_derivative_object, prepare_video_
 /// - 避免上传命令在事务内重复计算对象元数据
 pub(super) struct PreparedMediaObject {
     pub(super) asset_id: Uuid,
-    pub(super) binding_id: Uuid,
     pub(super) bucket: String,
     pub(super) object_key: String,
     pub(super) sha256_hex: String,
     pub(super) byte_size: i64,
     pub(super) width: Option<i32>,
     pub(super) height: Option<i32>,
+}
+
+/// MediaUploadObjectInput 媒体对象写入上下文
+/// 核心职责：
+/// - 统一 pending 上传的对象字段
+/// - 避免派生生成逻辑分叉
+pub(super) struct MediaUploadObjectInput<'a> {
+    pub(super) owner_user_id: Uuid,
+    pub(super) pet_id: Option<Uuid>,
+    pub(super) usage_kind: MediaUsageKind,
+    pub(super) file_name: &'a str,
+    pub(super) mime_type: &'a str,
+    pub(super) content: &'a [u8],
+    pub(super) source_client: Option<&'a str>,
+}
+
+impl<'a> From<&'a PendingPetMediaUploadInput> for MediaUploadObjectInput<'a> {
+    fn from(input: &'a PendingPetMediaUploadInput) -> Self {
+        Self {
+            owner_user_id: input.owner_user_id,
+            pet_id: None,
+            usage_kind: input.usage_kind,
+            file_name: &input.file_name,
+            mime_type: &input.mime_type,
+            content: &input.content,
+            source_client: input.source_client.as_deref(),
+        }
+    }
 }
 
 /// PreparedMediaDerivative 已持久化派生媒体对象
@@ -50,29 +77,28 @@ pub(super) struct PreparedMediaDerivative {
 }
 
 impl PostgresPetRepository {
-    pub(super) async fn upload_pet_media_command(
+    pub(super) async fn upload_pending_pet_media_command(
         &self,
-        input: PetMediaUploadInput,
+        input: PendingPetMediaUploadInput,
     ) -> PetResult<PetMediaUploadResult> {
+        let object_input = MediaUploadObjectInput::from(&input);
         let media_store = MediaObjectStore::from_env()
             .map_err(|error| PetError::Infrastructure(error.to_string()))?;
-        let mut prepared = Self::prepare_media_object(&media_store, &input).await?;
+        let mut prepared = Self::prepare_media_object(&media_store, &object_input).await?;
         let prepared_derivatives =
-            Self::prepare_media_derivatives(&media_store, &input, &prepared).await?;
-        Self::apply_video_asset_dimensions(&mut prepared, &input, &prepared_derivatives)?;
+            Self::prepare_media_derivatives(&media_store, &object_input, &prepared).await?;
+        Self::apply_video_asset_dimensions(&mut prepared, &object_input, &prepared_derivatives)?;
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
 
-        Self::queue_replaced_media(&mut transaction, input.pet_id, input.usage_kind).await?;
-        let asset_row = Self::insert_media_asset(&mut transaction, &input, &prepared).await?;
+        let asset_row =
+            Self::insert_media_asset(&mut transaction, &object_input, &prepared, "uploaded")
+                .await?;
         let derivative_rows = Self::insert_media_derivatives(
             &mut transaction,
             prepared.asset_id,
             &prepared_derivatives,
         )
         .await?;
-        let binding_row = Self::insert_media_binding(&mut transaction, &input, &prepared).await?;
-        Self::update_pet_media_reference(&mut transaction, &input, prepared.asset_id).await?;
-        Self::insert_bound_audit_event(&mut transaction, &input, prepared.asset_id).await?;
 
         transaction
             .commit()
@@ -81,12 +107,81 @@ impl PostgresPetRepository {
 
         Ok(PetMediaUploadResult {
             asset: asset_row.try_into()?,
-            binding: binding_row.try_into()?,
+            binding: None,
             derivatives: derivative_rows
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<PetResult<Vec<MediaDerivative>>>()?,
         })
+    }
+
+    pub(super) async fn bind_uploaded_pet_media_command(
+        &self,
+        input: BindUploadedPetMediaInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        let (asset_row, binding_row, derivative_rows) = Self::bind_uploaded_media_in_transaction(
+            &mut transaction,
+            input.pet_id,
+            input.owner_user_id,
+            input.asset_id,
+        )
+        .await?;
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
+
+        Ok(PetMediaUploadResult {
+            asset: asset_row.try_into()?,
+            binding: Some(binding_row.try_into()?),
+            derivatives: derivative_rows
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<PetResult<Vec<MediaDerivative>>>()?,
+        })
+    }
+
+    pub(super) async fn bind_uploaded_media_in_transaction(
+        transaction: &mut Transaction<'_, Postgres>,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
+        asset_id: Uuid,
+    ) -> PetResult<(MediaAssetRow, MediaBindingRow, Vec<MediaDerivativeRow>)> {
+        let current_asset =
+            Self::select_owned_media_asset_for_binding(transaction, asset_id, owner_user_id)
+                .await?;
+        let usage_kind = current_asset.usage_kind;
+
+        Self::queue_replaced_media(transaction, pet_id, usage_kind).await?;
+        let asset_row = Self::mark_media_asset_bound(transaction, asset_id, pet_id).await?;
+        let binding_row = Self::insert_media_binding_for_asset(
+            transaction,
+            asset_id,
+            pet_id,
+            owner_user_id,
+            usage_kind,
+        )
+        .await?;
+        Self::update_pet_media_reference_by_usage(
+            transaction,
+            pet_id,
+            owner_user_id,
+            asset_id,
+            usage_kind,
+        )
+        .await?;
+        Self::insert_bound_audit_event_for_asset(
+            transaction,
+            pet_id,
+            owner_user_id,
+            asset_id,
+            usage_kind,
+        )
+        .await?;
+        let derivative_rows = Self::select_media_derivatives(transaction, asset_id).await?;
+
+        Ok((asset_row, binding_row, derivative_rows))
     }
 
     /// apply_video_asset_dimensions 回填视频资产尺寸
@@ -95,7 +190,7 @@ impl PostgresPetRepository {
     /// - 让视频资产响应与图片资产保持同一尺寸契约
     fn apply_video_asset_dimensions(
         media: &mut PreparedMediaObject,
-        input: &PetMediaUploadInput,
+        input: &MediaUploadObjectInput<'_>,
         derivatives: &[PreparedMediaDerivative],
     ) -> PetResult<()> {
         if input.usage_kind != MediaUsageKind::PetBackgroundVideo {
@@ -115,33 +210,31 @@ impl PostgresPetRepository {
     /// prepare_media_object 持久化媒体对象并生成元数据
     /// 核心职责：
     /// - 写入对象存储根目录
-    /// - 生成资产、绑定和哈希字段
+    /// - 生成资产和哈希字段
     async fn prepare_media_object(
         media_store: &MediaObjectStore,
-        input: &PetMediaUploadInput,
+        input: &MediaUploadObjectInput<'_>,
     ) -> PetResult<PreparedMediaObject> {
         let asset_id = Uuid::new_v4();
-        let binding_id = Uuid::new_v4();
         let bucket = media_store.default_bucket().to_owned();
         let object_key = format!(
-            "pets/{}/{}/{}/{}",
-            input.pet_id,
+            "{}/{}/{}/{}",
+            media_object_prefix(input),
             input.usage_kind.as_str().replace('.', "/"),
             asset_id,
-            sanitized_file_name(&input.file_name)
+            sanitized_file_name(input.file_name)
         );
         media_store
-            .put(&bucket, &object_key, &input.content)
+            .put(&bucket, &object_key, input.content)
             .await
             .map_err(|error| PetError::Infrastructure(error.to_string()))?;
-        let sha256_hex = sha256_hex(&input.content);
+        let sha256_hex = sha256_hex(input.content);
         let byte_size = i64::try_from(input.content.len())
             .map_err(|_| PetError::InvalidInput("媒体内容过大".to_owned()))?;
-        let (width, height) = image_dimensions(&input.content)?;
+        let (width, height) = image_dimensions(input.content)?;
 
         Ok(PreparedMediaObject {
             asset_id,
-            binding_id,
             bucket,
             object_key,
             sha256_hex,
@@ -157,7 +250,7 @@ impl PostgresPetRepository {
     /// - 将派生对象写入对象根并返回元数据
     async fn prepare_media_derivatives(
         media_store: &MediaObjectStore,
-        input: &PetMediaUploadInput,
+        input: &MediaUploadObjectInput<'_>,
         media: &PreparedMediaObject,
     ) -> PetResult<Vec<PreparedMediaDerivative>> {
         if input.usage_kind == MediaUsageKind::PetBackgroundVideo {
@@ -171,7 +264,7 @@ impl PostgresPetRepository {
             return Ok(Vec::new());
         }
 
-        let Ok(image) = image::load_from_memory(&input.content) else {
+        let Ok(image) = image::load_from_memory(input.content) else {
             return Ok(Vec::new());
         };
 
@@ -277,8 +370,9 @@ impl PostgresPetRepository {
     /// - 返回数据库标准化后的资产行
     async fn insert_media_asset(
         transaction: &mut Transaction<'_, Postgres>,
-        input: &PetMediaUploadInput,
+        input: &MediaUploadObjectInput<'_>,
         prepared: &PreparedMediaObject,
+        status: &str,
     ) -> PetResult<MediaAssetRow> {
         sqlx::query_as::<_, MediaAssetRow>(
             r#"
@@ -298,7 +392,7 @@ impl PostgresPetRepository {
                 width,
                 height
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'bound', $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING
                 id,
                 uploaded_by_user_id,
@@ -324,13 +418,14 @@ impl PostgresPetRepository {
         .bind(input.owner_user_id)
         .bind(input.pet_id)
         .bind(input.usage_kind.as_str())
-        .bind(&input.source_client)
-        .bind(&input.file_name)
-        .bind(&input.mime_type)
+        .bind(input.source_client)
+        .bind(input.file_name)
+        .bind(input.mime_type)
         .bind(prepared.byte_size)
         .bind(&prepared.sha256_hex)
         .bind(&prepared.bucket)
         .bind(&prepared.object_key)
+        .bind(status)
         .bind(prepared.width)
         .bind(prepared.height)
         .fetch_one(&mut **transaction)
@@ -394,14 +489,94 @@ impl PostgresPetRepository {
         Ok(rows)
     }
 
-    /// insert_media_binding 写入当前有效媒体绑定
-    /// 核心职责：
-    /// - 建立媒体资产与宠物业务用途的 active 关系
-    /// - 返回数据库标准化后的绑定行
-    async fn insert_media_binding(
+    async fn select_owned_media_asset_for_binding(
         transaction: &mut Transaction<'_, Postgres>,
-        input: &PetMediaUploadInput,
-        prepared: &PreparedMediaObject,
+        asset_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<MediaAsset> {
+        let row = sqlx::query_as::<_, MediaAssetRow>(
+            r#"
+            SELECT
+                id,
+                uploaded_by_user_id,
+                owner_pet_id,
+                usage_kind,
+                source_client,
+                original_file_name,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                bucket,
+                object_key,
+                status,
+                width,
+                height,
+                delete_after,
+                deleted_at,
+                created_at,
+                updated_at
+            FROM media_assets
+            WHERE
+                id = $1
+                AND uploaded_by_user_id = $2
+                AND status = 'uploaded'
+                AND deleted_at IS NULL
+            "#,
+        )
+        .bind(asset_id)
+        .bind(owner_user_id)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)?
+        .ok_or(PetError::PetNotFound)?;
+
+        row.try_into()
+    }
+
+    async fn mark_media_asset_bound(
+        transaction: &mut Transaction<'_, Postgres>,
+        asset_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<MediaAssetRow> {
+        sqlx::query_as::<_, MediaAssetRow>(
+            r#"
+            UPDATE media_assets
+            SET owner_pet_id = $2, status = 'bound', updated_at = now()
+            WHERE id = $1 AND status = 'uploaded'
+            RETURNING
+                id,
+                uploaded_by_user_id,
+                owner_pet_id,
+                usage_kind,
+                source_client,
+                original_file_name,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                bucket,
+                object_key,
+                status,
+                width,
+                height,
+                delete_after,
+                deleted_at,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(asset_id)
+        .bind(pet_id)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)
+    }
+
+    async fn insert_media_binding_for_asset(
+        transaction: &mut Transaction<'_, Postgres>,
+        asset_id: Uuid,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
+        usage_kind: MediaUsageKind,
     ) -> PetResult<MediaBindingRow> {
         sqlx::query_as::<_, MediaBindingRow>(
             r#"
@@ -426,26 +601,24 @@ impl PostgresPetRepository {
                 created_at
             "#,
         )
-        .bind(prepared.binding_id)
-        .bind(prepared.asset_id)
-        .bind(input.pet_id)
-        .bind(input.usage_kind.as_str())
-        .bind(input.owner_user_id)
+        .bind(Uuid::new_v4())
+        .bind(asset_id)
+        .bind(pet_id)
+        .bind(usage_kind.as_str())
+        .bind(owner_user_id)
         .fetch_one(&mut **transaction)
         .await
         .map_err(to_infrastructure_error)
     }
 
-    /// update_pet_media_reference 更新宠物档案当前媒体引用
-    /// 核心职责：
-    /// - 根据媒体用途写入头像或背景资产 ID
-    /// - 同步背景媒体类型以供前端渲染
-    async fn update_pet_media_reference(
+    async fn update_pet_media_reference_by_usage(
         transaction: &mut Transaction<'_, Postgres>,
-        input: &PetMediaUploadInput,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
         asset_id: Uuid,
+        usage_kind: MediaUsageKind,
     ) -> PetResult<()> {
-        let (avatar_asset_id, background_asset_id, background_media_kind) = match input.usage_kind {
+        let (avatar_asset_id, background_asset_id, background_media_kind) = match usage_kind {
             MediaUsageKind::PetAvatar => (Some(asset_id), None, None),
             MediaUsageKind::PetBackgroundImage => (
                 None,
@@ -469,8 +642,8 @@ impl PostgresPetRepository {
             WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
             "#,
         )
-        .bind(input.pet_id)
-        .bind(input.owner_user_id)
+        .bind(pet_id)
+        .bind(owner_user_id)
         .bind(avatar_asset_id)
         .bind(background_asset_id)
         .bind(background_media_kind)
@@ -481,14 +654,12 @@ impl PostgresPetRepository {
         Ok(())
     }
 
-    /// insert_bound_audit_event 记录媒体绑定审计事件
-    /// 核心职责：
-    /// - 追踪媒体资产绑定动作
-    /// - 保存业务用途用于后续审计查询
-    async fn insert_bound_audit_event(
+    async fn insert_bound_audit_event_for_asset(
         transaction: &mut Transaction<'_, Postgres>,
-        input: &PetMediaUploadInput,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
         asset_id: Uuid,
+        usage_kind: MediaUsageKind,
     ) -> PetResult<()> {
         sqlx::query(
             r#"
@@ -505,15 +676,54 @@ impl PostgresPetRepository {
         )
         .bind(Uuid::new_v4())
         .bind(asset_id)
-        .bind(input.pet_id)
-        .bind(input.owner_user_id)
-        .bind(serde_json::json!({ "usage_kind": input.usage_kind.as_str() }))
+        .bind(pet_id)
+        .bind(owner_user_id)
+        .bind(serde_json::json!({ "usage_kind": usage_kind.as_str() }))
         .execute(&mut **transaction)
         .await
         .map_err(to_infrastructure_error)?;
 
         Ok(())
     }
+
+    async fn select_media_derivatives(
+        transaction: &mut Transaction<'_, Postgres>,
+        asset_id: Uuid,
+    ) -> PetResult<Vec<MediaDerivativeRow>> {
+        sqlx::query_as::<_, MediaDerivativeRow>(
+            r#"
+            SELECT
+                id,
+                parent_asset_id,
+                derivative_kind,
+                bucket,
+                object_key,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                metadata,
+                created_at
+            FROM media_derivatives
+            WHERE parent_asset_id = $1
+            ORDER BY created_at ASC
+            "#,
+        )
+        .bind(asset_id)
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)
+    }
+}
+
+/// media_object_prefix 生成媒体对象根路径
+/// 核心职责：
+/// - 已绑定上传进入宠物目录
+/// - 建档前上传进入用户 pending 目录
+fn media_object_prefix(input: &MediaUploadObjectInput<'_>) -> String {
+    input.pet_id.map_or_else(
+        || format!("pet-media/pending/{}", input.owner_user_id),
+        |pet_id| format!("pets/{pet_id}"),
+    )
 }
 
 /// image_dimensions 读取原始图片尺寸

@@ -156,7 +156,7 @@ struct PetProfileAvatarPreviewScreen: View {
                     .foregroundStyle(.white.opacity(0.76))
             }
         case .saved:
-            Text("头像已临时保存")
+            Text("头像已上传")
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.white.opacity(0.76))
         }

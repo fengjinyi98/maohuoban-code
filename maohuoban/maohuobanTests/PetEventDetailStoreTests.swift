@@ -89,25 +89,33 @@ private final class CapturingPetEventDetailRepository: PetRepository {
         throw .invalidResponse
     }
 
-    func uploadAvatar(
-        petID: String,
+    func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }
 
-    func uploadBackgroundImage(
-        petID: String,
+    func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }
 
-    func uploadBackgroundVideo(
-        petID: String,
+    func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
+    func bindUploadedMedia(
+        petID: String,
+        assetID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse

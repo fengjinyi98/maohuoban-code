@@ -41,8 +41,7 @@ struct PetCreateScreen: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .petWriteToastBridge(
             phase: store.phase,
-            successMessage: store.successMessage,
-            derivativeMessage: store.mediaDerivativeMessage
+            successMessage: store.successMessage
         )
         .accessibilityIdentifier("pet.create.screen")
     }

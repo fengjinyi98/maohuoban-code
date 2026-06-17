@@ -64,10 +64,13 @@ struct PetProfileEditAvatarImage: View {
 struct PetProfileEditMediaThumbnail: View {
     let media: PetProfileEditProfile.HeroMedia
     let localMedia: PetProfileHeroMediaDraft?
+    let uploadState: PetMediaUploadSlotState
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             mediaContent
+
+            PetMediaUploadProgressOverlay(state: uploadState)
 
             if isVideo {
                 Image(systemName: "play.fill")

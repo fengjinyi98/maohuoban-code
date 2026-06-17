@@ -114,19 +114,24 @@ extension PetProfileEditScreen {
             return false
         }
 
-        await store.uploadAvatar(
-            petID: profileID,
+        guard await mediaUploadStore.uploadAvatar(
             draft: draft,
             currentUserID: currentUserID
-        )
-
-        if case .uploadedAvatar = store.phase {
-            editedAvatarImages[profileID] = image
-            onPetCreated()
-            return true
+        ),
+            let assetID = mediaUploadStore.avatarState.assetID,
+            await mediaUploadStore.bindUploadedMedia(
+                petID: profileID,
+                assetID: assetID,
+                currentUserID: currentUserID
+            )
+        else {
+            store.phase = .failed("头像保存失败")
+            return false
         }
 
-        return false
+        editedAvatarImages[profileID] = image
+        onPetCreated()
+        return true
     }
 
     func saveHeroMedia(_ media: PetProfileHeroMediaDraft, for profileID: String) async -> Bool {
@@ -137,31 +142,45 @@ extension PetProfileEditScreen {
                 return false
             }
 
-            await store.uploadBackgroundImage(
-                petID: profileID,
+            guard await mediaUploadStore.uploadBackgroundImage(
                 draft: draft,
                 currentUserID: currentUserID
-            )
+            ),
+                let assetID = mediaUploadStore.backgroundState.assetID,
+                await mediaUploadStore.bindUploadedMedia(
+                    petID: profileID,
+                    assetID: assetID,
+                    currentUserID: currentUserID
+                )
+            else {
+                store.phase = .failed("背景保存失败")
+                return false
+            }
         case .video(let url):
             guard let draft = await backgroundVideoUploadDraft(from: url, profileID: profileID) else {
                 store.phase = .failed("背景数据为空")
                 return false
             }
 
-            await store.uploadBackgroundVideo(
-                petID: profileID,
+            guard await mediaUploadStore.uploadBackgroundVideo(
                 draft: draft,
                 currentUserID: currentUserID
-            )
+            ),
+                let assetID = mediaUploadStore.backgroundState.assetID,
+                await mediaUploadStore.bindUploadedMedia(
+                    petID: profileID,
+                    assetID: assetID,
+                    currentUserID: currentUserID
+                )
+            else {
+                store.phase = .failed("背景保存失败")
+                return false
+            }
         }
 
-        if case .uploadedBackground = store.phase {
-            editedHeroMedia[profileID] = media
-            onPetCreated()
-            return true
-        }
-
-        return false
+        editedHeroMedia[profileID] = media
+        onPetCreated()
+        return true
     }
 
     func deleteProfile(_ profile: PetProfileEditProfile) async {

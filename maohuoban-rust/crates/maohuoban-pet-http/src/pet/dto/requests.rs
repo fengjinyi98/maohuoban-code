@@ -1,8 +1,8 @@
 use axum::extract::Multipart;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
-    DeletePetProfile, NewMerchantPetProfile, NewPetEvent, NewPetProfile, PetMediaUploadInput,
-    PublishAvailableStatusInput, TradePetImportInput, UpdatePetProfile,
+    BindUploadedPetMediaInput, DeletePetProfile, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
+    PendingPetMediaUploadInput, PublishAvailableStatusInput, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, MediaUsageKind, PetError, PetNeuterStatus,
@@ -29,6 +29,8 @@ pub(crate) struct CreatePetProfileRequest {
     neuter_status: Option<PetNeuterStatus>,
     personality_tags: Option<Vec<String>>,
     note: Option<String>,
+    avatar_asset_id: Option<Uuid>,
+    background_asset_id: Option<Uuid>,
 }
 
 impl CreatePetProfileRequest {
@@ -46,6 +48,8 @@ impl CreatePetProfileRequest {
             neuter_status: self.neuter_status.unwrap_or(PetNeuterStatus::Unknown),
             personality_tags: self.personality_tags.unwrap_or_default(),
             note: self.note,
+            avatar_asset_id: self.avatar_asset_id,
+            background_asset_id: self.background_asset_id,
             source_kind: PetSourceKind::UserCreated,
         }
     }
@@ -182,44 +186,58 @@ impl UploadPetMediaRequest {
         })
     }
 
-    pub(crate) fn into_avatar_input(
+    pub(crate) fn into_pending_avatar_input(
         self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetMediaUploadInput {
-        self.into_input(pet_id, owner_user_id, MediaUsageKind::PetAvatar)
+    ) -> PendingPetMediaUploadInput {
+        self.into_pending_input(owner_user_id, MediaUsageKind::PetAvatar)
     }
 
-    pub(crate) fn into_background_image_input(
+    pub(crate) fn into_pending_background_image_input(
         self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetMediaUploadInput {
-        self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundImage)
+    ) -> PendingPetMediaUploadInput {
+        self.into_pending_input(owner_user_id, MediaUsageKind::PetBackgroundImage)
     }
 
-    pub(crate) fn into_background_video_input(
+    pub(crate) fn into_pending_background_video_input(
         self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetMediaUploadInput {
-        self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundVideo)
+    ) -> PendingPetMediaUploadInput {
+        self.into_pending_input(owner_user_id, MediaUsageKind::PetBackgroundVideo)
     }
 
-    fn into_input(
+    fn into_pending_input(
         self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
         usage_kind: MediaUsageKind,
-    ) -> PetMediaUploadInput {
-        PetMediaUploadInput {
-            pet_id,
+    ) -> PendingPetMediaUploadInput {
+        PendingPetMediaUploadInput {
             owner_user_id,
             usage_kind,
             file_name: self.file_name,
             mime_type: self.mime_type,
             content: self.content,
             source_client: self.source_client,
+        }
+    }
+}
+
+/// BindUploadedPetMediaRequest 绑定已上传宠物媒体请求
+/// 核心职责：
+/// - 接收 pending 媒体资产 ID
+/// - 转换为宠物媒体绑定命令
+#[derive(Debug, Deserialize)]
+pub(crate) struct BindUploadedPetMediaRequest {
+    asset_id: Uuid,
+}
+
+impl BindUploadedPetMediaRequest {
+    pub(crate) fn into_input(self, pet_id: Uuid, owner_user_id: Uuid) -> BindUploadedPetMediaInput {
+        BindUploadedPetMediaInput {
+            pet_id,
+            owner_user_id,
+            asset_id: self.asset_id,
         }
     }
 }

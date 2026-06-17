@@ -27,6 +27,7 @@ extension PetProfileEditScreen {
                             selectedProfileID: profile.id,
                             displayName: { displayName(for: $0) },
                             avatarImage: { editedAvatarImages[$0.id] },
+                            avatarUploadState: mediaUploadStore.avatarState,
                             onSelectProfile: { profileID in
                                 dismissSelectionMenus()
                                 selectedProfileID = profileID
@@ -108,7 +109,8 @@ extension PetProfileEditScreen {
                                 ) {
                                     PetProfileEditMediaThumbnail(
                                         media: profile.heroMedia,
-                                        localMedia: editedHeroMedia[profile.id]
+                                        localMedia: editedHeroMedia[profile.id],
+                                        uploadState: mediaUploadStore.backgroundState
                                     )
                                 }
                             }

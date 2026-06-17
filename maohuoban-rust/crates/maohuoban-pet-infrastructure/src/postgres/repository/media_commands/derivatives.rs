@@ -4,12 +4,11 @@ use std::{
 };
 
 use maohuoban_media_storage::MediaObjectStore;
-use maohuoban_pet_application::pet::PetMediaUploadInput;
 use maohuoban_pet_domain::pet::{MediaDerivativeKind, PetError, PetResult};
 use serde_json::Value;
 use uuid::Uuid;
 
-use super::{PreparedMediaDerivative, PreparedMediaObject};
+use super::{MediaUploadObjectInput, PreparedMediaDerivative, PreparedMediaObject};
 use crate::postgres::repository::storage::{sanitized_file_name, sha256_hex};
 
 /// prepare_video_derivatives 生成视频派生对象
@@ -18,10 +17,10 @@ use crate::postgres::repository::storage::{sanitized_file_name, sha256_hex};
 /// - 复用图片派生逻辑生成封面帧和主题色
 pub(super) async fn prepare_video_derivatives(
     media_store: &MediaObjectStore,
-    input: &PetMediaUploadInput,
+    input: &MediaUploadObjectInput<'_>,
     media: &PreparedMediaObject,
 ) -> PetResult<Vec<PreparedMediaDerivative>> {
-    let Some(frame_content) = extract_first_video_frame(&input.content, &input.file_name) else {
+    let Some(frame_content) = extract_first_video_frame(input.content, input.file_name) else {
         return Ok(Vec::new());
     };
     let Ok(frame) = image::load_from_memory(&frame_content) else {

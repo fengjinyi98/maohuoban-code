@@ -11,6 +11,7 @@ extension PetProfileAddScreen {
                         PetProfileAddAvatarHeader(
                             species: species,
                             localAvatarImage: localAvatarImage,
+                            uploadState: mediaUploadStore.avatarState,
                             action: showAvatarEntry
                         )
 
@@ -57,7 +58,8 @@ extension PetProfileAddScreen {
                                     if let localHeroMedia {
                                         PetProfileEditMediaThumbnail(
                                             media: addPetFallbackHeroMedia,
-                                            localMedia: localHeroMedia
+                                            localMedia: localHeroMedia,
+                                            uploadState: mediaUploadStore.backgroundState
                                         )
                                     } else {
                                         PetProfileAddValueText(value: "未设置")
@@ -187,7 +189,13 @@ extension PetProfileAddScreen {
                     Task { await submit() }
                 }
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color.opacity(canSave ? 1 : 0.35))
+                .foregroundStyle(.white.opacity(canSave ? 1 : 0.6))
+                .padding(.horizontal, MHBTheme.Spacing.s3)
+                .padding(.vertical, MHBTheme.Spacing.s1)
+                .background(
+                    MHBTheme.ColorToken.primary.color.opacity(canSave ? 1 : 0.28),
+                    in: .capsule
+                )
                 .disabled(!canSave || store.isSubmitting)
             }
         }
@@ -406,8 +414,7 @@ extension PetProfileAddScreen {
         }
         .petWriteToastBridge(
             phase: store.phase,
-            successMessage: store.successMessage,
-            derivativeMessage: store.mediaDerivativeMessage
+            successMessage: store.successMessage
         )
         .accessibilityIdentifier("pet.profileAdd.screen")
     }

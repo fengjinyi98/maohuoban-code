@@ -26,8 +26,7 @@ struct PetTradeImportScreen: View {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 PetWriteStatusSection(
                     phase: store.phase,
-                    successMessage: store.successMessage,
-                    derivativeMessage: nil
+                    successMessage: store.successMessage
                 )
 
                 PetTradeImportPetFields(name: $name, breed: $breed)
@@ -58,8 +57,7 @@ struct PetTradeImportScreen: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .petWriteToastBridge(
             phase: store.phase,
-            successMessage: store.successMessage,
-            derivativeMessage: store.mediaDerivativeMessage
+            successMessage: store.successMessage
         )
         .accessibilityIdentifier("pet.tradeImport.screen")
     }

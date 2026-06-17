@@ -10,28 +10,16 @@ final class PetWriteToastResolverTests: XCTestCase {
     func testCreatedPetWithoutMediaShowsCreatedSuccess() {
         let events = PetWriteToastResolver.events(
             phase: .createdPet("pet-1"),
-            successMessage: "宠物档案已创建",
-            derivativeMessage: nil
+            successMessage: "宠物档案已创建"
         )
 
         XCTAssertEqual(events, [.success("宠物档案已创建")])
     }
 
-    func testCreatedPetWithPartialMediaShowsWarning() {
-        let events = PetWriteToastResolver.events(
-            phase: .createdPetWithPartialMedia("pet-1"),
-            successMessage: "档案已创建，部分媒体保存失败",
-            derivativeMessage: nil
-        )
-
-        XCTAssertEqual(events, [.warning("档案已创建，部分媒体保存失败")])
-    }
-
     func testFailedShowsDanger() {
         let events = PetWriteToastResolver.events(
             phase: .failed("请先登录"),
-            successMessage: nil,
-            derivativeMessage: nil
+            successMessage: nil
         )
 
         XCTAssertEqual(events, [.danger("请先登录")])
@@ -39,11 +27,10 @@ final class PetWriteToastResolverTests: XCTestCase {
 
     func testDerivativeMessageIsHiddenAfterSuccess() {
         let events = PetWriteToastResolver.events(
-            phase: .uploadedBackground("asset-1"),
-            successMessage: "宠物背景已上传",
-            derivativeMessage: "派生资源处理中"
+            phase: .updatedPet("pet-1"),
+            successMessage: "宠物档案已更新"
         )
 
-        XCTAssertEqual(events, [.success("宠物背景已上传")])
+        XCTAssertEqual(events, [.success("宠物档案已更新")])
     }
 }

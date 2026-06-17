@@ -163,33 +163,96 @@ extension PetProfileAddScreen {
         }
 
         localHeroMedia = .video(video.url)
+        Task { await uploadLocalBackgroundVideo(url: video.url) }
     }
 
     func handleCroppedAvatar(_ image: UIImage) {
         avatarCropTarget = nil
         localAvatarImage = image
+        uploadLocalAvatar(image)
     }
 
     func handleCroppedBackgroundImage(_ image: UIImage) {
         backgroundCropTarget = nil
         localHeroMedia = .image(image)
+        uploadLocalBackgroundImage(image)
     }
 
     func saveLocalAvatar(_ image: UIImage) async -> Bool {
         localAvatarImage = image
-        return true
+        guard let draft = addPetAvatarUploadDraft() else {
+            return false
+        }
+        return await mediaUploadStore.uploadAvatar(
+            draft: draft,
+            currentUserID: currentUserID
+        )
     }
 
     func saveLocalHeroMedia(_ media: PetProfileHeroMediaDraft) async -> Bool {
         localHeroMedia = media
-        return true
+        switch media {
+        case .image:
+            guard let draft = addPetBackgroundImageUploadDraft() else {
+                return false
+            }
+            return await mediaUploadStore.uploadBackgroundImage(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+        case .video:
+            guard let draft = await addPetBackgroundVideoUploadDraft() else {
+                return false
+            }
+            return await mediaUploadStore.uploadBackgroundVideo(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+        }
     }
 
-    func addPetMediaDrafts() async -> PetCreateMediaDrafts {
-        PetCreateMediaDrafts(
-            avatar: addPetAvatarUploadDraft(),
-            backgroundImage: addPetBackgroundImageUploadDraft(),
-            backgroundVideo: await addPetBackgroundVideoUploadDraft()
+    func uploadLocalAvatar(_ image: UIImage) {
+        guard let draft = mediaUploadDraft(
+            data: image.jpegData(compressionQuality: 0.88),
+            fileName: "pet-avatar.jpg",
+            mimeType: "image/jpeg"
+        ) else {
+            return
+        }
+
+        Task {
+            _ = await mediaUploadStore.uploadAvatar(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+        }
+    }
+
+    func uploadLocalBackgroundImage(_ image: UIImage) {
+        guard let draft = mediaUploadDraft(
+            data: image.jpegData(compressionQuality: 0.9),
+            fileName: "pet-background.jpg",
+            mimeType: "image/jpeg"
+        ) else {
+            return
+        }
+
+        Task {
+            _ = await mediaUploadStore.uploadBackgroundImage(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+        }
+    }
+
+    func uploadLocalBackgroundVideo(url: URL) async {
+        guard let draft = await backgroundVideoUploadDraft(from: url, fileNamePrefix: "pet-background") else {
+            return
+        }
+
+        _ = await mediaUploadStore.uploadBackgroundVideo(
+            draft: draft,
+            currentUserID: currentUserID
         )
     }
 
@@ -218,10 +281,14 @@ extension PetProfileAddScreen {
             return nil
         }
 
+        return await backgroundVideoUploadDraft(from: url, fileNamePrefix: "pet-background")
+    }
+
+    func backgroundVideoUploadDraft(from url: URL, fileNamePrefix: String) async -> PetMediaUploadDraft? {
         let videoData = await Task.detached(priority: .userInitiated) {
             try? Data(contentsOf: url)
         }.value
-        let fileName = url.lastPathComponent.isEmpty ? "pet-background.mp4" : url.lastPathComponent
+        let fileName = url.lastPathComponent.isEmpty ? "\(fileNamePrefix).mp4" : url.lastPathComponent
 
         return mediaUploadDraft(
             data: videoData,
@@ -305,7 +372,7 @@ extension PetProfileAddScreen {
     }
 
     func submit() async {
-        await store.createPetWithMedia(
+        await store.createPetWithUploadedMedia(
             draft: PetProfileDraft(
                 name: name,
                 species: species,
@@ -319,15 +386,11 @@ extension PetProfileAddScreen {
                 personalityTags: personalityTags,
                 note: note
             ),
-            mediaDrafts: await addPetMediaDrafts(),
+            mediaBindings: mediaUploadStore.uploadedBindings,
             currentUserID: currentUserID
         )
 
         if case .createdPet(let petID) = store.phase {
-            onCreated(petID)
-            dismiss()
-        }
-        if case .createdPetWithPartialMedia(let petID) = store.phase {
             onCreated(petID)
             dismiss()
         }

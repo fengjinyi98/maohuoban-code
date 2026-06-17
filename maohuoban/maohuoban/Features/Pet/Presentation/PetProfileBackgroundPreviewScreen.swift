@@ -157,7 +157,7 @@ struct PetProfileBackgroundPreviewScreen: View {
                     .foregroundStyle(.white.opacity(0.76))
             }
         case .saved:
-            Text("背景已临时保存")
+            Text("背景已上传")
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.white.opacity(0.76))
         }

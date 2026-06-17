@@ -123,6 +123,7 @@ impl TryFrom<MediaAssetRow> for MediaAsset {
     fn try_from(row: MediaAssetRow) -> Result<Self, Self::Error> {
         Ok(Self {
             id: row.id,
+            url: format!("/api/v1/media/assets/{}/content", row.id),
             uploaded_by_user_id: row.uploaded_by_user_id,
             owner_pet_id: row.owner_pet_id,
             usage_kind: MediaUsageKind::try_from(row.usage_kind.as_str()).map_err(|_| {

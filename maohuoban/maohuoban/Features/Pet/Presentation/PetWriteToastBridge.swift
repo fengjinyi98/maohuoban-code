@@ -17,8 +17,7 @@ enum PetWriteToastEvent: Equatable {
 enum PetWriteToastResolver {
     static func events(
         phase: PetWritePhase,
-        successMessage: String?,
-        derivativeMessage: String?
+        successMessage: String?
     ) -> [PetWriteToastEvent] {
         var events: [PetWriteToastEvent] = []
 
@@ -29,12 +28,8 @@ enum PetWriteToastResolver {
              .recordedEvent,
              .importedTradePet,
              .updatedPet,
-             .uploadedAvatar,
-             .uploadedBackground,
              .deletedPet:
             events.append(.success(successMessage ?? "已保存"))
-        case .createdPetWithPartialMedia:
-            events.append(.warning(successMessage ?? "档案已创建，部分媒体保存失败"))
         case let .failed(message):
             events.append(.danger(message))
         }
@@ -50,18 +45,15 @@ enum PetWriteToastResolver {
 private struct PetWriteToastBridge: ViewModifier {
     let phase: PetWritePhase
     let successMessage: String?
-    let derivativeMessage: String?
     let toast: MHBToastPresenter
 
     init(
         phase: PetWritePhase,
         successMessage: String?,
-        derivativeMessage: String?,
         toast: MHBToastPresenter = MHBToastPresenter()
     ) {
         self.phase = phase
         self.successMessage = successMessage
-        self.derivativeMessage = derivativeMessage
         self.toast = toast
     }
 
@@ -70,8 +62,7 @@ private struct PetWriteToastBridge: ViewModifier {
             .onChange(of: phase) { _, newPhase in
                 let events = PetWriteToastResolver.events(
                     phase: newPhase,
-                    successMessage: successMessage,
-                    derivativeMessage: derivativeMessage
+                    successMessage: successMessage
                 )
                 show(events)
             }
@@ -94,14 +85,12 @@ private struct PetWriteToastBridge: ViewModifier {
 extension View {
     func petWriteToastBridge(
         phase: PetWritePhase,
-        successMessage: String?,
-        derivativeMessage: String?
+        successMessage: String?
     ) -> some View {
         modifier(
             PetWriteToastBridge(
                 phase: phase,
-                successMessage: successMessage,
-                derivativeMessage: derivativeMessage
+                successMessage: successMessage
             )
         )
     }

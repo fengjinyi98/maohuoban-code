@@ -46,7 +46,8 @@ struct MHBHTTPClient {
         path: String,
         file: MHBMultipartFile,
         fields: [String: String] = [:],
-        headers: [String: String] = [:]
+        headers: [String: String] = [:],
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let boundary = "maohuoban-\(UUID().uuidString)"
         let url = baseURL.appending(path: path)
@@ -57,9 +58,14 @@ struct MHBHTTPClient {
         for (field, value) in headers {
             request.setValue(value, forHTTPHeaderField: field)
         }
-        request.httpBody = multipartBody(boundary: boundary, file: file, fields: fields)
+        let body = multipartBody(boundary: boundary, file: file, fields: fields)
+        request.httpBody = body
 
-        return try await send(request)
+        guard let onUploadProgress else {
+            return try await send(request)
+        }
+
+        return try await sendUpload(request, body: body, onUploadProgress: onUploadProgress)
     }
 
     func patch<RequestBody: Encodable, ResponseBody: Decodable>(
@@ -197,6 +203,102 @@ struct MHBHTTPClient {
             throw apiError
         } catch {
             throw .decoding(error.localizedDescription)
+        }
+    }
+
+    private func sendUpload<ResponseBody: Decodable>(
+        _ request: URLRequest,
+        body: Data,
+        onUploadProgress: @escaping @MainActor (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        var uploadRequest = request
+        uploadRequest.httpBody = nil
+
+        let delegate = MHBUploadProgressDelegate(onUploadProgress: onUploadProgress)
+        let uploadSession = URLSession(
+            configuration: session.configuration,
+            delegate: delegate,
+            delegateQueue: nil
+        )
+
+        let result: Result<(Data, URLResponse), MHBAPIError> = await withCheckedContinuation { continuation in
+            let task = uploadSession.uploadTask(with: uploadRequest, from: body) { data, response, error in
+                uploadSession.finishTasksAndInvalidate()
+                if let error {
+                    continuation.resume(returning: .failure(.transport(error.localizedDescription)))
+                    return
+                }
+                guard let data, let response else {
+                    continuation.resume(returning: .failure(.invalidResponse))
+                    return
+                }
+                continuation.resume(returning: .success((data, response)))
+            }
+            task.resume()
+        }
+
+        let data: Data
+        let response: URLResponse
+        switch result {
+        case .success(let value):
+            (data, response) = value
+        case .failure(let error):
+            throw error
+        }
+
+        return try decodeResponse(data: data, response: response)
+    }
+
+    private func decodeResponse<ResponseBody: Decodable>(
+        data: Data,
+        response: URLResponse
+    ) throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw .invalidResponse
+        }
+
+        do {
+            let apiResponse = try decoder.decode(MHBAPIResponse<ResponseBody>.self, from: data)
+            if apiResponse.success, (200..<300).contains(httpResponse.statusCode) {
+                return apiResponse
+            }
+            throw MHBAPIError.business(
+                code: apiResponse.code,
+                message: apiResponse.message,
+                statusCode: httpResponse.statusCode
+            )
+        } catch let apiError as MHBAPIError {
+            throw apiError
+        } catch {
+            throw .decoding(error.localizedDescription)
+        }
+    }
+}
+
+// MHBUploadProgressDelegate 上传进度代理
+// 核心职责：
+// - 接收 URLSession 字节级上传回调
+// - 将上传百分比回传给调用方
+private final class MHBUploadProgressDelegate: NSObject, URLSessionTaskDelegate {
+    private let onUploadProgress: @MainActor (Double) -> Void
+
+    init(onUploadProgress: @escaping @MainActor (Double) -> Void) {
+        self.onUploadProgress = onUploadProgress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        guard totalBytesExpectedToSend > 0 else {
+            return
+        }
+        let progress = min(max(Double(totalBytesSent) / Double(totalBytesExpectedToSend), 0), 1)
+        Task { @MainActor in
+            onUploadProgress(progress)
         }
     }
 }

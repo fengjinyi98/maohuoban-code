@@ -6,10 +6,11 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::{
-    DeletePetProfile, MediaAssetDisplayMetadata, MerchantAvailableStatusPublication,
-    MerchantDashboardSummary, MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile,
-    NewPetEvent, NewPetProfile, PetMediaUploadInput, PetRepository, PublishAvailableStatusInput,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata,
+    MerchantAvailableStatusPublication, MerchantDashboardSummary, MerchantLitterDetail,
+    MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
+    PendingPetMediaUploadInput, PetRepository, PublishAvailableStatusInput, RestorePetProfile,
+    TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 
 /// PetService 宠物应用服务
@@ -77,15 +78,22 @@ impl PetService {
         self.repository.restore_pet_profile(input).await
     }
 
-    pub async fn upload_pet_media(
+    pub async fn upload_pending_pet_media(
         &self,
-        input: PetMediaUploadInput,
+        input: PendingPetMediaUploadInput,
     ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
         validate_text("文件名", &input.file_name)?;
         validate_text("媒体类型", &input.mime_type)?;
         if input.content.is_empty() {
             return Err(PetError::InvalidInput("媒体内容不能为空".to_owned()));
         }
+        self.repository.upload_pending_pet_media(input).await
+    }
+
+    pub async fn bind_uploaded_pet_media(
+        &self,
+        input: BindUploadedPetMediaInput,
+    ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
         if self
             .repository
             .find_pet_for_owner(input.pet_id, input.owner_user_id)
@@ -94,7 +102,7 @@ impl PetService {
         {
             return Err(PetError::PetNotFound);
         }
-        self.repository.upload_pet_media(input).await
+        self.repository.bind_uploaded_pet_media(input).await
     }
 
     pub async fn list_media_display_metadata(

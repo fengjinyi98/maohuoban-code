@@ -279,8 +279,7 @@ extension PetProfileEditScreen {
             }
             .petWriteToastBridge(
                 phase: store.phase,
-                successMessage: store.successMessage,
-                derivativeMessage: store.mediaDerivativeMessage
+                successMessage: store.successMessage
             )
             .accessibilityIdentifier("pet.profileEdit.screen")
     }

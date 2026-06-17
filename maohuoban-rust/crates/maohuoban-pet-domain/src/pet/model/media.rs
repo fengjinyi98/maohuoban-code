@@ -12,6 +12,7 @@ use super::PetErrorKind;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MediaAsset {
     pub id: Uuid,
+    pub url: String,
     pub uploaded_by_user_id: Option<Uuid>,
     pub owner_pet_id: Option<Uuid>,
     pub usage_kind: MediaUsageKind,
@@ -73,7 +74,7 @@ pub struct MediaDerivative {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PetMediaUploadResult {
     pub asset: MediaAsset,
-    pub binding: MediaBinding,
+    pub binding: Option<MediaBinding>,
     pub derivatives: Vec<MediaDerivative>,
 }
 

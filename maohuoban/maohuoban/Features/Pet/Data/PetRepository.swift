@@ -27,21 +27,27 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary>
 
-    func uploadAvatar(
-        petID: String,
+    func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
-    func uploadBackgroundImage(
-        petID: String,
+    func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
-    func uploadBackgroundVideo(
-        petID: String,
+    func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
+    func bindUploadedMedia(
+        petID: String,
+        assetID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
@@ -113,41 +119,53 @@ struct DefaultPetRepository: PetRepository {
         )
     }
 
-    func uploadAvatar(
-        petID: String,
+    func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.postMultipart(
-            path: "/api/v1/pets/\(petID)/media/avatar",
-            file: multipartFile(from: draft),
-            fields: multipartFields(from: draft),
-            headers: userHeaders(currentUserID: currentUserID)
+        try await uploadPendingMedia(
+            path: "/api/v1/pet-media/avatar",
+            draft: draft,
+            currentUserID: currentUserID,
+            onUploadProgress: onUploadProgress
         )
     }
 
-    func uploadBackgroundImage(
-        petID: String,
+    func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.postMultipart(
-            path: "/api/v1/pets/\(petID)/media/background-image",
-            file: multipartFile(from: draft),
-            fields: multipartFields(from: draft),
-            headers: userHeaders(currentUserID: currentUserID)
+        try await uploadPendingMedia(
+            path: "/api/v1/pet-media/background-image",
+            draft: draft,
+            currentUserID: currentUserID,
+            onUploadProgress: onUploadProgress
         )
     }
 
-    func uploadBackgroundVideo(
-        petID: String,
+    func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await uploadPendingMedia(
+            path: "/api/v1/pet-media/background-video",
+            draft: draft,
+            currentUserID: currentUserID,
+            onUploadProgress: onUploadProgress
+        )
+    }
+
+    func bindUploadedMedia(
+        petID: String,
+        assetID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.postMultipart(
-            path: "/api/v1/pets/\(petID)/media/background-video",
-            file: multipartFile(from: draft),
-            fields: multipartFields(from: draft),
+        try await client.post(
+            path: "/api/v1/pets/\(petID)/media-bindings",
+            body: BindUploadedPetMediaDraft(assetID: assetID),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
@@ -190,5 +208,20 @@ struct DefaultPetRepository: PetRepository {
 
     private func multipartFields(from draft: PetMediaUploadDraft) -> [String: String] {
         ["source_client": draft.sourceClient]
+    }
+
+    private func uploadPendingMedia(
+        path: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: (@MainActor (Double) -> Void)?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await client.postMultipart(
+            path: path,
+            file: multipartFile(from: draft),
+            fields: multipartFields(from: draft),
+            headers: userHeaders(currentUserID: currentUserID),
+            onUploadProgress: onUploadProgress
+        )
     }
 }

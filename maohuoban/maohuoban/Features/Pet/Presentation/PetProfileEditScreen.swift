@@ -11,6 +11,7 @@ struct PetProfileEditScreen: View {
     let currentUserID: String?
     let onPetCreated: () -> Void
     @State var store = PetWriteStore()
+    @State var mediaUploadStore = PetMediaUploadStore()
     @State var selectedProfileID: String
     @State var editedNames: [String: String] = [:]
     @State var editedBreeds: [String: String] = [:]

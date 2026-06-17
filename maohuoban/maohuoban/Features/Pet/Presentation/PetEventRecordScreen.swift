@@ -34,8 +34,7 @@ struct PetEventRecordScreen: View {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 PetWriteStatusSection(
                     phase: store.phase,
-                    successMessage: store.successMessage,
-                    derivativeMessage: nil
+                    successMessage: store.successMessage
                 )
 
                 if petID == nil {
@@ -64,8 +63,7 @@ struct PetEventRecordScreen: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .petWriteToastBridge(
             phase: store.phase,
-            successMessage: store.successMessage,
-            derivativeMessage: store.mediaDerivativeMessage
+            successMessage: store.successMessage
         )
         .accessibilityIdentifier("pet.eventRecord.screen")
     }

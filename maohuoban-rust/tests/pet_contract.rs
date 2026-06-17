@@ -95,6 +95,53 @@ async fn response_json(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).expect("parse response json")
 }
 
+/// `upload_pending_media` 上传未绑定媒体并返回响应数据
+/// 核心职责：
+/// - 固定宠物媒体 pending 上传测试流程
+/// - 避免合约测试继续依赖旧 `pet_id` 上传端点
+async fn upload_pending_media(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    uri: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+    user_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(multipart_media_request(
+            uri, file_name, mime_type, content, "ios", user_id,
+        ))
+        .await
+        .expect("upload pending media");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await
+}
+
+/// `bind_uploaded_media` 将 pending 媒体绑定到宠物
+/// 核心职责：
+/// - 固定宠物媒体绑定测试流程
+/// - 验证编辑和创建后的媒体替换统一走绑定接口
+async fn bind_uploaded_media(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    pet_id: &str,
+    asset_id: &str,
+    user_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media-bindings"),
+            json!({ "asset_id": asset_id }),
+            Some(user_id),
+        ))
+        .await
+        .expect("bind uploaded media");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await
+}
+
 /// `assert_name_edit_policy` 校验宠物改名策略
 /// 核心职责：
 /// - 固定后端返回的改名额度字段
@@ -1025,38 +1072,31 @@ async fn pet_avatar_upload_creates_traceable_media_binding() {
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    let upload_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            "avatar.txt",
-            "text/plain",
-            b"avatar-bytes",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload avatar");
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-    let upload_body = response_json(upload_response).await;
-    assert_eq!(upload_body["code"], "pet.avatar_uploaded");
-    assert_eq!(upload_body["data"]["binding"]["pet_id"], pet_id);
-    assert_eq!(upload_body["data"]["binding"]["usage_kind"], "pet.avatar");
-    assert_eq!(upload_body["data"]["asset"]["uploaded_by_user_id"], user_id);
-    assert_eq!(upload_body["data"]["asset"]["owner_pet_id"], pet_id);
-    assert_eq!(upload_body["data"]["asset"]["status"], "bound");
+    let upload_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "avatar.txt",
+        "text/plain",
+        b"avatar-bytes",
+        &user_id,
+    )
+    .await;
+    let asset_id = upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("asset id");
+    let bind_body = bind_uploaded_media(&app, pet_id, asset_id, &user_id).await;
+    assert_eq!(bind_body["code"], "pet.media_bound");
+    assert_eq!(bind_body["data"]["binding"]["pet_id"], pet_id);
+    assert_eq!(bind_body["data"]["binding"]["usage_kind"], "pet.avatar");
+    assert_eq!(bind_body["data"]["asset"]["uploaded_by_user_id"], user_id);
+    assert_eq!(bind_body["data"]["asset"]["owner_pet_id"], pet_id);
+    assert_eq!(bind_body["data"]["asset"]["status"], "bound");
     assert!(
-        upload_body["data"]["asset"]["sha256_hex"]
+        bind_body["data"]["asset"]["sha256_hex"]
             .as_str()
             .unwrap()
             .len()
             >= 64
-    );
-    assert!(
-        upload_body["data"]["asset"]["object_key"]
-            .as_str()
-            .unwrap()
-            .contains(pet_id)
     );
     let bucket = upload_body["data"]["asset"]["bucket"]
         .as_str()
@@ -1067,6 +1107,136 @@ async fn pet_avatar_upload_creates_traceable_media_binding() {
     assert_eq!(
         app.media_object_content(bucket, object_key),
         b"avatar-bytes"
+    );
+}
+
+#[tokio::test]
+async fn pending_pet_media_upload_returns_unbound_asset_with_url_and_dimensions() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138138").await;
+
+    let upload_response = app
+        .router()
+        .oneshot(multipart_media_request(
+            "/api/v1/pet-media/avatar",
+            "red.png",
+            "image/png",
+            &STANDARD
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+                .expect("red png bytes"),
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload pending avatar");
+    assert_eq!(upload_response.status(), StatusCode::CREATED);
+    let body = response_json(upload_response).await;
+    assert_eq!(body["code"], "pet.media_uploaded");
+    assert_eq!(body["data"]["asset"]["uploaded_by_user_id"], user_id);
+    assert_eq!(body["data"]["asset"]["owner_pet_id"], Value::Null);
+    assert_eq!(body["data"]["asset"]["usage_kind"], "pet.avatar");
+    assert_eq!(body["data"]["asset"]["status"], "uploaded");
+    assert_eq!(body["data"]["asset"]["width"], 1);
+    assert_eq!(body["data"]["asset"]["height"], 1);
+    let asset_id = body["data"]["asset"]["id"].as_str().expect("asset id");
+    assert_eq!(
+        body["data"]["asset"]["url"],
+        format!("/api/v1/media/assets/{asset_id}/content")
+    );
+    assert_eq!(body["data"]["binding"], Value::Null);
+}
+
+#[tokio::test]
+async fn create_pet_profile_binds_uploaded_media_assets() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138139").await;
+
+    let avatar_response = app
+        .router()
+        .oneshot(multipart_media_request(
+            "/api/v1/pet-media/avatar",
+            "avatar.txt",
+            "text/plain",
+            b"avatar-before-create",
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload pending avatar");
+    assert_eq!(avatar_response.status(), StatusCode::CREATED);
+    let avatar_body = response_json(avatar_response).await;
+    let avatar_asset_id = avatar_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("avatar asset id");
+
+    let background_response = app
+        .router()
+        .oneshot(multipart_media_request(
+            "/api/v1/pet-media/background-image",
+            "background.txt",
+            "text/plain",
+            b"background-before-create",
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload pending background");
+    assert_eq!(background_response.status(), StatusCode::CREATED);
+    let background_body = response_json(background_response).await;
+    let background_asset_id = background_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("background asset id");
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "团子",
+                "species": "cat",
+                "sex": "female",
+                "avatar_asset_id": avatar_asset_id,
+                "background_asset_id": background_asset_id
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet with uploaded media");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+    assert_eq!(create_body["data"]["avatar_asset_id"], avatar_asset_id);
+    assert_eq!(
+        create_body["data"]["background_asset_id"],
+        background_asset_id
+    );
+    assert_eq!(create_body["data"]["background_media_kind"], "image");
+
+    let avatar_state = app.media_cleanup_state(avatar_asset_id).await;
+    assert_eq!(avatar_state.asset_status, "bound");
+    assert_eq!(avatar_state.binding_status, "active");
+    let background_state = app.media_cleanup_state(background_asset_id).await;
+    assert_eq!(background_state.asset_status, "bound");
+    assert_eq!(background_state.binding_status, "active");
+
+    let loaded_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load created pet");
+    assert_eq!(loaded_response.status(), StatusCode::OK);
+    let loaded_body = response_json(loaded_response).await;
+    assert_eq!(loaded_body["data"]["avatar_asset_id"], avatar_asset_id);
+    assert_eq!(
+        loaded_body["data"]["background_asset_id"],
+        background_asset_id
     );
 }
 
@@ -1094,41 +1264,39 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    let image_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/background-image"),
-            "background.jpg",
-            "image/jpeg",
-            b"image-bytes",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload background image");
-    assert_eq!(image_response.status(), StatusCode::CREATED);
-    let image_body = response_json(image_response).await;
-    assert_eq!(image_body["code"], "pet.background_uploaded");
+    let image_upload_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/background-image",
+        "background.jpg",
+        "image/jpeg",
+        b"image-bytes",
+        &user_id,
+    )
+    .await;
+    let image_asset_id = image_upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("image asset id");
+    let image_body = bind_uploaded_media(&app, pet_id, image_asset_id, &user_id).await;
+    assert_eq!(image_body["code"], "pet.media_bound");
     assert_eq!(
         image_body["data"]["binding"]["usage_kind"],
         "pet.background.image"
     );
 
-    let video_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/background-video"),
-            "background.mp4",
-            "video/mp4",
-            b"video-bytes",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload background video");
-    assert_eq!(video_response.status(), StatusCode::CREATED);
-    let video_body = response_json(video_response).await;
-    assert_eq!(video_body["code"], "pet.background_uploaded");
+    let video_upload_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/background-video",
+        "background.mp4",
+        "video/mp4",
+        b"video-bytes",
+        &user_id,
+    )
+    .await;
+    let video_asset_id = video_upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("video asset id");
+    let video_body = bind_uploaded_media(&app, pet_id, video_asset_id, &user_id).await;
+    assert_eq!(video_body["code"], "pet.media_bound");
     assert_eq!(
         video_body["data"]["binding"]["usage_kind"],
         "pet.background.video"
@@ -1147,40 +1315,17 @@ async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
     app.reset().await;
     let user_id = login_user_id(&app, "13800138136").await;
 
-    let create_response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            "/api/v1/pets",
-            json!({
-                "name": "红豆",
-                "species": "cat",
-                "sex": "female"
-            }),
-            Some(&user_id),
-        ))
-        .await
-        .expect("create pet");
-    assert_eq!(create_response.status(), StatusCode::CREATED);
-    let create_body = response_json(create_response).await;
-    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
-
-    let upload_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/background-image"),
-            "red.png",
-            "image/png",
-            &STANDARD
-                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
-                .expect("red png bytes"),
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload valid background image");
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-    let body = response_json(upload_response).await;
+    let body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/background-image",
+        "red.png",
+        "image/png",
+        &STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+            .expect("red png bytes"),
+        &user_id,
+    )
+    .await;
     assert_eq!(body["data"]["asset"]["width"], 1);
     assert_eq!(body["data"]["asset"]["height"], 1);
     let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
@@ -1212,38 +1357,15 @@ async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
     app.reset().await;
     let user_id = login_user_id(&app, "13800138137").await;
 
-    let create_response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            "/api/v1/pets",
-            json!({
-                "name": "火花",
-                "species": "dog",
-                "sex": "male"
-            }),
-            Some(&user_id),
-        ))
-        .await
-        .expect("create pet");
-    assert_eq!(create_response.status(), StatusCode::CREATED);
-    let create_body = response_json(create_response).await;
-    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
-
-    let upload_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/background-video"),
-            "red.mp4",
-            "video/mp4",
-            &video_content,
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload valid background video");
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-    let body = response_json(upload_response).await;
+    let body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/background-video",
+        "red.mp4",
+        "video/mp4",
+        &video_content,
+        &user_id,
+    )
+    .await;
     assert_eq!(body["data"]["asset"]["width"], 16);
     assert_eq!(body["data"]["asset"]["height"], 16);
     let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
@@ -1284,37 +1406,33 @@ async fn replacing_avatar_queues_previous_media_for_cleanup() {
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    let first_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            "avatar-1.txt",
-            "text/plain",
-            b"avatar-one",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload first avatar");
-    assert_eq!(first_response.status(), StatusCode::CREATED);
-    let first_body = response_json(first_response).await;
+    let first_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "avatar-1.txt",
+        "text/plain",
+        b"avatar-one",
+        &user_id,
+    )
+    .await;
     let old_asset_id = first_body["data"]["asset"]["id"]
         .as_str()
         .expect("asset id");
+    bind_uploaded_media(&app, pet_id, old_asset_id, &user_id).await;
 
-    let second_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            "avatar-2.txt",
-            "text/plain",
-            b"avatar-two",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload replacement avatar");
-    assert_eq!(second_response.status(), StatusCode::CREATED);
+    let second_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "avatar-2.txt",
+        "text/plain",
+        b"avatar-two",
+        &user_id,
+    )
+    .await;
+    let second_asset_id = second_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("asset id");
+    bind_uploaded_media(&app, pet_id, second_asset_id, &user_id).await;
 
     assert_media_cleanup_state(&app, old_asset_id, "cleanup_pending", "replaced", "queued").await;
 }
@@ -1343,23 +1461,19 @@ async fn pet_profile_delete_is_soft_and_recoverable() {
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    let upload_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            "restore-avatar.txt",
-            "text/plain",
-            b"avatar-before-delete",
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload avatar before delete");
-    assert_eq!(upload_response.status(), StatusCode::CREATED);
-    let upload_body = response_json(upload_response).await;
+    let upload_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "restore-avatar.txt",
+        "text/plain",
+        b"avatar-before-delete",
+        &user_id,
+    )
+    .await;
     let asset_id = upload_body["data"]["asset"]["id"]
         .as_str()
         .expect("asset id");
+    bind_uploaded_media(&app, pet_id, asset_id, &user_id).await;
 
     let delete_response = app
         .router()

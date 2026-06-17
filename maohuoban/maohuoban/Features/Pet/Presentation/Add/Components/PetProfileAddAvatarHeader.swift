@@ -9,6 +9,7 @@ import UIKit
 struct PetProfileAddAvatarHeader: View {
     let species: PetSpecies
     let localAvatarImage: UIImage?
+    let uploadState: PetMediaUploadSlotState
     let action: () -> Void
 
     var body: some View {
@@ -16,6 +17,10 @@ struct PetProfileAddAvatarHeader: View {
             VStack(spacing: MHBTheme.Spacing.s2) {
                 ZStack(alignment: .bottomTrailing) {
                     avatarContent
+                        .overlay {
+                            PetMediaUploadProgressOverlay(state: uploadState)
+                        }
+                        .clipShape(Circle())
 
                     Image(systemName: "camera.fill")
                         .font(.system(size: 13, weight: .bold))

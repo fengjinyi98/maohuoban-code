@@ -12,11 +12,12 @@ use uuid::Uuid;
 
 use super::{
     dto::{
-        CreateMerchantPetRequest, CreatePetEventRequest, CreatePetProfileRequest,
-        DeletePetProfileRequest, MerchantAvailableStatusData, MerchantLitterDetailData,
-        MerchantPetsData, MerchantPetsQuery, PetEventData, PetMediaUploadData, PetProfileData,
-        PetProfilesData, PetTimelineData, PublishAvailableStatusRequest, TradePetImportData,
-        TradePetImportRequest, UpdatePetProfileRequest, UploadPetMediaRequest,
+        BindUploadedPetMediaRequest, CreateMerchantPetRequest, CreatePetEventRequest,
+        CreatePetProfileRequest, DeletePetProfileRequest, MerchantAvailableStatusData,
+        MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery, PetEventData,
+        PetMediaUploadData, PetProfileData, PetProfilesData, PetTimelineData,
+        PublishAvailableStatusRequest, TradePetImportData, TradePetImportRequest,
+        UpdatePetProfileRequest, UploadPetMediaRequest,
     },
     response::{created_response, error_response, ok_response, unauthorized_response},
 };
@@ -58,18 +59,23 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         )
         .route("/api/v1/pets/{pet_id}/restore", post(restore_pet_profile))
         .route(
-            "/api/v1/pets/{pet_id}/media/avatar",
-            post(upload_pet_avatar).layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
-        )
-        .route(
-            "/api/v1/pets/{pet_id}/media/background-image",
-            post(upload_pet_background_image)
+            "/api/v1/pet-media/avatar",
+            post(upload_pending_pet_avatar)
                 .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
         )
         .route(
-            "/api/v1/pets/{pet_id}/media/background-video",
-            post(upload_pet_background_video)
+            "/api/v1/pet-media/background-image",
+            post(upload_pending_pet_background_image)
+                .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
+        )
+        .route(
+            "/api/v1/pet-media/background-video",
+            post(upload_pending_pet_background_video)
                 .layer(DefaultBodyLimit::max(PET_VIDEO_UPLOAD_LIMIT_BYTES)),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/media-bindings",
+            post(bind_uploaded_pet_media),
         )
         .route("/api/v1/pets/imports/trade", post(import_trade_pet))
         .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
@@ -189,10 +195,9 @@ async fn restore_pet_profile(
     }
 }
 
-async fn upload_pet_avatar(
+async fn upload_pending_pet_avatar(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
@@ -203,46 +208,41 @@ async fn upload_pet_avatar(
         Ok(request) => request,
         Err(error) => return error_response(&error),
     };
-    let input = request.into_avatar_input(pet_id, owner_user_id);
-    match state.pet.upload_pet_media(input).await {
+    let input = request.into_pending_avatar_input(owner_user_id);
+    match state.pet.upload_pending_pet_media(input).await {
         Ok(upload) => created_response(
-            "pet.avatar_uploaded",
-            "宠物头像已上传",
+            "pet.media_uploaded",
+            "媒体已上传",
             PetMediaUploadData::from(upload),
         ),
         Err(error) => error_response(&error),
     }
 }
 
-async fn upload_pet_background_image(
+async fn bind_uploaded_pet_media(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
-    multipart: Multipart,
+    Json(request): Json<BindUploadedPetMediaRequest>,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
         return unauthorized_response();
     };
 
-    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
-        Ok(request) => request,
-        Err(error) => return error_response(&error),
-    };
-    let input = request.into_background_image_input(pet_id, owner_user_id);
-    match state.pet.upload_pet_media(input).await {
+    let input = request.into_input(pet_id, owner_user_id);
+    match state.pet.bind_uploaded_pet_media(input).await {
         Ok(upload) => created_response(
-            "pet.background_uploaded",
-            "宠物背景已上传",
+            "pet.media_bound",
+            "宠物媒体已保存",
             PetMediaUploadData::from(upload),
         ),
         Err(error) => error_response(&error),
     }
 }
 
-async fn upload_pet_background_video(
+async fn upload_pending_pet_background_image(
     State(state): State<PetHttpState>,
     headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Response {
     let Ok(owner_user_id) = current_user_id(&headers) else {
@@ -253,11 +253,35 @@ async fn upload_pet_background_video(
         Ok(request) => request,
         Err(error) => return error_response(&error),
     };
-    let input = request.into_background_video_input(pet_id, owner_user_id);
-    match state.pet.upload_pet_media(input).await {
+    let input = request.into_pending_background_image_input(owner_user_id);
+    match state.pet.upload_pending_pet_media(input).await {
         Ok(upload) => created_response(
-            "pet.background_uploaded",
-            "宠物背景已上传",
+            "pet.media_uploaded",
+            "媒体已上传",
+            PetMediaUploadData::from(upload),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn upload_pending_pet_background_video(
+    State(state): State<PetHttpState>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> Response {
+    let Ok(owner_user_id) = current_user_id(&headers) else {
+        return unauthorized_response();
+    };
+
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
+        Err(error) => return error_response(&error),
+    };
+    let input = request.into_pending_background_video_input(owner_user_id);
+    match state.pet.upload_pending_pet_media(input).await {
+        Ok(upload) => created_response(
+            "pet.media_uploaded",
+            "媒体已上传",
             PetMediaUploadData::from(upload),
         ),
         Err(error) => error_response(&error),

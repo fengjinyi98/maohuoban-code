@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PetMediaUploadInput,
-    PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
+    NewPetProfile, PendingPetMediaUploadInput, PetRepository, RestorePetProfile, TradePetImport,
+    TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
@@ -126,9 +127,11 @@ fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) ->
 }
 
 #[async_trait]
+#[allow(clippy::too_many_lines)]
 impl PetRepository for PostgresPetRepository {
     async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
         let pet_id = Uuid::new_v4();
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
         let row = sqlx::query_as::<_, PetProfileRow>(
             r#"
             INSERT INTO pet_profiles (
@@ -194,11 +197,46 @@ impl PetRepository for PostgresPetRepository {
         .bind(serde_json::json!(input.personality_tags))
         .bind(input.note)
         .bind(input.source_kind.as_str())
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;
 
-        self.attach_name_edit_policy(row.try_into()?).await
+        let has_media_assets =
+            input.avatar_asset_id.is_some() || input.background_asset_id.is_some();
+        if let Some(asset_id) = input.avatar_asset_id {
+            Self::bind_uploaded_media_in_transaction(
+                &mut transaction,
+                pet_id,
+                input.owner_user_id,
+                asset_id,
+            )
+            .await?;
+        }
+        if let Some(asset_id) = input.background_asset_id {
+            Self::bind_uploaded_media_in_transaction(
+                &mut transaction,
+                pet_id,
+                input.owner_user_id,
+                asset_id,
+            )
+            .await?;
+        }
+
+        let pet = row.try_into()?;
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
+
+        let pet = if has_media_assets {
+            self.find_pet_for_owner(pet_id, input.owner_user_id)
+                .await?
+                .ok_or(PetError::PetNotFound)?
+        } else {
+            pet
+        };
+
+        self.attach_name_edit_policy(pet).await
     }
 
     async fn find_pet_for_owner(
@@ -403,11 +441,18 @@ impl PetRepository for PostgresPetRepository {
         self.restore_pet_profile_command(input).await
     }
 
-    async fn upload_pet_media(
+    async fn upload_pending_pet_media(
         &self,
-        input: PetMediaUploadInput,
+        input: PendingPetMediaUploadInput,
     ) -> PetResult<PetMediaUploadResult> {
-        self.upload_pet_media_command(input).await
+        self.upload_pending_pet_media_command(input).await
+    }
+
+    async fn bind_uploaded_pet_media(
+        &self,
+        input: BindUploadedPetMediaInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        self.bind_uploaded_pet_media_command(input).await
     }
 
     async fn list_media_display_metadata(

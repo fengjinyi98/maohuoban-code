@@ -101,6 +101,52 @@ async fn response_json(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).expect("parse response json")
 }
 
+/// `upload_pending_media` 上传未绑定媒体并返回响应数据
+/// 核心职责：
+/// - 固定首页测试的媒体上传入口
+/// - 避免首页契约继续依赖旧 `pet_id` 上传端点
+async fn upload_pending_media(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    uri: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+    user_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(multipart_media_request(
+            uri, file_name, mime_type, content, "ios", user_id,
+        ))
+        .await
+        .expect("upload pending media");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await
+}
+
+/// `bind_uploaded_media` 将 pending 媒体绑定到宠物
+/// 核心职责：
+/// - 固定首页测试的媒体绑定入口
+/// - 保持首页只验证最终可消费媒体 URL 和尺寸
+async fn bind_uploaded_media(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    pet_id: &str,
+    asset_id: &str,
+    user_id: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media-bindings"),
+            json!({ "asset_id": asset_id }),
+            Some(user_id),
+        ))
+        .await
+        .expect("bind uploaded media");
+    assert_eq!(response.status(), StatusCode::CREATED);
+}
+
 /// `login_user_id` 使用真实验证码登录获取用户 id
 /// 核心职责：
 /// - 复用认证契约的开发验证码
@@ -475,44 +521,36 @@ async fn home_dashboard_returns_uploaded_pet_media_urls() {
     let avatar_bytes = STANDARD
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
         .expect("avatar png bytes");
-    let avatar_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/avatar"),
-            "avatar.png",
-            "image/png",
-            &avatar_bytes,
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload avatar");
-    assert_eq!(avatar_response.status(), StatusCode::CREATED);
-    let avatar_body = response_json(avatar_response).await;
+    let avatar_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "avatar.png",
+        "image/png",
+        &avatar_bytes,
+        &user_id,
+    )
+    .await;
     let avatar_asset_id = avatar_body["data"]["asset"]["id"]
         .as_str()
         .expect("avatar asset id");
+    bind_uploaded_media(&app, &pet_id, avatar_asset_id, &user_id).await;
 
     let background_bytes = STANDARD
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
         .expect("background png bytes");
-    let background_response = app
-        .router()
-        .oneshot(multipart_media_request(
-            &format!("/api/v1/pets/{pet_id}/media/background-image"),
-            "background.png",
-            "image/png",
-            &background_bytes,
-            "ios",
-            &user_id,
-        ))
-        .await
-        .expect("upload background image");
-    assert_eq!(background_response.status(), StatusCode::CREATED);
-    let background_body = response_json(background_response).await;
+    let background_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/background-image",
+        "background.png",
+        "image/png",
+        &background_bytes,
+        &user_id,
+    )
+    .await;
     let background_asset_id = background_body["data"]["asset"]["id"]
         .as_str()
         .expect("background asset id");
+    bind_uploaded_media(&app, &pet_id, background_asset_id, &user_id).await;
 
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
     let avatar_url = format!("/api/v1/media/assets/{avatar_asset_id}/content");
