@@ -75,8 +75,7 @@ impl MediaStorageConfig {
                 env::var("MAOHUOBAN_MEDIA_S3_REGION").unwrap_or_else(|_| "us-east-1".to_owned()),
                 default_bucket,
                 env::var("MAOHUOBAN_MEDIA_S3_ALLOW_HTTP")
-                    .map(|value| value == "true" || value == "1")
-                    .unwrap_or(false),
+                    .is_ok_and(|value| value == "true" || value == "1"),
             ));
         }
 

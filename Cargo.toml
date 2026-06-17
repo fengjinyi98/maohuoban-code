@@ -62,7 +62,7 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.96"
 
 [workspace.dependencies]
 argon2 = "0.5.3"
@@ -71,8 +71,8 @@ axum = "0.8.9"
 base64 = "0.22.1"
 chrono = { version = "0.4.45", features = ["serde"] }
 dotenvy = "0.15.7"
-image = { version = "0.25.8", default-features = false, features = ["jpeg", "png"] }
-jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
+jsonwebtoken = { version = "10.4.0", features = ["rust_crypto"] }
 object_store = { version = "0.13.2", features = ["aws"] }
 maohuoban-auth-application = { path = "maohuoban-rust/crates/maohuoban-auth-application" }
 maohuoban-auth-domain = { path = "maohuoban-rust/crates/maohuoban-auth-domain" }
@@ -98,11 +98,11 @@ maohuoban-samecity-domain = { path = "maohuoban-rust/crates/maohuoban-samecity-d
 maohuoban-samecity-http = { path = "maohuoban-rust/crates/maohuoban-samecity-http" }
 maohuoban-samecity-infrastructure = { path = "maohuoban-rust/crates/maohuoban-samecity-infrastructure" }
 maohuoban_diagnostics = { path = "maohuoban-diagnostics-sdk/rust" }
-redis = { version = "1.2.2", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1.2.3", features = ["tokio-comp", "connection-manager"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.11.0"
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "net", "sync"] }
 tower = { version = "0.5.3", features = ["util"] }

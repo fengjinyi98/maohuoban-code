@@ -28,10 +28,10 @@ impl Diagnostics {
             return;
         };
         event = self.inner.privacy.apply(&event);
-        if let Ok(mut store) = self.inner.store.lock() {
-            if let Err(error) = store.append(&event) {
-                self.record_dropped_event(&error);
-            }
+        if let Ok(mut store) = self.inner.store.lock()
+            && let Err(error) = store.append(&event)
+        {
+            self.record_dropped_event(&error);
         }
     }
 

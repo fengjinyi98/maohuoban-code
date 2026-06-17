@@ -58,8 +58,7 @@ impl FileSegmentStore {
 
     fn rotate_if_needed(&mut self) {
         if fs::metadata(&self.current_path)
-            .map(|metadata| metadata.len() >= self.max_segment_bytes)
-            .unwrap_or(false)
+            .is_ok_and(|metadata| metadata.len() >= self.max_segment_bytes)
         {
             self.current_path = self.directory.join(format!("{}.jsonl", Uuid::new_v4()));
         }

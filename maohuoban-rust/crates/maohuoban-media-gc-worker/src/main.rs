@@ -18,9 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(30_000);
-    let run_once_mode = env::var("MEDIA_GC_WORKER_RUN_ONCE")
-        .map(|value| value == "true")
-        .unwrap_or(false);
+    let run_once_mode = env::var("MEDIA_GC_WORKER_RUN_ONCE").is_ok_and(|value| value == "true");
 
     let pool = PgPoolOptions::new()
         .max_connections(4)

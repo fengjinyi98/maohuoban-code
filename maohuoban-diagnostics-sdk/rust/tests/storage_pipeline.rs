@@ -294,7 +294,7 @@ fn cleanup_removes_expired_debug_bundles() {
         CapturePolicy::default(),
         CleanupPolicy {
             max_total_bytes: 1024 * 1024,
-            max_segment_age: Duration::from_secs(7 * 24 * 60 * 60),
+            max_segment_age: Duration::from_hours(168),
             max_export_age: Duration::from_secs(0),
         },
     );
@@ -323,7 +323,7 @@ fn cleanup_removes_expired_debug_bundles_across_runtime_restart() {
     let storage = temp.path().join("segments");
     let cleanup = CleanupPolicy {
         max_total_bytes: 1024 * 1024,
-        max_segment_age: Duration::from_secs(7 * 24 * 60 * 60),
+        max_segment_age: Duration::from_hours(168),
         max_export_age: Duration::from_secs(0),
     };
     let first_store = FileSegmentStore::new(&storage, 1024).expect("first store");

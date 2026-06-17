@@ -6,10 +6,10 @@ rust-version.workspace = true
 
 [dependencies]
 maohuoban_diagnostics = { path = "../rust" }
-serde_json = "1"
+serde_json = "1.0.150"
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.27.0"
 
 [lints]
 workspace = true
