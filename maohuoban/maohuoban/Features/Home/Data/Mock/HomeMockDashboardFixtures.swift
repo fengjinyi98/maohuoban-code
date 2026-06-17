@@ -51,7 +51,7 @@ enum HomeMockDashboardFixtures {
                     HomeDashboardSnapshot.CareMetric(
                         kind: .weight,
                         title: "体重",
-                        valueText: selectedPet.id == "pet-mochi" ? "4.8kg" : "4.2kg",
+                        valueText: "4.8kg",
                         statusText: "较上次记录稳定"
                     )
                 ]
@@ -322,7 +322,6 @@ enum HomeMockDashboardFixtures {
     }
 
     private static func petSwitcher(selectedPetID: String?) -> [HomeDashboardSnapshot.PetSwitchItem] {
-        let selectedID = selectedPetID ?? "pet-mochi"
         return [
             HomeDashboardSnapshot.PetSwitchItem(
                 id: "pet-mochi",
@@ -337,94 +336,43 @@ enum HomeMockDashboardFixtures {
                 neuterStatus: .neutered,
                 personalityTags: ["亲人", "爱撒娇", "安静"],
                 note: "记录正在形成可信档案",
-                isSelected: selectedID == "pet-mochi"
-            ),
-            HomeDashboardSnapshot.PetSwitchItem(
-                id: "pet-tangyuan",
-                name: "汤圆",
-                species: .cat,
-                avatarURL: nil,
-                profileNumber: "9011562600000027",
-                microchipNumber: nil,
-                birthday: "2025-02-18",
-                arrivalDate: "2025-03-08",
-                weightGrams: 3600,
-                neuterStatus: .intact,
-                personalityTags: ["好奇", "活跃", "夜间活动多"],
-                note: "近期食欲稳定，夜间活动偏多",
-                isSelected: selectedID == "pet-tangyuan"
+                isSelected: true
             )
         ]
     }
 
-    private static func heroSummary(for petID: String) -> HomeDashboardSnapshot.PetHeroSummary {
-        switch petID {
-        case "pet-tangyuan":
-            HomeDashboardSnapshot.PetHeroSummary(
-                id: "pet-tangyuan",
-                name: "汤圆",
-                species: .cat,
-                breed: "英短银渐层",
-                sex: .male,
-                ageText: "1岁 4个月",
-                statusText: "近期食欲稳定，夜间活动偏多",
-                updatedText: "3 条事件已同步",
-                avatarURL: nil,
-                heroImageAssetName: nil,
-                heroVideoResourceName: "HomePetTangyuanHeroMock",
-                profileNumber: "9011562600000027",
-                microchipNumber: nil,
-                birthday: "2025-02-18",
-                arrivalDate: "2025-03-08",
-                weightGrams: 3600,
-                neuterStatus: .intact,
-                personalityTags: ["好奇", "活跃", "夜间活动多"],
-                note: "近期食欲稳定，夜间活动偏多",
-                companionshipDays: 120,
-                stats: HomeDashboardSnapshot.PetHeroStats(
-                    weightVal: "3.6",
-                    weightChange: "较上周 +0.2",
-                    recordDays: 27,
-                    recordStreakText: "连续记录",
-                    vaccineDaysLeft: 14,
-                    vaccineDate: "2026.06.08",
-                    dewormingDaysLeft: 3,
-                    dewormingDate: "2026.05.28"
-                )
+    private static func heroSummary(for _: String) -> HomeDashboardSnapshot.PetHeroSummary {
+        HomeDashboardSnapshot.PetHeroSummary(
+            id: "pet-mochi",
+            name: "糯米",
+            species: .cat,
+            breed: "布偶猫",
+            sex: .female,
+            ageText: "2岁",
+            statusText: "记录正在形成可信档案",
+            updatedText: "档案已同步",
+            avatarURL: nil,
+            heroImageAssetName: "HomePetHeroMock",
+            profileNumber: "9011562600000019",
+            microchipNumber: nil,
+            birthday: "2024-04-01",
+            arrivalDate: "2024-06-16",
+            weightGrams: 3600,
+            neuterStatus: .neutered,
+            personalityTags: ["亲人", "爱撒娇", "安静"],
+            note: "记录正在形成可信档案",
+            companionshipDays: 365,
+            stats: HomeDashboardSnapshot.PetHeroStats(
+                weightVal: "3.6",
+                weightChange: "较上周 +0.2",
+                recordDays: 27,
+                recordStreakText: "连续记录",
+                vaccineDaysLeft: 14,
+                vaccineDate: "2026.06.08",
+                dewormingDaysLeft: 3,
+                dewormingDate: "2026.05.28"
             )
-        default:
-            HomeDashboardSnapshot.PetHeroSummary(
-                id: "pet-mochi",
-                name: "糯米",
-                species: .cat,
-                breed: "布偶猫",
-                sex: .female,
-                ageText: "2岁",
-                statusText: "记录正在形成可信档案",
-                updatedText: "档案已同步",
-                avatarURL: nil,
-                heroImageAssetName: "HomePetHeroMock",
-                profileNumber: "9011562600000019",
-                microchipNumber: nil,
-                birthday: "2024-04-01",
-                arrivalDate: "2024-06-16",
-                weightGrams: 3600,
-                neuterStatus: .neutered,
-                personalityTags: ["亲人", "爱撒娇", "安静"],
-                note: "记录正在形成可信档案",
-                companionshipDays: 365,
-                stats: HomeDashboardSnapshot.PetHeroStats(
-                    weightVal: "3.6",
-                    weightChange: "较上周 +0.2",
-                    recordDays: 27,
-                    recordStreakText: "连续记录",
-                    vaccineDaysLeft: 14,
-                    vaccineDate: "2026.06.08",
-                    dewormingDaysLeft: 3,
-                    dewormingDate: "2026.05.28"
-                )
-            )
-        }
+        )
     }
 
     private static func petOwnerActions() -> [HomeDashboardSnapshot.Action] {
