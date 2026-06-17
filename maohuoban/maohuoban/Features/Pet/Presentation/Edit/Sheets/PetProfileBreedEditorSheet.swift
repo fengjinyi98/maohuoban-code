@@ -8,25 +8,27 @@ import MaohuobanDesignSystem
 struct PetProfileBreedEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var breed: String
+    @State private var isInputComposing = false
     let onWillDismiss: () -> Void
     let onSave: (PetProfileBreedEditSubmission) -> Void
+
+    private var saveColor: Color {
+        MHBTheme.ColorToken.primary.color.opacity(isInputComposing ? 0.35 : 1)
+    }
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                TextField("请输入宠物品种", text: $breed)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit {
-                        saveIfNeeded()
-                    }
-                    .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .frame(minHeight: 56)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+                MHBStableTextField(
+                    "请输入宠物品种",
+                    text: $breed,
+                    isComposing: $isInputComposing,
+                    onSubmit: saveIfNeeded
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .frame(height: 56)
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
 
                 Spacer()
             }
@@ -53,7 +55,8 @@ struct PetProfileBreedEditorSheet: View {
                         saveIfNeeded()
                     }
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                    .foregroundStyle(saveColor)
+                    .disabled(isInputComposing)
                 }
             }
         }
@@ -64,6 +67,7 @@ struct PetProfileBreedEditorSheet: View {
     }
 
     private func saveIfNeeded() {
+        guard !isInputComposing else { return }
         let submission = PetProfileBreedEditSubmission(rawValue: breed)
         breed = submission.value
         onSave(submission)

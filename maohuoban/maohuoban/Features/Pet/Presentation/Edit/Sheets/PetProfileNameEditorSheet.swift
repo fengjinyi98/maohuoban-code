@@ -9,6 +9,7 @@ import UIKit
 struct PetProfileNameEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var name: String
+    @State private var isInputComposing = false
     let policyText: String?
     let onWillDismiss: () -> Void
     let onSave: () -> Void
@@ -26,23 +27,25 @@ struct PetProfileNameEditorSheet: View {
             && normalizedName.rangeOfCharacter(from: invalidCharacterSet) == nil
     }
 
+    private var isSaveEnabled: Bool {
+        isNameValid && !isInputComposing
+    }
+
     private var saveColor: Color {
-        MHBTheme.ColorToken.primary.color.opacity(isNameValid ? 1 : 0.35)
+        MHBTheme.ColorToken.primary.color.opacity(isSaveEnabled ? 1 : 0.35)
     }
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
                 HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                    TextField("请输入宠物名字", text: $name)
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit {
-                            saveIfNeeded()
-                        }
+                    MHBStableTextField(
+                        "请输入宠物名字",
+                        text: $name,
+                        isComposing: $isInputComposing,
+                        onSubmit: saveIfNeeded
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24, alignment: .leading)
 
                     Text("\(normalizedName.count)/\(nameLimit)")
                         .font(.system(size: 13, weight: .regular))
@@ -88,7 +91,7 @@ struct PetProfileNameEditorSheet: View {
                     }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(saveColor)
-                    .disabled(!isNameValid)
+                    .disabled(!isSaveEnabled)
                 }
             }
         }
@@ -105,7 +108,7 @@ struct PetProfileNameEditorSheet: View {
     }
 
     private func saveIfNeeded() {
-        guard isNameValid else { return }
+        guard isSaveEnabled else { return }
         name = normalizedName
         onWillDismiss()
         onSave()
