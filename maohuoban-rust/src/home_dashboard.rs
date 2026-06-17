@@ -13,14 +13,16 @@ use maohuoban_home_domain::home::{
     HomeReminder, HomeReminderKind, MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
     MerchantStatusCount as HomeMerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind,
-    PetHeroSummary, PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex,
-    PetSpecies as HomePetSpecies, PetSwitchItem, RecommendedContent, RecommendedContentKind,
+    PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
+    PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
+    PetSwitchItem, RecommendedContent, RecommendedContentKind,
 };
 use maohuoban_pet_application::pet::{
     MediaAssetDisplayMetadata, MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
 };
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, PetBackgroundMediaKind, PetError, PetNeuterStatus as DomainPetNeuterStatus,
+    ManagedPetStatus, PetBackgroundMediaKind, PetError,
+    PetNameEditPolicy as DomainPetNameEditPolicy, PetNeuterStatus as DomainPetNeuterStatus,
     PetProfile, PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
 };
 use maohuoban_recommendation_application::recommendation::{
@@ -270,6 +272,7 @@ fn pet_hero_summary(
         neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
         personality_tags: pet.personality_tags.clone(),
         note: pet.note.clone(),
+        name_edit_policy: pet.name_edit_policy.as_ref().map(home_name_edit_policy),
         companionship_days,
     }
 }
@@ -296,6 +299,7 @@ fn pet_switch_item(
         id: pet.id,
         name: pet.name.clone(),
         species: home_pet_species(pet.species),
+        breed: pet.breed.clone().unwrap_or_default(),
         avatar_url: pet.avatar_asset_id.map(media_asset_url),
         avatar_width: avatar_metadata.and_then(|metadata| metadata.width),
         avatar_height: avatar_metadata.and_then(|metadata| metadata.height),
@@ -307,7 +311,19 @@ fn pet_switch_item(
         neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
         personality_tags: pet.personality_tags.clone(),
         note: pet.note.clone(),
+        name_edit_policy: pet.name_edit_policy.as_ref().map(home_name_edit_policy),
         is_selected,
+    }
+}
+
+fn home_name_edit_policy(policy: &DomainPetNameEditPolicy) -> HomePetNameEditPolicy {
+    HomePetNameEditPolicy {
+        max_count: policy.max_count,
+        used_count: policy.used_count,
+        remaining_count: policy.remaining_count,
+        window_days: policy.window_days,
+        window_ends_at: policy.window_ends_at,
+        display_text: policy.display_text.clone(),
     }
 }
 

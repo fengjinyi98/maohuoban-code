@@ -38,6 +38,11 @@ pub(super) fn error_response(error: &PetError) -> Response {
             "pet.invalid_input",
             message.clone(),
         ),
+        PetError::NameEditLimitExceeded => (
+            StatusCode::TOO_MANY_REQUESTS,
+            "pet.name_edit_limit_exceeded",
+            "30 天内最多修改 5 次宠物名字".to_owned(),
+        ),
         PetError::PetNotFound => (
             StatusCode::NOT_FOUND,
             "pet.not_found",

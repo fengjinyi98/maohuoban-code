@@ -34,6 +34,14 @@ extension PetProfileAddScreen {
                                 .petProfileAddRowFrame(.species)
 
                                 PetProfileAddRow(
+                                    title: "宠物品种",
+                                    isAccessoryExpanded: isBreedEditorChevronExpanded,
+                                    action: showBreedEditor
+                                ) {
+                                    PetProfileAddValueText(value: displayBreedText)
+                                }
+
+                                PetProfileAddRow(
                                     title: "芯片号",
                                     isAccessoryExpanded: isChipEditorChevronExpanded,
                                     action: showChipEditor
@@ -255,6 +263,7 @@ extension PetProfileAddScreen {
         ) {
             PetProfileNameEditorSheet(
                 name: $nameEditorDraft,
+                policyText: nil,
                 onWillDismiss: {
                     isNameEditorChevronExpanded = false
                 },
@@ -281,6 +290,24 @@ extension PetProfileAddScreen {
                     chipNumber = chipEditorDraft
                     isChipEditorChevronExpanded = false
                     isChipEditorPresented = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isBreedEditorPresented,
+            onDismiss: {
+                isBreedEditorChevronExpanded = false
+            }
+        ) {
+            PetProfileBreedEditorSheet(
+                breed: $breedEditorDraft,
+                onWillDismiss: {
+                    isBreedEditorChevronExpanded = false
+                },
+                onSave: {
+                    breed = breedEditorDraft
+                    isBreedEditorChevronExpanded = false
+                    isBreedEditorPresented = false
                 }
             )
         }

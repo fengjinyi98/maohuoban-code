@@ -32,10 +32,26 @@ pub struct PetProfile {
     pub delete_requested_by_user_id: Option<Uuid>,
     pub recoverable_until: Option<DateTime<Utc>>,
     pub delete_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_edit_policy: Option<PetNameEditPolicy>,
     pub managed_status: ManagedPetStatus,
     pub source_kind: PetSourceKind,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+/// PetNameEditPolicy 宠物名字编辑策略
+/// 核心职责：
+/// - 表达后端计算出的改名额度
+/// - 为前端编辑页展示提供直接消费的数据
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PetNameEditPolicy {
+    pub max_count: i32,
+    pub used_count: i32,
+    pub remaining_count: i32,
+    pub window_days: i32,
+    pub window_ends_at: Option<DateTime<Utc>>,
+    pub display_text: String,
 }
 
 /// PetNeuterStatus 宠物绝育状态

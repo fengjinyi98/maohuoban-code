@@ -297,6 +297,7 @@ impl TryFrom<MerchantManagedPetRow> for PetProfile {
             delete_requested_by_user_id: row.delete_requested_by_user_id,
             recoverable_until: row.recoverable_until,
             delete_reason: row.delete_reason,
+            name_edit_policy: None,
             managed_status: ManagedPetStatus::try_from(row.managed_status.as_str()).map_err(
                 |_| PetError::Infrastructure("unknown managed status from database".to_owned()),
             )?,

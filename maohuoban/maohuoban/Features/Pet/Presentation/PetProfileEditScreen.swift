@@ -13,6 +13,7 @@ struct PetProfileEditScreen: View {
     @State var store = PetWriteStore()
     @State var selectedProfileID: String
     @State var editedNames: [String: String] = [:]
+    @State var editedBreeds: [String: String] = [:]
     @State var editedChipNumbers: [String: String] = [:]
     @State var editedSexTexts: [String: String] = [:]
     @State var editedNeuterStatusTexts: [String: String] = [:]
@@ -27,6 +28,10 @@ struct PetProfileEditScreen: View {
     @State var nameEditorDraft = ""
     @State var isNameEditorPresented = false
     @State var isNameEditorChevronExpanded = false
+    @State var breedEditorProfileID: String?
+    @State var breedEditorDraft = ""
+    @State var isBreedEditorPresented = false
+    @State var isBreedEditorChevronExpanded = false
     @State var chipEditorProfileID: String?
     @State var chipEditorDraft = ""
     @State var isChipEditorPresented = false

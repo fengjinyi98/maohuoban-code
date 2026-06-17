@@ -20,7 +20,7 @@ struct PetProfileHomePreviewContext {
             id: profile.id,
             name: name,
             species: Self.homeSpecies(from: profile.species),
-            breed: "",
+            breed: profile.breed,
             sex: Self.homeSex(sexText),
             ageText: "",
             statusText: noteText == "暂无" ? "档案预览中" : noteText,
@@ -28,10 +28,13 @@ struct PetProfileHomePreviewContext {
             avatarURL: profile.avatarURL,
             heroImageURL: heroMedia.imageURLString,
             heroVideoURL: heroMedia.videoURLString,
+            heroThemeColorHex: profile.heroThemeColorHex,
+            heroContentColorScheme: Self.homeHeroContentColorScheme(from: profile.heroContentColorScheme),
             heroImageAssetName: heroMedia.imageAssetName,
             heroVideoResourceName: heroMedia.videoResourceName,
             birthday: Self.normalizedDateText(birthDateText),
             companionshipDays: Self.daysSinceDateText(arrivalDateText),
+            nameEditPolicy: profile.nameEditPolicy,
             stats: Self.previewStats(weightText: weightText)
         )
         self.displayName = "你"
@@ -70,6 +73,19 @@ struct PetProfileHomePreviewContext {
             return (nil, fallbackImageAssetName, nil, resourceName)
         case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
             return (fallbackImageURLString, fallbackImageAssetName, urlString, nil)
+        }
+    }
+
+    private static func homeHeroContentColorScheme(
+        from scheme: PetProfileEditProfile.HeroContentColorScheme?
+    ) -> HomeDashboardSnapshot.HeroContentColorScheme? {
+        switch scheme {
+        case .light:
+            .light
+        case .dark:
+            .dark
+        case nil:
+            nil
         }
     }
 

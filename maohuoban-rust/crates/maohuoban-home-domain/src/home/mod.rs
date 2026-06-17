@@ -5,6 +5,6 @@ pub use model::{
     HomeEmptyState, HomeEmptyStateKind, HomeIdentity, HomeIdentityKind, HomeReminder,
     HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind, MerchantDashboardSummary,
     MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount, PartnerRecommendation,
-    PartnerRelationshipKind, PetHeroSummary, PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem,
-    RecommendedContent, RecommendedContentKind,
+    PartnerRelationshipKind, PetHeroSummary, PetNameEditPolicy, PetNeuterStatus, PetSex,
+    PetSpecies, PetSwitchItem, RecommendedContent, RecommendedContentKind,
 };

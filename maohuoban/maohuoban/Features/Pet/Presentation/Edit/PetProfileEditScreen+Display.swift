@@ -5,6 +5,20 @@ extension PetProfileEditScreen {
         editedNames[profile.id] ?? profile.name
     }
 
+    func displayBreed(for profile: PetProfileEditProfile) -> String {
+        let breed = editedBreeds[profile.id] ?? profile.breed
+        let trimmedBreed = breed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedBreed.isEmpty ? "未添加" : trimmedBreed
+    }
+
+    func displaySpeciesText(for profile: PetProfileEditProfile) -> String {
+        switch profile.species {
+        case .dog: "狗狗"
+        case .cat: "猫咪"
+        case .other: "其他"
+        }
+    }
+
     func displayChipNumber(for profile: PetProfileEditProfile) -> String {
         let chipNumber = editedChipNumbers[profile.id] ?? profile.chipNumber
         let trimmedChipNumber = chipNumber.trimmingCharacters(in: .whitespacesAndNewlines)

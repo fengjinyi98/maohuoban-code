@@ -10,9 +10,11 @@ struct PetProfileAddScreen: View {
     let currentUserID: String?
     let onCreated: (String) -> Void
 
+    @Environment(\.dismiss) var dismiss
     @State var store = PetWriteStore()
     @State var name = ""
     @State var species = PetSpecies.dog
+    @State var breed = ""
     @State var chipNumber = ""
     @State var sex = PetSex.unknown
     @State var birthDate = Date.now
@@ -32,6 +34,9 @@ struct PetProfileAddScreen: View {
     @State var nameEditorDraft = ""
     @State var isNameEditorPresented = false
     @State var isNameEditorChevronExpanded = false
+    @State var breedEditorDraft = ""
+    @State var isBreedEditorPresented = false
+    @State var isBreedEditorChevronExpanded = false
     @State var chipEditorDraft = ""
     @State var isChipEditorPresented = false
     @State var isChipEditorChevronExpanded = false
@@ -58,7 +63,7 @@ struct PetProfileAddScreen: View {
     @State var neuterStatusRowFrame = CGRect.zero
 
     var canSave: Bool {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var isAnyMenuPresented: Bool {

@@ -10,6 +10,6 @@ pub use merchant::{
 pub use model::{
     EventKind, EventVisibility, ManagedPetStatus, MediaAsset, MediaAssetStatus, MediaBinding,
     MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind,
-    PetBackgroundMediaKind, PetEvent, PetMediaUploadResult, PetNeuterStatus, PetProfile, PetSex,
-    PetSourceKind, PetSpecies, PetTimeline,
+    PetBackgroundMediaKind, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus,
+    PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline,
 };

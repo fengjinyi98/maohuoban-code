@@ -28,6 +28,16 @@ extension PetProfileEditScreen {
         isChipEditorPresented = false
     }
 
+    func saveBreed(for profileID: String) async {
+        guard let profile = profile(for: profileID) else { return }
+        let draft = updateDraft(for: profile, breed: breedEditorDraft)
+
+        guard await saveProfileDraft(petID: profileID, draft: draft) else { return }
+        editedBreeds[profileID] = breedEditorDraft
+        isBreedEditorChevronExpanded = false
+        isBreedEditorPresented = false
+    }
+
     func saveBirthDate(for profileID: String) async {
         guard let profile = profile(for: profileID) else { return }
         let draft = updateDraft(for: profile, birthDate: birthDateEditorDraft)
@@ -171,6 +181,7 @@ extension PetProfileEditScreen {
     func updateDraft(
         for profile: PetProfileEditProfile,
         name: String? = nil,
+        breed: String? = nil,
         chipNumber: String? = nil,
         sexText: String? = nil,
         birthDate: Date? = nil,
@@ -183,7 +194,7 @@ extension PetProfileEditScreen {
         PetProfileUpdateDraft(
             name: name ?? displayName(for: profile),
             species: PetSpecies(rawValue: profile.species.rawValue) ?? .other,
-            breed: "",
+            breed: breed ?? displayBreed(for: profile),
             sex: petSex(from: sexText ?? displaySexText(for: profile)),
             birthday: optionalDateText(birthDate.map(formattedDate) ?? displayBirthDateText(for: profile)),
             microchipNumber: chipNumber ?? displayChipNumber(for: profile),

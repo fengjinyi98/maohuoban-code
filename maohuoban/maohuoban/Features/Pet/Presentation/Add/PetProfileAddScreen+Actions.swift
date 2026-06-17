@@ -45,6 +45,11 @@ extension PetProfileAddScreen {
         return trimmedWeight.isEmpty ? "暂未记录" : "\(trimmedWeight) kg"
     }
 
+    var displayBreedText: String {
+        let trimmedBreed = breed.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedBreed.isEmpty ? "未添加" : trimmedBreed
+    }
+
     var submitWeightGrams: Int? {
         let trimmedWeight = weight.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let value = Double(trimmedWeight), value > 0 else {
@@ -73,6 +78,13 @@ extension PetProfileAddScreen {
         chipEditorDraft = chipNumber
         isChipEditorChevronExpanded = true
         isChipEditorPresented = true
+    }
+
+    func showBreedEditor() {
+        dismissSelectionMenus()
+        breedEditorDraft = breed
+        isBreedEditorChevronExpanded = true
+        isBreedEditorPresented = true
     }
 
     func showBirthDateEditor() {
@@ -297,7 +309,7 @@ extension PetProfileAddScreen {
             draft: PetProfileDraft(
                 name: name,
                 species: species,
-                breed: "",
+                breed: breed,
                 sex: sex,
                 birthday: PetWriteFormatters.birthdayString(from: birthDate),
                 microchipNumber: chipNumber,
@@ -313,9 +325,11 @@ extension PetProfileAddScreen {
 
         if case .createdPet(let petID) = store.phase {
             onCreated(petID)
+            dismiss()
         }
         if case .createdPetWithPartialMedia(let petID) = store.phase {
             onCreated(petID)
+            dismiss()
         }
     }
 }

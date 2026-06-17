@@ -41,6 +41,7 @@ impl AuthTestApp {
                 media_bindings,
                 media_derivatives,
                 media_assets,
+                pet_profile_name_changes,
                 pet_relationships,
                 pet_events,
                 evidence_snapshots,

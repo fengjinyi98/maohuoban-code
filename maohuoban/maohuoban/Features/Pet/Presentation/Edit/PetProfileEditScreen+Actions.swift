@@ -13,6 +13,14 @@ extension PetProfileEditScreen {
         isBirthDateEditorPresented = true
     }
 
+    func showBreedEditor(for profile: PetProfileEditProfile) {
+        dismissSelectionMenus()
+        breedEditorProfileID = profile.id
+        breedEditorDraft = editedBreeds[profile.id] ?? profile.breed
+        isBreedEditorChevronExpanded = true
+        isBreedEditorPresented = true
+    }
+
     func showArrivalDateEditor(for profile: PetProfileEditProfile) {
         dismissSelectionMenus()
         arrivalDateEditorProfileID = profile.id

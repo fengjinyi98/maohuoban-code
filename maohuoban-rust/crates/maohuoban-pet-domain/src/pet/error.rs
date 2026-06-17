@@ -10,6 +10,8 @@ pub type PetResult<T> = Result<T, PetError>;
 pub enum PetError {
     #[error("invalid pet input: {0}")]
     InvalidInput(String),
+    #[error("pet name edit limit exceeded")]
+    NameEditLimitExceeded,
     #[error("pet not found")]
     PetNotFound,
     #[error("pet access forbidden")]

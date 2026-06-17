@@ -109,9 +109,11 @@ extension HomeDashboardSnapshot {
                 id: item.id,
                 name: item.name,
                 species: item.species,
+                breed: item.breed,
                 avatarURL: item.avatarURL,
                 avatarWidth: item.avatarWidth,
                 avatarHeight: item.avatarHeight,
+                nameEditPolicy: item.nameEditPolicy,
                 isSelected: item.id == petID
             )
         }
@@ -120,7 +122,7 @@ extension HomeDashboardSnapshot {
             id: selectedItem.id,
             name: selectedItem.name,
             species: selectedItem.species,
-            breed: selectedPet?.breed ?? "",
+            breed: selectedItem.breed.isEmpty ? selectedPet?.breed ?? "" : selectedItem.breed,
             sex: selectedPet?.sex ?? .unknown,
             ageText: selectedPet?.ageText ?? "",
             statusText: "正在同步档案",
@@ -140,6 +142,7 @@ extension HomeDashboardSnapshot {
             heroVideoResourceName: selectedPet?.heroVideoResourceName,
             birthday: selectedPet?.birthday,
             companionshipDays: selectedPet?.companionshipDays,
+            nameEditPolicy: selectedItem.nameEditPolicy ?? selectedPet?.nameEditPolicy,
             stats: selectedPet?.stats
         )
 
@@ -254,6 +257,7 @@ extension HomeDashboardSnapshot {
         let personalityTags: [String]
         let note: String?
         let companionshipDays: Int?
+        let nameEditPolicy: PetNameEditPolicy?
         let stats: PetHeroStats?
 
         var heroMedia: HeroMedia {
@@ -312,6 +316,7 @@ extension HomeDashboardSnapshot {
             personalityTags: [String] = [],
             note: String? = nil,
             companionshipDays: Int? = nil,
+            nameEditPolicy: PetNameEditPolicy? = nil,
             stats: PetHeroStats? = nil
         ) {
             self.id = id
@@ -344,7 +349,77 @@ extension HomeDashboardSnapshot {
             self.personalityTags = personalityTags
             self.note = note
             self.companionshipDays = companionshipDays
+            self.nameEditPolicy = nameEditPolicy
             self.stats = stats
+        }
+
+        init(
+            id: String,
+            name: String,
+            species: Species,
+            breed: String,
+            sex: Sex,
+            ageText: String,
+            statusText: String,
+            updatedText: String,
+            avatarURL: String?,
+            avatarWidth: Int? = nil,
+            avatarHeight: Int? = nil,
+            heroImageURL: String? = nil,
+            heroImageWidth: Int? = nil,
+            heroImageHeight: Int? = nil,
+            heroVideoURL: String? = nil,
+            heroVideoWidth: Int? = nil,
+            heroVideoHeight: Int? = nil,
+            heroThemeColorHex: String? = nil,
+            heroContentColorScheme: HeroContentColorScheme? = nil,
+            heroImageAssetName: String?,
+            heroVideoResourceName: String? = nil,
+            profileNumber: String? = nil,
+            microchipNumber: String? = nil,
+            birthday: String? = nil,
+            arrivalDate: String? = nil,
+            weightGrams: Int? = nil,
+            neuterStatus: PetNeuterStatus? = nil,
+            personalityTags: [String] = [],
+            note: String? = nil,
+            companionshipDays: Int? = nil,
+            stats: PetHeroStats? = nil
+        ) {
+            self.init(
+                id: id,
+                name: name,
+                species: species,
+                breed: breed,
+                sex: sex,
+                ageText: ageText,
+                statusText: statusText,
+                updatedText: updatedText,
+                avatarURL: avatarURL,
+                avatarWidth: avatarWidth,
+                avatarHeight: avatarHeight,
+                heroImageURL: heroImageURL,
+                heroImageWidth: heroImageWidth,
+                heroImageHeight: heroImageHeight,
+                heroVideoURL: heroVideoURL,
+                heroVideoWidth: heroVideoWidth,
+                heroVideoHeight: heroVideoHeight,
+                heroThemeColorHex: heroThemeColorHex,
+                heroContentColorScheme: heroContentColorScheme,
+                heroImageAssetName: heroImageAssetName,
+                heroVideoResourceName: heroVideoResourceName,
+                profileNumber: profileNumber,
+                microchipNumber: microchipNumber,
+                birthday: birthday,
+                arrivalDate: arrivalDate,
+                weightGrams: weightGrams,
+                neuterStatus: neuterStatus,
+                personalityTags: personalityTags,
+                note: note,
+                companionshipDays: companionshipDays,
+                nameEditPolicy: nil,
+                stats: stats
+            )
         }
 
         enum CodingKeys: String, CodingKey {
@@ -378,6 +453,7 @@ extension HomeDashboardSnapshot {
             case personalityTags = "personality_tags"
             case note
             case companionshipDays = "companionship_days"
+            case nameEditPolicy = "name_edit_policy"
             case stats
         }
 
@@ -416,6 +492,7 @@ extension HomeDashboardSnapshot {
             personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []
             note = try container.decodeIfPresent(String.self, forKey: .note)
             companionshipDays = try container.decodeIfPresent(Int.self, forKey: .companionshipDays)
+            nameEditPolicy = try container.decodeIfPresent(PetNameEditPolicy.self, forKey: .nameEditPolicy)
             stats = try container.decodeIfPresent(PetHeroStats.self, forKey: .stats)
         }
     }
@@ -491,6 +568,7 @@ extension HomeDashboardSnapshot {
         let id: String
         let name: String
         let species: Species
+        let breed: String
         let avatarURL: String?
         let avatarWidth: Int?
         let avatarHeight: Int?
@@ -502,12 +580,14 @@ extension HomeDashboardSnapshot {
         let neuterStatus: PetNeuterStatus?
         let personalityTags: [String]
         let note: String?
+        let nameEditPolicy: PetNameEditPolicy?
         let isSelected: Bool
 
         enum CodingKeys: String, CodingKey {
             case id
             case name
             case species
+            case breed
             case avatarURL = "avatar_url"
             case avatarWidth = "avatar_width"
             case avatarHeight = "avatar_height"
@@ -519,7 +599,46 @@ extension HomeDashboardSnapshot {
             case neuterStatus = "neuter_status"
             case personalityTags = "personality_tags"
             case note
+            case nameEditPolicy = "name_edit_policy"
             case isSelected = "is_selected"
+        }
+
+        init(
+            id: String,
+            name: String,
+            species: Species,
+            breed: String = "",
+            avatarURL: String?,
+            avatarWidth: Int? = nil,
+            avatarHeight: Int? = nil,
+            profileNumber: String? = nil,
+            microchipNumber: String? = nil,
+            birthday: String? = nil,
+            arrivalDate: String? = nil,
+            weightGrams: Int? = nil,
+            neuterStatus: PetNeuterStatus? = nil,
+            personalityTags: [String] = [],
+            note: String? = nil,
+            nameEditPolicy: PetNameEditPolicy? = nil,
+            isSelected: Bool
+        ) {
+            self.id = id
+            self.name = name
+            self.species = species
+            self.breed = breed
+            self.avatarURL = avatarURL
+            self.avatarWidth = avatarWidth
+            self.avatarHeight = avatarHeight
+            self.profileNumber = profileNumber
+            self.microchipNumber = microchipNumber
+            self.birthday = birthday
+            self.arrivalDate = arrivalDate
+            self.weightGrams = weightGrams
+            self.neuterStatus = neuterStatus
+            self.personalityTags = personalityTags
+            self.note = note
+            self.nameEditPolicy = nameEditPolicy
+            self.isSelected = isSelected
         }
 
         init(
@@ -539,21 +658,25 @@ extension HomeDashboardSnapshot {
             note: String? = nil,
             isSelected: Bool
         ) {
-            self.id = id
-            self.name = name
-            self.species = species
-            self.avatarURL = avatarURL
-            self.avatarWidth = avatarWidth
-            self.avatarHeight = avatarHeight
-            self.profileNumber = profileNumber
-            self.microchipNumber = microchipNumber
-            self.birthday = birthday
-            self.arrivalDate = arrivalDate
-            self.weightGrams = weightGrams
-            self.neuterStatus = neuterStatus
-            self.personalityTags = personalityTags
-            self.note = note
-            self.isSelected = isSelected
+            self.init(
+                id: id,
+                name: name,
+                species: species,
+                breed: "",
+                avatarURL: avatarURL,
+                avatarWidth: avatarWidth,
+                avatarHeight: avatarHeight,
+                profileNumber: profileNumber,
+                microchipNumber: microchipNumber,
+                birthday: birthday,
+                arrivalDate: arrivalDate,
+                weightGrams: weightGrams,
+                neuterStatus: neuterStatus,
+                personalityTags: personalityTags,
+                note: note,
+                nameEditPolicy: nil,
+                isSelected: isSelected
+            )
         }
 
         init(from decoder: Decoder) throws {
@@ -561,6 +684,7 @@ extension HomeDashboardSnapshot {
             id = try container.decode(String.self, forKey: .id)
             name = try container.decode(String.self, forKey: .name)
             species = try container.decode(Species.self, forKey: .species)
+            breed = try container.decodeIfPresent(String.self, forKey: .breed) ?? ""
             avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
             avatarWidth = try container.decodeIfPresent(Int.self, forKey: .avatarWidth)
             avatarHeight = try container.decodeIfPresent(Int.self, forKey: .avatarHeight)
@@ -572,6 +696,7 @@ extension HomeDashboardSnapshot {
             neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)
             personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []
             note = try container.decodeIfPresent(String.self, forKey: .note)
+            nameEditPolicy = try container.decodeIfPresent(PetNameEditPolicy.self, forKey: .nameEditPolicy)
             isSelected = try container.decode(Bool.self, forKey: .isSelected)
         }
     }

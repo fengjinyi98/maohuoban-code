@@ -1,11 +1,12 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Duration, Utc};
 use maohuoban_pet_application::pet::{
     DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PetMediaUploadInput,
     PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
-    PetError, PetEvent, PetMediaUploadResult, PetNeuterStatus, PetProfile, PetResult, PetSex,
-    PetSpecies, PetTimeline,
+    PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
+    PetResult, PetSex, PetSpecies, PetTimeline,
 };
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
@@ -21,6 +22,9 @@ use profile_queries::load_pet_profile_for_update;
 use rows::{PetEventRow, PetProfileRow};
 use storage::{profile_number_from_uuid, to_infrastructure_error};
 use trade_import::{insert_trade_import_event, insert_trade_import_pet};
+
+const NAME_EDIT_MAX_COUNT: i32 = 5;
+const NAME_EDIT_WINDOW_DAYS: i32 = 30;
 
 /// PostgresPetRepository PostgreSQL 宠物仓储
 /// 核心职责：
@@ -47,6 +51,77 @@ impl PostgresPetRepository {
     #[must_use]
     pub const fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    async fn attach_name_edit_policy(&self, mut pet: PetProfile) -> PetResult<PetProfile> {
+        pet.name_edit_policy = Some(self.load_name_edit_policy(pet.id).await?);
+        Ok(pet)
+    }
+
+    async fn load_name_edit_policy(&self, pet_id: Uuid) -> PetResult<PetNameEditPolicy> {
+        let (used_count, first_changed_at) = sqlx::query_as::<_, (i64, Option<DateTime<Utc>>)>(
+            r#"
+                SELECT COUNT(*) AS used_count, MIN(changed_at) AS first_changed_at
+                FROM pet_profile_name_changes
+                WHERE pet_id = $1
+                  AND changed_at >= now() - interval '30 days'
+                "#,
+        )
+        .bind(pet_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(name_edit_policy(used_count, first_changed_at))
+    }
+
+    async fn record_name_change(
+        &self,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
+        old_name: &str,
+        new_name: &str,
+    ) -> PetResult<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO pet_profile_name_changes (
+                id,
+                pet_id,
+                owner_user_id,
+                old_name,
+                new_name
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(owner_user_id)
+        .bind(old_name)
+        .bind(new_name)
+        .execute(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(())
+    }
+}
+
+fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) -> PetNameEditPolicy {
+    let used_count = i32::try_from(used_count).unwrap_or(i32::MAX);
+    let remaining_count = NAME_EDIT_MAX_COUNT.saturating_sub(used_count).max(0);
+    let window_ends_at = first_changed_at
+        .map(|changed_at| changed_at + Duration::days(i64::from(NAME_EDIT_WINDOW_DAYS)));
+
+    PetNameEditPolicy {
+        max_count: NAME_EDIT_MAX_COUNT,
+        used_count,
+        remaining_count,
+        window_days: NAME_EDIT_WINDOW_DAYS,
+        window_ends_at,
+        display_text: format!(
+            "{NAME_EDIT_WINDOW_DAYS} 天内可修改 {NAME_EDIT_MAX_COUNT} 次名字，本周期还可修改 {remaining_count} 次。"
+        ),
     }
 }
 
@@ -123,7 +198,7 @@ impl PetRepository for PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        row.try_into()
+        self.attach_name_edit_policy(row.try_into()?).await
     }
 
     async fn find_pet_for_owner(
@@ -170,7 +245,11 @@ impl PetRepository for PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        row.map(TryInto::try_into).transpose()
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let pet = row.try_into()?;
+        Ok(Some(self.attach_name_edit_policy(pet).await?))
     }
 
     async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>> {
@@ -213,7 +292,11 @@ impl PetRepository for PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        rows.into_iter().map(TryInto::try_into).collect()
+        let mut pets = Vec::with_capacity(rows.len());
+        for row in rows {
+            pets.push(self.attach_name_edit_policy(row.try_into()?).await?);
+        }
+        Ok(pets)
     }
 
     async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
@@ -221,6 +304,16 @@ impl PetRepository for PostgresPetRepository {
             .await?
             .ok_or(PetError::PetNotFound)?;
         let requested_microchip = input.microchip_number.as_deref().map(str::trim);
+        let requested_name = input.name.as_deref().map(str::trim).map(str::to_owned);
+        let is_name_changed = requested_name
+            .as_deref()
+            .is_some_and(|name| name != current.name);
+        if is_name_changed {
+            let policy = self.load_name_edit_policy(input.pet_id).await?;
+            if policy.remaining_count <= 0 {
+                return Err(PetError::NameEditLimitExceeded);
+            }
+        }
         if let (Some(existing), Some(requested)) =
             (current.microchip_number.as_deref(), requested_microchip)
             && existing != requested
@@ -278,7 +371,7 @@ impl PetRepository for PostgresPetRepository {
         )
         .bind(input.pet_id)
         .bind(input.owner_user_id)
-        .bind(input.name.map(|value| value.trim().to_owned()))
+        .bind(requested_name.as_deref())
         .bind(input.species.map(PetSpecies::as_str))
         .bind(input.breed)
         .bind(input.sex.map(PetSex::as_str))
@@ -294,7 +387,12 @@ impl PetRepository for PostgresPetRepository {
         .map_err(to_infrastructure_error)?
         .ok_or(PetError::PetNotFound)?;
 
-        row.try_into()
+        if is_name_changed && let Some(new_name) = requested_name.as_deref() {
+            self.record_name_change(input.pet_id, input.owner_user_id, &current.name, new_name)
+                .await?;
+        }
+
+        self.attach_name_edit_policy(row.try_into()?).await
     }
 
     async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile> {

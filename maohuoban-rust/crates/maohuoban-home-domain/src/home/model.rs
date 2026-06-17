@@ -96,7 +96,23 @@ pub struct PetHeroSummary {
     pub personality_tags: Vec<String>,
     #[serde(default)]
     pub note: Option<String>,
+    #[serde(default)]
+    pub name_edit_policy: Option<PetNameEditPolicy>,
     pub companionship_days: Option<i32>,
+}
+
+/// PetNameEditPolicy 宠物名字编辑策略
+/// 核心职责：
+/// - 承载首页进入编辑页所需的改名额度
+/// - 保持前端只展示后端计算结果
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PetNameEditPolicy {
+    pub max_count: i32,
+    pub used_count: i32,
+    pub remaining_count: i32,
+    pub window_days: i32,
+    pub window_ends_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub display_text: String,
 }
 
 /// PetSpecies 宠物物种
@@ -144,6 +160,8 @@ pub struct PetSwitchItem {
     pub id: Uuid,
     pub name: String,
     pub species: PetSpecies,
+    #[serde(default)]
+    pub breed: String,
     pub avatar_url: Option<String>,
     #[serde(default)]
     pub avatar_width: Option<i32>,
@@ -165,6 +183,8 @@ pub struct PetSwitchItem {
     pub personality_tags: Vec<String>,
     #[serde(default)]
     pub note: Option<String>,
+    #[serde(default)]
+    pub name_edit_policy: Option<PetNameEditPolicy>,
     pub is_selected: bool,
 }
 

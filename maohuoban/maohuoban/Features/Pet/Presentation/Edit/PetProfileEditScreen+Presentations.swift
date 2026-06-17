@@ -111,6 +111,7 @@ extension PetProfileEditScreen {
             ) {
                 PetProfileNameEditorSheet(
                     name: $nameEditorDraft,
+                    policyText: profile.nameEditPolicy?.displayText,
                     onWillDismiss: {
                         isNameEditorChevronExpanded = false
                     },
@@ -149,6 +150,26 @@ extension PetProfileEditScreen {
                         guard let profileID = chipEditorProfileID else { return }
                         Task {
                             await saveChipNumber(for: profileID)
+                        }
+                    }
+                )
+            }
+            .sheet(
+                isPresented: $isBreedEditorPresented,
+                onDismiss: {
+                    isBreedEditorChevronExpanded = false
+                    breedEditorProfileID = nil
+                }
+            ) {
+                PetProfileBreedEditorSheet(
+                    breed: $breedEditorDraft,
+                    onWillDismiss: {
+                        isBreedEditorChevronExpanded = false
+                    },
+                    onSave: {
+                        guard let profileID = breedEditorProfileID else { return }
+                        Task {
+                            await saveBreed(for: profileID)
                         }
                     }
                 )

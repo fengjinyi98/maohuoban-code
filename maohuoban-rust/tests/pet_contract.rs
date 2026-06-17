@@ -95,6 +95,16 @@ async fn response_json(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).expect("parse response json")
 }
 
+/// `assert_name_edit_policy` 校验宠物改名策略
+/// 核心职责：
+/// - 固定后端返回的改名额度字段
+/// - 降低宠物档案契约测试重复断言
+fn assert_name_edit_policy(data: &Value, used_count: i64, remaining_count: i64) {
+    assert_eq!(data["name_edit_policy"]["max_count"], 5);
+    assert_eq!(data["name_edit_policy"]["used_count"], used_count);
+    assert_eq!(data["name_edit_policy"]["remaining_count"], remaining_count);
+}
+
 /// `red_video_base64` 生成红色视频测试样本
 /// 核心职责：
 /// - 使用本机 ffmpeg 创建最小 mp4
@@ -718,6 +728,7 @@ async fn pet_profile_crud_persists_extended_profile_fields() {
     assert_eq!(create_body["data"]["neuter_status"], "neutered");
     assert_eq!(create_body["data"]["personality_tags"][0], "亲人");
     assert_eq!(create_body["data"]["note"], "对鸡肉过敏");
+    assert_name_edit_policy(&create_body["data"], 0, 5);
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
     let update_response = app
@@ -744,6 +755,7 @@ async fn pet_profile_crud_persists_extended_profile_fields() {
     assert_eq!(update_body["data"]["breed"], "布偶猫");
     assert_eq!(update_body["data"]["weight_grams"], 4350);
     assert_eq!(update_body["data"]["microchip_number"], "156000000000001");
+    assert_name_edit_policy(&update_body["data"], 1, 4);
 
     let detail_response = app
         .router()
@@ -822,6 +834,70 @@ async fn pet_profile_rejects_microchip_replacement_after_it_is_locked() {
     let body = response_json(update_response).await;
     assert_eq!(body["success"], false);
     assert_eq!(body["code"], "pet.invalid_input");
+}
+
+#[tokio::test]
+async fn pet_profile_limits_name_changes_within_thirty_days() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138136").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "团子",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    assert_eq!(
+        create_body["data"]["name_edit_policy"]["display_text"],
+        "30 天内可修改 5 次名字，本周期还可修改 5 次。"
+    );
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    for (index, name) in ["小一", "小二", "小三", "小四", "小五"].iter().enumerate() {
+        let update_response = app
+            .router()
+            .oneshot(json_request(
+                "PATCH",
+                &format!("/api/v1/pets/{pet_id}"),
+                json!({ "name": name }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("update pet name");
+        assert_eq!(update_response.status(), StatusCode::OK);
+        let update_body = response_json(update_response).await;
+        assert_eq!(update_body["data"]["name"], *name);
+        assert_eq!(
+            update_body["data"]["name_edit_policy"]["remaining_count"],
+            4 - i64::try_from(index).expect("index fits")
+        );
+    }
+
+    let rejected_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({ "name": "小六" }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("reject pet name");
+    assert_eq!(rejected_response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let rejected_body = response_json(rejected_response).await;
+    assert_eq!(rejected_body["success"], false);
+    assert_eq!(rejected_body["code"], "pet.name_edit_limit_exceeded");
 }
 
 #[tokio::test]

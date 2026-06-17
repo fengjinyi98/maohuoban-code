@@ -1,40 +1,27 @@
 import SwiftUI
 import MaohuobanDesignSystem
-import UIKit
 
-// PetProfileNameEditorSheet 宠物昵称编辑弹层
+// PetProfileBreedEditorSheet 宠物品种编辑弹层
 // 核心职责：
-// - 承载宠物名字的临时编辑和字数提示
-// - 统一保存校验、禁用态和关闭行为
-struct PetProfileNameEditorSheet: View {
+// - 承载宠物品种的单行输入
+// - 统一品种字数限制和保存行为
+struct PetProfileBreedEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Binding var name: String
-    let policyText: String?
+    @Binding var breed: String
     let onWillDismiss: () -> Void
     let onSave: () -> Void
 
-    private let nameLimit = 5
-    private let invalidCharacterSet = CharacterSet(charactersIn: "@<>/")
+    private let breedLimit = 20
 
-    private var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var isNameValid: Bool {
-        !trimmedName.isEmpty
-            && trimmedName.count <= nameLimit
-            && trimmedName.rangeOfCharacter(from: invalidCharacterSet) == nil
-    }
-
-    private var saveColor: Color {
-        MHBTheme.ColorToken.primary.color.opacity(isNameValid ? 1 : 0.35)
+    private var trimmedBreed: String {
+        breed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
                 HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                    TextField("请输入宠物名字", text: $name)
+                    TextField("请输入宠物品种", text: $breed)
                         .font(.system(size: 17, weight: .regular))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                         .textInputAutocapitalization(.never)
@@ -44,7 +31,7 @@ struct PetProfileNameEditorSheet: View {
                             saveIfNeeded()
                         }
 
-                    Text("\(name.count)/\(nameLimit)")
+                    Text("\(breed.count)/\(breedLimit)")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
                         .monospacedDigit()
@@ -54,20 +41,12 @@ struct PetProfileNameEditorSheet: View {
                 .background(Color(uiColor: .secondarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
 
-                if let policyText {
-                    Text(policyText)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        .lineSpacing(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
                 Spacer()
             }
             .padding(.horizontal, MHBTheme.Spacing.s4)
             .padding(.top, MHBTheme.Spacing.s4)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("编辑名字")
+            .navigationTitle("编辑品种")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -87,25 +66,23 @@ struct PetProfileNameEditorSheet: View {
                         saveIfNeeded()
                     }
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(saveColor)
-                    .disabled(!isNameValid)
+                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
                 }
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
         .background(MHBPresentationDismissObserver(onWillDismiss: onWillDismiss))
-        .onChange(of: name) { _, newValue in
-            if newValue.count > nameLimit {
-                name = String(newValue.prefix(nameLimit))
+        .onChange(of: breed) { _, newValue in
+            if newValue.count > breedLimit {
+                breed = String(newValue.prefix(breedLimit))
             }
         }
-        .accessibilityIdentifier("pet.profileEdit.nameEditor.sheet")
+        .accessibilityIdentifier("pet.profileEdit.breedEditor.sheet")
     }
 
     private func saveIfNeeded() {
-        guard isNameValid else { return }
-        name = trimmedName
+        breed = trimmedBreed
         onWillDismiss()
         onSave()
         dismiss()

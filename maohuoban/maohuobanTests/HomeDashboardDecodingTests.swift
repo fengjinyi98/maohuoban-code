@@ -140,18 +140,73 @@ final class HomeDashboardDecodingTests: XCTestCase {
             updatedText: "档案已同步",
             avatarURL: "/api/v1/media/assets/avatar-1/content",
             heroImageURL: "/api/v1/media/assets/background-1/content",
-            heroImageAssetName: "HomePetHeroMock"
+            heroThemeColorHex: "#AABBCC",
+            heroContentColorScheme: .light,
+            heroImageAssetName: "HomePetHeroMock",
+            nameEditPolicy: PetNameEditPolicy(
+                maxCount: 5,
+                usedCount: 2,
+                remainingCount: 3,
+                windowDays: 30,
+                windowEndsAt: "2026-07-17T00:00:00Z",
+                displayText: "30 天内可修改 5 次名字，本周期还可修改 3 次。"
+            )
         )
 
         let profile = HomePetProfileEditMapper.editProfile(for: pet)
 
+        XCTAssertEqual(profile.breed, "比熊犬")
         XCTAssertEqual(profile.avatarURL, "/api/v1/media/assets/avatar-1/content")
+        XCTAssertEqual(profile.heroThemeColorHex, "#AABBCC")
+        XCTAssertEqual(profile.heroContentColorScheme, .light)
+        XCTAssertEqual(profile.nameEditPolicy?.remainingCount, 3)
+        XCTAssertEqual(profile.nameEditPolicy?.displayText, "30 天内可修改 5 次名字，本周期还可修改 3 次。")
         if case let .remoteImage(urlString, fallbackAssetName) = profile.heroMedia {
             XCTAssertEqual(urlString, "/api/v1/media/assets/background-1/content")
             XCTAssertEqual(fallbackAssetName, "HomePetHeroMock")
         } else {
             XCTFail("edit profile should keep remote hero image")
         }
+    }
+
+    @MainActor
+    func testHomePreviewContextKeepsBackendHeroThemeColor() throws {
+        let profile = PetProfileEditProfile(
+            id: "pet-1",
+            name: "糯米",
+            species: .dog,
+            breed: "比熊犬",
+            avatarURL: "/api/v1/media/assets/avatar-1/content",
+            heroMedia: .remoteImage(
+                urlString: "/api/v1/media/assets/background-1/content",
+                fallbackAssetName: "HomePetHeroMock"
+            ),
+            heroThemeColorHex: "#AABBCC",
+            heroContentColorScheme: .light,
+            profileCode: "MHB-1",
+            chipNumber: "",
+            sexText: "母",
+            birthDateText: "2024-01-01",
+            arrivalDateText: "2024-05-01",
+            weightText: "4.2 kg",
+            neuterStatusText: "已绝育",
+            personalityTags: ["亲人"],
+            note: "喜欢晒太阳",
+            nameEditPolicy: nil
+        )
+
+        let context = PetProfileHomePreviewContext(
+            profile: profile,
+            name: profile.name,
+            sexText: profile.sexText,
+            birthDateText: profile.birthDateText,
+            arrivalDateText: profile.arrivalDateText,
+            weightText: profile.weightText,
+            noteText: profile.note
+        )
+
+        XCTAssertEqual(context.pet.heroThemeColorHex, "#AABBCC")
+        XCTAssertEqual(context.pet.heroContentColorScheme, .light)
     }
 
     @MainActor

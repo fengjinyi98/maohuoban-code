@@ -9,7 +9,7 @@ pub use media::{
     MediaDerivativeKind, MediaUsageKind, PetMediaUploadResult,
 };
 pub use profile::{
-    ManagedPetStatus, PetBackgroundMediaKind, PetNeuterStatus, PetProfile, PetSex, PetSourceKind,
-    PetSpecies,
+    ManagedPetStatus, PetBackgroundMediaKind, PetNameEditPolicy, PetNeuterStatus, PetProfile,
+    PetSex, PetSourceKind, PetSpecies,
 };
 pub use value_objects::PetErrorKind;

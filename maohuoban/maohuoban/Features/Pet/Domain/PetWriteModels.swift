@@ -131,6 +131,7 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let deleteRequestedByUserID: String?
     let recoverableUntil: String?
     let deleteReason: String?
+    let nameEditPolicy: PetNameEditPolicy?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -151,6 +152,49 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         case deleteRequestedByUserID = "delete_requested_by_user_id"
         case recoverableUntil = "recoverable_until"
         case deleteReason = "delete_reason"
+        case nameEditPolicy = "name_edit_policy"
+    }
+
+    init(
+        id: String,
+        ownerUserID: String,
+        name: String,
+        species: PetSpecies,
+        breed: String?,
+        sex: PetSex,
+        birthday: String?,
+        profileNumber: String? = nil,
+        microchipNumber: String? = nil,
+        arrivalDate: String? = nil,
+        weightGrams: Int? = nil,
+        neuterStatus: PetNeuterStatus? = nil,
+        personalityTags: [String]? = nil,
+        note: String? = nil,
+        deletedAt: String? = nil,
+        deleteRequestedByUserID: String? = nil,
+        recoverableUntil: String? = nil,
+        deleteReason: String? = nil,
+        nameEditPolicy: PetNameEditPolicy?
+    ) {
+        self.id = id
+        self.ownerUserID = ownerUserID
+        self.name = name
+        self.species = species
+        self.breed = breed
+        self.sex = sex
+        self.birthday = birthday
+        self.profileNumber = profileNumber
+        self.microchipNumber = microchipNumber
+        self.arrivalDate = arrivalDate
+        self.weightGrams = weightGrams
+        self.neuterStatus = neuterStatus
+        self.personalityTags = personalityTags
+        self.note = note
+        self.deletedAt = deletedAt
+        self.deleteRequestedByUserID = deleteRequestedByUserID
+        self.recoverableUntil = recoverableUntil
+        self.deleteReason = deleteReason
+        self.nameEditPolicy = nameEditPolicy
     }
 
     init(
@@ -173,24 +217,27 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         recoverableUntil: String? = nil,
         deleteReason: String? = nil
     ) {
-        self.id = id
-        self.ownerUserID = ownerUserID
-        self.name = name
-        self.species = species
-        self.breed = breed
-        self.sex = sex
-        self.birthday = birthday
-        self.profileNumber = profileNumber
-        self.microchipNumber = microchipNumber
-        self.arrivalDate = arrivalDate
-        self.weightGrams = weightGrams
-        self.neuterStatus = neuterStatus
-        self.personalityTags = personalityTags
-        self.note = note
-        self.deletedAt = deletedAt
-        self.deleteRequestedByUserID = deleteRequestedByUserID
-        self.recoverableUntil = recoverableUntil
-        self.deleteReason = deleteReason
+        self.init(
+            id: id,
+            ownerUserID: ownerUserID,
+            name: name,
+            species: species,
+            breed: breed,
+            sex: sex,
+            birthday: birthday,
+            profileNumber: profileNumber,
+            microchipNumber: microchipNumber,
+            arrivalDate: arrivalDate,
+            weightGrams: weightGrams,
+            neuterStatus: neuterStatus,
+            personalityTags: personalityTags,
+            note: note,
+            deletedAt: deletedAt,
+            deleteRequestedByUserID: deleteRequestedByUserID,
+            recoverableUntil: recoverableUntil,
+            deleteReason: deleteReason,
+            nameEditPolicy: nil
+        )
     }
 
     init(from decoder: Decoder) throws {
@@ -213,6 +260,7 @@ struct PetProfileSummary: Decodable, Equatable, Identifiable {
         deleteRequestedByUserID = try container.decodeIfPresent(String.self, forKey: .deleteRequestedByUserID)
         recoverableUntil = try container.decodeIfPresent(String.self, forKey: .recoverableUntil)
         deleteReason = try container.decodeIfPresent(String.self, forKey: .deleteReason)
+        nameEditPolicy = try container.decodeIfPresent(PetNameEditPolicy.self, forKey: .nameEditPolicy)
     }
 }
 

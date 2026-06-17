@@ -26,11 +26,19 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         case remoteVideo(urlString: String, fallbackImageURLString: String?, fallbackImageAssetName: String?)
     }
 
+    enum HeroContentColorScheme: Hashable {
+        case light
+        case dark
+    }
+
     let id: String
     let name: String
     let species: Species
+    let breed: String
     let avatarURL: String?
     let heroMedia: HeroMedia
+    let heroThemeColorHex: String?
+    let heroContentColorScheme: HeroContentColorScheme?
     let profileCode: String
     let chipNumber: String
     let sexText: String
@@ -40,6 +48,87 @@ struct PetProfileEditProfile: Hashable, Identifiable {
     let neuterStatusText: String
     let personalityTags: [String]
     let note: String
+    let nameEditPolicy: PetNameEditPolicy?
+
+    init(
+        id: String,
+        name: String,
+        species: Species,
+        breed: String,
+        avatarURL: String?,
+        heroMedia: HeroMedia,
+        heroThemeColorHex: String?,
+        heroContentColorScheme: HeroContentColorScheme?,
+        profileCode: String,
+        chipNumber: String,
+        sexText: String,
+        birthDateText: String,
+        arrivalDateText: String,
+        weightText: String,
+        neuterStatusText: String,
+        personalityTags: [String],
+        note: String,
+        nameEditPolicy: PetNameEditPolicy?
+    ) {
+        self.id = id
+        self.name = name
+        self.species = species
+        self.breed = breed
+        self.avatarURL = avatarURL
+        self.heroMedia = heroMedia
+        self.heroThemeColorHex = heroThemeColorHex
+        self.heroContentColorScheme = heroContentColorScheme
+        self.profileCode = profileCode
+        self.chipNumber = chipNumber
+        self.sexText = sexText
+        self.birthDateText = birthDateText
+        self.arrivalDateText = arrivalDateText
+        self.weightText = weightText
+        self.neuterStatusText = neuterStatusText
+        self.personalityTags = personalityTags
+        self.note = note
+        self.nameEditPolicy = nameEditPolicy
+    }
+
+    init(
+        id: String,
+        name: String,
+        species: Species,
+        avatarURL: String?,
+        heroMedia: HeroMedia,
+        heroThemeColorHex: String?,
+        heroContentColorScheme: HeroContentColorScheme?,
+        profileCode: String,
+        chipNumber: String,
+        sexText: String,
+        birthDateText: String,
+        arrivalDateText: String,
+        weightText: String,
+        neuterStatusText: String,
+        personalityTags: [String],
+        note: String
+    ) {
+        self.init(
+            id: id,
+            name: name,
+            species: species,
+            breed: "",
+            avatarURL: avatarURL,
+            heroMedia: heroMedia,
+            heroThemeColorHex: heroThemeColorHex,
+            heroContentColorScheme: heroContentColorScheme,
+            profileCode: profileCode,
+            chipNumber: chipNumber,
+            sexText: sexText,
+            birthDateText: birthDateText,
+            arrivalDateText: arrivalDateText,
+            weightText: weightText,
+            neuterStatusText: neuterStatusText,
+            personalityTags: personalityTags,
+            note: note,
+            nameEditPolicy: nil
+        )
+    }
 }
 
 // PetProfileEditContext 宠物资料编辑上下文

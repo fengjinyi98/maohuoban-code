@@ -12,8 +12,11 @@ enum HomePetProfileEditMapper {
             id: pet.id,
             name: pet.name,
             species: editSpecies(for: pet.species),
+            breed: pet.breed,
             avatarURL: pet.avatarURL,
             heroMedia: editHeroMedia(for: pet.heroMedia),
+            heroThemeColorHex: pet.heroThemeColorHex,
+            heroContentColorScheme: editHeroContentColorScheme(for: pet.heroContentColorScheme),
             profileCode: pet.profileNumber ?? "平台生成",
             chipNumber: pet.microchipNumber ?? "",
             sexText: sexText(for: pet.sex),
@@ -22,7 +25,8 @@ enum HomePetProfileEditMapper {
             weightText: weightText(weightGrams: pet.weightGrams, stats: pet.stats),
             neuterStatusText: neuterStatusText(for: pet.neuterStatus),
             personalityTags: pet.personalityTags,
-            note: pet.note ?? pet.statusText
+            note: pet.note ?? pet.statusText,
+            nameEditPolicy: pet.nameEditPolicy
         )
     }
 
@@ -39,8 +43,11 @@ enum HomePetProfileEditMapper {
             id: item.id,
             name: item.name,
             species: editSpecies(for: item.species),
+            breed: item.breed,
             avatarURL: item.avatarURL,
             heroMedia: .image(assetName: "HomePetHeroMock"),
+            heroThemeColorHex: nil,
+            heroContentColorScheme: nil,
             profileCode: item.profileNumber ?? "平台生成",
             chipNumber: item.microchipNumber ?? "",
             sexText: "未知",
@@ -49,7 +56,8 @@ enum HomePetProfileEditMapper {
             weightText: weightText(weightGrams: item.weightGrams, stats: nil),
             neuterStatusText: neuterStatusText(for: item.neuterStatus),
             personalityTags: item.personalityTags,
-            note: item.note ?? "暂未设置"
+            note: item.note ?? "暂未设置",
+            nameEditPolicy: item.nameEditPolicy
         )
     }
 
@@ -83,6 +91,19 @@ enum HomePetProfileEditMapper {
                 fallbackImageURLString: fallbackImageURLString,
                 fallbackImageAssetName: fallbackImageAssetName
             )
+        }
+    }
+
+    private static func editHeroContentColorScheme(
+        for scheme: HomeDashboardSnapshot.HeroContentColorScheme?
+    ) -> PetProfileEditProfile.HeroContentColorScheme? {
+        switch scheme {
+        case .light:
+            .light
+        case .dark:
+            .dark
+        case nil:
+            nil
         }
     }
 

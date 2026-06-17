@@ -6,6 +6,8 @@ extension PetProfileEditScreen {
     var body: some View {
         let profile = selectedProfile
         let profileName = displayName(for: profile)
+        let speciesText = displaySpeciesText(for: profile)
+        let breedText = displayBreed(for: profile)
         let profileCode = formattedProfileCode(profile.profileCode)
         let chipNumber = displayChipNumber(for: profile)
         let sexText = displaySexText(for: profile)
@@ -63,6 +65,22 @@ extension PetProfileEditScreen {
                                     }
                                 ) {
                                     PetProfileEditValueText(value: profileCode)
+                                }
+
+                                PetProfileEditRow(
+                                    title: "宠物类型"
+                                ) {
+                                    PetProfileEditValueText(value: speciesText)
+                                }
+
+                                PetProfileEditRow(
+                                    title: "宠物品种",
+                                    isAccessoryExpanded: isBreedEditorChevronExpanded && breedEditorProfileID == profile.id,
+                                    action: {
+                                        showBreedEditor(for: profile)
+                                    }
+                                ) {
+                                    PetProfileEditValueText(value: breedText)
                                 }
 
                                 PetProfileEditRow(

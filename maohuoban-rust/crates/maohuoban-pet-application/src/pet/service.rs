@@ -34,7 +34,7 @@ impl PetService {
     }
 
     pub async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
-        validate_text("宠物名称", &input.name)?;
+        validate_pet_name(&input.name)?;
         validate_optional_microchip(input.microchip_number.as_deref())?;
         validate_optional_weight(input.weight_grams)?;
         self.repository.create_pet_profile(input).await
@@ -42,7 +42,7 @@ impl PetService {
 
     pub async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
         if let Some(name) = input.name.as_deref() {
-            validate_text("宠物名称", name)?;
+            validate_pet_name(name)?;
         }
         validate_optional_microchip(input.microchip_number.as_deref())?;
         validate_optional_weight(input.weight_grams)?;
@@ -114,7 +114,7 @@ impl PetService {
     }
 
     pub async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport> {
-        validate_text("宠物名称", &input.name)?;
+        validate_pet_name(&input.name)?;
         validate_text("来源方", &input.seller_name)?;
         self.repository.import_trade_pet(input).await
     }
@@ -230,7 +230,7 @@ impl PetService {
         owner_user_id: Uuid,
         input: NewMerchantPetProfile,
     ) -> PetResult<PetProfile> {
-        validate_text("宠物名称", &input.name)?;
+        validate_pet_name(&input.name)?;
         if input.managed_status == ManagedPetStatus::Family {
             return Err(PetError::InvalidInput("商家宠物状态无效".to_owned()));
         }
@@ -301,6 +301,14 @@ impl PetService {
 fn validate_text(label: &str, value: &str) -> PetResult<()> {
     if value.trim().is_empty() {
         return Err(PetError::InvalidInput(format!("{label}不能为空")));
+    }
+    Ok(())
+}
+
+fn validate_pet_name(value: &str) -> PetResult<()> {
+    validate_text("宠物名称", value)?;
+    if value.trim().chars().count() > 5 {
+        return Err(PetError::InvalidInput("宠物名称最多 5 个字".to_owned()));
     }
     Ok(())
 }

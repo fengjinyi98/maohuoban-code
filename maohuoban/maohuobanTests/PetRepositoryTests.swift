@@ -53,7 +53,15 @@ final class PetRepositoryTests: XCTestCase {
                     "weight_grams": 4200,
                     "neuter_status": "neutered",
                     "personality_tags": ["亲人", "爱玩"],
-                    "note": "对鸡肉过敏"
+                    "note": "对鸡肉过敏",
+                    "name_edit_policy": {
+                      "max_count": 5,
+                      "used_count": 0,
+                      "remaining_count": 5,
+                      "window_days": 30,
+                      "window_ends_at": null,
+                      "display_text": "30 天内可修改 5 次名字，本周期还可修改 5 次。"
+                    }
                   }
                 }
                 """
@@ -82,6 +90,8 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.ownerUserID, "user-1")
         XCTAssertEqual(response.data?.arrivalDate, "2024-05-01")
         XCTAssertEqual(response.data?.personalityTags, ["亲人", "爱玩"])
+        XCTAssertEqual(response.data?.nameEditPolicy?.remainingCount, 5)
+        XCTAssertEqual(response.data?.nameEditPolicy?.displayText, "30 天内可修改 5 次名字，本周期还可修改 5 次。")
     }
 
     func testCreateEventSendsUserContextAndDecodesEvent() async throws {
@@ -299,7 +309,15 @@ final class PetRepositoryTests: XCTestCase {
                     "weight_grams": 4350,
                     "neuter_status": "neutered",
                     "personality_tags": ["亲人", "安静"],
-                    "note": "鸡肉过敏"
+                    "note": "鸡肉过敏",
+                    "name_edit_policy": {
+                      "max_count": 5,
+                      "used_count": 1,
+                      "remaining_count": 4,
+                      "window_days": 30,
+                      "window_ends_at": "2026-07-17T00:00:00Z",
+                      "display_text": "30 天内可修改 5 次名字，本周期还可修改 4 次。"
+                    }
                   }
                 }
                 """
@@ -328,6 +346,8 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.profileNumber, "0000000000000001")
         XCTAssertEqual(response.data?.microchipNumber, "156000000000001")
         XCTAssertEqual(response.data?.weightGrams, 4350)
+        XCTAssertEqual(response.data?.nameEditPolicy?.usedCount, 1)
+        XCTAssertEqual(response.data?.nameEditPolicy?.remainingCount, 4)
     }
 
     func testUploadAvatarSendsUserContextAndDecodesMediaBinding() async throws {
