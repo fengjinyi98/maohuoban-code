@@ -73,6 +73,31 @@ final class HomeDashboardStoreTests: XCTestCase {
 
         XCTAssertEqual(store.phase, .failed("首页数据为空"))
     }
+
+    @MainActor
+    func testRepeatedAutomaticLoadForSameContextKeepsLoadedSnapshot() async {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let repository = ScriptedHomeRepository(
+            results: [
+                .success(
+                    MHBAPIResponse(
+                        success: true,
+                        code: "ok",
+                        message: "首页已加载",
+                        data: snapshot
+                    )
+                ),
+                .failure(.transport("offline"))
+            ]
+        )
+        let store = HomeDashboardStore(repository: repository)
+
+        await store.load(currentUserID: "user-1")
+        await store.load(currentUserID: "user-1")
+
+        XCTAssertEqual(repository.requestCount, 1)
+        XCTAssertEqual(store.phase, .loaded(snapshot))
+    }
 }
 
 // DelayedHomeRepository 首页测试仓库
@@ -104,6 +129,37 @@ private final class DelayedHomeRepository: HomeRepository {
             try await Task.sleep(for: .milliseconds(delayMilliseconds))
         } catch {
         }
+
+        switch result {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+}
+
+// ScriptedHomeRepository 脚本化首页测试仓库
+// 核心职责：
+// - 按顺序返回预设首页请求结果
+// - 记录首页 Store 实际发起的请求次数
+@MainActor
+private final class ScriptedHomeRepository: HomeRepository {
+    private var results: [Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>]
+    private(set) var requestCount = 0
+
+    init(results: [Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>]) {
+        self.results = results
+    }
+
+    func dashboard(
+        currentUserID: String?,
+        selectedPetID: String?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
+        requestCount += 1
+        let result = results.isEmpty
+            ? Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>.failure(.transport("首页测试结果为空"))
+            : results.removeFirst()
 
         switch result {
         case .success(let response):

@@ -30,4 +30,13 @@ final class MHBRemoteImageTests: XCTestCase {
         XCTAssertEqual(request.cachePolicy, .returnCacheDataElseLoad)
         XCTAssertEqual(request.timeoutInterval, 12)
     }
+
+    func testImageSessionUsesSharedCacheConfiguration() {
+        let configuration = MHBRemoteImageSessionFactory.configuration()
+
+        XCTAssertEqual(configuration.requestCachePolicy, .useProtocolCachePolicy)
+        XCTAssertEqual(configuration.timeoutIntervalForRequest, 30)
+        XCTAssertEqual(configuration.urlCache?.memoryCapacity, 24 * 1024 * 1024)
+        XCTAssertEqual(configuration.urlCache?.diskCapacity, 256 * 1024 * 1024)
+    }
 }

@@ -30,14 +30,23 @@ final class HomeDashboardDecodingTests: XCTestCase {
                   "age_text": "2岁",
                   "status_text": "记录正在形成可信档案",
                   "updated_text": "档案已同步",
-                  "avatar_url": null
+                  "avatar_url": "/api/v1/media/assets/avatar-1/content",
+                  "avatar_width": 96,
+                  "avatar_height": 96,
+                  "hero_image_url": "/api/v1/media/assets/background-1/content",
+                  "hero_image_width": 1200,
+                  "hero_image_height": 1600,
+                  "hero_theme_color_hex": "#FF0000",
+                  "hero_content_color_scheme": "dark"
                 },
                 "pet_switcher": [
                   {
                     "id": "pet-1",
                     "name": "糯米",
                     "species": "dog",
-                    "avatar_url": null,
+                    "avatar_url": "/api/v1/media/assets/avatar-1/content",
+                    "avatar_width": 96,
+                    "avatar_height": 96,
                     "is_selected": true
                   }
                 ],
@@ -94,6 +103,21 @@ final class HomeDashboardDecodingTests: XCTestCase {
         let dashboard = try XCTUnwrap(response.data)
         XCTAssertEqual(dashboard.identity.kind, .petOwner)
         XCTAssertEqual(dashboard.selectedPet?.id, "pet-1")
+        XCTAssertEqual(dashboard.selectedPet?.avatarURL, "/api/v1/media/assets/avatar-1/content")
+        XCTAssertEqual(dashboard.selectedPet?.avatarWidth, 96)
+        XCTAssertEqual(dashboard.selectedPet?.avatarHeight, 96)
+        XCTAssertEqual(dashboard.selectedPet?.heroImageWidth, 1200)
+        XCTAssertEqual(dashboard.selectedPet?.heroImageHeight, 1600)
+        XCTAssertEqual(dashboard.selectedPet?.heroThemeColorHex, "#FF0000")
+        XCTAssertEqual(dashboard.selectedPet?.heroContentColorScheme, .dark)
+        XCTAssertEqual(dashboard.petSwitcher.first?.avatarWidth, 96)
+        XCTAssertEqual(dashboard.petSwitcher.first?.avatarHeight, 96)
+        let selectedPet = try XCTUnwrap(dashboard.selectedPet)
+        if case let .remoteImage(urlString, _) = selectedPet.heroMedia {
+            XCTAssertEqual(urlString, "/api/v1/media/assets/background-1/content")
+        } else {
+            XCTFail("selected pet should use remote hero image")
+        }
         XCTAssertEqual(dashboard.careSummary?.metrics.first?.kind, .appetite)
         XCTAssertEqual(dashboard.careSummary?.metrics.first?.valueText, "旺盛")
         XCTAssertEqual(dashboard.careSummary?.metrics.last?.kind, .weight)

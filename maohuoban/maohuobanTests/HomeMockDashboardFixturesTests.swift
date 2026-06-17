@@ -31,4 +31,99 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         )
         XCTAssertEqual(weightMetric.valueText, "4.8kg")
     }
+
+    func testBackendPetSnapshotCanUseMockSectionsWithoutReplacingPetData() throws {
+        let backendSnapshot = HomeDashboardSnapshot(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .petOwner,
+                displayName: "真实用户",
+                city: nil,
+                verificationBadge: nil
+            ),
+            selectedPet: HomeDashboardSnapshot.PetHeroSummary(
+                id: "real-pet",
+                name: "测试宠物 1",
+                species: .dog,
+                breed: "未填写品种",
+                sex: .unknown,
+                ageText: "未知年龄",
+                statusText: "记录正在形成可信档案",
+                updatedText: "档案已同步",
+                avatarURL: "/api/v1/media/assets/avatar/content",
+                heroImageAssetName: nil
+            ),
+            petSwitcher: [
+                HomeDashboardSnapshot.PetSwitchItem(
+                    id: "real-pet",
+                    name: "测试宠物 1",
+                    species: .dog,
+                    avatarURL: "/api/v1/media/assets/avatar/content",
+                    isSelected: true
+                )
+            ],
+            careSummary: nil,
+            reminders: [],
+            quickActions: [],
+            partnerRecommendation: nil,
+            recentTimeline: [],
+            merchantDashboard: nil,
+            emptyState: nil,
+            recommendedContent: []
+        )
+        let mockSnapshot = HomeMockDashboardFixtures.snapshot(
+            scenario: .petOwner,
+            selectedPetID: nil
+        )
+
+        let supplemented = backendSnapshot.supplementingMissingSections(from: mockSnapshot)
+
+        XCTAssertEqual(supplemented.selectedPet?.id, "real-pet")
+        XCTAssertEqual(supplemented.selectedPet?.name, "测试宠物 1")
+        XCTAssertEqual(supplemented.petSwitcher.map(\.id), ["real-pet"])
+        XCTAssertNotNil(supplemented.partnerRecommendation)
+        XCTAssertFalse(supplemented.recentTimeline.isEmpty)
+        XCTAssertFalse(supplemented.reminders.isEmpty)
+        XCTAssertFalse(supplemented.quickActions.isEmpty)
+
+        let newUserBackendSnapshot = HomeDashboardSnapshot(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .newUser,
+                displayName: "真实新用户",
+                city: "成都",
+                verificationBadge: nil
+            ),
+            selectedPet: nil,
+            petSwitcher: [],
+            careSummary: nil,
+            reminders: [],
+            quickActions: [],
+            partnerRecommendation: nil,
+            recentTimeline: [],
+            merchantDashboard: nil,
+            emptyState: HomeDashboardSnapshot.EmptyState(
+                kind: .createFirstPet,
+                title: "创建第一只宠物",
+                subtitle: "开始建立档案",
+                primaryAction: HomeDashboardSnapshot.Action(
+                    kind: .createPet,
+                    title: "创建宠物",
+                    subtitle: nil
+                )
+            ),
+            recommendedContent: []
+        )
+
+        let supplementedNewUser = newUserBackendSnapshot.supplementingMissingSections(from: mockSnapshot)
+
+        XCTAssertEqual(supplementedNewUser.identity.kind, .newUser)
+        XCTAssertNil(supplementedNewUser.selectedPet)
+        XCTAssertTrue(supplementedNewUser.petSwitcher.isEmpty)
+        XCTAssertEqual(supplementedNewUser.emptyState?.title, "创建第一只宠物")
+        XCTAssertNotNil(supplementedNewUser.partnerRecommendation)
+        XCTAssertFalse(supplementedNewUser.recentTimeline.isEmpty)
+        XCTAssertFalse(supplementedNewUser.reminders.isEmpty)
+        XCTAssertFalse(supplementedNewUser.quickActions.isEmpty)
+        XCTAssertFalse(supplementedNewUser.petAlbums?.isEmpty ?? true)
+        XCTAssertFalse(supplementedNewUser.galleryAlbums?.isEmpty ?? true)
+    }
 }

@@ -4,8 +4,54 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use tower::ServiceExt;
+
+/// `multipart_media_request` 构造媒体上传 multipart 请求
+/// 核心职责：
+/// - 固定媒体上传测试的 multipart 协议
+/// - 同时提交 `file` 和 `source_client` 字段
+fn multipart_media_request(
+    uri: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+    source_client: &str,
+    user_id: &str,
+) -> Request<Body> {
+    let boundary = format!("maohuoban-home-test-{}", uuid::Uuid::new_v4());
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n\
+             Content-Type: {mime_type}\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(content);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"source_client\"\r\n\r\n{source_client}\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .header("x-maohuoban-user-id", user_id)
+        .body(Body::from(body))
+        .expect("build multipart media request")
+}
 
 /// `empty_request` 构造无 body HTTP 请求
 /// 核心职责：
@@ -220,38 +266,6 @@ async fn load_user_home_dashboard_for_pet(
 }
 
 #[tokio::test]
-async fn home_dashboard_returns_pet_owner_snapshot() {
-    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
-    app.seed_pet_owner_home().await;
-
-    let response = app
-        .router()
-        .oneshot(empty_request("GET", "/api/v1/home/dashboard"))
-        .await
-        .expect("load home dashboard");
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response_json(response).await;
-    assert_eq!(body["success"], true);
-    assert_eq!(body["code"], "home.dashboard_loaded");
-    assert_eq!(body["message"], "首页已加载");
-    assert_eq!(body["data"]["identity"]["kind"], "pet_owner");
-    assert_eq!(body["data"]["selected_pet"]["name"], "糯米");
-    assert_eq!(
-        body["data"]["care_summary"]["metrics"][0]["kind"],
-        "appetite"
-    );
-    assert_eq!(body["data"]["quick_actions"][0]["kind"], "daily_record");
-    assert_eq!(
-        body["data"]["partner_recommendation"]["relationship_kind"],
-        "same_city"
-    );
-    assert_eq!(body["data"]["recent_timeline"][0]["event_kind"], "weight");
-    assert!(body["data"]["merchant_dashboard"].is_null());
-    assert!(body["data"]["empty_state"].is_null());
-}
-
-#[tokio::test]
 async fn home_dashboard_returns_create_pet_empty_state() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.seed_new_user_home().await;
@@ -412,6 +426,114 @@ async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
         dashboard_body["data"]["recent_timeline"][0]["title"],
         "奶油早餐记录"
     );
+}
+
+#[tokio::test]
+async fn home_dashboard_returns_uploaded_pet_media_urls() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138231").await;
+    let pet_id = create_named_home_test_pet(&app, &user_id, "花卷").await;
+
+    let avatar_bytes = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("avatar png bytes");
+    let avatar_response = app
+        .router()
+        .oneshot(multipart_media_request(
+            &format!("/api/v1/pets/{pet_id}/media/avatar"),
+            "avatar.png",
+            "image/png",
+            &avatar_bytes,
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload avatar");
+    assert_eq!(avatar_response.status(), StatusCode::CREATED);
+    let avatar_body = response_json(avatar_response).await;
+    let avatar_asset_id = avatar_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("avatar asset id");
+
+    let background_bytes = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("background png bytes");
+    let background_response = app
+        .router()
+        .oneshot(multipart_media_request(
+            &format!("/api/v1/pets/{pet_id}/media/background-image"),
+            "background.png",
+            "image/png",
+            &background_bytes,
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload background image");
+    assert_eq!(background_response.status(), StatusCode::CREATED);
+    let background_body = response_json(background_response).await;
+    let background_asset_id = background_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("background asset id");
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    let avatar_url = format!("/api/v1/media/assets/{avatar_asset_id}/content");
+    let background_url = format!("/api/v1/media/assets/{background_asset_id}/content");
+
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["avatar_url"],
+        avatar_url
+    );
+    assert_eq!(dashboard_body["data"]["selected_pet"]["avatar_width"], 1);
+    assert_eq!(dashboard_body["data"]["selected_pet"]["avatar_height"], 1);
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_image_url"],
+        background_url
+    );
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_image_width"],
+        1
+    );
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_image_height"],
+        1
+    );
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_theme_color_hex"],
+        "#FF0000"
+    );
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_content_color_scheme"],
+        "dark"
+    );
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][0]["avatar_url"],
+        avatar_url
+    );
+    assert_eq!(dashboard_body["data"]["pet_switcher"][0]["avatar_width"], 1);
+    assert_eq!(
+        dashboard_body["data"]["pet_switcher"][0]["avatar_height"],
+        1
+    );
+
+    let media_response = app
+        .router()
+        .oneshot(empty_request("GET", &avatar_url))
+        .await
+        .expect("get media content");
+    assert_eq!(media_response.status(), StatusCode::OK);
+    assert_eq!(
+        media_response
+            .headers()
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok()),
+        Some("public, max-age=31536000, immutable")
+    );
+    let bytes = to_bytes(media_response.into_body(), 1024 * 1024)
+        .await
+        .expect("read media content");
+    assert_eq!(&bytes[..], &avatar_bytes[..]);
 }
 
 #[tokio::test]

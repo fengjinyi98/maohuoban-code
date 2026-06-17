@@ -1717,6 +1717,7 @@ dependencies = [
  "maohuoban-legal-application",
  "maohuoban-legal-http",
  "maohuoban-legal-infrastructure",
+ "maohuoban-media-storage",
  "maohuoban-pet-application",
  "maohuoban-pet-domain",
  "maohuoban-pet-http",

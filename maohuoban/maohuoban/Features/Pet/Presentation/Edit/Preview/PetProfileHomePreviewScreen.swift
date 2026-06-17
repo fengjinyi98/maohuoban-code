@@ -101,8 +101,12 @@ struct PetProfileHomePreviewScreen: View {
         switch context.pet.heroMedia {
         case .image(let assetName):
             "image-\(assetName)-\(Int(width.rounded()))"
+        case .remoteImage(let urlString, _):
+            "remote-image-\(urlString)-\(Int(width.rounded()))"
         case .video(let resourceName, let fileExtension, _):
             "video-\(resourceName).\(fileExtension)-\(Int(width.rounded()))"
+        case .remoteVideo(let urlString, let fallbackImageURLString, _):
+            "remote-video-\(urlString)-\(fallbackImageURLString ?? "none")-\(Int(width.rounded()))"
         }
     }
 

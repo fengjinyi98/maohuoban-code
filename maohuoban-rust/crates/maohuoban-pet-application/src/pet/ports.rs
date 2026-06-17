@@ -7,6 +7,18 @@ use maohuoban_pet_domain::pet::{
 use serde_json::Value;
 use uuid::Uuid;
 
+/// MediaAssetDisplayMetadata 媒体展示元数据
+/// 核心职责：
+/// - 为首页和档案展示提供媒体尺寸
+/// - 暴露后端派生出的主题色结果
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaAssetDisplayMetadata {
+    pub asset_id: Uuid,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub theme_color_hex: Option<String>,
+}
+
 /// NewPetProfile 新建宠物档案输入
 /// 核心职责：
 /// - 汇总创建宠物档案所需字段
@@ -154,6 +166,11 @@ pub trait PetRepository: Send + Sync {
 
     async fn upload_pet_media(&self, input: PetMediaUploadInput)
     -> PetResult<PetMediaUploadResult>;
+
+    async fn list_media_display_metadata(
+        &self,
+        asset_ids: &[Uuid],
+    ) -> PetResult<Vec<MediaAssetDisplayMetadata>>;
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 

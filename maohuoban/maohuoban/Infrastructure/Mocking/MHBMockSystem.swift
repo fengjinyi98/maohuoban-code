@@ -5,27 +5,40 @@ import Foundation
 // - 统一读取 Mock 数据开关
 // - 为各业务域提供独立场景选择入口
 enum MHBMockSystem {
-    static func isEnabled(processInfo: ProcessInfo = .processInfo) -> Bool {
-        let arguments = processInfo.arguments
+    nonisolated static func isEnabled(processInfo: ProcessInfo = .processInfo) -> Bool {
+        #if DEBUG
+        let isDebugBuild = true
+        #else
+        let isDebugBuild = false
+        #endif
+
+        return isEnabled(
+            arguments: processInfo.arguments,
+            environment: processInfo.environment,
+            isDebugBuild: isDebugBuild
+        )
+    }
+
+    nonisolated static func isEnabled(
+        arguments: [String],
+        environment: [String: String],
+        isDebugBuild _: Bool
+    ) -> Bool {
         if arguments.contains("--use-backend-data") {
             return false
         }
         if arguments.contains("--use-mock-data") {
             return true
         }
-        if let environmentValue = processInfo.environment["MHB_USE_MOCK_DATA"],
+        if let environmentValue = environment["MHB_USE_MOCK_DATA"],
            let isEnabled = parseBoolean(environmentValue) {
             return isEnabled
         }
 
-        #if DEBUG
-        return true
-        #else
         return false
-        #endif
     }
 
-    static func scenario(
+    nonisolated static func scenario(
         namespace: String,
         default defaultValue: String,
         processInfo: ProcessInfo = .processInfo
@@ -58,7 +71,7 @@ enum MHBMockSystem {
         return defaultValue
     }
 
-    private static func parseBoolean(_ value: String) -> Bool? {
+    private nonisolated static func parseBoolean(_ value: String) -> Bool? {
         switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "1", "true", "yes", "on", "enabled":
             true
@@ -69,13 +82,13 @@ enum MHBMockSystem {
         }
     }
 
-    private static func normalizedValue(_ value: String?) -> String? {
+    private nonisolated static func normalizedValue(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue
     }
 
-    private static func argumentValue(in arguments: [String], prefix: String) -> String? {
+    private nonisolated static func argumentValue(in arguments: [String], prefix: String) -> String? {
         arguments
             .first { $0.hasPrefix(prefix) }
             .flatMap { normalizedValue(String($0.dropFirst(prefix.count))) }

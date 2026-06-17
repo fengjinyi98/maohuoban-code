@@ -7,7 +7,7 @@ pub use merchant::{
     MerchantLitterSummary, MerchantRepository, NewMerchantPetProfile, PublishAvailableStatusInput,
 };
 pub use ports::{
-    DeletePetProfile, NewPetEvent, NewPetProfile, PetMediaUploadInput, PetRepository,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PetMediaUploadInput,
+    PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 pub use service::PetService;

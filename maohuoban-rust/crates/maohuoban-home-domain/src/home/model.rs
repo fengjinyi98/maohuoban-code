@@ -62,6 +62,26 @@ pub struct PetHeroSummary {
     pub updated_text: String,
     pub avatar_url: Option<String>,
     #[serde(default)]
+    pub avatar_width: Option<i32>,
+    #[serde(default)]
+    pub avatar_height: Option<i32>,
+    #[serde(default)]
+    pub hero_image_url: Option<String>,
+    #[serde(default)]
+    pub hero_image_width: Option<i32>,
+    #[serde(default)]
+    pub hero_image_height: Option<i32>,
+    #[serde(default)]
+    pub hero_video_url: Option<String>,
+    #[serde(default)]
+    pub hero_video_width: Option<i32>,
+    #[serde(default)]
+    pub hero_video_height: Option<i32>,
+    #[serde(default)]
+    pub hero_theme_color_hex: Option<String>,
+    #[serde(default)]
+    pub hero_content_color_scheme: Option<String>,
+    #[serde(default)]
     pub profile_number: Option<String>,
     #[serde(default)]
     pub microchip_number: Option<String>,
@@ -125,6 +145,10 @@ pub struct PetSwitchItem {
     pub name: String,
     pub species: PetSpecies,
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub avatar_width: Option<i32>,
+    #[serde(default)]
+    pub avatar_height: Option<i32>,
     #[serde(default)]
     pub profile_number: Option<String>,
     #[serde(default)]

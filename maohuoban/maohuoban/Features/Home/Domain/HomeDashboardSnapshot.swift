@@ -66,7 +66,35 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     }
 }
 
+private extension Array {
+    var nonEmpty: [Element]? {
+        isEmpty ? nil : self
+    }
+}
+
 extension HomeDashboardSnapshot {
+    // supplementingMissingSections 合并首页缺省展示模块
+    // 核心职责：
+    // - 保留后端返回的真实身份、宠物和已有业务数据
+    // - 在开发态用 Mock 数据补齐尚未接入后端的展示 section
+    func supplementingMissingSections(from fallback: HomeDashboardSnapshot) -> HomeDashboardSnapshot {
+        HomeDashboardSnapshot(
+            identity: identity,
+            selectedPet: selectedPet,
+            petSwitcher: petSwitcher,
+            careSummary: careSummary ?? fallback.careSummary,
+            reminders: reminders.isEmpty ? fallback.reminders : reminders,
+            quickActions: quickActions.isEmpty ? fallback.quickActions : quickActions,
+            partnerRecommendation: partnerRecommendation ?? fallback.partnerRecommendation,
+            recentTimeline: recentTimeline.isEmpty ? fallback.recentTimeline : recentTimeline,
+            merchantDashboard: merchantDashboard,
+            emptyState: emptyState,
+            recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
+            petAlbums: petAlbums?.nonEmpty ?? fallback.petAlbums,
+            galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums
+        )
+    }
+
     // optimisticSelectingPet 构造宠物切换的乐观首页快照
     // 核心职责：
     // - 在后端新快照返回前立即更新选中宠物入口
@@ -82,6 +110,8 @@ extension HomeDashboardSnapshot {
                 name: item.name,
                 species: item.species,
                 avatarURL: item.avatarURL,
+                avatarWidth: item.avatarWidth,
+                avatarHeight: item.avatarHeight,
                 isSelected: item.id == petID
             )
         }
@@ -96,6 +126,16 @@ extension HomeDashboardSnapshot {
             statusText: "正在同步档案",
             updatedText: "同步中",
             avatarURL: selectedItem.avatarURL,
+            avatarWidth: selectedItem.avatarWidth,
+            avatarHeight: selectedItem.avatarHeight,
+            heroImageURL: selectedPet?.heroImageURL,
+            heroImageWidth: selectedPet?.heroImageWidth,
+            heroImageHeight: selectedPet?.heroImageHeight,
+            heroVideoURL: selectedPet?.heroVideoURL,
+            heroVideoWidth: selectedPet?.heroVideoWidth,
+            heroVideoHeight: selectedPet?.heroVideoHeight,
+            heroThemeColorHex: selectedPet?.heroThemeColorHex,
+            heroContentColorScheme: selectedPet?.heroContentColorScheme,
             heroImageAssetName: selectedPet?.heroImageAssetName,
             heroVideoResourceName: selectedPet?.heroVideoResourceName,
             birthday: selectedPet?.birthday,
@@ -179,7 +219,9 @@ extension HomeDashboardSnapshot {
         // - 为渲染层和主题取色提供统一媒体入口
         enum HeroMedia: Equatable {
             case image(assetName: String)
+            case remoteImage(urlString: String, fallbackAssetName: String)
             case video(resourceName: String, fileExtension: String, fallbackImageAssetName: String?)
+            case remoteVideo(urlString: String, fallbackImageURLString: String?, fallbackImageAssetName: String?)
         }
 
         let id: String
@@ -191,6 +233,16 @@ extension HomeDashboardSnapshot {
         let statusText: String
         let updatedText: String
         let avatarURL: String?
+        let avatarWidth: Int?
+        let avatarHeight: Int?
+        let heroImageURL: String?
+        let heroImageWidth: Int?
+        let heroImageHeight: Int?
+        let heroVideoURL: String?
+        let heroVideoWidth: Int?
+        let heroVideoHeight: Int?
+        let heroThemeColorHex: String?
+        let heroContentColorScheme: HeroContentColorScheme?
         let heroImageAssetName: String?
         let heroVideoResourceName: String?
         let profileNumber: String?
@@ -205,6 +257,19 @@ extension HomeDashboardSnapshot {
         let stats: PetHeroStats?
 
         var heroMedia: HeroMedia {
+            if let heroVideoURL {
+                return .remoteVideo(
+                    urlString: heroVideoURL,
+                    fallbackImageURLString: heroImageURL,
+                    fallbackImageAssetName: heroImageAssetName
+                )
+            }
+            if let heroImageURL {
+                return .remoteImage(
+                    urlString: heroImageURL,
+                    fallbackAssetName: heroImageAssetName ?? "HomePetHeroMock"
+                )
+            }
             if let heroVideoResourceName {
                 return .video(
                     resourceName: heroVideoResourceName,
@@ -226,6 +291,16 @@ extension HomeDashboardSnapshot {
             statusText: String,
             updatedText: String,
             avatarURL: String?,
+            avatarWidth: Int? = nil,
+            avatarHeight: Int? = nil,
+            heroImageURL: String? = nil,
+            heroImageWidth: Int? = nil,
+            heroImageHeight: Int? = nil,
+            heroVideoURL: String? = nil,
+            heroVideoWidth: Int? = nil,
+            heroVideoHeight: Int? = nil,
+            heroThemeColorHex: String? = nil,
+            heroContentColorScheme: HeroContentColorScheme? = nil,
             heroImageAssetName: String?,
             heroVideoResourceName: String? = nil,
             profileNumber: String? = nil,
@@ -248,6 +323,16 @@ extension HomeDashboardSnapshot {
             self.statusText = statusText
             self.updatedText = updatedText
             self.avatarURL = avatarURL
+            self.avatarWidth = avatarWidth
+            self.avatarHeight = avatarHeight
+            self.heroImageURL = heroImageURL
+            self.heroImageWidth = heroImageWidth
+            self.heroImageHeight = heroImageHeight
+            self.heroVideoURL = heroVideoURL
+            self.heroVideoWidth = heroVideoWidth
+            self.heroVideoHeight = heroVideoHeight
+            self.heroThemeColorHex = heroThemeColorHex
+            self.heroContentColorScheme = heroContentColorScheme
             self.heroImageAssetName = heroImageAssetName
             self.heroVideoResourceName = heroVideoResourceName
             self.profileNumber = profileNumber
@@ -272,6 +357,16 @@ extension HomeDashboardSnapshot {
             case statusText = "status_text"
             case updatedText = "updated_text"
             case avatarURL = "avatar_url"
+            case avatarWidth = "avatar_width"
+            case avatarHeight = "avatar_height"
+            case heroImageURL = "hero_image_url"
+            case heroImageWidth = "hero_image_width"
+            case heroImageHeight = "hero_image_height"
+            case heroVideoURL = "hero_video_url"
+            case heroVideoWidth = "hero_video_width"
+            case heroVideoHeight = "hero_video_height"
+            case heroThemeColorHex = "hero_theme_color_hex"
+            case heroContentColorScheme = "hero_content_color_scheme"
             case heroImageAssetName = "hero_image_asset_name"
             case heroVideoResourceName = "hero_video_resource_name"
             case profileNumber = "profile_number"
@@ -297,6 +392,19 @@ extension HomeDashboardSnapshot {
             statusText = try container.decode(String.self, forKey: .statusText)
             updatedText = try container.decode(String.self, forKey: .updatedText)
             avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+            avatarWidth = try container.decodeIfPresent(Int.self, forKey: .avatarWidth)
+            avatarHeight = try container.decodeIfPresent(Int.self, forKey: .avatarHeight)
+            heroImageURL = try container.decodeIfPresent(String.self, forKey: .heroImageURL)
+            heroImageWidth = try container.decodeIfPresent(Int.self, forKey: .heroImageWidth)
+            heroImageHeight = try container.decodeIfPresent(Int.self, forKey: .heroImageHeight)
+            heroVideoURL = try container.decodeIfPresent(String.self, forKey: .heroVideoURL)
+            heroVideoWidth = try container.decodeIfPresent(Int.self, forKey: .heroVideoWidth)
+            heroVideoHeight = try container.decodeIfPresent(Int.self, forKey: .heroVideoHeight)
+            heroThemeColorHex = try container.decodeIfPresent(String.self, forKey: .heroThemeColorHex)
+            heroContentColorScheme = try container.decodeIfPresent(
+                HeroContentColorScheme.self,
+                forKey: .heroContentColorScheme
+            )
             heroImageAssetName = try container.decodeIfPresent(String.self, forKey: .heroImageAssetName)
             heroVideoResourceName = try container.decodeIfPresent(String.self, forKey: .heroVideoResourceName)
             profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
@@ -366,6 +474,15 @@ extension HomeDashboardSnapshot {
         case unknown
     }
 
+    // HeroContentColorScheme 头图内容配色模式
+    // 核心职责：
+    // - 解码后端根据主题色计算出的内容明暗模式
+    // - 避免前端为远端媒体重复下载图片计算颜色
+    enum HeroContentColorScheme: String, Decodable, Equatable {
+        case light
+        case dark
+    }
+
     // PetSwitchItem 宠物切换项
     // 核心职责：
     // - 承载多宠切换入口
@@ -375,6 +492,8 @@ extension HomeDashboardSnapshot {
         let name: String
         let species: Species
         let avatarURL: String?
+        let avatarWidth: Int?
+        let avatarHeight: Int?
         let profileNumber: String?
         let microchipNumber: String?
         let birthday: String?
@@ -390,6 +509,8 @@ extension HomeDashboardSnapshot {
             case name
             case species
             case avatarURL = "avatar_url"
+            case avatarWidth = "avatar_width"
+            case avatarHeight = "avatar_height"
             case profileNumber = "profile_number"
             case microchipNumber = "microchip_number"
             case birthday
@@ -406,6 +527,8 @@ extension HomeDashboardSnapshot {
             name: String,
             species: Species,
             avatarURL: String?,
+            avatarWidth: Int? = nil,
+            avatarHeight: Int? = nil,
             profileNumber: String? = nil,
             microchipNumber: String? = nil,
             birthday: String? = nil,
@@ -420,6 +543,8 @@ extension HomeDashboardSnapshot {
             self.name = name
             self.species = species
             self.avatarURL = avatarURL
+            self.avatarWidth = avatarWidth
+            self.avatarHeight = avatarHeight
             self.profileNumber = profileNumber
             self.microchipNumber = microchipNumber
             self.birthday = birthday
@@ -437,6 +562,8 @@ extension HomeDashboardSnapshot {
             name = try container.decode(String.self, forKey: .name)
             species = try container.decode(Species.self, forKey: .species)
             avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
+            avatarWidth = try container.decodeIfPresent(Int.self, forKey: .avatarWidth)
+            avatarHeight = try container.decodeIfPresent(Int.self, forKey: .avatarHeight)
             profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
             microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
             birthday = try container.decodeIfPresent(String.self, forKey: .birthday)

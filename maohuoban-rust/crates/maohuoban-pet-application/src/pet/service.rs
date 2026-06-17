@@ -6,10 +6,10 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::{
-    DeletePetProfile, MerchantAvailableStatusPublication, MerchantDashboardSummary,
-    MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
-    PetMediaUploadInput, PetRepository, PublishAvailableStatusInput, RestorePetProfile,
-    TradePetImport, TradePetImportInput, UpdatePetProfile,
+    DeletePetProfile, MediaAssetDisplayMetadata, MerchantAvailableStatusPublication,
+    MerchantDashboardSummary, MerchantLitterDetail, MerchantRepository, NewMerchantPetProfile,
+    NewPetEvent, NewPetProfile, PetMediaUploadInput, PetRepository, PublishAvailableStatusInput,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 
 /// PetService 宠物应用服务
@@ -91,6 +91,13 @@ impl PetService {
             return Err(PetError::PetNotFound);
         }
         self.repository.upload_pet_media(input).await
+    }
+
+    pub async fn list_media_display_metadata(
+        &self,
+        asset_ids: &[Uuid],
+    ) -> PetResult<Vec<MediaAssetDisplayMetadata>> {
+        self.repository.list_media_display_metadata(asset_ids).await
     }
 
     pub async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {

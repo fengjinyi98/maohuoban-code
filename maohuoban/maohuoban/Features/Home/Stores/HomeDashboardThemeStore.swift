@@ -19,12 +19,12 @@ struct HomeDashboardThemeSnapshot {
 
 // HomeDashboardThemeStore 首页主题状态模型
 // 核心职责：
-// - 根据当前宠物头图提取首页背景基色
+// - 优先消费后端计算出的首页背景主题色
 // - 固定首页 Liquid Glass 使用暗色局部模式
 // - 为头图内容提供独立的明暗派生状态
 // 设计约束：
-// - 正式后端链路应在用户上传图片或视频后生成并存储主题色
-// - 前端优先消费后端主题色字段，本地取色只作为字段缺失、mock 和本地预览兜底
+// - 真实远端媒体不在前端下载图片计算颜色
+// - 本地取色只作为 Mock 和本地预览资源兜底
 @MainActor
 @Observable
 final class HomeDashboardThemeStore {
@@ -61,6 +61,10 @@ final class HomeDashboardThemeStore {
             return
         }
 
+        if applyBackendThemeColor(from: selectedPet) {
+            return
+        }
+
         guard let image = await Self.heroImage(for: selectedPet.heroMedia) else {
             applyFallbackThemeColor()
             return
@@ -89,6 +93,17 @@ final class HomeDashboardThemeStore {
         }
     }
 
+    private func applyBackendThemeColor(from selectedPet: HomeDashboardSnapshot.PetHeroSummary) -> Bool {
+        guard let color = selectedPet.heroThemeColorHex.flatMap(UIColor.init(mhbHexString:)) else {
+            return false
+        }
+
+        baseThemeColor = Color(uiColor: color)
+        heroContentColorScheme = selectedPet.heroContentColorScheme?.swiftUIColorScheme ?? .dark
+        colorScheme = .dark
+        return true
+    }
+
     private func applyFallbackThemeColor() {
         baseThemeColor = MHBTheme.ColorToken.background.color
         colorScheme = .dark
@@ -101,11 +116,15 @@ final class HomeDashboardThemeStore {
         switch media {
         case .image(let assetName):
             return UIImage(named: assetName)
+        case .remoteImage(_, let fallbackAssetName):
+            return UIImage(named: fallbackAssetName)
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             return await MHBVideoFirstFrameExtractor.extract(
                 resourceName: resourceName,
                 fileExtension: fileExtension
             ) ?? fallbackImageAssetName.flatMap { UIImage(named: $0) }
+        case .remoteVideo(_, _, let fallbackImageAssetName):
+            return fallbackImageAssetName.flatMap { UIImage(named: $0) }
         }
     }
 
@@ -120,6 +139,31 @@ final class HomeDashboardThemeStore {
         @unknown default:
             return luminance < 0.42 ? .dark : .light
         }
+    }
+}
+
+private extension HomeDashboardSnapshot.HeroContentColorScheme {
+    var swiftUIColorScheme: ColorScheme {
+        switch self {
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
+    }
+}
+
+private extension UIColor {
+    convenience init?(mhbHexString: String) {
+        let hex = mhbHexString.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard hex.count == 6, let value = UInt32(hex, radix: 16) else {
+            return nil
+        }
+
+        let red = CGFloat((value >> 16) & 0xFF) / 255.0
+        let green = CGFloat((value >> 8) & 0xFF) / 255.0
+        let blue = CGFloat(value & 0xFF) / 255.0
+        self.init(red: red, green: green, blue: blue, alpha: 1)
     }
 }
 

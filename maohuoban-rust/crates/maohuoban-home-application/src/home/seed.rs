@@ -5,8 +5,7 @@ use maohuoban_home_domain::home::{
     HomeEmptyState, HomeEmptyStateKind, HomeIdentity, HomeIdentityKind, HomeReminder,
     HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind, MerchantDashboardSummary,
     MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount, PartnerRecommendation,
-    PartnerRelationshipKind, PetHeroSummary, PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem,
-    RecommendedContent, RecommendedContentKind,
+    PartnerRelationshipKind, RecommendedContent, RecommendedContentKind,
 };
 use uuid::Uuid;
 
@@ -14,12 +13,12 @@ fn seed_uuid(value: &str) -> Uuid {
     Uuid::parse_str(value).expect("valid home seed uuid")
 }
 
-/// pet_owner_home_snapshot 普通用户首页种子快照
+/// pet_owner_home_template 普通用户首页模板快照
 /// 核心职责：
-/// - 提供设计稿核心模块的可验证数据
-/// - 作为第一阶段前后端联调默认样例
+/// - 提供宠物 owner 首页非宠物主体模块模板
+/// - 让真实宠物主体只来自数据库聚合结果
 #[must_use]
-pub fn pet_owner_home_snapshot() -> HomeDashboardSnapshot {
+pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
     HomeDashboardSnapshot {
         identity: HomeIdentity {
             kind: HomeIdentityKind::PetOwner,
@@ -27,41 +26,8 @@ pub fn pet_owner_home_snapshot() -> HomeDashboardSnapshot {
             city: Some("成都".to_owned()),
             verification_badge: None,
         },
-        selected_pet: Some(PetHeroSummary {
-            id: seed_uuid("b4e47d94-9b31-4e91-9c20-51052d342d7b"),
-            name: "糯米".to_owned(),
-            species: PetSpecies::Dog,
-            breed: "比熊犬".to_owned(),
-            sex: PetSex::Female,
-            age_text: "2岁".to_owned(),
-            status_text: "今天精神很好".to_owned(),
-            updated_text: "10 分钟前更新".to_owned(),
-            avatar_url: None,
-            profile_number: Some("9011562600000019".to_owned()),
-            microchip_number: None,
-            birthday: Some(chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap()),
-            arrival_date: Some(chrono::NaiveDate::from_ymd_opt(2024, 6, 16).unwrap()),
-            weight_grams: Some(5200),
-            neuter_status: Some(PetNeuterStatus::Neutered),
-            personality_tags: vec!["亲人".to_owned(), "爱撒娇".to_owned()],
-            note: Some("今天精神很好".to_owned()),
-            companionship_days: Some(365),
-        }),
-        pet_switcher: vec![PetSwitchItem {
-            id: seed_uuid("b4e47d94-9b31-4e91-9c20-51052d342d7b"),
-            name: "糯米".to_owned(),
-            species: PetSpecies::Dog,
-            avatar_url: None,
-            profile_number: Some("9011562600000019".to_owned()),
-            microchip_number: None,
-            birthday: Some(chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap()),
-            arrival_date: Some(chrono::NaiveDate::from_ymd_opt(2024, 6, 16).unwrap()),
-            weight_grams: Some(5200),
-            neuter_status: Some(PetNeuterStatus::Neutered),
-            personality_tags: vec!["亲人".to_owned(), "爱撒娇".to_owned()],
-            note: Some("今天精神很好".to_owned()),
-            is_selected: true,
-        }],
+        selected_pet: None,
+        pet_switcher: Vec::new(),
         care_summary: Some(CareSummary {
             title: "今日照护".to_owned(),
             metrics: vec![

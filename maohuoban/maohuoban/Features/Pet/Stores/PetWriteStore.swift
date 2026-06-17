@@ -34,7 +34,9 @@ final class PetWriteStore {
             phase = .failed("请输入宠物名字")
             return
         }
-        guard phase != .submitting else { return }
+        guard phase != .submitting else {
+            return
+        }
 
         phase = .submitting
         successMessage = nil
@@ -68,7 +70,9 @@ final class PetWriteStore {
             phase = .failed("请输入宠物名字")
             return
         }
-        guard phase != .submitting else { return }
+        guard phase != .submitting else {
+            return
+        }
 
         phase = .submitting
         successMessage = nil

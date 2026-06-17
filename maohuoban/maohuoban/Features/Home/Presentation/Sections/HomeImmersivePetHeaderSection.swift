@@ -342,12 +342,44 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
         switch media {
         case .image(let assetName):
             foregroundImage(assetName: assetName)
+        case .remoteImage(let urlString, let fallbackAssetName):
+            if let url = MHBBackendEndpoint.resolve(urlString) {
+                MHBRemoteImage(url: url, contentMode: .fill) {
+                    foregroundImage(assetName: fallbackAssetName)
+                }
+                .frame(width: imageWidth, height: imageHeight)
+                .clipped()
+            } else {
+                foregroundImage(assetName: fallbackAssetName)
+            }
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             if MHBLocalMediaResource.url(resourceName: resourceName, fileExtension: fileExtension) != nil {
                 MHBMutedLoopingVideoView(
                     resourceName: resourceName,
                     fileExtension: fileExtension
                 )
+                .frame(width: imageWidth, height: imageHeight)
+                .clipped()
+            } else if let fallbackImageAssetName {
+                foregroundImage(assetName: fallbackImageAssetName)
+            } else {
+                Color.clear
+                    .frame(width: imageWidth, height: imageHeight)
+            }
+        case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
+            if let url = MHBBackendEndpoint.resolve(urlString) {
+                MHBMutedLoopingVideoView(url: url)
+                    .frame(width: imageWidth, height: imageHeight)
+                    .clipped()
+            } else if let fallbackImageURLString, let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
+                MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
+                    if let fallbackImageAssetName {
+                        foregroundImage(assetName: fallbackImageAssetName)
+                    } else {
+                        Color.clear
+                            .frame(width: imageWidth, height: imageHeight)
+                    }
+                }
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
             } else if let fallbackImageAssetName {
@@ -721,7 +753,7 @@ private struct HomeImmersivePetAvatar: View {
             return nil
         }
 
-        return URL(string: avatarURL)
+        return MHBBackendEndpoint.resolve(avatarURL)
     }
 }
 
@@ -788,6 +820,6 @@ private struct HomeImmersiveUserAvatarImage: View {
             return nil
         }
 
-        return URL(string: avatarURL)
+        return MHBBackendEndpoint.resolve(avatarURL)
     }
 }

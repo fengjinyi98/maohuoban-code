@@ -19,6 +19,25 @@ enum MHBRemoteImageRequestFactory {
     }
 }
 
+// MHBRemoteImageSessionFactory 远程图片会话工厂
+// 核心职责：
+// - 为 AsyncImage 提供统一 URLSession
+// - 收敛缓存容量、缓存策略和请求超时
+enum MHBRemoteImageSessionFactory {
+    static let shared: URLSession = URLSession(configuration: configuration())
+
+    static func configuration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.default
+        configuration.requestCachePolicy = .useProtocolCachePolicy
+        configuration.timeoutIntervalForRequest = 30
+        configuration.urlCache = URLCache(
+            memoryCapacity: 24 * 1024 * 1024,
+            diskCapacity: 256 * 1024 * 1024
+        )
+        return configuration
+    }
+}
+
 // MHBRemoteImage 远程图片组件
 // 核心职责：
 // - 使用 iOS 27 AsyncImage 请求缓存能力加载远程图片
@@ -72,6 +91,7 @@ struct MHBRemoteImage<Placeholder: View>: View {
                     placeholder()
                 }
             }
+            .asyncImageURLSession(MHBRemoteImageSessionFactory.shared)
         } else {
             placeholder()
         }

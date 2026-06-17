@@ -10,6 +10,7 @@ struct HomeRootScreen: View {
     let onOpenProfile: () -> Void
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
+    @State private var loadedUserID: String?
 
     init(
         currentUserID: String? = nil,
@@ -20,7 +21,7 @@ struct HomeRootScreen: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
             switch store.phase {
             case .idle, .loading:
                 HomeDashboardLoadingView()
@@ -43,7 +44,8 @@ struct HomeRootScreen: View {
                     Task {
                         await store.load(
                             currentUserID: currentUserID,
-                            selectedPetID: selectedPetID
+                            selectedPetID: selectedPetID,
+                            force: true
                         )
                     }
                 }
@@ -53,8 +55,14 @@ struct HomeRootScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: currentUserID) {
-            selectedPetID = nil
-            await store.load(currentUserID: currentUserID)
+            if loadedUserID != currentUserID {
+                selectedPetID = nil
+                loadedUserID = currentUserID
+            }
+            await store.load(
+                currentUserID: currentUserID,
+                selectedPetID: selectedPetID
+            )
         }
         .navigationDestination(for: HomeRoute.self) { route in
             HomeRouteDestinationScreen(
@@ -64,7 +72,8 @@ struct HomeRootScreen: View {
                 Task {
                     await store.load(
                         currentUserID: currentUserID,
-                        selectedPetID: selectedPetID
+                        selectedPetID: selectedPetID,
+                        force: true
                     )
                 }
             }

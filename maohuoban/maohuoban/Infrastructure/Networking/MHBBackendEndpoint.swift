@@ -16,4 +16,14 @@ enum MHBBackendEndpoint {
         }
         return URL(string: "http://192.168.2.2:8080")!
     }
+
+    static func resolve(_ urlString: String) -> URL? {
+        guard let url = URL(string: urlString) else {
+            return nil
+        }
+        if url.scheme != nil {
+            return url
+        }
+        return URL(string: urlString, relativeTo: localDevelopmentBaseURL)?.absoluteURL
+    }
 }

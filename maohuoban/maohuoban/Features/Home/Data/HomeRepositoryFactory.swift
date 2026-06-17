@@ -10,6 +10,13 @@ enum HomeRepositoryFactory {
             return MockHomeRepository()
         }
 
+        #if DEBUG
+        return SupplementedHomeRepository(
+            primary: DefaultHomeRepository(),
+            fallback: MockHomeRepository(latency: .zero)
+        )
+        #else
         return DefaultHomeRepository()
+        #endif
     }
 }

@@ -5,9 +5,7 @@ use maohuoban_auth_application::auth::{
     NewDeviceSession, PasswordCredentialService, SessionRepository, TokenIssuer, UserRepository,
 };
 use maohuoban_auth_domain::auth::DeviceDescriptor;
-use maohuoban_home_application::home::{
-    merchant_home_snapshot, new_user_home_snapshot, pet_owner_home_snapshot,
-};
+use maohuoban_home_application::home::{merchant_home_snapshot, new_user_home_snapshot};
 use tokio::sync::{Mutex, OwnedMutexGuard};
 use uuid::Uuid;
 
@@ -127,17 +125,6 @@ impl AuthTestApp {
             .fetch_one(&self.app.pool)
             .await
             .expect("count auth audit events")
-    }
-
-    /// seed_pet_owner_home 设置普通用户首页快照
-    /// 核心职责：
-    /// - 为首页契约测试提供普通用户场景
-    /// - 覆盖宠物主卡、照护、快捷动作和最近时间线
-    pub async fn seed_pet_owner_home(&self) {
-        self.app
-            .home_provider
-            .replace_snapshot(pet_owner_home_snapshot())
-            .await;
     }
 
     /// seed_new_user_home 设置新用户首页快照

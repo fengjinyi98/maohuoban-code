@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::home_event_projection::{
     care_summary_from_events, reminders_from_events, timeline_event_summary,
@@ -6,7 +6,7 @@ use crate::home_event_projection::{
 use chrono::{Datelike, NaiveDate, Utc};
 use maohuoban_home_application::home::{
     HomeDashboardContext, HomeDashboardProvider, HomeError, HomeResult, new_user_home_snapshot,
-    pet_owner_home_snapshot,
+    pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
     HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind,
@@ -17,11 +17,11 @@ use maohuoban_home_domain::home::{
     PetSpecies as HomePetSpecies, PetSwitchItem, RecommendedContent, RecommendedContentKind,
 };
 use maohuoban_pet_application::pet::{
-    MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
+    MediaAssetDisplayMetadata, MerchantDashboardSummary as AppMerchantDashboardSummary, PetService,
 };
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, PetError, PetNeuterStatus as DomainPetNeuterStatus, PetProfile,
-    PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
+    ManagedPetStatus, PetBackgroundMediaKind, PetError, PetNeuterStatus as DomainPetNeuterStatus,
+    PetProfile, PetSex as DomainPetSex, PetSpecies as DomainPetSpecies,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -137,6 +137,14 @@ impl HybridHomeDashboardProvider {
             }
             return Ok(snapshot);
         };
+        let media_metadata = self
+            .pet_service
+            .list_media_display_metadata(&media_asset_ids(&pets))
+            .await
+            .map_err(|error| to_home_error(&error))?
+            .into_iter()
+            .map(|metadata| (metadata.asset_id, metadata))
+            .collect::<HashMap<_, _>>();
 
         let timeline = self
             .pet_service
@@ -144,17 +152,17 @@ impl HybridHomeDashboardProvider {
             .await
             .map_err(|error| to_home_error(&error))?;
 
-        let mut snapshot = pet_owner_home_snapshot();
+        let mut snapshot = pet_owner_home_template();
         snapshot.identity = HomeIdentity {
             kind: HomeIdentityKind::PetOwner,
             display_name: "毛伙伴用户".to_owned(),
             city: None,
             verification_badge: None,
         };
-        snapshot.selected_pet = Some(pet_hero_summary(selected_pet));
+        snapshot.selected_pet = Some(pet_hero_summary(selected_pet, &media_metadata));
         snapshot.pet_switcher = pets
             .iter()
-            .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id))
+            .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id, &media_metadata))
             .collect();
         snapshot.recent_timeline = timeline
             .events
@@ -202,11 +210,37 @@ fn selected_pet(pets: &[PetProfile], selected_pet_id: Option<Uuid>) -> Option<&P
         .or_else(|| pets.first())
 }
 
-fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
+fn media_asset_ids(pets: &[PetProfile]) -> Vec<Uuid> {
+    pets.iter()
+        .flat_map(|pet| [pet.avatar_asset_id, pet.background_asset_id])
+        .flatten()
+        .collect()
+}
+
+fn pet_hero_summary(
+    pet: &PetProfile,
+    media_metadata: &HashMap<Uuid, MediaAssetDisplayMetadata>,
+) -> PetHeroSummary {
     let days_since_created = (Utc::now().date_naive() - pet.created_at.date_naive())
         .num_days()
         .max(0);
     let companionship_days = Some(i32::try_from(days_since_created).unwrap_or(i32::MAX));
+    let avatar_metadata = pet
+        .avatar_asset_id
+        .and_then(|asset_id| media_metadata.get(&asset_id));
+    let background_metadata = pet
+        .background_asset_id
+        .and_then(|asset_id| media_metadata.get(&asset_id));
+    let hero_theme_color_hex = background_metadata.and_then(|metadata| {
+        metadata
+            .theme_color_hex
+            .as_deref()
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+    });
+    let hero_content_color_scheme = hero_theme_color_hex
+        .as_deref()
+        .and_then(hero_content_color_scheme);
 
     PetHeroSummary {
         id: pet.id,
@@ -217,7 +251,17 @@ fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
         age_text: pet_age_text(pet.birthday),
         status_text: "记录正在形成可信档案".to_owned(),
         updated_text: "档案已同步".to_owned(),
-        avatar_url: None,
+        avatar_url: pet.avatar_asset_id.map(media_asset_url),
+        avatar_width: avatar_metadata.and_then(|metadata| metadata.width),
+        avatar_height: avatar_metadata.and_then(|metadata| metadata.height),
+        hero_image_url: hero_image_url(pet),
+        hero_image_width: hero_image_dimensions(pet, background_metadata).0,
+        hero_image_height: hero_image_dimensions(pet, background_metadata).1,
+        hero_video_url: hero_video_url(pet),
+        hero_video_width: hero_video_dimensions(pet, background_metadata).0,
+        hero_video_height: hero_video_dimensions(pet, background_metadata).1,
+        hero_theme_color_hex,
+        hero_content_color_scheme,
         profile_number: Some(pet.profile_number.clone()),
         microchip_number: pet.microchip_number.clone(),
         birthday: pet.birthday,
@@ -230,12 +274,22 @@ fn pet_hero_summary(pet: &PetProfile) -> PetHeroSummary {
     }
 }
 
-fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
+fn pet_switch_item(
+    pet: &PetProfile,
+    is_selected: bool,
+    media_metadata: &HashMap<Uuid, MediaAssetDisplayMetadata>,
+) -> PetSwitchItem {
+    let avatar_metadata = pet
+        .avatar_asset_id
+        .and_then(|asset_id| media_metadata.get(&asset_id));
+
     PetSwitchItem {
         id: pet.id,
         name: pet.name.clone(),
         species: home_pet_species(pet.species),
-        avatar_url: None,
+        avatar_url: pet.avatar_asset_id.map(media_asset_url),
+        avatar_width: avatar_metadata.and_then(|metadata| metadata.width),
+        avatar_height: avatar_metadata.and_then(|metadata| metadata.height),
         profile_number: Some(pet.profile_number.clone()),
         microchip_number: pet.microchip_number.clone(),
         birthday: pet.birthday,
@@ -246,6 +300,78 @@ fn pet_switch_item(pet: &PetProfile, is_selected: bool) -> PetSwitchItem {
         note: pet.note.clone(),
         is_selected,
     }
+}
+
+fn hero_image_url(pet: &PetProfile) -> Option<String> {
+    match pet.background_media_kind {
+        Some(PetBackgroundMediaKind::Image) => pet.background_asset_id.map(media_asset_url),
+        _ => None,
+    }
+}
+
+fn hero_video_url(pet: &PetProfile) -> Option<String> {
+    match pet.background_media_kind {
+        Some(PetBackgroundMediaKind::Video) => pet.background_asset_id.map(media_asset_url),
+        _ => None,
+    }
+}
+
+fn hero_image_dimensions(
+    pet: &PetProfile,
+    metadata: Option<&MediaAssetDisplayMetadata>,
+) -> (Option<i32>, Option<i32>) {
+    match pet.background_media_kind {
+        Some(PetBackgroundMediaKind::Image) => media_dimensions(metadata),
+        _ => (None, None),
+    }
+}
+
+fn hero_video_dimensions(
+    pet: &PetProfile,
+    metadata: Option<&MediaAssetDisplayMetadata>,
+) -> (Option<i32>, Option<i32>) {
+    match pet.background_media_kind {
+        Some(PetBackgroundMediaKind::Video) => media_dimensions(metadata),
+        _ => (None, None),
+    }
+}
+
+fn media_dimensions(metadata: Option<&MediaAssetDisplayMetadata>) -> (Option<i32>, Option<i32>) {
+    metadata.map_or((None, None), |metadata| (metadata.width, metadata.height))
+}
+
+fn hero_content_color_scheme(hex: &str) -> Option<String> {
+    let (red, green, blue) = parse_hex_rgb(hex)?;
+    let luminance = relative_luminance(red, green, blue);
+    Some(if luminance > 0.46 { "light" } else { "dark" }.to_owned())
+}
+
+fn parse_hex_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+    let value = hex.strip_prefix('#').unwrap_or(hex);
+    if value.len() != 6 {
+        return None;
+    }
+    let red = u8::from_str_radix(&value[0..2], 16).ok()?;
+    let green = u8::from_str_radix(&value[2..4], 16).ok()?;
+    let blue = u8::from_str_radix(&value[4..6], 16).ok()?;
+    Some((red, green, blue))
+}
+
+fn relative_luminance(red: u8, green: u8, blue: u8) -> f64 {
+    fn linear_channel(value: u8) -> f64 {
+        let normalized = f64::from(value) / 255.0;
+        if normalized <= 0.03928 {
+            normalized / 12.92
+        } else {
+            ((normalized + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    0.2126 * linear_channel(red) + 0.7152 * linear_channel(green) + 0.0722 * linear_channel(blue)
+}
+
+fn media_asset_url(asset_id: Uuid) -> String {
+    format!("/api/v1/media/assets/{asset_id}/content")
 }
 
 fn merchant_home_snapshot_from_workspace(

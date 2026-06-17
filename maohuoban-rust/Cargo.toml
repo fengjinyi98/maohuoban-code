@@ -19,6 +19,7 @@ maohuoban-home-http.workspace = true
 maohuoban-legal-application.workspace = true
 maohuoban-legal-http.workspace = true
 maohuoban-legal-infrastructure.workspace = true
+maohuoban-media-storage.workspace = true
 maohuoban-pet-application.workspace = true
 maohuoban-pet-domain.workspace = true
 maohuoban-pet-http.workspace = true

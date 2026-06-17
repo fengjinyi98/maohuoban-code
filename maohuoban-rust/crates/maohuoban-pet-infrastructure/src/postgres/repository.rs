@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use maohuoban_pet_application::pet::{
-    DeletePetProfile, NewPetEvent, NewPetProfile, PetMediaUploadInput, PetRepository,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PetMediaUploadInput,
+    PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     PetError, PetEvent, PetMediaUploadResult, PetNeuterStatus, PetProfile, PetResult, PetSex,
     PetSpecies, PetTimeline,
 };
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 mod media_commands;
@@ -29,6 +29,18 @@ use trade_import::{insert_trade_import_event, insert_trade_import_pet};
 #[derive(Debug, Clone)]
 pub struct PostgresPetRepository {
     pub(crate) pool: PgPool,
+}
+
+/// MediaAssetDisplayMetadataRow 媒体展示元数据行
+/// 核心职责：
+/// - 聚合媒体资产尺寸字段
+/// - 读取主题色派生物元数据
+#[derive(Debug, FromRow)]
+struct MediaAssetDisplayMetadataRow {
+    asset_id: Uuid,
+    width: Option<i32>,
+    height: Option<i32>,
+    theme_color_hex: Option<String>,
 }
 
 impl PostgresPetRepository {
@@ -299,6 +311,47 @@ impl PetRepository for PostgresPetRepository {
     ) -> PetResult<PetMediaUploadResult> {
         self.upload_pet_media_command(input).await
     }
+
+    async fn list_media_display_metadata(
+        &self,
+        asset_ids: &[Uuid],
+    ) -> PetResult<Vec<MediaAssetDisplayMetadata>> {
+        if asset_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let rows = sqlx::query_as::<_, MediaAssetDisplayMetadataRow>(
+            r#"
+            SELECT
+                asset.id AS asset_id,
+                asset.width,
+                asset.height,
+                derivative.metadata ->> 'theme_color_hex' AS theme_color_hex
+            FROM media_assets asset
+            LEFT JOIN media_derivatives derivative
+                ON derivative.parent_asset_id = asset.id
+                AND derivative.derivative_kind = 'theme_color_frame'
+            WHERE asset.id = ANY($1)
+              AND asset.deleted_at IS NULL
+              AND asset.status IN ('uploaded', 'bound')
+            "#,
+        )
+        .bind(asset_ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| MediaAssetDisplayMetadata {
+                asset_id: row.asset_id,
+                width: row.width,
+                height: row.height,
+                theme_color_hex: row.theme_color_hex,
+            })
+            .collect())
+    }
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         let event_id = Uuid::new_v4();
         let row = sqlx::query_as::<_, PetEventRow>(

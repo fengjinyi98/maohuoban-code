@@ -72,7 +72,7 @@ struct DefaultPetRepository: PetRepository {
         draft: PetProfileDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
-        try await client.post(
+        return try await client.post(
             path: "/api/v1/pets",
             body: draft,
             headers: userHeaders(currentUserID: currentUserID)

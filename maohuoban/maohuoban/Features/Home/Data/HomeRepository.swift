@@ -40,3 +40,51 @@ struct DefaultHomeRepository: HomeRepository {
         )
     }
 }
+
+// SupplementedHomeRepository 首页开发态补全仓库
+// 核心职责：
+// - 优先返回后端真实首页快照
+// - 用 Mock 快照补齐后端尚未接入的展示 section
+struct SupplementedHomeRepository: HomeRepository {
+    private let primary: HomeRepository
+    private let fallback: HomeRepository
+
+    init(
+        primary: HomeRepository,
+        fallback: HomeRepository
+    ) {
+        self.primary = primary
+        self.fallback = fallback
+    }
+
+    func dashboard(
+        currentUserID: String?,
+        selectedPetID: String?
+    ) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
+        let primaryResponse = try await primary.dashboard(
+            currentUserID: currentUserID,
+            selectedPetID: selectedPetID
+        )
+        guard let primarySnapshot = primaryResponse.data else {
+            return primaryResponse
+        }
+
+        let fallbackResponse = try? await fallback.dashboard(
+            currentUserID: currentUserID,
+            selectedPetID: selectedPetID
+        )
+        let fallbackSnapshot = fallbackResponse?.data
+
+        guard let fallbackSnapshot else {
+            return primaryResponse
+        }
+
+        let supplementedSnapshot = primarySnapshot.supplementingMissingSections(from: fallbackSnapshot)
+        return MHBAPIResponse(
+            success: primaryResponse.success,
+            code: primaryResponse.code,
+            message: primaryResponse.message,
+            data: supplementedSnapshot
+        )
+    }
+}

@@ -8,6 +8,7 @@
 
 mod home_dashboard;
 mod home_event_projection;
+mod media_content;
 pub mod test_support;
 
 use std::{env, sync::Arc};
@@ -34,6 +35,7 @@ use maohuoban_recommendation_infrastructure::postgres::PostgresRecommendationRep
 use maohuoban_samecity_application::samecity::SameCityService;
 use maohuoban_samecity_http::samecity::build_samecity_router;
 use maohuoban_samecity_infrastructure::postgres::PostgresSameCityRepository;
+use media_content::build_media_content_router;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
@@ -163,6 +165,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let router = build_auth_router(auth_service)
         .merge(build_legal_router(legal_service))
         .merge(build_home_router(home_service))
+        .merge(build_media_content_router(pool.clone()))
         .merge(build_pet_router(pet_service))
         .merge(build_samecity_router(samecity_service));
 
