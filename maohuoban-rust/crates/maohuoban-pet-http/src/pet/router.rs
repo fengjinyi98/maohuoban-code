@@ -203,10 +203,7 @@ async fn upload_pet_avatar(
         Ok(request) => request,
         Err(error) => return error_response(&error),
     };
-    let input = match request.into_avatar_input(pet_id, owner_user_id) {
-        Ok(input) => input,
-        Err(error) => return error_response(&error),
-    };
+    let input = request.into_avatar_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.avatar_uploaded",
@@ -231,10 +228,7 @@ async fn upload_pet_background_image(
         Ok(request) => request,
         Err(error) => return error_response(&error),
     };
-    let input = match request.into_background_image_input(pet_id, owner_user_id) {
-        Ok(input) => input,
-        Err(error) => return error_response(&error),
-    };
+    let input = request.into_background_image_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.background_uploaded",
@@ -259,10 +253,7 @@ async fn upload_pet_background_video(
         Ok(request) => request,
         Err(error) => return error_response(&error),
     };
-    let input = match request.into_background_video_input(pet_id, owner_user_id) {
-        Ok(input) => input,
-        Err(error) => return error_response(&error),
-    };
+    let input = request.into_background_video_input(pet_id, owner_user_id);
     match state.pet.upload_pet_media(input).await {
         Ok(upload) => created_response(
             "pet.background_uploaded",

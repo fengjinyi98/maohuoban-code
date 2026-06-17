@@ -186,7 +186,7 @@ impl UploadPetMediaRequest {
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetAvatar)
     }
 
@@ -194,7 +194,7 @@ impl UploadPetMediaRequest {
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundImage)
     }
 
@@ -202,7 +202,7 @@ impl UploadPetMediaRequest {
         self,
         pet_id: Uuid,
         owner_user_id: Uuid,
-    ) -> PetResult<PetMediaUploadInput> {
+    ) -> PetMediaUploadInput {
         self.into_input(pet_id, owner_user_id, MediaUsageKind::PetBackgroundVideo)
     }
 
@@ -211,8 +211,8 @@ impl UploadPetMediaRequest {
         pet_id: Uuid,
         owner_user_id: Uuid,
         usage_kind: MediaUsageKind,
-    ) -> PetResult<PetMediaUploadInput> {
-        Ok(PetMediaUploadInput {
+    ) -> PetMediaUploadInput {
+        PetMediaUploadInput {
             pet_id,
             owner_user_id,
             usage_kind,
@@ -220,7 +220,7 @@ impl UploadPetMediaRequest {
             mime_type: self.mime_type,
             content: self.content,
             source_client: self.source_client,
-        })
+        }
     }
 }
 

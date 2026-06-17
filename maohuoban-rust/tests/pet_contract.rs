@@ -30,7 +30,7 @@ fn json_request(method: &str, uri: &str, body: Value, user_id: Option<&str>) -> 
 /// `multipart_media_request` 构造媒体上传 multipart 请求
 /// 核心职责：
 /// - 固定媒体上传测试的 multipart 协议
-/// - 同时提交 file 和 source_client 两个业务字段
+/// - 同时提交 file 和 `source_client` 两个业务字段
 fn multipart_media_request(
     uri: &str,
     file_name: &str,
