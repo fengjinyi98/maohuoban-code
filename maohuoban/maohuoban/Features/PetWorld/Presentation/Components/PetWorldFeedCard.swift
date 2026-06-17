@@ -60,9 +60,9 @@ struct PetWorldPetIdentityHeader: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    Text("by \(authorName)")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                    Text("@\(authorName)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 }
 
                 Text("\(pet.breed) · \(pet.ageStage)")
@@ -75,13 +75,11 @@ struct PetWorldPetIdentityHeader: View {
             Button {
                 // TODO: 接入关注宠物动作。
             } label: {
-                Text("关注")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                    .padding(.horizontal, MHBTheme.Spacing.s3)
-                    .frame(height: 30)
-                    .background(MHBTheme.ColorToken.primaryBackground.color)
-                    .clipShape(Capsule())
+                MHBTagView(
+                    "关注",
+                    style: .primary,
+                    size: .medium
+                )
             }
             .buttonStyle(.plain)
         }
@@ -217,8 +215,7 @@ struct PetWorldRecommendationBadgeView: View {
         MHBTagView(
             badge.title,
             style: badge.style.tagStyle,
-            size: .small,
-            cornerRadius: MHBTheme.Radius.full
+            size: .small
         )
         .accessibilityLabel(badge.explanation)
     }

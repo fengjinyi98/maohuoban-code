@@ -95,8 +95,7 @@ struct PetWorldHintChipRail: View {
                     MHBTagView(
                         chip,
                         style: chipStyle(for: chip),
-                        size: .medium,
-                        cornerRadius: MHBTheme.Radius.full
+                        size: .medium
                     )
                 }
             }
