@@ -56,7 +56,26 @@ fn s3_config_declares_default_bucket_and_backend() {
     );
 
     assert_eq!(config.default_bucket(), "maohuoban-pet-media");
+    assert_eq!(
+        config.cache_control(),
+        Some("public, max-age=31536000, immutable")
+    );
     assert!(config.is_s3());
+}
+
+#[test]
+fn s3_config_allows_cache_control_override() {
+    let config = MediaStorageConfig::s3(
+        "http://127.0.0.1:9000",
+        "rustfsadmin",
+        "rustfsadmin",
+        "us-east-1",
+        "maohuoban-pet-media",
+        true,
+    )
+    .with_cache_control(Some("public, max-age=60".to_owned()));
+
+    assert_eq!(config.cache_control(), Some("public, max-age=60"));
 }
 
 #[tokio::test]
