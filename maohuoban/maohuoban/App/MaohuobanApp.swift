@@ -75,6 +75,7 @@ struct MaohuobanApp: App {
                 storageDirectory: MaohuobanDiagnosticsStorageDirectory.resolve(),
                 privacy: diagnosticsPrivacyPolicy(),
                 capture: CapturePolicy(consent: .granted, minimumSeverity: .info),
+                networkCapture: .globalURLProtocol,
                 defaults: diagnosticsDefaults()
             )
         )

@@ -1,4 +1,5 @@
 mod derivatives;
+mod diagnostics;
 
 use std::io::Cursor;
 
@@ -18,6 +19,7 @@ use super::PostgresPetRepository;
 use super::rows::{MediaAssetRow, MediaBindingRow, MediaDerivativeRow};
 use super::storage::{sanitized_file_name, sha256_hex, to_infrastructure_error};
 use derivatives::{average_theme_color, prepare_derivative_object, prepare_video_derivatives};
+use diagnostics::{record_binding_stage, record_upload_failure, record_upload_stage};
 
 /// PreparedMediaObject 已持久化媒体对象
 /// 核心职责：
@@ -85,92 +87,184 @@ impl PostgresPetRepository {
         let media_store = match MediaObjectStore::from_env() {
             Ok(media_store) => media_store,
             Err(error) => {
+                record_upload_failure(&object_input, None, "repository.store_config");
                 return Err(PetError::Infrastructure(error.to_string()));
             }
         };
         let mut prepared = match Self::prepare_media_object(&media_store, &object_input).await {
             Ok(prepared) => prepared,
             Err(error) => {
+                record_upload_failure(&object_input, None, "repository.object_prepared");
                 return Err(error);
             }
         };
+        record_upload_stage("repository.object_prepared", &object_input, &prepared, 0);
         let prepared_derivatives =
-            match Self::prepare_media_derivatives(&media_store, &object_input, &prepared).await {
-                Ok(derivatives) => derivatives,
-                Err(error) => {
-                    return Err(error);
-                }
-            };
-        Self::apply_video_asset_dimensions(&mut prepared, &object_input, &prepared_derivatives)?;
-        let mut transaction = match self.pool.begin().await.map_err(to_infrastructure_error) {
-            Ok(transaction) => transaction,
-            Err(error) => {
-                return Err(error);
-            }
-        };
+            Self::prepare_upload_derivatives(&media_store, &object_input, &mut prepared).await?;
+        let (asset_row, derivative_rows) = self
+            .insert_pending_media_upload(&object_input, &prepared, &prepared_derivatives)
+            .await?;
 
-        let asset_row =
-            match Self::insert_media_asset(&mut transaction, &object_input, &prepared, "uploaded")
-                .await
-            {
-                Ok(asset_row) => asset_row,
-                Err(error) => {
-                    return Err(error);
-                }
-            };
-        let derivative_rows = match Self::insert_media_derivatives(
-            &mut transaction,
-            prepared.asset_id,
-            &prepared_derivatives,
-        )
-        .await
-        {
-            Ok(derivative_rows) => derivative_rows,
-            Err(error) => {
-                return Err(error);
-            }
-        };
-
-        transaction
-            .commit()
-            .await
-            .map_err(to_infrastructure_error)?;
-
-        Ok(PetMediaUploadResult {
+        let upload = PetMediaUploadResult {
             asset: asset_row.try_into()?,
             binding: None,
             derivatives: derivative_rows
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<PetResult<Vec<MediaDerivative>>>()?,
-        })
+        };
+        record_upload_stage(
+            "repository.committed",
+            &object_input,
+            &prepared,
+            upload.derivatives.len(),
+        );
+        Ok(upload)
+    }
+
+    async fn prepare_upload_derivatives(
+        media_store: &MediaObjectStore,
+        object_input: &MediaUploadObjectInput<'_>,
+        prepared: &mut PreparedMediaObject,
+    ) -> PetResult<Vec<PreparedMediaDerivative>> {
+        let prepared_derivatives =
+            match Self::prepare_media_derivatives(media_store, object_input, prepared).await {
+                Ok(derivatives) => derivatives,
+                Err(error) => {
+                    record_upload_failure(
+                        object_input,
+                        Some(prepared.asset_id),
+                        "repository.derivatives_prepared",
+                    );
+                    return Err(error);
+                }
+            };
+        record_upload_stage(
+            "repository.derivatives_prepared",
+            object_input,
+            prepared,
+            prepared_derivatives.len(),
+        );
+        if let Err(error) =
+            Self::apply_video_asset_dimensions(prepared, object_input, &prepared_derivatives)
+        {
+            record_upload_failure(
+                object_input,
+                Some(prepared.asset_id),
+                "repository.dimensions_applied",
+            );
+            return Err(error);
+        }
+        record_upload_stage(
+            "repository.dimensions_applied",
+            object_input,
+            prepared,
+            prepared_derivatives.len(),
+        );
+        Ok(prepared_derivatives)
+    }
+
+    async fn insert_pending_media_upload(
+        &self,
+        object_input: &MediaUploadObjectInput<'_>,
+        prepared: &PreparedMediaObject,
+        prepared_derivatives: &[PreparedMediaDerivative],
+    ) -> PetResult<(MediaAssetRow, Vec<MediaDerivativeRow>)> {
+        let mut transaction = match self.pool.begin().await.map_err(to_infrastructure_error) {
+            Ok(transaction) => transaction,
+            Err(error) => {
+                record_upload_failure(
+                    object_input,
+                    Some(prepared.asset_id),
+                    "repository.transaction_started",
+                );
+                return Err(error);
+            }
+        };
+        let asset_row =
+            match Self::insert_media_asset(&mut transaction, object_input, prepared, "uploaded")
+                .await
+            {
+                Ok(asset_row) => asset_row,
+                Err(error) => {
+                    record_upload_failure(
+                        object_input,
+                        Some(prepared.asset_id),
+                        "repository.asset_inserted",
+                    );
+                    return Err(error);
+                }
+            };
+        let derivative_rows = match Self::insert_media_derivatives(
+            &mut transaction,
+            prepared.asset_id,
+            prepared_derivatives,
+        )
+        .await
+        {
+            Ok(derivative_rows) => derivative_rows,
+            Err(error) => {
+                record_upload_failure(
+                    object_input,
+                    Some(prepared.asset_id),
+                    "repository.derivatives_inserted",
+                );
+                return Err(error);
+            }
+        };
+        if let Err(error) = transaction.commit().await.map_err(to_infrastructure_error) {
+            record_upload_failure(
+                object_input,
+                Some(prepared.asset_id),
+                "repository.committed",
+            );
+            return Err(error);
+        }
+        Ok((asset_row, derivative_rows))
     }
 
     pub(super) async fn bind_uploaded_pet_media_command(
         &self,
         input: BindUploadedPetMediaInput,
     ) -> PetResult<PetMediaUploadResult> {
-        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        let mut transaction = match self.pool.begin().await.map_err(to_infrastructure_error) {
+            Ok(transaction) => transaction,
+            Err(error) => {
+                record_binding_stage("repository.transaction_started", &input, None, 0, false);
+                return Err(error);
+            }
+        };
         let (asset_row, binding_row, derivative_rows) = Self::bind_uploaded_media_in_transaction(
             &mut transaction,
             input.pet_id,
             input.owner_user_id,
             input.asset_id,
         )
-        .await?;
-        transaction
-            .commit()
-            .await
-            .map_err(to_infrastructure_error)?;
+        .await
+        .inspect_err(|_error| {
+            record_binding_stage("repository.bound", &input, None, 0, false);
+        })?;
+        if let Err(error) = transaction.commit().await.map_err(to_infrastructure_error) {
+            record_binding_stage("repository.committed", &input, None, 0, false);
+            return Err(error);
+        }
 
-        Ok(PetMediaUploadResult {
+        let upload = PetMediaUploadResult {
             asset: asset_row.try_into()?,
             binding: Some(binding_row.try_into()?),
             derivatives: derivative_rows
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<PetResult<Vec<MediaDerivative>>>()?,
-        })
+        };
+        record_binding_stage(
+            "repository.committed",
+            &input,
+            Some(&upload.asset),
+            upload.derivatives.len(),
+            true,
+        );
+        Ok(upload)
     }
 
     pub(super) async fn bind_uploaded_media_in_transaction(

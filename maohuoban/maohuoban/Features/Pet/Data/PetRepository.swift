@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 
 // PetRepository 宠物写入仓库协议
 // 核心职责：
@@ -83,11 +84,35 @@ struct DefaultPetRepository: PetRepository {
         draft: PetProfileDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
-        return try await client.post(
-            path: "/api/v1/pets",
-            body: draft,
-            headers: try userHeaders(currentUserID: currentUserID)
+        await recordPetDraftPrepared(
+            eventName: "pet.create_request_prepared",
+            draftBreed: draft.breed,
+            currentUserID: currentUserID,
+            metadata: [
+                "has_avatar_asset": .bool(draft.avatarAssetID != nil),
+                "has_background_asset": .bool(draft.backgroundAssetID != nil)
+            ]
         )
+        do {
+            let response: MHBAPIResponse<PetProfileSummary> = try await client.post(
+                path: "/api/v1/pets",
+                body: draft,
+                headers: try userHeaders(currentUserID: currentUserID)
+            )
+            await recordPetProfileResponse(
+                eventName: "pet.create_response_received",
+                response: response,
+                currentUserID: currentUserID
+            )
+            return response
+        } catch {
+            await recordPetFailure(
+                eventName: "pet.create_request_failed",
+                error: error,
+                currentUserID: currentUserID
+            )
+            throw error
+        }
     }
 
     func createEvent(
@@ -117,11 +142,34 @@ struct DefaultPetRepository: PetRepository {
         draft: PetProfileUpdateDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
-        try await client.patch(
-            path: "/api/v1/pets/\(petID)",
-            body: draft,
-            headers: try userHeaders(currentUserID: currentUserID)
+        await recordPetDraftPrepared(
+            eventName: "pet.update_request_prepared",
+            draftBreed: draft.breed,
+            currentUserID: currentUserID,
+            metadata: ["pet_id_prefix": .string(diagnosticsPrefix(petID))]
         )
+        do {
+            let response: MHBAPIResponse<PetProfileSummary> = try await client.patch(
+                path: "/api/v1/pets/\(petID)",
+                body: draft,
+                headers: try userHeaders(currentUserID: currentUserID)
+            )
+            await recordPetProfileResponse(
+                eventName: "pet.update_response_received",
+                response: response,
+                currentUserID: currentUserID,
+                metadata: ["pet_id_prefix": .string(diagnosticsPrefix(petID))]
+            )
+            return response
+        } catch {
+            await recordPetFailure(
+                eventName: "pet.update_request_failed",
+                error: error,
+                currentUserID: currentUserID,
+                metadata: ["pet_id_prefix": .string(diagnosticsPrefix(petID))]
+            )
+            throw error
+        }
     }
 
     func uploadPendingAvatar(
@@ -168,11 +216,39 @@ struct DefaultPetRepository: PetRepository {
         assetID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.post(
-            path: "/api/v1/pets/\(petID)/media-bindings",
-            body: BindUploadedPetMediaDraft(assetID: assetID),
-            headers: try userHeaders(currentUserID: currentUserID)
+        await Diagnostics.track(
+            "pet.media_bind_request_prepared",
+            properties: [
+                "pet_id_prefix": .string(diagnosticsPrefix(petID)),
+                "asset_id_prefix": .string(diagnosticsPrefix(assetID)),
+                "user_id_prefix": .string(diagnosticsPrefix(currentUserID))
+            ]
         )
+        do {
+            let response: MHBAPIResponse<PetMediaUploadResult> = try await client.post(
+                path: "/api/v1/pets/\(petID)/media-bindings",
+                body: BindUploadedPetMediaDraft(assetID: assetID),
+                headers: try userHeaders(currentUserID: currentUserID)
+            )
+            await recordMediaResponse(
+                eventName: "pet.media_bind_response_received",
+                response: response,
+                currentUserID: currentUserID,
+                metadata: ["pet_id_prefix": .string(diagnosticsPrefix(petID))]
+            )
+            return response
+        } catch {
+            await recordPetFailure(
+                eventName: "pet.media_bind_request_failed",
+                error: error,
+                currentUserID: currentUserID,
+                metadata: [
+                    "pet_id_prefix": .string(diagnosticsPrefix(petID)),
+                    "asset_id_prefix": .string(diagnosticsPrefix(assetID))
+                ]
+            )
+            throw error
+        }
     }
 
     func deletePet(
@@ -228,12 +304,44 @@ struct DefaultPetRepository: PetRepository {
         currentUserID: String,
         onUploadProgress: (@MainActor (Double) -> Void)?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
-        try await client.postMultipart(
-            path: path,
-            file: multipartFile(from: draft),
-            fields: multipartFields(from: draft),
-            headers: try userHeaders(currentUserID: currentUserID),
-            onUploadProgress: onUploadProgress
+        await Diagnostics.track(
+            "pet.media_upload_request_prepared",
+            properties: [
+                "path": .string(path),
+                "file_extension": .string((draft.fileName as NSString).pathExtension.lowercased()),
+                "mime_type": .string(draft.mimeType),
+                "byte_size": .int(draft.content.count),
+                "user_id_prefix": .string(diagnosticsPrefix(currentUserID))
+            ]
         )
+        do {
+            let response: MHBAPIResponse<PetMediaUploadResult> = try await client.postMultipart(
+                path: path,
+                file: multipartFile(from: draft),
+                fields: multipartFields(from: draft),
+                headers: try userHeaders(currentUserID: currentUserID),
+                onUploadProgress: onUploadProgress
+            )
+            await recordMediaResponse(
+                eventName: "pet.media_upload_response_received",
+                response: response,
+                currentUserID: currentUserID,
+                metadata: ["path": .string(path)]
+            )
+            return response
+        } catch {
+            await recordPetFailure(
+                eventName: "pet.media_upload_request_failed",
+                error: error,
+                currentUserID: currentUserID,
+                metadata: [
+                    "path": .string(path),
+                    "mime_type": .string(draft.mimeType),
+                    "byte_size": .int(draft.content.count)
+                ]
+            )
+            throw error
+        }
     }
+
 }

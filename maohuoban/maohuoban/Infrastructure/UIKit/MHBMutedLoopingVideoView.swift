@@ -1,4 +1,5 @@
 import AVFoundation
+import MaohuobanDiagnostics
 import SwiftUI
 import UIKit
 
@@ -48,6 +49,7 @@ final class LoopingVideoPlayerView: UIView {
     private var currentURL: URL?
     private var player: AVQueuePlayer?
     private var looper: AVPlayerLooper?
+    private var itemStatusObservation: NSKeyValueObservation?
 
     override class var layerClass: AnyClass {
         AVPlayerLayer.self
@@ -93,6 +95,7 @@ final class LoopingVideoPlayerView: UIView {
         queuePlayer.preventsDisplaySleepDuringVideoPlayback = false
 
         let item = AVPlayerItem(url: url)
+        observeItemStatus(item, source: "bundle", url: url)
         let playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
 
         player = queuePlayer
@@ -118,6 +121,11 @@ final class LoopingVideoPlayerView: UIView {
         }
 
         currentURL = url
+        recordVideoEvent(
+            "pet.hero_video_player_configured",
+            source: "remote",
+            url: url
+        )
 
         let queuePlayer = AVQueuePlayer()
         queuePlayer.isMuted = true
@@ -125,6 +133,7 @@ final class LoopingVideoPlayerView: UIView {
         queuePlayer.preventsDisplaySleepDuringVideoPlayback = false
 
         let item = AVPlayerItem(url: url)
+        observeItemStatus(item, source: "remote", url: url)
         let playerLooper = AVPlayerLooper(player: queuePlayer, templateItem: item)
 
         player = queuePlayer
@@ -137,6 +146,8 @@ final class LoopingVideoPlayerView: UIView {
     func stop() {
         player?.pause()
         playerLayer.player = nil
+        itemStatusObservation?.invalidate()
+        itemStatusObservation = nil
         looper = nil
         player = nil
         currentURL = nil
@@ -158,5 +169,85 @@ final class LoopingVideoPlayerView: UIView {
         }
 
         player?.play()
+    }
+
+    private func observeItemStatus(_ item: AVPlayerItem, source: String, url: URL) {
+        itemStatusObservation?.invalidate()
+        recordVideoEvent(
+            "pet.hero_video_player_status",
+            source: source,
+            url: url,
+            status: item.status.diagnosticsText,
+            error: item.error
+        )
+        itemStatusObservation = item.observe(\.status, options: [.new]) { item, _ in
+            let status = item.status.diagnosticsText
+            let error = item.error
+            Self.recordVideoEvent(
+                "pet.hero_video_player_status",
+                source: source,
+                url: url,
+                status: status,
+                error: error
+            )
+        }
+    }
+
+    private func recordVideoEvent(
+        _ eventName: String,
+        source: String,
+        url: URL,
+        status: String? = nil,
+        error: Error? = nil
+    ) {
+        Self.recordVideoEvent(
+            eventName,
+            source: source,
+            url: url,
+            status: status,
+            error: error
+        )
+    }
+
+    nonisolated private static func recordVideoEvent(
+        _ eventName: String,
+        source: String,
+        url: URL,
+        status: String? = nil,
+        error: Error? = nil
+    ) {
+        let nsError = error as NSError?
+        var properties: DiagnosticProperties = [
+            "source": .string(source),
+            "url": .string(url.absoluteString),
+            "url_scheme": .string(url.scheme ?? ""),
+            "file_extension": .string(url.pathExtension.lowercased()),
+            "is_file_url": .bool(url.isFileURL)
+        ]
+        if let status {
+            properties["status"] = .string(status)
+        }
+        if let nsError {
+            properties["error_domain"] = .string(nsError.domain)
+            properties["error_code"] = .int(nsError.code)
+        }
+        Task {
+            await Diagnostics.track(eventName, properties: properties)
+        }
+    }
+}
+
+private extension AVPlayerItem.Status {
+    nonisolated var diagnosticsText: String {
+        switch self {
+        case .unknown:
+            "unknown"
+        case .readyToPlay:
+            "ready_to_play"
+        case .failed:
+            "failed"
+        @unknown default:
+            "unknown_default"
+        }
     }
 }

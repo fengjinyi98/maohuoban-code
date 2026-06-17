@@ -1,4 +1,5 @@
 import XCTest
+import MaohuobanDiagnostics
 @testable import maohuoban
 
 // PetRepositoryTests 宠物写入仓库测试
@@ -9,7 +10,87 @@ import XCTest
 final class PetRepositoryTests: XCTestCase {
     override func tearDown() {
         PetRepositoryURLProtocol.handler = nil
+        Task {
+            await Diagnostics.uninstall()
+        }
         super.tearDown()
+    }
+
+    func testHTTPClientRecordsNetworkSummaryForJSONRequest() async throws {
+        let diagnostics = try await Self.installDiagnostics()
+        let client = makeHTTPClient { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pets")
+            return Self.jsonResponse(
+                statusCode: 201,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "pet.created",
+                  "message": "宠物档案已创建",
+                  "data": {}
+                }
+                """
+            )
+        }
+
+        let response: MHBAPIResponse<MHBEmptyResponse> = try await client.post(
+            path: "/api/v1/pets",
+            body: ["name": "糯米"],
+            headers: ["x-maohuoban-user-id": "user-1"]
+        )
+
+        XCTAssertEqual(response.code, "pet.created")
+        let events = try await diagnostics.readEvents()
+        XCTAssertTrue(events.contains { event in
+            event.kind == .network
+                && event.metadata["method"] == "POST"
+                && event.metadata["status_code"] == "201"
+                && event.metadata["api_code"] == "pet.created"
+                && event.metadata["api_success"] == true
+                && event.metadata["request_body_bytes"] != nil
+                && event.metadata["response_body_bytes"] != nil
+        })
+    }
+
+    func testHTTPClientRecordsNetworkSummaryForBusinessFailure() async throws {
+        let diagnostics = try await Self.installDiagnostics()
+        let client = makeHTTPClient { _ in
+            Self.jsonResponse(
+                statusCode: 422,
+                body:
+                """
+                {
+                  "success": false,
+                  "code": "pet.breed_invalid",
+                  "message": "品种格式无效",
+                  "data": null
+                }
+                """
+            )
+        }
+
+        do {
+            let _: MHBAPIResponse<MHBEmptyResponse> = try await client.patch(
+                path: "/api/v1/pets/pet-1",
+                body: ["breed": "布偶"],
+                headers: ["x-maohuoban-user-id": "user-1"]
+            )
+            XCTFail("Expected business error")
+        } catch {
+            XCTAssertEqual(error.toastMessage, "品种格式无效")
+        }
+
+        let events = try await diagnostics.readEvents()
+        XCTAssertTrue(events.contains { event in
+            event.kind == .network
+                && event.severity == .error
+                && event.metadata["method"] == "PATCH"
+                && event.metadata["status_code"] == "422"
+                && event.metadata["api_code"] == "pet.breed_invalid"
+                && event.metadata["api_success"] == false
+        })
     }
 
     func testPetWriteDraftsRemoveWhitespaceFromPetNameAndBreed() throws {
@@ -634,12 +715,18 @@ final class PetRepositoryTests: XCTestCase {
     private func makeRepository(
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultPetRepository {
+        let client = makeHTTPClient(handler: handler)
+        return DefaultPetRepository(client: client)
+    }
+
+    private func makeHTTPClient(
+        handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
+    ) -> MHBHTTPClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [PetRepositoryURLProtocol.self]
         PetRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
-        let client = MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
-        return DefaultPetRepository(client: client)
+        return MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
     }
 
     private static func jsonResponse(statusCode: Int, body: String) -> (HTTPURLResponse, Data) {
@@ -826,6 +913,19 @@ final class PetRepositoryTests: XCTestCase {
     private static func encodedJSONObject<T: Encodable>(_ value: T) throws -> [String: Any] {
         let data = try JSONEncoder().encode(value)
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    private static func installDiagnostics() async throws -> DiagnosticsRuntime {
+        await Diagnostics.uninstall()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("maohuoban-http-client-tests-\(UUID().uuidString)", isDirectory: true)
+        return try await Diagnostics.install(
+            DiagnosticsConfiguration(
+                serviceName: "maohuoban-ios-tests",
+                environment: "test",
+                storageDirectory: root
+            )
+        )
     }
 }
 

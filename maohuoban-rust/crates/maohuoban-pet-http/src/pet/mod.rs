@@ -1,3 +1,4 @@
+mod diagnostics;
 mod dto;
 mod response;
 mod router;

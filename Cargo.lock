@@ -1559,7 +1559,9 @@ dependencies = [
  "async-trait",
  "chrono",
  "maohuoban-pet-domain",
+ "maohuoban_diagnostics",
  "serde_json",
+ "tempfile",
  "uuid",
 ]
 

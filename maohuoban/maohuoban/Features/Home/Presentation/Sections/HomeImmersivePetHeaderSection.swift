@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import MaohuobanDiagnostics
 
 // HomeImmersivePetHeaderLayout 首页沉浸式头图布局参数
 // 核心职责：
@@ -343,6 +344,7 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
         case .image(let assetName):
             foregroundImage(assetName: assetName)
                 .onAppear {
+                    recordHeroMediaAppearance(branch: "local_image", resolved: assetName.isEmpty == false)
                 }
         case .remoteImage(let urlString, let fallbackAssetName):
             if let url = MHBBackendEndpoint.resolve(urlString) {
@@ -352,10 +354,22 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
                 .onAppear {
+                    recordHeroMediaAppearance(
+                        branch: "remote_image",
+                        resolved: true,
+                        urlString: urlString,
+                        hasFallback: fallbackAssetName.isEmpty == false
+                    )
                 }
             } else {
                 foregroundImage(assetName: fallbackAssetName)
                     .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_image",
+                            resolved: false,
+                            urlString: urlString,
+                            hasFallback: fallbackAssetName.isEmpty == false
+                        )
                     }
             }
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
@@ -367,15 +381,18 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
                 .onAppear {
+                    recordHeroMediaAppearance(branch: "local_video", resolved: true)
                 }
             } else if let fallbackImageAssetName {
                 foregroundImage(assetName: fallbackImageAssetName)
                     .onAppear {
+                        recordHeroMediaAppearance(branch: "local_video", resolved: false, hasFallback: true)
                     }
             } else {
                 Color.clear
                     .frame(width: imageWidth, height: imageHeight)
                     .onAppear {
+                        recordHeroMediaAppearance(branch: "local_video", resolved: false, hasFallback: false)
                     }
             }
         case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
@@ -384,6 +401,12 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                     .frame(width: imageWidth, height: imageHeight)
                     .clipped()
                     .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_video",
+                            resolved: true,
+                            urlString: urlString,
+                            hasFallback: fallbackImageURLString != nil || fallbackImageAssetName != nil
+                        )
                     }
             } else if let fallbackImageURLString, let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
                 MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
@@ -397,15 +420,33 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                 .frame(width: imageWidth, height: imageHeight)
                 .clipped()
                 .onAppear {
+                    recordHeroMediaAppearance(
+                        branch: "remote_video_fallback_remote_image",
+                        resolved: false,
+                        urlString: urlString,
+                        hasFallback: true
+                    )
                 }
             } else if let fallbackImageAssetName {
                 foregroundImage(assetName: fallbackImageAssetName)
                     .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_video_fallback_local_image",
+                            resolved: false,
+                            urlString: urlString,
+                            hasFallback: true
+                        )
                     }
             } else {
                 Color.clear
                     .frame(width: imageWidth, height: imageHeight)
                     .onAppear {
+                        recordHeroMediaAppearance(
+                            branch: "remote_video_empty",
+                            resolved: false,
+                            urlString: urlString,
+                            hasFallback: false
+                        )
                     }
             }
         }
@@ -417,6 +458,25 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
             .scaledToFill()
             .frame(width: imageWidth, height: imageHeight)
             .clipped()
+    }
+
+    private func recordHeroMediaAppearance(
+        branch: String,
+        resolved: Bool,
+        urlString: String? = nil,
+        hasFallback: Bool = false
+    ) {
+        Task {
+            await Diagnostics.track(
+                "home.hero_media_appeared",
+                properties: [
+                    "branch": .string(branch),
+                    "resolved": .bool(resolved),
+                    "has_url": .bool(urlString != nil),
+                    "has_fallback": .bool(hasFallback)
+                ]
+            )
+        }
     }
 }
 

@@ -6,6 +6,7 @@
     clippy::needless_raw_string_hashes
 )]
 
+mod diagnostics;
 mod home_dashboard;
 mod home_event_projection;
 mod media_content;
@@ -14,6 +15,7 @@ pub mod test_support;
 use std::{env, sync::Arc};
 
 use axum::Router;
+use diagnostics::record_http_network;
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_auth_application::auth::{AuthService, AuthServiceConfig};
 use maohuoban_auth_http::auth::build_auth_router;
@@ -167,7 +169,8 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
         .merge(build_pet_router(pet_service, auth_service.clone()))
-        .merge(build_samecity_router(samecity_service, auth_service));
+        .merge(build_samecity_router(samecity_service, auth_service))
+        .layer(axum::middleware::from_fn(record_http_network));
 
     Ok(BackendApp {
         router,

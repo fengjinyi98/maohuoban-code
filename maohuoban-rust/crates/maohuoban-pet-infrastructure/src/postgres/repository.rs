@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use maohuoban_pet_application::pet::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
-    NewPetProfile, PendingPetMediaUploadInput, PetRepository, RestorePetProfile, TradePetImport,
-    TradePetImportInput, UpdatePetProfile,
+    NewPetProfile, PendingPetMediaUploadInput, PetProfileDiagnostics, PetRepository,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile, record_pet_profile,
 };
 use maohuoban_pet_domain::pet::{
     PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
@@ -131,6 +131,16 @@ fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) ->
 impl PetRepository for PostgresPetRepository {
     async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
         let pet_id = Uuid::new_v4();
+        let owner_user_id = input.owner_user_id;
+        let breed = input.breed.clone();
+        record_pet_profile(PetProfileDiagnostics {
+            stage: "repository.insert_start",
+            action: "create",
+            user_id: owner_user_id,
+            pet_id: Some(pet_id),
+            breed: breed.as_deref(),
+            success: true,
+        });
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
         let row = sqlx::query_as::<_, PetProfileRow>(
             r#"
@@ -183,7 +193,7 @@ impl PetRepository for PostgresPetRepository {
             "#,
         )
         .bind(pet_id)
-        .bind(input.owner_user_id)
+        .bind(owner_user_id)
         .bind(input.name)
         .bind(input.species.as_str())
         .bind(input.breed)
@@ -207,7 +217,7 @@ impl PetRepository for PostgresPetRepository {
             Self::bind_uploaded_media_in_transaction(
                 &mut transaction,
                 pet_id,
-                input.owner_user_id,
+                owner_user_id,
                 asset_id,
             )
             .await?;
@@ -216,7 +226,7 @@ impl PetRepository for PostgresPetRepository {
             Self::bind_uploaded_media_in_transaction(
                 &mut transaction,
                 pet_id,
-                input.owner_user_id,
+                owner_user_id,
                 asset_id,
             )
             .await?;
@@ -229,14 +239,23 @@ impl PetRepository for PostgresPetRepository {
             .map_err(to_infrastructure_error)?;
 
         let pet = if has_media_assets {
-            self.find_pet_for_owner(pet_id, input.owner_user_id)
+            self.find_pet_for_owner(pet_id, owner_user_id)
                 .await?
                 .ok_or(PetError::PetNotFound)?
         } else {
             pet
         };
 
-        self.attach_name_edit_policy(pet).await
+        let pet = self.attach_name_edit_policy(pet).await?;
+        record_pet_profile(PetProfileDiagnostics {
+            stage: "repository.inserted",
+            action: "create",
+            user_id: owner_user_id,
+            pet_id: Some(pet.id),
+            breed: pet.breed.as_deref(),
+            success: true,
+        });
+        Ok(pet)
     }
 
     async fn find_pet_for_owner(
@@ -338,6 +357,17 @@ impl PetRepository for PostgresPetRepository {
     }
 
     async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
+        let owner_user_id = input.owner_user_id;
+        let pet_id = input.pet_id;
+        let breed = input.breed.clone();
+        record_pet_profile(PetProfileDiagnostics {
+            stage: "repository.update_start",
+            action: "update",
+            user_id: owner_user_id,
+            pet_id: Some(pet_id),
+            breed: breed.as_deref(),
+            success: true,
+        });
         let current = load_pet_profile_for_update(&self.pool, input.pet_id, input.owner_user_id)
             .await?
             .ok_or(PetError::PetNotFound)?;
@@ -430,7 +460,16 @@ impl PetRepository for PostgresPetRepository {
                 .await?;
         }
 
-        self.attach_name_edit_policy(row.try_into()?).await
+        let pet = self.attach_name_edit_policy(row.try_into()?).await?;
+        record_pet_profile(PetProfileDiagnostics {
+            stage: "repository.updated",
+            action: "update",
+            user_id: owner_user_id,
+            pet_id: Some(pet.id),
+            breed: pet.breed.as_deref(),
+            success: true,
+        });
+        Ok(pet)
     }
 
     async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile> {

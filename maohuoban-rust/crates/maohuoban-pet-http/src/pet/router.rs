@@ -13,6 +13,10 @@ use maohuoban_pet_application::pet::PetService;
 use uuid::Uuid;
 
 use super::{
+    diagnostics::{
+        record_binding_http_request, record_binding_http_response, record_profile_http,
+        record_profile_http_response, record_upload_http_request, record_upload_http_response,
+    },
     dto::{
         BindUploadedPetMediaRequest, CreateMerchantPetRequest, CreatePetEventRequest,
         CreatePetProfileRequest, DeletePetProfileRequest, MerchantAvailableStatusData,
@@ -144,12 +148,23 @@ async fn update_pet_profile(
     };
 
     let input = request.into_input(pet_id, owner_user_id);
+    record_profile_http(
+        "http.request",
+        "update",
+        owner_user_id,
+        Some(pet_id),
+        input.breed.as_deref(),
+        true,
+    );
     match state.pet.update_pet_profile(input).await {
-        Ok(profile) => ok_response(
-            "pet.updated",
-            "宠物档案已更新",
-            PetProfileData::from(profile),
-        ),
+        Ok(profile) => {
+            record_profile_http_response("update", owner_user_id, &profile);
+            ok_response(
+                "pet.updated",
+                "宠物档案已更新",
+                PetProfileData::from(profile),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }
@@ -212,12 +227,16 @@ async fn upload_pending_pet_avatar(
         Err(error) => return error_response(&error),
     };
     let input = request.into_pending_avatar_input(owner_user_id);
+    record_upload_http_request(&input);
     match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => created_response(
-            "pet.media_uploaded",
-            "媒体已上传",
-            PetMediaUploadData::from(upload),
-        ),
+        Ok(upload) => {
+            record_upload_http_response(owner_user_id, &upload);
+            created_response(
+                "pet.media_uploaded",
+                "媒体已上传",
+                PetMediaUploadData::from(upload),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }
@@ -233,12 +252,16 @@ async fn bind_uploaded_pet_media(
     };
 
     let input = request.into_input(pet_id, owner_user_id);
+    record_binding_http_request(&input);
     match state.pet.bind_uploaded_pet_media(input).await {
-        Ok(upload) => created_response(
-            "pet.media_bound",
-            "宠物媒体已保存",
-            PetMediaUploadData::from(upload),
-        ),
+        Ok(upload) => {
+            record_binding_http_response(owner_user_id, pet_id, &upload);
+            created_response(
+                "pet.media_bound",
+                "宠物媒体已保存",
+                PetMediaUploadData::from(upload),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }
@@ -257,12 +280,16 @@ async fn upload_pending_pet_background_image(
         Err(error) => return error_response(&error),
     };
     let input = request.into_pending_background_image_input(owner_user_id);
+    record_upload_http_request(&input);
     match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => created_response(
-            "pet.media_uploaded",
-            "媒体已上传",
-            PetMediaUploadData::from(upload),
-        ),
+        Ok(upload) => {
+            record_upload_http_response(owner_user_id, &upload);
+            created_response(
+                "pet.media_uploaded",
+                "媒体已上传",
+                PetMediaUploadData::from(upload),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }
@@ -281,12 +308,16 @@ async fn upload_pending_pet_background_video(
         Err(error) => return error_response(&error),
     };
     let input = request.into_pending_background_video_input(owner_user_id);
+    record_upload_http_request(&input);
     match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => created_response(
-            "pet.media_uploaded",
-            "媒体已上传",
-            PetMediaUploadData::from(upload),
-        ),
+        Ok(upload) => {
+            record_upload_http_response(owner_user_id, &upload);
+            created_response(
+                "pet.media_uploaded",
+                "媒体已上传",
+                PetMediaUploadData::from(upload),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }
@@ -301,12 +332,23 @@ async fn create_pet_profile(
     };
 
     let input = request.into_new_pet_profile(owner_user_id);
+    record_profile_http(
+        "http.request",
+        "create",
+        owner_user_id,
+        None,
+        input.breed.as_deref(),
+        true,
+    );
     match state.pet.create_pet_profile(input).await {
-        Ok(profile) => created_response(
-            "pet.created",
-            "宠物档案已创建",
-            PetProfileData::from(profile),
-        ),
+        Ok(profile) => {
+            record_profile_http_response("create", owner_user_id, &profile);
+            created_response(
+                "pet.created",
+                "宠物档案已创建",
+                PetProfileData::from(profile),
+            )
+        }
         Err(error) => error_response(&error),
     }
 }

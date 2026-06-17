@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import MaohuobanDiagnostics
 import UIKit
 
 extension PetProfileAddScreen {
@@ -161,6 +162,16 @@ extension PetProfileAddScreen {
         guard let video = result.videos.first else {
             return
         }
+        Task {
+            await Diagnostics.track(
+                "pet.background_video_picker_selected",
+                properties: [
+                    "mode": "add",
+                    "file_extension": .string(video.url.pathExtension.lowercased()),
+                    "is_file_url": .bool(video.url.isFileURL)
+                ]
+            )
+        }
         localHeroMedia = .video(video.url)
         Task { await uploadLocalBackgroundVideo(url: video.url) }
     }
@@ -285,10 +296,27 @@ extension PetProfileAddScreen {
     }
 
     func backgroundVideoUploadDraft(from url: URL, fileNamePrefix: String) async -> PetMediaUploadDraft? {
+        await Diagnostics.track(
+            "pet.background_video_draft_read_started",
+            properties: [
+                "mode": "add",
+                "file_extension": .string(url.pathExtension.lowercased()),
+                "is_file_url": .bool(url.isFileURL)
+            ]
+        )
         let videoData = await Task.detached(priority: .userInitiated) {
             try? Data(contentsOf: url)
         }.value
         let fileName = url.lastPathComponent.isEmpty ? "\(fileNamePrefix).mp4" : url.lastPathComponent
+        await Diagnostics.track(
+            "pet.background_video_draft_read_completed",
+            properties: [
+                "mode": "add",
+                "file_extension": .string(url.pathExtension.lowercased()),
+                "has_data": .bool(videoData?.isEmpty == false),
+                "byte_size": .int(videoData?.count ?? 0)
+            ]
+        )
 
         return mediaUploadDraft(
             data: videoData,
@@ -373,6 +401,16 @@ extension PetProfileAddScreen {
 
     func submit() async {
         let bindings = mediaUploadStore.uploadedBindings
+        await Diagnostics.track(
+            "pet.create_submit_started",
+            properties: [
+                "user_id_prefix": .string(currentUserID?.diagnosticsPrefix ?? ""),
+                "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count),
+                "has_avatar_asset": .bool(bindings.avatarAssetID != nil),
+                "has_background_asset": .bool(bindings.backgroundAssetID != nil),
+                "background_media_kind": .string(localHeroMedia?.diagnosticsKind ?? "")
+            ]
+        )
         await store.createPetWithUploadedMedia(
             draft: PetProfileDraft(
                 name: name,
@@ -392,8 +430,43 @@ extension PetProfileAddScreen {
         )
 
         if case .createdPet(let petID) = store.phase {
+            await Diagnostics.track(
+                "pet.create_submit_succeeded",
+                properties: [
+                    "pet_id_prefix": .string(petID.diagnosticsPrefix),
+                    "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count),
+                    "has_avatar_asset": .bool(bindings.avatarAssetID != nil),
+                    "has_background_asset": .bool(bindings.backgroundAssetID != nil)
+                ]
+            )
             onCreated(petID)
             dismiss()
+        } else if case .failed = store.phase {
+            await Diagnostics.track(
+                "pet.create_submit_failed",
+                properties: [
+                    "breed_length_non_whitespace": .int(breed.filter { !$0.isWhitespace }.count),
+                    "has_avatar_asset": .bool(bindings.avatarAssetID != nil),
+                    "has_background_asset": .bool(bindings.backgroundAssetID != nil)
+                ]
+            )
+        }
+    }
+}
+
+private extension String {
+    var diagnosticsPrefix: String {
+        String(prefix(8))
+    }
+}
+
+private extension PetProfileHeroMediaDraft {
+    var diagnosticsKind: String {
+        switch self {
+        case .image:
+            "image"
+        case .video:
+            "video"
         }
     }
 }

@@ -177,35 +177,28 @@ struct MHBHTTPClient {
     private func send<ResponseBody: Decodable>(
         _ request: URLRequest
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        let startedAt = Date()
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            await recordNetworkSummary(
+                request: request,
+                response: nil,
+                responseData: nil,
+                startedAt: startedAt,
+                error: error.localizedDescription
+            )
             throw .transport(error.localizedDescription)
         }
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw .invalidResponse
-        }
-
-        do {
-            let apiResponse = try decoder.decode(MHBAPIResponse<ResponseBody>.self, from: data)
-            if apiResponse.success, (200..<300).contains(httpResponse.statusCode) {
-                return apiResponse
-            }
-            let apiError = MHBAPIError.business(
-                code: apiResponse.code,
-                message: apiResponse.message,
-                statusCode: httpResponse.statusCode
-            )
-            postAuthenticationInvalidationIfNeeded(apiError)
-            throw apiError
-        } catch let apiError as MHBAPIError {
-            throw apiError
-        } catch {
-            throw .decoding(error.localizedDescription)
-        }
+        return try await decodeResponse(
+            data: data,
+            response: response,
+            request: request,
+            startedAt: startedAt
+        )
     }
 
     private func sendUpload<ResponseBody: Decodable>(
@@ -223,6 +216,7 @@ struct MHBHTTPClient {
             delegateQueue: nil
         )
 
+        let startedAt = Date()
         let result: Result<(Data, URLResponse), MHBAPIError> = await withCheckedContinuation { continuation in
             let task = uploadSession.uploadTask(with: uploadRequest, from: body) { data, response, error in
                 uploadSession.finishTasksAndInvalidate()
@@ -245,22 +239,57 @@ struct MHBHTTPClient {
         case .success(let value):
             (data, response) = value
         case .failure(let error):
+            await recordNetworkSummary(
+                request: uploadRequest,
+                response: nil,
+                responseData: nil,
+                requestBodyBytes: body.count,
+                startedAt: startedAt,
+                error: error.diagnosticsSummary
+            )
             throw error
         }
 
-        return try decodeResponse(data: data, response: response)
+        return try await decodeResponse(
+            data: data,
+            response: response,
+            request: uploadRequest,
+            requestBodyBytes: body.count,
+            startedAt: startedAt
+        )
     }
 
     private func decodeResponse<ResponseBody: Decodable>(
         data: Data,
-        response: URLResponse
-    ) throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        response: URLResponse,
+        request: URLRequest,
+        requestBodyBytes: Int? = nil,
+        startedAt: Date
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         guard let httpResponse = response as? HTTPURLResponse else {
+            await recordNetworkSummary(
+                request: request,
+                response: response,
+                responseData: data,
+                requestBodyBytes: requestBodyBytes,
+                startedAt: startedAt,
+                error: "invalid_response"
+            )
             throw .invalidResponse
         }
 
         do {
             let apiResponse = try decoder.decode(MHBAPIResponse<ResponseBody>.self, from: data)
+            await recordNetworkSummary(
+                request: request,
+                response: response,
+                responseData: data,
+                requestBodyBytes: requestBodyBytes,
+                startedAt: startedAt,
+                apiCode: apiResponse.code,
+                apiSuccess: apiResponse.success,
+                error: apiResponse.success ? nil : "api_response_failed"
+            )
             if apiResponse.success, (200..<300).contains(httpResponse.statusCode) {
                 return apiResponse
             }
@@ -274,6 +303,14 @@ struct MHBHTTPClient {
         } catch let apiError as MHBAPIError {
             throw apiError
         } catch {
+            await recordNetworkSummary(
+                request: request,
+                response: response,
+                responseData: data,
+                requestBodyBytes: requestBodyBytes,
+                startedAt: startedAt,
+                error: "decode_failed"
+            )
             throw .decoding(error.localizedDescription)
         }
     }
