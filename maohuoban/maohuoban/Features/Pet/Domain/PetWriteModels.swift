@@ -229,6 +229,20 @@ struct PetMediaUploadDraft: Equatable {
     let sourceClient: String
 }
 
+// PetCreateMediaDrafts 添加宠物媒体上传草稿集合
+// 核心职责：
+// - 承载添加宠物保存时可选的头像和背景媒体
+// - 让 Store 在创建成功后按宠物 ID 串联上传媒体
+struct PetCreateMediaDrafts: Equatable {
+    let avatar: PetMediaUploadDraft?
+    let backgroundImage: PetMediaUploadDraft?
+    let backgroundVideo: PetMediaUploadDraft?
+
+    var isEmpty: Bool {
+        avatar == nil && backgroundImage == nil && backgroundVideo == nil
+    }
+}
+
 // PetMediaUploadResult 宠物媒体上传结果
 // 核心职责：
 // - 承接媒体资产元数据

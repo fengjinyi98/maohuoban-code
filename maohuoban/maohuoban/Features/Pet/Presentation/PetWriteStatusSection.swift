@@ -29,6 +29,12 @@ struct PetWriteStatusSection: View {
                     )
                 }
             }
+        case .createdPetWithPartialMedia:
+            PetWriteStatusBanner(
+                systemImage: "exclamationmark.triangle.fill",
+                title: successMessage ?? "档案已创建，部分媒体保存失败",
+                color: MHBTheme.ColorToken.warning.color
+            )
         case .failed(let message):
             PetWriteStatusBanner(
                 systemImage: "exclamationmark.triangle.fill",

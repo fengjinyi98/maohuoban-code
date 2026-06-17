@@ -55,6 +55,52 @@ final class PetWriteStore {
         }
     }
 
+    func createPetWithMedia(
+        draft: PetProfileDraft,
+        mediaDrafts: PetCreateMediaDrafts,
+        currentUserID: String?
+    ) async {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return
+        }
+        guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            phase = .failed("请输入宠物名字")
+            return
+        }
+        guard phase != .submitting else { return }
+
+        phase = .submitting
+        successMessage = nil
+        mediaDerivativeMessage = nil
+        do {
+            let response = try await repository.createPet(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+            guard let profile = response.data else {
+                phase = .failed("宠物数据为空")
+                return
+            }
+
+            let mediaResult = await uploadCreatedPetMedia(
+                petID: profile.id,
+                mediaDrafts: mediaDrafts,
+                currentUserID: currentUserID
+            )
+            mediaDerivativeMessage = mediaResult.derivativeMessage
+            if mediaResult.hasFailure {
+                successMessage = "档案已创建，部分媒体保存失败"
+                phase = .createdPetWithPartialMedia(profile.id)
+            } else {
+                successMessage = mediaDrafts.isEmpty ? response.message : "宠物档案和媒体已保存"
+                phase = .createdPet(profile.id)
+            }
+        } catch {
+            phase = .failed(error.toastMessage)
+        }
+    }
+
     func createEvent(
         petID: String?,
         draft: PetEventDraft,
@@ -294,6 +340,86 @@ final class PetWriteStore {
             phase = .failed(error.toastMessage)
         }
     }
+
+    private func uploadCreatedPetMedia(
+        petID: String,
+        mediaDrafts: PetCreateMediaDrafts,
+        currentUserID: String
+    ) async -> PetCreatedMediaUploadResult {
+        var hasFailure = false
+        var derivativeMessage: String?
+
+        if let avatar = mediaDrafts.avatar {
+            let result = await uploadCreatedPetMediaItem(
+                petID: petID,
+                draft: avatar,
+                currentUserID: currentUserID,
+                perform: repository.uploadAvatar
+            )
+            hasFailure = hasFailure || result.hasFailure
+            derivativeMessage = result.derivativeMessage ?? derivativeMessage
+        }
+
+        if let backgroundImage = mediaDrafts.backgroundImage {
+            let result = await uploadCreatedPetMediaItem(
+                petID: petID,
+                draft: backgroundImage,
+                currentUserID: currentUserID,
+                perform: repository.uploadBackgroundImage
+            )
+            hasFailure = hasFailure || result.hasFailure
+            derivativeMessage = result.derivativeMessage ?? derivativeMessage
+        }
+
+        if let backgroundVideo = mediaDrafts.backgroundVideo {
+            let result = await uploadCreatedPetMediaItem(
+                petID: petID,
+                draft: backgroundVideo,
+                currentUserID: currentUserID,
+                perform: repository.uploadBackgroundVideo
+            )
+            hasFailure = hasFailure || result.hasFailure
+            derivativeMessage = result.derivativeMessage ?? derivativeMessage
+        }
+
+        return PetCreatedMediaUploadResult(
+            hasFailure: hasFailure,
+            derivativeMessage: derivativeMessage
+        )
+    }
+
+    private func uploadCreatedPetMediaItem(
+        petID: String,
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        perform: (String, PetMediaUploadDraft, String) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+    ) async -> PetCreatedMediaUploadResult {
+        guard !draft.content.isEmpty else {
+            return PetCreatedMediaUploadResult(hasFailure: true, derivativeMessage: nil)
+        }
+
+        do {
+            let response = try await perform(petID, draft, currentUserID)
+            guard let upload = response.data else {
+                return PetCreatedMediaUploadResult(hasFailure: true, derivativeMessage: nil)
+            }
+            return PetCreatedMediaUploadResult(
+                hasFailure: false,
+                derivativeMessage: upload.derivativeStatusMessage
+            )
+        } catch {
+            return PetCreatedMediaUploadResult(hasFailure: true, derivativeMessage: nil)
+        }
+    }
+}
+
+// PetCreatedMediaUploadResult 添加宠物后媒体上传结果
+// 核心职责：
+// - 汇总创建后媒体上传是否存在失败
+// - 携带背景派生资源提示供页面展示
+private struct PetCreatedMediaUploadResult: Equatable {
+    let hasFailure: Bool
+    let derivativeMessage: String?
 }
 
 // PetWritePhase 宠物写入阶段
@@ -309,6 +435,7 @@ enum PetWritePhase: Equatable {
     case updatedPet(String)
     case uploadedAvatar(String)
     case uploadedBackground(String)
+    case createdPetWithPartialMedia(String)
     case deletedPet(String)
     case failed(String)
 }

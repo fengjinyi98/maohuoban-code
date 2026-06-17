@@ -63,6 +63,84 @@ final class PetWriteStoreTests: XCTestCase {
         XCTAssertNil(repository.receivedCreateDraft)
     }
 
+    func testCreatePetWithMediaUploadsAvatarThenBackgroundAfterCreation() async {
+        let repository = CapturingPetRepository()
+        repository.createPetResult = .success(Self.createPetResponse())
+        repository.uploadAvatarResult = .success(Self.mediaUploadResponse(usageKind: .avatar))
+        repository.uploadBackgroundImageResult = .success(Self.mediaUploadResponse(usageKind: .backgroundImage))
+        let store = PetWriteStore(repository: repository)
+
+        await store.createPetWithMedia(
+            draft: PetProfileDraft(
+                name: "糯米",
+                species: .dog,
+                breed: "",
+                sex: .unknown,
+                birthday: ""
+            ),
+            mediaDrafts: PetCreateMediaDrafts(
+                avatar: PetMediaUploadDraft(
+                    fileName: "avatar.jpg",
+                    mimeType: "image/jpeg",
+                    content: Data("avatar-content".utf8),
+                    sourceClient: "ios"
+                ),
+                backgroundImage: PetMediaUploadDraft(
+                    fileName: "background.jpg",
+                    mimeType: "image/jpeg",
+                    content: Data("background-content".utf8),
+                    sourceClient: "ios"
+                ),
+                backgroundVideo: nil
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .createdPet("pet-1"))
+        XCTAssertEqual(store.successMessage, "宠物档案和媒体已保存")
+        XCTAssertEqual(repository.callOrder, ["create", "uploadAvatar:pet-1", "uploadBackgroundImage:pet-1"])
+        XCTAssertEqual(repository.receivedAvatarDraft?.content, Data("avatar-content".utf8))
+        XCTAssertEqual(repository.receivedBackgroundImageDraft?.fileName, "background.jpg")
+    }
+
+    func testCreatePetWithMediaKeepsCreatedPetWhenOneUploadFails() async {
+        let repository = CapturingPetRepository()
+        repository.createPetResult = .success(Self.createPetResponse())
+        repository.uploadAvatarResult = .failure(.business(code: "media.failed", message: "头像上传失败", statusCode: 500))
+        repository.uploadBackgroundImageResult = .success(Self.mediaUploadResponse(usageKind: .backgroundImage))
+        let store = PetWriteStore(repository: repository)
+
+        await store.createPetWithMedia(
+            draft: PetProfileDraft(
+                name: "糯米",
+                species: .dog,
+                breed: "",
+                sex: .unknown,
+                birthday: ""
+            ),
+            mediaDrafts: PetCreateMediaDrafts(
+                avatar: PetMediaUploadDraft(
+                    fileName: "avatar.jpg",
+                    mimeType: "image/jpeg",
+                    content: Data("avatar-content".utf8),
+                    sourceClient: "ios"
+                ),
+                backgroundImage: PetMediaUploadDraft(
+                    fileName: "background.jpg",
+                    mimeType: "image/jpeg",
+                    content: Data("background-content".utf8),
+                    sourceClient: "ios"
+                ),
+                backgroundVideo: nil
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(store.phase, .createdPetWithPartialMedia("pet-1"))
+        XCTAssertEqual(store.successMessage, "档案已创建，部分媒体保存失败")
+        XCTAssertEqual(repository.callOrder, ["create", "uploadAvatar:pet-1", "uploadBackgroundImage:pet-1"])
+    }
+
     func testRecordEventTransitionsToRecordedAndPassesUserContext() async {
         let repository = CapturingPetRepository()
         repository.createEventResult = .success(
@@ -402,6 +480,23 @@ final class PetWriteStoreTests: XCTestCase {
             )
         )
     }
+
+    private static func createPetResponse() -> MHBAPIResponse<PetProfileSummary> {
+        MHBAPIResponse(
+            success: true,
+            code: "pet.created",
+            message: "宠物档案已创建",
+            data: PetProfileSummary(
+                id: "pet-1",
+                ownerUserID: "user-1",
+                name: "糯米",
+                species: .dog,
+                breed: nil,
+                sex: .unknown,
+                birthday: nil
+            )
+        )
+    }
 }
 
 // CapturingPetRepository 宠物写入测试仓库
@@ -418,6 +513,7 @@ private final class CapturingPetRepository: PetRepository {
     var uploadBackgroundImageResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var uploadBackgroundVideoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var deletePetResult: Result<MHBAPIResponse<PetProfileSummary>, MHBAPIError> = .failure(.invalidResponse)
+    private(set) var callOrder: [String] = []
     private(set) var receivedCreateDraft: PetProfileDraft?
     private(set) var receivedCreateUserID: String?
     private(set) var receivedEventPetID: String?
@@ -445,6 +541,7 @@ private final class CapturingPetRepository: PetRepository {
         draft: PetProfileDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetProfileSummary> {
+        callOrder.append("create")
         receivedCreateDraft = draft
         receivedCreateUserID = currentUserID
         switch createPetResult {
@@ -499,6 +596,7 @@ private final class CapturingPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        callOrder.append("uploadAvatar:\(petID)")
         receivedAvatarPetID = petID
         receivedAvatarDraft = draft
         receivedAvatarUserID = currentUserID
@@ -515,6 +613,7 @@ private final class CapturingPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        callOrder.append("uploadBackgroundImage:\(petID)")
         receivedBackgroundImagePetID = petID
         receivedBackgroundImageDraft = draft
         receivedBackgroundImageUserID = currentUserID
@@ -531,6 +630,7 @@ private final class CapturingPetRepository: PetRepository {
         draft: PetMediaUploadDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        callOrder.append("uploadBackgroundVideo:\(petID)")
         receivedBackgroundVideoPetID = petID
         receivedBackgroundVideoDraft = draft
         receivedBackgroundVideoUserID = currentUserID
