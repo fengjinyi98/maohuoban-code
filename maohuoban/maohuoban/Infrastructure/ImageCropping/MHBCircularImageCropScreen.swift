@@ -34,7 +34,7 @@ struct MHBCircularImageCropScreen: View {
     var body: some View {
         GeometryReader { geometry in
             let viewportSize = geometry.size
-            let cropRadius = min(min(viewportSize.width, viewportSize.height) * 0.39, 170)
+            let cropRadius = max(viewportSize.width, 1) / 2
             let effectiveTopSafeArea = max(geometry.safeAreaInsets.top, windowSafeAreaInsets.top)
             let effectiveBottomSafeArea = max(geometry.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
             let topControlPadding = effectiveTopSafeArea + MHBTheme.Spacing.s1
