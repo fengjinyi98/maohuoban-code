@@ -162,7 +162,15 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 新增代码禁止引入新增警告。
 
-### 12.1 快速 UI 实现模式
+### 12.1 iOS 测试执行与 XCTestDevices 控制
+
+1. 日常 iOS App 代码验证默认执行 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build`。
+2. `xcodebuild test`、`build-for-testing`、UI Test 仅用于测试覆盖、业务规则回归、端到端交互验证或用户明确要求测试的场景。
+3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
+4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
+5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
+
+### 12.2 快速 UI 实现模式
 
 1. 当用户明确说明处于“快速 UI 实现 / UI 原型 / 先看效果”阶段时，可以暂时跳过 TDD。
 2. 快速 UI 实现模式只适用于前端展示层、静态 mock 数据、视觉布局和交互壳验证；不得用于后端接口、持久化、权限、安全、推荐算法和跨模块业务规则。

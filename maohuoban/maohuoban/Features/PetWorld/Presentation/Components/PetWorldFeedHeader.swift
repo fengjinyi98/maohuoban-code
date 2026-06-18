@@ -46,38 +46,30 @@ struct PetWorldFeedHeader: View {
 // - 展示推荐、关注、成长和经验频道
 // - 为后续真实分页筛选保留交互入口
 struct PetWorldFeedTabs: View {
-    let tabs: [PetWorldFeedTab]
-    let selectedTab: PetWorldFeedTab
-    let onSelect: (PetWorldFeedTab) -> Void
+    private let feedTabs: [PetWorldFeedTab]
+    @Binding private var selectedTab: PetWorldFeedTab
+    @State private var controlTabs: [PetWorldGlassSegmentedControl.Tab]
+
+    init(tabs: [PetWorldFeedTab], selectedTab: Binding<PetWorldFeedTab>) {
+        self.feedTabs = tabs
+        self._selectedTab = selectedTab
+        self._controlTabs = State(
+            initialValue: tabs.map { tab in
+                PetWorldGlassSegmentedControl.Tab(feedTab: tab)
+            }
+        )
+    }
 
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s2) {
-            ForEach(tabs) { tab in
-                Button {
-                    onSelect(tab)
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .regular))
-                        .foregroundStyle(tabForeground(for: tab))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(tabBackground(for: tab))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
+        PetWorldGlassSegmentedControl(
+            selection: $selectedTab,
+            tabs: $controlTabs
+        )
+        .onChange(of: feedTabs) { _, newValue in
+            controlTabs = newValue.map { tab in
+                PetWorldGlassSegmentedControl.Tab(feedTab: tab)
             }
         }
-        .padding(MHBTheme.Spacing.s1)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(Capsule())
-    }
-
-    private func tabForeground(for tab: PetWorldFeedTab) -> Color {
-        selectedTab == tab ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.labelSecondary.color
-    }
-
-    private func tabBackground(for tab: PetWorldFeedTab) -> Color {
-        selectedTab == tab ? MHBTheme.ColorToken.primaryBackground.color : .clear
     }
 }
 

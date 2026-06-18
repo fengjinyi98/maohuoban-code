@@ -2,7 +2,7 @@ import Foundation
 
 // DiagnosticsRemoteMirrorConfiguration 远端诊断镜像配置
 // 核心职责：
-// - 描述 Debug 真机诊断事件回流到开发机的接收端
+// - 描述 Debug 真机诊断事件回流到本地后端的接收端
 // - 为请求超时和附加头提供稳定配置入口
 public struct DiagnosticsRemoteMirrorConfiguration: Sendable, Equatable {
     public var endpoint: URL

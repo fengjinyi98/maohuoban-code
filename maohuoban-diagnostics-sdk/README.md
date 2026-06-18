@@ -257,6 +257,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 
 `--workspace-root` 默认读取 `<workspace>/.maohuoban-diagnostics/segments`，输出到 `<workspace>/.maohuoban-diagnostics/latest`。`--segments` 可以重复传入显式准备好的 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log` 事件，并识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记映射 `severity`，再按事件时间合并成同一个 timeline。
 
+Debug 真机回流由本地 Rust 后端 `/internal/diagnostics/ingest` 接收并写入同一个 workspace segments 目录。Collector 不启动常驻 HTTP 服务，只负责离线汇总、过滤、索引和导出。
+
 显式 `--output` 模式需要至少一种输入来源。SDK 还没接入某个进程时，可以只传 `--log-file` 生成 Debug Bundle，后续再逐步加入 `--segments`。
 
 Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`、`prompt_sha256`、`index_sha256`、`archive_path`。Swift SDK 的 manifest 使用 camelCase 字段：`timelineSHA256`、`promptSHA256`、`indexSHA256`、`archivePath`。

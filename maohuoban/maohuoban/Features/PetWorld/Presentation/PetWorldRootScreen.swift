@@ -11,29 +11,28 @@ struct PetWorldRootScreen: View {
     private let snapshot = PetWorldMockFeed.snapshot
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+        ZStack(alignment: .top) {
+            PetWorldFeedPager(
+                snapshot: snapshot,
+                selectedTab: $selectedTab,
+                topContentInset: PetWorldFeedLayout.pageTopContentInset
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: 0) {
                 PetWorldFeedTabs(
                     tabs: snapshot.tabs,
-                    selectedTab: selectedTab,
-                    onSelect: { selectedTab = $0 }
+                    selectedTab: $selectedTab
                 )
-
-                PetWorldHintChipRail(chips: snapshot.hintChips)
-
-                LazyVStack(spacing: MHBTheme.Spacing.s4) {
-                    ForEach(snapshot.items) { item in
-                        PetWorldFeedCard(item: item)
-                    }
-                }
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.top, MHBTheme.Spacing.s4)
-            .padding(.bottom, MHBTheme.Spacing.s8)
+            .padding(.top, PetWorldFeedLayout.tabTopPadding)
+            .zIndex(1)
         }
-        .background(MHBTheme.ColorToken.background.color)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 PetWorldSearchButton()
@@ -49,6 +48,18 @@ struct PetWorldRootScreen: View {
         }
         .accessibilityIdentifier("petWorld.root")
     }
+}
+
+// PetWorldFeedLayout 宠物世界首页布局常量
+// 核心职责：
+// - 统一固定频道栏和滚动内容之间的垂直关系
+// - 让内容起始位置避开频道栏，滚动时仍可进入并滚出顶层视窗
+private enum PetWorldFeedLayout {
+    static let tabTopPadding: CGFloat = MHBTheme.Spacing.s4
+    static let tabHeight: CGFloat = 50
+    static let tabBottomPadding: CGFloat = MHBTheme.Spacing.s2
+
+    static let pageTopContentInset: CGFloat = tabTopPadding + tabHeight + tabBottomPadding
 }
 
 // PetWorldSearchButton 宠物世界搜索入口

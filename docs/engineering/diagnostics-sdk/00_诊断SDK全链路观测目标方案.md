@@ -4,9 +4,9 @@
 
 ## 1. 结论
 
-当前 `maohuoban-diagnostics-sdk` 已经具备基础 SDK 能力：Swift/Rust 统一事件协议、JSONL segments 存储、隐私脱敏、采样、网络摘要、SwiftUI 页面/点击 modifier、Debug Bundle 导出、collector 汇总和真机 HTTP 回流原型。
+当前 `maohuoban-diagnostics-sdk` 已经具备基础 SDK 能力：Swift/Rust 统一事件协议、JSONL segments 存储、隐私脱敏、采样、网络摘要、SwiftUI 页面/点击 modifier、Debug Bundle 导出、collector 汇总和后端 Debug ingest 真机回流。
 
-当前最大问题集中在“SDK 尚未成为默认观测底座”。大量诊断仍依赖业务点位手写 `Diagnostics.track(...)`，事件命名和分层边界不统一，前后端 trace 未形成稳定闭环，真机回流默认走独立 collector 常驻服务，开发体验偏重。
+当前最大问题集中在“SDK 尚未成为默认观测底座”。大量诊断仍依赖业务点位手写 `Diagnostics.track(...)`，事件命名和分层边界不统一，前后端 trace 需要继续强化稳定闭环，开发体验需要围绕后端 ingest 和 collector 离线导出继续收敛。
 
 最终形态采用：
 
@@ -33,7 +33,7 @@ Collector
 |---|---|
 | SDK 是否独立常驻 | 默认不独立常驻 |
 | 真机回流入口 | 放入本地 Rust 后端 Debug ingest |
-| collector 角色 | 汇总、导出、离线分析、备用 ingest |
+| collector 角色 | 汇总、导出、离线分析 |
 | 原始存储 | 保留 `.maohuoban-diagnostics/segments/*.jsonl` |
 | 查询层 | 后续可加 SQLite 派生索引 |
 | 性能策略 | 热路径只入队，后台落盘，队列满时丢弃低优先级事件 |
@@ -55,13 +55,12 @@ Collector
 | Rust JSONL 存储 | 文件追加、分段、清理、损坏行恢复 | `maohuoban-diagnostics-sdk/rust/src/storage/file_segment_store.rs` |
 | 后端 HTTP middleware | 已记录 method/path/status/duration/query_count/authorization presence | `maohuoban-rust/src/diagnostics.rs` |
 | collector | 汇总 segments、外部日志、导出 Debug Bundle | `maohuoban-diagnostics-sdk/collector/` |
-| collector ingest 原型 | `POST /ingest` 接收真机回流并写 segments | `maohuoban-diagnostics-sdk/collector/src/remote_ingest.rs` |
+| 后端 Debug ingest | `POST /internal/diagnostics/ingest` 接收真机回流并写 segments | `maohuoban-rust/src/diagnostics.rs` |
 
 ### 2.2 主要问题
 
 | 优先级 | 问题 | 影响 |
 |---|---|---|
-| P0 | 真机 Debug 回流默认指向 collector `:18081/ingest`，后端未提供 `/internal/diagnostics/ingest` | 开发时多一个常驻服务，前后端全链路不够顺手 |
 | P0 | Swift/Rust 写入路径是同步文件追加，尚未抽象为 bounded queue + background writer | 高频场景可能把诊断 IO 带入业务路径 |
 | P0 | `CapturePolicy` 默认 `maxMessageLength` 和 `maxMetadataValueLength` 为 `.max` | 快速开发阶段容易写入超大 metadata |
 | P0 | 全局 `URLProtocol` 和 `MHBHTTPClient` 均具备网络采集路径 | 配置错误时可能重复记录，trace 归属也容易分裂 |

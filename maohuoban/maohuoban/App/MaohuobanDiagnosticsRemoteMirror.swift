@@ -3,7 +3,7 @@ import MaohuobanDiagnostics
 
 // MaohuobanDiagnosticsRemoteMirror 真机诊断回流配置
 // 核心职责：
-// - 为 Debug 真机把诊断事件镜像到开发机 collector
+// - 为 Debug 真机把诊断事件镜像到本地后端 Debug ingest
 // - 支持环境变量覆盖接收端地址
 enum MaohuobanDiagnosticsRemoteMirror {
     private static let endpointEnvironmentKey = "MAOHUOBAN_DIAGNOSTICS_REMOTE_INGEST_URL"

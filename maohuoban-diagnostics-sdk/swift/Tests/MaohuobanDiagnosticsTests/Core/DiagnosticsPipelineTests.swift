@@ -6,7 +6,7 @@ import Foundation
 struct DiagnosticsPipelineTests {
     @Test("远端镜像配置会生成标准 ingest 请求")
     func remoteMirrorConfigurationBuildsIngestRequest() throws {
-        let endpoint = try #require(URL(string: "http://127.0.0.1:18081/ingest"))
+        let endpoint = try #require(URL(string: "http://127.0.0.1:8080/internal/diagnostics/ingest"))
         let configuration = DiagnosticsRemoteMirrorConfiguration(
             endpoint: endpoint,
             headers: ["X-Diagnostics-Source": "ios-device"],

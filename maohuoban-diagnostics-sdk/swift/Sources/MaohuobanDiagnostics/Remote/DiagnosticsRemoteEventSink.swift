@@ -2,7 +2,7 @@ import Foundation
 
 // DiagnosticsRemoteEventSink 远端诊断事件镜像发送器
 // 核心职责：
-// - 将本地已采集事件异步回流到开发机 collector
+// - 将本地已采集事件异步回流到本地后端 Debug ingest
 // - 使用独立 URLSession 避免诊断请求再次触发全局网络采集
 actor DiagnosticsRemoteEventSink {
     private let configuration: DiagnosticsRemoteMirrorConfiguration
