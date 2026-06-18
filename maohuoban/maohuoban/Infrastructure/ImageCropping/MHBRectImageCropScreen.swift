@@ -18,6 +18,7 @@ struct MHBRectImageCropScreen: View {
     @State private var tempOffset: CGSize = .zero
     @State private var tempScale: CGFloat = 1
     @State private var isInteracting = false
+    @State private var isDismissing = false
     @State private var windowSafeAreaInsets: UIEdgeInsets = .zero
 
     init(
@@ -113,12 +114,15 @@ struct MHBRectImageCropScreen: View {
                 .allowsHitTesting(false)
             }
         }
+        .ignoresSafeArea()
         .toolbar(.hidden, for: .tabBar)
     }
 
     private var topBar: some View {
         HStack {
-            Button(action: onCancel) {
+            Button(action: {
+                handleCancel(source: "top")
+            }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
@@ -174,7 +178,9 @@ struct MHBRectImageCropScreen: View {
         cropFrameSize: CGSize
     ) -> some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("取消", action: onCancel)
+            Button("取消") {
+                handleCancel(source: "bottom")
+            }
                 .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(.white)
                 .frame(height: 48)
@@ -205,6 +211,29 @@ struct MHBRectImageCropScreen: View {
             width: cropWidth,
             height: cropWidth / cropAspectRatio
         )
+    }
+
+    private func handleCancel(source: String) {
+        guard !isDismissing else {
+            return
+        }
+        isDismissing = true
+        resetCropStateForDismissal()
+        DispatchQueue.main.async {
+            onCancel()
+        }
+    }
+
+    private func resetCropStateForDismissal() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            imageOffset = .zero
+            imageScale = 1
+            tempOffset = .zero
+            tempScale = 1
+            isInteracting = false
+        }
     }
 
     private func cropResult(

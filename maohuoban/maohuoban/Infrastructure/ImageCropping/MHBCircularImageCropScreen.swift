@@ -17,6 +17,7 @@ struct MHBCircularImageCropScreen: View {
     @State private var tempOffset: CGSize = .zero
     @State private var tempScale: CGFloat = 1
     @State private var isInteracting = false
+    @State private var isDismissing = false
     @State private var windowSafeAreaInsets: UIEdgeInsets = .zero
 
     init(
@@ -94,12 +95,15 @@ struct MHBCircularImageCropScreen: View {
                 .allowsHitTesting(false)
             }
         }
+        .ignoresSafeArea()
         .toolbar(.hidden, for: .tabBar)
     }
 
     private var topBar: some View {
         HStack {
-            Button(action: onCancel) {
+            Button(action: {
+                handleCancel(source: "top")
+            }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
@@ -155,7 +159,9 @@ struct MHBCircularImageCropScreen: View {
         cropRadius: CGFloat
     ) -> some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("取消", action: onCancel)
+            Button("取消") {
+                handleCancel(source: "bottom")
+            }
                 .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(.white)
                 .frame(height: 48)
@@ -177,6 +183,29 @@ struct MHBCircularImageCropScreen: View {
             .frame(height: 48)
             .padding(.horizontal, MHBTheme.Spacing.s6)
             .background(MHBTheme.ColorToken.primary.color, in: .rect(cornerRadius: MHBTheme.Radius.large))
+        }
+    }
+
+    private func handleCancel(source: String) {
+        guard !isDismissing else {
+            return
+        }
+        isDismissing = true
+        resetCropStateForDismissal()
+        DispatchQueue.main.async {
+            onCancel()
+        }
+    }
+
+    private func resetCropStateForDismissal() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            imageOffset = .zero
+            imageScale = 1
+            tempOffset = .zero
+            tempScale = 1
+            isInteracting = false
         }
     }
 
@@ -221,6 +250,7 @@ struct MHBCircularImageCropScreen: View {
             image.draw(in: rect)
         }
     }
+
 }
 
 // MHBCircularCropMaskOverlay 圆形裁剪遮罩
