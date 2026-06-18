@@ -1,222 +1,213 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// PetWorldFeedCard 宠物世界信息流卡片
+// PetWorldFeedCard 宠物世界 Feed 卡片
 // 核心职责：
-// - 展示单条宠物事件内容
-// - 保持宠物身份、内容主体和推荐解释的轻重层级
+// - 呈现头像、作者、场景文案、媒体内容和互动数据
+// - 复刻参考 HTML 的大圆角图片、轻内描边和低对比操作区
 struct PetWorldFeedCard: View {
-    let item: PetWorldFeedItem
+    let card: PetWorldFeedItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            PetWorldPetIdentityHeader(
-                pet: item.pet,
-                authorName: item.authorName
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3 + MHBTheme.Spacing.s1 / 2) {
+            PetWorldFeedCardHeader(
+                title: card.petName ?? card.authorName,
+                authorName: card.authorName,
+                publishedAt: card.publishedAt,
+                avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
             )
 
-            PetWorldMediaPreview(media: item.media)
+            Text(card.text)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
-            PetWorldCardText(
-                text: item.text,
-                topics: item.topics
-            )
+            PetWorldFeedCardMedia(assetName: card.mediaAssetName)
 
-            PetWorldInteractionBar(
-                reactions: item.reactions,
-                badge: item.badge
+            PetWorldFeedCardActions(
+                isLiked: card.isLiked,
+                likeCount: card.likeCount,
+                repostCount: card.repostCount,
+                commentCount: card.commentCount
             )
         }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.card.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 0.5)
-        }
+        .accessibilityElement(children: .contain)
     }
 }
 
-// PetWorldPetIdentityHeader 宠物事件主身份头部
+// PetWorldFeedCardHeader Feed 卡片头部
 // 核心职责：
-// - 让宠物成为卡片主身份
-// - 将人类作者弱化为次级署名
-struct PetWorldPetIdentityHeader: View {
-    let pet: PetWorldPetSummary
+// - 展示宠物头像、宠物名称和发帖人时间信息
+// - 承载更多操作入口的视觉占位
+private struct PetWorldFeedCardHeader: View {
+    let title: String
     let authorName: String
+    let publishedAt: Date
+    let avatarAssetName: String
 
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-            Image(systemName: pet.systemImage)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .frame(width: 46, height: 46)
-                .background(MHBTheme.ColorToken.primaryBackground.color)
+            Image(avatarAssetName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: PetWorldFeedCardMetrics.avatarSize, height: PetWorldFeedCardMetrics.avatarSize)
                 .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
-                    Text(pet.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                    Text("@\(authorName)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .overlay {
+                    Circle()
+                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
                 }
 
-                Text("\(pet.breed) · \(pet.ageStage)")
-                    .font(.system(size: 13, weight: .regular))
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1 / 2) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .lineLimit(1)
+
+                Text("by \(authorName) · \(publishedAt, format: MHBUTCDateDisplayFormatter.localShortDateTimeStyle())")
+                    .font(MHBTheme.Typography.footnote)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .lineLimit(1)
             }
+            .layoutPriority(1)
 
             Spacer(minLength: MHBTheme.Spacing.s2)
 
             Button {
-                // TODO: 接入关注宠物动作。
+                // 待接入卡片更多操作。
             } label: {
-                MHBTagView(
-                    "关注",
-                    style: .primary,
-                    size: .medium
-                )
+                Image(systemName: "ellipsis")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("更多")
         }
     }
 }
 
-// PetWorldMediaPreview 宠物事件媒体占位
+// PetWorldFeedCardMedia Feed 卡片媒体图
 // 核心职责：
-// - 在快速 UI 阶段呈现图片 / 视频主体区域
-// - 后续替换为真实媒体渲染组件
-struct PetWorldMediaPreview: View {
-    let media: PetWorldMediaPresentation
+// - 展示参考 HTML 风格的大圆角图片
+// - 使用轻量内描边增强图片边界
+private struct PetWorldFeedCardMedia: View {
+    let assetName: String
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: media.tone.gradientColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        GeometryReader { proxy in
+            Image(assetName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .clipped()
+        }
+        .aspectRatio(PetWorldFeedCardMetrics.mediaAspectRatio, contentMode: .fit)
+        .background(MHBTheme.ColorToken.separatorSoft.color)
+        .clipShape(PetWorldFeedCardMetrics.mediaShape)
+        .overlay {
+            PetWorldFeedCardMetrics.mediaShape
+                .strokeBorder(
+                    MHBTheme.ColorToken.labelPrimary.color.opacity(0.06),
+                    lineWidth: PetWorldFeedCardMetrics.mediaInnerBorderWidth
+                )
+        }
+    }
+}
 
-            Image(systemName: media.systemImage)
-                .font(.system(size: 54, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.86))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+// PetWorldFeedCardActions Feed 卡片互动区
+// 核心职责：
+// - 展示点赞、转发、评论和分享入口
+// - 保持参考 HTML 的轻量低对比图标文本组合
+private struct PetWorldFeedCardActions: View {
+    let isLiked: Bool
+    let likeCount: Int
+    let repostCount: Int
+    let commentCount: Int
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                Text(media.title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+    var body: some View {
+        HStack(alignment: .center) {
+            HStack(spacing: PetWorldFeedCardMetrics.actionItemSpacing) {
+                PetWorldFeedActionItem(
+                    systemImage: isLiked ? "heart.fill" : "heart",
+                    value: likeCount,
+                    isHighlighted: isLiked
+                )
 
-                Text(media.subtitle)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.78))
+                PetWorldFeedActionItem(
+                    systemImage: "arrow.2.squarepath",
+                    value: repostCount,
+                    isHighlighted: false
+                )
+
+                PetWorldFeedActionItem(
+                    systemImage: "bubble.right",
+                    value: commentCount,
+                    isHighlighted: false
+                )
             }
-            .padding(MHBTheme.Spacing.s4)
-        }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1.35, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-    }
-}
 
-// PetWorldCardText 宠物事件正文和话题
-// 核心职责：
-// - 展示事件正文摘要
-// - 使用话题承接经验聚合和搜索
-struct PetWorldCardText: View {
-    let text: String
-    let topics: [String]
+            Spacer()
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-            Text(text)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .lineSpacing(3)
-                .lineLimit(3)
-
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                ForEach(topics, id: \.self) { topic in
-                    Text("#\(topic)")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                }
+            Button {
+                // 待接入卡片分享。
+            } label: {
+                Image(systemName: "paperplane")
+                    .font(.system(size: MHBTheme.IconSize.small + MHBTheme.Spacing.s1 / 2, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
+                    .contentShape(Circle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("分享")
         }
-    }
-}
-
-// PetWorldInteractionBar 宠物事件互动和推荐短标签
-// 核心职责：
-// - 展示点赞、评论和收藏入口
-// - 以低干扰短标签展示推荐原因
-struct PetWorldInteractionBar: View {
-    let reactions: PetWorldReactionSummary
-    let badge: PetWorldRecommendationBadge
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s4) {
-            PetWorldInteractionMetric(
-                systemImage: "heart",
-                value: reactions.likeCount
-            )
-
-            PetWorldInteractionMetric(
-                systemImage: "bubble.left",
-                value: reactions.commentCount
-            )
-
-            PetWorldInteractionMetric(
-                systemImage: "bookmark",
-                value: reactions.saveCount
-            )
-
-            Spacer(minLength: MHBTheme.Spacing.s2)
-
-            PetWorldRecommendationBadgeView(badge: badge)
-        }
+        .padding(.horizontal, MHBTheme.Spacing.s2)
         .padding(.top, MHBTheme.Spacing.s1)
     }
 }
 
-// PetWorldInteractionMetric 宠物事件互动指标
+// PetWorldFeedActionItem Feed 卡片互动数据项
 // 核心职责：
-// - 统一渲染单个互动指标
-// - 保持底部操作栏尺寸稳定
-struct PetWorldInteractionMetric: View {
+// - 组合互动图标和计数文本
+// - 根据强调状态切换语义色
+private struct PetWorldFeedActionItem: View {
     let systemImage: String
     let value: Int
+    let isHighlighted: Bool
 
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s1) {
+        HStack(spacing: MHBTheme.Spacing.s1 + MHBTheme.Spacing.s1 / 2) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: MHBTheme.IconSize.small + MHBTheme.Spacing.s1 / 2, weight: .semibold))
 
             Text("\(value)")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
+                .monospacedDigit()
         }
-        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-        .frame(minWidth: 42, alignment: .leading)
+        .foregroundStyle(foregroundColor)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var foregroundColor: Color {
+        isHighlighted
+            ? MHBTheme.ColorToken.danger.color
+            : MHBTheme.ColorToken.labelSecondary.color
     }
 }
 
-// PetWorldRecommendationBadgeView 推荐解释短标签
+// PetWorldFeedCardMetrics Feed 卡片视觉参数
 // 核心职责：
-// - 将推荐原因压缩为轻量标签
-// - 避免 Feed 卡片承载过重解释文案
-struct PetWorldRecommendationBadgeView: View {
-    let badge: PetWorldRecommendationBadge
+// - 收敛参考 HTML 转译后的卡片局部尺寸
+// - 让卡片主视图保持渲染职责清晰
+private enum PetWorldFeedCardMetrics {
+    static let avatarSize: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6
+    static let mediaAspectRatio: CGFloat = 1.04
+    static let mediaCornerRadius: CGFloat = MHBTheme.Radius.extraExtraLarge + MHBTheme.Spacing.s5 - MHBTheme.Spacing.s1 / 2
+    static let mediaInnerBorderWidth: CGFloat = MHBTheme.Spacing.s3 / 2
+    static let actionItemSpacing: CGFloat = MHBTheme.Spacing.s6 - MHBTheme.Spacing.s1 / 2
 
-    var body: some View {
-        MHBTagView(
-            badge.title,
-            style: badge.style.tagStyle,
-            size: .small
-        )
-        .accessibilityLabel(badge.explanation)
+    static var mediaShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: mediaCornerRadius, style: .continuous)
     }
 }

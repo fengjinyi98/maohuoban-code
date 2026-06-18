@@ -1,42 +1,26 @@
 import XCTest
 @testable import maohuoban
 
-// PetWorldFeedPageContentResolverTests 宠物世界频道内容解析测试
+// PetWorldFeedPageContentResolverTests 宠物世界 Mock Feed 测试
 // 核心职责：
-// - 固化不同频道的内容排序和轻筛选规则
-// - 防止横滑分页接入后所有频道退化为同一批内容
+// - 固化快速 UI 阶段 Feed mock 数据的宠物主体字段
+// - 防止卡片退化为用户主体展示
 @MainActor
 final class PetWorldFeedPageContentResolverTests: XCTestCase {
-    func testRecommendedPageKeepsSnapshotOrder() {
-        let page = PetWorldFeedPageContentResolver.page(
-            for: .recommended,
-            snapshot: PetWorldMockFeed.snapshot
-        )
+    func testMockCardsPreferPetIdentity() {
+        let cards = PetWorldMockFeed.cards
 
-        XCTAssertEqual(
-            page.items.map(\.id),
-            ["feed-naigai-food", "feed-ahuang-care", "feed-doudou-home"]
-        )
-        XCTAssertEqual(page.hintChips, PetWorldMockFeed.snapshot.hintChips)
+        XCTAssertEqual(cards.map(\.petName), ["奶油", "布丁", "豆包"])
+        XCTAssertTrue(cards.allSatisfy { $0.petAvatarAssetName != nil })
     }
 
-    func testGrowthPagePromotesGrowthRelatedCards() {
-        let page = PetWorldFeedPageContentResolver.page(
-            for: .growth,
-            snapshot: PetWorldMockFeed.snapshot
+    func testMockCardsCarryAuthorAndParsedPostTime() throws {
+        let firstCard = PetWorldMockFeed.cards[0]
+        let expectedDate = try XCTUnwrap(
+            MHBUTCDateDisplayFormatter.date(fromUTCString: "2026-06-18T20:31:00Z")
         )
 
-        XCTAssertEqual(page.items.map(\.id), ["feed-doudou-home", "feed-naigai-food"])
-        XCTAssertEqual(page.hintChips, ["成长记录", "阶段相近", "到家适应"])
-    }
-
-    func testExperiencePagePromotesReusableCareCards() {
-        let page = PetWorldFeedPageContentResolver.page(
-            for: .experience,
-            snapshot: PetWorldMockFeed.snapshot
-        )
-
-        XCTAssertEqual(page.items.map(\.id), ["feed-ahuang-care", "feed-naigai-food"])
-        XCTAssertEqual(page.hintChips, ["优质经验", "护理技巧", "可收藏"])
+        XCTAssertEqual(firstCard.authorName, "小满")
+        XCTAssertEqual(firstCard.publishedAt, expectedDate)
     }
 }

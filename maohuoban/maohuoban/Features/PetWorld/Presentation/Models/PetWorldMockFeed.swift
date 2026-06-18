@@ -1,100 +1,90 @@
 import Foundation
 
-// PetWorldMockFeed 宠物世界快速 UI mock 数据
+// PetWorldMockFeed 宠物世界 Feed Mock 数据
 // 核心职责：
-// - 在后端 Feed 接口接入前提供可视化内容
-// - 覆盖关系、优质、成长和经验等混合推荐形态
+// - 集中维护快速 UI 阶段的宠物世界信息流样例
+// - 复用项目本地图片资源，保证真机首屏稳定展示
 enum PetWorldMockFeed {
-    static let snapshot = PetWorldFeedSnapshot(
-        selectedPetName: "糯米",
-        subtitle: "基于品种、年龄阶段和优质内容混合推荐",
-        tabs: PetWorldFeedTab.allCases,
-        hintChips: ["布偶猫", "幼猫", "优质经验", "新鲜内容"],
-        items: [
-            PetWorldFeedItem(
-                id: "feed-naigai-food",
-                pet: PetWorldPetSummary(
-                    name: "奶盖",
-                    breed: "布偶猫",
-                    ageStage: "8个月",
-                    systemImage: "cat.fill"
-                ),
-                media: PetWorldMediaPresentation(
-                    tone: .primary,
-                    systemImage: "fork.knife",
-                    title: "换粮记录",
-                    subtitle: "幼猫肠胃适应第 4 天"
-                ),
-                text: "最近开始慢慢换粮，少量混合旧粮后状态稳定了很多，便便也比前两天更成型。",
-                topics: ["幼猫成长", "换粮"],
-                badge: PetWorldRecommendationBadge(
-                    title: "同龄",
-                    explanation: "因为糯米也处于幼猫阶段，系统推荐了相近成长记录。",
-                    style: .relation
-                ),
-                reactions: PetWorldReactionSummary(
-                    likeCount: 128,
-                    commentCount: 24,
-                    saveCount: 36
-                ),
-                authorName: "小林"
-            ),
-            PetWorldFeedItem(
-                id: "feed-ahuang-care",
-                pet: PetWorldPetSummary(
-                    name: "阿黄",
-                    breed: "柯基",
-                    ageStage: "2岁",
-                    systemImage: "dog.fill"
-                ),
-                media: PetWorldMediaPresentation(
-                    tone: .teal,
-                    systemImage: "shower.fill",
-                    title: "洗护经验",
-                    subtitle: "短腿犬雨天回家清洁"
-                ),
-                text: "雨天出门后先擦脚垫再吹干腹部，皮肤状态会稳定很多，回家流程固定后它也不抗拒了。",
-                topics: ["日常护理", "雨天出行"],
-                badge: PetWorldRecommendationBadge(
-                    title: "优质",
-                    explanation: "这条护理经验近期收藏率较高，适合作为通用养护参考。",
-                    style: .quality
-                ),
-                reactions: PetWorldReactionSummary(
-                    likeCount: 342,
-                    commentCount: 41,
-                    saveCount: 118
-                ),
-                authorName: "阿南"
-            ),
-            PetWorldFeedItem(
-                id: "feed-doudou-home",
-                pet: PetWorldPetSummary(
-                    name: "豆豆",
-                    breed: "英短",
-                    ageStage: "到家第7天",
-                    systemImage: "cat.fill"
-                ),
-                media: PetWorldMediaPresentation(
-                    tone: .purple,
-                    systemImage: "house.fill",
-                    title: "到家适应",
-                    subtitle: "从躲沙发到主动巡视"
-                ),
-                text: "第七天终于开始主动出来探索客厅，晚上也会靠近人睡觉，胆小猫真的需要多给一点时间。",
-                topics: ["到家记录", "胆小猫"],
-                badge: PetWorldRecommendationBadge(
-                    title: "成长",
-                    explanation: "这是一条相近阶段的成长记录。",
-                    style: .growth
-                ),
-                reactions: PetWorldReactionSummary(
-                    likeCount: 96,
-                    commentCount: 18,
-                    saveCount: 27
-                ),
-                authorName: "清清"
-            )
-        ]
-    )
+    static let cards: [PetWorldFeedItem] = [
+        makeCard(
+            id: "beach-walk",
+            petName: "奶油",
+            petAvatarAssetName: "HomePetHeroMock",
+            text: "海边散步，和 2 位伙伴一起",
+            authorAvatarAssetName: "HomeUserAvatarMock",
+            authorName: "小满",
+            publishedAtUTCString: "2026-06-18T20:31:00Z",
+            mediaAssetName: "HomePetHeroMock",
+            isLiked: true,
+            likeCount: 43,
+            repostCount: 1,
+            commentCount: 5
+        ),
+        makeCard(
+            id: "sunny-album",
+            petName: "布丁",
+            petAvatarAssetName: "HomePetAlbum1",
+            text: "晒太阳后的午睡时间",
+            authorAvatarAssetName: "HomePartnerAvatar",
+            authorName: "阿洛",
+            publishedAtUTCString: "2026-06-18T07:12:00Z",
+            mediaAssetName: "HomePetAlbum1",
+            isLiked: false,
+            likeCount: 28,
+            repostCount: 0,
+            commentCount: 6
+        ),
+        makeCard(
+            id: "park-training",
+            petName: "豆包",
+            petAvatarAssetName: "HomeGalleryAlbum2",
+            text: "公园训练完成，今天很配合",
+            authorAvatarAssetName: "HomePetHeroMock",
+            authorName: "豆包妈妈",
+            publishedAtUTCString: "2026-06-17T12:06:00Z",
+            mediaAssetName: "HomeGalleryAlbum2",
+            isLiked: true,
+            likeCount: 76,
+            repostCount: 4,
+            commentCount: 12
+        )
+    ]
+
+    // makeCard 构造 Feed 展示卡片
+    // 核心职责：
+    // - 在 mock 数据边界解析后端 UTC 时间字符串
+    // - 向 SwiftUI 卡片提供已解析的发布时间
+    private static func makeCard(
+        id: String,
+        petName: String?,
+        petAvatarAssetName: String?,
+        text: String,
+        authorAvatarAssetName: String,
+        authorName: String,
+        publishedAtUTCString: String,
+        mediaAssetName: String,
+        isLiked: Bool,
+        likeCount: Int,
+        repostCount: Int,
+        commentCount: Int
+    ) -> PetWorldFeedItem {
+        guard let publishedAt = MHBUTCDateDisplayFormatter.date(fromUTCString: publishedAtUTCString) else {
+            preconditionFailure("PetWorld mock UTC 时间格式无效: \(publishedAtUTCString)")
+        }
+
+        return PetWorldFeedItem(
+            id: id,
+            petName: petName,
+            petAvatarAssetName: petAvatarAssetName,
+            text: text,
+            authorAvatarAssetName: authorAvatarAssetName,
+            authorName: authorName,
+            publishedAt: publishedAt,
+            mediaAssetName: mediaAssetName,
+            isLiked: isLiked,
+            likeCount: likeCount,
+            repostCount: repostCount,
+            commentCount: commentCount
+        )
+    }
 }
