@@ -74,13 +74,19 @@ pub(super) async fn update_pet_profile(
         true,
     );
     match state.pet.update_pet_profile(input).await {
-        Ok(profile) => {
-            record_profile_http_response("update", owner_user_id, &profile);
-            ok_response(
-                "pet.updated",
-                "宠物档案已更新",
-                PetProfileData::from(profile),
-            )
+        Ok(update) => {
+            let code = if update.changed {
+                "pet.updated"
+            } else {
+                "pet.unchanged"
+            };
+            let message = if update.changed {
+                "宠物档案已更新"
+            } else {
+                "宠物档案未变化"
+            };
+            record_profile_http_response("update", owner_user_id, &update.profile);
+            ok_response(code, message, PetProfileData::from(update.profile))
         }
         Err(error) => error_response(&error),
     }

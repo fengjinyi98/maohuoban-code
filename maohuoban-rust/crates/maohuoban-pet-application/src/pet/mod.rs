@@ -16,5 +16,6 @@ pub use ports::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, MediaCropMetadata,
     NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
     PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    UpdatePetProfileResult,
 };
 pub use service::PetService;

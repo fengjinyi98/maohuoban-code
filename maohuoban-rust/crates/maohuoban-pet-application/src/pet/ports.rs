@@ -71,6 +71,16 @@ pub struct UpdatePetProfile {
     pub note: Option<String>,
 }
 
+/// UpdatePetProfileResult 宠物档案更新结果
+/// 核心职责：
+/// - 返回更新后的宠物档案
+/// - 标记本次请求是否产生持久化变更
+#[derive(Debug, Clone)]
+pub struct UpdatePetProfileResult {
+    pub profile: PetProfile,
+    pub changed: bool,
+}
+
 /// DeletePetProfile 宠物档案删除输入
 /// 核心职责：
 /// - 表达软删除请求
@@ -207,7 +217,10 @@ pub trait PetRepository: Send + Sync {
 
     async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>>;
 
-    async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile>;
+    async fn update_pet_profile(
+        &self,
+        input: UpdatePetProfile,
+    ) -> PetResult<UpdatePetProfileResult>;
 
     async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile>;
 

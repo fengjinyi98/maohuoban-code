@@ -69,4 +69,38 @@ struct PetProfileUpdateDraft: Encodable, Equatable {
             try container.encodeNil(forKey: key)
         }
     }
+
+    func isSemanticallyEquivalent(to other: PetProfileUpdateDraft) -> Bool {
+        comparableValue == other.comparableValue
+    }
+
+    private var comparableValue: ComparableValue {
+        ComparableValue(
+            name: PetWriteTextNormalizer.compactText(name),
+            species: species,
+            breed: PetWriteTextNormalizer.optionalCompactText(breed),
+            sex: sex,
+            birthday: PetWriteTextNormalizer.optionalText(birthday),
+            microchipNumber: PetWriteTextNormalizer.optionalText(microchipNumber),
+            arrivalDate: PetWriteTextNormalizer.optionalText(arrivalDate),
+            weightGrams: weightGrams,
+            neuterStatus: neuterStatus,
+            personalityTags: personalityTags,
+            note: PetWriteTextNormalizer.optionalText(note)
+        )
+    }
+
+    private struct ComparableValue: Equatable {
+        let name: String
+        let species: PetSpecies
+        let breed: String?
+        let sex: PetSex
+        let birthday: String?
+        let microchipNumber: String?
+        let arrivalDate: String?
+        let weightGrams: Int?
+        let neuterStatus: PetNeuterStatus
+        let personalityTags: [String]
+        let note: String?
+    }
 }

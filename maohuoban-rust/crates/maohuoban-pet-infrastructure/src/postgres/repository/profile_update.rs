@@ -1,4 +1,6 @@
-use maohuoban_pet_application::pet::{PetProfileDiagnostics, UpdatePetProfile, record_pet_profile};
+use maohuoban_pet_application::pet::{
+    PetProfileDiagnostics, UpdatePetProfile, UpdatePetProfileResult, record_pet_profile,
+};
 use maohuoban_pet_domain::pet::{
     PetError, PetNeuterStatus, PetProfile, PetResult, PetSex, PetSpecies,
 };
@@ -12,7 +14,7 @@ impl PostgresPetRepository {
     pub(super) async fn update_pet_profile_command(
         &self,
         input: UpdatePetProfile,
-    ) -> PetResult<PetProfile> {
+    ) -> PetResult<UpdatePetProfileResult> {
         let owner_user_id = input.owner_user_id;
         let pet_id = input.pet_id;
         let breed = input.breed.clone();
@@ -27,7 +29,11 @@ impl PostgresPetRepository {
         let current = load_pet_profile_for_update(&self.pool, input.pet_id, input.owner_user_id)
             .await?
             .ok_or(PetError::PetNotFound)?;
-        let requested_microchip = input.microchip_number.as_deref().map(str::trim);
+        let requested_microchip = input
+            .microchip_number
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_owned);
         let requested_name = input.name.as_deref().map(str::trim).map(str::to_owned);
         let is_name_changed = requested_name
             .as_deref()
@@ -38,16 +44,71 @@ impl PostgresPetRepository {
                 return Err(PetError::NameEditLimitExceeded);
             }
         }
-        if let (Some(existing), Some(requested)) =
-            (current.microchip_number.as_deref(), requested_microchip)
-            && existing != requested
+        if let (Some(existing), Some(requested)) = (
+            current.microchip_number.as_deref(),
+            requested_microchip.as_deref(),
+        ) && existing != requested
         {
             return Err(PetError::InvalidInput(
                 "芯片号已锁定，如需变更请通过申诉渠道处理".to_owned(),
             ));
         }
+        if !has_profile_changes(
+            &current,
+            &input,
+            requested_name.as_deref(),
+            requested_microchip.as_deref(),
+        ) {
+            let pet = self.attach_name_edit_policy(current).await?;
+            record_pet_profile(PetProfileDiagnostics {
+                stage: "repository.unchanged",
+                action: "update",
+                user_id: owner_user_id,
+                pet_id: Some(pet.id),
+                breed: pet.breed.as_deref(),
+                success: true,
+            });
+            return Ok(UpdatePetProfileResult {
+                profile: pet,
+                changed: false,
+            });
+        }
 
-        let row = sqlx::query_as::<_, PetProfileRow>(
+        let row = self
+            .execute_profile_update(
+                input,
+                requested_name.as_deref(),
+                requested_microchip.as_deref(),
+            )
+            .await?;
+
+        if is_name_changed && let Some(new_name) = requested_name.as_deref() {
+            self.record_name_change(pet_id, owner_user_id, &current.name, new_name)
+                .await?;
+        }
+
+        let pet = self.attach_name_edit_policy(row.try_into()?).await?;
+        record_pet_profile(PetProfileDiagnostics {
+            stage: "repository.updated",
+            action: "update",
+            user_id: owner_user_id,
+            pet_id: Some(pet.id),
+            breed: pet.breed.as_deref(),
+            success: true,
+        });
+        Ok(UpdatePetProfileResult {
+            profile: pet,
+            changed: true,
+        })
+    }
+
+    async fn execute_profile_update(
+        &self,
+        input: UpdatePetProfile,
+        requested_name: Option<&str>,
+        requested_microchip: Option<&str>,
+    ) -> PetResult<PetProfileRow> {
+        sqlx::query_as::<_, PetProfileRow>(
             r#"
             UPDATE pet_profiles
             SET
@@ -95,12 +156,12 @@ impl PostgresPetRepository {
         )
         .bind(input.pet_id)
         .bind(input.owner_user_id)
-        .bind(requested_name.as_deref())
+        .bind(requested_name)
         .bind(input.species.map(PetSpecies::as_str))
         .bind(input.breed)
         .bind(input.sex.map(PetSex::as_str))
         .bind(input.birthday)
-        .bind(requested_microchip.map(str::to_owned))
+        .bind(requested_microchip)
         .bind(input.arrival_date)
         .bind(input.weight_grams)
         .bind(input.neuter_status.map(PetNeuterStatus::as_str))
@@ -109,22 +170,45 @@ impl PostgresPetRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(to_infrastructure_error)?
-        .ok_or(PetError::PetNotFound)?;
-
-        if is_name_changed && let Some(new_name) = requested_name.as_deref() {
-            self.record_name_change(input.pet_id, input.owner_user_id, &current.name, new_name)
-                .await?;
-        }
-
-        let pet = self.attach_name_edit_policy(row.try_into()?).await?;
-        record_pet_profile(PetProfileDiagnostics {
-            stage: "repository.updated",
-            action: "update",
-            user_id: owner_user_id,
-            pet_id: Some(pet.id),
-            breed: pet.breed.as_deref(),
-            success: true,
-        });
-        Ok(pet)
+        .ok_or(PetError::PetNotFound)
     }
+}
+
+fn has_profile_changes(
+    current: &PetProfile,
+    input: &UpdatePetProfile,
+    requested_name: Option<&str>,
+    requested_microchip: Option<&str>,
+) -> bool {
+    requested_name.is_some_and(|name| name != current.name)
+        || input
+            .species
+            .is_some_and(|species| species != current.species)
+        || input
+            .breed
+            .as_deref()
+            .is_some_and(|breed| Some(breed) != current.breed.as_deref())
+        || input.sex.is_some_and(|sex| sex != current.sex)
+        || input
+            .birthday
+            .is_some_and(|birthday| Some(birthday) != current.birthday)
+        || requested_microchip
+            .is_some_and(|microchip| Some(microchip) != current.microchip_number.as_deref())
+        || input
+            .arrival_date
+            .is_some_and(|arrival_date| Some(arrival_date) != current.arrival_date)
+        || input
+            .weight_grams
+            .is_some_and(|weight_grams| Some(weight_grams) != current.weight_grams)
+        || input
+            .neuter_status
+            .is_some_and(|neuter_status| neuter_status != current.neuter_status)
+        || input
+            .personality_tags
+            .as_ref()
+            .is_some_and(|personality_tags| personality_tags != &current.personality_tags)
+        || input
+            .note
+            .as_deref()
+            .is_some_and(|note| Some(note) != current.note.as_deref())
 }

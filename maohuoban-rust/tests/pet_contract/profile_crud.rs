@@ -152,6 +152,70 @@ async fn pet_profile_rejects_microchip_replacement_after_it_is_locked() {
 }
 
 #[tokio::test]
+async fn pet_profile_update_returns_unchanged_without_touching_updated_at_for_noop_patch() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138133").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶盖",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": "2024-03-20",
+                "microchip_number": "156000000000003",
+                "arrival_date": "2024-05-01",
+                "weight_grams": 4200,
+                "neuter_status": "neutered",
+                "personality_tags": ["亲人", "爱玩"],
+                "note": "对鸡肉过敏"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+    let created_updated_at = create_body["data"]["updated_at"]
+        .as_str()
+        .expect("created updated_at");
+
+    let update_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/pets/{pet_id}"),
+            json!({
+                "name": "奶盖",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": "2024-03-20",
+                "microchip_number": "156000000000003",
+                "arrival_date": "2024-05-01",
+                "weight_grams": 4200,
+                "neuter_status": "neutered",
+                "personality_tags": ["亲人", "爱玩"],
+                "note": "对鸡肉过敏"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("noop update pet");
+    assert_eq!(update_response.status(), StatusCode::OK);
+    let update_body = response_json(update_response).await;
+    assert_eq!(update_body["code"], "pet.unchanged");
+    assert_eq!(update_body["message"], "宠物档案未变化");
+    assert_eq!(update_body["data"]["updated_at"], created_updated_at);
+}
+
+#[tokio::test]
 async fn pet_profile_limits_name_changes_within_thirty_days() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

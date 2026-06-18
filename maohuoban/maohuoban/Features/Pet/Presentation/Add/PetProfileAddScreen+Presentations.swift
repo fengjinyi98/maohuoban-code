@@ -10,13 +10,7 @@ extension PetProfileAddScreen {
                         Task { await submit() }
                     }
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white.opacity(canSave ? 1 : 0.6))
-                    .padding(.horizontal, MHBTheme.Spacing.s3)
-                    .padding(.vertical, MHBTheme.Spacing.s1)
-                    .background(
-                        MHBTheme.ColorToken.primary.color.opacity(canSave ? 1 : 0.28),
-                        in: .capsule
-                    )
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                     .disabled(!canSave || store.isSubmitting)
                 }
             }

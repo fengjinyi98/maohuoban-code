@@ -75,6 +75,71 @@ final class PetProfileEditScreenTests: XCTestCase {
         XCTAssertEqual(json["species"] as? String, "cat")
     }
 
+    func testCurrentUpdateDraftUsesStoredValuesInsteadOfDisplayPlaceholders() throws {
+        let profile = PetProfileEditProfile(
+            id: "pet-1",
+            name: "糯米",
+            species: .cat,
+            breed: "",
+            avatarURL: nil,
+            heroMedia: .image(assetName: "HomePetHeroMock"),
+            heroThemeColorHex: nil,
+            heroContentColorScheme: nil,
+            profileCode: "0000000000000001",
+            chipNumber: "",
+            sexText: "未知",
+            birthDateText: "",
+            arrivalDateText: "",
+            weightText: "",
+            neuterStatusText: "未绝育",
+            personalityTags: [],
+            note: "",
+            nameEditPolicy: nil
+        )
+        let screen = PetProfileEditScreen(
+            context: PetProfileEditContext(selectedProfile: profile, profiles: [profile])
+        )
+
+        let draft = screen.currentUpdateDraft(for: profile)
+        let json = try Self.encodedJSONObject(draft)
+
+        XCTAssertTrue(json["breed"] is NSNull)
+        XCTAssertTrue(json["birthday"] is NSNull)
+        XCTAssertTrue(json["arrival_date"] is NSNull)
+        XCTAssertNil(json["weight_grams"])
+        XCTAssertTrue(json["note"] is NSNull)
+    }
+
+    func testSubmittedDraftMatchingCurrentProfileIsNoop() {
+        let profile = PetProfileEditProfile(
+            id: "pet-1",
+            name: "糯米",
+            species: .cat,
+            breed: "布偶",
+            avatarURL: nil,
+            heroMedia: .image(assetName: "HomePetHeroMock"),
+            heroThemeColorHex: nil,
+            heroContentColorScheme: nil,
+            profileCode: "0000000000000001",
+            chipNumber: "901156260000001",
+            sexText: "母",
+            birthDateText: "2024-01-01",
+            arrivalDateText: "2024-05-01",
+            weightText: "4.2 kg",
+            neuterStatusText: "已绝育",
+            personalityTags: ["亲人"],
+            note: "喜欢晒太阳",
+            nameEditPolicy: nil
+        )
+        let screen = PetProfileEditScreen(
+            context: PetProfileEditContext(selectedProfile: profile, profiles: [profile])
+        )
+
+        let draft = screen.updateDraft(for: profile, speciesText: "猫咪")
+
+        XCTAssertTrue(screen.isNoopUpdateDraft(draft, for: profile))
+    }
+
     private static func encodedJSONObject<T: Encodable>(_ value: T) throws -> [String: Any] {
         let data = try JSONEncoder().encode(value)
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

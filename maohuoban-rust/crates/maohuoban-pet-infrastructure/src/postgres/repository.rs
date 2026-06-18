@@ -142,7 +142,10 @@ impl PetRepository for PostgresPetRepository {
         self.list_pet_profiles_for_owner_query(owner_user_id).await
     }
 
-    async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
+    async fn update_pet_profile(
+        &self,
+        input: UpdatePetProfile,
+    ) -> PetResult<maohuoban_pet_application::pet::UpdatePetProfileResult> {
         self.update_pet_profile_command(input).await
     }
 

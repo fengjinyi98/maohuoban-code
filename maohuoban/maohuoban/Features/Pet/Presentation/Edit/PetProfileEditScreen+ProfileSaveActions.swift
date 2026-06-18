@@ -172,19 +172,47 @@ extension PetProfileEditScreen {
         personalityTags: [String]? = nil,
         note: String? = nil
     ) -> PetProfileUpdateDraft {
-        PetProfileUpdateDraft(
-            name: name ?? displayName(for: profile),
-            species: petSpecies(from: speciesText ?? displaySpeciesText(for: profile)),
-            breed: breed ?? displayBreed(for: profile),
-            sex: petSex(from: sexText ?? displaySexText(for: profile)),
-            birthday: optionalDateText(birthDate.map(formattedDate) ?? displayBirthDateText(for: profile)),
-            microchipNumber: chipNumber ?? displayChipNumber(for: profile),
-            arrivalDate: optionalDateText(arrivalDate.map(formattedDate) ?? displayArrivalDateText(for: profile)),
-            weightGrams: weightGrams(from: weightText ?? displayWeightText(for: profile)),
-            neuterStatus: petNeuterStatus(from: neuterStatusText ?? displayNeuterStatusText(for: profile)),
-            personalityTags: personalityTags ?? displayPersonalityTags(for: profile),
-            note: optionalNoteText(note ?? displayNoteText(for: profile))
+        let currentDraft = currentUpdateDraft(for: profile)
+
+        return PetProfileUpdateDraft(
+            name: name ?? currentDraft.name,
+            species: speciesText.map(petSpecies) ?? currentDraft.species,
+            breed: breed ?? currentDraft.breed,
+            sex: sexText.map(petSex) ?? currentDraft.sex,
+            birthday: birthDate.map(formattedDate) ?? currentDraft.birthday,
+            microchipNumber: chipNumber ?? currentDraft.microchipNumber,
+            arrivalDate: arrivalDate.map(formattedDate) ?? currentDraft.arrivalDate,
+            weightGrams: weightText.map(weightGrams) ?? currentDraft.weightGrams,
+            neuterStatus: neuterStatusText.map(petNeuterStatus) ?? currentDraft.neuterStatus,
+            personalityTags: personalityTags ?? currentDraft.personalityTags,
+            note: note.map(optionalNoteText) ?? currentDraft.note
         )
+    }
+
+    func currentUpdateDraft(for profile: PetProfileEditProfile) -> PetProfileUpdateDraft {
+        PetProfileUpdateDraft(
+            name: editedNames[profile.id] ?? profile.name,
+            species: editedSpeciesTexts[profile.id].map(petSpecies) ?? petSpecies(from: profile.species),
+            breed: editedBreeds[profile.id] ?? profile.breed,
+            sex: editedSexTexts[profile.id].map(petSex) ?? petSex(from: profile.sexText),
+            birthday: editedBirthDates[profile.id].map(formattedDate)
+                ?? optionalDateText(normalizedDateText(profile.birthDateText)),
+            microchipNumber: editedChipNumbers[profile.id] ?? displayChipNumber(for: profile),
+            arrivalDate: editedArrivalDates[profile.id].map(formattedDate)
+                ?? optionalDateText(normalizedDateText(profile.arrivalDateText)),
+            weightGrams: weightGrams(from: editedWeights[profile.id] ?? profile.weightText),
+            neuterStatus: editedNeuterStatusTexts[profile.id].map(petNeuterStatus)
+                ?? petNeuterStatus(from: profile.neuterStatusText),
+            personalityTags: editedPersonalityTags[profile.id] ?? profile.personalityTags,
+            note: optionalNoteText(editedNotes[profile.id] ?? profile.note)
+        )
+    }
+
+    func isNoopUpdateDraft(
+        _ draft: PetProfileUpdateDraft,
+        for profile: PetProfileEditProfile
+    ) -> Bool {
+        draft.isSemanticallyEquivalent(to: currentUpdateDraft(for: profile))
     }
 
     func profile(for profileID: String) -> PetProfileEditProfile? {
@@ -195,6 +223,11 @@ extension PetProfileEditScreen {
         petID: String,
         draft: PetProfileUpdateDraft
     ) async -> Bool {
+        if let profile = profile(for: petID),
+           isNoopUpdateDraft(draft, for: profile) {
+            return true
+        }
+
         await store.updatePet(
             petID: petID,
             draft: draft,
@@ -218,6 +251,14 @@ extension PetProfileEditScreen {
         }
 
         editedNameEditPolicies[petID] = nameEditPolicy
+    }
+
+    private func petSpecies(from species: PetProfileEditProfile.Species) -> PetSpecies {
+        switch species {
+        case .dog: .dog
+        case .cat: .cat
+        case .other: .other
+        }
     }
 }
 

@@ -13,7 +13,8 @@ use self::validation::{
 };
 use super::{
     DeletePetProfile, NewPetEvent, NewPetProfile, PetProfileDiagnostics, PetRepository,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile, record_pet_profile,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    UpdatePetProfileResult, record_pet_profile,
 };
 
 /// PetService 宠物应用服务
@@ -75,7 +76,10 @@ impl PetService {
         result
     }
 
-    pub async fn update_pet_profile(&self, mut input: UpdatePetProfile) -> PetResult<PetProfile> {
+    pub async fn update_pet_profile(
+        &self,
+        mut input: UpdatePetProfile,
+    ) -> PetResult<UpdatePetProfileResult> {
         input.name = input.name.map(|name| normalize_compact_text(&name));
         input.breed = normalize_optional_compact_text(input.breed);
         if let Some(name) = input.name.as_deref() {
@@ -104,12 +108,12 @@ impl PetService {
         });
         let result = self.repository.update_pet_profile(input).await;
         match &result {
-            Ok(profile) => record_pet_profile(PetProfileDiagnostics {
+            Ok(update) => record_pet_profile(PetProfileDiagnostics {
                 stage: "service.result",
                 action: "update",
                 user_id: owner_user_id,
-                pet_id: Some(profile.id),
-                breed: profile.breed.as_deref(),
+                pet_id: Some(update.profile.id),
+                breed: update.profile.breed.as_deref(),
                 success: true,
             }),
             Err(_error) => record_pet_profile(PetProfileDiagnostics {
