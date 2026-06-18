@@ -1,4 +1,5 @@
 import XCTest
+import MaohuobanDiagnostics
 @testable import maohuoban
 
 // MaohuobanDiagnosticsLaunchModeTests 诊断启动模式测试

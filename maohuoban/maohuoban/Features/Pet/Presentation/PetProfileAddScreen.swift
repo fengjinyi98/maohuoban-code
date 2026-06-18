@@ -29,9 +29,7 @@ struct PetProfileAddScreen: View {
     @State var isAvatarPreviewPresented = false
     @State var isBackgroundPreviewPresented = false
     @State var isAvatarPickerPresented = false
-    @State var isBackgroundPickerPresented = false
     @State var avatarCropTarget: MHBIdentifiableUIImage?
-    @State var backgroundCropTarget: MHBIdentifiableUIImage?
     @State var nameEditorDraft = ""
     @State var isNameEditorPresented = false
     @State var isNameEditorChevronExpanded = false

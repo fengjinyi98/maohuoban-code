@@ -141,15 +141,59 @@ private enum MHBRemoteLivePhotoLoader {
         resourceFileURLs: [URL]
     ) async -> PHLivePhoto? {
         await withCheckedContinuation { continuation in
+            let lock = NSLock()
+            var didResume = false
+
+            func resumeOnce(returning livePhoto: PHLivePhoto?) {
+                lock.lock()
+                guard !didResume else {
+                    lock.unlock()
+                    return
+                }
+                didResume = true
+                lock.unlock()
+
+                continuation.resume(returning: livePhoto)
+            }
+
             PHLivePhoto.request(
                 withResourceFileURLs: resourceFileURLs,
                 placeholderImage: nil,
                 targetSize: .zero,
                 contentMode: .aspectFill
-            ) { livePhoto, _ in
-                continuation.resume(returning: livePhoto)
+            ) { livePhoto, info in
+                if infoBoolValue(info, key: PHLivePhotoInfoCancelledKey) {
+                    resumeOnce(returning: nil)
+                    return
+                }
+
+                if info[PHLivePhotoInfoErrorKey] != nil {
+                    resumeOnce(returning: nil)
+                    return
+                }
+
+                guard !infoBoolValue(info, key: PHLivePhotoInfoIsDegradedKey) else {
+                    return
+                }
+
+                resumeOnce(returning: livePhoto)
             }
         }
+    }
+
+    private static func infoBoolValue(
+        _ info: [AnyHashable: Any],
+        key: String
+    ) -> Bool {
+        if let value = info[key] as? Bool {
+            return value
+        }
+
+        if let value = info[key] as? NSNumber {
+            return value.boolValue
+        }
+
+        return false
     }
 
     private static func cacheDirectory() -> URL {

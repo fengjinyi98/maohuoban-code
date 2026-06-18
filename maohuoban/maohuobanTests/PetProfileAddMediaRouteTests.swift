@@ -16,10 +16,10 @@ final class PetProfileAddMediaRouteTests: XCTestCase {
         )
     }
 
-    func testBackgroundRouteUsesPickerWhenLocalHeroMediaIsMissing() {
+    func testBackgroundRouteUsesPreviewWhenLocalHeroMediaIsMissing() {
         XCTAssertEqual(
             PetProfileAddMediaRoute.background(hasLocalHeroMedia: false),
-            .picker
+            .preview
         )
     }
 

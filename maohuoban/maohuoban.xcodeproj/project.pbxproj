@@ -431,6 +431,7 @@
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，为首页和同城服务显示所在城市。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "毛伙伴需要访问照片，用于为宠物档案选择头像和背景。";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -465,6 +466,7 @@
 				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking = YES;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，为首页和同城服务显示所在城市。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "毛伙伴需要访问照片，用于为宠物档案选择头像和背景。";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

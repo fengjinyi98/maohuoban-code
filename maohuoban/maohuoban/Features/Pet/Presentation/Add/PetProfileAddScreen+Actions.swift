@@ -21,10 +21,6 @@ extension PetProfileAddScreen {
         .image(assetName: "")
     }
 
-    var addPetBackgroundCropAspectRatio: CGFloat {
-        CGFloat(393.0 / 440.0)
-    }
-
     var speciesDisplayText: String {
         switch species {
         case .dog: "狗狗"
@@ -136,13 +132,7 @@ extension PetProfileAddScreen {
 
     func showBackgroundEntry() {
         dismissSelectionMenus()
-
-        switch PetProfileAddMediaRoute.background(hasLocalHeroMedia: localHeroMedia != nil) {
-        case .picker:
-            isBackgroundPickerPresented = true
-        case .preview:
-            isBackgroundPreviewPresented = true
-        }
+        isBackgroundPreviewPresented = true
     }
 
     func handleAvatarPickerResult(_ result: MHBMediaPickerResult) {
@@ -153,45 +143,10 @@ extension PetProfileAddScreen {
         avatarCropTarget = MHBIdentifiableUIImage(image: image)
     }
 
-    func handleBackgroundPickerResult(_ result: MHBMediaPickerResult) {
-        if let livePhoto = result.livePhotos.first {
-            localHeroMedia = .livePhoto(livePhoto)
-            Task { await uploadLocalBackgroundLivePhoto(livePhoto) }
-            return
-        }
-
-        if let image = result.images.first {
-            backgroundCropTarget = MHBIdentifiableUIImage(image: image)
-            return
-        }
-
-        guard let video = result.videos.first else {
-            return
-        }
-        Task {
-            await Diagnostics.track(
-                "pet.background_video_picker_selected",
-                properties: [
-                    "mode": "add",
-                    "file_extension": .string(video.url.pathExtension.lowercased()),
-                    "is_file_url": .bool(video.url.isFileURL)
-                ]
-            )
-        }
-        localHeroMedia = .video(video.url)
-        Task { await uploadLocalBackgroundVideo(url: video.url) }
-    }
-
     func handleCroppedAvatar(_ image: UIImage) {
         avatarCropTarget = nil
         localAvatarImage = image
         uploadLocalAvatar(image)
-    }
-
-    func handleCroppedBackgroundImage(_ image: UIImage) {
-        backgroundCropTarget = nil
-        localHeroMedia = .image(image)
-        uploadLocalBackgroundImage(image)
     }
 
     func saveLocalAvatar(_ image: UIImage) async -> Bool {

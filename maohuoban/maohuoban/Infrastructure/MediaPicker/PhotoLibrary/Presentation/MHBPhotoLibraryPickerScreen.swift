@@ -1,0 +1,128 @@
+import SwiftUI
+import UIKit
+
+// MHBPhotoLibraryPickerScreen PhotoKit 照片选择页
+// 核心职责：
+// - 提供普通照片和 Live Photo 混合选择入口
+// - 将用户选择转换为通用媒体选择结果回传业务层
+struct MHBPhotoLibraryPickerScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let title: String
+    let onComplete: (MHBMediaPickerResult) -> Void
+    let onCancel: () -> Void
+
+    @State private var store = MHBPhotoLibraryPickerStore()
+    @State private var isAlbumPickerPresented = false
+    @State private var isLimitedPickerPresented = false
+    @State private var resolvingAssetID: String?
+
+    init(
+        title: String = "选择照片",
+        onComplete: @escaping (MHBMediaPickerResult) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.title = title
+        self.onComplete = onComplete
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            MHBPhotoLibraryPickerHeader(
+                title: title,
+                albumTitle: store.currentAlbum?.title,
+                onCancel: handleCancel,
+                onToggleAlbums: {
+                    isAlbumPickerPresented = true
+                }
+            )
+
+            MHBPhotoLibraryPickerContent(
+                authorizationStatus: store.authorizationStatus,
+                isLoading: store.isLoading,
+                isResolvingSelection: store.isResolvingSelection,
+                assets: store.assets,
+                resolvingAssetID: resolvingAssetID,
+                service: store.service,
+                onSelectAsset: handleSelectAsset,
+                onOpenSettings: openSettings,
+                onOpenLimitedPicker: {
+                    isLimitedPickerPresented = true
+                }
+            )
+        }
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .task {
+            await store.load()
+        }
+        .onDisappear {
+            store.cleanup()
+        }
+        .sheet(isPresented: $isAlbumPickerPresented) {
+            MHBPhotoLibraryAlbumPickerView(
+                albums: store.albums,
+                currentAlbumID: store.currentAlbum?.id,
+                onSelect: handleSelectAlbum
+            )
+        }
+        .sheet(isPresented: $isLimitedPickerPresented) {
+            MHBPhotoLibraryLimitedPickerPresenter {
+                isLimitedPickerPresented = false
+                Task { await store.reloadCurrentAlbum() }
+            }
+            .ignoresSafeArea()
+        }
+        .alert(
+            "照片读取失败",
+            isPresented: Binding(
+                get: { store.errorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        store.errorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(store.errorMessage ?? "请重新选择照片")
+        }
+    }
+
+    private func handleCancel() {
+        onCancel()
+        dismiss()
+    }
+
+    private func handleSelectAlbum(_ album: MHBPhotoLibraryAlbum) {
+        isAlbumPickerPresented = false
+        Task {
+            await store.selectAlbum(album)
+        }
+    }
+
+    private func handleSelectAsset(_ asset: MHBPhotoLibraryAsset) {
+        guard resolvingAssetID == nil else {
+            return
+        }
+
+        resolvingAssetID = asset.id
+        Task {
+            let result = await store.resolveSelection(for: asset)
+            resolvingAssetID = nil
+            guard let result else {
+                return
+            }
+            onComplete(result)
+            dismiss()
+        }
+    }
+
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+        UIApplication.shared.open(url)
+    }
+}

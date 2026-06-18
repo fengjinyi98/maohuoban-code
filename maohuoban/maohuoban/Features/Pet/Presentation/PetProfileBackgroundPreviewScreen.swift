@@ -61,8 +61,8 @@ struct PetProfileBackgroundPreviewScreen: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isImagePickerPresented) {
-            MHBSystemMediaPicker(
-                request: .singleImage,
+            MHBPhotoLibraryPickerScreen(
+                title: "选择背景图片",
                 onComplete: { result in
                     isImagePickerPresented = false
                     handleImagePickerResult(result)
@@ -213,6 +213,11 @@ struct PetProfileBackgroundPreviewScreen: View {
     }
 
     private func handleImagePickerResult(_ result: MHBMediaPickerResult) {
+        if let livePhoto = result.livePhotos.first {
+            saveHeroMedia(.livePhoto(livePhoto))
+            return
+        }
+
         guard let image = result.images.first else {
             return
         }

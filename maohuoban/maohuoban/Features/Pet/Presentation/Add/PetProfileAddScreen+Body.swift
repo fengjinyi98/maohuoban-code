@@ -229,19 +229,6 @@ extension PetProfileAddScreen {
             )
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $isBackgroundPickerPresented) {
-            MHBSystemMediaPicker(
-                request: MHBMediaPickerRequest(maxSelectionCount: 1, filter: .all),
-                onComplete: { result in
-                    isBackgroundPickerPresented = false
-                    handleBackgroundPickerResult(result)
-                },
-                onCancel: {
-                    isBackgroundPickerPresented = false
-                }
-            )
-            .ignoresSafeArea()
-        }
         .fullScreenCover(item: $avatarCropTarget) { target in
             MHBCircularImageCropScreen(
                 originalImage: target.image,
@@ -250,17 +237,6 @@ extension PetProfileAddScreen {
                     avatarCropTarget = nil
                 },
                 onSave: handleCroppedAvatar
-            )
-        }
-        .fullScreenCover(item: $backgroundCropTarget) { target in
-            MHBRectImageCropScreen(
-                originalImage: target.image,
-                title: "裁剪宠物背景",
-                cropAspectRatio: addPetBackgroundCropAspectRatio,
-                onCancel: {
-                    backgroundCropTarget = nil
-                },
-                onSave: handleCroppedBackgroundImage
             )
         }
         .sheet(
