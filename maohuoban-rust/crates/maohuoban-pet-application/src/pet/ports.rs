@@ -17,6 +17,13 @@ pub struct MediaAssetDisplayMetadata {
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub theme_color_hex: Option<String>,
+    pub live_photo_still_url: Option<String>,
+    pub live_photo_still_width: Option<i32>,
+    pub live_photo_still_height: Option<i32>,
+    pub live_photo_paired_video_url: Option<String>,
+    pub live_photo_paired_video_width: Option<i32>,
+    pub live_photo_paired_video_height: Option<i32>,
+    pub live_photo_paired_video_duration_ms: Option<i32>,
 }
 
 /// NewPetProfile 新建宠物档案输入
@@ -95,6 +102,22 @@ pub struct PendingPetMediaUploadInput {
     pub file_name: String,
     pub mime_type: String,
     pub content: Vec<u8>,
+    pub source_client: Option<String>,
+}
+
+/// PendingPetLivePhotoUploadInput 未绑定宠物 Live Photo 上传输入
+/// 核心职责：
+/// - 同时承载 Live Photo 静态图和配对视频
+/// - 保持组合媒体上传与单文件上传端口分离
+#[derive(Debug, Clone)]
+pub struct PendingPetLivePhotoUploadInput {
+    pub owner_user_id: Uuid,
+    pub still_file_name: String,
+    pub still_mime_type: String,
+    pub still_content: Vec<u8>,
+    pub paired_video_file_name: String,
+    pub paired_video_mime_type: String,
+    pub paired_video_content: Vec<u8>,
     pub source_client: Option<String>,
 }
 
@@ -179,6 +202,11 @@ pub trait PetRepository: Send + Sync {
     async fn upload_pending_pet_media(
         &self,
         input: PendingPetMediaUploadInput,
+    ) -> PetResult<PetMediaUploadResult>;
+
+    async fn upload_pending_pet_live_photo(
+        &self,
+        input: PendingPetLivePhotoUploadInput,
     ) -> PetResult<PetMediaUploadResult>;
 
     async fn bind_uploaded_pet_media(

@@ -125,6 +125,8 @@ final class HomeDashboardThemeStore {
             ) ?? fallbackImageAssetName.flatMap { UIImage(named: $0) }
         case .remoteVideo(_, _, let fallbackImageAssetName):
             return fallbackImageAssetName.flatMap { UIImage(named: $0) }
+        case .remoteLivePhoto(_, _, let fallbackImageAssetName):
+            return fallbackImageAssetName.flatMap { UIImage(named: $0) }
         }
     }
 

@@ -48,11 +48,55 @@ pub fn build_media_content_router(pool: PgPool) -> Router {
             "/api/v1/media/assets/{asset_id}/content",
             get(get_media_content),
         )
+        .route(
+            "/api/v1/media/assets/{asset_id}/components/{component_id}/content",
+            get(get_media_component_content),
+        )
         .with_state(MediaContentState {
             pool,
             object_store,
             cache_control,
         })
+}
+
+async fn get_media_component_content(
+    State(state): State<MediaContentState>,
+    Path((asset_id, component_id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+) -> Response {
+    match load_media_asset_component(&state.pool, asset_id, component_id).await {
+        Ok(Some(component)) => match state
+            .object_store
+            .get(&component.bucket, &component.object_key)
+            .await
+        {
+            Ok(content) => media_response(
+                &component.mime_type,
+                &state.cache_control,
+                content,
+                headers.get(RANGE).and_then(|value| value.to_str().ok()),
+            ),
+            Err(error) => {
+                tracing::warn!(
+                    asset_id = %asset_id,
+                    component_id = %component_id,
+                    error = %error,
+                    "读取媒体组件对象失败"
+                );
+                StatusCode::NOT_FOUND.into_response()
+            }
+        },
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(error) => {
+            tracing::warn!(
+                asset_id = %asset_id,
+                component_id = %component_id,
+                error = %error,
+                "读取媒体组件失败"
+            );
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
 }
 
 async fn get_media_content(
@@ -204,6 +248,28 @@ async fn load_media_asset(
         "#,
     )
     .bind(asset_id)
+    .fetch_optional(pool)
+    .await
+}
+
+async fn load_media_asset_component(
+    pool: &PgPool,
+    asset_id: Uuid,
+    component_id: Uuid,
+) -> Result<Option<MediaContentAssetRow>, sqlx::Error> {
+    sqlx::query_as::<_, MediaContentAssetRow>(
+        r#"
+        SELECT component.bucket, component.object_key, component.mime_type
+        FROM media_asset_components component
+        INNER JOIN media_assets asset ON asset.id = component.asset_id
+        WHERE component.asset_id = $1
+          AND component.id = $2
+          AND asset.deleted_at IS NULL
+          AND asset.status IN ('uploaded', 'bound')
+        "#,
+    )
+    .bind(asset_id)
+    .bind(component_id)
     .fetch_optional(pool)
     .await
 }

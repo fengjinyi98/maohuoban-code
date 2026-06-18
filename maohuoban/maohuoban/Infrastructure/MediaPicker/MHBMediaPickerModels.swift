@@ -9,6 +9,7 @@ import UIKit
 enum MHBMediaPickerFilter: Hashable {
     case images
     case videos
+    case videosAndLivePhotos
     case all
 
     var pickerFilter: PHPickerFilter? {
@@ -17,8 +18,10 @@ enum MHBMediaPickerFilter: Hashable {
             return .images
         case .videos:
             return .videos
+        case .videosAndLivePhotos:
+            return .any(of: [.videos, .livePhotos])
         case .all:
-            return nil
+            return .any(of: [.images, .videos, .livePhotos])
         }
     }
 }
@@ -41,6 +44,11 @@ struct MHBMediaPickerRequest: Hashable {
         filter: .videos
     )
 
+    static let singleVideoOrLivePhoto = MHBMediaPickerRequest(
+        maxSelectionCount: 1,
+        filter: .videosAndLivePhotos
+    )
+
     init(
         maxSelectionCount: Int,
         filter: MHBMediaPickerFilter
@@ -57,13 +65,16 @@ struct MHBMediaPickerRequest: Hashable {
 struct MHBMediaPickerResult {
     let images: [UIImage]
     let videos: [MHBPickedVideo]
+    let livePhotos: [MHBPickedLivePhoto]
 
     init(
         images: [UIImage] = [],
-        videos: [MHBPickedVideo] = []
+        videos: [MHBPickedVideo] = [],
+        livePhotos: [MHBPickedLivePhoto] = []
     ) {
         self.images = images
         self.videos = videos
+        self.livePhotos = livePhotos
     }
 }
 
@@ -74,6 +85,17 @@ struct MHBMediaPickerResult {
 struct MHBPickedVideo: Identifiable, Hashable {
     let id = UUID()
     let url: URL
+}
+
+// MHBPickedLivePhoto 已选择 Live Photo 资源
+// 核心职责：
+// - 承载 Live Photo 静态图和配对视频的临时文件 URL
+// - 为背景上传保留原始成对资源
+struct MHBPickedLivePhoto: Identifiable {
+    let id = UUID()
+    let stillURL: URL
+    let pairedVideoURL: URL
+    let previewImage: UIImage?
 }
 
 // MHBIdentifiableUIImage 可识别本地图片

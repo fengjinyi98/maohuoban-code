@@ -1,4 +1,5 @@
 import PhotosUI
+import Photos
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -58,11 +59,103 @@ struct MHBSystemMediaPicker: UIViewControllerRepresentable {
             }
 
             Task {
+                let livePhotos = await Self.loadLivePhotos(from: results)
                 let images = await Self.loadImages(from: results)
                 let videos = await Self.loadVideos(from: results)
                 await MainActor.run {
-                    onComplete(MHBMediaPickerResult(images: images, videos: videos))
+                    onComplete(
+                        MHBMediaPickerResult(
+                            images: images,
+                            videos: videos,
+                            livePhotos: livePhotos
+                        )
+                    )
                 }
+            }
+        }
+
+        private static func loadLivePhotos(from results: [PHPickerResult]) async -> [MHBPickedLivePhoto] {
+            var livePhotos: [MHBPickedLivePhoto] = []
+
+            for result in results {
+                guard let livePhoto = await loadLivePhoto(from: result) else {
+                    continue
+                }
+                livePhotos.append(livePhoto)
+            }
+
+            return livePhotos
+        }
+
+        private static func loadLivePhoto(from result: PHPickerResult) async -> MHBPickedLivePhoto? {
+            guard let assetIdentifier = result.assetIdentifier else {
+                return nil
+            }
+            let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetIdentifier], options: nil)
+            guard let asset = assets.firstObject,
+                  asset.mediaSubtypes.contains(.photoLive)
+            else {
+                return nil
+            }
+
+            let resources = PHAssetResource.assetResources(for: asset)
+            guard let stillResource = resources.first(where: { $0.type == .photo }),
+                  let pairedVideoResource = resources.first(where: { $0.type == .pairedVideo })
+            else {
+                return nil
+            }
+
+            let stillURL = await copyResourceToTemporaryFile(stillResource)
+            let pairedVideoURL = await copyResourceToTemporaryFile(pairedVideoResource)
+            let previewImage = await loadImage(from: result.itemProvider)
+
+            guard let resolvedStillURL = stillURL,
+                  let resolvedPairedVideoURL = pairedVideoURL
+            else {
+                return nil
+            }
+
+            return MHBPickedLivePhoto(
+                stillURL: resolvedStillURL,
+                pairedVideoURL: resolvedPairedVideoURL,
+                previewImage: previewImage
+            )
+        }
+
+        private static func copyResourceToTemporaryFile(_ resource: PHAssetResource) async -> URL? {
+            await withCheckedContinuation { continuation in
+                let destinationURL = temporaryURL(for: resource)
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    try? FileManager.default.removeItem(at: destinationURL)
+                }
+
+                let options = PHAssetResourceRequestOptions()
+                options.isNetworkAccessAllowed = true
+                PHAssetResourceManager.default().writeData(
+                    for: resource,
+                    toFile: destinationURL,
+                    options: options
+                ) { error in
+                    continuation.resume(returning: error == nil ? destinationURL : nil)
+                }
+            }
+        }
+
+        private static func temporaryURL(for resource: PHAssetResource) -> URL {
+            let originalFileName = resource.originalFilename
+            let fileExtension = (originalFileName as NSString).pathExtension
+            let resolvedExtension = fileExtension.isEmpty ? fallbackFileExtension(for: resource) : fileExtension
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(resolvedExtension)
+        }
+
+        private static func fallbackFileExtension(for resource: PHAssetResource) -> String {
+            switch resource.type {
+            case .pairedVideo:
+                "mov"
+            default:
+                "heic"
             }
         }
 

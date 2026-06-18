@@ -92,13 +92,14 @@ impl TryFrom<&str> for PetNeuterStatus {
 
 /// PetBackgroundMediaKind 宠物背景媒体类型
 /// 核心职责：
-/// - 区分背景图片和背景视频
+/// - 区分背景图片、背景视频和 Live Photo
 /// - 支持前端选择正确预览和播放路径
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PetBackgroundMediaKind {
     Image,
     Video,
+    LivePhoto,
 }
 
 impl PetBackgroundMediaKind {
@@ -107,6 +108,7 @@ impl PetBackgroundMediaKind {
         match self {
             Self::Image => "image",
             Self::Video => "video",
+            Self::LivePhoto => "live_photo",
         }
     }
 }
@@ -118,6 +120,7 @@ impl TryFrom<&str> for PetBackgroundMediaKind {
         match value {
             "image" => Ok(Self::Image),
             "video" => Ok(Self::Video),
+            "live_photo" => Ok(Self::LivePhoto),
             _ => Err(PetErrorKind::BackgroundMediaKind),
         }
     }

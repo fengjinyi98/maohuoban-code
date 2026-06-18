@@ -8,8 +8,8 @@ pub use merchant::{
     MerchantVerificationStatus, PetRelationship, PetRelationshipKind, PetRelationshipSourceKind,
 };
 pub use model::{
-    EventKind, EventVisibility, ManagedPetStatus, MediaAsset, MediaAssetStatus, MediaBinding,
-    MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind,
-    PetBackgroundMediaKind, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus,
-    PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline,
+    EventKind, EventVisibility, ManagedPetStatus, MediaAsset, MediaAssetComponent,
+    MediaAssetComponentKind, MediaAssetStatus, MediaBinding, MediaBindingStatus, MediaDerivative,
+    MediaDerivativeKind, MediaUsageKind, PetBackgroundMediaKind, PetEvent, PetMediaUploadResult,
+    PetNameEditPolicy, PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline,
 };

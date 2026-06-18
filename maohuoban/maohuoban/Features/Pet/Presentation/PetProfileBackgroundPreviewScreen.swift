@@ -75,7 +75,7 @@ struct PetProfileBackgroundPreviewScreen: View {
         }
         .sheet(isPresented: $isVideoPickerPresented) {
             MHBSystemMediaPicker(
-                request: .singleVideo,
+                request: .singleVideoOrLivePhoto,
                 onComplete: { result in
                     isVideoPickerPresented = false
                     handleVideoPickerResult(result)
@@ -221,6 +221,11 @@ struct PetProfileBackgroundPreviewScreen: View {
     }
 
     private func handleVideoPickerResult(_ result: MHBMediaPickerResult) {
+        if let livePhoto = result.livePhotos.first {
+            saveHeroMedia(.livePhoto(livePhoto))
+            return
+        }
+
         guard let video = result.videos.first else {
             return
         }
@@ -274,6 +279,14 @@ struct PetProfileHeroMediaPreviewContent: View {
                 .scaledToFill()
         case .video(let url):
             MHBMutedLoopingVideoView(url: url)
+        case .livePhoto(let livePhoto):
+            if let previewImage = livePhoto.previewImage {
+                Image(uiImage: previewImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                fallbackColor
+            }
         }
     }
 
@@ -315,6 +328,18 @@ struct PetProfileHeroMediaPreviewContent: View {
             } else if let fallbackImageURLString,
                       let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
                 MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
+                    fallbackImage(fallbackImageAssetName)
+                }
+            } else {
+                fallbackImage(fallbackImageAssetName)
+            }
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+            if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
+               let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
+                MHBRemoteLivePhotoView(
+                    stillURL: stillURL,
+                    pairedVideoURL: pairedVideoURL
+                ) {
                     fallbackImage(fallbackImageAssetName)
                 }
             } else {

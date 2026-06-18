@@ -8,7 +8,8 @@ pub(super) use merchant::{
 pub(super) use requests::{
     BindUploadedPetMediaRequest, CreateMerchantPetRequest, CreatePetEventRequest,
     CreatePetProfileRequest, DeletePetProfileRequest, PublishAvailableStatusRequest,
-    TradePetImportRequest, UpdatePetProfileRequest, UploadPetMediaRequest,
+    TradePetImportRequest, UpdatePetProfileRequest, UploadPetLivePhotoRequest,
+    UploadPetMediaRequest,
 };
 pub(super) use responses::{
     PetEventData, PetMediaUploadData, PetProfileData, PetProfilesData, PetTimelineData,

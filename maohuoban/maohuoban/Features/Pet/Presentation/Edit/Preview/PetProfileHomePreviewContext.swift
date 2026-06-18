@@ -28,6 +28,7 @@ struct PetProfileHomePreviewContext {
             avatarURL: profile.avatarURL,
             heroImageURL: heroMedia.imageURLString,
             heroVideoURL: heroMedia.videoURLString,
+            heroLivePhoto: heroMedia.livePhoto,
             heroThemeColorHex: profile.heroThemeColorHex,
             heroContentColorScheme: Self.homeHeroContentColorScheme(from: profile.heroContentColorScheme),
             heroImageAssetName: heroMedia.imageAssetName,
@@ -60,19 +61,41 @@ struct PetProfileHomePreviewContext {
 
     private static func homeHeroMedia(
         from media: PetProfileEditProfile.HeroMedia
-    ) -> (imageURLString: String?, imageAssetName: String?, videoURLString: String?, videoResourceName: String?) {
+    ) -> (
+        imageURLString: String?,
+        imageAssetName: String?,
+        videoURLString: String?,
+        videoResourceName: String?,
+        livePhoto: HomeDashboardSnapshot.HeroLivePhotoSummary?
+    ) {
         switch media {
         case .image(let assetName):
-            return (nil, assetName, nil, nil)
+            return (nil, assetName, nil, nil, nil)
         case .remoteImage(let urlString, let fallbackAssetName):
-            return (urlString, fallbackAssetName, nil, nil)
+            return (urlString, fallbackAssetName, nil, nil, nil)
         case .video(let resourceName, let fileExtension, let fallbackImageAssetName):
             guard fileExtension.lowercased() == "mp4" else {
-                return (nil, fallbackImageAssetName, nil, nil)
+                return (nil, fallbackImageAssetName, nil, nil, nil)
             }
-            return (nil, fallbackImageAssetName, nil, resourceName)
+            return (nil, fallbackImageAssetName, nil, resourceName, nil)
         case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
-            return (fallbackImageURLString, fallbackImageAssetName, urlString, nil)
+            return (fallbackImageURLString, fallbackImageAssetName, urlString, nil, nil)
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+            return (
+                nil,
+                fallbackImageAssetName,
+                nil,
+                nil,
+                HomeDashboardSnapshot.HeroLivePhotoSummary(
+                    stillURL: stillURLString,
+                    stillWidth: nil,
+                    stillHeight: nil,
+                    pairedVideoURL: pairedVideoURLString,
+                    pairedVideoWidth: nil,
+                    pairedVideoHeight: nil,
+                    pairedVideoDurationMS: nil
+                )
+            )
         }
     }
 

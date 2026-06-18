@@ -88,6 +88,62 @@ fn multipart_media_request(
         .expect("build multipart media request")
 }
 
+/// `multipart_live_photo_request` 构造 Live Photo 上传 multipart 请求
+/// 核心职责：
+/// - 同时提交静态图和配对视频资源
+/// - 固定 Live Photo 背景上传契约字段
+fn multipart_live_photo_request(
+    still_content: &[u8],
+    video_content: &[u8],
+    user_id: &str,
+) -> Request<Body> {
+    let boundary = format!("maohuoban-test-{}", uuid::Uuid::new_v4());
+    let mut body = Vec::new();
+    for (field_name, file_name, mime_type, content) in [
+        ("still_file", "live-still.png", "image/png", still_content),
+        (
+            "paired_video_file",
+            "live-motion.mov",
+            "video/quicktime",
+            video_content,
+        ),
+    ] {
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(
+            format!(
+                "Content-Disposition: form-data; name=\"{field_name}\"; filename=\"{file_name}\"\r\n\
+                 Content-Type: {mime_type}\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(content);
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"source_client\"\r\n\r\nios\r\n",
+    );
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    let token = ACCESS_TOKENS
+        .lock()
+        .expect("access token map")
+        .get(user_id)
+        .cloned()
+        .expect("access token for user");
+
+    Request::builder()
+        .method("POST")
+        .uri("/api/v1/pet-media/background-live-photo")
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .header("authorization", format!("Bearer {token}"))
+        .body(Body::from(body))
+        .expect("build multipart live photo request")
+}
+
 /// `empty_request` 构造无 body HTTP 请求
 /// 核心职责：
 /// - 固定 GET 请求形态
@@ -132,6 +188,29 @@ async fn upload_pending_media(
         ))
         .await
         .expect("upload pending media");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await
+}
+
+/// `upload_pending_live_photo` 上传未绑定 Live Photo 背景
+/// 核心职责：
+/// - 固定 Live Photo pending 上传测试流程
+/// - 验证后端返回逻辑资产和成对组件
+async fn upload_pending_live_photo(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    still_content: &[u8],
+    video_content: &[u8],
+    user_id: &str,
+) -> Value {
+    let response = app
+        .router()
+        .oneshot(multipart_live_photo_request(
+            still_content,
+            video_content,
+            user_id,
+        ))
+        .await
+        .expect("upload pending live photo");
     assert_eq!(response.status(), StatusCode::CREATED);
     response_json(response).await
 }
@@ -1377,6 +1456,85 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
             .unwrap()
             .contains("background/video")
     );
+}
+
+#[tokio::test]
+async fn pet_background_uploads_support_live_photo_media_bindings() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138138").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "团团",
+                "species": "cat",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let still_content = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("still png bytes");
+    let upload_body =
+        upload_pending_live_photo(&app, &still_content, b"paired-video-bytes", &user_id).await;
+
+    assert_eq!(
+        upload_body["data"]["asset"]["usage_kind"],
+        "pet.background.live_photo"
+    );
+    assert_eq!(upload_body["data"]["asset"]["width"], 1);
+    assert_eq!(upload_body["data"]["asset"]["height"], 1);
+    let components = upload_body["data"]["components"]
+        .as_array()
+        .expect("live photo components");
+    assert_eq!(components.len(), 2);
+    assert!(components.iter().any(|item| {
+        item["component_kind"] == "still"
+            && item["mime_type"] == "image/png"
+            && item["width"] == 1
+            && item["height"] == 1
+    }));
+    assert!(components.iter().any(|item| {
+        item["component_kind"] == "paired_video"
+            && item["mime_type"] == "video/quicktime"
+            && item["object_key"]
+                .as_str()
+                .expect("paired video object key")
+                .contains("live_photo/paired_video")
+    }));
+
+    let live_asset_id = upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("live photo asset id");
+    let bind_body = bind_uploaded_media(&app, pet_id, live_asset_id, &user_id).await;
+    assert_eq!(bind_body["code"], "pet.media_bound");
+    assert_eq!(
+        bind_body["data"]["binding"]["usage_kind"],
+        "pet.background.live_photo"
+    );
+
+    let load_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load pet");
+    assert_eq!(load_response.status(), StatusCode::OK);
+    let load_body = response_json(load_response).await;
+    assert_eq!(load_body["data"]["background_media_kind"], "live_photo");
 }
 
 #[tokio::test]

@@ -413,6 +413,23 @@ struct PetMediaUploadDraft: Equatable {
     let sourceClient: String
 }
 
+// PetLivePhotoUploadDraft 宠物 Live Photo 上传草稿
+// 核心职责：
+// - 承载 Live Photo 静态图与配对视频两个原始组件
+// - 让上传链路保持成对资源的稳定 multipart 契约
+struct PetLivePhotoUploadDraft: Equatable {
+    let still: PetMediaUploadDraft
+    let pairedVideo: PetMediaUploadDraft
+
+    var sourceClient: String {
+        still.sourceClient
+    }
+
+    var byteSize: Int {
+        still.content.count + pairedVideo.content.count
+    }
+}
+
 // PetUploadedMediaBindings 已上传宠物媒体绑定输入
 // 核心职责：
 // - 承载创建宠物时需要绑定的 pending 资产
@@ -447,6 +464,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
     let asset: PetMediaAsset
     let binding: PetMediaBinding?
     let derivatives: [PetMediaDerivative]
+    let components: [PetMediaAssetComponent]
 
     var themeColorHex: String? {
         derivatives.compactMap(\.metadata.themeColorHex).first
@@ -459,7 +477,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
     var derivativeStatusMessage: String? {
         guard !derivatives.isEmpty else {
             switch asset.usageKind {
-            case .backgroundImage, .backgroundVideo:
+            case .backgroundImage, .backgroundVideo, .backgroundLivePhoto:
                 return "派生资源处理中"
             case .avatar:
                 return nil
@@ -483,16 +501,19 @@ struct PetMediaUploadResult: Decodable, Equatable {
         case asset
         case binding
         case derivatives
+        case components
     }
 
     init(
         asset: PetMediaAsset,
         binding: PetMediaBinding?,
-        derivatives: [PetMediaDerivative] = []
+        derivatives: [PetMediaDerivative] = [],
+        components: [PetMediaAssetComponent] = []
     ) {
         self.asset = asset
         self.binding = binding
         self.derivatives = derivatives
+        self.components = components
     }
 
     init(from decoder: Decoder) throws {
@@ -500,6 +521,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
         asset = try container.decode(PetMediaAsset.self, forKey: .asset)
         binding = try container.decodeIfPresent(PetMediaBinding.self, forKey: .binding)
         derivatives = try container.decodeIfPresent([PetMediaDerivative].self, forKey: .derivatives) ?? []
+        components = try container.decodeIfPresent([PetMediaAssetComponent].self, forKey: .components) ?? []
     }
 }
 
@@ -592,6 +614,43 @@ struct PetMediaAsset: Decodable, Equatable, Identifiable {
 enum PetBackgroundMediaKind: String, Codable, Equatable {
     case image
     case video
+    case livePhoto = "live_photo"
+}
+
+// PetMediaAssetComponent 组合媒体资产组件
+// 核心职责：
+// - 承接 Live Photo 静态图和配对视频的组件级元数据
+// - 为前端重建组合媒体提供 URL、尺寸和时长
+struct PetMediaAssetComponent: Decodable, Equatable, Identifiable {
+    let id: String
+    let assetID: String
+    let url: String
+    let componentKind: PetMediaAssetComponentKind
+    let bucket: String
+    let objectKey: String
+    let mimeType: String
+    let byteSize: Int
+    let sha256Hex: String
+    let width: Int?
+    let height: Int?
+    let durationMS: Int?
+    let createdAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case assetID = "asset_id"
+        case url
+        case componentKind = "component_kind"
+        case bucket
+        case objectKey = "object_key"
+        case mimeType = "mime_type"
+        case byteSize = "byte_size"
+        case sha256Hex = "sha256_hex"
+        case width
+        case height
+        case durationMS = "duration_ms"
+        case createdAt = "created_at"
+    }
 }
 
 // PetMediaBinding 宠物媒体绑定
@@ -895,6 +954,16 @@ enum PetMediaUsageKind: String, Codable, Equatable {
     case avatar = "pet.avatar"
     case backgroundImage = "pet.background.image"
     case backgroundVideo = "pet.background.video"
+    case backgroundLivePhoto = "pet.background.live_photo"
+}
+
+// PetMediaAssetComponentKind 组合媒体组件类型
+// 核心职责：
+// - 固定 Live Photo 两个组件的后端枚举
+// - 避免展示层用字符串判断组件语义
+enum PetMediaAssetComponentKind: String, Codable, Equatable {
+    case still
+    case pairedVideo = "paired_video"
 }
 
 // PetMediaDerivativeKind 宠物媒体派生类型

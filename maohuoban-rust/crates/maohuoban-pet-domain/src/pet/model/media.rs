@@ -67,6 +67,27 @@ pub struct MediaDerivative {
     pub created_at: DateTime<Utc>,
 }
 
+/// MediaAssetComponent 媒体资产组件
+/// 核心职责：
+/// - 表达 Live Photo 等组合媒体的成对对象
+/// - 为前端提供组件级内容 URL 和展示元数据
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MediaAssetComponent {
+    pub id: Uuid,
+    pub asset_id: Uuid,
+    pub url: String,
+    pub component_kind: MediaAssetComponentKind,
+    pub bucket: String,
+    pub object_key: String,
+    pub mime_type: String,
+    pub byte_size: i64,
+    pub sha256_hex: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub duration_ms: Option<i32>,
+    pub created_at: DateTime<Utc>,
+}
+
 /// PetMediaUploadResult 宠物媒体上传结果
 /// 核心职责：
 /// - 返回新媒体资产元数据
@@ -76,6 +97,7 @@ pub struct PetMediaUploadResult {
     pub asset: MediaAsset,
     pub binding: Option<MediaBinding>,
     pub derivatives: Vec<MediaDerivative>,
+    pub components: Vec<MediaAssetComponent>,
 }
 
 /// MediaUsageKind 媒体业务用途
@@ -91,6 +113,8 @@ pub enum MediaUsageKind {
     PetBackgroundImage,
     #[serde(rename = "pet.background.video")]
     PetBackgroundVideo,
+    #[serde(rename = "pet.background.live_photo")]
+    PetBackgroundLivePhoto,
 }
 
 impl MediaUsageKind {
@@ -100,6 +124,7 @@ impl MediaUsageKind {
             Self::PetAvatar => "pet.avatar",
             Self::PetBackgroundImage => "pet.background.image",
             Self::PetBackgroundVideo => "pet.background.video",
+            Self::PetBackgroundLivePhoto => "pet.background.live_photo",
         }
     }
 }
@@ -112,7 +137,41 @@ impl TryFrom<&str> for MediaUsageKind {
             "pet.avatar" => Ok(Self::PetAvatar),
             "pet.background.image" => Ok(Self::PetBackgroundImage),
             "pet.background.video" => Ok(Self::PetBackgroundVideo),
+            "pet.background.live_photo" => Ok(Self::PetBackgroundLivePhoto),
             _ => Err(PetErrorKind::MediaUsageKind),
+        }
+    }
+}
+
+/// MediaAssetComponentKind 媒体资产组件类型
+/// 核心职责：
+/// - 固定组合媒体的组件语义
+/// - 支持 Live Photo 静态图和配对视频分开寻址
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaAssetComponentKind {
+    Still,
+    PairedVideo,
+}
+
+impl MediaAssetComponentKind {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Still => "still",
+            Self::PairedVideo => "paired_video",
+        }
+    }
+}
+
+impl TryFrom<&str> for MediaAssetComponentKind {
+    type Error = PetErrorKind;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "still" => Ok(Self::Still),
+            "paired_video" => Ok(Self::PairedVideo),
+            _ => Err(PetErrorKind::MediaAssetComponentKind),
         }
     }
 }

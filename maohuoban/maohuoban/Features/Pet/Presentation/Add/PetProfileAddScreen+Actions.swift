@@ -154,6 +154,12 @@ extension PetProfileAddScreen {
     }
 
     func handleBackgroundPickerResult(_ result: MHBMediaPickerResult) {
+        if let livePhoto = result.livePhotos.first {
+            localHeroMedia = .livePhoto(livePhoto)
+            Task { await uploadLocalBackgroundLivePhoto(livePhoto) }
+            return
+        }
+
         if let image = result.images.first {
             backgroundCropTarget = MHBIdentifiableUIImage(image: image)
             return
@@ -219,6 +225,14 @@ extension PetProfileAddScreen {
                 currentUserID: currentUserID
             )
             return didUpload
+        case .livePhoto:
+            guard let draft = await addPetBackgroundLivePhotoUploadDraft() else {
+                return false
+            }
+            return await mediaUploadStore.uploadBackgroundLivePhoto(
+                draft: draft,
+                currentUserID: currentUserID
+            )
         }
     }
 
@@ -267,6 +281,17 @@ extension PetProfileAddScreen {
         )
     }
 
+    func uploadLocalBackgroundLivePhoto(_ livePhoto: MHBPickedLivePhoto) async {
+        guard let draft = await backgroundLivePhotoUploadDraft(from: livePhoto, fileNamePrefix: "pet-background") else {
+            return
+        }
+
+        _ = await mediaUploadStore.uploadBackgroundLivePhoto(
+            draft: draft,
+            currentUserID: currentUserID
+        )
+    }
+
     func addPetAvatarUploadDraft() -> PetMediaUploadDraft? {
         mediaUploadDraft(
             data: localAvatarImage?.jpegData(compressionQuality: 0.88),
@@ -293,6 +318,14 @@ extension PetProfileAddScreen {
         }
 
         return await backgroundVideoUploadDraft(from: url, fileNamePrefix: "pet-background")
+    }
+
+    func addPetBackgroundLivePhotoUploadDraft() async -> PetLivePhotoUploadDraft? {
+        guard case .livePhoto(let livePhoto) = localHeroMedia else {
+            return nil
+        }
+
+        return await backgroundLivePhotoUploadDraft(from: livePhoto, fileNamePrefix: "pet-background")
     }
 
     func backgroundVideoUploadDraft(from url: URL, fileNamePrefix: String) async -> PetMediaUploadDraft? {
@@ -323,6 +356,58 @@ extension PetProfileAddScreen {
             fileName: fileName,
             mimeType: "video/mp4"
         )
+    }
+
+    func backgroundLivePhotoUploadDraft(
+        from livePhoto: MHBPickedLivePhoto,
+        fileNamePrefix: String
+    ) async -> PetLivePhotoUploadDraft? {
+        let stillData = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: livePhoto.stillURL)
+        }.value
+        let pairedVideoData = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: livePhoto.pairedVideoURL)
+        }.value
+
+        guard let stillDraft = mediaUploadDraft(
+            data: stillData,
+            fileName: livePhoto.stillURL.lastPathComponent.isEmpty
+                ? "\(fileNamePrefix).heic"
+                : livePhoto.stillURL.lastPathComponent,
+            mimeType: livePhotoMimeType(for: livePhoto.stillURL)
+        ),
+            let pairedVideoDraft = mediaUploadDraft(
+                data: pairedVideoData,
+                fileName: livePhoto.pairedVideoURL.lastPathComponent.isEmpty
+                    ? "\(fileNamePrefix).mov"
+                    : livePhoto.pairedVideoURL.lastPathComponent,
+                mimeType: livePhotoMimeType(for: livePhoto.pairedVideoURL)
+            )
+        else {
+            return nil
+        }
+
+        return PetLivePhotoUploadDraft(
+            still: stillDraft,
+            pairedVideo: pairedVideoDraft
+        )
+    }
+
+    func livePhotoMimeType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "heic":
+            "image/heic"
+        case "heif":
+            "image/heif"
+        case "jpg", "jpeg":
+            "image/jpeg"
+        case "mov":
+            "video/quicktime"
+        case "mp4":
+            "video/mp4"
+        default:
+            "application/octet-stream"
+        }
     }
 
     func mediaUploadDraft(
@@ -467,6 +552,8 @@ private extension PetProfileHeroMediaDraft {
             "image"
         case .video:
             "video"
+        case .livePhoto:
+            "live_photo"
         }
     }
 }

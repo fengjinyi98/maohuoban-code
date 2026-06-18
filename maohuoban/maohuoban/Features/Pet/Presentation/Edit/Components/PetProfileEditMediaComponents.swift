@@ -115,6 +115,14 @@ struct PetProfileEditMediaThumbnail: View {
                     .scaledToFill()
             case .video(let url):
                 MHBMutedLoopingVideoView(url: url)
+            case .livePhoto(let livePhoto):
+                if let previewImage = livePhoto.previewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    MHBTheme.ColorToken.primaryBackground.color
+                }
             }
         } else {
             switch media {
@@ -153,6 +161,18 @@ struct PetProfileEditMediaThumbnail: View {
                 } else if let fallbackImageURLString,
                           let fallbackURL = MHBBackendEndpoint.resolve(fallbackImageURLString) {
                     MHBRemoteImage(url: fallbackURL, contentMode: .fill) {
+                        fallbackRemoteVideoImage(fallbackImageAssetName)
+                    }
+                } else {
+                    fallbackRemoteVideoImage(fallbackImageAssetName)
+                }
+            case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+                if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
+                   let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
+                    MHBRemoteLivePhotoView(
+                        stillURL: stillURL,
+                        pairedVideoURL: pairedVideoURL
+                    ) {
                         fallbackRemoteVideoImage(fallbackImageAssetName)
                     }
                 } else {

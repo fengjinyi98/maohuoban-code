@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
     BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
-    NewPetProfile, PendingPetMediaUploadInput, PetProfileDiagnostics, PetRepository,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile, record_pet_profile,
+    NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+    PetProfileDiagnostics, PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput,
+    UpdatePetProfile, record_pet_profile,
 };
 use maohuoban_pet_domain::pet::{
     PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
@@ -46,6 +47,13 @@ struct MediaAssetDisplayMetadataRow {
     width: Option<i32>,
     height: Option<i32>,
     theme_color_hex: Option<String>,
+    live_photo_still_component_id: Option<Uuid>,
+    live_photo_still_width: Option<i32>,
+    live_photo_still_height: Option<i32>,
+    live_photo_paired_video_component_id: Option<Uuid>,
+    live_photo_paired_video_width: Option<i32>,
+    live_photo_paired_video_height: Option<i32>,
+    live_photo_paired_video_duration_ms: Option<i32>,
 }
 
 impl PostgresPetRepository {
@@ -495,6 +503,13 @@ impl PetRepository for PostgresPetRepository {
         self.upload_pending_pet_media_command(input).await
     }
 
+    async fn upload_pending_pet_live_photo(
+        &self,
+        input: PendingPetLivePhotoUploadInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        self.upload_pending_pet_live_photo_command(input).await
+    }
+
     async fn bind_uploaded_pet_media(
         &self,
         input: BindUploadedPetMediaInput,
@@ -516,11 +531,24 @@ impl PetRepository for PostgresPetRepository {
                 asset.id AS asset_id,
                 asset.width,
                 asset.height,
-                derivative.metadata ->> 'theme_color_hex' AS theme_color_hex
+                derivative.metadata ->> 'theme_color_hex' AS theme_color_hex,
+                still_component.id AS live_photo_still_component_id,
+                still_component.width AS live_photo_still_width,
+                still_component.height AS live_photo_still_height,
+                paired_video_component.id AS live_photo_paired_video_component_id,
+                paired_video_component.width AS live_photo_paired_video_width,
+                paired_video_component.height AS live_photo_paired_video_height,
+                paired_video_component.duration_ms AS live_photo_paired_video_duration_ms
             FROM media_assets asset
             LEFT JOIN media_derivatives derivative
                 ON derivative.parent_asset_id = asset.id
                 AND derivative.derivative_kind = 'theme_color_frame'
+            LEFT JOIN media_asset_components still_component
+                ON still_component.asset_id = asset.id
+                AND still_component.component_kind = 'still'
+            LEFT JOIN media_asset_components paired_video_component
+                ON paired_video_component.asset_id = asset.id
+                AND paired_video_component.component_kind = 'paired_video'
             WHERE asset.id = ANY($1)
               AND asset.deleted_at IS NULL
               AND asset.status IN ('uploaded', 'bound')
@@ -538,6 +566,17 @@ impl PetRepository for PostgresPetRepository {
                 width: row.width,
                 height: row.height,
                 theme_color_hex: row.theme_color_hex,
+                live_photo_still_url: row
+                    .live_photo_still_component_id
+                    .map(|component_id| media_asset_component_url(row.asset_id, component_id)),
+                live_photo_still_width: row.live_photo_still_width,
+                live_photo_still_height: row.live_photo_still_height,
+                live_photo_paired_video_url: row
+                    .live_photo_paired_video_component_id
+                    .map(|component_id| media_asset_component_url(row.asset_id, component_id)),
+                live_photo_paired_video_width: row.live_photo_paired_video_width,
+                live_photo_paired_video_height: row.live_photo_paired_video_height,
+                live_photo_paired_video_duration_ms: row.live_photo_paired_video_duration_ms,
             })
             .collect())
     }
@@ -704,4 +743,8 @@ impl PetRepository for PostgresPetRepository {
 
         row.map(TryInto::try_into).transpose()
     }
+}
+
+fn media_asset_component_url(asset_id: Uuid, component_id: Uuid) -> String {
+    format!("/api/v1/media/assets/{asset_id}/components/{component_id}/content")
 }

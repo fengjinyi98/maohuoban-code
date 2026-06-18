@@ -258,6 +258,46 @@ extension PetProfileEditScreen {
                 )
                 return false
             }
+        case .livePhoto(let livePhoto):
+            guard let draft = await backgroundLivePhotoUploadDraft(from: livePhoto, profileID: profileID) else {
+                store.phase = .failed("背景数据为空")
+                await Diagnostics.track(
+                    "pet.hero_media_save_failed",
+                    properties: [
+                        "mode": "edit",
+                        "pet_id_prefix": .string(profileID.diagnosticsPrefix),
+                        "media_kind": "live_photo",
+                        "reason": "draft_empty"
+                    ]
+                )
+                return false
+            }
+
+            let didUpload = await mediaUploadStore.uploadBackgroundLivePhoto(
+                draft: draft,
+                currentUserID: currentUserID
+            )
+            let assetID = mediaUploadStore.backgroundState.assetID
+            guard didUpload,
+                let assetID,
+                await mediaUploadStore.bindUploadedMedia(
+                    petID: profileID,
+                    assetID: assetID,
+                    currentUserID: currentUserID
+                )
+            else {
+                store.phase = .failed("背景保存失败")
+                await Diagnostics.track(
+                    "pet.hero_media_save_failed",
+                    properties: [
+                        "mode": "edit",
+                        "pet_id_prefix": .string(profileID.diagnosticsPrefix),
+                        "media_kind": "live_photo",
+                        "reason": "upload_or_bind_failed"
+                    ]
+                )
+                return false
+            }
         }
 
         editedHeroMedia[profileID] = media
@@ -397,6 +437,58 @@ extension PetProfileEditScreen {
         )
     }
 
+    func backgroundLivePhotoUploadDraft(
+        from livePhoto: MHBPickedLivePhoto,
+        profileID: String
+    ) async -> PetLivePhotoUploadDraft? {
+        let stillData = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: livePhoto.stillURL)
+        }.value
+        let pairedVideoData = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: livePhoto.pairedVideoURL)
+        }.value
+
+        guard let stillDraft = mediaUploadDraft(
+            data: stillData,
+            fileName: livePhoto.stillURL.lastPathComponent.isEmpty
+                ? "pet-\(profileID)-background.heic"
+                : livePhoto.stillURL.lastPathComponent,
+            mimeType: livePhotoMimeType(for: livePhoto.stillURL)
+        ),
+            let pairedVideoDraft = mediaUploadDraft(
+                data: pairedVideoData,
+                fileName: livePhoto.pairedVideoURL.lastPathComponent.isEmpty
+                    ? "pet-\(profileID)-background.mov"
+                    : livePhoto.pairedVideoURL.lastPathComponent,
+                mimeType: livePhotoMimeType(for: livePhoto.pairedVideoURL)
+            )
+        else {
+            return nil
+        }
+
+        return PetLivePhotoUploadDraft(
+            still: stillDraft,
+            pairedVideo: pairedVideoDraft
+        )
+    }
+
+    func livePhotoMimeType(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "heic":
+            "image/heic"
+        case "heif":
+            "image/heif"
+        case "jpg", "jpeg":
+            "image/jpeg"
+        case "mov":
+            "video/quicktime"
+        case "mp4":
+            "video/mp4"
+        default:
+            "application/octet-stream"
+        }
+    }
+
     func mediaUploadDraft(
         data: Data?,
         fileName: String,
@@ -428,6 +520,8 @@ private extension PetProfileHeroMediaDraft {
             "image"
         case .video:
             "video"
+        case .livePhoto:
+            "live_photo"
         }
     }
 }
