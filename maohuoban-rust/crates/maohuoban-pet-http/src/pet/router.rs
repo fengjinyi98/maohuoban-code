@@ -1,32 +1,18 @@
+mod auth;
+mod events;
+mod media;
+mod merchant;
+mod profile;
+
 use std::sync::Arc;
 
 use axum::{
-    Json, Router,
-    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
-    http::HeaderMap,
-    response::Response,
+    Router,
+    extract::DefaultBodyLimit,
     routing::{get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
-use maohuoban_auth_domain::auth::{AuthError, AuthResult};
 use maohuoban_pet_application::pet::PetService;
-use uuid::Uuid;
-
-use super::{
-    diagnostics::{
-        record_binding_http_request, record_binding_http_response, record_profile_http,
-        record_profile_http_response, record_upload_http_request, record_upload_http_response,
-    },
-    dto::{
-        BindUploadedPetMediaRequest, CreateMerchantPetRequest, CreatePetEventRequest,
-        CreatePetProfileRequest, DeletePetProfileRequest, MerchantAvailableStatusData,
-        MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery, PetEventData,
-        PetMediaUploadData, PetProfileData, PetProfilesData, PetTimelineData,
-        PublishAvailableStatusRequest, TradePetImportData, TradePetImportRequest,
-        UpdatePetProfileRequest, UploadPetLivePhotoRequest, UploadPetMediaRequest,
-    },
-    response::{created_response, error_response, ok_response, unauthorized_response},
-};
 
 const PET_IMAGE_UPLOAD_LIMIT_BYTES: usize = 16 * 1024 * 1024;
 const PET_VIDEO_UPLOAD_LIMIT_BYTES: usize = 128 * 1024 * 1024;
@@ -56,521 +42,70 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
     Router::new()
         .route(
             "/api/v1/pets",
-            get(list_pet_profiles).post(create_pet_profile),
+            get(profile::list_pet_profiles).post(profile::create_pet_profile),
         )
         .route(
             "/api/v1/pets/{pet_id}",
-            get(load_pet_profile)
-                .patch(update_pet_profile)
-                .delete(delete_pet_profile),
+            get(profile::load_pet_profile)
+                .patch(profile::update_pet_profile)
+                .delete(profile::delete_pet_profile),
         )
-        .route("/api/v1/pets/{pet_id}/restore", post(restore_pet_profile))
+        .route(
+            "/api/v1/pets/{pet_id}/restore",
+            post(profile::restore_pet_profile),
+        )
         .route(
             "/api/v1/pet-media/avatar",
-            post(upload_pending_pet_avatar)
+            post(media::upload_pending_pet_avatar)
                 .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
         )
         .route(
             "/api/v1/pet-media/background-image",
-            post(upload_pending_pet_background_image)
+            post(media::upload_pending_pet_background_image)
                 .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
         )
         .route(
             "/api/v1/pet-media/background-video",
-            post(upload_pending_pet_background_video)
+            post(media::upload_pending_pet_background_video)
                 .layer(DefaultBodyLimit::max(PET_VIDEO_UPLOAD_LIMIT_BYTES)),
         )
         .route(
             "/api/v1/pet-media/background-live-photo",
-            post(upload_pending_pet_background_live_photo).layer(DefaultBodyLimit::max(
+            post(media::upload_pending_pet_background_live_photo).layer(DefaultBodyLimit::max(
                 PET_IMAGE_UPLOAD_LIMIT_BYTES + PET_VIDEO_UPLOAD_LIMIT_BYTES,
             )),
         )
         .route(
             "/api/v1/pets/{pet_id}/media-bindings",
-            post(bind_uploaded_pet_media),
+            post(media::bind_uploaded_pet_media),
         )
-        .route("/api/v1/pets/imports/trade", post(import_trade_pet))
-        .route("/api/v1/pet-events/{event_id}", get(load_pet_event_detail))
-        .route("/api/v1/pets/{pet_id}/events", post(create_pet_event))
-        .route("/api/v1/pets/{pet_id}/timeline", get(load_pet_timeline))
+        .route(
+            "/api/v1/pets/imports/trade",
+            post(profile::import_trade_pet),
+        )
+        .route(
+            "/api/v1/pet-events/{event_id}",
+            get(events::load_pet_event_detail),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/events",
+            post(events::create_pet_event),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/timeline",
+            get(events::load_pet_timeline),
+        )
         .route(
             "/api/v1/merchants/{merchant_id}/pets",
-            get(list_merchant_pets).post(create_merchant_pet),
+            get(merchant::list_merchant_pets).post(merchant::create_merchant_pet),
         )
         .route(
             "/api/v1/merchants/{merchant_id}/pets/{pet_id}/available-status",
-            post(publish_available_status),
+            post(merchant::publish_available_status),
         )
         .route(
             "/api/v1/merchants/{merchant_id}/litters/{litter_id}",
-            get(load_merchant_litter_detail),
+            get(merchant::load_merchant_litter_detail),
         )
         .with_state(PetHttpState::new(pet, auth))
-}
-
-async fn list_pet_profiles(State(state): State<PetHttpState>, headers: HeaderMap) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state.pet.list_pet_profiles(owner_user_id).await {
-        Ok(profiles) => ok_response(
-            "pet.list_loaded",
-            "宠物档案列表已加载",
-            PetProfilesData::from(profiles),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn load_pet_profile(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state.pet.load_pet_profile(owner_user_id, pet_id).await {
-        Ok(profile) => ok_response(
-            "pet.loaded",
-            "宠物档案已加载",
-            PetProfileData::from(profile),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn update_pet_profile(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-    Json(request): Json<UpdatePetProfileRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(pet_id, owner_user_id);
-    record_profile_http(
-        "http.request",
-        "update",
-        owner_user_id,
-        Some(pet_id),
-        input.breed.as_deref(),
-        true,
-    );
-    match state.pet.update_pet_profile(input).await {
-        Ok(profile) => {
-            record_profile_http_response("update", owner_user_id, &profile);
-            ok_response(
-                "pet.updated",
-                "宠物档案已更新",
-                PetProfileData::from(profile),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn delete_pet_profile(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-    Json(request): Json<DeletePetProfileRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(pet_id, owner_user_id);
-    match state.pet.delete_pet_profile(input).await {
-        Ok(profile) => ok_response(
-            "pet.deleted",
-            "宠物档案已删除",
-            PetProfileData::from(profile),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn restore_pet_profile(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = maohuoban_pet_application::pet::RestorePetProfile {
-        pet_id,
-        owner_user_id,
-    };
-    match state.pet.restore_pet_profile(input).await {
-        Ok(profile) => ok_response(
-            "pet.restored",
-            "宠物档案已恢复",
-            PetProfileData::from(profile),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn upload_pending_pet_avatar(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    multipart: Multipart,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
-        Ok(request) => request,
-        Err(error) => return error_response(&error),
-    };
-    let input = request.into_pending_avatar_input(owner_user_id);
-    record_upload_http_request(&input);
-    match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => {
-            record_upload_http_response(owner_user_id, &upload);
-            created_response(
-                "pet.media_uploaded",
-                "媒体已上传",
-                PetMediaUploadData::from(upload),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn bind_uploaded_pet_media(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-    Json(request): Json<BindUploadedPetMediaRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(pet_id, owner_user_id);
-    record_binding_http_request(&input);
-    match state.pet.bind_uploaded_pet_media(input).await {
-        Ok(upload) => {
-            record_binding_http_response(owner_user_id, pet_id, &upload);
-            created_response(
-                "pet.media_bound",
-                "宠物媒体已保存",
-                PetMediaUploadData::from(upload),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn upload_pending_pet_background_image(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    multipart: Multipart,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
-        Ok(request) => request,
-        Err(error) => return error_response(&error),
-    };
-    let input = request.into_pending_background_image_input(owner_user_id);
-    record_upload_http_request(&input);
-    match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => {
-            record_upload_http_response(owner_user_id, &upload);
-            created_response(
-                "pet.media_uploaded",
-                "媒体已上传",
-                PetMediaUploadData::from(upload),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn upload_pending_pet_background_video(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    multipart: Multipart,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
-        Ok(request) => request,
-        Err(error) => return error_response(&error),
-    };
-    let input = request.into_pending_background_video_input(owner_user_id);
-    record_upload_http_request(&input);
-    match state.pet.upload_pending_pet_media(input).await {
-        Ok(upload) => {
-            record_upload_http_response(owner_user_id, &upload);
-            created_response(
-                "pet.media_uploaded",
-                "媒体已上传",
-                PetMediaUploadData::from(upload),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn upload_pending_pet_background_live_photo(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    multipart: Multipart,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let request = match UploadPetLivePhotoRequest::from_multipart(multipart).await {
-        Ok(request) => request,
-        Err(error) => return error_response(&error),
-    };
-    let input = request.into_pending_live_photo_input(owner_user_id);
-    match state.pet.upload_pending_pet_live_photo(input).await {
-        Ok(upload) => created_response(
-            "pet.media_uploaded",
-            "媒体已上传",
-            PetMediaUploadData::from(upload),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn create_pet_profile(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Json(request): Json<CreatePetProfileRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_new_pet_profile(owner_user_id);
-    record_profile_http(
-        "http.request",
-        "create",
-        owner_user_id,
-        None,
-        input.breed.as_deref(),
-        true,
-    );
-    match state.pet.create_pet_profile(input).await {
-        Ok(profile) => {
-            record_profile_http_response("create", owner_user_id, &profile);
-            created_response(
-                "pet.created",
-                "宠物档案已创建",
-                PetProfileData::from(profile),
-            )
-        }
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn import_trade_pet(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Json(request): Json<TradePetImportRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(owner_user_id);
-    match state.pet.import_trade_pet(input).await {
-        Ok(import) => created_response(
-            "pet.trade_imported",
-            "交易宠物已导入",
-            TradePetImportData::from(import),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn create_pet_event(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-    Json(request): Json<CreatePetEventRequest>,
-) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_new_pet_event(pet_id, actor_user_id);
-    match state.pet.create_pet_event(input).await {
-        Ok(event) => created_response(
-            "pet.event_created",
-            "宠物事件已记录",
-            PetEventData::from(event),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn load_pet_timeline(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(pet_id): Path<Uuid>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state.pet.load_pet_timeline(owner_user_id, pet_id).await {
-        Ok(timeline) => ok_response(
-            "pet.timeline_loaded",
-            "宠物时间线已加载",
-            PetTimelineData::from(timeline),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn load_pet_event_detail(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(event_id): Path<Uuid>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state
-        .pet
-        .load_pet_event_detail(owner_user_id, event_id)
-        .await
-    {
-        Ok(event) => ok_response(
-            "pet.event_loaded",
-            "宠物事件已加载",
-            PetEventData::from(event),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn list_merchant_pets(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(merchant_id): Path<Uuid>,
-    Query(query): Query<MerchantPetsQuery>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state
-        .pet
-        .list_merchant_pets(owner_user_id, merchant_id, query.status)
-        .await
-    {
-        Ok(pets) => ok_response(
-            "merchant.pets_loaded",
-            "商家宠物列表已加载",
-            MerchantPetsData::new(merchant_id, query.status, pets),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn create_merchant_pet(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path(merchant_id): Path<Uuid>,
-    Json(request): Json<CreateMerchantPetRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_new_merchant_pet(merchant_id);
-    match state.pet.create_merchant_pet(owner_user_id, input).await {
-        Ok(profile) => created_response(
-            "merchant.pet_created",
-            "商家宠物已新增",
-            PetProfileData::from(profile),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn publish_available_status(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path((merchant_id, pet_id)): Path<(Uuid, Uuid)>,
-    Json(request): Json<PublishAvailableStatusRequest>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(merchant_id, pet_id, owner_user_id);
-    match state
-        .pet
-        .publish_available_status(owner_user_id, input)
-        .await
-    {
-        Ok(publication) => ok_response(
-            "merchant.available_status_published",
-            "可售状态已发布",
-            MerchantAvailableStatusData::from(publication),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn load_merchant_litter_detail(
-    State(state): State<PetHttpState>,
-    headers: HeaderMap,
-    Path((merchant_id, litter_id)): Path<(Uuid, Uuid)>,
-) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    match state
-        .pet
-        .load_merchant_litter_detail(owner_user_id, merchant_id, litter_id)
-        .await
-    {
-        Ok(detail) => ok_response(
-            "merchant.litter_loaded",
-            "窝次详情已加载",
-            MerchantLitterDetailData::from(detail),
-        ),
-        Err(error) => error_response(&error),
-    }
-}
-
-async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
-    let token = bearer_token(headers)?;
-    let user = auth.authenticate_access_token(token).await?;
-    Ok(user.id)
-}
-
-fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
-    let value = headers
-        .get("authorization")
-        .ok_or(AuthError::AccessInvalid)?;
-    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
-    raw.strip_prefix("Bearer ")
-        .filter(|token| !token.is_empty())
-        .ok_or(AuthError::AccessInvalid)
 }

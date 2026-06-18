@@ -1,7 +1,8 @@
 use maohuoban_pet_domain::pet::{PetError, PetEvent, PetProfile, PetRelationship, PetResult};
 use uuid::Uuid;
 
-use super::merchant_rows::{MerchantManagedPetRow, MerchantPetEventRow, PetRelationshipRow};
+use super::merchant_pet_rows::MerchantManagedPetRow;
+use super::merchant_rows::{MerchantPetEventRow, PetRelationshipRow};
 
 pub(super) fn to_infrastructure_error(error: sqlx::Error) -> PetError {
     PetError::Infrastructure(error.to_string())

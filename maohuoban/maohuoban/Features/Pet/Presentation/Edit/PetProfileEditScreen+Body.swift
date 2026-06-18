@@ -175,44 +175,26 @@ extension PetProfileEditScreen {
                                 .petProfileEditRowFrame(.neuterStatus)
                             }
 
-                            PetProfileEditSection {
-                                PetProfileEditRow(
-                                    title: "性格标签",
-                                    isAccessoryExpanded: isTagsEditorChevronExpanded && tagsEditorProfileID == profile.id,
-                                    action: {
-                                        showTagsEditor(for: profile)
-                                    }
-                                ) {
-                                    PetProfileEditTagFlow(tags: personalityTags)
+                            PetProfileEditNotesSection(
+                                personalityTags: personalityTags,
+                                noteText: noteText,
+                                isTagsExpanded: isTagsEditorChevronExpanded && tagsEditorProfileID == profile.id,
+                                isNoteExpanded: isNoteEditorChevronExpanded && noteEditorProfileID == profile.id,
+                                onTags: {
+                                    showTagsEditor(for: profile)
+                                },
+                                onNote: {
+                                    showNoteEditor(for: profile)
                                 }
+                            )
 
-                                PetProfileEditRow(
-                                    title: "备注",
-                                    showsSeparator: false,
-                                    isAccessoryExpanded: isNoteEditorChevronExpanded && noteEditorProfileID == profile.id,
-                                    action: {
-                                        showNoteEditor(for: profile)
-                                    }
-                                ) {
-                                    PetProfileEditValueText(value: noteText)
+                            PetProfileEditDeleteSection(
+                                onDelete: {
+                                    dismissSelectionMenus()
+                                    deleteConfirmationProfileID = profile.id
+                                    isDeleteConfirmationPresented = true
                                 }
-                            }
-
-                            PetProfileEditSection {
-                                PetProfileEditRow(
-                                    title: "删除宠物档案",
-                                    showsSeparator: false,
-                                    titleColor: MHBTheme.ColorToken.danger.color,
-                                    action: {
-                                        dismissSelectionMenus()
-                                        deleteConfirmationProfileID = profile.id
-                                        isDeleteConfirmationPresented = true
-                                    }
-                                ) {
-                                    EmptyView()
-                                }
-                                .accessibilityIdentifier("pet.profileEdit.deleteEntry")
-                            }
+                            )
                         }
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -226,40 +208,22 @@ extension PetProfileEditScreen {
                     neuterStatusRowFrame = frames[.neuterStatus] ?? .zero
                 }
 
-                if isSpeciesPickerPresented || isSexPickerPresented || isNeuterStatusPickerPresented {
-                    MHBOutsideTapDismissLayer(onDismiss: dismissSelectionMenus)
-                        .zIndex(1)
-                }
-
-                PetProfileEditSelectionMenuOverlay(
-                    isPresented: isSpeciesPickerPresented,
+                PetProfileEditSelectionOverlays(
+                    isSpeciesPresented: isSpeciesPickerPresented,
+                    isSexPresented: isSexPickerPresented,
+                    isNeuterStatusPresented: isNeuterStatusPickerPresented,
                     containerWidth: proxy.size.width,
-                    rowFrame: speciesRowFrame,
-                    selectedValue: speciesText,
-                    options: ["狗狗", "猫咪", "其他"],
-                    onSelect: updateSpeciesText
+                    speciesRowFrame: speciesRowFrame,
+                    sexRowFrame: sexRowFrame,
+                    neuterStatusRowFrame: neuterStatusRowFrame,
+                    speciesText: speciesText,
+                    sexText: sexText,
+                    neuterStatusText: neuterStatusText,
+                    onDismiss: dismissSelectionMenus,
+                    onSpeciesSelect: updateSpeciesText,
+                    onSexSelect: updateSexText,
+                    onNeuterStatusSelect: updateNeuterStatusText
                 )
-                .zIndex(2)
-
-                PetProfileEditSelectionMenuOverlay(
-                    isPresented: isSexPickerPresented,
-                    containerWidth: proxy.size.width,
-                    rowFrame: sexRowFrame,
-                    selectedValue: sexText,
-                    options: ["公", "母"],
-                    onSelect: updateSexText
-                )
-                .zIndex(2)
-
-                PetProfileEditSelectionMenuOverlay(
-                    isPresented: isNeuterStatusPickerPresented,
-                    containerWidth: proxy.size.width,
-                    rowFrame: neuterStatusRowFrame,
-                    selectedValue: neuterStatusText,
-                    options: ["已绝育", "未绝育"],
-                    onSelect: updateNeuterStatusText
-                )
-                .zIndex(2)
             }
             .onAppear {
                 updateHomePreviewHeroImageWidth(proxy.size.width)

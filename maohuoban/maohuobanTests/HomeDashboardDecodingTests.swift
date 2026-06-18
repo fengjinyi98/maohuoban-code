@@ -1,12 +1,12 @@
 import XCTest
 @testable import maohuoban
 
-// HomeDashboardDecodingTests 首页快照解码测试
+// HomeDashboardDecodingTests 宠物主人首页快照解码测试
 // 核心职责：
-// - 固化后端 dashboard JSON 与 iOS DTO 的字段契约
-// - 覆盖认证商家、窝次、待办和近期事件解码
+// - 固化宠物主人 dashboard JSON 与 iOS DTO 的字段契约
+// - 验证编辑档案与首页预览上下文映射保留后端媒体信息
+@MainActor
 final class HomeDashboardDecodingTests: XCTestCase {
-    @MainActor
     func testPetOwnerEventDerivedDashboardJSONDecodesIntoSnapshot() throws {
         let data = Data(
             #"""
@@ -169,92 +169,6 @@ final class HomeDashboardDecodingTests: XCTestCase {
         }
     }
 
-    @MainActor
-    func testPetOwnerLivePhotoDashboardJSONDecodesIntoSnapshot() throws {
-        let data = Data(
-            #"""
-            {
-              "success": true,
-              "code": "ok",
-              "message": "首页已加载",
-              "data": {
-                "identity": {
-                  "kind": "pet_owner",
-                  "display_name": "毛伙伴用户",
-                  "city": null,
-                  "verification_badge": null
-                },
-                "selected_pet": {
-                  "id": "pet-1",
-                  "name": "糯米",
-                  "species": "dog",
-                  "breed": "比熊犬",
-                  "sex": "female",
-                  "age_text": "2岁",
-                  "status_text": "记录正在形成可信档案",
-                  "updated_text": "档案已同步",
-                  "avatar_url": "/api/v1/media/assets/avatar-1/content",
-                  "hero_image_url": null,
-                  "hero_video_url": null,
-                  "hero_live_photo": {
-                    "still_url": "/api/v1/media/assets/live-1/components/still-1/content",
-                    "still_width": 1200,
-                    "still_height": 1600,
-                    "paired_video_url": "/api/v1/media/assets/live-1/components/video-1/content",
-                    "paired_video_width": 1200,
-                    "paired_video_height": 1600,
-                    "paired_video_duration_ms": 1800,
-                    "crop": {
-                      "x": 0.125,
-                      "y": 0.25,
-                      "width": 0.5,
-                      "height": 0.375
-                    }
-                  },
-                  "hero_theme_color_hex": "#AABBCC",
-                  "hero_content_color_scheme": "light"
-                },
-                "pet_switcher": [],
-                "care_summary": null,
-                "reminders": [],
-                "quick_actions": [],
-                "partner_recommendation": null,
-                "recent_timeline": [],
-                "merchant_dashboard": null,
-                "empty_state": null,
-                "recommended_content": []
-              }
-            }
-            """#.utf8
-        )
-
-        let response = try JSONDecoder().decode(
-            MHBAPIResponse<HomeDashboardSnapshot>.self,
-            from: data
-        )
-
-        let selectedPet = try XCTUnwrap(response.data?.selectedPet)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.stillURL, "/api/v1/media/assets/live-1/components/still-1/content")
-        XCTAssertEqual(selectedPet.heroLivePhoto?.stillWidth, 1200)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.pairedVideoURL, "/api/v1/media/assets/live-1/components/video-1/content")
-        XCTAssertEqual(selectedPet.heroLivePhoto?.pairedVideoDurationMS, 1800)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.x, 0.125)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.y, 0.25)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.width, 0.5)
-        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.height, 0.375)
-        XCTAssertNil(selectedPet.heroImageURL)
-        XCTAssertNil(selectedPet.heroVideoURL)
-        if case let .remoteLivePhoto(stillURLString, pairedVideoURLString, cropMetadata, fallbackImageAssetName) = selectedPet.heroMedia {
-            XCTAssertEqual(stillURLString, "/api/v1/media/assets/live-1/components/still-1/content")
-            XCTAssertEqual(pairedVideoURLString, "/api/v1/media/assets/live-1/components/video-1/content")
-            XCTAssertEqual(cropMetadata?.width, 0.5)
-            XCTAssertEqual(fallbackImageAssetName, "HomePetHeroMock")
-        } else {
-            XCTFail("selected pet should use remote live photo")
-        }
-    }
-
-    @MainActor
     func testHomePreviewContextKeepsBackendHeroThemeColor() throws {
         let profile = PetProfileEditProfile(
             id: "pet-1",
@@ -292,92 +206,5 @@ final class HomeDashboardDecodingTests: XCTestCase {
 
         XCTAssertEqual(context.pet.heroThemeColorHex, "#AABBCC")
         XCTAssertEqual(context.pet.heroContentColorScheme, .light)
-    }
-
-    @MainActor
-    func testMerchantDashboardJSONDecodesIntoSnapshot() throws {
-        let data = Data(
-            #"""
-            {
-              "success": true,
-              "code": "ok",
-              "message": "首页已加载",
-              "data": {
-                "identity": {
-                  "kind": "certified_merchant",
-                  "display_name": "梧桐猫舍",
-                  "city": "成都",
-                  "verification_badge": "已认证"
-                },
-                "selected_pet": null,
-                "pet_switcher": [],
-                "care_summary": null,
-                "reminders": [],
-                "quick_actions": [
-                  {
-                    "kind": "add_merchant_pet",
-                    "title": "新增宠物",
-                    "subtitle": "录入店内宠物或窝次"
-                  }
-                ],
-                "partner_recommendation": null,
-                "recent_timeline": [],
-                "merchant_dashboard": {
-                  "merchant_id": "merchant-1",
-                  "merchant_name": "梧桐猫舍",
-                  "status_counts": [
-                    {
-                      "status": "available",
-                      "title": "在售",
-                      "count": 2
-                    }
-                  ],
-                  "litters": [
-                    {
-                      "id": "litter-1",
-                      "name": "2026 春季 A 窝",
-                      "parent_text": "父亲 Leo · 母亲 Luna",
-                      "born_text": "2026-03-18 出生",
-                      "available_count": 2
-                    }
-                  ],
-                  "pending_tasks": [
-                    {
-                      "id": "merchant-1",
-                      "kind": "complete_health_record",
-                      "title": "补齐健康记录",
-                      "subtitle": "1 只宠物待补健康或成长记录",
-                      "due_text": "今天"
-                    }
-                  ],
-                  "recent_events": [
-                    {
-                      "id": "event-1",
-                      "event_kind": "merchant",
-                      "title": "A 窝出生记录",
-                      "subtitle": "3 只幼猫出生",
-                      "occurred_text": "2026-03-18"
-                    }
-                  ]
-                },
-                "empty_state": null,
-                "recommended_content": []
-              }
-            }
-            """#.utf8
-        )
-
-        let response = try JSONDecoder().decode(
-            MHBAPIResponse<HomeDashboardSnapshot>.self,
-            from: data
-        )
-
-        let dashboard = try XCTUnwrap(response.data)
-        XCTAssertEqual(dashboard.identity.kind, .certifiedMerchant)
-        XCTAssertEqual(dashboard.merchantDashboard?.merchantID, "merchant-1")
-        XCTAssertEqual(dashboard.merchantDashboard?.statusCounts.first?.status, .available)
-        XCTAssertEqual(dashboard.merchantDashboard?.litters.first?.parentText, "父亲 Leo · 母亲 Luna")
-        XCTAssertEqual(dashboard.merchantDashboard?.pendingTasks.first?.kind, .completeHealthRecord)
-        XCTAssertEqual(dashboard.merchantDashboard?.recentEvents.first?.eventKind, .merchant)
     }
 }

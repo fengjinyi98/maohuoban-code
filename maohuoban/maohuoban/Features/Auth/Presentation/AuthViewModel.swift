@@ -36,12 +36,12 @@ final class AuthViewModel {
         validatePhone(phone)
     }
 
-    private var loginChallengeID: String?
-    private var recoveryChallengeID: String?
-    private var resendCountdownTask: Task<Void, Never>?
-    private let repository: AuthRepository
-    private let tokenStore: MHBTokenStore
-    private let toast: MHBToastPresenter
+    var loginChallengeID: String?
+    var recoveryChallengeID: String?
+    var resendCountdownTask: Task<Void, Never>?
+    let repository: AuthRepository
+    let tokenStore: MHBTokenStore
+    let toast: MHBToastPresenter
 
     init(
         repository: AuthRepository = DefaultAuthRepository(),
@@ -66,19 +66,6 @@ final class AuthViewModel {
                 try? tokenStore.clearTokens()
             }
         } catch {
-        }
-    }
-
-    // shouldClearStoredTokens 判断 refresh 失败后的本地凭证处理
-    // 核心职责：
-    // - 服务端明确判定 refresh 失效时清理本地凭证
-    // - 网络中断或后端重启期间保留 refresh token 以便恢复
-    private func shouldClearStoredTokens(afterRefreshError error: MHBAPIError) -> Bool {
-        switch error {
-        case .business(let code, _, let statusCode):
-            return statusCode == 401 && ["auth.refresh_invalid", "auth.refresh_reused"].contains(code)
-        case .invalidResponse, .transport, .decoding:
-            return false
         }
     }
 
@@ -250,67 +237,5 @@ final class AuthViewModel {
         recoveryPassword = ""
         hasRecoveryChallenge = false
         step = .recovery
-    }
-
-    private func submit(_ operation: () async throws -> Void) async {
-        guard !isSubmitting else { return }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            try await operation()
-        } catch let error as MHBAPIError {
-            toast.danger(error.toastMessage)
-        } catch {
-            toast.danger("登录状态保存失败，请稍后再试")
-        }
-    }
-
-    private func resetLocalSession() {
-        try? tokenStore.clearTokens()
-        currentUser = nil
-        isAuthenticated = false
-        step = .login
-        stopResendCountdown()
-    }
-
-    private func startResendCountdown(seconds: Int) {
-        resendCountdownTask?.cancel()
-        resendCountdownSeconds = max(seconds, 0)
-        guard resendCountdownSeconds > 0 else {
-            resendCountdownTask = nil
-            return
-        }
-
-        resendCountdownTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard let self else { return }
-                    self.resendCountdownSeconds = max(self.resendCountdownSeconds - 1, 0)
-                    if self.resendCountdownSeconds == 0 {
-                        self.resendCountdownTask?.cancel()
-                        self.resendCountdownTask = nil
-                    }
-                }
-            }
-        }
-    }
-
-    private func stopResendCountdown() {
-        resendCountdownTask?.cancel()
-        resendCountdownTask = nil
-        resendCountdownSeconds = 0
-    }
-
-    private func validatePhone(_ value: String) -> Bool {
-        value.count == 11 && value.allSatisfy(\.isNumber)
-    }
-
-    private func maskPhone(_ value: String) -> String {
-        guard value.count == 11 else { return value }
-        let prefix = value.prefix(3)
-        let suffix = value.suffix(4)
-        return "+86 \(prefix) **** \(suffix)"
     }
 }

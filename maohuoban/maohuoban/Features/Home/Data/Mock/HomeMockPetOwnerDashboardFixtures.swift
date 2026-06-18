@@ -1,0 +1,237 @@
+import Foundation
+
+extension HomeMockDashboardFixtures {
+    static func petOwnerSnapshot(selectedPetID: String?) -> HomeDashboardSnapshot {
+        let pets = petSwitcher(selectedPetID: selectedPetID)
+        let selectedPet = pets.first(where: \.isSelected) ?? pets[0]
+
+        return HomeDashboardSnapshot(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .petOwner,
+                displayName: "毛伙伴用户",
+                city: "上海",
+                verificationBadge: nil,
+                avatarURL: nil
+            ),
+            selectedPet: heroSummary(for: selectedPet.id),
+            petSwitcher: pets,
+            careSummary: HomeDashboardSnapshot.CareSummary(
+                title: "今日照护",
+                metrics: [
+                    HomeDashboardSnapshot.CareMetric(
+                        kind: .appetite,
+                        title: "食欲",
+                        valueText: "旺盛",
+                        statusText: "早餐和晚餐已记录"
+                    ),
+                    HomeDashboardSnapshot.CareMetric(
+                        kind: .mood,
+                        title: "情绪",
+                        valueText: "稳定",
+                        statusText: "外出散步 28 分钟"
+                    ),
+                    HomeDashboardSnapshot.CareMetric(
+                        kind: .weight,
+                        title: "体重",
+                        valueText: "4.8kg",
+                        statusText: "较上次记录稳定"
+                    )
+                ]
+            ),
+            reminders: [
+                HomeDashboardSnapshot.Reminder(
+                    id: "reminder-vaccine",
+                    kind: .vaccine,
+                    title: "狂犬疫苗",
+                    subtitle: "2026.06.08",
+                    dueText: "14 天后",
+                    remarks: "建议提前预约同城宠物医院"
+                ),
+                HomeDashboardSnapshot.Reminder(
+                    id: "reminder-deworming",
+                    kind: .deworming,
+                    title: "体内驱虫",
+                    subtitle: "2026.05.28",
+                    dueText: "3 天后",
+                    remarks: nil
+                ),
+                HomeDashboardSnapshot.Reminder(
+                    id: "reminder-physical",
+                    kind: .followUp,
+                    title: "定期体检",
+                    subtitle: "2026.04.15",
+                    dueText: "30 天后",
+                    remarks: "基础血常规与生化筛查"
+                )
+            ],
+            quickActions: petOwnerActions(),
+            partnerRecommendation: HomeDashboardSnapshot.PartnerRecommendation(
+                petID: "pet-neighbor-1",
+                petName: "奶盖",
+                relationshipKind: .sameLitter,
+                title: "今日伙伴",
+                subtitle: "你们都来自 萌宠阁 猫舍，生日只差3天~",
+                distanceText: "2km",
+                sex: .female
+            ),
+            recentTimeline: [
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-breakfast",
+                    eventKind: .daily,
+                    title: "记录了早餐",
+                    subtitle: "鸡肉 + 南瓜 + 狗粮",
+                    occurredText: "08:30"
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-weight",
+                    eventKind: .weight,
+                    title: "体重更新",
+                    subtitle: "3.6 kg",
+                    occurredText: "09:15"
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-deworming",
+                    eventKind: .deworming,
+                    title: "完成驱虫",
+                    subtitle: "大宠爱体外驱虫滴剂",
+                    occurredText: "11:30"
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-walk",
+                    eventKind: .daily,
+                    title: "夜间散步",
+                    subtitle: "32 分钟 · 2.3 km",
+                    occurredText: "20:20"
+                )
+            ],
+            merchantDashboard: nil,
+            emptyState: nil,
+            recommendedContent: [],
+            petAlbums: [
+                HomeDashboardSnapshot.PetAlbumItem(
+                    id: "album-1",
+                    title: "第一天带回家",
+                    dateText: "2024年",
+                    coverImageAssetName: "HomePetAlbum1"
+                ),
+                HomeDashboardSnapshot.PetAlbumItem(
+                    id: "album-2",
+                    title: "在阳光下打盹",
+                    dateText: "2025年",
+                    coverImageAssetName: "HomePetAlbum2"
+                ),
+                HomeDashboardSnapshot.PetAlbumItem(
+                    id: "album-3",
+                    title: "抓蝴蝶失败",
+                    dateText: "2025年",
+                    coverImageAssetName: "HomePetAlbum3"
+                ),
+                HomeDashboardSnapshot.PetAlbumItem(
+                    id: "album-4",
+                    title: "冬日小棉袄",
+                    dateText: "2025年",
+                    coverImageAssetName: "HomePetAlbum4"
+                )
+            ],
+            galleryAlbums: [
+                HomeDashboardSnapshot.PetGalleryAlbum(
+                    id: "gallery-1",
+                    title: "睡颜大赏",
+                    dateText: "创建于 2024年",
+                    coverImageAssetName: "HomeGalleryAlbum1"
+                ),
+                HomeDashboardSnapshot.PetGalleryAlbum(
+                    id: "gallery-2",
+                    title: "户外冒险",
+                    dateText: "创建于 2025年",
+                    coverImageAssetName: "HomeGalleryAlbum2"
+                ),
+                HomeDashboardSnapshot.PetGalleryAlbum(
+                    id: "gallery-3",
+                    title: "吃货瞬间",
+                    dateText: "创建于 2025年",
+                    coverImageAssetName: "HomeGalleryAlbum3"
+                )
+            ]
+        )
+    }
+
+    static func petSwitcher(selectedPetID: String?) -> [HomeDashboardSnapshot.PetSwitchItem] {
+        return [
+            HomeDashboardSnapshot.PetSwitchItem(
+                id: "pet-mochi",
+                name: "糯米",
+                species: .cat,
+                avatarURL: nil,
+                profileNumber: "9011562600000019",
+                microchipNumber: nil,
+                birthday: "2024-04-01",
+                arrivalDate: "2024-06-16",
+                weightGrams: 3600,
+                neuterStatus: .neutered,
+                personalityTags: ["亲人", "爱撒娇", "安静"],
+                note: "记录正在形成可信档案",
+                isSelected: true
+            )
+        ]
+    }
+
+    static func heroSummary(for _: String) -> HomeDashboardSnapshot.PetHeroSummary {
+        HomeDashboardSnapshot.PetHeroSummary(
+            id: "pet-mochi",
+            name: "糯米",
+            species: .cat,
+            breed: "布偶猫",
+            sex: .female,
+            ageText: "2岁",
+            statusText: "记录正在形成可信档案",
+            updatedText: "档案已同步",
+            avatarURL: nil,
+            heroImageAssetName: "HomePetHeroMock",
+            profileNumber: "9011562600000019",
+            microchipNumber: nil,
+            birthday: "2024-04-01",
+            arrivalDate: "2024-06-16",
+            weightGrams: 3600,
+            neuterStatus: .neutered,
+            personalityTags: ["亲人", "爱撒娇", "安静"],
+            note: "记录正在形成可信档案",
+            companionshipDays: 365,
+            stats: HomeDashboardSnapshot.PetHeroStats(
+                weightVal: "3.6",
+                weightChange: "较上周 +0.2",
+                recordDays: 27,
+                recordStreakText: "连续记录",
+                vaccineDaysLeft: 14,
+                vaccineDate: "2026.06.08",
+                dewormingDaysLeft: 3,
+                dewormingDate: "2026.05.28"
+            )
+        )
+    }
+
+    static func petOwnerActions() -> [HomeDashboardSnapshot.Action] {
+        [
+            HomeDashboardSnapshot.Action(
+                kind: .dailyRecord,
+                title: "记录日常",
+                subtitle: "饮食、情绪、排便"
+            ),
+            HomeDashboardSnapshot.Action(
+                kind: .healthRecord,
+                title: "健康记录",
+                subtitle: "疫苗、驱虫、体检"
+            ),
+            HomeDashboardSnapshot.Action(
+                kind: .bookHospital,
+                title: "预约医院",
+                subtitle: "同城服务协同"
+            ),
+            HomeDashboardSnapshot.Action(
+                kind: .importTradePet,
+                title: "导入交易",
+                subtitle: "沉淀履约档案"
+            )
+        ]
+    }
+}

@@ -1,30 +1,30 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, MediaCropMetadata,
-    NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
-    PetProfileDiagnostics, PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile, record_pet_profile,
+    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
+    NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
-    PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
-    PetResult, PetSex, PetSpecies, PetTimeline,
+    PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile, PetResult, PetTimeline,
 };
-use serde_json::Value;
-use sqlx::{FromRow, PgPool};
+use sqlx::PgPool;
 use uuid::Uuid;
 
+mod event_queries;
+mod event_rows;
 mod media_commands;
+mod media_metadata;
 mod profile_commands;
+mod profile_create;
+mod profile_crud;
 mod profile_queries;
+mod profile_update;
 mod rows;
 mod storage;
 mod trade_import;
 
-use profile_queries::load_pet_profile_for_update;
-use rows::{PetEventRow, PetProfileRow};
-use storage::{profile_number_from_uuid, to_infrastructure_error};
-use trade_import::{insert_trade_import_event, insert_trade_import_pet};
+use storage::to_infrastructure_error;
 
 const NAME_EDIT_MAX_COUNT: i32 = 5;
 const NAME_EDIT_WINDOW_DAYS: i32 = 30;
@@ -36,26 +36,6 @@ const NAME_EDIT_WINDOW_DAYS: i32 = 30;
 #[derive(Debug, Clone)]
 pub struct PostgresPetRepository {
     pub(crate) pool: PgPool,
-}
-
-/// MediaAssetDisplayMetadataRow 媒体展示元数据行
-/// 核心职责：
-/// - 聚合媒体资产尺寸字段
-/// - 读取主题色派生物元数据
-#[derive(Debug, FromRow)]
-struct MediaAssetDisplayMetadataRow {
-    asset_id: Uuid,
-    width: Option<i32>,
-    height: Option<i32>,
-    theme_color_hex: Option<String>,
-    crop_metadata: Option<Value>,
-    live_photo_still_component_id: Option<Uuid>,
-    live_photo_still_width: Option<i32>,
-    live_photo_still_height: Option<i32>,
-    live_photo_paired_video_component_id: Option<Uuid>,
-    live_photo_paired_video_width: Option<i32>,
-    live_photo_paired_video_height: Option<i32>,
-    live_photo_paired_video_duration_ms: Option<i32>,
 }
 
 impl PostgresPetRepository {
@@ -145,135 +125,9 @@ fn name_edit_policy(used_count: i64, first_changed_at: Option<DateTime<Utc>>) ->
 }
 
 #[async_trait]
-#[allow(clippy::too_many_lines)]
 impl PetRepository for PostgresPetRepository {
     async fn create_pet_profile(&self, input: NewPetProfile) -> PetResult<PetProfile> {
-        let pet_id = Uuid::new_v4();
-        let owner_user_id = input.owner_user_id;
-        let breed = input.breed.clone();
-        record_pet_profile(PetProfileDiagnostics {
-            stage: "repository.insert_start",
-            action: "create",
-            user_id: owner_user_id,
-            pet_id: Some(pet_id),
-            breed: breed.as_deref(),
-            success: true,
-        });
-        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
-        let row = sqlx::query_as::<_, PetProfileRow>(
-            r#"
-            INSERT INTO pet_profiles (
-                id,
-                owner_user_id,
-                name,
-                species,
-                breed,
-                sex,
-                birthday,
-                profile_number,
-                microchip_number,
-                arrival_date,
-                weight_grams,
-                neuter_status,
-                personality_tags,
-                note,
-                managed_status,
-                source_kind
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'family', $15)
-            RETURNING
-                id,
-                owner_user_id,
-                merchant_id,
-                name,
-                species,
-                breed,
-                sex,
-                birthday,
-                profile_number,
-                microchip_number,
-                arrival_date,
-                weight_grams,
-                neuter_status,
-                personality_tags,
-                note,
-                avatar_asset_id,
-                background_asset_id,
-                background_media_kind,
-                deleted_at,
-                delete_requested_by_user_id,
-                recoverable_until,
-                delete_reason,
-                managed_status,
-                source_kind,
-                created_at,
-                updated_at
-            "#,
-        )
-        .bind(pet_id)
-        .bind(owner_user_id)
-        .bind(input.name)
-        .bind(input.species.as_str())
-        .bind(input.breed)
-        .bind(input.sex.as_str())
-        .bind(input.birthday)
-        .bind(profile_number_from_uuid(pet_id))
-        .bind(input.microchip_number)
-        .bind(input.arrival_date)
-        .bind(input.weight_grams)
-        .bind(input.neuter_status.as_str())
-        .bind(serde_json::json!(input.personality_tags))
-        .bind(input.note)
-        .bind(input.source_kind.as_str())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        let has_media_assets =
-            input.avatar_asset_id.is_some() || input.background_asset_id.is_some();
-        if let Some(asset_id) = input.avatar_asset_id {
-            Self::bind_uploaded_media_in_transaction(
-                &mut transaction,
-                pet_id,
-                owner_user_id,
-                asset_id,
-            )
-            .await?;
-        }
-        if let Some(asset_id) = input.background_asset_id {
-            Self::bind_uploaded_media_in_transaction(
-                &mut transaction,
-                pet_id,
-                owner_user_id,
-                asset_id,
-            )
-            .await?;
-        }
-
-        let pet = row.try_into()?;
-        transaction
-            .commit()
-            .await
-            .map_err(to_infrastructure_error)?;
-
-        let pet = if has_media_assets {
-            self.find_pet_for_owner(pet_id, owner_user_id)
-                .await?
-                .ok_or(PetError::PetNotFound)?
-        } else {
-            pet
-        };
-
-        let pet = self.attach_name_edit_policy(pet).await?;
-        record_pet_profile(PetProfileDiagnostics {
-            stage: "repository.inserted",
-            action: "create",
-            user_id: owner_user_id,
-            pet_id: Some(pet.id),
-            breed: pet.breed.as_deref(),
-            success: true,
-        });
-        Ok(pet)
+        self.create_pet_profile_command(input).await
     }
 
     async fn find_pet_for_owner(
@@ -281,213 +135,15 @@ impl PetRepository for PostgresPetRepository {
         pet_id: Uuid,
         owner_user_id: Uuid,
     ) -> PetResult<Option<PetProfile>> {
-        let row = sqlx::query_as::<_, PetProfileRow>(
-            r#"
-            SELECT
-                id,
-                owner_user_id,
-                merchant_id,
-                name,
-                species,
-                breed,
-                sex,
-                birthday,
-                profile_number,
-                microchip_number,
-                arrival_date,
-                weight_grams,
-                neuter_status,
-                personality_tags,
-                note,
-                avatar_asset_id,
-                background_asset_id,
-                background_media_kind,
-                deleted_at,
-                delete_requested_by_user_id,
-                recoverable_until,
-                delete_reason,
-                managed_status,
-                source_kind,
-                created_at,
-                updated_at
-            FROM pet_profiles
-            WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(pet_id)
-        .bind(owner_user_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let pet = row.try_into()?;
-        Ok(Some(self.attach_name_edit_policy(pet).await?))
+        self.find_pet_for_owner_query(pet_id, owner_user_id).await
     }
 
     async fn list_pet_profiles_for_owner(&self, owner_user_id: Uuid) -> PetResult<Vec<PetProfile>> {
-        let rows = sqlx::query_as::<_, PetProfileRow>(
-            r#"
-            SELECT
-                id,
-                owner_user_id,
-                merchant_id,
-                name,
-                species,
-                breed,
-                sex,
-                birthday,
-                profile_number,
-                microchip_number,
-                arrival_date,
-                weight_grams,
-                neuter_status,
-                personality_tags,
-                note,
-                avatar_asset_id,
-                background_asset_id,
-                background_media_kind,
-                deleted_at,
-                delete_requested_by_user_id,
-                recoverable_until,
-                delete_reason,
-                managed_status,
-                source_kind,
-                created_at,
-                updated_at
-            FROM pet_profiles
-            WHERE owner_user_id = $1 AND deleted_at IS NULL
-            ORDER BY created_at ASC
-            "#,
-        )
-        .bind(owner_user_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        let mut pets = Vec::with_capacity(rows.len());
-        for row in rows {
-            pets.push(self.attach_name_edit_policy(row.try_into()?).await?);
-        }
-        Ok(pets)
+        self.list_pet_profiles_for_owner_query(owner_user_id).await
     }
 
     async fn update_pet_profile(&self, input: UpdatePetProfile) -> PetResult<PetProfile> {
-        let owner_user_id = input.owner_user_id;
-        let pet_id = input.pet_id;
-        let breed = input.breed.clone();
-        record_pet_profile(PetProfileDiagnostics {
-            stage: "repository.update_start",
-            action: "update",
-            user_id: owner_user_id,
-            pet_id: Some(pet_id),
-            breed: breed.as_deref(),
-            success: true,
-        });
-        let current = load_pet_profile_for_update(&self.pool, input.pet_id, input.owner_user_id)
-            .await?
-            .ok_or(PetError::PetNotFound)?;
-        let requested_microchip = input.microchip_number.as_deref().map(str::trim);
-        let requested_name = input.name.as_deref().map(str::trim).map(str::to_owned);
-        let is_name_changed = requested_name
-            .as_deref()
-            .is_some_and(|name| name != current.name);
-        if is_name_changed {
-            let policy = self.load_name_edit_policy(input.pet_id).await?;
-            if policy.remaining_count <= 0 {
-                return Err(PetError::NameEditLimitExceeded);
-            }
-        }
-        if let (Some(existing), Some(requested)) =
-            (current.microchip_number.as_deref(), requested_microchip)
-            && existing != requested
-        {
-            return Err(PetError::InvalidInput(
-                "芯片号已锁定，如需变更请通过申诉渠道处理".to_owned(),
-            ));
-        }
-
-        let row = sqlx::query_as::<_, PetProfileRow>(
-            r#"
-            UPDATE pet_profiles
-            SET
-                name = COALESCE($3, name),
-                species = COALESCE($4, species),
-                breed = COALESCE($5, breed),
-                sex = COALESCE($6, sex),
-                birthday = COALESCE($7, birthday),
-                microchip_number = COALESCE($8, microchip_number),
-                arrival_date = COALESCE($9, arrival_date),
-                weight_grams = COALESCE($10, weight_grams),
-                neuter_status = COALESCE($11, neuter_status),
-                personality_tags = COALESCE($12, personality_tags),
-                note = COALESCE($13, note),
-                updated_at = now()
-            WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
-            RETURNING
-                id,
-                owner_user_id,
-                merchant_id,
-                name,
-                species,
-                breed,
-                sex,
-                birthday,
-                profile_number,
-                microchip_number,
-                arrival_date,
-                weight_grams,
-                neuter_status,
-                personality_tags,
-                note,
-                avatar_asset_id,
-                background_asset_id,
-                background_media_kind,
-                deleted_at,
-                delete_requested_by_user_id,
-                recoverable_until,
-                delete_reason,
-                managed_status,
-                source_kind,
-                created_at,
-                updated_at
-            "#,
-        )
-        .bind(input.pet_id)
-        .bind(input.owner_user_id)
-        .bind(requested_name.as_deref())
-        .bind(input.species.map(PetSpecies::as_str))
-        .bind(input.breed)
-        .bind(input.sex.map(PetSex::as_str))
-        .bind(input.birthday)
-        .bind(requested_microchip.map(str::to_owned))
-        .bind(input.arrival_date)
-        .bind(input.weight_grams)
-        .bind(input.neuter_status.map(PetNeuterStatus::as_str))
-        .bind(input.personality_tags.map(|tags| serde_json::json!(tags)))
-        .bind(input.note)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?
-        .ok_or(PetError::PetNotFound)?;
-
-        if is_name_changed && let Some(new_name) = requested_name.as_deref() {
-            self.record_name_change(input.pet_id, input.owner_user_id, &current.name, new_name)
-                .await?;
-        }
-
-        let pet = self.attach_name_edit_policy(row.try_into()?).await?;
-        record_pet_profile(PetProfileDiagnostics {
-            stage: "repository.updated",
-            action: "update",
-            user_id: owner_user_id,
-            pet_id: Some(pet.id),
-            breed: pet.breed.as_deref(),
-            success: true,
-        });
-        Ok(pet)
+        self.update_pet_profile_command(input).await
     }
 
     async fn soft_delete_pet_profile(&self, input: DeletePetProfile) -> PetResult<PetProfile> {
@@ -523,136 +179,15 @@ impl PetRepository for PostgresPetRepository {
         &self,
         asset_ids: &[Uuid],
     ) -> PetResult<Vec<MediaAssetDisplayMetadata>> {
-        if asset_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let rows = sqlx::query_as::<_, MediaAssetDisplayMetadataRow>(
-            r#"
-            SELECT
-                asset.id AS asset_id,
-                asset.width,
-                asset.height,
-                derivative.metadata ->> 'theme_color_hex' AS theme_color_hex,
-                derivative.metadata -> 'crop' AS crop_metadata,
-                still_component.id AS live_photo_still_component_id,
-                COALESCE(still_component.width, asset.width) AS live_photo_still_width,
-                COALESCE(still_component.height, asset.height) AS live_photo_still_height,
-                paired_video_component.id AS live_photo_paired_video_component_id,
-                COALESCE(paired_video_component.width, asset.width) AS live_photo_paired_video_width,
-                COALESCE(paired_video_component.height, asset.height) AS live_photo_paired_video_height,
-                paired_video_component.duration_ms AS live_photo_paired_video_duration_ms
-            FROM media_assets asset
-            LEFT JOIN media_derivatives derivative
-                ON derivative.parent_asset_id = asset.id
-                AND derivative.derivative_kind = 'theme_color_frame'
-            LEFT JOIN media_asset_components still_component
-                ON still_component.asset_id = asset.id
-                AND still_component.component_kind = 'still'
-            LEFT JOIN media_asset_components paired_video_component
-                ON paired_video_component.asset_id = asset.id
-                AND paired_video_component.component_kind = 'paired_video'
-            WHERE asset.id = ANY($1)
-              AND asset.deleted_at IS NULL
-              AND asset.status IN ('uploaded', 'bound')
-            "#,
-        )
-        .bind(asset_ids)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        Ok(rows
-            .into_iter()
-            .map(|row| MediaAssetDisplayMetadata {
-                asset_id: row.asset_id,
-                width: row.width,
-                height: row.height,
-                theme_color_hex: row.theme_color_hex,
-                crop_metadata: media_crop_metadata(row.crop_metadata.as_ref()),
-                live_photo_still_url: row
-                    .live_photo_still_component_id
-                    .map(|component_id| media_asset_component_url(row.asset_id, component_id)),
-                live_photo_still_width: row.live_photo_still_width,
-                live_photo_still_height: row.live_photo_still_height,
-                live_photo_paired_video_url: row
-                    .live_photo_paired_video_component_id
-                    .map(|component_id| media_asset_component_url(row.asset_id, component_id)),
-                live_photo_paired_video_width: row.live_photo_paired_video_width,
-                live_photo_paired_video_height: row.live_photo_paired_video_height,
-                live_photo_paired_video_duration_ms: row.live_photo_paired_video_duration_ms,
-            })
-            .collect())
+        self.list_media_display_metadata_query(asset_ids).await
     }
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
-        let event_id = Uuid::new_v4();
-        let row = sqlx::query_as::<_, PetEventRow>(
-            r#"
-            INSERT INTO pet_events (
-                id,
-                pet_id,
-                event_kind,
-                event_subkind,
-                title,
-                summary,
-                visibility,
-                event_payload,
-                occurred_at,
-                actor_user_id,
-                record_revision
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1)
-            RETURNING
-                id,
-                pet_id,
-                litter_id,
-                event_kind,
-                event_subkind,
-                title,
-                summary,
-                visibility,
-                event_payload,
-                occurred_at,
-                actor_user_id,
-                evidence_snapshot_id,
-                record_revision,
-                created_at,
-                updated_at
-            "#,
-        )
-        .bind(event_id)
-        .bind(input.pet_id)
-        .bind(input.event_kind.as_str())
-        .bind(input.event_subkind)
-        .bind(input.title)
-        .bind(input.summary)
-        .bind(input.visibility.as_str())
-        .bind(input.event_payload)
-        .bind(input.occurred_at)
-        .bind(input.actor_user_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        row.try_into()
+        self.create_pet_event_command(input).await
     }
 
     async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport> {
-        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
-        let pet_id = Uuid::new_v4();
-        let pet_row = insert_trade_import_pet(&mut transaction, pet_id, &input).await?;
-        let event_row = insert_trade_import_event(&mut transaction, pet_id, &input).await?;
-
-        transaction
-            .commit()
-            .await
-            .map_err(to_infrastructure_error)?;
-
-        Ok(TradePetImport {
-            pet: pet_row.try_into()?,
-            event: event_row.try_into()?,
-        })
+        self.import_trade_pet_command(input).await
     }
 
     async fn load_pet_timeline(
@@ -661,43 +196,8 @@ impl PetRepository for PostgresPetRepository {
         pet_id: Uuid,
         limit: i64,
     ) -> PetResult<PetTimeline> {
-        let rows = sqlx::query_as::<_, PetEventRow>(
-            r#"
-            SELECT
-                e.id,
-                e.pet_id,
-                e.litter_id,
-                e.event_kind,
-                e.event_subkind,
-                e.title,
-                e.summary,
-                e.visibility,
-                e.event_payload,
-                e.occurred_at,
-                e.actor_user_id,
-                e.evidence_snapshot_id,
-                e.record_revision,
-                e.created_at,
-                e.updated_at
-            FROM pet_events e
-            INNER JOIN pet_profiles p ON p.id = e.pet_id
-            WHERE e.pet_id = $1 AND p.owner_user_id = $2
-            ORDER BY e.occurred_at DESC, e.created_at DESC
-            LIMIT $3
-            "#,
-        )
-        .bind(pet_id)
-        .bind(owner_user_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        let events = rows
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<PetResult<Vec<_>>>()?;
-        Ok(PetTimeline { pet_id, events })
+        self.load_pet_timeline_query(owner_user_id, pet_id, limit)
+            .await
     }
 
     async fn load_pet_event_detail(
@@ -705,64 +205,7 @@ impl PetRepository for PostgresPetRepository {
         owner_user_id: Uuid,
         event_id: Uuid,
     ) -> PetResult<Option<PetEvent>> {
-        let row = sqlx::query_as::<_, PetEventRow>(
-            r#"
-            SELECT
-                e.id,
-                e.pet_id,
-                e.litter_id,
-                e.event_kind,
-                e.event_subkind,
-                e.title,
-                e.summary,
-                e.visibility,
-                e.event_payload,
-                e.occurred_at,
-                e.actor_user_id,
-                e.evidence_snapshot_id,
-                e.record_revision,
-                e.created_at,
-                e.updated_at
-            FROM pet_events e
-            LEFT JOIN pet_profiles p ON p.id = e.pet_id
-            LEFT JOIN litters l ON l.id = e.litter_id
-            LEFT JOIN merchant_profiles merchant
-                ON merchant.id = COALESCE(p.merchant_id, l.merchant_id)
-            WHERE e.id = $1
-                AND (
-                    p.owner_user_id = $2
-                    OR e.actor_user_id = $2
-                    OR (
-                        merchant.owner_user_id = $2
-                        AND merchant.verification_status = 'verified'
-                    )
-                )
-            "#,
-        )
-        .bind(event_id)
-        .bind(owner_user_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        row.map(TryInto::try_into).transpose()
+        self.load_pet_event_detail_query(owner_user_id, event_id)
+            .await
     }
-}
-
-fn media_asset_component_url(asset_id: Uuid, component_id: Uuid) -> String {
-    format!("/api/v1/media/assets/{asset_id}/components/{component_id}/content")
-}
-
-/// media_crop_metadata 读取媒体展示裁剪元数据
-/// 核心职责：
-/// - 从派生 metadata JSON 中恢复归一化裁剪区域
-/// - 让首页 DTO 使用后端持久化的展示契约
-fn media_crop_metadata(value: Option<&Value>) -> Option<MediaCropMetadata> {
-    let value = value?;
-    Some(MediaCropMetadata {
-        x: value.get("x")?.as_f64()?,
-        y: value.get("y")?.as_f64()?,
-        width: value.get("width")?.as_f64()?,
-        height: value.get("height")?.as_f64()?,
-    })
 }

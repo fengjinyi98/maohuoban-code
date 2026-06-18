@@ -3,7 +3,8 @@ use maohuoban_pet_domain::pet::PetResult;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
-use super::rows::{PetEventRow, PetProfileRow};
+use super::event_rows::PetEventRow;
+use super::rows::PetProfileRow;
 use super::storage::{profile_number_from_uuid, to_infrastructure_error};
 
 /// insert_trade_import_pet 写入交易导入宠物档案

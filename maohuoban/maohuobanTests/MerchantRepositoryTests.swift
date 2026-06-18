@@ -6,18 +6,13 @@ import XCTest
 // - 固化 iOS 到 Rust 商家宠物列表接口的请求契约
 // - 验证当前用户上下文和状态筛选通过请求传递
 @MainActor
-final class MerchantRepositoryTests: XCTestCase {
-    override func tearDown() {
-        MerchantRepositoryURLProtocol.handler = nil
-        super.tearDown()
-    }
-
+final class MerchantRepositoryTests: MerchantRepositoryTestCase {
     func testListPetsSendsStatusAndUserContext() async throws {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/v1/merchants/merchant-1/pets")
             XCTAssertEqual(request.url?.query, "status=available")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            Self.assertAuthorizationHeader(request)
 
             return Self.jsonResponse(
                 statusCode: 200,
@@ -69,7 +64,7 @@ final class MerchantRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/merchants/merchant-1/pets")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            Self.assertAuthorizationHeader(request)
 
             let body = try Self.requestBodyData(request)
             XCTAssertFalse(body.isEmpty)
@@ -133,7 +128,7 @@ final class MerchantRepositoryTests: XCTestCase {
         let repository = makeRepository { request in
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/v1/merchants/merchant-1/litters/litter-1")
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            Self.assertAuthorizationHeader(request)
 
             return Self.jsonResponse(
                 statusCode: 200,
@@ -202,164 +197,4 @@ final class MerchantRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.sirePet?.name, "Leo")
         XCTAssertEqual(response.data?.damPet?.name, "Luna")
     }
-
-    func testPublishAvailableStatusSendsDraftAndUserContext() async throws {
-        let repository = makeRepository { request in
-            XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertEqual(
-                request.url?.path,
-                "/api/v1/merchants/merchant-1/pets/pet-1/available-status"
-            )
-            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
-
-            let body = try Self.requestBodyData(request)
-            XCTAssertFalse(body.isEmpty)
-            let json = try XCTUnwrap(
-                JSONSerialization.jsonObject(with: body) as? [String: Any]
-            )
-            XCTAssertEqual(json["summary"] as? String, "已完成基础健康记录，可预约到店看猫。")
-            XCTAssertEqual(json["occurred_at"] as? String, "2026-06-14T10:00:00Z")
-
-            return Self.jsonResponse(
-                statusCode: 200,
-                body:
-                """
-                {
-                  "success": true,
-                  "code": "merchant.available_status_published",
-                  "message": "可售状态已发布",
-                  "data": {
-                    "pet": {
-                      "id": "pet-1",
-                      "owner_user_id": null,
-                      "merchant_id": "merchant-1",
-                      "name": "小白",
-                      "species": "cat",
-                      "breed": "布偶猫",
-                      "sex": "unknown",
-                      "birthday": "2026-03-18",
-                      "managed_status": "available",
-                      "source_kind": "litter_birth",
-                      "created_at": "2026-06-13T09:20:00Z",
-                      "updated_at": "2026-06-14T10:00:00Z"
-                    },
-                    "event": {
-                      "id": "event-1",
-                      "pet_id": "pet-1",
-                      "litter_id": null,
-                      "event_kind": "merchant",
-                      "event_subkind": "available_status",
-                      "title": "已发布可售状态",
-                      "summary": "已完成基础健康记录，可预约到店看猫。",
-                      "visibility": "buyer_visible",
-                      "occurred_at": "2026-06-14T10:00:00Z",
-                      "record_revision": 1
-                    }
-                  }
-                }
-                """
-            )
-        }
-
-        let response = try await repository.publishAvailableStatus(
-            merchantID: "merchant-1",
-            petID: "pet-1",
-            draft: MerchantAvailableStatusDraft(
-                summary: "已完成基础健康记录，可预约到店看猫。",
-                occurredAt: "2026-06-14T10:00:00Z"
-            ),
-            currentUserID: "user-1"
-        )
-
-        XCTAssertEqual(response.message, "可售状态已发布")
-        XCTAssertEqual(response.data?.pet.managedStatus, .available)
-        XCTAssertEqual(response.data?.event.kind, .merchant)
-        XCTAssertEqual(response.data?.event.visibility, .buyerVisible)
-    }
-
-    private func makeRepository(
-        handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
-    ) -> DefaultMerchantRepository {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MerchantRepositoryURLProtocol.self]
-        MerchantRepositoryURLProtocol.handler = handler
-        let session = URLSession(configuration: configuration)
-        let client = MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
-        return DefaultMerchantRepository(client: client)
-    }
-
-    private static func jsonResponse(statusCode: Int, body: String) -> (HTTPURLResponse, Data) {
-        (
-            HTTPURLResponse(
-                url: URL(string: "http://127.0.0.1:18080")!,
-                statusCode: statusCode,
-                httpVersion: nil,
-                headerFields: ["Content-Type": "application/json"]
-            )!,
-            Data(body.utf8)
-        )
-    }
-
-    private static func requestBodyData(_ request: URLRequest) throws -> Data {
-        if let body = request.httpBody {
-            return body
-        }
-
-        guard let stream = request.httpBodyStream else {
-            return Data()
-        }
-
-        stream.open()
-        defer { stream.close() }
-
-        var data = Data()
-        let bufferSize = 1024
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-        defer { buffer.deallocate() }
-
-        while true {
-            let count = stream.read(buffer, maxLength: bufferSize)
-            if count > 0 {
-                data.append(buffer, count: count)
-            } else {
-                break
-            }
-        }
-
-        return data
-    }
-}
-
-// MerchantRepositoryURLProtocol 商家仓库测试协议桩
-// 核心职责：
-// - 拦截 URLSession 请求
-// - 将请求交给测试断言并返回固定响应
-private final class MerchantRepositoryURLProtocol: URLProtocol {
-    nonisolated(unsafe) static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
-
-    override class func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let handler = Self.handler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
 }
