@@ -37,7 +37,8 @@ struct MerchantPetCreateScreen: View {
 
                 PetWriteSubmitButton(
                     title: "保存商家宠物",
-                    isSubmitting: store.isSubmitting
+                    isSubmitting: store.isSubmitting,
+                    diagnosticsID: "merchant.pet.create.submit"
                 ) {
                     Task { await submit() }
                 }

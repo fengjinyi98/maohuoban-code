@@ -1,7 +1,10 @@
-use crate::{CollectorConfig, collect_debug_bundle};
-use maohuoban_diagnostics::{DebugBundle, DiagnosticsError};
+use crate::{
+    CollectorConfig, collect_debug_bundle, config::EventFilter, sqlite_index::write_sqlite_index,
+};
+use maohuoban_diagnostics::{DebugBundle, DiagnosticEvent, DiagnosticsError, Severity};
 use std::{
     fs,
+    io::{BufRead, BufReader},
     path::{Path, PathBuf},
 };
 
@@ -19,6 +22,8 @@ pub struct WorkspaceReportConfig {
     segment_directories: Vec<PathBuf>,
     log_files: Vec<PathBuf>,
     clean_sources: bool,
+    filter: EventFilter,
+    write_sqlite_index: bool,
 }
 
 impl WorkspaceReportConfig {
@@ -35,6 +40,8 @@ impl WorkspaceReportConfig {
             segment_directories,
             log_files: Vec::new(),
             clean_sources: false,
+            filter: EventFilter::default(),
+            write_sqlite_index: false,
         }
     }
 
@@ -73,6 +80,37 @@ impl WorkspaceReportConfig {
     #[must_use]
     pub const fn clean_sources(mut self, clean_sources: bool) -> Self {
         self.clean_sources = clean_sources;
+        self
+    }
+
+    /// `with_filter_options` 批量设置工作区报告过滤条件
+    /// 核心职责：
+    /// - 让 workspace latest 导出支持 CLI 查询参数
+    /// - 保持过滤逻辑下沉到 `CollectorConfig`
+    #[must_use]
+    pub fn with_filter_options(
+        mut self,
+        trace: Option<String>,
+        session: Option<String>,
+        severity: Option<Severity>,
+        screen: Option<String>,
+        request_id: Option<String>,
+    ) -> Self {
+        self.filter.trace = trace;
+        self.filter.session = session;
+        self.filter.severity = severity;
+        self.filter.screen = screen;
+        self.filter.request_id = request_id;
+        self
+    }
+
+    /// `write_sqlite_index` 设置是否写入 `SQLite` 派生索引
+    /// 核心职责：
+    /// - 控制 `.maohuoban-diagnostics/index.sqlite` 的生成
+    /// - 保持索引产物可删除重建
+    #[must_use]
+    pub const fn write_sqlite_index(mut self, enabled: bool) -> Self {
+        self.write_sqlite_index = enabled;
         self
     }
 }
@@ -118,8 +156,19 @@ pub fn collect_workspace_report(
             config.segment_directories.clone(),
             output_directory,
         )
-        .with_log_files(config.log_files),
+        .with_log_files(config.log_files)
+        .with_filter_options(
+            config.filter.trace,
+            config.filter.session,
+            config.filter.severity,
+            config.filter.screen,
+            config.filter.request_id,
+        ),
     )?;
+    if config.write_sqlite_index {
+        let events = read_timeline_events(&bundle.timeline_path)?;
+        write_sqlite_index(&workspace_index_path(&config.workspace_root), &events)?;
+    }
     let cleaned_sources = if config.clean_sources {
         clean_source_reports(&config.segment_directories)?
     } else {
@@ -142,6 +191,25 @@ fn workspace_segments_directory(workspace_root: &Path) -> PathBuf {
     workspace_root
         .join(WORKSPACE_REPORT_DIRECTORY)
         .join(WORKSPACE_SEGMENTS_DIRECTORY)
+}
+
+fn workspace_index_path(workspace_root: &Path) -> PathBuf {
+    workspace_root
+        .join(WORKSPACE_REPORT_DIRECTORY)
+        .join("index.sqlite")
+}
+
+fn read_timeline_events(path: &Path) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
+    let file = fs::File::open(path)?;
+    let mut events = Vec::new();
+    for line in BufReader::new(file).lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        events.push(serde_json::from_str(&line)?);
+    }
+    Ok(events)
 }
 
 fn clean_source_reports(

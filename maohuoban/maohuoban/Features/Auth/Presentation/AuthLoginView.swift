@@ -83,7 +83,8 @@ private struct AuthLoginForm: View {
                 title: viewModel.mode == .phoneCode ? "获取验证码" : "登录",
                 isLoading: viewModel.isSubmitting,
                 isEnabled: viewModel.isLoginPhoneValid,
-                accessibilityIdentifier: viewModel.mode == .phoneCode ? "auth.sendCodeButton" : "auth.passwordLoginButton"
+                accessibilityIdentifier: viewModel.mode == .phoneCode ? "auth.sendCodeButton" : "auth.passwordLoginButton",
+                diagnosticsID: viewModel.mode == .phoneCode ? "auth.phone_code.send" : "auth.password.login"
             ) {
                 Task {
                     if viewModel.mode == .phoneCode {

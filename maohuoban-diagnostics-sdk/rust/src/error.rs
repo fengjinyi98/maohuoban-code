@@ -12,4 +12,10 @@ pub enum DiagnosticsError {
     Json(#[from] serde_json::Error),
     #[error("store lock poisoned")]
     StoreLockPoisoned,
+    #[error("event queue full")]
+    EventQueueFull,
+    #[error("event queue closed")]
+    EventQueueClosed,
+    #[error("event queue writer failed: {0}")]
+    EventQueueWriterFailed(String),
 }

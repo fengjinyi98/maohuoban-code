@@ -1,7 +1,7 @@
-use maohuoban_diagnostics::{
-    DiagnosticEvent, Diagnostics, DiagnosticsBootstrapConfig, EventKind, PrivacyPolicy, Severity,
+use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
+use maohuoban_rust::{
+    BackendConfig, build_backend_app, diagnostics::backend_diagnostics_bootstrap_config,
 };
-use maohuoban_rust::{BackendConfig, build_backend_app};
 
 /// main 毛伙伴 Rust 产品入口
 /// 核心职责：
@@ -41,13 +41,6 @@ fn install_tracing() {
 /// - 汇总产品侧启动配置
 /// - 通过 SDK bootstrap 完成全局诊断运行时安装
 fn install_diagnostics() -> Diagnostics {
-    let mut config = DiagnosticsBootstrapConfig::new(
-        "maohuoban-rust",
-        "local",
-        "target/maohuoban-diagnostics/segments",
-    );
-    config.privacy = PrivacyPolicy::default()
-        .redact_key("authorization")
-        .redact_key("password");
+    let config = backend_diagnostics_bootstrap_config();
     Diagnostics::bootstrap(config).expect("bootstrap diagnostics")
 }

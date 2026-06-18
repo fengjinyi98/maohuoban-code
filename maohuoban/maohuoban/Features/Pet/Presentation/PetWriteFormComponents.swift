@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import MaohuobanDiagnostics
 
 // PetWriteFormSection 宠物写入表单分组
 // 核心职责：
@@ -31,6 +32,11 @@ struct PetWriteTextField: View {
     let title: LocalizedStringResource
     @Binding var text: String
     let prompt: LocalizedStringResource
+    var diagnosticsID: String? = nil
+    var diagnosticsForm: String? = nil
+    var diagnosticsField: String? = nil
+    var diagnosticsScreenName: String? = nil
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
@@ -42,9 +48,34 @@ struct PetWriteTextField: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .focused($isFocused)
                 .padding(MHBTheme.Spacing.s3)
                 .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
                 .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+        }
+        .onChange(of: isFocused) { _, focused in
+            recordTextFieldBoundary(focused: focused)
+        }
+    }
+
+    private func recordTextFieldBoundary(focused: Bool) {
+        guard let diagnosticsID,
+              let diagnosticsForm,
+              let diagnosticsField,
+              let diagnosticsScreenName else {
+            return
+        }
+        let event = DiagnosticsSwiftUIInstrumentation.textFieldBoundaryEvent(
+            diagnosticsID: diagnosticsID,
+            action: focused ? .focus : .blur,
+            form: diagnosticsForm,
+            field: diagnosticsField,
+            screenName: diagnosticsScreenName,
+            valueLength: text.count,
+            valid: nil
+        )
+        Task {
+            await Diagnostics.record(event)
         }
     }
 }
@@ -56,10 +87,11 @@ struct PetWriteTextField: View {
 struct PetWriteSubmitButton: View {
     let title: LocalizedStringResource
     let isSubmitting: Bool
+    var diagnosticsID: String? = nil
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: instrumentedAction) {
             HStack(spacing: MHBTheme.Spacing.s2) {
                 if isSubmitting {
                     ProgressView()
@@ -82,5 +114,21 @@ struct PetWriteSubmitButton: View {
         .buttonStyle(.plain)
         .disabled(isSubmitting)
         .accessibilityIdentifier("pet.write.submitButton")
+    }
+
+    private func instrumentedAction() {
+        if let diagnosticsID {
+            Task {
+                await Diagnostics.record(
+                    DiagnosticsSwiftUIInstrumentation.componentEvent(
+                        diagnosticsID: diagnosticsID,
+                        component: .button,
+                        action: .tap,
+                        metadata: ["component_name": .string("PetWriteSubmitButton")]
+                    )
+                )
+            }
+        }
+        action()
     }
 }

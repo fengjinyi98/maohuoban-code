@@ -38,7 +38,8 @@ struct AuthVerificationView: View {
             AuthPrimaryButton(
                 title: "验证并登录",
                 isLoading: viewModel.isSubmitting,
-                accessibilityIdentifier: "auth.verifyCodeButton"
+                accessibilityIdentifier: "auth.verifyCodeButton",
+                diagnosticsID: "auth.phone_code.verify"
             ) {
                 isCodeFocused = false
                 MHBKeyboardDismissal.dismissActiveKeyboard()

@@ -44,7 +44,8 @@ struct PetTradeImportScreen: View {
 
                 PetWriteSubmitButton(
                     title: "导入宠物档案",
-                    isSubmitting: store.isSubmitting
+                    isSubmitting: store.isSubmitting,
+                    diagnosticsID: "pet.trade_import.submit"
                 ) {
                     Task { await submit() }
                 }

@@ -4,7 +4,7 @@ import Foundation
 // 核心职责：
 // - 承接后端计算出的宠物改名额度
 // - 为编辑页名字弹层提供展示文案
-struct PetNameEditPolicy: Decodable, Equatable, Hashable {
+nonisolated struct PetNameEditPolicy: Decodable, Equatable, Hashable {
     let maxCount: Int
     let usedCount: Int
     let remainingCount: Int

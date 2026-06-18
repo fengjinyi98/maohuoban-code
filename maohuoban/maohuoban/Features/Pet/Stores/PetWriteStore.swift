@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 import Observation
 
 // PetWriteStore 宠物写入状态模型
@@ -38,23 +39,67 @@ final class PetWriteStore {
             return
         }
 
+        let command = "create_pet"
+        let fromState = phase.diagnosticsName
         phase = .submitting
+        await Diagnostics.recordStoreStateTransition(
+            store: "PetWriteStore",
+            command: command,
+            fromState: fromState,
+            toState: phase.diagnosticsName,
+            result: "started",
+            metadata: ["screen_name": .string("pet_create")]
+        )
         successMessage = nil
         latestPetProfile = nil
         do {
-            let response = try await repository.createPet(
-                draft: draft,
-                currentUserID: currentUserID
-            )
+            let response = try await Diagnostics.instrumentStoreCommand(
+                name: "pet.profile.create",
+                store: "PetWriteStore",
+                command: command,
+                metadata: ["screen_name": .string("pet_create")]
+            ) {
+                try await repository.createPet(
+                    draft: draft,
+                    currentUserID: currentUserID
+                )
+            }
             guard let profile = response.data else {
                 phase = .failed("宠物数据为空")
+                await Diagnostics.recordStoreStateTransition(
+                    store: "PetWriteStore",
+                    command: command,
+                    fromState: "submitting",
+                    toState: phase.diagnosticsName,
+                    result: "failed",
+                    visibleErrorKind: "empty_data",
+                    metadata: ["screen_name": .string("pet_create")]
+                )
                 return
             }
             latestPetProfile = profile
             successMessage = response.message
             phase = .createdPet(profile.id)
+            await Diagnostics.recordStoreStateTransition(
+                store: "PetWriteStore",
+                command: command,
+                fromState: "submitting",
+                toState: phase.diagnosticsName,
+                result: "succeeded",
+                metadata: ["screen_name": .string("pet_create")]
+            )
         } catch {
-            phase = .failed(error.toastMessage)
+            let apiError = error as? MHBAPIError ?? .transport(error.localizedDescription)
+            phase = .failed(apiError.toastMessage)
+            await Diagnostics.recordStoreStateTransition(
+                store: "PetWriteStore",
+                command: command,
+                fromState: "submitting",
+                toState: phase.diagnosticsName,
+                result: "failed",
+                visibleErrorKind: apiError.diagnosticsSummary,
+                metadata: ["screen_name": .string("pet_create")]
+            )
         }
     }
 
@@ -177,24 +222,68 @@ final class PetWriteStore {
         }
         guard phase != .submitting else { return }
 
+        let command = "update_pet"
+        let fromState = phase.diagnosticsName
         phase = .submitting
+        await Diagnostics.recordStoreStateTransition(
+            store: "PetWriteStore",
+            command: command,
+            fromState: fromState,
+            toState: phase.diagnosticsName,
+            result: "started",
+            metadata: ["screen_name": .string("pet_profile_edit")]
+        )
         successMessage = nil
         latestPetProfile = nil
         do {
-            let response = try await repository.updatePet(
-                petID: petID,
-                draft: draft,
-                currentUserID: currentUserID
-            )
+            let response = try await Diagnostics.instrumentStoreCommand(
+                name: "pet.profile.update",
+                store: "PetWriteStore",
+                command: command,
+                metadata: ["screen_name": .string("pet_profile_edit")]
+            ) {
+                try await repository.updatePet(
+                    petID: petID,
+                    draft: draft,
+                    currentUserID: currentUserID
+                )
+            }
             guard let profile = response.data else {
                 phase = .failed("宠物数据为空")
+                await Diagnostics.recordStoreStateTransition(
+                    store: "PetWriteStore",
+                    command: command,
+                    fromState: "submitting",
+                    toState: phase.diagnosticsName,
+                    result: "failed",
+                    visibleErrorKind: "empty_data",
+                    metadata: ["screen_name": .string("pet_profile_edit")]
+                )
                 return
             }
             latestPetProfile = profile
             successMessage = response.message
             phase = .updatedPet(profile.id)
+            await Diagnostics.recordStoreStateTransition(
+                store: "PetWriteStore",
+                command: command,
+                fromState: "submitting",
+                toState: phase.diagnosticsName,
+                result: "succeeded",
+                metadata: ["screen_name": .string("pet_profile_edit")]
+            )
         } catch {
-            phase = .failed(error.toastMessage)
+            let apiError = error as? MHBAPIError ?? .transport(error.localizedDescription)
+            phase = .failed(apiError.toastMessage)
+            await Diagnostics.recordStoreStateTransition(
+                store: "PetWriteStore",
+                command: command,
+                fromState: "submitting",
+                toState: phase.diagnosticsName,
+                result: "failed",
+                visibleErrorKind: apiError.diagnosticsSummary,
+                metadata: ["screen_name": .string("pet_profile_edit")]
+            )
         }
     }
 
@@ -254,4 +343,25 @@ enum PetWritePhase: Equatable {
     case updatedPet(String)
     case deletedPet(String)
     case failed(String)
+
+    var diagnosticsName: String {
+        switch self {
+        case .idle:
+            "idle"
+        case .submitting:
+            "submitting"
+        case .createdPet:
+            "created_pet"
+        case .recordedEvent:
+            "recorded_event"
+        case .importedTradePet:
+            "imported_trade_pet"
+        case .updatedPet:
+            "updated_pet"
+        case .deletedPet:
+            "deleted_pet"
+        case .failed:
+            "failed"
+        }
+    }
 }

@@ -1,4 +1,7 @@
-use crate::{DiagnosticEvent, DiagnosticsError, EventKind, FileSegmentStore, Severity};
+use crate::{
+    DiagnosticEvent, DiagnosticsError, EventKind, FileSegmentStore, QueuedEventStore,
+    QueuedEventStoreConfig, Severity,
+};
 use serde_json::json;
 use std::{sync::Mutex, time::Instant};
 
@@ -48,6 +51,7 @@ impl Diagnostics {
     /// 当文件存储初始化或启动清理失败时返回错误。
     pub fn bootstrap(config: DiagnosticsBootstrapConfig) -> Result<Self, DiagnosticsError> {
         let store = FileSegmentStore::new(&config.storage_directory, config.max_segment_bytes)?;
+        let store = QueuedEventStore::new(Box::new(store), QueuedEventStoreConfig::default());
         let diagnostics = Self::install(DiagnosticsConfig {
             service_name: config.service_name,
             environment: config.environment,

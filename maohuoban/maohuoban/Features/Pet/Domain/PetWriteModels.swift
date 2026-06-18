@@ -153,7 +153,7 @@ struct PetProfileDraft: Encodable, Equatable {
 // 核心职责：
 // - 承接后端创建宠物后的稳定字段
 // - 为首页刷新和后续记录提供宠物 ID
-struct PetProfileSummary: Decodable, Equatable, Identifiable {
+nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let id: String
     let ownerUserID: String
     let name: String

@@ -177,6 +177,8 @@ struct MHBHTTPClient {
     private func send<ResponseBody: Decodable>(
         _ request: URLRequest
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        var request = request
+        instrumentTraceHeaders(for: &request)
         let startedAt = Date()
         let data: Data
         let response: URLResponse
@@ -208,6 +210,7 @@ struct MHBHTTPClient {
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         var uploadRequest = request
         uploadRequest.httpBody = nil
+        instrumentTraceHeaders(for: &uploadRequest)
 
         let delegate = MHBUploadProgressDelegate(onUploadProgress: onUploadProgress)
         let uploadSession = URLSession(
@@ -323,6 +326,21 @@ struct MHBHTTPClient {
             name: .mhbAuthenticationInvalidated,
             object: error.toastMessage
         )
+    }
+
+    private func instrumentTraceHeaders(for request: inout URLRequest) {
+        if request.value(forHTTPHeaderField: "traceparent") == nil {
+            request.setValue(Self.generateTraceparent(), forHTTPHeaderField: "traceparent")
+        }
+        if request.value(forHTTPHeaderField: "x-request-id") == nil {
+            request.setValue(UUID().uuidString, forHTTPHeaderField: "x-request-id")
+        }
+    }
+
+    private static func generateTraceparent() -> String {
+        let traceID = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        let spanID = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)).lowercased()
+        return "00-\(traceID)-\(spanID)-01"
     }
 }
 

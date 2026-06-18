@@ -12,6 +12,7 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
     let storageHealth = DiagnosticsStorageHealth()
     let exportRegistry: ExportDirectoryRegistry
     let remoteMirror: DiagnosticsRemoteEventSink?
+    let eventWriter: DiagnosticsEventWriter
     let startedAt = Date()
 
     init(configuration: DiagnosticsConfiguration) throws {
@@ -24,6 +25,11 @@ public final class DiagnosticsRuntime: @unchecked Sendable {
         store = try FileSegmentStore(
             directory: configuration.storageDirectory,
             maxSegmentBytes: configuration.maxSegmentBytes
+        )
+        eventWriter = DiagnosticsEventWriter(
+            store: store,
+            remoteMirror: remoteMirror,
+            storageHealth: storageHealth
         )
     }
 }

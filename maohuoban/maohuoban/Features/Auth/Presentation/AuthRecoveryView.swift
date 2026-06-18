@@ -47,7 +47,8 @@ struct AuthRecoveryView: View {
                 AuthPrimaryButton(
                     title: viewModel.hasRecoveryChallenge ? "重置密码" : "获取验证码",
                     isLoading: viewModel.isSubmitting,
-                    accessibilityIdentifier: viewModel.hasRecoveryChallenge ? "auth.recovery.resetPasswordButton" : "auth.recovery.sendCodeButton"
+                    accessibilityIdentifier: viewModel.hasRecoveryChallenge ? "auth.recovery.resetPasswordButton" : "auth.recovery.sendCodeButton",
+                    diagnosticsID: viewModel.hasRecoveryChallenge ? "auth.recovery.reset_password" : "auth.recovery.send_code"
                 ) {
                     Task {
                         if viewModel.hasRecoveryChallenge {

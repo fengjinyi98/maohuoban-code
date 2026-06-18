@@ -49,7 +49,8 @@ struct PetEventRecordScreen: View {
 
                     PetWriteSubmitButton(
                         title: mode.submitTitle,
-                        isSubmitting: store.isSubmitting
+                        isSubmitting: store.isSubmitting,
+                        diagnosticsID: "pet.event.record.submit"
                     ) {
                         Task { await submit() }
                     }

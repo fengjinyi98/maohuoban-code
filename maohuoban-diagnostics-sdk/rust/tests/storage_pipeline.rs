@@ -1,14 +1,121 @@
 mod support;
 
 use maohuoban_diagnostics::{
-    CapturePolicy, CleanupPolicy, DebugBundleExporter, DiagnosticEvent, Diagnostics,
-    DiagnosticsConfig, EventKind, FileSegmentStore, NetworkSummary, PrivacyPolicy, Severity,
-    TextRedactionPattern, TrackingConsent,
+    CapturePolicy, CleanupPolicy, CleanupReport, DebugBundleExporter, DiagnosticEvent, Diagnostics,
+    DiagnosticsConfig, DiagnosticsError, EventKind, EventStore, FileSegmentStore, NetworkSummary,
+    PrivacyPolicy, QueuedEventStore, QueuedEventStoreConfig, Severity, TextRedactionPattern,
+    TrackingConsent,
 };
 use serde_json::json;
-use std::{fs, time::Duration};
+use std::{fs, path::PathBuf, sync::Mutex, thread, time::Duration};
 use support::{diagnostics_test_lock, install_file_diagnostics, install_file_diagnostics_with};
 use tempfile::tempdir;
+
+struct SlowMemoryStore {
+    events: Mutex<Vec<DiagnosticEvent>>,
+    append_delay: Duration,
+}
+
+impl SlowMemoryStore {
+    fn new(append_delay: Duration) -> Self {
+        Self {
+            events: Mutex::new(Vec::new()),
+            append_delay,
+        }
+    }
+}
+
+impl EventStore for SlowMemoryStore {
+    fn append(&mut self, event: &DiagnosticEvent) -> Result<(), DiagnosticsError> {
+        thread::sleep(self.append_delay);
+        self.events.lock().expect("events lock").push(event.clone());
+        Ok(())
+    }
+
+    fn flush(&mut self) -> Result<(), DiagnosticsError> {
+        Ok(())
+    }
+
+    fn read_all(&self) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
+        Ok(self.events.lock().expect("events lock").clone())
+    }
+
+    fn cleanup(&mut self, _: &CleanupPolicy) -> Result<CleanupReport, DiagnosticsError> {
+        Ok(CleanupReport::default())
+    }
+
+    fn export_index_path(&self) -> Option<PathBuf> {
+        None
+    }
+}
+
+struct FailingAppendStore;
+
+impl EventStore for FailingAppendStore {
+    fn append(&mut self, _: &DiagnosticEvent) -> Result<(), DiagnosticsError> {
+        Err(DiagnosticsError::StoreLockPoisoned)
+    }
+
+    fn flush(&mut self) -> Result<(), DiagnosticsError> {
+        Ok(())
+    }
+
+    fn read_all(&self) -> Result<Vec<DiagnosticEvent>, DiagnosticsError> {
+        Ok(Vec::new())
+    }
+
+    fn cleanup(&mut self, _: &CleanupPolicy) -> Result<CleanupReport, DiagnosticsError> {
+        Ok(CleanupReport::default())
+    }
+
+    fn export_index_path(&self) -> Option<PathBuf> {
+        None
+    }
+}
+
+#[test]
+fn queued_event_store_keeps_append_nonblocking_and_flushes_events() {
+    let mut store = QueuedEventStore::new(
+        Box::new(SlowMemoryStore::new(Duration::from_millis(180))),
+        QueuedEventStoreConfig {
+            capacity: 16,
+            batch_size: 4,
+        },
+    );
+    let event = DiagnosticEvent::new(EventKind::Log, Severity::Info, "queued event");
+
+    let started = std::time::Instant::now();
+    store.append(&event).expect("enqueue event");
+    assert!(
+        started.elapsed() < Duration::from_millis(50),
+        "append should enqueue without waiting for slow storage"
+    );
+
+    store.flush().expect("flush queue");
+    let events = store.read_all().expect("read queued events");
+    assert!(events.iter().any(|event| event.message == "queued event"));
+}
+
+#[test]
+fn queued_event_store_reports_background_append_failure_on_flush() {
+    let mut store = QueuedEventStore::new(
+        Box::new(FailingAppendStore),
+        QueuedEventStoreConfig {
+            capacity: 16,
+            batch_size: 4,
+        },
+    );
+    let event = DiagnosticEvent::new(EventKind::Log, Severity::Info, "dropped event");
+
+    store.append(&event).expect("enqueue event");
+    let error = store
+        .flush()
+        .expect_err("flush should expose failed background append");
+    assert!(
+        error.to_string().contains("store lock poisoned"),
+        "unexpected flush error: {error}"
+    );
+}
 
 #[test]
 fn records_events_with_privacy_filter_and_exports_debug_bundle() {

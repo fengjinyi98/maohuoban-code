@@ -728,19 +728,29 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | 事件命名规范 | 作为后续实现标准 |
 | 性能门禁 | 作为 SDK 验收标准 |
 
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| 架构边界 | Swift SDK、Rust SDK、后端 Debug ingest、collector、SQLite 派生索引职责在本文档中明确 |
+| 事件协议 | 基础字段、metadata 命名、业务事件命名、禁止字段均有稳定规则 |
+| 性能策略 | 热路径入队、后台落盘、remote mirror 降级、队列满丢弃策略均有明确门禁 |
+| SwiftUI 约束 | 明确禁止渲染路径写诊断事件，允许事件边界已列出 |
+| 质量门禁 | Rust、iOS、SDK、隐私验证命令和标准可执行 |
+
 ### Phase 1：后端本地 ingest 和 trace 闭环
 
 目标：少改动打通真机 App -> 后端 -> workspace segments。
 
 任务：
 
-| 任务 | 验收 |
+| 任务 | 验收标准 |
 |---|---|
-| 后端新增 `/internal/diagnostics/ingest` | Debug local 可接收 Swift event |
-| iOS remote mirror 默认指向后端 ingest | 真机不再默认依赖 collector 常驻 |
-| 后端 segments 默认写 workspace | App/后端事件进入同一目录 |
-| HTTP middleware 提取/生成 trace | iOS 和后端 timeline 可按 trace 串联 |
-| collector 支持按 trace 导出 | 单链路排查可读 |
+| 后端新增 `/internal/diagnostics/ingest` | Debug local 可接收单条和批量 Swift event，并返回 accepted/dropped |
+| iOS remote mirror 默认指向后端 ingest | Debug 真机默认 URL 为后端 `/internal/diagnostics/ingest` |
+| 后端 segments 默认写 workspace | App mirror 事件和后端事件进入 `.maohuoban-diagnostics/segments` |
+| HTTP middleware 提取/生成 trace | 请求响应均带 `traceparent` 和 `x-request-id` |
+| collector 支持按 trace 导出 | `--trace` 可收敛单链路 timeline |
 
 验证：
 
@@ -751,13 +761,23 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | Rust 测试 | `cargo test --workspace` 通过 |
 | iOS 构建 | `xcodebuild ... Debug build` 通过 |
 
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| 本地闭环 | 只启动 Rust 后端和 iOS App 即可产生同目录 iOS + Rust segments |
+| Trace 连续性 | 同一用户操作中的 iOS HTTP、后端 middleware、后端业务事件拥有相同 trace 或 request_id |
+| 安全边界 | ingest 仅在 local/debug 开启，并校验 token、content-type、body size |
+| 回归测试 | 后端 diagnostics ingest 合约测试覆盖单条、批量、非法 token、超限 body |
+| 导出可读性 | collector 产物包含可按 trace 阅读的 timeline 和 prompt |
+
 ### Phase 2：前端 MVVM 自动观测
 
 目标：减少业务手写埋点，建立 Store/Repository 模板。
 
 任务：
 
-| 任务 | 验收 |
+| 任务 | 验收标准 |
 |---|---|
 | 新增 Store command instrumentation | 宠物保存/上传流程使用统一 span |
 | 新增 Repository instrumentation | 数据请求、decode、返回条数统一记录 |
@@ -765,17 +785,37 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | 页面 ready 性能事件 | 首页/登录/宠物编辑页有 ready 耗时 |
 | 表单边界规范 | 登录和宠物编辑表单记录 focus/blur/validation |
 
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| Store 生命周期 | `started/succeeded/failed` 和状态转换事件可串起创建与更新宠物流程 |
+| Repository 摘要 | `repository/source/item_count/api_code/has_data/duration_ms` 在成功响应中稳定出现 |
+| 表单隐私 | focus/blur/validation 只记录字段名、长度桶、规则和错误类别 |
+| 页面性能 | 页面 ready 事件包含 `screen_name`、`screen_data_ready_ms`、可选 `visible_item_count` |
+| 编译门禁 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` 通过 |
+
 ### Phase 3：DesignSystem 自动观测
 
 目标：通用交互由基础组件自动覆盖。
 
 任务：
 
-| 任务 | 验收 |
+| 任务 | 验收标准 |
 |---|---|
 | Button/Tab/Sheet/Toast 接入 diagnosticsID | 无需业务手写 tap |
 | TextField focus/blur 组件级事件 | 表单输入无原文 |
 | 组件事件采样和去重 | 高频事件不刷屏 |
+
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| 稳定 ID | 业务按钮和输入组件通过 `diagnosticsID` 或组件 helper 输出稳定事件名 |
+| 组件覆盖 | 登录、找回密码、验证码、宠物创建、宠物编辑关键按钮具备组件级观测 |
+| 输入安全 | TextField 相关事件不包含输入原文、token、手机号、邮箱明文 |
+| 高频控制 | 同一高频输入只在 focus/blur/validation/submit 边界产生日志 |
+| 编译门禁 | iOS Debug build 通过，新增组件参数保持默认值兼容旧调用点 |
 
 ### Phase 4：SDK 性能管线
 
@@ -783,7 +823,7 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 
 任务：
 
-| 任务 | 验收 |
+| 任务 | 验收标准 |
 |---|---|
 | Swift event queue + background writer | record 热路径无文件 IO |
 | Rust event queue + background writer | middleware 不等待文件 IO |
@@ -791,17 +831,37 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | SDK health 扩展 | timeline 可见队列丢弃和 writer 错误 |
 | 压测 | 高频事件下业务请求耗时无明显退化 |
 
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| Swift 热路径 | `Diagnostics.record` 只完成 enrich/filter/redact/enqueue，并由后台 writer drain |
+| Rust 热路径 | Rust `record` 和 middleware 使用 bounded queue，文件追加由 flush/drain 执行 |
+| 队列溢出 | 队列满时低优先级事件可丢弃，错误级事件优先保留，并产生 health 统计 |
+| Remote mirror | Debug mirror 支持批量请求，失败只影响远端镜像，保留本地 segments |
+| 回归测试 | Swift/Rust 存储管线测试覆盖 enqueue、flush、drop 或 drain 行为 |
+
 ### Phase 5：查询与本地分析体验
 
 目标：问题排查不用手工翻大文件。
 
 任务：
 
-| 任务 | 验收 |
+| 任务 | 验收标准 |
 |---|---|
 | collector trace/session/time filter | 可导出单链路 |
 | SQLite 派生索引 | 可按事件、页面、请求过滤 |
 | LLM prompt 分组 | 自动列出错误、慢请求、状态转换 |
+
+阶段验收标准：
+
+| 验收项 | 标准 |
+|---|---|
+| 过滤能力 | collector 支持 trace、session、time、severity、screen、request_id 过滤 |
+| SQLite 索引 | `index.sqlite` 可由 segments 重建，包含事件主表和常用字段索引 |
+| LLM 入口 | `latest/index.json` 给出推荐阅读顺序，`prompt.md` 聚合错误、慢请求、状态转换 |
+| 原始事实源 | SQLite 仅作为派生查询层，删除后可从 JSONL segments 重建 |
+| 回归测试 | collector filters 和 workspace report/index 测试覆盖过滤与索引生成 |
 
 ## 11. 验收指标
 
@@ -861,14 +921,13 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | 所有业务函数全量埋点 | 先覆盖命令入口和边界 |
 | Release 全量 UI 交互采集 | 性能和隐私成本不合适 |
 
-## 14. 推荐下一步
+## 14. 交付闭环
 
-下一步直接进入 Phase 1，实现最小闭环：
+本方案按 Phase 0-5 落地后，每次诊断 SDK 相关变更都执行同一套闭环：
 
-1. 后端新增 local/debug `/internal/diagnostics/ingest`。
-2. iOS 真机 remote mirror 默认指向后端 ingest。
-3. 后端 diagnostics 默认写 workspace `.maohuoban-diagnostics/segments`。
-4. HTTPClient 和后端 middleware 统一 `traceparent/request_id`。
-5. collector 增加按 trace 导出。
-
-这一步完成后，快速开发阶段的收益最大：真机和后端只要一起跑，出问题就能直接导出同一条链路的 timeline。
+1. 先确认新增观测点归属 Swift SDK、Rust SDK、后端 ingest、collector 或业务边界。
+2. 新事件必须符合第 5 节事件协议和禁止字段规则。
+3. SwiftUI 相关事件只允许从用户事件、生命周期、Store 或 Repository 异步边界写入。
+4. Rust 相关事件必须经过 bounded queue 或后台 writer，不让 HTTP middleware 等待文件 IO。
+5. collector 查询增强必须保留 JSONL segments 作为原始事实源。
+6. 交付前执行第 11 节质量指标对应命令，并记录失败原因和修复结果。

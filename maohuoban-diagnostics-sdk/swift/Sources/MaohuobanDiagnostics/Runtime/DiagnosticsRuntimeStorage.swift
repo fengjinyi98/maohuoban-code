@@ -6,11 +6,12 @@ import Foundation
 // - 编排 Debug Bundle 和 LLM Prompt 导出
 extension DiagnosticsRuntime {
     public func flush() async throws {
+        try await eventWriter.flush()
         try await store.flush()
     }
 
     public func readEvents() async throws -> [DiagnosticEvent] {
-        try await store.readAll()
+        try await eventWriter.readAll()
     }
 
     public func cleanup() async throws -> CleanupReport {
@@ -22,6 +23,7 @@ extension DiagnosticsRuntime {
     // - 支持调用方执行一次性全量清理
     // - 复用段文件与导出包清理统计
     public func cleanup(policy: CleanupPolicy) async throws -> CleanupReport {
+        try await eventWriter.flush()
         var report = try await store.cleanup(policy)
         let exportReport = try exportRegistry.cleanup(policy: policy)
         report.removedExports += exportReport.removedExports

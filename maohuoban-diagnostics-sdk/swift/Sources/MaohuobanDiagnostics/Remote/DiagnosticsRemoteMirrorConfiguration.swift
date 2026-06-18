@@ -8,14 +8,20 @@ public struct DiagnosticsRemoteMirrorConfiguration: Sendable, Equatable {
     public var endpoint: URL
     public var headers: [String: String]
     public var timeoutSeconds: TimeInterval
+    public var maxBatchEvents: Int
+    public var maxBatchBytes: Int
 
     public init(
         endpoint: URL,
         headers: [String: String] = [:],
-        timeoutSeconds: TimeInterval = 1
+        timeoutSeconds: TimeInterval = 1,
+        maxBatchEvents: Int = 20,
+        maxBatchBytes: Int = 192 * 1_024
     ) {
         self.endpoint = endpoint
         self.headers = headers
         self.timeoutSeconds = timeoutSeconds
+        self.maxBatchEvents = max(1, maxBatchEvents)
+        self.maxBatchBytes = max(512, maxBatchBytes)
     }
 }

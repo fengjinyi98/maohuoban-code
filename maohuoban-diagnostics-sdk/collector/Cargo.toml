@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 maohuoban_diagnostics = { path = "../rust" }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
 serde_json = "1.0.150"
 
 [dev-dependencies]

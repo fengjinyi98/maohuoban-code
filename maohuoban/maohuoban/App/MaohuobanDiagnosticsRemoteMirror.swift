@@ -7,18 +7,21 @@ import MaohuobanDiagnostics
 // - 支持环境变量覆盖接收端地址
 enum MaohuobanDiagnosticsRemoteMirror {
     private static let endpointEnvironmentKey = "MAOHUOBAN_DIAGNOSTICS_REMOTE_INGEST_URL"
-    private static let defaultCollectorPort = 18081
+    private static let tokenEnvironmentKey = "MAOHUOBAN_DIAGNOSTICS_INGEST_TOKEN"
+    private static let defaultToken = "maohuoban-local-diagnostics"
+    private static let defaultIngestPath = "/internal/diagnostics/ingest"
 
     static func resolve(
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        isSimulator: Bool = Self.isRunningOnSimulator
     ) -> DiagnosticsRemoteMirrorConfiguration? {
         #if DEBUG
-        #if targetEnvironment(simulator)
-        return nil
-        #else
+        guard !isSimulator else {
+            return nil
+        }
         if let endpoint = environment[endpointEnvironmentKey],
            let url = URL(string: endpoint) {
-            return configuration(endpoint: url)
+            return configuration(endpoint: url, environment: environment)
         }
         guard var components = URLComponents(
             url: MHBBackendEndpoint.localDevelopmentBaseURL,
@@ -26,23 +29,35 @@ enum MaohuobanDiagnosticsRemoteMirror {
         ) else {
             return nil
         }
-        components.port = defaultCollectorPort
-        components.path = "/ingest"
+        components.path = defaultIngestPath
         guard let url = components.url else {
             return nil
         }
-        return configuration(endpoint: url)
-        #endif
+        return configuration(endpoint: url, environment: environment)
         #else
         return nil
         #endif
     }
 
-    private static func configuration(endpoint: URL) -> DiagnosticsRemoteMirrorConfiguration {
+    private static func configuration(
+        endpoint: URL,
+        environment: [String: String]
+    ) -> DiagnosticsRemoteMirrorConfiguration {
         DiagnosticsRemoteMirrorConfiguration(
             endpoint: endpoint,
-            headers: ["X-Maohuoban-Diagnostics-Source": "ios-device-debug"],
+            headers: [
+                "X-Maohuoban-Diagnostics-Source": "ios-device-debug",
+                "X-Maohuoban-Diagnostics-Token": environment[tokenEnvironmentKey] ?? defaultToken
+            ],
             timeoutSeconds: 1
         )
+    }
+
+    private static var isRunningOnSimulator: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
     }
 }

@@ -79,6 +79,7 @@ extension DiagnosticsPipelineTests {
         try FileManager.default.removeItem(at: storage)
         try Data("blocked".utf8).write(to: storage)
         await diagnostics.log(.error, "cannot be stored")
+        try? await diagnostics.flush()
 
         try FileManager.default.removeItem(at: storage)
         try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
@@ -89,5 +90,34 @@ extension DiagnosticsPipelineTests {
         #expect(event.metadata["phase"] == "after-storage-error")
         #expect(event.metadata["dropped_event_count"] == "1")
         #expect(event.metadata["last_storage_error"]?.isEmpty == false)
+    }
+
+    @Test("运行时快照会暴露远端镜像发送失败计数")
+    func runtimeSnapshotReportsRemoteMirrorFailure() async throws {
+        let root = try temporaryDirectory()
+        let endpoint = try #require(URL(string: "http://127.0.0.1:9/internal/diagnostics/ingest"))
+        let diagnostics = try await Diagnostics.install(
+            .init(
+                serviceName: "maohuoban",
+                environment: "test",
+                storageDirectory: root.appendingPathComponent("segments"),
+                remoteMirror: DiagnosticsRemoteMirrorConfiguration(
+                    endpoint: endpoint,
+                    timeoutSeconds: 0.1,
+                    maxBatchEvents: 2,
+                    maxBatchBytes: 1_024
+                )
+            )
+        )
+
+        await diagnostics.log(.info, "remote mirror candidate")
+        try await diagnostics.flush()
+        await diagnostics.captureRuntimeSnapshot(metadata: ["phase": "after-remote-error"])
+
+        let events = try await diagnostics.readEvents()
+        let event = try #require(events.first { $0.message == "runtime snapshot" })
+        #expect(event.metadata["phase"] == "after-remote-error")
+        #expect(event.metadata["remote_dropped_event_count"] == "1")
+        #expect(event.metadata["last_remote_error"]?.isEmpty == false)
     }
 }

@@ -32,6 +32,7 @@ maohuoban-samecity-http.workspace = true
 maohuoban-samecity-infrastructure.workspace = true
 maohuoban_diagnostics.workspace = true
 redis.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true

@@ -7,16 +7,28 @@ import Foundation
 actor DiagnosticsStorageHealth {
     private var droppedEventCount = 0
     private var lastStorageError = ""
+    private var remoteDroppedEventCount = 0
+    private var lastRemoteError = ""
 
     func recordDroppedEvent(_ error: Error) {
         droppedEventCount += 1
         lastStorageError = String(describing: error)
     }
 
+    func recordDroppedRemoteEvents(count: Int, errorDescription: String) {
+        guard count > 0 else {
+            return
+        }
+        remoteDroppedEventCount += count
+        lastRemoteError = errorDescription
+    }
+
     func snapshot() -> DiagnosticsStorageHealthSnapshot {
         DiagnosticsStorageHealthSnapshot(
             droppedEventCount: droppedEventCount,
-            lastStorageError: lastStorageError
+            lastStorageError: lastStorageError,
+            remoteDroppedEventCount: remoteDroppedEventCount,
+            lastRemoteError: lastRemoteError
         )
     }
 }
@@ -28,4 +40,6 @@ actor DiagnosticsStorageHealth {
 struct DiagnosticsStorageHealthSnapshot {
     let droppedEventCount: Int
     let lastStorageError: String
+    let remoteDroppedEventCount: Int
+    let lastRemoteError: String
 }

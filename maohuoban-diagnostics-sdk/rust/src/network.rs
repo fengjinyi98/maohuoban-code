@@ -38,6 +38,49 @@ impl TraceContext {
         Self::new(trace_id, span_id, sampled)
     }
 
+    /// `parse_traceparent` 解析 W3C traceparent
+    /// 核心职责：
+    /// - 从上游 HTTP header 恢复 trace id 与 span id
+    /// - 拒绝不符合长度和十六进制格式的链路值
+    #[must_use]
+    pub fn parse_traceparent(value: &str) -> Option<Self> {
+        let parts = value.split('-').collect::<Vec<_>>();
+        if parts.len() != 4 {
+            return None;
+        }
+        let [version, trace_id, span_id, flags] = parts.as_slice() else {
+            return None;
+        };
+        if *version != "00"
+            || trace_id.len() != 32
+            || span_id.len() != 16
+            || flags.len() != 2
+            || !trace_id
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || !span_id
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
+            || !flags.chars().all(|character| character.is_ascii_hexdigit())
+        {
+            return None;
+        }
+        Some(Self::new(
+            (*trace_id).to_owned(),
+            (*span_id).to_owned(),
+            flags.ends_with('1'),
+        ))
+    }
+
+    /// `trace_id` 返回链路 ID
+    /// 核心职责：
+    /// - 暴露顶层事件 trace id
+    /// - 保持 traceparent 仍由类型统一格式化
+    #[must_use]
+    pub fn trace_id(&self) -> &str {
+        &self.trace_id
+    }
+
     /// `traceparent` 生成 W3C traceparent header 值
     /// 核心职责：
     /// - 使用固定版本、trace id、span id 和采样标记
@@ -167,7 +210,9 @@ impl NetworkSummary {
             event = event.metadata("error", json!(error));
         }
         if let Some(trace_context) = self.trace_context {
-            event = event.metadata("traceparent", json!(trace_context.traceparent()));
+            event = event
+                .trace_id(trace_context.trace_id().to_owned())
+                .metadata("traceparent", json!(trace_context.traceparent()));
         }
         for (key, value) in self.metadata {
             event = event.metadata(key, value);

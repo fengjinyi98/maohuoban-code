@@ -3,6 +3,7 @@ use maohuoban_diagnostics_collector::{
 };
 mod remote_ingest;
 
+use maohuoban_diagnostics::Severity;
 use remote_ingest::serve_remote_ingest;
 use std::{env, path::PathBuf, process};
 
@@ -21,6 +22,7 @@ fn main() {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn run(args: &[String]) -> Result<(), String> {
     let mut segments = Vec::new();
     let mut log_files = Vec::new();
@@ -29,6 +31,11 @@ fn run(args: &[String]) -> Result<(), String> {
     let mut clean_sources = false;
     let mut serve_ingest = false;
     let mut bind = "0.0.0.0:18081".to_string();
+    let mut trace = None;
+    let mut session = None;
+    let mut severity = None;
+    let mut screen = None;
+    let mut request_id = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -67,6 +74,41 @@ fn run(args: &[String]) -> Result<(), String> {
                     .cloned()
                     .ok_or_else(|| "missing value for --bind".to_string())?;
             }
+            "--trace" => {
+                index += 1;
+                trace = args.get(index).cloned();
+                if trace.is_none() {
+                    return Err("missing value for --trace".to_string());
+                }
+            }
+            "--session" => {
+                index += 1;
+                session = args.get(index).cloned();
+                if session.is_none() {
+                    return Err("missing value for --session".to_string());
+                }
+            }
+            "--severity" => {
+                index += 1;
+                let value = args
+                    .get(index)
+                    .ok_or_else(|| "missing value for --severity".to_string())?;
+                severity = Some(parse_severity(value)?);
+            }
+            "--screen" => {
+                index += 1;
+                screen = args.get(index).cloned();
+                if screen.is_none() {
+                    return Err("missing value for --screen".to_string());
+                }
+            }
+            "--request-id" => {
+                index += 1;
+                request_id = args.get(index).cloned();
+                if request_id.is_none() {
+                    return Err("missing value for --request-id".to_string());
+                }
+            }
             "--help" | "-h" => {
                 print_help();
                 return Ok(());
@@ -98,7 +140,8 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         let mut config = WorkspaceReportConfig::new(workspace_root)
             .with_log_files(log_files)
-            .clean_sources(clean_sources);
+            .clean_sources(clean_sources)
+            .with_filter_options(trace, session, severity, screen, request_id);
         if !segments.is_empty() {
             config = config.with_segment_directories(segments);
         }
@@ -114,18 +157,30 @@ fn run(args: &[String]) -> Result<(), String> {
         return Err("missing input: provide --segments <path> or --log-file <path>".to_string());
     }
     let output = output.ok_or_else(|| "missing --output <path>".to_string())?;
-    let bundle = collect_debug_bundle(
-        CollectorConfig::from_segment_directories(segments, output).with_log_files(log_files),
-    )
-    .map_err(|error| error.to_string())?;
+    let config = CollectorConfig::from_segment_directories(segments, output)
+        .with_log_files(log_files)
+        .with_filter_options(trace, session, severity, screen, request_id);
+    let bundle = collect_debug_bundle(config).map_err(|error| error.to_string())?;
     println!("{}", bundle.directory.display());
     Ok(())
 }
 
 fn print_help() {
     println!(
-        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] (--output <path> | --workspace-root <path>) [--clean-sources]\nmaohuoban_diagnostics_collector --serve-ingest [--bind <addr>] (--workspace-root <path> | --segments <path>)\n\n导出 Maohuoban Debug Bundle，或启动 Debug 真机诊断回流接收服务。"
+        "maohuoban_diagnostics_collector [--segments <path> ...] [--log-file <path> ...] (--output <path> | --workspace-root <path>) [--clean-sources] [--trace <id>] [--session <id>] [--severity <level>] [--screen <name>] [--request-id <id>]\nmaohuoban_diagnostics_collector --serve-ingest [--bind <addr>] (--workspace-root <path> | --segments <path>)\n\n导出 Maohuoban Debug Bundle，或启动 Debug 真机诊断回流接收服务。"
     );
+}
+
+fn parse_severity(value: &str) -> Result<Severity, String> {
+    match value {
+        "trace" => Ok(Severity::Trace),
+        "debug" => Ok(Severity::Debug),
+        "info" => Ok(Severity::Info),
+        "warn" => Ok(Severity::Warn),
+        "error" => Ok(Severity::Error),
+        "fatal" => Ok(Severity::Fatal),
+        unknown => Err(format!("unknown severity: {unknown}")),
+    }
 }
 
 #[cfg(test)]

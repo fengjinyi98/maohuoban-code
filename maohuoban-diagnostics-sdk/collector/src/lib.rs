@@ -2,6 +2,7 @@ mod config;
 mod export;
 mod external_log;
 mod multi_source_store;
+mod sqlite_index;
 mod workspace_report;
 
 pub use config::CollectorConfig;

@@ -23,7 +23,7 @@ pub use network::{NetworkSummary, TraceContext};
 pub use policy::{CapturePolicy, PrivacyPolicy, TextRedactionPattern, TrackingConsent};
 pub use runtime::{Diagnostics, DiagnosticsBootstrapConfig, DiagnosticsConfig};
 pub use span::DiagnosticsSpan;
-pub use storage::{EventStore, FileSegmentStore};
+pub use storage::{EventStore, FileSegmentStore, QueuedEventStore, QueuedEventStoreConfig};
 pub use version::sdk_version;
 
 #[cfg(test)]

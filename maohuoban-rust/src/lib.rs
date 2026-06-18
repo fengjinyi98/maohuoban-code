@@ -6,7 +6,7 @@
     clippy::needless_raw_string_hashes
 )]
 
-mod diagnostics;
+pub mod diagnostics;
 mod home_dashboard;
 mod home_event_projection;
 mod media_content;
@@ -15,7 +15,9 @@ pub mod test_support;
 use std::{env, sync::Arc};
 
 use axum::Router;
-use diagnostics::record_http_network;
+use diagnostics::{
+    build_diagnostics_ingest_router, diagnostics_ingest_config_from_env, record_http_network,
+};
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_auth_application::auth::{AuthService, AuthServiceConfig};
 use maohuoban_auth_http::auth::build_auth_router;
@@ -55,6 +57,7 @@ pub struct BackendConfig {
     pub jwt_secret: String,
     pub access_token_ttl_seconds: i64,
     pub refresh_token_ttl_seconds: i64,
+    pub diagnostics_ingest_enabled: bool,
 }
 
 impl BackendConfig {
@@ -75,7 +78,17 @@ impl BackendConfig {
             }),
             access_token_ttl_seconds: 15 * 60,
             refresh_token_ttl_seconds: 180 * 24 * 60 * 60,
+            diagnostics_ingest_enabled: Self::diagnostics_ingest_enabled_from_env_value(
+                env::var("MAOHUOBAN_DIAGNOSTICS_INGEST_ENABLED")
+                    .ok()
+                    .as_deref(),
+            ),
         }
+    }
+
+    #[must_use]
+    pub fn diagnostics_ingest_enabled_from_env_value(value: Option<&str>) -> bool {
+        value.is_some_and(|value| value != "0" && !value.eq_ignore_ascii_case("false"))
     }
 
     #[must_use]
@@ -90,6 +103,7 @@ impl BackendConfig {
             jwt_secret: "maohuoban-local-test-jwt-secret".to_owned(),
             access_token_ttl_seconds: 15 * 60,
             refresh_token_ttl_seconds: 180 * 24 * 60 * 60,
+            diagnostics_ingest_enabled: true,
         }
     }
 }
@@ -164,13 +178,18 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
-    let router = build_auth_router(auth_service.clone())
+    let mut router = build_auth_router(auth_service.clone())
         .merge(build_legal_router(legal_service))
         .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
         .merge(build_pet_router(pet_service, auth_service.clone()))
-        .merge(build_samecity_router(samecity_service, auth_service))
-        .layer(axum::middleware::from_fn(record_http_network));
+        .merge(build_samecity_router(samecity_service, auth_service));
+    if config.diagnostics_ingest_enabled {
+        router = router.merge(build_diagnostics_ingest_router(
+            diagnostics_ingest_config_from_env(),
+        )?);
+    }
+    let router = router.layer(axum::middleware::from_fn(record_http_network));
 
     Ok(BackendApp {
         router,
@@ -198,4 +217,6 @@ pub enum BackendError {
     Migration(#[from] sqlx::migrate::MigrateError),
     #[error("redis error: {0}")]
     Redis(#[from] redis::RedisError),
+    #[error("diagnostics error: {0}")]
+    Diagnostics(#[from] maohuoban_diagnostics::DiagnosticsError),
 }

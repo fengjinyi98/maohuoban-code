@@ -51,6 +51,10 @@ extension MHBHTTPClient {
         requestBodyBytes: Int?
     ) -> DiagnosticProperties {
         var metadata: DiagnosticProperties = [:]
+        metadata["network_capture_source"] = .string("http_client")
+        if let requestID = request.value(forHTTPHeaderField: "x-request-id") {
+            metadata["request_id"] = .string(requestID)
+        }
         if let requestBodyBytes = requestBodyBytes ?? request.httpBody?.count {
             metadata["request_body_bytes"] = .int(requestBodyBytes)
         }

@@ -34,4 +34,33 @@ extension DiagnosticsPipelineTests {
 
         _ = view
     }
+
+    @Test("组件交互事件工厂覆盖按钮、Tab、Sheet、Toast 和输入框边界")
+    func swiftUIComponentInstrumentationBuildsStableEvents() {
+        let button = DiagnosticsSwiftUIInstrumentation.componentEvent(
+            diagnosticsID: "pet.profile.save",
+            component: .button,
+            action: .tap,
+            metadata: ["screen_name": "pet_profile_edit"]
+        )
+        let textField = DiagnosticsSwiftUIInstrumentation.textFieldBoundaryEvent(
+            diagnosticsID: "pet.profile.name",
+            action: .blur,
+            form: "pet_profile",
+            field: "name",
+            screenName: "pet_profile_edit",
+            valueLength: 6,
+            valid: true
+        )
+
+        #expect(button.message == "ui.button.tap")
+        #expect(button.metadata["diagnostics_id"] == "pet.profile.save")
+        #expect(button.metadata["component"] == "button")
+        #expect(button.metadata["screen_name"] == "pet_profile_edit")
+        #expect(textField.message == "ui.text_field.blur")
+        #expect(textField.metadata["form"] == "pet_profile")
+        #expect(textField.metadata["field"] == "name")
+        #expect(textField.metadata["length_bucket"] == "short")
+        #expect(textField.metadata["value"] == nil)
+    }
 }

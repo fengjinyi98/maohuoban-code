@@ -16,12 +16,7 @@ extension DiagnosticsRuntime {
         }
         let event = configuration.privacy.apply(to: capturedEvent)
         do {
-            try await store.append(event)
-            if let remoteMirror {
-                Task {
-                    await remoteMirror.append(event)
-                }
-            }
+            try await eventWriter.enqueue(event)
         } catch {
             await storageHealth.recordDroppedEvent(error)
         }
@@ -132,6 +127,11 @@ extension DiagnosticsRuntime {
             event = event
                 .metadata("dropped_event_count", "\(storageStatus.droppedEventCount)")
                 .metadata("last_storage_error", storageStatus.lastStorageError)
+        }
+        if storageStatus.remoteDroppedEventCount > 0 {
+            event = event
+                .metadata("remote_dropped_event_count", "\(storageStatus.remoteDroppedEventCount)")
+                .metadata("last_remote_error", storageStatus.lastRemoteError)
         }
         for (key, value) in metadata {
             event = event.metadata(key, value)

@@ -53,4 +53,22 @@ final class MaohuobanDiagnosticsLaunchModeTests: XCTestCase {
 
         XCTAssertEqual(url.path, "/tmp/repo/.maohuoban-diagnostics/segments")
     }
+
+    @MainActor
+    func testRemoteMirrorDefaultUsesBackendDiagnosticsIngestForDevice() {
+        let configuration = MaohuobanDiagnosticsRemoteMirror.resolve(
+            environment: [:],
+            isSimulator: false
+        )
+
+        XCTAssertEqual(configuration?.endpoint.path, "/internal/diagnostics/ingest")
+        XCTAssertEqual(
+            configuration?.headers["X-Maohuoban-Diagnostics-Token"],
+            "maohuoban-local-diagnostics"
+        )
+        XCTAssertEqual(
+            configuration?.headers["X-Maohuoban-Diagnostics-Source"],
+            "ios-device-debug"
+        )
+    }
 }

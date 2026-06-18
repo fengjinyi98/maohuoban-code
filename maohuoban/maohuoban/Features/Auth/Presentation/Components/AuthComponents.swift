@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import MaohuobanDiagnostics
 
 // AuthBrandHeader 登录品牌头部
 // 核心职责：
@@ -126,10 +127,11 @@ struct AuthPrimaryButton: View {
     let isLoading: Bool
     var isEnabled: Bool = true
     var accessibilityIdentifier: String? = nil
+    var diagnosticsID: String? = nil
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button(action: instrumentedAction) {
             HStack(spacing: MHBTheme.Spacing.s2) {
                 if isLoading {
                     ProgressView()
@@ -160,6 +162,22 @@ struct AuthPrimaryButton: View {
 
     private var shadowColor: Color {
         MHBTheme.ColorToken.primary.color.opacity(canInteract ? 0.25 : 0)
+    }
+
+    private func instrumentedAction() {
+        if let diagnosticsID {
+            Task {
+                await Diagnostics.record(
+                    DiagnosticsSwiftUIInstrumentation.componentEvent(
+                        diagnosticsID: diagnosticsID,
+                        component: .button,
+                        action: .tap,
+                        metadata: ["component_name": .string("AuthPrimaryButton")]
+                    )
+                )
+            }
+        }
+        action()
     }
 }
 

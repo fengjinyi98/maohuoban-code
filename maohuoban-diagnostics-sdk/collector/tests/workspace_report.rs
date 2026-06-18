@@ -78,3 +78,27 @@ fn workspace_report_can_remove_source_sdk_reports_after_export() {
         "all jsonl SDK report files should be removed"
     );
 }
+
+#[test]
+fn workspace_report_can_write_sqlite_derived_index() {
+    let root = tempdir().expect("temp dir");
+    let segments = root.path().join(".maohuoban-diagnostics").join("segments");
+    let mut store = FileSegmentStore::new(&segments, 1024 * 1024).expect("store");
+    store
+        .append(
+            &DiagnosticEvent::new(EventKind::Network, Severity::Info, "indexed event")
+                .trace_id("trace-index")
+                .metadata("screen_name", serde_json::json!("home")),
+        )
+        .expect("append");
+
+    collect_workspace_report(WorkspaceReportConfig::new(root.path()).write_sqlite_index(true))
+        .expect("workspace report");
+
+    let index = root
+        .path()
+        .join(".maohuoban-diagnostics")
+        .join("index.sqlite");
+    let header = std::fs::read(&index).expect("sqlite index");
+    assert!(header.starts_with(b"SQLite format 3"));
+}

@@ -28,7 +28,8 @@ struct PetCreateScreen: View {
 
                 PetWriteSubmitButton(
                     title: "保存宠物",
-                    isSubmitting: store.isSubmitting
+                    isSubmitting: store.isSubmitting,
+                    diagnosticsID: "pet.profile.create.submit"
                 ) {
                     Task { await submit() }
                 }
@@ -77,9 +78,25 @@ private struct PetCreateIdentityFields: View {
 
     var body: some View {
         PetWriteFormSection(title: "基础档案") {
-            PetWriteTextField(title: "名字", text: $name, prompt: "例如 糯米")
+            PetWriteTextField(
+                title: "名字",
+                text: $name,
+                prompt: "例如 糯米",
+                diagnosticsID: "pet.profile.name",
+                diagnosticsForm: "pet_profile",
+                diagnosticsField: "name",
+                diagnosticsScreenName: "pet_create"
+            )
                 .accessibilityIdentifier("pet.create.nameInput")
-            PetWriteTextField(title: "品种", text: $breed, prompt: "例如 比熊犬")
+            PetWriteTextField(
+                title: "品种",
+                text: $breed,
+                prompt: "例如 比熊犬",
+                diagnosticsID: "pet.profile.breed",
+                diagnosticsForm: "pet_profile",
+                diagnosticsField: "breed",
+                diagnosticsScreenName: "pet_create"
+            )
                 .accessibilityIdentifier("pet.create.breedInput")
         }
     }
