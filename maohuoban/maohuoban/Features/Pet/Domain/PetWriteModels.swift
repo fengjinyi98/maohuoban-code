@@ -420,6 +420,17 @@ struct PetMediaUploadDraft: Equatable {
 struct PetLivePhotoUploadDraft: Equatable {
     let still: PetMediaUploadDraft
     let pairedVideo: PetMediaUploadDraft
+    let cropMetadata: MHBImageCropMetadata?
+
+    init(
+        still: PetMediaUploadDraft,
+        pairedVideo: PetMediaUploadDraft,
+        cropMetadata: MHBImageCropMetadata? = nil
+    ) {
+        self.still = still
+        self.pairedVideo = pairedVideo
+        self.cropMetadata = cropMetadata
+    }
 
     var sourceClient: String {
         still.sourceClient

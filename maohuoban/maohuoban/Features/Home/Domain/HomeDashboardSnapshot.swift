@@ -229,6 +229,7 @@ extension HomeDashboardSnapshot {
             case remoteLivePhoto(
                 stillURLString: String,
                 pairedVideoURLString: String,
+                cropMetadata: MHBImageCropMetadata?,
                 fallbackImageAssetName: String?
             )
         }
@@ -272,6 +273,7 @@ extension HomeDashboardSnapshot {
                 return .remoteLivePhoto(
                     stillURLString: heroLivePhoto.stillURL,
                     pairedVideoURLString: heroLivePhoto.pairedVideoURL,
+                    cropMetadata: heroLivePhoto.cropMetadata,
                     fallbackImageAssetName: heroImageAssetName ?? "HomePetHeroMock"
                 )
             }
@@ -590,6 +592,7 @@ extension HomeDashboardSnapshot {
         let pairedVideoWidth: Int?
         let pairedVideoHeight: Int?
         let pairedVideoDurationMS: Int?
+        let cropMetadata: MHBImageCropMetadata?
 
         enum CodingKeys: String, CodingKey {
             case stillURL = "still_url"
@@ -599,6 +602,7 @@ extension HomeDashboardSnapshot {
             case pairedVideoWidth = "paired_video_width"
             case pairedVideoHeight = "paired_video_height"
             case pairedVideoDurationMS = "paired_video_duration_ms"
+            case cropMetadata = "crop"
         }
     }
 

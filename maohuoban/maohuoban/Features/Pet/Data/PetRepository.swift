@@ -422,7 +422,14 @@ struct DefaultPetRepository: PetRepository {
     }
 
     private func multipartFields(from draft: PetLivePhotoUploadDraft) -> [String: String] {
-        ["source_client": draft.sourceClient]
+        var fields = ["source_client": draft.sourceClient]
+        if let cropMetadata = draft.cropMetadata {
+            fields["crop_x"] = String(cropMetadata.x)
+            fields["crop_y"] = String(cropMetadata.y)
+            fields["crop_width"] = String(cropMetadata.width)
+            fields["crop_height"] = String(cropMetadata.height)
+        }
+        return fields
     }
 
     private func uploadPendingMedia(

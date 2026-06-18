@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
-    NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, MediaCropMetadata,
+    NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
     PetProfileDiagnostics, PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput,
     UpdatePetProfile, record_pet_profile,
 };
@@ -10,6 +10,7 @@ use maohuoban_pet_domain::pet::{
     PetError, PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
     PetResult, PetSex, PetSpecies, PetTimeline,
 };
+use serde_json::Value;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
@@ -47,6 +48,7 @@ struct MediaAssetDisplayMetadataRow {
     width: Option<i32>,
     height: Option<i32>,
     theme_color_hex: Option<String>,
+    crop_metadata: Option<Value>,
     live_photo_still_component_id: Option<Uuid>,
     live_photo_still_width: Option<i32>,
     live_photo_still_height: Option<i32>,
@@ -532,12 +534,13 @@ impl PetRepository for PostgresPetRepository {
                 asset.width,
                 asset.height,
                 derivative.metadata ->> 'theme_color_hex' AS theme_color_hex,
+                derivative.metadata -> 'crop' AS crop_metadata,
                 still_component.id AS live_photo_still_component_id,
-                still_component.width AS live_photo_still_width,
-                still_component.height AS live_photo_still_height,
+                COALESCE(still_component.width, asset.width) AS live_photo_still_width,
+                COALESCE(still_component.height, asset.height) AS live_photo_still_height,
                 paired_video_component.id AS live_photo_paired_video_component_id,
-                paired_video_component.width AS live_photo_paired_video_width,
-                paired_video_component.height AS live_photo_paired_video_height,
+                COALESCE(paired_video_component.width, asset.width) AS live_photo_paired_video_width,
+                COALESCE(paired_video_component.height, asset.height) AS live_photo_paired_video_height,
                 paired_video_component.duration_ms AS live_photo_paired_video_duration_ms
             FROM media_assets asset
             LEFT JOIN media_derivatives derivative
@@ -566,6 +569,7 @@ impl PetRepository for PostgresPetRepository {
                 width: row.width,
                 height: row.height,
                 theme_color_hex: row.theme_color_hex,
+                crop_metadata: media_crop_metadata(row.crop_metadata.as_ref()),
                 live_photo_still_url: row
                     .live_photo_still_component_id
                     .map(|component_id| media_asset_component_url(row.asset_id, component_id)),
@@ -747,4 +751,18 @@ impl PetRepository for PostgresPetRepository {
 
 fn media_asset_component_url(asset_id: Uuid, component_id: Uuid) -> String {
     format!("/api/v1/media/assets/{asset_id}/components/{component_id}/content")
+}
+
+/// media_crop_metadata 读取媒体展示裁剪元数据
+/// 核心职责：
+/// - 从派生 metadata JSON 中恢复归一化裁剪区域
+/// - 让首页 DTO 使用后端持久化的展示契约
+fn media_crop_metadata(value: Option<&Value>) -> Option<MediaCropMetadata> {
+    let value = value?;
+    Some(MediaCropMetadata {
+        x: value.get("x")?.as_f64()?,
+        y: value.get("y")?.as_f64()?,
+        width: value.get("width")?.as_f64()?,
+        height: value.get("height")?.as_f64()?,
+    })
 }

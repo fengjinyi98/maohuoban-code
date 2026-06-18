@@ -37,22 +37,34 @@ extension DiagnosticsPipelineTests {
         let bundle = try await diagnostics.exportDebugBundle(to: root.appendingPathComponent("bundle"))
         let manifestData = try Data(contentsOf: bundle.manifestURL)
         let manifest = try #require(
-            JSONSerialization.jsonObject(with: manifestData) as? [String: String]
+            JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         )
 
-        #expect(manifest["timelineSHA256"]?.count == 64)
-        #expect(manifest["promptSHA256"]?.count == 64)
-        #expect(manifest["indexSHA256"]?.count == 64)
-        #expect(manifest["indexPath"] == "index.json")
-        #expect(manifest["archivePath"] == "archive.tar")
+        #expect((manifest["timelineSHA256"] as? String)?.count == 64)
+        #expect((manifest["promptSHA256"] as? String)?.count == 64)
+        #expect((manifest["indexSHA256"] as? String)?.count == 64)
+        #expect(manifest["indexPath"] as? String == "index.json")
+        #expect(manifest["archivePath"] as? String == "archive.tar")
+        #expect(manifest["createdAtLocal"] is String)
+        let manifestTimeBasis = try #require(manifest["timeBasis"] as? [String: Any])
+        #expect(manifestTimeBasis["eventTimestamps"] as? String == "utc_rfc3339")
+        #expect(manifestTimeBasis["localTimezone"] is String)
         #expect(FileManager.default.fileExists(atPath: bundle.archiveURL.path))
         #expect(FileManager.default.fileExists(atPath: bundle.indexURL.path))
 
-        let index = try String(contentsOf: bundle.indexURL, encoding: .utf8)
+        let indexData = try Data(contentsOf: bundle.indexURL)
+        let index = String(data: indexData, encoding: .utf8) ?? ""
         #expect(index.contains("\"schema\":\"maohuoban.diagnostics.index.v1\""))
         #expect(index.contains("\"recommended_read_order\""))
         #expect(index.contains("\"prompt.md\""))
         #expect(index.contains("\"timeline.jsonl\""))
+        let indexJson = try #require(
+            JSONSerialization.jsonObject(with: indexData) as? [String: Any]
+        )
+        let indexTimeBasis = try #require(indexJson["time_basis"] as? [String: Any])
+        #expect(indexTimeBasis["event_timestamps"] as? String == "utc_rfc3339")
+        #expect(indexJson["first_event_at_local"] is String)
+        #expect(indexJson["latest_event_at_local"] is String)
 
         let archive = try Data(contentsOf: bundle.archiveURL)
         let entries = try tarEntries(from: archive)

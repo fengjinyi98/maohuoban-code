@@ -9,6 +9,7 @@ use axum::{
 };
 use maohuoban_diagnostics::{DiagnosticEvent, EventKind, EventStore, FileSegmentStore, Severity};
 use serde_json::json;
+use std::time::Duration;
 use tower::ServiceExt;
 
 fn temporary_directory() -> std::path::PathBuf {
@@ -41,6 +42,36 @@ fn backend_config_requires_explicit_diagnostics_ingest_enablement() {
     assert!(!maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("0")));
     assert!(
         !maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("false"))
+    );
+}
+
+#[test]
+fn backend_diagnostics_cleanup_policy_uses_llm_friendly_local_defaults() {
+    let policy = maohuoban_rust::diagnostics::cleanup_policy_from_env_values(None, None, None);
+
+    assert_eq!(policy.max_total_bytes, 10 * 1024 * 1024);
+    assert_eq!(policy.max_segment_age, Duration::from_hours(24));
+    assert_eq!(policy.max_export_age, Duration::from_hours(6));
+    assert_eq!(
+        maohuoban_rust::diagnostics::cleanup_interval_from_env_value(None),
+        Duration::from_mins(30)
+    );
+}
+
+#[test]
+fn backend_diagnostics_cleanup_policy_accepts_env_overrides() {
+    let policy = maohuoban_rust::diagnostics::cleanup_policy_from_env_values(
+        Some("1048576"),
+        Some("2"),
+        Some("1"),
+    );
+
+    assert_eq!(policy.max_total_bytes, 1024 * 1024);
+    assert_eq!(policy.max_segment_age, Duration::from_hours(2));
+    assert_eq!(policy.max_export_age, Duration::from_hours(1));
+    assert_eq!(
+        maohuoban_rust::diagnostics::cleanup_interval_from_env_value(Some("5")),
+        Duration::from_mins(5)
     );
 }
 

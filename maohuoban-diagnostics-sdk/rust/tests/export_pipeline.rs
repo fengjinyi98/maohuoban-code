@@ -24,6 +24,19 @@ fn debug_bundle_includes_checksums_and_archive() {
     assert!(manifest.contains("\"prompt_sha256\""));
     assert!(manifest.contains("\"index_sha256\""));
     assert!(manifest.contains("\"archive_path\""));
+    let manifest_json: serde_json::Value = serde_json::from_str(&manifest).expect("manifest json");
+    assert_eq!(
+        manifest_json["time_basis"]["event_timestamps"],
+        serde_json::json!("utc_rfc3339")
+    );
+    assert!(
+        manifest_json["created_at_local"].is_string(),
+        "manifest should expose local export time for human and LLM reading"
+    );
+    assert!(
+        manifest_json["time_basis"]["local_timezone"].is_string(),
+        "manifest should expose exporter local timezone"
+    );
     assert!(bundle.archive_path.exists());
     assert!(bundle.index_path.exists());
     let index = fs::read_to_string(&bundle.index_path).expect("index");
@@ -31,6 +44,19 @@ fn debug_bundle_includes_checksums_and_archive() {
     assert!(index.contains("\"recommended_read_order\""));
     assert!(index.contains("\"prompt.md\""));
     assert!(index.contains("\"timeline.jsonl\""));
+    let index_json: serde_json::Value = serde_json::from_str(&index).expect("index json");
+    assert_eq!(
+        index_json["time_basis"]["event_timestamps"],
+        serde_json::json!("utc_rfc3339")
+    );
+    assert!(
+        index_json["first_event_at_local"].is_string(),
+        "index should expose local first event preview"
+    );
+    assert!(
+        index_json["latest_event_at_local"].is_string(),
+        "index should expose local latest event preview"
+    );
 
     let archive = fs::read(&bundle.archive_path).expect("archive");
     let entries = tar_entries(&archive);

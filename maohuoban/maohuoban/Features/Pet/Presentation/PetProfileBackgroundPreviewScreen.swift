@@ -17,7 +17,7 @@ struct PetProfileBackgroundPreviewScreen: View {
     @State private var previewMedia: PetProfileHeroMediaDraft?
     @State private var isImagePickerPresented = false
     @State private var isVideoPickerPresented = false
-    @State private var cropTarget: MHBIdentifiableUIImage?
+    @State private var cropTarget: PetProfileBackgroundCropTarget?
     @State private var uploadState = PetProfileBackgroundUploadState.idle
 
     private let previewAspectRatio = CGFloat(393.0 / 440.0)
@@ -94,7 +94,9 @@ struct PetProfileBackgroundPreviewScreen: View {
                 onCancel: {
                     cropTarget = nil
                 },
-                onSave: handleCroppedBackgroundImage
+                onSaveResult: { result in
+                    handleCroppedBackground(result, target: target)
+                }
             )
         }
         .accessibilityIdentifier("pet.profileBackgroundPreview.screen")
@@ -138,6 +140,7 @@ struct PetProfileBackgroundPreviewScreen: View {
             RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
                 .stroke(Color.white.opacity(0.16), lineWidth: 1)
         }
+        .allowsHitTesting(false)
     }
 
     @ViewBuilder
@@ -214,7 +217,14 @@ struct PetProfileBackgroundPreviewScreen: View {
 
     private func handleImagePickerResult(_ result: MHBMediaPickerResult) {
         if let livePhoto = result.livePhotos.first {
-            saveHeroMedia(.livePhoto(livePhoto))
+            guard let previewImage = livePhoto.previewImage else {
+                saveHeroMedia(.livePhoto(livePhoto))
+                return
+            }
+            cropTarget = PetProfileBackgroundCropTarget(
+                image: previewImage,
+                source: .livePhoto(livePhoto)
+            )
             return
         }
 
@@ -222,12 +232,22 @@ struct PetProfileBackgroundPreviewScreen: View {
             return
         }
 
-        cropTarget = MHBIdentifiableUIImage(image: image)
+        cropTarget = PetProfileBackgroundCropTarget(
+            image: image,
+            source: .image
+        )
     }
 
     private func handleVideoPickerResult(_ result: MHBMediaPickerResult) {
         if let livePhoto = result.livePhotos.first {
-            saveHeroMedia(.livePhoto(livePhoto))
+            guard let previewImage = livePhoto.previewImage else {
+                saveHeroMedia(.livePhoto(livePhoto))
+                return
+            }
+            cropTarget = PetProfileBackgroundCropTarget(
+                image: previewImage,
+                source: .livePhoto(livePhoto)
+            )
             return
         }
 
@@ -237,9 +257,24 @@ struct PetProfileBackgroundPreviewScreen: View {
         saveHeroMedia(.video(video.url))
     }
 
-    private func handleCroppedBackgroundImage(_ image: UIImage) {
+    private func handleCroppedBackground(
+        _ result: MHBRectImageCropResult,
+        target: PetProfileBackgroundCropTarget
+    ) {
         cropTarget = nil
-        saveHeroMedia(.image(image))
+        switch target.source {
+        case .image:
+            saveHeroMedia(.image(result.image))
+        case .livePhoto(let livePhoto):
+            saveHeroMedia(
+                .livePhoto(
+                    livePhoto.applyingCrop(
+                        previewImage: result.image,
+                        metadata: result.metadata
+                    )
+                )
+            )
+        }
     }
 
     private func saveHeroMedia(_ media: PetProfileHeroMediaDraft) {
@@ -285,12 +320,18 @@ struct PetProfileHeroMediaPreviewContent: View {
         case .video(let url):
             MHBMutedLoopingVideoView(url: url)
         case .livePhoto(let livePhoto):
-            if let previewImage = livePhoto.previewImage {
-                Image(uiImage: previewImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                fallbackColor
+            MHBLocalLivePhotoView(
+                stillURL: livePhoto.stillURL,
+                pairedVideoURL: livePhoto.pairedVideoURL,
+                cropMetadata: livePhoto.cropMetadata
+            ) {
+                if let previewImage = livePhoto.previewImage {
+                    Image(uiImage: previewImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    fallbackColor
+                }
             }
         }
     }
@@ -338,12 +379,13 @@ struct PetProfileHeroMediaPreviewContent: View {
             } else {
                 fallbackImage(fallbackImageAssetName)
             }
-        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let cropMetadata, let fallbackImageAssetName):
             if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
                let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
                 MHBRemoteLivePhotoView(
                     stillURL: stillURL,
-                    pairedVideoURL: pairedVideoURL
+                    pairedVideoURL: pairedVideoURL,
+                    cropMetadata: cropMetadata
                 ) {
                     fallbackImage(fallbackImageAssetName)
                 }

@@ -11,12 +11,13 @@ use uuid::Uuid;
 /// 核心职责：
 /// - 为首页和档案展示提供媒体尺寸
 /// - 暴露后端派生出的主题色结果
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MediaAssetDisplayMetadata {
     pub asset_id: Uuid,
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub theme_color_hex: Option<String>,
+    pub crop_metadata: Option<MediaCropMetadata>,
     pub live_photo_still_url: Option<String>,
     pub live_photo_still_width: Option<i32>,
     pub live_photo_still_height: Option<i32>,
@@ -119,6 +120,19 @@ pub struct PendingPetLivePhotoUploadInput {
     pub paired_video_mime_type: String,
     pub paired_video_content: Vec<u8>,
     pub source_client: Option<String>,
+    pub crop_metadata: Option<MediaCropMetadata>,
+}
+
+/// MediaCropMetadata 媒体裁剪元数据
+/// 核心职责：
+/// - 使用归一化坐标表达客户端选择的展示裁剪区域
+/// - 为 Live Photo 保留原始组件资源时提供构图契约
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MediaCropMetadata {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 /// BindUploadedPetMediaInput 绑定已上传宠物媒体输入

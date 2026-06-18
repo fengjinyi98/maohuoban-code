@@ -80,7 +80,7 @@ struct PetProfileHomePreviewContext {
             return (nil, fallbackImageAssetName, nil, resourceName, nil)
         case .remoteVideo(let urlString, let fallbackImageURLString, let fallbackImageAssetName):
             return (fallbackImageURLString, fallbackImageAssetName, urlString, nil, nil)
-        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let cropMetadata, let fallbackImageAssetName):
             return (
                 nil,
                 fallbackImageAssetName,
@@ -93,7 +93,8 @@ struct PetProfileHomePreviewContext {
                     pairedVideoURL: pairedVideoURLString,
                     pairedVideoWidth: nil,
                     pairedVideoHeight: nil,
-                    pairedVideoDurationMS: nil
+                    pairedVideoDurationMS: nil,
+                    cropMetadata: cropMetadata
                 )
             )
         }

@@ -9,7 +9,10 @@ struct DebugBundleIndex: Encodable {
     let sdkVersion: String
     let eventCount: Int
     let firstEventAt: String?
+    let firstEventAtLocal: String?
     let latestEventAt: String?
+    let latestEventAtLocal: String?
+    let timeBasis: DebugBundleIndexTimeBasis
     let kindCounts: [String: Int]
     let severityCounts: [String: Int]
     let recommendedReadOrder: [String]
@@ -21,7 +24,10 @@ struct DebugBundleIndex: Encodable {
         case sdkVersion = "sdk_version"
         case eventCount = "event_count"
         case firstEventAt = "first_event_at"
+        case firstEventAtLocal = "first_event_at_local"
         case latestEventAt = "latest_event_at"
+        case latestEventAtLocal = "latest_event_at_local"
+        case timeBasis = "time_basis"
         case kindCounts = "kind_counts"
         case severityCounts = "severity_counts"
         case recommendedReadOrder = "recommended_read_order"
@@ -36,7 +42,10 @@ struct DebugBundleIndex: Encodable {
             sdkVersion: Diagnostics.sdkVersion,
             eventCount: events.count,
             firstEventAt: events.first.map { formatter.string(from: $0.timestamp) },
+            firstEventAtLocal: events.first.map { DebugBundleTimeBasis.localTimestampString(for: $0.timestamp) },
             latestEventAt: events.last.map { formatter.string(from: $0.timestamp) },
+            latestEventAtLocal: events.last.map { DebugBundleTimeBasis.localTimestampString(for: $0.timestamp) },
+            timeBasis: DebugBundleIndexTimeBasis(),
             kindCounts: Dictionary(grouping: events, by: { $0.kind.rawValue }).mapValues(\.count),
             severityCounts: Dictionary(grouping: events, by: { $0.severity.rawValue }).mapValues(\.count),
             recommendedReadOrder: [

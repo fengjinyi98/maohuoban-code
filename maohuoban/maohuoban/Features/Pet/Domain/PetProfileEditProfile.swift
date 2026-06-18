@@ -27,6 +27,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         case remoteLivePhoto(
             stillURLString: String,
             pairedVideoURLString: String,
+            cropMetadata: MHBImageCropMetadata?,
             fallbackImageAssetName: String?
         )
     }

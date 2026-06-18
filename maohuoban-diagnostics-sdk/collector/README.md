@@ -20,6 +20,14 @@ cargo run -p maohuoban_diagnostics_collector -- \
   --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
 ```
 
+LLM 排障完成后需要让下一轮证据窗口变小，可以在导出成功后清理已读源段文件：
+
+```bash
+cargo run -p maohuoban_diagnostics_collector -- \
+  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code \
+  --clean-sources
+```
+
 ### 真机 Debug 回流
 
 Debug 真机事件默认 POST 到本地后端 `http://<Mac 局域网 IP>:8080/internal/diagnostics/ingest`，后端写入 `<workspace>/.maohuoban-diagnostics/segments`。Collector 不再承担常驻接收服务，只在需要分析时读取 segments 并导出诊断包。
@@ -31,11 +39,14 @@ Debug 真机事件默认 POST 到本地后端 `http://<Mac 局域网 IP>:8080/in
 | `--workspace-root` | 仓库根目录，默认读取 `.maohuoban-diagnostics/segments` 并输出 `.maohuoban-diagnostics/latest` |
 | `--segments` | 显式准备的 SDK JSONL 分段目录，可重复传入多个来源 |
 | `--log-file` | Xcode、Rust 进程或脚本输出文件，可重复传入多个来源 |
+| `--clean-sources` | 仅在 `--workspace-root` 模式下使用，导出成功后删除已读取的源 `.jsonl` 段文件 |
 | `latest/index.json` | LLM 首读索引、推荐读取顺序、文件用途和常用查询入口 |
 | `latest/manifest.json` | 诊断包 schema、SDK 版本、事件数量、导出时间、`timeline_sha256`、`prompt_sha256`、`index_sha256`、`archive_path` |
 | `latest/timeline.jsonl` | 按时间排序的 SDK 诊断事件和外部日志事件 |
 | `latest/prompt.md` | 已压缩的 LLM 分析输入 |
 | `latest/archive.tar` | 包含 index、manifest、timeline 和 prompt 的无压缩 tar，可直接作为单文件诊断包传输 |
+
+事件时间统一使用 UTC RFC3339，字段末尾的 `Z` 代表 UTC。`latest/index.json` 会提供 `first_event_at_local`、`latest_event_at_local` 和 `time_basis`，`latest/manifest.json` 会提供 `created_at_local` 和 `time_basis`，用于对照导出机器本地时间。
 
 外部日志文件的每个非空行会转换为 `kind=log` 事件，并写入 `source=external_log` 与 `source_path` metadata。Collector 会识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记，映射为对应 `severity`，同时写入 `external_log_marker` 与 `external_log_format`。这样 Xcode 控制台、Rust 后端 stdout/stderr 和本地脚本输出可以进入同一个 LLM 分析包，并保留异常优先级。
 

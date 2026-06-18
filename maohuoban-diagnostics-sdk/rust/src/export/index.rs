@@ -2,6 +2,8 @@ use crate::{DiagnosticEvent, EventKind, Severity, sdk_version};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
+use super::time_basis::{local_rfc3339, time_basis_json};
+
 /// `bundle_index_json` 生成诊断包索引
 /// 核心职责：
 /// - 为 LLM 提供首读入口和文件读取顺序
@@ -21,7 +23,10 @@ pub(super) fn bundle_index_json(events: &[DiagnosticEvent]) -> Result<Vec<u8>, s
         "sdk_version": sdk_version(),
         "event_count": events.len(),
         "first_event_at": events.first().map(|event| event.timestamp),
+        "first_event_at_local": events.first().map(|event| local_rfc3339(&event.timestamp)),
         "latest_event_at": events.last().map(|event| event.timestamp),
+        "latest_event_at_local": events.last().map(|event| local_rfc3339(&event.timestamp)),
+        "time_basis": time_basis_json(),
         "kind_counts": kind_counts,
         "severity_counts": severity_counts,
         "recommended_read_order": [

@@ -96,6 +96,31 @@ struct MHBPickedLivePhoto: Identifiable {
     let stillURL: URL
     let pairedVideoURL: URL
     let previewImage: UIImage?
+    let cropMetadata: MHBImageCropMetadata?
+
+    init(
+        stillURL: URL,
+        pairedVideoURL: URL,
+        previewImage: UIImage?,
+        cropMetadata: MHBImageCropMetadata? = nil
+    ) {
+        self.stillURL = stillURL
+        self.pairedVideoURL = pairedVideoURL
+        self.previewImage = previewImage
+        self.cropMetadata = cropMetadata
+    }
+
+    func applyingCrop(
+        previewImage: UIImage,
+        metadata: MHBImageCropMetadata
+    ) -> MHBPickedLivePhoto {
+        MHBPickedLivePhoto(
+            stillURL: stillURL,
+            pairedVideoURL: pairedVideoURL,
+            previewImage: previewImage,
+            cropMetadata: metadata
+        )
+    }
 }
 
 // MHBIdentifiableUIImage 可识别本地图片

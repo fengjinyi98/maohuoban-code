@@ -1,7 +1,7 @@
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use axum::{
@@ -14,14 +14,18 @@ use axum::{
     routing::post,
 };
 use maohuoban_diagnostics::{
-    CapturePolicy, DiagnosticEvent, Diagnostics, DiagnosticsBootstrapConfig, EventStore,
-    FileSegmentStore, NetworkSummary, PrivacyPolicy, TraceContext,
+    CapturePolicy, CleanupPolicy, DiagnosticEvent, Diagnostics, DiagnosticsBootstrapConfig,
+    EventStore, FileSegmentStore, NetworkSummary, PrivacyPolicy, TraceContext,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 const DEFAULT_INGEST_TOKEN: &str = "maohuoban-local-diagnostics";
 const DEFAULT_MAX_BODY_BYTES: usize = 256 * 1024;
+const DEFAULT_CLEANUP_MAX_TOTAL_BYTES: u64 = 10 * 1024 * 1024;
+const DEFAULT_CLEANUP_MAX_SEGMENT_AGE_HOURS: u64 = 24;
+const DEFAULT_CLEANUP_MAX_EXPORT_AGE_HOURS: u64 = 6;
+const DEFAULT_CLEANUP_INTERVAL_MINS: u64 = 30;
 
 /// DiagnosticsIngestConfig 本地诊断回流配置
 /// 核心职责：
@@ -193,8 +197,78 @@ pub fn backend_diagnostics_bootstrap_config() -> DiagnosticsBootstrapConfig {
     config.privacy = backend_privacy_policy();
     config.capture.max_message_length = 16 * 1024;
     config.capture.max_metadata_value_length = 1024;
-    config.cleanup.max_total_bytes = 50 * 1024 * 1024;
+    config.cleanup = cleanup_policy_from_env();
     config
+}
+
+/// cleanup_policy_from_env 读取本地诊断清理策略
+/// 核心职责：
+/// - 为 LLM 排障保留较短的默认事件窗口
+/// - 支持本地环境变量临时放宽或收紧清理阈值
+#[must_use]
+pub fn cleanup_policy_from_env() -> CleanupPolicy {
+    cleanup_policy_from_env_values(
+        std::env::var("MAOHUOBAN_DIAGNOSTICS_MAX_TOTAL_BYTES")
+            .ok()
+            .as_deref(),
+        std::env::var("MAOHUOBAN_DIAGNOSTICS_MAX_SEGMENT_AGE_HOURS")
+            .ok()
+            .as_deref(),
+        std::env::var("MAOHUOBAN_DIAGNOSTICS_MAX_EXPORT_AGE_HOURS")
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// cleanup_policy_from_env_values 从环境变量值构造清理策略
+/// 核心职责：
+/// - 固化本地开发默认保留窗口
+/// - 让测试不需要修改真实进程环境
+#[must_use]
+pub fn cleanup_policy_from_env_values(
+    max_total_bytes: Option<&str>,
+    max_segment_age_hours: Option<&str>,
+    max_export_age_hours: Option<&str>,
+) -> CleanupPolicy {
+    CleanupPolicy {
+        max_total_bytes: parse_u64_or(max_total_bytes, DEFAULT_CLEANUP_MAX_TOTAL_BYTES),
+        max_segment_age: Duration::from_hours(parse_u64_or(
+            max_segment_age_hours,
+            DEFAULT_CLEANUP_MAX_SEGMENT_AGE_HOURS,
+        )),
+        max_export_age: Duration::from_hours(parse_u64_or(
+            max_export_age_hours,
+            DEFAULT_CLEANUP_MAX_EXPORT_AGE_HOURS,
+        )),
+    }
+}
+
+/// cleanup_interval_from_env 读取周期清理间隔
+/// 核心职责：
+/// - 控制长时间开发时的 segments 后台收敛频率
+/// - 保留环境变量覆盖入口
+#[must_use]
+pub fn cleanup_interval_from_env() -> Duration {
+    cleanup_interval_from_env_value(
+        std::env::var("MAOHUOBAN_DIAGNOSTICS_CLEANUP_INTERVAL_MINS")
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// cleanup_interval_from_env_value 从环境变量值读取周期清理间隔
+/// 核心职责：
+/// - 提供测试友好的纯函数入口
+/// - 避免非法值关闭默认清理
+#[must_use]
+pub fn cleanup_interval_from_env_value(value: Option<&str>) -> Duration {
+    Duration::from_mins(parse_u64_or(value, DEFAULT_CLEANUP_INTERVAL_MINS).max(1))
+}
+
+fn parse_u64_or(value: Option<&str>, fallback: u64) -> u64 {
+    value
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(fallback)
 }
 
 /// diagnostics_segments_directory_from_env 读取诊断段文件目录

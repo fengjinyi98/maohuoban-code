@@ -68,14 +68,11 @@ fn multipart_media_request(
         .expect("build multipart media request")
 }
 
-/// `multipart_live_photo_request` 构造 Live Photo 上传 multipart 请求
-/// 核心职责：
-/// - 同时提交静态图与配对视频
-/// - 固定首页 Live Photo 媒体契约测试输入
-fn multipart_live_photo_request(
+fn multipart_live_photo_request_with_crop(
     still_content: &[u8],
     video_content: &[u8],
     user_id: &str,
+    crop_fields: Option<[(&str, &str); 4]>,
 ) -> Request<Body> {
     let boundary = format!("maohuoban-home-test-{}", uuid::Uuid::new_v4());
     let mut body = Vec::new();
@@ -103,6 +100,15 @@ fn multipart_live_photo_request(
     body.extend_from_slice(
         b"Content-Disposition: form-data; name=\"source_client\"\r\n\r\nios\r\n",
     );
+    if let Some(crop_fields) = crop_fields {
+        for (field_name, value) in crop_fields {
+            body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+            body.extend_from_slice(
+                format!("Content-Disposition: form-data; name=\"{field_name}\"\r\n\r\n{value}\r\n")
+                    .as_bytes(),
+            );
+        }
+    }
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
     let token = ACCESS_TOKENS
@@ -212,22 +218,20 @@ async fn upload_pending_media(
     response_json(response).await
 }
 
-/// `upload_pending_live_photo` 上传未绑定 Live Photo 背景
-/// 核心职责：
-/// - 固定首页 Live Photo 背景上传流程
-/// - 返回 asset 和 components 供绑定与断言
-async fn upload_pending_live_photo(
+async fn upload_pending_live_photo_with_crop(
     app: &maohuoban_rust::test_support::AuthTestApp,
     still_content: &[u8],
     video_content: &[u8],
     user_id: &str,
+    crop_fields: Option<[(&str, &str); 4]>,
 ) -> Value {
     let response = app
         .router()
-        .oneshot(multipart_live_photo_request(
+        .oneshot(multipart_live_photo_request_with_crop(
             still_content,
             video_content,
             user_id,
+            crop_fields,
         ))
         .await
         .expect("upload pending live photo");
@@ -799,10 +803,22 @@ async fn home_dashboard_returns_uploaded_live_photo_background_components() {
     let pet_id = create_named_home_test_pet(&app, &user_id, "团团").await;
 
     let still_bytes = STANDARD
-        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg==")
         .expect("live still png bytes");
     let video_bytes = b"paired-video-bytes";
-    let upload_body = upload_pending_live_photo(&app, &still_bytes, video_bytes, &user_id).await;
+    let upload_body = upload_pending_live_photo_with_crop(
+        &app,
+        &still_bytes,
+        video_bytes,
+        &user_id,
+        Some([
+            ("crop_x", "0.5"),
+            ("crop_y", "0"),
+            ("crop_width", "0.5"),
+            ("crop_height", "1"),
+        ]),
+    )
+    .await;
     let live_asset_id = upload_body["data"]["asset"]["id"]
         .as_str()
         .expect("live photo asset id");
@@ -811,10 +827,18 @@ async fn home_dashboard_returns_uploaded_live_photo_background_components() {
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
     assert!(dashboard_body["data"]["selected_pet"]["hero_image_url"].is_null());
     assert!(dashboard_body["data"]["selected_pet"]["hero_video_url"].is_null());
+    assert_eq!(
+        dashboard_body["data"]["selected_pet"]["hero_theme_color_hex"],
+        "#0000FF"
+    );
     let live_photo = &dashboard_body["data"]["selected_pet"]["hero_live_photo"];
     assert!(live_photo["still_url"].as_str().is_some());
-    assert_eq!(live_photo["still_width"], 1);
+    assert_eq!(live_photo["still_width"], 2);
     assert_eq!(live_photo["still_height"], 1);
+    assert_eq!(live_photo["crop"]["x"], 0.5);
+    assert_eq!(live_photo["crop"]["y"], 0.0);
+    assert_eq!(live_photo["crop"]["width"], 0.5);
+    assert_eq!(live_photo["crop"]["height"], 1.0);
     let paired_video_url = live_photo["paired_video_url"]
         .as_str()
         .expect("paired video url");

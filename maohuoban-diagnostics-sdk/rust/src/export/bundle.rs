@@ -8,8 +8,11 @@ use std::{
 };
 
 use super::{
-    checksum::sha256_file_hex, index::bundle_index_json, prompt::LlmPromptExporter,
+    checksum::sha256_file_hex,
+    index::bundle_index_json,
+    prompt::LlmPromptExporter,
     tar::write_tar_archive,
+    time_basis::{local_rfc3339, time_basis_json},
 };
 
 /// `DebugBundle` 诊断包导出结果
@@ -74,6 +77,7 @@ impl DebugBundleExporter {
         fs::write(&prompt_path, prompt)?;
 
         fs::write(&index_path, bundle_index_json(&events)?)?;
+        let created_at = Utc::now();
 
         fs::write(
             &manifest_path,
@@ -81,7 +85,9 @@ impl DebugBundleExporter {
                 "schema": "maohuoban.diagnostics.bundle.v1",
                 "sdk_version": sdk_version(),
                 "event_count": events.len(),
-                "created_at": Utc::now(),
+                "created_at": created_at,
+                "created_at_local": local_rfc3339(&created_at),
+                "time_basis": time_basis_json(),
                 "timeline_sha256": sha256_file_hex(&timeline_path)?,
                 "prompt_sha256": sha256_file_hex(&prompt_path)?,
                 "index_sha256": sha256_file_hex(&index_path)?,

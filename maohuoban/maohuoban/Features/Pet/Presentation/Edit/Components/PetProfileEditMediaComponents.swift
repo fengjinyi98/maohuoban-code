@@ -116,12 +116,18 @@ struct PetProfileEditMediaThumbnail: View {
             case .video(let url):
                 MHBMutedLoopingVideoView(url: url)
             case .livePhoto(let livePhoto):
-                if let previewImage = livePhoto.previewImage {
-                    Image(uiImage: previewImage)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    MHBTheme.ColorToken.primaryBackground.color
+                MHBLocalLivePhotoView(
+                    stillURL: livePhoto.stillURL,
+                    pairedVideoURL: livePhoto.pairedVideoURL,
+                    cropMetadata: livePhoto.cropMetadata
+                ) {
+                    if let previewImage = livePhoto.previewImage {
+                        Image(uiImage: previewImage)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        MHBTheme.ColorToken.primaryBackground.color
+                    }
                 }
             }
         } else {
@@ -166,12 +172,13 @@ struct PetProfileEditMediaThumbnail: View {
                 } else {
                     fallbackRemoteVideoImage(fallbackImageAssetName)
                 }
-            case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+            case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let cropMetadata, let fallbackImageAssetName):
                 if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
                    let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
                     MHBRemoteLivePhotoView(
                         stillURL: stillURL,
-                        pairedVideoURL: pairedVideoURL
+                        pairedVideoURL: pairedVideoURL,
+                        cropMetadata: cropMetadata
                     ) {
                         fallbackRemoteVideoImage(fallbackImageAssetName)
                     }

@@ -36,6 +36,7 @@ Collector
 | collector 角色 | 汇总、导出、离线分析 |
 | 原始存储 | 保留 `.maohuoban-diagnostics/segments/*.jsonl` |
 | 查询层 | 后续可加 SQLite 派生索引 |
+| 清理策略 | 本地后端默认 24h/10MB，collector 导出后可清源 |
 | 性能策略 | 热路径只入队，后台落盘，队列满时丢弃低优先级事件 |
 
 ## 2. 当前 SDK 审查结论
@@ -829,6 +830,7 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | remote mirror batch | 真机回流不逐条请求 |
 | SDK health 扩展 | timeline 可见队列丢弃和 writer 错误 |
 | 压测 | 高频事件下业务请求耗时无明显退化 |
+| 后端周期清理 | 本地长跑时按 env 配置定期清理 workspace segments |
 
 阶段验收标准：
 
@@ -873,6 +875,7 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | 自动覆盖 | 网络、页面、Store 命令、Repository 响应默认有事件 |
 | 表单安全 | 不记录输入原文 |
 | 导出 | collector 一键生成 `latest` |
+| 清理 | 默认证据窗口保持在 24h 或 10MB 内，导出后可清源开始下一轮排障 |
 
 ### 11.2 性能指标
 
@@ -882,7 +885,7 @@ SQLite 是派生索引，可以删除重建，不替代 segments。
 | 后端 middleware 诊断开销 p95 | < 1ms |
 | remote mirror 失败对业务影响 | 0 |
 | 单事件大小 | <= 16KB |
-| segments 默认上限 | 50MB |
+| segments 默认上限 | workspace 后端 10MB，通用 SDK 50MB |
 | 高频 UI 输入 | 无逐字符事件 |
 
 ### 11.3 质量指标

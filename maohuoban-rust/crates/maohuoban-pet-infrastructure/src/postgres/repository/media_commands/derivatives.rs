@@ -61,7 +61,7 @@ pub(super) async fn prepare_video_derivatives(
 /// 核心职责：
 /// - 将上传视频写入临时文件
 /// - 调用 ffmpeg 输出单帧 PNG 字节
-fn extract_first_video_frame(content: &[u8], file_name: &str) -> Option<Vec<u8>> {
+pub(super) fn extract_first_video_frame(content: &[u8], file_name: &str) -> Option<Vec<u8>> {
     let ffmpeg_path = env::var("MAOHUOBAN_FFMPEG_PATH").unwrap_or_else(|_| "ffmpeg".to_owned());
     let token = Uuid::new_v4();
     let sanitized_name = sanitized_file_name(file_name);

@@ -449,12 +449,13 @@ private struct HomeImmersivePetHeaderForegroundMedia: View {
                         )
                     }
             }
-        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let fallbackImageAssetName):
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, let cropMetadata, let fallbackImageAssetName):
             if let stillURL = MHBBackendEndpoint.resolve(stillURLString),
                let pairedVideoURL = MHBBackendEndpoint.resolve(pairedVideoURLString) {
                 MHBRemoteLivePhotoView(
                     stillURL: stillURL,
-                    pairedVideoURL: pairedVideoURL
+                    pairedVideoURL: pairedVideoURL,
+                    cropMetadata: cropMetadata
                 ) {
                     if let fallbackImageAssetName {
                         foregroundImage(assetName: fallbackImageAssetName)

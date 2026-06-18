@@ -9,8 +9,8 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HeroLivePhotoSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeIdentity,
-    HomeIdentityKind, HomeReminder, HomeReminderKind,
+    HeroLivePhotoCrop, HeroLivePhotoSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot,
+    HomeIdentity, HomeIdentityKind, HomeReminder, HomeReminderKind,
     MerchantDashboardSummary as HomeMerchantDashboardSummary,
     MerchantLitterSummary as HomeMerchantLitterSummary, MerchantPetStatus,
     MerchantStatusCount as HomeMerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind,
@@ -500,6 +500,12 @@ fn hero_live_photo(
         paired_video_width: metadata.live_photo_paired_video_width,
         paired_video_height: metadata.live_photo_paired_video_height,
         paired_video_duration_ms: metadata.live_photo_paired_video_duration_ms,
+        crop: metadata.crop_metadata.map(|crop| HeroLivePhotoCrop {
+            x: crop.x,
+            y: crop.y,
+            width: crop.width,
+            height: crop.height,
+        }),
     })
 }
 

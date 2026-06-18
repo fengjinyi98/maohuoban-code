@@ -344,7 +344,8 @@ extension PetProfileAddScreen {
 
         return PetLivePhotoUploadDraft(
             still: stillDraft,
-            pairedVideo: pairedVideoDraft
+            pairedVideo: pairedVideoDraft,
+            cropMetadata: livePhoto.cropMetadata
         )
     }
 

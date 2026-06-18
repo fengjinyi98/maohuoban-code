@@ -1,9 +1,9 @@
 use axum::extract::Multipart;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_application::pet::{
-    BindUploadedPetMediaInput, DeletePetProfile, NewMerchantPetProfile, NewPetEvent, NewPetProfile,
-    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PublishAvailableStatusInput,
-    TradePetImportInput, UpdatePetProfile,
+    BindUploadedPetMediaInput, DeletePetProfile, MediaCropMetadata, NewMerchantPetProfile,
+    NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+    PublishAvailableStatusInput, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     EventKind, EventVisibility, ManagedPetStatus, MediaUsageKind, PetError, PetNeuterStatus,
@@ -139,6 +139,7 @@ pub(crate) struct UploadPetLivePhotoRequest {
     paired_video_mime_type: String,
     paired_video_content: Vec<u8>,
     source_client: Option<String>,
+    crop_metadata: Option<MediaCropMetadata>,
 }
 
 impl UploadPetMediaRequest {
@@ -244,6 +245,10 @@ impl UploadPetLivePhotoRequest {
         let mut still_file = None;
         let mut paired_video_file = None;
         let mut source_client = None;
+        let mut crop_x = None;
+        let mut crop_y = None;
+        let mut crop_width = None;
+        let mut crop_height = None;
 
         while let Some(field) = multipart
             .next_field()
@@ -267,6 +272,18 @@ impl UploadPetLivePhotoRequest {
                         source_client = Some(trimmed.to_owned());
                     }
                 }
+                Some("crop_x") => {
+                    crop_x = Some(read_crop_number_field(field, "crop_x").await?);
+                }
+                Some("crop_y") => {
+                    crop_y = Some(read_crop_number_field(field, "crop_y").await?);
+                }
+                Some("crop_width") => {
+                    crop_width = Some(read_crop_number_field(field, "crop_width").await?);
+                }
+                Some("crop_height") => {
+                    crop_height = Some(read_crop_number_field(field, "crop_height").await?);
+                }
                 _ => {}
             }
         }
@@ -287,6 +304,7 @@ impl UploadPetLivePhotoRequest {
             paired_video_mime_type: paired_video_file.mime_type,
             paired_video_content: paired_video_file.content,
             source_client,
+            crop_metadata: build_crop_metadata(crop_x, crop_y, crop_width, crop_height)?,
         })
     }
 
@@ -303,7 +321,53 @@ impl UploadPetLivePhotoRequest {
             paired_video_mime_type: self.paired_video_mime_type,
             paired_video_content: self.paired_video_content,
             source_client: self.source_client,
+            crop_metadata: self.crop_metadata,
         }
+    }
+}
+
+async fn read_crop_number_field(
+    field: axum::extract::multipart::Field<'_>,
+    name: &str,
+) -> PetResult<f64> {
+    let value = field
+        .text()
+        .await
+        .map_err(|_| PetError::InvalidInput(format!("{name} 读取失败")))?;
+    let parsed = value
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| PetError::InvalidInput(format!("{name} 必须是数字")))?;
+    if !(0.0..=1.0).contains(&parsed) {
+        return Err(PetError::InvalidInput(format!("{name} 必须在 0 到 1 之间")));
+    }
+    Ok(parsed)
+}
+
+fn build_crop_metadata(
+    crop_x: Option<f64>,
+    crop_y: Option<f64>,
+    crop_width: Option<f64>,
+    crop_height: Option<f64>,
+) -> PetResult<Option<MediaCropMetadata>> {
+    match (crop_x, crop_y, crop_width, crop_height) {
+        (None, None, None, None) => Ok(None),
+        (Some(x), Some(y), Some(width), Some(height))
+            if width > 0.0 && height > 0.0 && x + width <= 1.0 && y + height <= 1.0 =>
+        {
+            Ok(Some(MediaCropMetadata {
+                x,
+                y,
+                width,
+                height,
+            }))
+        }
+        (Some(_), Some(_), Some(_), Some(_)) => Err(PetError::InvalidInput(
+            "裁剪区域必须位于图像范围内".to_owned(),
+        )),
+        _ => Err(PetError::InvalidInput(
+            "Live Photo 裁剪字段不完整".to_owned(),
+        )),
     }
 }
 

@@ -10,6 +10,7 @@ import UIKit
 struct MHBRemoteLivePhotoView<Placeholder: View>: View {
     let stillURL: URL?
     let pairedVideoURL: URL?
+    let cropMetadata: MHBImageCropMetadata?
     let placeholder: () -> Placeholder
 
     @State private var livePhoto: PHLivePhoto?
@@ -18,23 +19,35 @@ struct MHBRemoteLivePhotoView<Placeholder: View>: View {
     init(
         stillURL: URL?,
         pairedVideoURL: URL?,
+        cropMetadata: MHBImageCropMetadata? = nil,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.stillURL = stillURL
         self.pairedVideoURL = pairedVideoURL
+        self.cropMetadata = cropMetadata
         self.placeholder = placeholder
     }
 
     var body: some View {
-        ZStack {
-            placeholder()
-
-            if let livePhoto {
-                MHBPHLivePhotoRepresentable(livePhoto: livePhoto)
+        GeometryReader { geometry in
+            ZStack {
+                if let livePhoto {
+                    MHBPHLivePhotoRepresentable(livePhoto: livePhoto)
+                        .id(taskID)
+                        .frame(
+                            width: livePhotoFrameSize(in: geometry.size).width,
+                            height: livePhotoFrameSize(in: geometry.size).height
+                        )
+                        .offset(livePhotoOffset(in: geometry.size))
+                } else {
+                    placeholder()
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
         .task(id: taskID) {
-            await loadLivePhoto()
+            await loadLivePhoto(for: taskID)
         }
     }
 
@@ -42,54 +55,60 @@ struct MHBRemoteLivePhotoView<Placeholder: View>: View {
         "\(stillURL?.absoluteString ?? "")|\(pairedVideoURL?.absoluteString ?? "")"
     }
 
-    private func loadLivePhoto() async {
-        guard loadID != taskID else {
+    private func loadLivePhoto(for currentTaskID: String) async {
+        if loadID == currentTaskID, livePhoto != nil {
             return
         }
-        loadID = taskID
+
+        loadID = currentTaskID
         livePhoto = nil
 
         guard let stillURL,
               let pairedVideoURL
         else {
+            if loadID == currentTaskID {
+                loadID = ""
+            }
             return
         }
 
-        livePhoto = await MHBRemoteLivePhotoLoader.load(
+        let loadedLivePhoto = await MHBRemoteLivePhotoLoader.load(
             stillURL: stillURL,
             pairedVideoURL: pairedVideoURL
         )
-    }
-}
 
-// MHBPHLivePhotoRepresentable Live Photo UIKit 承载视图
-// 核心职责：
-// - 将 PHLivePhotoView 封装为 SwiftUI 可组合视图
-// - 在内容更新后触发系统 Live Photo hint 播放
-private struct MHBPHLivePhotoRepresentable: UIViewRepresentable {
-    let livePhoto: PHLivePhoto
-
-    func makeUIView(context: Context) -> PHLivePhotoView {
-        let view = PHLivePhotoView()
-        view.contentMode = .scaleAspectFill
-        view.clipsToBounds = true
-        view.isUserInteractionEnabled = false
-        view.livePhoto = livePhoto
-        view.startPlayback(with: .hint)
-        return view
-    }
-
-    func updateUIView(_ uiView: PHLivePhotoView, context: Context) {
-        guard uiView.livePhoto !== livePhoto else {
+        guard loadID == currentTaskID else {
             return
         }
-        uiView.livePhoto = livePhoto
-        uiView.startPlayback(with: .hint)
+
+        livePhoto = loadedLivePhoto
+        if loadedLivePhoto == nil {
+            loadID = ""
+        }
     }
 
-    static func dismantleUIView(_ uiView: PHLivePhotoView, coordinator: ()) {
-        uiView.stopPlayback()
-        uiView.livePhoto = nil
+    private func livePhotoFrameSize(in containerSize: CGSize) -> CGSize {
+        guard let cropMetadata else {
+            return containerSize
+        }
+
+        return CGSize(
+            width: containerSize.width / max(cropMetadata.width, 0.001),
+            height: containerSize.height / max(cropMetadata.height, 0.001)
+        )
+    }
+
+    private func livePhotoOffset(in containerSize: CGSize) -> CGSize {
+        guard let cropMetadata else {
+            return .zero
+        }
+
+        let cropMidX = cropMetadata.x + cropMetadata.width / 2
+        let cropMidY = cropMetadata.y + cropMetadata.height / 2
+        return CGSize(
+            width: containerSize.width * (0.5 - cropMidX) / max(cropMetadata.width, 0.001),
+            height: containerSize.height * (0.5 - cropMidY) / max(cropMetadata.height, 0.001)
+        )
     }
 }
 
@@ -108,7 +127,7 @@ private enum MHBRemoteLivePhotoLoader {
             return nil
         }
 
-        return await requestLivePhoto(
+        return await MHBPHLivePhotoResourceLoader.request(
             resourceFileURLs: [stillFileURL, pairedVideoFileURL]
         )
     }
@@ -135,65 +154,6 @@ private enum MHBRemoteLivePhotoLoader {
         } catch {
             return nil
         }
-    }
-
-    private static func requestLivePhoto(
-        resourceFileURLs: [URL]
-    ) async -> PHLivePhoto? {
-        await withCheckedContinuation { continuation in
-            let lock = NSLock()
-            var didResume = false
-
-            func resumeOnce(returning livePhoto: PHLivePhoto?) {
-                lock.lock()
-                guard !didResume else {
-                    lock.unlock()
-                    return
-                }
-                didResume = true
-                lock.unlock()
-
-                continuation.resume(returning: livePhoto)
-            }
-
-            PHLivePhoto.request(
-                withResourceFileURLs: resourceFileURLs,
-                placeholderImage: nil,
-                targetSize: .zero,
-                contentMode: .aspectFill
-            ) { livePhoto, info in
-                if infoBoolValue(info, key: PHLivePhotoInfoCancelledKey) {
-                    resumeOnce(returning: nil)
-                    return
-                }
-
-                if info[PHLivePhotoInfoErrorKey] != nil {
-                    resumeOnce(returning: nil)
-                    return
-                }
-
-                guard !infoBoolValue(info, key: PHLivePhotoInfoIsDegradedKey) else {
-                    return
-                }
-
-                resumeOnce(returning: livePhoto)
-            }
-        }
-    }
-
-    private static func infoBoolValue(
-        _ info: [AnyHashable: Any],
-        key: String
-    ) -> Bool {
-        if let value = info[key] as? Bool {
-            return value
-        }
-
-        if let value = info[key] as? NSNumber {
-            return value.boolValue
-        }
-
-        return false
     }
 
     private static func cacheDirectory() -> URL {

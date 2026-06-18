@@ -7,7 +7,8 @@ use chrono::{Duration, Utc};
 use image::ImageFormat;
 use maohuoban_media_storage::MediaObjectStore;
 use maohuoban_pet_application::pet::{
-    BindUploadedPetMediaInput, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
+    BindUploadedPetMediaInput, MediaCropMetadata, PendingPetLivePhotoUploadInput,
+    PendingPetMediaUploadInput,
 };
 use maohuoban_pet_domain::pet::{
     MediaAsset, MediaAssetComponent, MediaAssetComponentKind, MediaDerivative, MediaDerivativeKind,
@@ -20,7 +21,10 @@ use uuid::Uuid;
 use super::PostgresPetRepository;
 use super::rows::{MediaAssetComponentRow, MediaAssetRow, MediaBindingRow, MediaDerivativeRow};
 use super::storage::{sanitized_file_name, sha256_hex, to_infrastructure_error};
-use derivatives::{average_theme_color, prepare_derivative_object, prepare_video_derivatives};
+use derivatives::{
+    average_theme_color, extract_first_video_frame, prepare_derivative_object,
+    prepare_video_derivatives,
+};
 use diagnostics::{record_binding_stage, record_upload_failure, record_upload_stage};
 
 /// PreparedMediaObject 已持久化媒体对象
@@ -49,6 +53,7 @@ pub(super) struct MediaUploadObjectInput<'a> {
     pub(super) mime_type: &'a str,
     pub(super) content: &'a [u8],
     pub(super) source_client: Option<&'a str>,
+    pub(super) crop_metadata: Option<MediaCropMetadata>,
 }
 
 impl<'a> From<&'a PendingPetMediaUploadInput> for MediaUploadObjectInput<'a> {
@@ -61,6 +66,7 @@ impl<'a> From<&'a PendingPetMediaUploadInput> for MediaUploadObjectInput<'a> {
             mime_type: &input.mime_type,
             content: &input.content,
             source_client: input.source_client.as_deref(),
+            crop_metadata: None,
         }
     }
 }
@@ -156,6 +162,7 @@ impl PostgresPetRepository {
             mime_type: &input.still_mime_type,
             content: &input.still_content,
             source_client: input.source_client.as_deref(),
+            crop_metadata: input.crop_metadata,
         };
         let mut prepared = Self::prepare_media_object(&media_store, &primary_input).await?;
         let paired_video_component = Self::prepare_live_photo_component(
@@ -170,8 +177,14 @@ impl PostgresPetRepository {
         let still_component =
             Self::prepared_still_component_from_primary(&prepared, &input.still_mime_type);
         let components = vec![still_component, paired_video_component];
-        let prepared_derivatives =
-            Self::prepare_upload_derivatives(&media_store, &primary_input, &mut prepared).await?;
+        let prepared_derivatives = Self::prepare_live_photo_upload_derivatives(
+            &media_store,
+            &primary_input,
+            &input.paired_video_file_name,
+            &input.paired_video_content,
+            &mut prepared,
+        )
+        .await?;
         primary_input.source_client = input.source_client.as_deref();
 
         let (asset_row, component_rows, derivative_rows) = self
@@ -229,6 +242,53 @@ impl PostgresPetRepository {
             );
             return Err(error);
         }
+        record_upload_stage(
+            "repository.dimensions_applied",
+            object_input,
+            prepared,
+            prepared_derivatives.len(),
+        );
+        Ok(prepared_derivatives)
+    }
+
+    async fn prepare_live_photo_upload_derivatives(
+        media_store: &MediaObjectStore,
+        object_input: &MediaUploadObjectInput<'_>,
+        paired_video_file_name: &str,
+        paired_video_content: &[u8],
+        prepared: &mut PreparedMediaObject,
+    ) -> PetResult<Vec<PreparedMediaDerivative>> {
+        let mut prepared_derivatives =
+            match Self::prepare_media_derivatives(media_store, object_input, prepared).await {
+                Ok(derivatives) => derivatives,
+                Err(error) => {
+                    record_upload_failure(
+                        object_input,
+                        Some(prepared.asset_id),
+                        "repository.derivatives_prepared",
+                    );
+                    return Err(error);
+                }
+            };
+
+        if prepared_derivatives.is_empty()
+            && let Some(frame_content) =
+                extract_first_video_frame(paired_video_content, paired_video_file_name)
+            && let Ok(frame) = image::load_from_memory(&frame_content)
+        {
+            prepared.width = Some(to_i32_dimension(frame.width())?);
+            prepared.height = Some(to_i32_dimension(frame.height())?);
+            prepared_derivatives =
+                Self::prepare_image_derivatives(media_store, object_input, prepared, &frame)
+                    .await?;
+        }
+
+        record_upload_stage(
+            "repository.derivatives_prepared",
+            object_input,
+            prepared,
+            prepared_derivatives.len(),
+        );
         record_upload_stage(
             "repository.dimensions_applied",
             object_input,
@@ -513,14 +573,29 @@ impl PostgresPetRepository {
             return Ok(Vec::new());
         };
 
-        let theme_color = average_theme_color(&image);
-        let thumbnail = image.thumbnail(512, 512);
+        Self::prepare_image_derivatives(media_store, input, media, &image).await
+    }
+
+    async fn prepare_image_derivatives(
+        media_store: &MediaObjectStore,
+        input: &MediaUploadObjectInput<'_>,
+        media: &PreparedMediaObject,
+        image: &image::DynamicImage,
+    ) -> PetResult<Vec<PreparedMediaDerivative>> {
+        let display_image = crop_display_image(image, input.crop_metadata);
+        let crop_metadata = input.crop_metadata.map(crop_metadata_json);
+        let theme_color = average_theme_color(&display_image);
+        let thumbnail = display_image.thumbnail(512, 512);
         let mut thumbnail_cursor = Cursor::new(Vec::new());
         thumbnail
             .write_to(&mut thumbnail_cursor, ImageFormat::Png)
             .map_err(|error| PetError::Infrastructure(error.to_string()))?;
         let thumbnail_content = thumbnail_cursor.into_inner();
-        let theme_payload = serde_json::json!({ "theme_color_hex": theme_color }).to_string();
+        let theme_metadata = media_derivative_metadata(
+            serde_json::json!({ "theme_color_hex": theme_color }),
+            crop_metadata.clone(),
+        );
+        let theme_payload = theme_metadata.to_string();
 
         Ok(vec![
             prepare_derivative_object(
@@ -530,10 +605,13 @@ impl PostgresPetRepository {
                 "thumbnail.png",
                 "image/png",
                 thumbnail_content,
-                serde_json::json!({
-                    "width": thumbnail.width(),
-                    "height": thumbnail.height()
-                }),
+                media_derivative_metadata(
+                    serde_json::json!({
+                        "width": thumbnail.width(),
+                        "height": thumbnail.height()
+                    }),
+                    crop_metadata.clone(),
+                ),
             )
             .await?,
             prepare_derivative_object(
@@ -543,7 +621,7 @@ impl PostgresPetRepository {
                 "theme-color.json",
                 "application/json",
                 theme_payload.into_bytes(),
-                serde_json::json!({ "theme_color_hex": theme_color }),
+                theme_metadata,
             )
             .await?,
         ])
@@ -1133,6 +1211,77 @@ fn image_dimensions(content: &[u8]) -> PetResult<(Option<i32>, Option<i32>)> {
         Some(to_i32_dimension(image.width())?),
         Some(to_i32_dimension(image.height())?),
     ))
+}
+
+/// crop_display_image 生成展示裁剪图片
+/// 核心职责：
+/// - 将客户端归一化裁剪区域映射到原图像素区域
+/// - 为缩略图和主题色派生提供统一展示输入
+fn crop_display_image(
+    image: &image::DynamicImage,
+    crop_metadata: Option<MediaCropMetadata>,
+) -> image::DynamicImage {
+    let Some(crop_metadata) = crop_metadata else {
+        return image.clone();
+    };
+    let image_width = image.width();
+    let image_height = image.height();
+    if image_width == 0 || image_height == 0 {
+        return image.clone();
+    }
+
+    let left = normalized_floor_pixel(crop_metadata.x, image_width);
+    let top = normalized_floor_pixel(crop_metadata.y, image_height);
+    let right = normalized_ceil_pixel(crop_metadata.x + crop_metadata.width, image_width);
+    let bottom = normalized_ceil_pixel(crop_metadata.y + crop_metadata.height, image_height);
+    let crop_width = right.saturating_sub(left).max(1);
+    let crop_height = bottom.saturating_sub(top).max(1);
+
+    image.crop_imm(left, top, crop_width, crop_height)
+}
+
+/// normalized_floor_pixel 转换归一化起点像素
+/// 核心职责：
+/// - 将裁剪起点稳定落到像素网格
+/// - 保护坐标不越过图片边界
+fn normalized_floor_pixel(value: f64, dimension: u32) -> u32 {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    ((value.clamp(0.0, 1.0) * f64::from(dimension)).floor() as u32).min(dimension - 1)
+}
+
+/// normalized_ceil_pixel 转换归一化终点像素
+/// 核心职责：
+/// - 将裁剪终点稳定覆盖用户选择区域
+/// - 保护终点不越过图片边界
+fn normalized_ceil_pixel(value: f64, dimension: u32) -> u32 {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    ((value.clamp(0.0, 1.0) * f64::from(dimension)).ceil() as u32).clamp(1, dimension)
+}
+
+/// media_derivative_metadata 合并媒体派生元数据
+/// 核心职责：
+/// - 保留派生物原有 metadata 字段
+/// - 在存在裁剪信息时持久化展示裁剪区域
+fn media_derivative_metadata(mut metadata: Value, crop_metadata: Option<Value>) -> Value {
+    if let Some(crop_metadata) = crop_metadata
+        && let Some(object) = metadata.as_object_mut()
+    {
+        object.insert("crop".to_owned(), crop_metadata);
+    }
+    metadata
+}
+
+/// crop_metadata_json 序列化裁剪元数据
+/// 核心职责：
+/// - 固定派生 metadata 中裁剪区域字段名
+/// - 保持与 HTTP multipart 字段语义一致
+fn crop_metadata_json(crop_metadata: MediaCropMetadata) -> Value {
+    serde_json::json!({
+        "x": crop_metadata.x,
+        "y": crop_metadata.y,
+        "width": crop_metadata.width,
+        "height": crop_metadata.height
+    })
 }
 
 /// metadata_i32 读取派生元数据尺寸

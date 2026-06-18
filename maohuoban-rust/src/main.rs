@@ -1,6 +1,7 @@
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use maohuoban_rust::{
-    BackendConfig, build_backend_app, diagnostics::backend_diagnostics_bootstrap_config,
+    BackendConfig, build_backend_app,
+    diagnostics::{backend_diagnostics_bootstrap_config, cleanup_interval_from_env},
 };
 
 /// main 毛伙伴 Rust 产品入口
@@ -11,6 +12,7 @@ use maohuoban_rust::{
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     install_tracing();
     let diagnostics = install_diagnostics();
+    let _cleanup_task = spawn_diagnostics_cleanup(diagnostics.clone());
     diagnostics.record(DiagnosticEvent::new(
         EventKind::Lifecycle,
         Severity::Info,
@@ -43,4 +45,37 @@ fn install_tracing() {
 fn install_diagnostics() -> Diagnostics {
     let config = backend_diagnostics_bootstrap_config();
     Diagnostics::bootstrap(config).expect("bootstrap diagnostics")
+}
+
+/// `spawn_diagnostics_cleanup` 启动诊断段文件周期清理
+/// 核心职责：
+/// - 长时间本地开发时自动收敛 workspace segments
+/// - 将同步文件清理放入阻塞线程池执行
+fn spawn_diagnostics_cleanup(diagnostics: Diagnostics) -> tokio::task::JoinHandle<()> {
+    let interval_duration = cleanup_interval_from_env();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(interval_duration);
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            let cleanup_diagnostics = diagnostics.clone();
+            match tokio::task::spawn_blocking(move || cleanup_diagnostics.cleanup()).await {
+                Ok(Ok(report)) if report.removed_segments > 0 || report.removed_exports > 0 => {
+                    tracing::info!(
+                        removed_segments = report.removed_segments,
+                        removed_exports = report.removed_exports,
+                        freed_bytes = report.freed_bytes,
+                        "诊断报告清理完成"
+                    );
+                }
+                Ok(Ok(_)) => {}
+                Ok(Err(error)) => {
+                    tracing::warn!(error = %error, "诊断报告清理失败");
+                }
+                Err(error) => {
+                    tracing::warn!(error = %error, "诊断报告清理任务失败");
+                }
+            }
+        }
+    })
 }

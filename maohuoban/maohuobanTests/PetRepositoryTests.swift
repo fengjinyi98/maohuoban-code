@@ -677,7 +677,13 @@ final class PetRepositoryTests: XCTestCase {
                 pairedVideoFileName: "background.mov",
                 pairedVideoMimeType: "video/quicktime",
                 pairedVideoContentText: "video-bytes",
-                sourceClient: "ios"
+                sourceClient: "ios",
+                cropMetadata: MHBImageCropMetadata(
+                    x: 0.125,
+                    y: 0.25,
+                    width: 0.5,
+                    height: 0.375
+                )
             )
 
             return Self.pendingLivePhotoUploadResponse()
@@ -696,6 +702,12 @@ final class PetRepositoryTests: XCTestCase {
                     mimeType: "video/quicktime",
                     content: Data("video-bytes".utf8),
                     sourceClient: "ios"
+                ),
+                cropMetadata: MHBImageCropMetadata(
+                    x: 0.125,
+                    y: 0.25,
+                    width: 0.5,
+                    height: 0.375
                 )
             ),
             currentUserID: "user-1"
@@ -1045,7 +1057,8 @@ final class PetRepositoryTests: XCTestCase {
         pairedVideoFileName: String,
         pairedVideoMimeType: String,
         pairedVideoContentText: String,
-        sourceClient: String
+        sourceClient: String,
+        cropMetadata: MHBImageCropMetadata? = nil
     ) throws {
         let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
         XCTAssertTrue(contentType.hasPrefix("multipart/form-data; boundary="))
@@ -1066,6 +1079,17 @@ final class PetRepositoryTests: XCTestCase {
         XCTAssertTrue(bodyText.contains(pairedVideoContentText))
         XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"source_client\""))
         XCTAssertTrue(bodyText.contains(sourceClient))
+
+        if let cropMetadata {
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"crop_x\""))
+            XCTAssertTrue(bodyText.contains(String(cropMetadata.x)))
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"crop_y\""))
+            XCTAssertTrue(bodyText.contains(String(cropMetadata.y)))
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"crop_width\""))
+            XCTAssertTrue(bodyText.contains(String(cropMetadata.width)))
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"crop_height\""))
+            XCTAssertTrue(bodyText.contains(String(cropMetadata.height)))
+        }
     }
 
     private static func encodedJSONObject<T: Encodable>(_ value: T) throws -> [String: Any] {

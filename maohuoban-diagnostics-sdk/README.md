@@ -255,6 +255,8 @@ cargo run -p maohuoban_diagnostics_collector -- \
 | `prompt.md` | 包含 schema、标题、SDK 版本、事件数量和时间线摘要的 LLM 输入 |
 | `archive.tar` | 包含 index、manifest、timeline 和 prompt 的无压缩 tar，便于直接传输或附加给 LLM 工作流 |
 
+报告里的事件时间统一使用 UTC RFC3339，字段通常以 `Z` 结尾；`index.json` 和 `manifest.json` 会额外写入 `*_local` 预览字段和 `time_basis.local_timezone`，用于按导出机器本地时区快速对照。
+
 `--workspace-root` 默认读取 `<workspace>/.maohuoban-diagnostics/segments`，输出到 `<workspace>/.maohuoban-diagnostics/latest`。`--segments` 可以重复传入显式准备好的 SDK 段目录，`--log-file` 可以重复传入 Xcode、Rust 进程或脚本输出文件。Collector 会把外部日志的每个非空行转换为 `source=external_log` 的 `log` 事件，并识别 `TRACE`、`DEBUG`、`INFO`、`WARN`、`WARNING`、`ERROR`、`FATAL`、`warning:`、`error:` 等常见标记映射 `severity`，再按事件时间合并成同一个 timeline。
 
 Debug 真机回流由本地 Rust 后端 `/internal/diagnostics/ingest` 接收并写入同一个 workspace segments 目录。Collector 不启动常驻 HTTP 服务，只负责离线汇总、过滤、索引和导出。
@@ -279,6 +281,8 @@ Rust SDK 与 Collector 的 manifest 使用 snake_case 字段：`timeline_sha256`
 | 发给 LLM 分析 | 使用 Debug Bundle 中的 `archive.tar`，或直接使用 `prompt.md` 和 `timeline.jsonl` |
 
 `bootstrap` 会完成安装、默认上下文注入、启动生命周期事件、可选运行时快照和启动清理，适合作为 App 或服务进程的唯一接入点。
+
+本地 Rust 后端面向 LLM 排障使用更短的 workspace segments 保留窗口：默认保留 24 小时或 10MB，Debug Bundle 导出保留 6 小时，并每 30 分钟执行一次周期清理。可用 `MAOHUOBAN_DIAGNOSTICS_MAX_TOTAL_BYTES`、`MAOHUOBAN_DIAGNOSTICS_MAX_SEGMENT_AGE_HOURS`、`MAOHUOBAN_DIAGNOSTICS_MAX_EXPORT_AGE_HOURS` 和 `MAOHUOBAN_DIAGNOSTICS_CLEANUP_INTERVAL_MINS` 临时覆盖。
 
 Debug Bundle 导出目录会写入 SDK storage 目录下的 `.debug-bundles.jsonl` 索引。`cleanup()` 会读取该索引，因此 App 或服务重启后仍能按 `maxExportAge` 清理上次运行遗留的导出包。
 

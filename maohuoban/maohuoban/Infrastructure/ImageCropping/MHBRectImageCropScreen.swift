@@ -11,7 +11,7 @@ struct MHBRectImageCropScreen: View {
     let title: String
     let cropAspectRatio: CGFloat
     let onCancel: () -> Void
-    let onSave: (UIImage) -> Void
+    let onSaveResult: (MHBRectImageCropResult) -> Void
 
     @State private var imageOffset: CGSize = .zero
     @State private var imageScale: CGFloat = 1
@@ -31,7 +31,23 @@ struct MHBRectImageCropScreen: View {
         self.title = title
         self.cropAspectRatio = max(cropAspectRatio, 0.1)
         self.onCancel = onCancel
-        self.onSave = onSave
+        self.onSaveResult = { result in
+            onSave(result.image)
+        }
+    }
+
+    init(
+        originalImage: UIImage,
+        title: String = "裁剪背景",
+        cropAspectRatio: CGFloat,
+        onCancel: @escaping () -> Void,
+        onSaveResult: @escaping (MHBRectImageCropResult) -> Void
+    ) {
+        self.originalImage = originalImage.mhb_normalizedForRectCropping()
+        self.title = title
+        self.cropAspectRatio = max(cropAspectRatio, 0.1)
+        self.onCancel = onCancel
+        self.onSaveResult = onSaveResult
     }
 
     var body: some View {
@@ -167,13 +183,13 @@ struct MHBRectImageCropScreen: View {
             Spacer()
 
             Button("完成") {
-                guard let croppedImage = cropImage(
+                guard let result = cropResult(
                     viewportSize: viewportSize,
                     cropFrameSize: cropFrameSize
                 ) else {
                     return
                 }
-                onSave(croppedImage)
+                onSaveResult(result)
             }
             .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(.white)
@@ -191,10 +207,10 @@ struct MHBRectImageCropScreen: View {
         )
     }
 
-    private func cropImage(
+    private func cropResult(
         viewportSize: CGSize,
         cropFrameSize: CGSize
-    ) -> UIImage? {
+    ) -> MHBRectImageCropResult? {
         guard let cgImage = originalImage.cgImage else {
             return nil
         }
@@ -214,10 +230,17 @@ struct MHBRectImageCropScreen: View {
             return nil
         }
 
-        return UIImage(
+        let croppedImage = UIImage(
             cgImage: croppedCGImage,
             scale: originalImage.scale,
             orientation: .up
+        )
+        return MHBRectImageCropResult(
+            image: croppedImage,
+            metadata: MHBImageCropMetadata.normalized(
+                cropRect: cropRect,
+                imagePixelSize: imagePixelSize
+            )
         )
     }
 }
@@ -240,23 +263,23 @@ private struct MHBRectCropMaskOverlay: View {
             )
 
             RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                .stroke(.white, lineWidth: 2)
+                .stroke(Color.white, lineWidth: 2)
                 .frame(width: cropFrameSize.width, height: cropFrameSize.height)
+                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
         }
+        .background(isInteracting ? Color.black.opacity(0.16) : Color.clear)
     }
 }
 
 // MHBRectCropHoleShape 矩形裁剪镂空形状
 // 核心职责：
-// - 在矩形遮罩中挖出居中的圆角矩形裁剪区域
-// - 为背景图裁剪遮罩提供可复用 Shape
+// - 为裁剪遮罩提供矩形镂空路径
+// - 保持裁剪框尺寸与圆角 token 一致
 private struct MHBRectCropHoleShape: Shape {
     let cropFrameSize: CGSize
 
     nonisolated func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addRect(rect)
-
+        var path = Path(rect)
         let cropRect = CGRect(
             x: rect.midX - cropFrameSize.width / 2,
             y: rect.midY - cropFrameSize.height / 2,
@@ -264,7 +287,6 @@ private struct MHBRectCropHoleShape: Shape {
             height: cropFrameSize.height
         )
         path.addPath(Path(roundedRect: cropRect, cornerRadius: MHBTheme.Radius.large))
-
         return path
     }
 }

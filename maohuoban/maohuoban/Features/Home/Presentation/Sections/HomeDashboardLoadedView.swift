@@ -200,7 +200,7 @@ struct HomeDashboardLoadedView: View {
             return "video-\(resourceName).\(fileExtension)-\(Int(width.rounded()))"
         case .remoteVideo(let urlString, let fallbackImageURLString, _):
             return "remote-video-\(urlString)-\(fallbackImageURLString ?? "none")-\(Int(width.rounded()))"
-        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, _):
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, _, _):
             return "remote-live-photo-\(stillURLString)-\(pairedVideoURLString)-\(Int(width.rounded()))"
         }
     }

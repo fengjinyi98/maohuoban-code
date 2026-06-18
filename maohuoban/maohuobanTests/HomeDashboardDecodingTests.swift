@@ -203,7 +203,13 @@ final class HomeDashboardDecodingTests: XCTestCase {
                     "paired_video_url": "/api/v1/media/assets/live-1/components/video-1/content",
                     "paired_video_width": 1200,
                     "paired_video_height": 1600,
-                    "paired_video_duration_ms": 1800
+                    "paired_video_duration_ms": 1800,
+                    "crop": {
+                      "x": 0.125,
+                      "y": 0.25,
+                      "width": 0.5,
+                      "height": 0.375
+                    }
                   },
                   "hero_theme_color_hex": "#AABBCC",
                   "hero_content_color_scheme": "light"
@@ -232,11 +238,16 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(selectedPet.heroLivePhoto?.stillWidth, 1200)
         XCTAssertEqual(selectedPet.heroLivePhoto?.pairedVideoURL, "/api/v1/media/assets/live-1/components/video-1/content")
         XCTAssertEqual(selectedPet.heroLivePhoto?.pairedVideoDurationMS, 1800)
+        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.x, 0.125)
+        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.y, 0.25)
+        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.width, 0.5)
+        XCTAssertEqual(selectedPet.heroLivePhoto?.cropMetadata?.height, 0.375)
         XCTAssertNil(selectedPet.heroImageURL)
         XCTAssertNil(selectedPet.heroVideoURL)
-        if case let .remoteLivePhoto(stillURLString, pairedVideoURLString, fallbackImageAssetName) = selectedPet.heroMedia {
+        if case let .remoteLivePhoto(stillURLString, pairedVideoURLString, cropMetadata, fallbackImageAssetName) = selectedPet.heroMedia {
             XCTAssertEqual(stillURLString, "/api/v1/media/assets/live-1/components/still-1/content")
             XCTAssertEqual(pairedVideoURLString, "/api/v1/media/assets/live-1/components/video-1/content")
+            XCTAssertEqual(cropMetadata?.width, 0.5)
             XCTAssertEqual(fallbackImageAssetName, "HomePetHeroMock")
         } else {
             XCTFail("selected pet should use remote live photo")

@@ -5,7 +5,7 @@ use uuid::Uuid;
 /// 核心职责：
 /// - 承载首页所有 section 的稳定读模型
 /// - 让 HTTP 和 iOS 只依赖聚合结果而非深层业务实现
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HomeDashboardSnapshot {
     pub identity: HomeIdentity,
     pub selected_pet: Option<PetHeroSummary>,
@@ -50,7 +50,7 @@ pub enum HomeIdentityKind {
 /// 核心职责：
 /// - 承载首页首屏宠物主体信息
 /// - 避免首页依赖完整宠物档案字段
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PetHeroSummary {
     pub id: Uuid,
     pub name: String,
@@ -107,7 +107,7 @@ pub struct PetHeroSummary {
 /// 核心职责：
 /// - 返回 Live Photo 静态图和配对视频组件
 /// - 为客户端重建 PHLivePhoto 提供尺寸与 URL 契约
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct HeroLivePhotoSummary {
     pub still_url: String,
     #[serde(default)]
@@ -121,6 +121,20 @@ pub struct HeroLivePhotoSummary {
     pub paired_video_height: Option<i32>,
     #[serde(default)]
     pub paired_video_duration_ms: Option<i32>,
+    #[serde(default)]
+    pub crop: Option<HeroLivePhotoCrop>,
+}
+
+/// HeroLivePhotoCrop 首页 Live Photo 裁剪区域
+/// 核心职责：
+/// - 使用归一化坐标返回后端持久化的展示裁剪区域
+/// - 让客户端用原始 Live Photo 资源重建后仍能保持同一构图
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub struct HeroLivePhotoCrop {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 /// PetNameEditPolicy 宠物名字编辑策略

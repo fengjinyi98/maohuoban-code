@@ -97,14 +97,51 @@ fn multipart_live_photo_request(
     video_content: &[u8],
     user_id: &str,
 ) -> Request<Body> {
+    multipart_live_photo_request_with_crop(still_content, video_content, user_id, None)
+}
+
+fn multipart_live_photo_request_with_crop(
+    still_content: &[u8],
+    video_content: &[u8],
+    user_id: &str,
+    crop_fields: Option<[(&str, &str); 4]>,
+) -> Request<Body> {
+    multipart_live_photo_request_custom(
+        "live-still.png",
+        "image/png",
+        still_content,
+        "live-motion.mov",
+        "video/quicktime",
+        video_content,
+        user_id,
+        crop_fields,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn multipart_live_photo_request_custom(
+    still_file_name: &str,
+    still_mime_type: &str,
+    still_content: &[u8],
+    paired_video_file_name: &str,
+    paired_video_mime_type: &str,
+    video_content: &[u8],
+    user_id: &str,
+    crop_fields: Option<[(&str, &str); 4]>,
+) -> Request<Body> {
     let boundary = format!("maohuoban-test-{}", uuid::Uuid::new_v4());
     let mut body = Vec::new();
     for (field_name, file_name, mime_type, content) in [
-        ("still_file", "live-still.png", "image/png", still_content),
+        (
+            "still_file",
+            still_file_name,
+            still_mime_type,
+            still_content,
+        ),
         (
             "paired_video_file",
-            "live-motion.mov",
-            "video/quicktime",
+            paired_video_file_name,
+            paired_video_mime_type,
             video_content,
         ),
     ] {
@@ -123,6 +160,15 @@ fn multipart_live_photo_request(
     body.extend_from_slice(
         b"Content-Disposition: form-data; name=\"source_client\"\r\n\r\nios\r\n",
     );
+    if let Some(crop_fields) = crop_fields {
+        for (field_name, value) in crop_fields {
+            body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+            body.extend_from_slice(
+                format!("Content-Disposition: form-data; name=\"{field_name}\"\r\n\r\n{value}\r\n")
+                    .as_bytes(),
+            );
+        }
+    }
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
     let token = ACCESS_TOKENS
@@ -1535,6 +1581,122 @@ async fn pet_background_uploads_support_live_photo_media_bindings() {
     assert_eq!(load_response.status(), StatusCode::OK);
     let load_body = response_json(load_response).await;
     assert_eq!(load_body["data"]["background_media_kind"], "live_photo");
+}
+
+#[tokio::test]
+async fn pet_background_live_photo_upload_accepts_crop_metadata() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138139").await;
+
+    let still_content = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("still png bytes");
+    let response = app
+        .router()
+        .oneshot(multipart_live_photo_request_with_crop(
+            &still_content,
+            b"paired-video-bytes",
+            &user_id,
+            Some([
+                ("crop_x", "0.125"),
+                ("crop_y", "0.25"),
+                ("crop_width", "0.5"),
+                ("crop_height", "0.375"),
+            ]),
+        ))
+        .await
+        .expect("upload pending live photo with crop");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(
+        body["data"]["asset"]["usage_kind"],
+        "pet.background.live_photo"
+    );
+}
+
+#[tokio::test]
+async fn pet_background_live_photo_crop_metadata_drives_theme_color() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138140").await;
+
+    let still_content = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg==")
+        .expect("red blue png bytes");
+    let response = app
+        .router()
+        .oneshot(multipart_live_photo_request_with_crop(
+            &still_content,
+            b"paired-video-bytes",
+            &user_id,
+            Some([
+                ("crop_x", "0.5"),
+                ("crop_y", "0"),
+                ("crop_width", "0.5"),
+                ("crop_height", "1"),
+            ]),
+        ))
+        .await
+        .expect("upload pending live photo with crop");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["data"]["asset"]["width"], 2);
+    assert_eq!(body["data"]["asset"]["height"], 1);
+    let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
+    let theme = derivatives
+        .iter()
+        .find(|item| item["derivative_kind"] == "theme_color_frame")
+        .expect("theme color derivative");
+    assert_eq!(theme["metadata"]["theme_color_hex"], "#0000FF");
+    assert_eq!(theme["metadata"]["crop"]["x"], 0.5);
+    assert_eq!(theme["metadata"]["crop"]["y"], 0.0);
+    assert_eq!(theme["metadata"]["crop"]["width"], 0.5);
+    assert_eq!(theme["metadata"]["crop"]["height"], 1.0);
+}
+
+#[tokio::test]
+async fn pet_background_live_photo_heic_still_falls_back_to_video_frame_theme_color() {
+    let Some(video_content) = red_video_bytes() else {
+        return;
+    };
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138141").await;
+
+    let response = app
+        .router()
+        .oneshot(multipart_live_photo_request_custom(
+            "live-still.heic",
+            "image/heic",
+            b"heic-bytes-not-decodable-by-image-crate",
+            "live-motion.mov",
+            "video/quicktime",
+            &video_content,
+            &user_id,
+            Some([
+                ("crop_x", "0"),
+                ("crop_y", "0"),
+                ("crop_width", "1"),
+                ("crop_height", "1"),
+            ]),
+        ))
+        .await
+        .expect("upload pending live photo with heic still");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
+    let theme = derivatives
+        .iter()
+        .find(|item| item["derivative_kind"] == "theme_color_frame")
+        .expect("theme color derivative from paired video frame");
+    assert_eq!(theme["metadata"]["theme_color_hex"], "#FE0000");
+    assert_eq!(theme["metadata"]["crop"]["width"], 1.0);
+    assert_eq!(body["data"]["asset"]["width"], 16);
+    assert_eq!(body["data"]["asset"]["height"], 16);
 }
 
 #[tokio::test]

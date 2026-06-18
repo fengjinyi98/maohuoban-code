@@ -107,7 +107,7 @@ struct PetProfileHomePreviewScreen: View {
             "video-\(resourceName).\(fileExtension)-\(Int(width.rounded()))"
         case .remoteVideo(let urlString, let fallbackImageURLString, _):
             "remote-video-\(urlString)-\(fallbackImageURLString ?? "none")-\(Int(width.rounded()))"
-        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, _):
+        case .remoteLivePhoto(let stillURLString, let pairedVideoURLString, _, _):
             "remote-live-photo-\(stillURLString)-\(pairedVideoURLString)-\(Int(width.rounded()))"
         }
     }
