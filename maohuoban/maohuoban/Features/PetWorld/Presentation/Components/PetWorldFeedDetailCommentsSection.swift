@@ -104,7 +104,7 @@ private struct PetWorldFeedDetailCommentRow: View {
     @State private var isLikeFeedbackActive = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
+        HStack(alignment: .top, spacing: MHBTheme.Spacing.s1) {
             Image(comment.avatarAssetName)
                 .resizable()
                 .scaledToFill()
