@@ -12,14 +12,18 @@ struct PetWorldFeedDetailInputBar: View {
     let commentCount: Int
     let repostCount: Int
     let bottomSafeArea: CGFloat
+    let currentUserAvatarAssetName: String
+    let onCommentTap: () -> Void
     let onToggleLike: () -> Void
 
-    @State private var draftComment = ""
     @State private var isLikeFeedbackActive = false
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
-            PetWorldFeedDetailCommentField(text: $draftComment)
+            PetWorldFeedDetailCommentEntryButton(
+                currentUserAvatarAssetName: currentUserAvatarAssetName,
+                action: onCommentTap
+            )
                 .layoutPriority(1)
 
             Button {
@@ -35,11 +39,14 @@ struct PetWorldFeedDetailInputBar: View {
             .buttonStyle(.plain)
             .accessibilityLabel(isLiked ? "取消点赞" : "点赞")
 
-            PetWorldFeedDetailBottomActionItem(
-                systemImage: "bubble.right",
-                value: commentCount,
-                isHighlighted: false
-            )
+            Button(action: onCommentTap) {
+                PetWorldFeedDetailBottomActionItem(
+                    systemImage: "bubble.right",
+                    value: commentCount,
+                    isHighlighted: false
+                )
+            }
+            .buttonStyle(.plain)
             .accessibilityLabel("评论")
 
             PetWorldFeedDetailBottomActionItem(
@@ -73,26 +80,42 @@ struct PetWorldFeedDetailInputBar: View {
     }
 }
 
-// PetWorldFeedDetailCommentField 详情页底部评论输入
+// PetWorldFeedDetailCommentEntryButton 详情页底部评论入口
 // 核心职责：
-// - 提供无发送按钮的评论输入入口
-// - 在紧凑底栏中保持文本输入区域稳定
-private struct PetWorldFeedDetailCommentField: View {
-    @Binding var text: String
+// - 展示当前登录用户头像和评论占位文案
+// - 点击后交给屏幕级评论输入浮层处理
+private struct PetWorldFeedDetailCommentEntryButton: View {
+    let currentUserAvatarAssetName: String
+    let action: () -> Void
 
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(systemName: "bubble.right")
-                .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+        Button(action: action) {
+            HStack(spacing: MHBTheme.Spacing.s2) {
+                Image(currentUserAvatarAssetName)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(
+                        width: PetWorldFeedDetailLayout.inputAvatarSize,
+                        height: PetWorldFeedDetailLayout.inputAvatarSize
+                    )
+                    .clipShape(Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
+                    }
 
-            TextField("评论一下", text: $text)
-                .font(MHBTheme.Typography.callout)
-                .textInputAutocapitalization(.never)
+                Text("评论一下")
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.leading, MHBTheme.Spacing.s1)
+            .padding(.trailing, MHBTheme.Spacing.s3)
+            .frame(height: PetWorldFeedDetailLayout.inputHeight)
+            .background(MHBTheme.ColorToken.separator.color, in: Capsule())
         }
-        .padding(.horizontal, MHBTheme.Spacing.s3)
-        .frame(height: PetWorldFeedDetailLayout.inputHeight)
-        .background(MHBTheme.ColorToken.separator.color, in: Capsule())
+        .buttonStyle(.plain)
+        .accessibilityLabel("写评论")
     }
 }
 

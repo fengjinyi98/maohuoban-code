@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 保持详情内容流与底部互动操作栏职责分离
 struct PetWorldFeedDetailContent: View {
     let detail: PetWorldFeedDetailItem
+    var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
@@ -15,7 +16,8 @@ struct PetWorldFeedDetailContent: View {
                 petAvatarAssetName: detail.petAvatarAssetName,
                 authorName: detail.authorName,
                 publishedAt: detail.publishedAt,
-                showsFollowButton: !detail.isOwnedByCurrentUser
+                showsFollowButton: !detail.isOwnedByCurrentUser,
+                onOffsetChange: onAuthorOffsetChange
             )
 
             PetWorldFeedDetailCaption(
@@ -43,6 +45,7 @@ private struct PetWorldFeedDetailAuthorSection: View {
     let authorName: String
     let publishedAt: Date
     let showsFollowButton: Bool
+    let onOffsetChange: (CGFloat) -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
@@ -89,6 +92,11 @@ private struct PetWorldFeedDetailAuthorSection: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.frame(in: .scrollView).minY
+        } action: { minY in
+            onOffsetChange(minY)
+        }
     }
 }
 

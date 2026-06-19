@@ -13,10 +13,15 @@ enum PetWorldFeedDetailLayout {
     static let heroHairlineOpacity: CGFloat = 0.08
     static let authorAvatarSize: CGFloat = 48
     static let commentAvatarSize: CGFloat = 36
+    static let inputAvatarSize: CGFloat = 32
+    static let commentComposerAvatarSize: CGFloat = 36
     static let inputHeight: CGFloat = 40
     static let inputVerticalPadding: CGFloat = MHBTheme.Spacing.s3
     static let bottomActionHitSize: CGFloat = 40
     static let likeFeedbackScale: CGFloat = 1.22
+    static let previewPresentationAnimation = Animation.timingCurve(0.22, 0.88, 0.24, 1, duration: 0.32)
+    static let previewDismissAnimation = Animation.timingCurve(0.26, 0.82, 0.24, 1, duration: 0.30)
+    static let commentComposerAnimation = Animation.easeInOut(duration: 0.24)
     static let likePressAnimation = Animation.smooth(duration: 0.18, extraBounce: 0.35)
     static let likeReleaseAnimation = Animation.interactiveSpring(
         response: 0.28,

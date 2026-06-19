@@ -6,6 +6,11 @@ import MaohuobanDesignSystem
 // - 在系统导航栏位置展示返回和更多入口
 // - 使用 Liquid Glass 与首页沉浸式头部保持一致
 struct PetWorldFeedDetailHeaderControls: View {
+    let petName: String
+    let petAvatarAssetName: String
+    let authorName: String
+    let isAuthorVisible: Bool
+    let isAuthorSubtitleVisible: Bool
     let showsDeleteAction: Bool
     let onBack: () -> Void
     let onShare: () -> Void
@@ -14,24 +19,83 @@ struct PetWorldFeedDetailHeaderControls: View {
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                PetWorldFeedDetailHeaderButton(
-                    systemImage: "chevron.left",
-                    accessibilityLabel: "返回",
-                    action: onBack
-                )
+            ZStack {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    PetWorldFeedDetailHeaderButton(
+                        systemImage: "chevron.left",
+                        accessibilityLabel: "返回",
+                        action: onBack
+                    )
 
-                Spacer(minLength: MHBTheme.Spacing.s3)
+                    Spacer(minLength: MHBTheme.Spacing.s3)
 
-                PetWorldFeedDetailMoreMenuButton(
-                    showsDeleteAction: showsDeleteAction,
-                    onShare: onShare,
-                    onReport: onReport,
-                    onDelete: onDelete
+                    PetWorldFeedDetailMoreMenuButton(
+                        showsDeleteAction: showsDeleteAction,
+                        onShare: onShare,
+                        onReport: onReport,
+                        onDelete: onDelete
+                    )
+                }
+
+                PetWorldFeedDetailNavigationIdentity(
+                    petName: petName,
+                    petAvatarAssetName: petAvatarAssetName,
+                    authorName: authorName,
+                    isVisible: isAuthorVisible,
+                    isSubtitleVisible: isAuthorSubtitleVisible
                 )
             }
             .frame(maxWidth: .infinity)
         }
+    }
+}
+
+// PetWorldFeedDetailNavigationIdentity 详情页导航身份信息
+// 核心职责：
+// - 在内容滚动后展示当前帖子宠物和作者
+// - 用轻量动画让沉浸式头部过渡为详情身份栏
+private struct PetWorldFeedDetailNavigationIdentity: View {
+    let petName: String
+    let petAvatarAssetName: String
+    let authorName: String
+    let isVisible: Bool
+    let isSubtitleVisible: Bool
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s2) {
+            Image(petAvatarAssetName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 28, height: 28)
+                .clipShape(Circle())
+                .overlay {
+                    Circle()
+                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
+                }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(petName)
+                    .font(MHBTheme.Typography.footnote.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .lineLimit(1)
+
+                if isSubtitleVisible {
+                    Text("by \(authorName)")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                        .lineLimit(1)
+                        .transition(.offset(y: 4).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: isSubtitleVisible)
+        }
+        .frame(width: 176, height: 40, alignment: .center)
+        .opacity(isVisible ? 1 : 0)
+        .offset(y: isVisible ? 0 : 6)
+        .scaleEffect(isVisible ? 1 : 0.98, anchor: .center)
+        .animation(.easeInOut(duration: 0.22), value: isVisible)
+        .allowsHitTesting(false)
+        .accessibilityHidden(!isVisible)
     }
 }
 

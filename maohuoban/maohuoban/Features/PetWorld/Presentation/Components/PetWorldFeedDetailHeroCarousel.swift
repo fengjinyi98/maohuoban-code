@@ -7,8 +7,8 @@ import MaohuobanDesignSystem
 // - 使用底部圆角和内描边强化主图区边界
 struct PetWorldFeedDetailHeroCarousel: View {
     let mediaItems: [PetWorldFeedDetailMedia]
-
-    @State private var selectedIndex = 0
+    @Binding var selectedIndex: Int
+    var onTapMedia: (Int) -> Void = { _ in }
 
     var body: some View {
         GeometryReader { proxy in
@@ -21,6 +21,11 @@ struct PetWorldFeedDetailHeroCarousel: View {
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .clipped()
                             .tag(index)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                onTapMedia(index)
+                            }
+                            .accessibilityAddTraits(.isButton)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
