@@ -63,4 +63,14 @@ final class PetWorldFeedPageContentResolverTests: XCTestCase {
 
         XCTAssertTrue(closingParagraph.contains("像给自己安排了一套完整的午睡流程"))
     }
+
+    func testMockDetailCarriesLocationVisibilityAndViewCount() throws {
+        let visibleLocationDetail = try XCTUnwrap(PetWorldMockFeedDetail.detail(for: "sunny-album"))
+        let hiddenLocationDetail = try XCTUnwrap(PetWorldMockFeedDetail.detail(for: "park-training"))
+
+        XCTAssertEqual(visibleLocationDetail.visibleLocationName, "家里阳台")
+        XCTAssertEqual(visibleLocationDetail.viewCount, 1286)
+        XCTAssertNil(hiddenLocationDetail.visibleLocationName)
+        XCTAssertEqual(hiddenLocationDetail.viewCount, 3420)
+    }
 }

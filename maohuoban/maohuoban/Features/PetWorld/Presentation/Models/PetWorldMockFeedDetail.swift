@@ -18,8 +18,10 @@ enum PetWorldMockFeedDetail {
                 mediaAssetNames: ["HomePetHeroMock", "HomeGalleryAlbum1", "HomePetAlbum2"],
                 bodyText: "清晨的海风刚好，奶油第一次认真追着浪花跑。它一开始还有点犹豫，看到小伙伴们冲出去以后就完全放开了，回来路上还把牵引绳叼在嘴里，像是在提醒我们明天继续。",
                 topics: ["海边散步", "布偶日常", "宠物伙伴"],
+                visibleLocationName: "北岸海滩",
                 recommendationExplanation: "奶油和你家小雪都是布偶，年龄阶段接近。",
                 isOwnedByCurrentUser: true,
+                viewCount: 2680,
                 comments: beachWalkComments
             )
         case "sunny-album":
@@ -54,8 +56,10 @@ enum PetWorldMockFeedDetail {
                     )
                 ],
                 topics: ["猫咪晒太阳", "午睡日记"],
+                visibleLocationName: "家里阳台",
                 recommendationExplanation: "这条动态近期收藏和评论增长稳定，内容质量较高。",
                 isOwnedByCurrentUser: false,
+                viewCount: 1286,
                 comments: sunnyAlbumComments
             )
         case "park-training":
@@ -64,8 +68,10 @@ enum PetWorldMockFeedDetail {
                 mediaAssetNames: ["HomeGalleryAlbum2", "HomeGalleryAlbum3", "HomePetAlbum4"],
                 bodyText: "豆包今天完成了三轮召回练习，最后一次几乎没有犹豫就跑回来了。奖励零食已经给足，晚上估计会睡得很踏实。",
                 topics: ["公园训练", "召回练习", "狗狗成长"],
+                visibleLocationName: nil,
                 recommendationExplanation: "豆包和你家小雪都处在成长训练期，互动节奏相近。",
                 isOwnedByCurrentUser: false,
+                viewCount: 3420,
                 comments: parkTrainingComments
             )
         default:
@@ -74,8 +80,10 @@ enum PetWorldMockFeedDetail {
                 mediaAssetNames: [card.mediaAssetName],
                 bodyText: card.text,
                 topics: ["宠物日常"],
+                visibleLocationName: nil,
                 recommendationExplanation: card.recommendationReason.text,
                 isOwnedByCurrentUser: false,
+                viewCount: max(card.likeCount + card.commentCount * 12, 1),
                 comments: []
             )
         }
@@ -88,8 +96,10 @@ enum PetWorldMockFeedDetail {
         displayMode: PetWorldFeedDetailDisplayMode = .gallery,
         contentBlocks: [PetWorldFeedDetailContentBlock]? = nil,
         topics: [String],
+        visibleLocationName: String?,
         recommendationExplanation: String,
         isOwnedByCurrentUser: Bool,
+        viewCount: Int,
         comments: [PetWorldFeedComment]
     ) -> PetWorldFeedDetailItem {
         PetWorldFeedDetailItem(
@@ -105,11 +115,13 @@ enum PetWorldMockFeedDetail {
                 .paragraph(id: "\(card.postID)-body", text: bodyText)
             ],
             topics: topics,
+            visibleLocationName: visibleLocationName,
             recommendationExplanation: recommendationExplanation,
             mediaItems: mediaAssetNames.map { mediaItem(postID: card.postID, assetName: $0) },
             isOwnedByCurrentUser: isOwnedByCurrentUser,
             isLiked: card.isLiked,
             likeCount: card.likeCount,
+            viewCount: viewCount,
             repostCount: card.repostCount,
             commentCount: card.commentCount,
             comments: markPostAuthorComments(

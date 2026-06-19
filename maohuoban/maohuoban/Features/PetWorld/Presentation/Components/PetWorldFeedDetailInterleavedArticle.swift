@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // PetWorldFeedDetailInterleavedArticle 图文混排详情正文
 // 核心职责：
 // - 按标题、作者、有序正文块顺序展示图文混排内容
-// - 保持话题与推荐解释复用当前详情页展示组件
+// - 保持公开元信息、话题与推荐解释复用当前详情页展示组件
 struct PetWorldFeedDetailInterleavedArticle: View {
     let galleryID: String
     let petName: String
@@ -15,6 +15,8 @@ struct PetWorldFeedDetailInterleavedArticle: View {
     let title: String
     let contentBlocks: [PetWorldFeedDetailContentBlock]
     let topics: [String]
+    let visibleLocationName: String?
+    let viewCount: Int
     let recommendationExplanation: String
     let onAuthorOffsetChange: (CGFloat) -> Void
 
@@ -38,6 +40,11 @@ struct PetWorldFeedDetailInterleavedArticle: View {
             PetWorldFeedDetailInterleavedBlocks(
                 galleryID: galleryID,
                 contentBlocks: contentBlocks
+            )
+
+            PetWorldFeedDetailMetaLine(
+                visibleLocationName: visibleLocationName,
+                viewCount: viewCount
             )
 
             if !topics.isEmpty {

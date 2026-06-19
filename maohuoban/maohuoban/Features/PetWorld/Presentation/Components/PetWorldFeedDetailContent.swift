@@ -28,6 +28,8 @@ struct PetWorldFeedDetailContent: View {
                     title: detail.title,
                     bodyText: detail.bodyText,
                     topics: detail.topics,
+                    visibleLocationName: detail.visibleLocationName,
+                    viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
@@ -42,6 +44,8 @@ struct PetWorldFeedDetailContent: View {
                     title: detail.title,
                     contentBlocks: detail.contentBlocks,
                     topics: detail.topics,
+                    visibleLocationName: detail.visibleLocationName,
+                    viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
@@ -73,6 +77,8 @@ private struct PetWorldFeedDetailGalleryArticle: View {
     let title: String
     let bodyText: String
     let topics: [String]
+    let visibleLocationName: String?
+    let viewCount: Int
     let recommendationExplanation: String
     let onAuthorOffsetChange: (CGFloat) -> Void
 
@@ -91,6 +97,8 @@ private struct PetWorldFeedDetailGalleryArticle: View {
                 title: title,
                 bodyText: bodyText,
                 topics: topics,
+                visibleLocationName: visibleLocationName,
+                viewCount: viewCount,
                 recommendationExplanation: recommendationExplanation
             )
         }
@@ -164,12 +172,14 @@ struct PetWorldFeedDetailAuthorSection: View {
 
 // PetWorldFeedDetailCaption 详情页正文区
 // 核心职责：
-// - 按标题、正文、话题、推荐解释顺序展示文本内容
+// - 按标题、正文、公开元信息、话题、推荐解释顺序展示文本内容
 // - 让推荐解释使用与 Feed 卡片一致的轻量信息样式
 private struct PetWorldFeedDetailCaption: View {
     let title: String
     let bodyText: String
     let topics: [String]
+    let visibleLocationName: String?
+    let viewCount: Int
     let recommendationExplanation: String
 
     var body: some View {
@@ -186,6 +196,11 @@ private struct PetWorldFeedDetailCaption: View {
                     .lineSpacing(MHBTheme.Spacing.s1 + 1)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            PetWorldFeedDetailMetaLine(
+                visibleLocationName: visibleLocationName,
+                viewCount: viewCount
+            )
 
             if !topics.isEmpty {
                 PetWorldFeedDetailTopics(topics: topics)
@@ -258,5 +273,80 @@ struct PetWorldFeedDetailRecommendationExplanation: View {
         }
         .font(MHBTheme.Typography.footnote)
         .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+    }
+}
+
+// PetWorldFeedDetailMetaLine 详情页公开元信息行
+// 核心职责：
+// - 按用户发布选择展示位置
+// - 在同一行展示浏览量
+struct PetWorldFeedDetailMetaLine: View {
+    let visibleLocationName: String?
+    let viewCount: Int
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
+            if let displayLocationName {
+                PetWorldFeedDetailMetaItem(
+                    icon: .asset("IconLocationPin"),
+                    text: displayLocationName
+                )
+            }
+
+            PetWorldFeedDetailMetaItem(
+                icon: .system("eye.fill"),
+                text: "\(PetWorldCompactCountFormatter.string(for: viewCount)) 浏览"
+            )
+        }
+        .font(MHBTheme.Typography.footnote)
+        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+    }
+
+    private var displayLocationName: String? {
+        let trimmedLocationName = visibleLocationName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmedLocationName,
+              !trimmedLocationName.isEmpty
+        else {
+            return nil
+        }
+
+        return trimmedLocationName
+    }
+}
+
+// PetWorldFeedDetailMetaIcon 详情页元信息图标来源
+// 核心职责：
+// - 区分自定义资源图标与系统符号图标
+// - 让元信息项复用统一文本与颜色层级
+private enum PetWorldFeedDetailMetaIcon {
+    case asset(String)
+    case system(String)
+}
+
+// PetWorldFeedDetailMetaItem 详情页元信息项
+// 核心职责：
+// - 统一位置与浏览量的图标文本样式
+// - 保持与推荐解释相近的轻量信息层级
+private struct PetWorldFeedDetailMetaItem: View {
+    let icon: PetWorldFeedDetailMetaIcon
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s1) {
+            switch icon {
+            case let .asset(assetName):
+                Image(assetName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 12, height: 12)
+            case let .system(systemImageName):
+                Image(systemName: systemImageName)
+                    .imageScale(.small)
+            }
+
+            Text(text)
+                .lineLimit(1)
+        }
     }
 }

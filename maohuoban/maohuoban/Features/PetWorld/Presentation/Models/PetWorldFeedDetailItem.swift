@@ -15,11 +15,13 @@ struct PetWorldFeedDetailItem: Identifiable, Equatable {
     let bodyText: String
     let contentBlocks: [PetWorldFeedDetailContentBlock]
     let topics: [String]
+    let visibleLocationName: String?
     let recommendationExplanation: String
     let mediaItems: [PetWorldFeedDetailMedia]
     let isOwnedByCurrentUser: Bool
     let isLiked: Bool
     let likeCount: Int
+    let viewCount: Int
     let repostCount: Int
     let commentCount: Int
     let comments: [PetWorldFeedComment]
