@@ -120,33 +120,11 @@ private struct PetWorldFeedDetailLoadedScreen: View {
                 PetWorldFeedDetailDoubleTapLikeOverlay(bursts: doubleTapLikeBursts)
                     .zIndex(1.5)
 
-                PetWorldFeedDetailPreviewAwareBottomBar {
-                    PetWorldFeedDetailInputBar(
-                        isLiked: interactionState.isLiked,
-                        likeCount: interactionState.likeCount,
-                        commentCount: commentCount,
-                        repostCount: detail.repostCount,
-                        bottomSafeArea: geometry.safeAreaInsets.bottom,
-                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
-                        onCommentTap: presentCommentComposer
-                    ) {
-                        interactionStore.toggleLike(postID: detail.postID)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .ignoresSafeArea(edges: .bottom)
-                .zIndex(2)
-
                 if isCommentComposerPresented {
-                    PetWorldFeedDetailCommentComposerOverlay(
-                        isPresented: $isCommentComposerPresented,
-                        draftText: $draftComment,
-                        replyTargetName: replyTargetName,
-                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
-                        onSend: handleCommentSend,
-                        onDismiss: handleCommentComposerDismiss
+                    PetWorldFeedDetailCommentInputShield(
+                        onDismiss: dismissCommentComposerFromShield
                     )
-                    .zIndex(3)
+                    .zIndex(1.8)
                 }
 
                 if let selectedCommentForActions {
@@ -160,6 +138,37 @@ private struct PetWorldFeedDetailLoadedScreen: View {
                     )
                     .zIndex(4)
                 }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isCommentComposerPresented {
+                    PetWorldFeedDetailCommentEditorPanel(
+                        replyTargetName: replyTargetName,
+                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
+                        isPresented: $isCommentComposerPresented,
+                        draftText: $draftComment,
+                        onSend: handleCommentSend,
+                        onDismiss: dismissCommentComposerFromShield
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .bottom) {
+                PetWorldFeedDetailPreviewAwareBottomBar {
+                    PetWorldFeedDetailInputBar(
+                        isLiked: interactionState.isLiked,
+                        likeCount: interactionState.likeCount,
+                        commentCount: commentCount,
+                        repostCount: detail.repostCount,
+                        bottomSafeArea: geometry.safeAreaInsets.bottom,
+                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
+                        onCommentTap: presentCommentComposer
+                    ) {
+                        interactionStore.toggleLike(postID: detail.postID)
+                    }
+                }
+                .opacity(isCommentComposerPresented ? 0 : 1)
+                .allowsHitTesting(!isCommentComposerPresented)
+                .ignoresSafeArea(edges: .bottom)
             }
         }
         .mhbImagePreviewHost()
@@ -209,6 +218,11 @@ private struct PetWorldFeedDetailLoadedScreen: View {
         isCommentComposerPresented = true
     }
 
+    private func dismissCommentComposerFromShield() {
+        isCommentComposerPresented = false
+        handleCommentComposerDismiss()
+    }
+
     private func handleCommentSend() {
         let trimmedText = draftComment.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
@@ -237,6 +251,7 @@ private struct PetWorldFeedDetailLoadedScreen: View {
         draftComment = ""
         replyTargetCommentID = nil
         replyTargetName = nil
+        isCommentComposerPresented = false
     }
 
     private func handleCommentComposerDismiss() {
@@ -357,6 +372,232 @@ private struct PetWorldFeedDetailLoadedScreen: View {
             isNavigationAuthorVisible = nextPrimaryVisible
             isNavigationAuthorSubtitleVisible = nextSubtitleVisible
         }
+    }
+}
+
+// PetWorldFeedDetailCommentEditorPanel 评论输入编辑面板
+// 核心职责：
+// - 使用单个真实 UITextView 承载评论输入
+// - 依赖系统键盘安全区完成输入面板定位
+private struct PetWorldFeedDetailCommentEditorPanel: View {
+    let replyTargetName: String?
+    let currentUserAvatarAssetName: String
+    @Binding var isPresented: Bool
+    @Binding var draftText: String
+    let onSend: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var inputWidth: CGFloat = 320
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+            PetWorldFeedDetailCommentEditorHeader(
+                avatarAssetName: currentUserAvatarAssetName,
+                titleText: titleText,
+                onDismiss: onDismiss
+            )
+
+            PetWorldFeedDetailCommentTextEditor(
+                text: $draftText,
+                isFirstResponder: isPresented,
+                placeholderText: placeholderText,
+                inputHeight: inputHeight,
+                onInputWidthChange: updateInputWidth(_:)
+            )
+
+            PetWorldFeedDetailCommentComposerToolbar(
+                draftText: draftText,
+                onSend: onSend
+            )
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s5)
+        .padding(.top, MHBTheme.Spacing.s5)
+        .padding(.bottom, MHBTheme.Spacing.s3)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            MHBTheme.ColorToken.cardSolid.color.opacity(0.22),
+            in: PetWorldFeedDetailLayout.commentComposerShape
+        )
+        .glassEffect(.regular, in: PetWorldFeedDetailLayout.commentComposerShape)
+        .clipShape(PetWorldFeedDetailLayout.commentComposerShape)
+        .contentShape(PetWorldFeedDetailLayout.commentComposerShape)
+        .animation(PetWorldFeedDetailLayout.commentComposerAnimation, value: inputHeight)
+    }
+
+    private var titleText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)"
+        }
+
+        return "写评论"
+    }
+
+    private var placeholderText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)..."
+        }
+
+        return "有话想说，快来评论"
+    }
+
+    private var inputHeight: CGFloat {
+        let contentWidth = max(
+            1,
+            inputWidth - PetWorldFeedDetailLayout.commentComposerTextHorizontalPadding * 2
+        )
+        let text = draftText.isEmpty ? placeholderText : draftText
+        let textHeight = Self.measuredTextHeight(text: text, width: contentWidth)
+        let rawHeight = textHeight + PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
+        let lineHeight = Self.inputUIFont.lineHeight
+        let maxHeight = lineHeight * PetWorldFeedDetailLayout.commentComposerTextMaxLines +
+            PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
+        return ceil(
+            min(
+                max(rawHeight, PetWorldFeedDetailLayout.commentComposerTextMinHeight),
+                maxHeight
+            )
+        )
+    }
+
+    private func updateInputWidth(_ width: CGFloat) {
+        guard width > 0,
+              abs(width - inputWidth) > 0.5
+        else {
+            return
+        }
+
+        inputWidth = width
+    }
+
+    private static var inputUIFont: UIFont {
+        .preferredFont(forTextStyle: .body)
+    }
+
+    private static func measuredTextHeight(text: String, width: CGFloat) -> CGFloat {
+        let normalizedText = text.isEmpty ? " " : text
+        let boundingRect = (normalizedText as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: inputUIFont],
+            context: nil
+        )
+        return max(inputUIFont.lineHeight, ceil(boundingRect.height))
+    }
+}
+
+// PetWorldFeedDetailCommentEditorHeader 评论输入头部
+// 核心职责：
+// - 展示当前登录用户头像和输入标题
+// - 承接关闭评论输入动作
+private struct PetWorldFeedDetailCommentEditorHeader: View {
+    let avatarAssetName: String
+    let titleText: String
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s3) {
+            Image(avatarAssetName)
+                .resizable()
+                .scaledToFill()
+                .frame(
+                    width: PetWorldFeedDetailLayout.commentComposerAvatarSize,
+                    height: PetWorldFeedDetailLayout.commentComposerAvatarSize
+                )
+                .clipShape(Circle())
+                .overlay {
+                    Circle()
+                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
+                }
+
+            Text(titleText)
+                .font(MHBTheme.Typography.headline.weight(.bold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+
+            Spacer(minLength: MHBTheme.Spacing.s3)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .frame(width: 36, height: 36)
+                    .glassEffect(.regular.interactive(), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭评论输入")
+        }
+    }
+}
+
+// PetWorldFeedDetailCommentTextEditor 评论输入文本区
+// 核心职责：
+// - 承载唯一真实 UITextView 输入源
+// - 按草稿文本高度调整可见输入区域
+private struct PetWorldFeedDetailCommentTextEditor: View {
+    @Binding var text: String
+    let isFirstResponder: Bool
+    let placeholderText: String
+    let inputHeight: CGFloat
+    let onInputWidthChange: (CGFloat) -> Void
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            MHBKeyboardTextView(
+                text: $text,
+                isFirstResponder: isFirstResponder,
+                placeholder: placeholderText,
+                font: .preferredFont(forTextStyle: .body),
+                textColor: .label,
+                placeholderColor: .placeholderText,
+                tintColor: .systemBlue
+            ) {
+                EmptyView()
+            }
+            .frame(height: inputHeight)
+
+            if text.isEmpty {
+                Text(placeholderText)
+                    .font(MHBTheme.Typography.body)
+                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                    .allowsHitTesting(false)
+            }
+        }
+        .padding(.horizontal, PetWorldFeedDetailLayout.commentComposerTextHorizontalPadding)
+        .padding(.vertical, PetWorldFeedDetailLayout.commentComposerTextVerticalPadding)
+        .background(
+            MHBTheme.ColorToken.cardSolid.color.opacity(0.18),
+            in: .rect(cornerRadius: MHBTheme.Radius.medium)
+        )
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: MHBTheme.Radius.medium))
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        onInputWidthChange(proxy.size.width)
+                    }
+                    .onChange(of: proxy.size.width) { _, newWidth in
+                        onInputWidthChange(newWidth)
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+// PetWorldFeedDetailCommentInputShield 评论输入遮罩
+// 核心职责：
+// - 在键盘评论输入出现时拦截页面上方空白区域点击
+// - 避免触发底层大图预览、双击点赞和卡片手势
+private struct PetWorldFeedDetailCommentInputShield: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        Button(action: onDismiss) {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("关闭评论输入")
     }
 }
 

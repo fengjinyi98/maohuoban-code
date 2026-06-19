@@ -15,6 +15,10 @@ enum PetWorldFeedDetailLayout {
     static let commentAvatarSize: CGFloat = 36
     static let inputAvatarSize: CGFloat = 32
     static let commentComposerAvatarSize: CGFloat = 36
+    static let commentComposerTextMinHeight: CGFloat = 44
+    static let commentComposerTextMaxLines: CGFloat = 5
+    static let commentComposerTextHorizontalPadding: CGFloat = MHBTheme.Spacing.s4
+    static let commentComposerTextVerticalPadding: CGFloat = MHBTheme.Spacing.s3
     static let inputHeight: CGFloat = 40
     static let inputVerticalPadding: CGFloat = MHBTheme.Spacing.s3
     static let bottomActionHitSize: CGFloat = 40
@@ -41,7 +45,20 @@ enum PetWorldFeedDetailLayout {
         )
     }
 
+    static var commentComposerShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(
+                topLeading: MHBTheme.Radius.extraExtraLarge,
+                bottomLeading: 0,
+                bottomTrailing: 0,
+                topTrailing: MHBTheme.Radius.extraExtraLarge
+            ),
+            style: .continuous
+        )
+    }
+
     static func inputBarReservedHeight(bottomSafeArea: CGFloat) -> CGFloat {
         inputHeight + inputVerticalPadding + bottomSafeArea
     }
+
 }
