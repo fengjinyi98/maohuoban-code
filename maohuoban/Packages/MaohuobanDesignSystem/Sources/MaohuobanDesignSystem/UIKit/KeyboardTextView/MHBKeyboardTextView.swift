@@ -11,7 +11,7 @@ public protocol MHBKeyboardVisibleTextInput: UIResponder {}
 // MHBKeyboardTextView 可见键盘文本编辑视图
 // 核心职责：
 // - 使用真实 UITextView 承载多行输入、光标和选区
-// - 将 SwiftUI 工具条挂载到当前输入源的 inputAccessoryView
+// - 按需将 SwiftUI 工具条挂载到当前输入源的 inputAccessoryView
 public struct MHBKeyboardTextView<Accessory: View>: UIViewRepresentable {
     @Binding private var text: String
     private let isFirstResponder: Bool
@@ -20,7 +20,7 @@ public struct MHBKeyboardTextView<Accessory: View>: UIViewRepresentable {
     private let textColor: UIColor
     private let placeholderColor: UIColor
     private let tintColor: UIColor
-    private let accessory: () -> Accessory
+    private let accessory: (() -> Accessory)?
 
     public init(
         text: Binding<String>,
@@ -71,7 +71,7 @@ public struct MHBKeyboardTextView<Accessory: View>: UIViewRepresentable {
             textColor: textColor,
             placeholderColor: placeholderColor,
             tintColor: tintColor,
-            accessory: accessory()
+            accessory: accessory?()
         )
         context.coordinator.isApplyingSwiftUIText = false
 
@@ -103,21 +103,43 @@ public struct MHBKeyboardTextView<Accessory: View>: UIViewRepresentable {
     }
 }
 
+public extension MHBKeyboardTextView where Accessory == EmptyView {
+    init(
+        text: Binding<String>,
+        isFirstResponder: Bool,
+        placeholder: String,
+        font: UIFont = .preferredFont(forTextStyle: .body),
+        textColor: UIColor = .label,
+        placeholderColor: UIColor = .placeholderText,
+        tintColor: UIColor = .systemBlue
+    ) {
+        _text = text
+        self.isFirstResponder = isFirstResponder
+        self.placeholder = placeholder
+        self.font = font
+        self.textColor = textColor
+        self.placeholderColor = placeholderColor
+        self.tintColor = tintColor
+        accessory = nil
+    }
+}
+
 // MHBKeyboardTextUIKitView UIKit 可见文本输入源
 // 核心职责：
-// - 提供 inputAccessoryView 给系统键盘
+// - 按需提供 inputAccessoryView 给系统键盘
 // - 管理占位文本和 SwiftUI 工具条宿主视图
 @MainActor
 public final class MHBKeyboardTextUIKitView<Accessory: View>: UITextView, MHBKeyboardVisibleTextInput {
     private let accessoryContainer = MHBKeyboardTextAccessoryContainerView()
     private var customInputAccessoryView: UIView?
     private var accessoryContentView: (UIView & UIContentView)?
+    private var usesManagedAccessory = false
     private var isShowingPlaceholder = false
     private var isFirstResponderRequested = false
 
     public override var inputAccessoryView: UIView? {
         get {
-            customInputAccessoryView ?? accessoryContainer
+            customInputAccessoryView ?? (usesManagedAccessory ? accessoryContainer : nil)
         }
         set {
             customInputAccessoryView = newValue
@@ -131,7 +153,7 @@ public final class MHBKeyboardTextUIKitView<Accessory: View>: UITextView, MHBKey
         textColor: UIColor,
         placeholderColor: UIColor,
         tintColor: UIColor,
-        accessory: Accessory
+        accessory: Accessory?
     ) {
         self.font = font
         self.tintColor = tintColor
@@ -213,7 +235,21 @@ public final class MHBKeyboardTextUIKitView<Accessory: View>: UITextView, MHBKey
         isShowingPlaceholder = false
     }
 
-    private func updateAccessory(_ accessory: Accessory) {
+    private func updateAccessory(_ accessory: Accessory?) {
+        guard let accessory else {
+            guard usesManagedAccessory || accessoryContentView != nil else {
+                return
+            }
+
+            usesManagedAccessory = false
+            accessoryContentView?.removeFromSuperview()
+            accessoryContentView = nil
+            accessoryContainer.removeHostedView()
+            reloadInputViews()
+            return
+        }
+
+        usesManagedAccessory = true
         let configuration = UIHostingConfiguration {
             accessory
         }
@@ -277,6 +313,7 @@ private final class MHBKeyboardTextAccessoryContainerView: UIView {
     }
 
     func installHostedView(_ hostedView: UIView) {
+        self.hostedView?.removeFromSuperview()
         self.hostedView = hostedView
         hostedView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hostedView)
@@ -287,6 +324,15 @@ private final class MHBKeyboardTextAccessoryContainerView: UIView {
             hostedView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         updateMeasuredHeightIfNeeded()
+    }
+
+    func removeHostedView() {
+        hostedView?.removeFromSuperview()
+        hostedView = nil
+        measuredHeight = 0
+        heightConstraint?.constant = 0
+        frame.size.height = 0
+        invalidateIntrinsicContentSize()
     }
 
     func invalidateHostedContentSize() {

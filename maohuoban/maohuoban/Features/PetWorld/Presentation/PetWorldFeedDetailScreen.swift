@@ -127,6 +127,29 @@ private struct PetWorldFeedDetailLoadedScreen: View {
                     .zIndex(1.8)
                 }
 
+                MHBKeyboardAccessoryTextViewHost(
+                    isPresented: $isCommentComposerPresented,
+                    text: $draftComment,
+                    placeholder: commentComposerPlaceholderText,
+                    minTextHeight: PetWorldFeedDetailLayout.commentComposerTextMinHeight,
+                    maxTextHeight: commentComposerTextMaxHeight,
+                    onDismiss: handleCommentComposerDismiss
+                ) {
+                    PetWorldFeedDetailCommentEditorHeader(
+                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
+                        titleText: commentComposerTitleText,
+                        onDismiss: dismissCommentComposerFromShield
+                    )
+                } toolbar: {
+                    PetWorldFeedDetailCommentComposerToolbar(
+                        draftText: draftComment,
+                        onSend: handleCommentSend
+                    )
+                }
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .zIndex(2)
+
                 if let selectedCommentForActions {
                     PetWorldFeedDetailCommentActionSheetOverlay(
                         comment: selectedCommentForActions,
@@ -137,19 +160,6 @@ private struct PetWorldFeedDetailLoadedScreen: View {
                         onDelete: deleteSelectedComment
                     )
                     .zIndex(4)
-                }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if isCommentComposerPresented {
-                    PetWorldFeedDetailCommentEditorPanel(
-                        replyTargetName: replyTargetName,
-                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
-                        isPresented: $isCommentComposerPresented,
-                        draftText: $draftComment,
-                        onSend: handleCommentSend,
-                        onDismiss: dismissCommentComposerFromShield
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .overlay(alignment: .bottom) {
@@ -166,10 +176,27 @@ private struct PetWorldFeedDetailLoadedScreen: View {
                         interactionStore.toggleLike(postID: detail.postID)
                     }
                 }
-                .opacity(isCommentComposerPresented ? 0 : 1)
                 .allowsHitTesting(!isCommentComposerPresented)
                 .ignoresSafeArea(edges: .bottom)
             }
+        }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { notification in
+            debugLogCommentBottomBar(
+                reason: "keyboardWillHide \(Self.keyboardDebugDescription(from: notification))"
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
+            debugLogCommentBottomBar(reason: "keyboardDidHide beforeRestore")
+            guard !isCommentComposerPresented else {
+                return
+            }
+            debugLogCommentBottomBar(reason: "keyboardDidHide afterRestore")
+        }
+        .onChange(of: isCommentComposerPresented) { oldValue, newValue in
+            debugLogCommentBottomBar(
+                reason: "composerPresentedChanged old=\(oldValue) new=\(newValue)"
+            )
         }
         .mhbImagePreviewHost()
         .task(id: detail.postID) {
@@ -194,6 +221,30 @@ private struct PetWorldFeedDetailLoadedScreen: View {
         "pet-world-detail-\(detail.postID)"
     }
 
+    private var commentComposerTitleText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)"
+        }
+
+        return "写评论"
+    }
+
+    private var commentComposerPlaceholderText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)..."
+        }
+
+        return "有话想说，快来评论"
+    }
+
+    private var commentComposerTextMaxHeight: CGFloat {
+        ceil(
+            UIFont.preferredFont(forTextStyle: .body).lineHeight *
+                PetWorldFeedDetailLayout.commentComposerTextMaxLines +
+                PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
+        )
+    }
+
     private func handleShare() {
         // 快速 UI 阶段暂不接入系统分享面板。
     }
@@ -210,17 +261,21 @@ private struct PetWorldFeedDetailLoadedScreen: View {
         replyTargetCommentID = nil
         replyTargetName = nil
         isCommentComposerPresented = true
+        debugLogCommentBottomBar(reason: "presentCommentComposer")
     }
 
     private func presentReplyComposer(for comment: PetWorldFeedComment) {
         replyTargetCommentID = comment.id
         replyTargetName = comment.authorName
         isCommentComposerPresented = true
+        debugLogCommentBottomBar(reason: "presentReplyComposer commentID=\(comment.id)")
     }
 
     private func dismissCommentComposerFromShield() {
+        debugLogCommentBottomBar(reason: "dismissCommentComposerFromShield before")
         isCommentComposerPresented = false
         handleCommentComposerDismiss()
+        debugLogCommentBottomBar(reason: "dismissCommentComposerFromShield after")
     }
 
     private func handleCommentSend() {
@@ -255,6 +310,7 @@ private struct PetWorldFeedDetailLoadedScreen: View {
     }
 
     private func handleCommentComposerDismiss() {
+        debugLogCommentBottomBar(reason: "handleCommentComposerDismiss")
         if draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             replyTargetCommentID = nil
             replyTargetName = nil
@@ -373,115 +429,31 @@ private struct PetWorldFeedDetailLoadedScreen: View {
             isNavigationAuthorSubtitleVisible = nextSubtitleVisible
         }
     }
+
+    private func debugLogCommentBottomBar(reason: String) {
+        print(
+            "[DEBUG:KeyboardAccessoryText] detailBottomBar reason=\(reason) " +
+            "composerPresented=\(isCommentComposerPresented) " +
+            "draftEmpty=\(draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)"
+        )
+    }
+
+    private static func keyboardDebugDescription(from notification: Notification) -> String {
+        let beginFrame = (notification.userInfo?[UIResponder.keyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue
+        let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
+        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
+        return "begin=\(beginFrame?.debugKeyboardFrameString ?? "nil") " +
+        "end=\(endFrame?.debugKeyboardFrameString ?? "nil") " +
+        "duration=\(duration.map { String(format: "%.3f", $0) } ?? "nil")"
+    }
 }
 
-// PetWorldFeedDetailCommentEditorPanel 评论输入编辑面板
-// 核心职责：
-// - 使用单个真实 UITextView 承载评论输入
-// - 依赖系统键盘安全区完成输入面板定位
-private struct PetWorldFeedDetailCommentEditorPanel: View {
-    let replyTargetName: String?
-    let currentUserAvatarAssetName: String
-    @Binding var isPresented: Bool
-    @Binding var draftText: String
-    let onSend: () -> Void
-    let onDismiss: () -> Void
-
-    @State private var inputWidth: CGFloat = 320
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-            PetWorldFeedDetailCommentEditorHeader(
-                avatarAssetName: currentUserAvatarAssetName,
-                titleText: titleText,
-                onDismiss: onDismiss
-            )
-
-            PetWorldFeedDetailCommentTextEditor(
-                text: $draftText,
-                isFirstResponder: isPresented,
-                placeholderText: placeholderText,
-                inputHeight: inputHeight,
-                onInputWidthChange: updateInputWidth(_:)
-            )
-
-            PetWorldFeedDetailCommentComposerToolbar(
-                draftText: draftText,
-                onSend: onSend
-            )
-        }
-        .padding(.horizontal, MHBTheme.Spacing.s5)
-        .padding(.top, MHBTheme.Spacing.s5)
-        .padding(.bottom, MHBTheme.Spacing.s3)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            MHBTheme.ColorToken.cardSolid.color.opacity(0.22),
-            in: PetWorldFeedDetailLayout.commentComposerShape
-        )
-        .glassEffect(.regular, in: PetWorldFeedDetailLayout.commentComposerShape)
-        .clipShape(PetWorldFeedDetailLayout.commentComposerShape)
-        .contentShape(PetWorldFeedDetailLayout.commentComposerShape)
-        .animation(PetWorldFeedDetailLayout.commentComposerAnimation, value: inputHeight)
-    }
-
-    private var titleText: String {
-        if let replyTargetName {
-            return "回复 @\(replyTargetName)"
-        }
-
-        return "写评论"
-    }
-
-    private var placeholderText: String {
-        if let replyTargetName {
-            return "回复 @\(replyTargetName)..."
-        }
-
-        return "有话想说，快来评论"
-    }
-
-    private var inputHeight: CGFloat {
-        let contentWidth = max(
-            1,
-            inputWidth - PetWorldFeedDetailLayout.commentComposerTextHorizontalPadding * 2
-        )
-        let text = draftText.isEmpty ? placeholderText : draftText
-        let textHeight = Self.measuredTextHeight(text: text, width: contentWidth)
-        let rawHeight = textHeight + PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
-        let lineHeight = Self.inputUIFont.lineHeight
-        let maxHeight = lineHeight * PetWorldFeedDetailLayout.commentComposerTextMaxLines +
-            PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
-        return ceil(
-            min(
-                max(rawHeight, PetWorldFeedDetailLayout.commentComposerTextMinHeight),
-                maxHeight
-            )
-        )
-    }
-
-    private func updateInputWidth(_ width: CGFloat) {
-        guard width > 0,
-              abs(width - inputWidth) > 0.5
-        else {
-            return
-        }
-
-        inputWidth = width
-    }
-
-    private static var inputUIFont: UIFont {
-        .preferredFont(forTextStyle: .body)
-    }
-
-    private static func measuredTextHeight(text: String, width: CGFloat) -> CGFloat {
-        let normalizedText = text.isEmpty ? " " : text
-        let boundingRect = (normalizedText as NSString).boundingRect(
-            with: CGSize(width: width, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: inputUIFont],
-            context: nil
-        )
-        return max(inputUIFont.lineHeight, ceil(boundingRect.height))
+private extension CGRect {
+    var debugKeyboardFrameString: String {
+        "x=\(String(format: "%.1f", origin.x)) " +
+        "y=\(String(format: "%.1f", origin.y)) " +
+        "w=\(String(format: "%.1f", size.width)) " +
+        "h=\(String(format: "%.1f", size.height))"
     }
 }
 
@@ -490,13 +462,13 @@ private struct PetWorldFeedDetailCommentEditorPanel: View {
 // - 展示当前登录用户头像和输入标题
 // - 承接关闭评论输入动作
 private struct PetWorldFeedDetailCommentEditorHeader: View {
-    let avatarAssetName: String
+    let currentUserAvatarAssetName: String
     let titleText: String
     let onDismiss: () -> Void
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Image(avatarAssetName)
+            Image(currentUserAvatarAssetName)
                 .resizable()
                 .scaledToFill()
                 .frame(
@@ -525,61 +497,6 @@ private struct PetWorldFeedDetailCommentEditorHeader: View {
             .buttonStyle(.plain)
             .accessibilityLabel("关闭评论输入")
         }
-    }
-}
-
-// PetWorldFeedDetailCommentTextEditor 评论输入文本区
-// 核心职责：
-// - 承载唯一真实 UITextView 输入源
-// - 按草稿文本高度调整可见输入区域
-private struct PetWorldFeedDetailCommentTextEditor: View {
-    @Binding var text: String
-    let isFirstResponder: Bool
-    let placeholderText: String
-    let inputHeight: CGFloat
-    let onInputWidthChange: (CGFloat) -> Void
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            MHBKeyboardTextView(
-                text: $text,
-                isFirstResponder: isFirstResponder,
-                placeholder: placeholderText,
-                font: .preferredFont(forTextStyle: .body),
-                textColor: .label,
-                placeholderColor: .placeholderText,
-                tintColor: .systemBlue
-            ) {
-                EmptyView()
-            }
-            .frame(height: inputHeight)
-
-            if text.isEmpty {
-                Text(placeholderText)
-                    .font(MHBTheme.Typography.body)
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                    .allowsHitTesting(false)
-            }
-        }
-        .padding(.horizontal, PetWorldFeedDetailLayout.commentComposerTextHorizontalPadding)
-        .padding(.vertical, PetWorldFeedDetailLayout.commentComposerTextVerticalPadding)
-        .background(
-            MHBTheme.ColorToken.cardSolid.color.opacity(0.18),
-            in: .rect(cornerRadius: MHBTheme.Radius.medium)
-        )
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: MHBTheme.Radius.medium))
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        onInputWidthChange(proxy.size.width)
-                    }
-                    .onChange(of: proxy.size.width) { _, newWidth in
-                        onInputWidthChange(newWidth)
-                    }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 

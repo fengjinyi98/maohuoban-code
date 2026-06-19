@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // PetWorldFeedDetailLayout 宠物世界详情布局参数
@@ -15,9 +16,13 @@ enum PetWorldFeedDetailLayout {
     static let commentAvatarSize: CGFloat = 36
     static let inputAvatarSize: CGFloat = 32
     static let commentComposerAvatarSize: CGFloat = 36
-    static let commentComposerTextMinHeight: CGFloat = 44
+    static var commentComposerTextMinHeight: CGFloat {
+        ceil(
+            UIFont.preferredFont(forTextStyle: .body).lineHeight * 2 +
+                commentComposerTextVerticalPadding * 2
+        )
+    }
     static let commentComposerTextMaxLines: CGFloat = 5
-    static let commentComposerTextHorizontalPadding: CGFloat = MHBTheme.Spacing.s4
     static let commentComposerTextVerticalPadding: CGFloat = MHBTheme.Spacing.s3
     static let inputHeight: CGFloat = 40
     static let inputVerticalPadding: CGFloat = MHBTheme.Spacing.s3
@@ -40,18 +45,6 @@ enum PetWorldFeedDetailLayout {
                 bottomLeading: heroCornerRadius,
                 bottomTrailing: heroCornerRadius,
                 topTrailing: 0
-            ),
-            style: .continuous
-        )
-    }
-
-    static var commentComposerShape: UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            cornerRadii: RectangleCornerRadii(
-                topLeading: MHBTheme.Radius.extraExtraLarge,
-                bottomLeading: 0,
-                bottomTrailing: 0,
-                topTrailing: MHBTheme.Radius.extraExtraLarge
             ),
             style: .continuous
         )
