@@ -7,6 +7,9 @@ import MaohuobanDesignSystem
 // - 支持父评论与多层子评论的层级布局
 struct PetWorldFeedDetailCommentsSection: View {
     let comments: [PetWorldFeedComment]
+    let onReply: (PetWorldFeedComment) -> Void
+    let onToggleLike: (PetWorldFeedComment) -> Void
+    let onLongPress: (PetWorldFeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
@@ -24,7 +27,12 @@ struct PetWorldFeedDetailCommentsSection: View {
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
                 ForEach(comments) { comment in
-                    PetWorldFeedDetailCommentNode(comment: comment)
+                    PetWorldFeedDetailCommentNode(
+                        comment: comment,
+                        onReply: onReply,
+                        onToggleLike: onToggleLike,
+                        onLongPress: onLongPress
+                    )
                 }
             }
         }
@@ -43,10 +51,18 @@ struct PetWorldFeedDetailCommentsSection: View {
 // - 递归展示当前评论的子评论
 private struct PetWorldFeedDetailCommentNode: View {
     let comment: PetWorldFeedComment
+    let onReply: (PetWorldFeedComment) -> Void
+    let onToggleLike: (PetWorldFeedComment) -> Void
+    let onLongPress: (PetWorldFeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            PetWorldFeedDetailCommentRow(comment: comment)
+            PetWorldFeedDetailCommentRow(
+                comment: comment,
+                onReply: onReply,
+                onToggleLike: onToggleLike,
+                onLongPress: onLongPress
+            )
 
             if !comment.replies.isEmpty {
                 HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
@@ -58,7 +74,12 @@ private struct PetWorldFeedDetailCommentNode: View {
 
                     VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                         ForEach(comment.replies) { reply in
-                            PetWorldFeedDetailCommentNode(comment: reply)
+                            PetWorldFeedDetailCommentNode(
+                                comment: reply,
+                                onReply: onReply,
+                                onToggleLike: onToggleLike,
+                                onLongPress: onLongPress
+                            )
                         }
                     }
                 }
@@ -74,6 +95,13 @@ private struct PetWorldFeedDetailCommentNode: View {
 // - 提供回复和轻量点赞信息的视觉入口
 private struct PetWorldFeedDetailCommentRow: View {
     let comment: PetWorldFeedComment
+    let onReply: (PetWorldFeedComment) -> Void
+    let onToggleLike: (PetWorldFeedComment) -> Void
+    let onLongPress: (PetWorldFeedComment) -> Void
+
+    @State private var isPressing = false
+    @State private var hapticTrigger = 0
+    @State private var isLikeFeedbackActive = false
 
     var body: some View {
         HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
@@ -104,7 +132,7 @@ private struct PetWorldFeedDetailCommentRow: View {
                         .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
 
                     Button {
-                        // 快速 UI 阶段暂不接入评论回复。
+                        onReply(comment)
                     } label: {
                         Text("回复")
                             .font(MHBTheme.Typography.caption.weight(.medium))
@@ -114,16 +142,61 @@ private struct PetWorldFeedDetailCommentRow: View {
 
                     Spacer(minLength: 0)
 
-                    HStack(spacing: MHBTheme.Spacing.s1) {
-                        Image(systemName: "heart")
-                            .imageScale(.small)
-                        Text(PetWorldCompactCountFormatter.string(for: comment.likeCount))
+                    Button {
+                        triggerLikeFeedback()
+                        onToggleLike(comment)
+                    } label: {
+                        HStack(spacing: MHBTheme.Spacing.s1) {
+                            Image(systemName: comment.isLiked ? "heart.fill" : "heart")
+                                .imageScale(.small)
+                                .scaleEffect(isLikeFeedbackActive ? PetWorldFeedDetailLayout.likeFeedbackScale : 1)
+                            Text(comment.likeCount > 0 ? PetWorldCompactCountFormatter.string(for: comment.likeCount) : "赞")
+                        }
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(comment.isLiked ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
                     }
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                    .buttonStyle(.plain)
+                    .sensoryFeedback(.selection, trigger: isLikeFeedbackActive)
+                    .accessibilityLabel(comment.isLiked ? "取消评论点赞" : "评论点赞")
                 }
             }
+            .padding(.vertical, MHBTheme.Spacing.s1)
+            .padding(.horizontal, MHBTheme.Spacing.s2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .background(
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
+                    .fill(MHBTheme.ColorToken.primary.color.opacity(isPressing ? 0.08 : 0))
+            )
+            .scaleEffect(isPressing ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.16), value: isPressing)
+            .sensoryFeedback(.selection, trigger: hapticTrigger)
+            .accessibilityAddTraits(.isButton)
+            .onTapGesture {
+                onReply(comment)
+            }
+            .onLongPressGesture(minimumDuration: 0.35, pressing: updatePressingState) {
+                hapticTrigger += 1
+                onLongPress(comment)
+            }
             .layoutPriority(1)
+        }
+    }
+
+    private func updatePressingState(_ isPressing: Bool) {
+        self.isPressing = isPressing
+    }
+
+    private func triggerLikeFeedback() {
+        withAnimation(PetWorldFeedDetailLayout.likePressAnimation) {
+            isLikeFeedbackActive = true
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(PetWorldFeedDetailLayout.likeReleaseAnimation) {
+                isLikeFeedbackActive = false
+            }
         }
     }
 }

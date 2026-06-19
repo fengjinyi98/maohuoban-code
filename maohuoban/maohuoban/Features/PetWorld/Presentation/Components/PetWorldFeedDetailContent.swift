@@ -7,7 +7,11 @@ import MaohuobanDesignSystem
 // - 保持详情内容流与底部互动操作栏职责分离
 struct PetWorldFeedDetailContent: View {
     let detail: PetWorldFeedDetailItem
+    let comments: [PetWorldFeedComment]
     var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
+    let onCommentReply: (PetWorldFeedComment) -> Void
+    let onCommentToggleLike: (PetWorldFeedComment) -> Void
+    let onCommentLongPress: (PetWorldFeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
@@ -27,7 +31,12 @@ struct PetWorldFeedDetailContent: View {
                 recommendationExplanation: detail.recommendationExplanation
             )
 
-            PetWorldFeedDetailCommentsSection(comments: detail.comments)
+            PetWorldFeedDetailCommentsSection(
+                comments: comments,
+                onReply: onCommentReply,
+                onToggleLike: onCommentToggleLike,
+                onLongPress: onCommentLongPress
+            )
         }
         .padding(.horizontal, MHBTheme.Spacing.s5)
         .padding(.top, MHBTheme.Spacing.s6)

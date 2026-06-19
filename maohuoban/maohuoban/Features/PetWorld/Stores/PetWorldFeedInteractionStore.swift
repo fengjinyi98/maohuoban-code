@@ -9,6 +9,7 @@ import Observation
 @Observable
 final class PetWorldFeedInteractionStore {
     private var interactionsByPostID: [String: PetWorldFeedInteractionState]
+    private var commentsByPostID: [String: [PetWorldFeedComment]] = [:]
 
     init(cards: [PetWorldFeedItem]) {
         interactionsByPostID = Dictionary(
@@ -69,5 +70,218 @@ final class PetWorldFeedInteractionStore {
             isLiked: nextIsLiked,
             likeCount: nextLikeCount
         )
+    }
+
+    // prepareCommentsIfNeeded 准备详情页评论树状态
+    // 核心职责：
+    // - 在显式生命周期边界安装评论初始快照
+    // - 避免 SwiftUI 渲染读取路径写入 Store
+    func prepareCommentsIfNeeded(
+        postID: String,
+        comments: [PetWorldFeedComment]
+    ) {
+        guard commentsByPostID[postID] == nil else {
+            return
+        }
+
+        commentsByPostID[postID] = comments
+    }
+
+    // comments 读取详情页评论树状态
+    // 核心职责：
+    // - 为详情页评论区提供最新评论树
+    // - 在 Store 尚未安装时回退到详情初始评论
+    func comments(
+        postID: String,
+        fallbackComments: [PetWorldFeedComment]
+    ) -> [PetWorldFeedComment] {
+        commentsByPostID[postID] ?? fallbackComments
+    }
+
+    // commentCount 读取详情页评论总数
+    // 核心职责：
+    // - 递归统计父评论和子评论数量
+    // - 为底部操作栏评论计数提供同一状态源
+    func commentCount(
+        postID: String,
+        fallbackComments: [PetWorldFeedComment]
+    ) -> Int {
+        Self.totalCommentCount(
+            in: comments(
+                postID: postID,
+                fallbackComments: fallbackComments
+            )
+        )
+    }
+
+    // toggleCommentLike 切换评论点赞状态
+    // 核心职责：
+    // - 响应评论区点赞点击事件
+    // - 保持点赞状态和计数在评论树内同步更新
+    func toggleCommentLike(postID: String, commentID: String) {
+        guard let currentComments = commentsByPostID[postID] else {
+            return
+        }
+
+        commentsByPostID[postID] = Self.updateComment(
+            commentID: commentID,
+            in: currentComments
+        ) { comment in
+            let nextIsLiked = !comment.isLiked
+            return PetWorldFeedComment(
+                id: comment.id,
+                authorName: comment.authorName,
+                avatarAssetName: comment.avatarAssetName,
+                text: comment.text,
+                publishedAt: comment.publishedAt,
+                isPostAuthor: comment.isPostAuthor,
+                isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
+                isLiked: nextIsLiked,
+                likeCount: max(0, comment.likeCount + (nextIsLiked ? 1 : -1)),
+                replies: comment.replies
+            )
+        }
+    }
+
+    // addComment 添加根评论或回复
+    // 核心职责：
+    // - 根据 parentCommentID 决定插入到根列表或目标评论 replies
+    // - 保持评论树数据在 Store 内单向更新
+    func addComment(
+        postID: String,
+        parentCommentID: String?,
+        comment: PetWorldFeedComment
+    ) {
+        let currentComments = commentsByPostID[postID] ?? []
+        guard let parentCommentID else {
+            commentsByPostID[postID] = [comment] + currentComments
+            return
+        }
+
+        commentsByPostID[postID] = Self.updateComment(
+            commentID: parentCommentID,
+            in: currentComments
+        ) { parent in
+            PetWorldFeedComment(
+                id: parent.id,
+                authorName: parent.authorName,
+                avatarAssetName: parent.avatarAssetName,
+                text: parent.text,
+                publishedAt: parent.publishedAt,
+                isPostAuthor: parent.isPostAuthor,
+                isOwnedByCurrentUser: parent.isOwnedByCurrentUser,
+                isLiked: parent.isLiked,
+                likeCount: parent.likeCount,
+                replies: parent.replies + [comment]
+            )
+        }
+    }
+
+    // deleteComment 删除指定评论节点
+    // 核心职责：
+    // - 删除本人评论及其子树
+    // - 对非本人评论保持数据不变
+    func deleteComment(postID: String, commentID: String) {
+        guard let currentComments = commentsByPostID[postID],
+              Self.comment(commentID: commentID, in: currentComments)?.isOwnedByCurrentUser == true
+        else {
+            return
+        }
+
+        commentsByPostID[postID] = Self.deleteComment(
+            commentID: commentID,
+            from: currentComments
+        )
+    }
+
+    private static func totalCommentCount(in comments: [PetWorldFeedComment]) -> Int {
+        comments.reduce(0) { partialResult, comment in
+            partialResult + 1 + totalCommentCount(in: comment.replies)
+        }
+    }
+
+    private static func comment(
+        commentID: String,
+        in comments: [PetWorldFeedComment]
+    ) -> PetWorldFeedComment? {
+        for comment in comments {
+            if comment.id == commentID {
+                return comment
+            }
+
+            if let reply = Self.comment(commentID: commentID, in: comment.replies) {
+                return reply
+            }
+        }
+
+        return nil
+    }
+
+    private static func updateComment(
+        commentID: String,
+        in comments: [PetWorldFeedComment],
+        transform: (PetWorldFeedComment) -> PetWorldFeedComment
+    ) -> [PetWorldFeedComment] {
+        comments.map { comment in
+            if comment.id == commentID {
+                return transform(comment)
+            }
+
+            let updatedReplies = updateComment(
+                commentID: commentID,
+                in: comment.replies,
+                transform: transform
+            )
+
+            guard updatedReplies != comment.replies else {
+                return comment
+            }
+
+            return PetWorldFeedComment(
+                id: comment.id,
+                authorName: comment.authorName,
+                avatarAssetName: comment.avatarAssetName,
+                text: comment.text,
+                publishedAt: comment.publishedAt,
+                isPostAuthor: comment.isPostAuthor,
+                isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
+                isLiked: comment.isLiked,
+                likeCount: comment.likeCount,
+                replies: updatedReplies
+            )
+        }
+    }
+
+    private static func deleteComment(
+        commentID: String,
+        from comments: [PetWorldFeedComment]
+    ) -> [PetWorldFeedComment] {
+        comments.compactMap { comment in
+            if comment.id == commentID {
+                return nil
+            }
+
+            let updatedReplies = deleteComment(
+                commentID: commentID,
+                from: comment.replies
+            )
+
+            guard updatedReplies != comment.replies else {
+                return comment
+            }
+
+            return PetWorldFeedComment(
+                id: comment.id,
+                authorName: comment.authorName,
+                avatarAssetName: comment.avatarAssetName,
+                text: comment.text,
+                publishedAt: comment.publishedAt,
+                isPostAuthor: comment.isPostAuthor,
+                isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
+                isLiked: comment.isLiked,
+                likeCount: comment.likeCount,
+                replies: updatedReplies
+            )
+        }
     }
 }

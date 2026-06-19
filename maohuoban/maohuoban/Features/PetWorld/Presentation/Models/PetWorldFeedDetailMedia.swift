@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 // PetWorldFeedDetailMedia 宠物世界详情媒体模型
@@ -7,4 +8,5 @@ import Foundation
 struct PetWorldFeedDetailMedia: Identifiable, Equatable {
     let id: String
     let assetName: String
+    let pixelSize: CGSize?
 }

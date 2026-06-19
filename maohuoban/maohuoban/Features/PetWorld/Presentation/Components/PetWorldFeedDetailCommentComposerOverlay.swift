@@ -9,8 +9,10 @@ import UIKit
 struct PetWorldFeedDetailCommentComposerOverlay: View {
     @Binding var isPresented: Bool
     @Binding var draftText: String
+    let replyTargetName: String?
     let currentUserAvatarAssetName: String
     let onSend: () -> Void
+    var onDismiss: () -> Void = {}
 
     @FocusState private var isEditorFocused: Bool
 
@@ -62,7 +64,7 @@ struct PetWorldFeedDetailCommentComposerOverlay: View {
                             .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
                     }
 
-                Text("写评论")
+                Text(titleText)
                     .font(MHBTheme.Typography.headline.weight(.bold))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
@@ -79,7 +81,7 @@ struct PetWorldFeedDetailCommentComposerOverlay: View {
                 .accessibilityLabel("关闭评论输入")
             }
 
-            TextField("有话想说，快来评论", text: $draftText, axis: .vertical)
+            TextField(placeholderText, text: $draftText, axis: .vertical)
                 .lineLimit(5...)
                 .font(MHBTheme.Typography.callout)
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
@@ -126,6 +128,22 @@ struct PetWorldFeedDetailCommentComposerOverlay: View {
         !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var titleText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)"
+        }
+
+        return "写评论"
+    }
+
+    private var placeholderText: String {
+        if let replyTargetName {
+            return "回复 @\(replyTargetName)..."
+        }
+
+        return "有话想说，快来评论"
+    }
+
     private var sendButtonBackgroundColor: Color {
         canSend
             ? MHBTheme.ColorToken.primary.color
@@ -135,6 +153,7 @@ struct PetWorldFeedDetailCommentComposerOverlay: View {
     private func dismissComposer() {
         isEditorFocused = false
         isPresented = false
+        onDismiss()
     }
 
     private func sendComment() {

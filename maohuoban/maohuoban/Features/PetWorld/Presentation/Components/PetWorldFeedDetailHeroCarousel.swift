@@ -6,26 +6,29 @@ import MaohuobanDesignSystem
 // - 呈现设计稿中的 4:5 沉浸式图片轮播
 // - 使用底部圆角和内描边强化主图区边界
 struct PetWorldFeedDetailHeroCarousel: View {
+    let galleryID: String
     let mediaItems: [PetWorldFeedDetailMedia]
     @Binding var selectedIndex: Int
-    var onTapMedia: (Int) -> Void = { _ in }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .bottom) {
                 TabView(selection: $selectedIndex) {
                     ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, mediaItem in
-                        Image(mediaItem.assetName)
-                            .resizable()
-                            .scaledToFill()
+                        MHBPreviewableImage(
+                            galleryID: galleryID,
+                            items: previewAssets,
+                            index: index,
+                            selection: $selectedIndex,
+                            cornerRadius: PetWorldFeedDetailLayout.heroCornerRadius,
+                            contentMode: .fill
+                        ) {
+                            MHBTheme.ColorToken.separatorSoft.color
+                        }
                             .frame(width: proxy.size.width, height: proxy.size.height)
                             .clipped()
                             .tag(index)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                onTapMedia(index)
-                            }
-                            .accessibilityAddTraits(.isButton)
+                            .accessibilityLabel("查看第 \(index + 1) 张图片")
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -84,6 +87,18 @@ struct PetWorldFeedDetailHeroCarousel: View {
         }
 
         return mediaItems[selectedIndex].id
+    }
+
+    private var previewAssets: [MHBImagePreviewAsset] {
+        MHBImagePreviewAsset.localGallery(
+            galleryID: galleryID,
+            items: mediaItems.map { mediaItem in
+                MHBImagePreviewAsset.LocalGalleryItem(
+                    imageName: mediaItem.assetName,
+                    pixelSize: mediaItem.pixelSize
+                )
+            }
+        )
     }
 }
 

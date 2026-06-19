@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 // PetWorldMockFeedDetail 宠物世界详情 Mock 数据
@@ -76,7 +77,8 @@ enum PetWorldMockFeedDetail {
             mediaItems: mediaAssetNames.map { assetName in
                 PetWorldFeedDetailMedia(
                     id: "\(card.postID)-\(assetName)",
-                    assetName: assetName
+                    assetName: assetName,
+                    pixelSize: mediaPixelSize(for: assetName)
                 )
             },
             isOwnedByCurrentUser: isOwnedByCurrentUser,
@@ -103,12 +105,35 @@ enum PetWorldMockFeedDetail {
                 text: comment.text,
                 publishedAt: comment.publishedAt,
                 isPostAuthor: comment.authorName == postAuthorName,
+                isOwnedByCurrentUser: comment.authorName == "小满",
+                isLiked: comment.isLiked,
                 likeCount: comment.likeCount,
                 replies: markPostAuthorComments(
                     comment.replies,
                     postAuthorName: postAuthorName
                 )
             )
+        }
+    }
+
+    // mediaPixelSize 获取 Mock 图片原始像素尺寸
+    // 核心职责：
+    // - 为大图预览 Hero 动画提供稳定几何输入
+    // - 避免 SwiftUI 渲染路径同步读取图片元数据
+    private static func mediaPixelSize(for assetName: String) -> CGSize? {
+        switch assetName {
+        case "HomePetHeroMock":
+            return CGSize(width: 2717, height: 4076)
+        case "HomeGalleryAlbum1",
+             "HomeGalleryAlbum2",
+             "HomeGalleryAlbum3",
+             "HomePetAlbum1",
+             "HomePetAlbum2",
+             "HomePetAlbum3",
+             "HomePetAlbum4":
+            return CGSize(width: 1024, height: 1024)
+        default:
+            return nil
         }
     }
 
@@ -251,6 +276,8 @@ enum PetWorldMockFeedDetail {
             text: text,
             publishedAt: publishedAt,
             isPostAuthor: false,
+            isOwnedByCurrentUser: authorName == "小满",
+            isLiked: false,
             likeCount: likeCount,
             replies: replies
         )

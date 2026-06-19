@@ -11,6 +11,8 @@ struct PetWorldFeedComment: Identifiable, Equatable {
     let text: String
     let publishedAt: Date
     let isPostAuthor: Bool
+    let isOwnedByCurrentUser: Bool
+    let isLiked: Bool
     let likeCount: Int
     let replies: [PetWorldFeedComment]
 }
