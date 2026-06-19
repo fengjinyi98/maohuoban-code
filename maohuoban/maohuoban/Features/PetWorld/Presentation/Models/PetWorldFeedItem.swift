@@ -8,6 +8,7 @@ struct PetWorldFeedItem: Identifiable, Equatable {
     let id: String
     let petName: String?
     let petAvatarAssetName: String?
+    let recommendationReason: PetWorldFeedRecommendationReason
     let text: String
     let authorAvatarAssetName: String
     let authorName: String

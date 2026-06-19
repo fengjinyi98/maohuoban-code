@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // PetWorldFeedCard 宠物世界 Feed 卡片
 // 核心职责：
@@ -7,41 +8,69 @@ import MaohuobanDesignSystem
 // - 复刻参考 HTML 的大圆角图片、轻内描边和低对比操作区
 struct PetWorldFeedCard: View {
     let card: PetWorldFeedItem
+    let interactionState: PetWorldFeedInteractionState
+    let onToggleLike: () -> Void
+    let onMoreTap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3 + MHBTheme.Spacing.s1 / 2) {
+        VStack(alignment: .leading, spacing: PetWorldFeedCardMetrics.contentSectionSpacing) {
             PetWorldFeedCardHeader(
                 title: card.petName ?? card.authorName,
+                recommendationReason: card.recommendationReason,
                 authorName: card.authorName,
                 publishedAt: card.publishedAt,
                 avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
             )
 
-            Text(card.text)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+            PetWorldFeedCardText(text: card.text)
 
             PetWorldFeedCardMedia(assetName: card.mediaAssetName)
 
             PetWorldFeedCardActions(
-                isLiked: card.isLiked,
-                likeCount: card.likeCount,
+                isLiked: interactionState.isLiked,
+                likeCount: interactionState.likeCount,
                 repostCount: card.repostCount,
-                commentCount: card.commentCount
+                commentCount: card.commentCount,
+                onToggleLike: onToggleLike
             )
         }
         .accessibilityElement(children: .contain)
+        .overlay(alignment: .topTrailing) {
+            PetWorldFeedCardMoreButton(
+                cardID: card.id,
+                onTap: onMoreTap
+            )
+            .padding(.top, PetWorldFeedCardMetrics.moreButtonTopPadding)
+            .zIndex(1)
+        }
+    }
+}
+
+// PetWorldFeedCardText Feed 卡片正文
+// 核心职责：
+// - 展示图片上方的卡片正文内容
+// - 将正文起点对齐到媒体圆角后的直线区域
+private struct PetWorldFeedCardText: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.leading, PetWorldFeedCardMetrics.mediaTextLeadingInset)
+            .padding(.trailing, MHBTheme.Spacing.s2)
     }
 }
 
 // PetWorldFeedCardHeader Feed 卡片头部
 // 核心职责：
 // - 展示宠物头像、宠物名称和发帖人时间信息
-// - 承载更多操作入口的视觉占位
+// - 承载自定义更多菜单的触发入口和锚点测量
 private struct PetWorldFeedCardHeader: View {
     let title: String
+    let recommendationReason: PetWorldFeedRecommendationReason
     let authorName: String
     let publishedAt: Date
     let avatarAssetName: String
@@ -59,10 +88,15 @@ private struct PetWorldFeedCardHeader: View {
                 }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1 / 2) {
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+
+                    PetWorldFeedRecommendationBadge(reason: recommendationReason)
+                }
 
                 Text("by \(authorName) · \(publishedAt, format: MHBUTCDateDisplayFormatter.localShortDateTimeStyle())")
                     .font(MHBTheme.Typography.footnote)
@@ -73,18 +107,67 @@ private struct PetWorldFeedCardHeader: View {
 
             Spacer(minLength: MHBTheme.Spacing.s2)
 
-            Button {
-                // 待接入卡片更多操作。
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("更多")
+            Color.clear
+                .frame(
+                    width: PetWorldFeedCardMetrics.moreButtonHitSize,
+                    height: PetWorldFeedCardMetrics.moreButtonHitSize
+                )
+                .allowsHitTesting(false)
         }
+    }
+}
+
+// PetWorldFeedCardMoreButton Feed 卡片更多按钮
+// 核心职责：
+// - 在卡片顶层提供稳定的更多操作命中区域
+// - 向列表层上报按钮 frame 作为自定义菜单锚点
+private struct PetWorldFeedCardMoreButton: View {
+    let cardID: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Image(systemName: "ellipsis")
+            .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+            .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
+            .frame(
+                width: PetWorldFeedCardMetrics.moreButtonHitSize,
+                height: PetWorldFeedCardMetrics.moreButtonHitSize,
+                alignment: .trailing
+            )
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                TapGesture().onEnded {
+                    onTap()
+                }
+            )
+        .petWorldFeedMoreButtonFrame(cardID: cardID)
+        .accessibilityLabel("更多")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            onTap()
+        }
+    }
+}
+
+// PetWorldFeedRecommendationBadge Feed 推荐解释标签
+// 核心职责：
+// - 在宠物名称后展示推荐关系短标签
+// - 使用与发帖人时间信息一致的轻量文本样式
+private struct PetWorldFeedRecommendationBadge: View {
+    let reason: PetWorldFeedRecommendationReason
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s1) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .imageScale(.small)
+
+            Text(reason.text)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .font(MHBTheme.Typography.footnote)
+        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
     }
 }
 
@@ -109,7 +192,7 @@ private struct PetWorldFeedCardMedia: View {
         .overlay {
             PetWorldFeedCardMetrics.mediaShape
                 .strokeBorder(
-                    MHBTheme.ColorToken.labelPrimary.color.opacity(0.06),
+                    MHBTheme.ColorToken.labelPrimary.color.opacity(PetWorldFeedCardMetrics.mediaInnerBorderOpacity),
                     lineWidth: PetWorldFeedCardMetrics.mediaInnerBorderWidth
                 )
         }
@@ -125,25 +208,35 @@ private struct PetWorldFeedCardActions: View {
     let likeCount: Int
     let repostCount: Int
     let commentCount: Int
+    let onToggleLike: () -> Void
+
+    @State private var isLikeFeedbackActive = false
 
     var body: some View {
         HStack(alignment: .center) {
             HStack(spacing: PetWorldFeedCardMetrics.actionItemSpacing) {
-                PetWorldFeedActionItem(
-                    systemImage: isLiked ? "heart.fill" : "heart",
-                    value: likeCount,
-                    isHighlighted: isLiked
-                )
+                Button {
+                    triggerLikeFeedback()
+                } label: {
+                    PetWorldFeedActionItem(
+                        systemImage: isLiked ? "heart.fill" : "heart",
+                        valueText: PetWorldCompactCountFormatter.string(for: likeCount),
+                        isHighlighted: isLiked
+                    )
+                    .scaleEffect(isLikeFeedbackActive ? PetWorldFeedCardMetrics.likeFeedbackScale : 1)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isLiked ? "取消点赞" : "点赞")
 
                 PetWorldFeedActionItem(
                     systemImage: "arrow.2.squarepath",
-                    value: repostCount,
+                    valueText: PetWorldCompactCountFormatter.string(for: repostCount),
                     isHighlighted: false
                 )
 
                 PetWorldFeedActionItem(
                     systemImage: "bubble.right",
-                    value: commentCount,
+                    valueText: PetWorldCompactCountFormatter.string(for: commentCount),
                     isHighlighted: false
                 )
             }
@@ -165,6 +258,22 @@ private struct PetWorldFeedCardActions: View {
         .padding(.horizontal, MHBTheme.Spacing.s2)
         .padding(.top, MHBTheme.Spacing.s1)
     }
+
+    private func triggerLikeFeedback() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.82)
+
+        withAnimation(PetWorldFeedCardMetrics.likePressAnimation) {
+            isLikeFeedbackActive = true
+            onToggleLike()
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(90))
+            withAnimation(PetWorldFeedCardMetrics.likeReleaseAnimation) {
+                isLikeFeedbackActive = false
+            }
+        }
+    }
 }
 
 // PetWorldFeedActionItem Feed 卡片互动数据项
@@ -173,7 +282,7 @@ private struct PetWorldFeedCardActions: View {
 // - 根据强调状态切换语义色
 private struct PetWorldFeedActionItem: View {
     let systemImage: String
-    let value: Int
+    let valueText: String
     let isHighlighted: Bool
 
     var body: some View {
@@ -181,7 +290,7 @@ private struct PetWorldFeedActionItem: View {
             Image(systemName: systemImage)
                 .font(.system(size: MHBTheme.IconSize.small + MHBTheme.Spacing.s1 / 2, weight: .semibold))
 
-            Text("\(value)")
+            Text(valueText)
                 .font(.system(size: 14, weight: .medium))
                 .monospacedDigit()
         }
@@ -201,11 +310,23 @@ private struct PetWorldFeedActionItem: View {
 // - 收敛参考 HTML 转译后的卡片局部尺寸
 // - 让卡片主视图保持渲染职责清晰
 private enum PetWorldFeedCardMetrics {
-    static let avatarSize: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6
+    static let avatarSize: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
+    static let contentSectionSpacing: CGFloat = (MHBTheme.Spacing.s3 + MHBTheme.Spacing.s1 / 2) / 2
     static let mediaAspectRatio: CGFloat = 1.04
     static let mediaCornerRadius: CGFloat = MHBTheme.Radius.extraExtraLarge + MHBTheme.Spacing.s5 - MHBTheme.Spacing.s1 / 2
-    static let mediaInnerBorderWidth: CGFloat = MHBTheme.Spacing.s3 / 2
+    static let mediaInnerBorderWidth: CGFloat = MHBTheme.Spacing.s1
+    static let mediaInnerBorderOpacity = 0.14
+    static let mediaTextLeadingInset: CGFloat = mediaCornerRadius
     static let actionItemSpacing: CGFloat = MHBTheme.Spacing.s6 - MHBTheme.Spacing.s1 / 2
+    static let moreButtonHitSize: CGFloat = 44
+    static let moreButtonTopPadding: CGFloat = (avatarSize - moreButtonHitSize) / 2
+    static let likeFeedbackScale: CGFloat = 1.18
+    static let likePressAnimation = Animation.smooth(duration: 0.08, extraBounce: 0)
+    static let likeReleaseAnimation = Animation.interactiveSpring(
+        response: 0.28,
+        dampingFraction: 0.56,
+        blendDuration: 0.08
+    )
 
     static var mediaShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: mediaCornerRadius, style: .continuous)

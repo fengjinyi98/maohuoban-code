@@ -1,6 +1,5 @@
 import SwiftUI
 import MaohuobanDesignSystem
-import UIKit
 
 // PetWorldRootScreen 宠物世界 Tab 根视图
 // 核心职责：
@@ -8,41 +7,94 @@ import UIKit
 // - 在系统导航栏位置承载频道 tab 和搜索入口
 struct PetWorldRootScreen: View {
     @State private var selectedTab = PetWorldNavigationTab.recommended
-    @State private var windowSafeAreaInsets: UIEdgeInsets = .zero
+    @State private var lastFeedScrollOffset: CGFloat = 0
+    @State private var isNavigationHeaderHidden = false
+    @State private var feedInteractionStore = PetWorldFeedInteractionStore(cards: PetWorldMockFeed.cards)
 
     var body: some View {
-        GeometryReader { geometry in
-            let topSafeArea = max(geometry.safeAreaInsets.top, windowSafeAreaInsets.top)
+        ZStack(alignment: .top) {
+            MHBTheme.ColorToken.background.color
+                .ignoresSafeArea()
 
-            ZStack(alignment: .top) {
-                MHBTheme.ColorToken.background.color
-                    .ignoresSafeArea()
+            PetWorldFeedList(
+                cards: PetWorldMockFeed.cards,
+                interactionStore: feedInteractionStore,
+                topContentInset: PetWorldRootLayout.contentTopInset,
+                onMoreAction: handleFeedMoreAction(cardID:action:),
+                onScrollOffsetChange: handleFeedScrollOffset(_:),
+                onScrollPhaseChange: handleFeedScrollPhase(_:)
+            )
+                .accessibilityIdentifier("petWorld.root")
 
-                PetWorldFeedList(
-                    cards: PetWorldMockFeed.cards,
-                    topContentInset: PetWorldRootLayout.contentTopInset(safeAreaTop: topSafeArea)
+            PetWorldNavigationHeader(selection: $selectedTab)
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.top, MHBTheme.Spacing.s1)
+                .offset(
+                    y: isNavigationHeaderHidden
+                        ? -PetWorldRootLayout.navigationHiddenOffset
+                        : 0
                 )
-                    .accessibilityIdentifier("petWorld.root")
-
-                PetWorldNavigationHeader(selection: $selectedTab)
-                    .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .padding(.top, topSafeArea + MHBTheme.Spacing.s1)
-            }
-            .ignoresSafeArea(edges: .top)
-            .background {
-                MHBWindowSafeAreaReader { insets in
-                    guard !windowSafeAreaInsets.mhb_isApproximatelyEqual(to: insets) else {
-                        return
-                    }
-                    windowSafeAreaInsets = insets
-                }
-                .frame(width: 1, height: 1)
-                .allowsHitTesting(false)
-            }
+                .opacity(isNavigationHeaderHidden ? 0 : 1)
+                .allowsHitTesting(!isNavigationHeaderHidden)
+                .animation(
+                    PetWorldRootLayout.navigationVisibilityAnimation(isHidden: isNavigationHeaderHidden),
+                    value: isNavigationHeaderHidden
+                )
+                .zIndex(1)
         }
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func handleFeedScrollOffset(_ offset: CGFloat) {
+        let delta = offset - lastFeedScrollOffset
+        lastFeedScrollOffset = offset
+
+        guard abs(delta) >= PetWorldRootLayout.scrollDirectionThreshold else {
+            return
+        }
+
+        if offset <= PetWorldRootLayout.scrollTopRevealOffset {
+            setNavigationHeaderHidden(false)
+            return
+        }
+
+        if delta > 0, offset > PetWorldRootLayout.scrollHideStartOffset {
+            setNavigationHeaderHidden(true)
+        } else if delta < 0 {
+            setNavigationHeaderHidden(false)
+        }
+    }
+
+    private func handleFeedScrollPhase(_ phase: ScrollPhase) {
+        guard phase == .idle else {
+            return
+        }
+
+        setNavigationHeaderHidden(false)
+    }
+
+    private func setNavigationHeaderHidden(_ isHidden: Bool) {
+        guard isNavigationHeaderHidden != isHidden else {
+            return
+        }
+
+        withAnimation(PetWorldRootLayout.navigationVisibilityAnimation(isHidden: isHidden)) {
+            isNavigationHeaderHidden = isHidden
+        }
+    }
+
+    private func handleFeedMoreAction(
+        cardID: String,
+        action: PetWorldFeedMoreAction
+    ) {
+        switch action {
+        case .dislike:
+            break
+        case .report:
+            break
+        }
     }
 }
 
@@ -53,8 +105,23 @@ struct PetWorldRootScreen: View {
 private enum PetWorldRootLayout {
     static let navigationControlHeight: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s4
     static let navigationBottomGap: CGFloat = MHBTheme.Spacing.s4
+    static let scrollDirectionThreshold: CGFloat = MHBTheme.Spacing.s1
+    static let scrollHideStartOffset: CGFloat = MHBTheme.Spacing.s8
+    static let scrollTopRevealOffset: CGFloat = MHBTheme.Spacing.s2
+    static let navigationHideAnimation = Animation.smooth(duration: 0.24, extraBounce: 0)
+    static let navigationRevealAnimation = Animation.interactiveSpring(
+        response: 0.34,
+        dampingFraction: 0.64,
+        blendDuration: 0.12
+    )
+    static let contentTopInset = MHBTheme.Spacing.s1 + navigationControlHeight + navigationBottomGap
+    static let navigationHiddenOffset = MHBTheme.Spacing.s1 + navigationControlHeight + navigationBottomGap
 
-    static func contentTopInset(safeAreaTop: CGFloat) -> CGFloat {
-        safeAreaTop + MHBTheme.Spacing.s1 + navigationControlHeight + navigationBottomGap
+    // navigationVisibilityAnimation 顶部导航显隐动画
+    // 核心职责：
+    // - 为隐藏动作提供干净收起动画
+    // - 为出现动作提供克制的弹性回位动画
+    static func navigationVisibilityAnimation(isHidden: Bool) -> Animation {
+        isHidden ? navigationHideAnimation : navigationRevealAnimation
     }
 }
