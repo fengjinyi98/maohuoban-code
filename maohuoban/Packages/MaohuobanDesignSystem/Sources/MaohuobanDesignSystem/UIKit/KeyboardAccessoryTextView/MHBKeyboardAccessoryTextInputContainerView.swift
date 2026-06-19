@@ -221,7 +221,7 @@ final class MHBKeyboardAccessoryTextInputContainerView: UIView, UITextViewDelega
     }
 
     private func configureTextInput() {
-        textContainer.backgroundColor = UIColor.secondarySystemBackground.withAlphaComponent(0.24)
+        textContainer.backgroundColor = MHBTheme.ColorToken.separator.uiColor
         textContainer.layer.cornerRadius = 14
         textContainer.clipsToBounds = true
         textView.backgroundColor = .clear

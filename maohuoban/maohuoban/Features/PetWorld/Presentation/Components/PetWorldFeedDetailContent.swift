@@ -6,8 +6,10 @@ import MaohuobanDesignSystem
 // - 组合作者信息、正文话题、推荐解释和评论树
 // - 保持详情内容流与底部互动操作栏职责分离
 struct PetWorldFeedDetailContent: View {
+    let galleryID: String
     let detail: PetWorldFeedDetailItem
     let comments: [PetWorldFeedComment]
+    let topPadding: CGFloat
     var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
     let onCommentReply: (PetWorldFeedComment) -> Void
     let onCommentToggleLike: (PetWorldFeedComment) -> Void
@@ -15,21 +17,35 @@ struct PetWorldFeedDetailContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
-            PetWorldFeedDetailAuthorSection(
-                petName: detail.petName,
-                petAvatarAssetName: detail.petAvatarAssetName,
-                authorName: detail.authorName,
-                publishedAt: detail.publishedAt,
-                showsFollowButton: !detail.isOwnedByCurrentUser,
-                onOffsetChange: onAuthorOffsetChange
-            )
-
-            PetWorldFeedDetailCaption(
-                title: detail.title,
-                bodyText: detail.bodyText,
-                topics: detail.topics,
-                recommendationExplanation: detail.recommendationExplanation
-            )
+            switch detail.displayMode {
+            case .gallery:
+                PetWorldFeedDetailGalleryArticle(
+                    petName: detail.petName,
+                    petAvatarAssetName: detail.petAvatarAssetName,
+                    authorName: detail.authorName,
+                    publishedAt: detail.publishedAt,
+                    showsFollowButton: !detail.isOwnedByCurrentUser,
+                    title: detail.title,
+                    bodyText: detail.bodyText,
+                    topics: detail.topics,
+                    recommendationExplanation: detail.recommendationExplanation,
+                    onAuthorOffsetChange: onAuthorOffsetChange
+                )
+            case .interleaved:
+                PetWorldFeedDetailInterleavedArticle(
+                    galleryID: galleryID,
+                    petName: detail.petName,
+                    petAvatarAssetName: detail.petAvatarAssetName,
+                    authorName: detail.authorName,
+                    publishedAt: detail.publishedAt,
+                    showsFollowButton: !detail.isOwnedByCurrentUser,
+                    title: detail.title,
+                    contentBlocks: detail.contentBlocks,
+                    topics: detail.topics,
+                    recommendationExplanation: detail.recommendationExplanation,
+                    onAuthorOffsetChange: onAuthorOffsetChange
+                )
+            }
 
             PetWorldFeedDetailCommentsSection(
                 comments: comments,
@@ -39,8 +55,45 @@ struct PetWorldFeedDetailContent: View {
             )
         }
         .padding(.horizontal, MHBTheme.Spacing.s5)
-        .padding(.top, MHBTheme.Spacing.s6)
+        .padding(.top, topPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// PetWorldFeedDetailGalleryArticle 画廊详情正文
+// 核心职责：
+// - 保持当前画廊详情页作者、标题、正文、话题和推荐解释布局
+// - 继续作为导航作者显隐逻辑的观测入口
+private struct PetWorldFeedDetailGalleryArticle: View {
+    let petName: String
+    let petAvatarAssetName: String
+    let authorName: String
+    let publishedAt: Date
+    let showsFollowButton: Bool
+    let title: String
+    let bodyText: String
+    let topics: [String]
+    let recommendationExplanation: String
+    let onAuthorOffsetChange: (CGFloat) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
+            PetWorldFeedDetailAuthorSection(
+                petName: petName,
+                petAvatarAssetName: petAvatarAssetName,
+                authorName: authorName,
+                publishedAt: publishedAt,
+                showsFollowButton: showsFollowButton,
+                onOffsetChange: onAuthorOffsetChange
+            )
+
+            PetWorldFeedDetailCaption(
+                title: title,
+                bodyText: bodyText,
+                topics: topics,
+                recommendationExplanation: recommendationExplanation
+            )
+        }
     }
 }
 
@@ -48,7 +101,7 @@ struct PetWorldFeedDetailContent: View {
 // 核心职责：
 // - 展示宠物头像、宠物名称、作者和发布时间
 // - 根据帖子所有权控制关注入口展示
-private struct PetWorldFeedDetailAuthorSection: View {
+struct PetWorldFeedDetailAuthorSection: View {
     let petName: String
     let petAvatarAssetName: String
     let authorName: String
@@ -157,7 +210,7 @@ private struct PetWorldFeedDetailCaption: View {
 // 核心职责：
 // - 展示帖子正文下方的话题标签
 // - 保持话题可横向浏览并避免挤压正文
-private struct PetWorldFeedDetailTopics: View {
+struct PetWorldFeedDetailTopics: View {
     let topics: [String]
 
     var body: some View {
@@ -192,7 +245,7 @@ private struct PetWorldFeedDetailTopicChip: View {
 // 核心职责：
 // - 展示推荐关系的详情页解释文本
 // - 复用 Feed 卡片推荐原因的信息密度和颜色层级
-private struct PetWorldFeedDetailRecommendationExplanation: View {
+struct PetWorldFeedDetailRecommendationExplanation: View {
     let text: String
 
     var body: some View {

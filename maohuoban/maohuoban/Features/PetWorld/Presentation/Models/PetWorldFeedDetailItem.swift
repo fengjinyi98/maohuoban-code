@@ -6,12 +6,14 @@ import Foundation
 // - 隔离详情页 mock 数据与列表卡片展示模型
 struct PetWorldFeedDetailItem: Identifiable, Equatable {
     let postID: String
+    let displayMode: PetWorldFeedDetailDisplayMode
     let petName: String
     let petAvatarAssetName: String
     let authorName: String
     let publishedAt: Date
     let title: String
     let bodyText: String
+    let contentBlocks: [PetWorldFeedDetailContentBlock]
     let topics: [String]
     let recommendationExplanation: String
     let mediaItems: [PetWorldFeedDetailMedia]

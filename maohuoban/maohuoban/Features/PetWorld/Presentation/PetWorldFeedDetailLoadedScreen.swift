@@ -43,15 +43,21 @@ struct PetWorldFeedDetailLoadedScreen: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
-                        PetWorldFeedDetailHeroCarousel(
-                            galleryID: imagePreviewGalleryID,
-                            mediaItems: detail.mediaItems,
-                            selectedIndex: $selectedMediaIndex
-                        )
+                        if detail.displayMode == .gallery {
+                            PetWorldFeedDetailHeroCarousel(
+                                galleryID: imagePreviewGalleryID,
+                                mediaItems: detail.mediaItems,
+                                selectedIndex: $selectedMediaIndex
+                            )
+                        }
 
                         PetWorldFeedDetailContent(
+                            galleryID: imagePreviewGalleryID,
                             detail: detail,
                             comments: comments,
+                            topPadding: detailContentTopPadding(
+                                topSafeArea: geometry.safeAreaInsets.top
+                            ),
                             onAuthorOffsetChange: updateNavigationAuthorOffset(_:),
                             onCommentReply: presentReplyComposer(for:),
                             onCommentToggleLike: handleCommentLike(_:),
@@ -206,6 +212,15 @@ struct PetWorldFeedDetailLoadedScreen: View {
                 PetWorldFeedDetailLayout.commentComposerTextMaxLines +
                 PetWorldFeedDetailLayout.commentComposerTextVerticalPadding * 2
         )
+    }
+
+    private func detailContentTopPadding(topSafeArea: CGFloat) -> CGFloat {
+        switch detail.displayMode {
+        case .gallery:
+            return MHBTheme.Spacing.s6
+        case .interleaved:
+            return topSafeArea + PetWorldFeedDetailLayout.interleavedTopContentOffset
+        }
     }
 
     private func handleShare() {

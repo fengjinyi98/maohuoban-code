@@ -27,6 +27,32 @@ enum PetWorldMockFeedDetail {
                 card: card,
                 mediaAssetNames: ["HomePetAlbum1", "HomePetAlbum3", "HomePetAlbum4"],
                 bodyText: "布丁今天把阳台最舒服的位置占住了。晒到一半还会换个姿势继续睡，像给自己安排了一套完整的午睡流程。",
+                displayMode: .interleaved,
+                contentBlocks: [
+                    .image(
+                        id: "sunny-album-cover",
+                        media: mediaItem(postID: card.postID, assetName: "HomePetAlbum1"),
+                        caption: "阳台上最舒服的位置已经被布丁占领。"
+                    ),
+                    .paragraph(
+                        id: "sunny-album-paragraph-1",
+                        text: "布丁今天把阳台最舒服的位置占住了。晒到一半还会换个姿势继续睡，眼睛半睁半闭地确认我们没有挪动它的小毯子。"
+                    ),
+                    .image(
+                        id: "sunny-album-nap-1",
+                        media: mediaItem(postID: card.postID, assetName: "HomePetAlbum3"),
+                        caption: nil
+                    ),
+                    .image(
+                        id: "sunny-album-nap-2",
+                        media: mediaItem(postID: card.postID, assetName: "HomePetAlbum4"),
+                        caption: "翻身继续睡，午后光线刚好。"
+                    ),
+                    .paragraph(
+                        id: "sunny-album-paragraph-2",
+                        text: "阳光从窗边慢慢移到地毯上，它也跟着一点点挪过去，像给自己安排了一套完整的午睡流程。"
+                    )
+                ],
                 topics: ["猫咪晒太阳", "午睡日记"],
                 recommendationExplanation: "这条动态近期收藏和评论增长稳定，内容质量较高。",
                 isOwnedByCurrentUser: false,
@@ -59,6 +85,8 @@ enum PetWorldMockFeedDetail {
         card: PetWorldFeedItem,
         mediaAssetNames: [String],
         bodyText: String,
+        displayMode: PetWorldFeedDetailDisplayMode = .gallery,
+        contentBlocks: [PetWorldFeedDetailContentBlock]? = nil,
         topics: [String],
         recommendationExplanation: String,
         isOwnedByCurrentUser: Bool,
@@ -66,21 +94,19 @@ enum PetWorldMockFeedDetail {
     ) -> PetWorldFeedDetailItem {
         PetWorldFeedDetailItem(
             postID: card.postID,
+            displayMode: displayMode,
             petName: card.petName ?? card.authorName,
             petAvatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName,
             authorName: card.authorName,
             publishedAt: card.publishedAt,
             title: card.text,
             bodyText: bodyText,
+            contentBlocks: contentBlocks ?? [
+                .paragraph(id: "\(card.postID)-body", text: bodyText)
+            ],
             topics: topics,
             recommendationExplanation: recommendationExplanation,
-            mediaItems: mediaAssetNames.map { assetName in
-                PetWorldFeedDetailMedia(
-                    id: "\(card.postID)-\(assetName)",
-                    assetName: assetName,
-                    pixelSize: mediaPixelSize(for: assetName)
-                )
-            },
+            mediaItems: mediaAssetNames.map { mediaItem(postID: card.postID, assetName: $0) },
             isOwnedByCurrentUser: isOwnedByCurrentUser,
             isLiked: card.isLiked,
             likeCount: card.likeCount,
@@ -90,6 +116,21 @@ enum PetWorldMockFeedDetail {
                 comments,
                 postAuthorName: card.authorName
             )
+        )
+    }
+
+    // mediaItem 构造详情媒体项
+    // 核心职责：
+    // - 复用同一套媒体 ID 和像素尺寸规则
+    // - 让画廊和图文混排内容块共享图片预览输入
+    private static func mediaItem(
+        postID: String,
+        assetName: String
+    ) -> PetWorldFeedDetailMedia {
+        PetWorldFeedDetailMedia(
+            id: "\(postID)-\(assetName)",
+            assetName: assetName,
+            pixelSize: mediaPixelSize(for: assetName)
         )
     }
 

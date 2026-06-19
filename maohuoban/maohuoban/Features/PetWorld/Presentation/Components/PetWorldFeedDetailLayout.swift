@@ -12,6 +12,10 @@ enum PetWorldFeedDetailLayout {
     static let heroInnerBorderWidth: CGFloat = 4
     static let heroInnerBorderOpacity: CGFloat = 0.15
     static let heroHairlineOpacity: CGFloat = 0.08
+    static let interleavedTopContentOffset: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5 + MHBTheme.Spacing.s3
+    static let interleavedInlineImageCornerRadius: CGFloat = MHBTheme.Radius.large
+    static let interleavedInlineImageShadowRadius: CGFloat = 14
+    static let interleavedInlineImageShadowOpacity: CGFloat = 0.04
     static let authorAvatarSize: CGFloat = 48
     static let commentAvatarSize: CGFloat = 36
     static let inputAvatarSize: CGFloat = 32
