@@ -155,7 +155,6 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
             self?.reloadActiveInputViews()
         }
         observeKeyboardDismissal()
-        observeKeyboardFrameChanges()
     }
 
     deinit {
@@ -245,10 +244,7 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
         accessoryContainer.isPresentationActive = true
         if !starterTextView.isFirstResponder {
             starterTextView.reloadInputViews()
-            let result = starterTextView.becomeFirstResponder()
-            debugLogControllerState(reason: "starterBecomeFirstResponder result=\(result)")
-        } else {
-            debugLogControllerState(reason: "starterAlreadyFirstResponder")
+            starterTextView.becomeFirstResponder()
         }
     }
 
@@ -273,21 +269,6 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
         )
     }
 
-    private func observeKeyboardFrameChanges() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleKeyboardFrameChange(_:)),
-            name: UIResponder.keyboardWillChangeFrameNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleKeyboardFrameChange(_:)),
-            name: UIResponder.keyboardDidShowNotification,
-            object: nil
-        )
-    }
-
     @objc private func handleKeyboardWillHide(_ notification: Notification) {
         guard isPresentationRequested ||
               starterTextView.isFirstResponder
@@ -295,7 +276,6 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
             return
         }
 
-        debugLogControllerState(reason: "keyboardWillHide \(Self.keyboardDescription(from: notification))")
         isPresentationRequested = false
         accessoryContainer.isPresentationActive = false
         onPresentationChange?(false)
@@ -309,7 +289,6 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
             return
         }
 
-        debugLogControllerState(reason: "keyboardDidHide \(Self.keyboardDescription(from: notification))")
         cleanupDismissedAccessory()
     }
 
@@ -317,82 +296,6 @@ public final class MHBKeyboardAccessoryTextViewController<Header: View, Toolbar:
         accessoryContainer.isPresentationActive = false
         starterTextView.keyboardAccessoryView = nil
         starterTextView.reloadInputViews()
-    }
-
-    @objc private func handleKeyboardFrameChange(_ notification: Notification) {
-        guard isPresentationRequested ||
-              starterTextView.isFirstResponder
-        else {
-            return
-        }
-
-        debugLogControllerState(reason: "\(notification.name.rawValue) \(Self.keyboardDescription(from: notification))")
-        debugLogKeyboardGeometry(
-            reason: notification.name.rawValue,
-            keyboardEndFrame: Self.keyboardEndFrame(from: notification)
-        )
-    }
-
-    private func debugLogControllerState(reason: String) {
-        print(
-            "[DEBUG:KeyboardAccessoryText] controller reason=\(reason) requested=\(isPresentationRequested) " +
-            "starterFR=\(starterTextView.isFirstResponder) textFR=\(accessoryContainer.isTextInputFirstResponder) " +
-            "hostWindow=\(view.window != nil) starterAccessory=\(starterTextView.keyboardAccessoryView === accessoryContainer) " +
-            "container=\(accessoryContainer.debugSummary)"
-        )
-    }
-
-    private func debugLogKeyboardGeometry(reason: String, keyboardEndFrame: CGRect?) {
-        print(
-            "[DEBUG:KeyboardAccessoryText] geometry reason=\(reason) " +
-            "keyboardEnd=\(keyboardEndFrame.debugFrameString) " +
-            "delta=\(Self.debugDelta(accessoryFrame: accessoryContainer.debugGlobalFrame, keyboardEndFrame: keyboardEndFrame)) " +
-            "accessory=\(accessoryContainer.debugSummary)"
-        )
-        print("[DEBUG:KeyboardAccessoryText] superchain reason=\(reason) \(accessoryContainer.debugSuperviewChain)")
-        print("[DEBUG:KeyboardAccessoryText] sceneWindows reason=\(reason) \(Self.debugSceneWindows(accessoryWindow: accessoryContainer.window))")
-        print("[DEBUG:KeyboardAccessoryText] windowTree reason=\(reason) \(accessoryContainer.debugKeyboardWindowTree)")
-    }
-
-    private static func keyboardDescription(from notification: Notification) -> String {
-        let beginFrame = (notification.userInfo?[UIResponder.keyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue
-        let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
-        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
-        return "begin=\(beginFrame.debugFrameString) end=\(endFrame.debugFrameString) duration=\(duration.debugDurationString)"
-    }
-
-    private static func keyboardEndFrame(from notification: Notification) -> CGRect? {
-        (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
-    }
-
-    private static func debugDelta(accessoryFrame: CGRect?, keyboardEndFrame: CGRect?) -> String {
-        guard let accessoryFrame,
-              let keyboardEndFrame
-        else {
-            return "nil"
-        }
-
-        return "accessoryY-keyboardY=\((accessoryFrame.minY - keyboardEndFrame.minY).debugCGFloatString) " +
-        "accessoryBottom-keyboardY=\((accessoryFrame.maxY - keyboardEndFrame.minY).debugCGFloatString)"
-    }
-
-    private static func debugSceneWindows(accessoryWindow: UIWindow?) -> String {
-        var windows = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-        if let accessoryWindow,
-           !windows.contains(where: { $0 === accessoryWindow }) {
-            windows.append(accessoryWindow)
-        }
-
-        return windows.enumerated().map { index, window in
-            let key = window.isKeyWindow ? "key" : "notKey"
-            let marker = window === accessoryWindow ? "accessoryWindow" : "sceneWindow"
-            return "#\(index):\(String(describing: type(of: window))) \(marker) \(key) " +
-            "level=\(window.windowLevel.rawValue.debugCGFloatString) frame=\(window.frame.debugFrameString) " +
-            "safe=\(window.safeAreaInsets.debugInsetsString) hidden=\(window.isHidden)"
-        }
-        .joined(separator: " | ")
     }
 
     public func textViewDidChange(_ textView: UITextView) {
@@ -436,7 +339,6 @@ private final class MHBKeyboardAccessoryTextInputContainerView: UIView, UITextVi
     private var minTextHeight: CGFloat = 44
     private var maxTextHeight: CGFloat = 120
     private var isApplyingText = false
-    private var lastDebugLayoutSignature = ""
 
     override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: measuredHeight)
@@ -728,13 +630,11 @@ private final class MHBKeyboardAccessoryTextInputContainerView: UIView, UITextVi
         let contentHeight = textView.sizeThatFits(fittingSize).height
         let nextHeight = ceil(min(max(contentHeight, minTextHeight), maxTextHeight))
         guard abs((textHeightConstraint?.constant ?? 0) - nextHeight) > 0.5 else {
-            debugLogLayout(reason: "textHeightStable contentHeight=\(contentHeight.debugCGFloatString)")
             return
         }
 
         textHeightConstraint?.constant = nextHeight
         textView.isScrollEnabled = contentHeight > maxTextHeight
-        debugLogLayout(reason: "textHeightChange contentHeight=\(contentHeight.debugCGFloatString) next=\(nextHeight.debugCGFloatString)")
         onHeightChange?()
     }
 
@@ -748,135 +648,13 @@ private final class MHBKeyboardAccessoryTextInputContainerView: UIView, UITextVi
         )
         let nextHeight = ceil(max(1, measuredSize.height + Self.topInset + Self.bottomInset))
         guard abs(nextHeight - measuredHeight) > 0.5 else {
-            debugLogLayout(
-                reason: "measuredStable stackFit=\(measuredSize.debugSizeString) next=\(nextHeight.debugCGFloatString)"
-            )
             return
         }
 
         measuredHeight = nextHeight
         frame.size.height = nextHeight
         invalidateIntrinsicContentSize()
-        debugLogLayout(
-            reason: "measuredChange stackFit=\(measuredSize.debugSizeString) next=\(nextHeight.debugCGFloatString)"
-        )
         onHeightChange?()
-    }
-
-    fileprivate var debugSummary: String {
-        "frame=\(frame.debugFrameString) bounds=\(bounds.debugFrameString) measured=\(measuredHeight.debugCGFloatString) " +
-        "global=\(debugGlobalFrame.debugFrameString) window=\(window != nil) super=\(String(describing: superview.map { type(of: $0) }))"
-    }
-
-    private func debugLogLayout(reason: String) {
-        guard isPresentationActive else {
-            return
-        }
-
-        let signature = [
-            reason,
-            frame.debugFrameString,
-            bounds.debugFrameString,
-            stackView.frame.debugFrameString,
-            textContainer.frame.debugFrameString,
-            textView.frame.debugFrameString,
-            toolbarContentView?.frame.debugFrameString ?? "toolbar=nil",
-            measuredHeight.debugCGFloatString,
-            "\(textView.isFirstResponder)"
-        ].joined(separator: "|")
-        guard signature != lastDebugLayoutSignature else {
-            return
-        }
-
-        lastDebugLayoutSignature = signature
-        print(
-            "[DEBUG:KeyboardAccessoryText] layout reason=\(reason) measured=\(measuredHeight.debugCGFloatString) " +
-            "intrinsic=\(intrinsicContentSize.debugSizeString) container=\(frame.debugFrameString) bounds=\(bounds.debugFrameString) " +
-            "global=\(debugGlobalFrame.debugFrameString) " +
-            "stack=\(stackView.frame.debugFrameString) textContainer=\(textContainer.frame.debugFrameString) " +
-            "textView=\(textView.frame.debugFrameString) textContent=\(textView.contentSize.debugSizeString) " +
-            "textInset=t:\(textView.textContainerInset.top.debugCGFloatString),b:\(textView.textContainerInset.bottom.debugCGFloatString) " +
-            "header=\(headerContentView?.frame.debugFrameString ?? "nil") toolbar=\(toolbarContentView?.frame.debugFrameString ?? "nil") " +
-            "textFR=\(textView.isFirstResponder) textAccessory=\(String(describing: textView.inputAccessoryView.map { type(of: $0) })) " +
-            "window=\(window != nil) super=\(String(describing: superview.map { type(of: $0) }))"
-        )
-    }
-
-    fileprivate var debugGlobalFrame: CGRect? {
-        guard window != nil else {
-            return nil
-        }
-
-        return convert(bounds, to: nil)
-    }
-
-    fileprivate var debugSuperviewChain: String {
-        var parts: [String] = []
-        var current: UIView? = self
-        var depth = 0
-        while let view = current,
-              depth < 12 {
-            let globalFrame = view.window == nil ? nil : view.convert(view.bounds, to: nil)
-            parts.append(
-                "#\(depth):\(String(describing: type(of: view))) " +
-                "frame=\(view.frame.debugFrameString) bounds=\(view.bounds.debugFrameString) " +
-                "global=\(globalFrame.debugFrameString) safe=\(view.safeAreaInsets.debugInsetsString)"
-            )
-            current = view.superview
-            depth += 1
-        }
-
-        return parts.joined(separator: " -> ")
-    }
-
-    fileprivate var debugKeyboardWindowTree: String {
-        guard let window else {
-            return "window=nil"
-        }
-
-        var parts: [String] = [
-            "window=\(String(describing: type(of: window))) frame=\(window.frame.debugFrameString) " +
-            "bounds=\(window.bounds.debugFrameString) safe=\(window.safeAreaInsets.debugInsetsString)"
-        ]
-        parts.append(contentsOf: Self.debugRelevantDescendants(in: window))
-        return parts.joined(separator: " | ")
-    }
-
-    private static func debugRelevantDescendants(in root: UIView) -> [String] {
-        var results: [String] = []
-        var queue: [(view: UIView, depth: Int)] = [(root, 0)]
-        let keywords = [
-            "Keyboard",
-            "Input",
-            "Remote",
-            "Placeholder",
-            "Item",
-            "Host",
-            "Backdrop",
-            "Compatibility"
-        ]
-
-        while !queue.isEmpty,
-              results.count < 80 {
-            let item = queue.removeFirst()
-            let view = item.view
-            let className = String(describing: type(of: view))
-            let isRelevant = keywords.contains { className.localizedCaseInsensitiveContains($0) } || view === root
-            if isRelevant {
-                let globalFrame = view.window == nil ? nil : view.convert(view.bounds, to: nil)
-                results.append(
-                    "d\(item.depth):\(className) frame=\(view.frame.debugFrameString) " +
-                    "bounds=\(view.bounds.debugFrameString) global=\(globalFrame.debugFrameString) " +
-                    "safe=\(view.safeAreaInsets.debugInsetsString) hidden=\(view.isHidden) alpha=\(view.alpha.debugCGFloatString)"
-                )
-            }
-
-            if item.depth < 8 {
-                queue.append(contentsOf: view.subviews.map { ($0, item.depth + 1) })
-            }
-        }
-
-        return results
     }
 
     private var measurementWidth: CGFloat {
@@ -935,45 +713,5 @@ private final class MHBKeyboardAccessoryVisibleTextView: UITextView, MHBKeyboard
         set {
             // 可见输入框位于父级 accessory 内部，忽略 UIKit 对同一 accessory 的回写。
         }
-    }
-}
-
-private extension CGRect {
-    var debugFrameString: String {
-        "x=\(origin.x.debugCGFloatString) y=\(origin.y.debugCGFloatString) w=\(size.width.debugCGFloatString) h=\(size.height.debugCGFloatString)"
-    }
-}
-
-private extension CGRect? {
-    var debugFrameString: String {
-        self?.debugFrameString ?? "nil"
-    }
-}
-
-private extension CGSize {
-    var debugSizeString: String {
-        "w=\(width.debugCGFloatString) h=\(height.debugCGFloatString)"
-    }
-}
-
-private extension CGFloat {
-    var debugCGFloatString: String {
-        String(format: "%.1f", self)
-    }
-}
-
-private extension UIEdgeInsets {
-    var debugInsetsString: String {
-        "t:\(top.debugCGFloatString),l:\(left.debugCGFloatString),b:\(bottom.debugCGFloatString),r:\(right.debugCGFloatString)"
-    }
-}
-
-private extension Double? {
-    var debugDurationString: String {
-        guard let self else {
-            return "nil"
-        }
-
-        return String(format: "%.3f", self)
     }
 }

@@ -181,23 +181,6 @@ private struct PetWorldFeedDetailLoadedScreen: View {
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { notification in
-            debugLogCommentBottomBar(
-                reason: "keyboardWillHide \(Self.keyboardDebugDescription(from: notification))"
-            )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
-            debugLogCommentBottomBar(reason: "keyboardDidHide beforeRestore")
-            guard !isCommentComposerPresented else {
-                return
-            }
-            debugLogCommentBottomBar(reason: "keyboardDidHide afterRestore")
-        }
-        .onChange(of: isCommentComposerPresented) { oldValue, newValue in
-            debugLogCommentBottomBar(
-                reason: "composerPresentedChanged old=\(oldValue) new=\(newValue)"
-            )
-        }
         .mhbImagePreviewHost()
         .task(id: detail.postID) {
             interactionStore.prepareCommentsIfNeeded(
@@ -261,21 +244,17 @@ private struct PetWorldFeedDetailLoadedScreen: View {
         replyTargetCommentID = nil
         replyTargetName = nil
         isCommentComposerPresented = true
-        debugLogCommentBottomBar(reason: "presentCommentComposer")
     }
 
     private func presentReplyComposer(for comment: PetWorldFeedComment) {
         replyTargetCommentID = comment.id
         replyTargetName = comment.authorName
         isCommentComposerPresented = true
-        debugLogCommentBottomBar(reason: "presentReplyComposer commentID=\(comment.id)")
     }
 
     private func dismissCommentComposerFromShield() {
-        debugLogCommentBottomBar(reason: "dismissCommentComposerFromShield before")
         isCommentComposerPresented = false
         handleCommentComposerDismiss()
-        debugLogCommentBottomBar(reason: "dismissCommentComposerFromShield after")
     }
 
     private func handleCommentSend() {
@@ -310,7 +289,6 @@ private struct PetWorldFeedDetailLoadedScreen: View {
     }
 
     private func handleCommentComposerDismiss() {
-        debugLogCommentBottomBar(reason: "handleCommentComposerDismiss")
         if draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             replyTargetCommentID = nil
             replyTargetName = nil
@@ -428,32 +406,6 @@ private struct PetWorldFeedDetailLoadedScreen: View {
             isNavigationAuthorVisible = nextPrimaryVisible
             isNavigationAuthorSubtitleVisible = nextSubtitleVisible
         }
-    }
-
-    private func debugLogCommentBottomBar(reason: String) {
-        print(
-            "[DEBUG:KeyboardAccessoryText] detailBottomBar reason=\(reason) " +
-            "composerPresented=\(isCommentComposerPresented) " +
-            "draftEmpty=\(draftComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)"
-        )
-    }
-
-    private static func keyboardDebugDescription(from notification: Notification) -> String {
-        let beginFrame = (notification.userInfo?[UIResponder.keyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue
-        let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
-        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
-        return "begin=\(beginFrame?.debugKeyboardFrameString ?? "nil") " +
-        "end=\(endFrame?.debugKeyboardFrameString ?? "nil") " +
-        "duration=\(duration.map { String(format: "%.3f", $0) } ?? "nil")"
-    }
-}
-
-private extension CGRect {
-    var debugKeyboardFrameString: String {
-        "x=\(String(format: "%.1f", origin.x)) " +
-        "y=\(String(format: "%.1f", origin.y)) " +
-        "w=\(String(format: "%.1f", size.width)) " +
-        "h=\(String(format: "%.1f", size.height))"
     }
 }
 
