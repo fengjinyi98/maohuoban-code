@@ -7,7 +7,7 @@ import Foundation
 enum PetWorldMockFeed {
     static let cards: [PetWorldFeedItem] = [
         makeCard(
-            id: "beach-walk",
+            postID: "beach-walk",
             petName: "奶油",
             petAvatarAssetName: "HomePetHeroMock",
             recommendationReason: .lightRelationship("同品种布偶"),
@@ -22,7 +22,7 @@ enum PetWorldMockFeed {
             commentCount: 5
         ),
         makeCard(
-            id: "sunny-album",
+            postID: "sunny-album",
             petName: "布丁",
             petAvatarAssetName: "HomePetAlbum1",
             recommendationReason: .qualityContent("近期高互动"),
@@ -37,7 +37,7 @@ enum PetWorldMockFeed {
             commentCount: 6
         ),
         makeCard(
-            id: "park-training",
+            postID: "park-training",
             petName: "豆包",
             petAvatarAssetName: "HomeGalleryAlbum2",
             recommendationReason: .lightRelationship("性格相似"),
@@ -58,7 +58,7 @@ enum PetWorldMockFeed {
     // - 在 mock 数据边界解析后端 UTC 时间字符串
     // - 向 SwiftUI 卡片提供已解析的发布时间
     private static func makeCard(
-        id: String,
+        postID: String,
         petName: String?,
         petAvatarAssetName: String?,
         recommendationReason: PetWorldFeedRecommendationReason,
@@ -77,7 +77,7 @@ enum PetWorldMockFeed {
         }
 
         return PetWorldFeedItem(
-            id: id,
+            postID: postID,
             petName: petName,
             petAvatarAssetName: petAvatarAssetName,
             recommendationReason: recommendationReason,

@@ -28,12 +28,12 @@ extension View {
     // 核心职责：
     // - 在不改变按钮布局的前提下写入 frame 偏好
     // - 让列表层统一承载弹出菜单展示
-    func petWorldFeedMoreButtonFrame(cardID: String) -> some View {
+    func petWorldFeedMoreButtonFrame(postID: String) -> some View {
         background {
             GeometryReader { proxy in
                 Color.clear.preference(
                     key: PetWorldFeedMoreButtonFramePreferenceKey.self,
-                    value: [cardID: proxy.frame(in: .named(PetWorldFeedCoordinateSpace.name))]
+                    value: [postID: proxy.frame(in: .named(PetWorldFeedCoordinateSpace.name))]
                 )
             }
         }

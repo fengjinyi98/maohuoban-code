@@ -5,7 +5,7 @@ import Foundation
 // - 描述宠物世界信息流卡片渲染所需的最小字段
 // - 为快速 UI 阶段的 mock 数据提供稳定身份
 struct PetWorldFeedItem: Identifiable, Equatable {
-    let id: String
+    let postID: String
     let petName: String?
     let petAvatarAssetName: String?
     let recommendationReason: PetWorldFeedRecommendationReason
@@ -18,4 +18,8 @@ struct PetWorldFeedItem: Identifiable, Equatable {
     let likeCount: Int
     let repostCount: Int
     let commentCount: Int
+
+    var id: String {
+        postID
+    }
 }

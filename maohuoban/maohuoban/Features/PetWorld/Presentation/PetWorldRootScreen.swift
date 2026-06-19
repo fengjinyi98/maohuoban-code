@@ -20,7 +20,7 @@ struct PetWorldRootScreen: View {
                 cards: PetWorldMockFeed.cards,
                 interactionStore: feedInteractionStore,
                 topContentInset: PetWorldRootLayout.contentTopInset,
-                onMoreAction: handleFeedMoreAction(cardID:action:),
+                onMoreAction: handleFeedMoreAction(postID:action:),
                 onScrollOffsetChange: handleFeedScrollOffset(_:),
                 onScrollPhaseChange: handleFeedScrollPhase(_:)
             )
@@ -45,6 +45,15 @@ struct PetWorldRootScreen: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(for: PetWorldRoute.self) { route in
+            switch route {
+            case .feedDetail(let postID):
+                PetWorldFeedDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore
+                )
+            }
+        }
     }
 
     private func handleFeedScrollOffset(_ offset: CGFloat) {
@@ -86,7 +95,7 @@ struct PetWorldRootScreen: View {
     }
 
     private func handleFeedMoreAction(
-        cardID: String,
+        postID: String,
         action: PetWorldFeedMoreAction
     ) {
         switch action {

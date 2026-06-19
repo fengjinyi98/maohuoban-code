@@ -13,7 +13,7 @@ struct PetWorldFeedList: View {
     let onScrollOffsetChange: (CGFloat) -> Void
     let onScrollPhaseChange: (ScrollPhase) -> Void
 
-    @State private var presentedMoreMenuCardID: String?
+    @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
 
     init(
@@ -42,10 +42,10 @@ struct PetWorldFeedList: View {
                                 card: card,
                                 interactionState: interactionStore.interactionState(for: card),
                                 onToggleLike: {
-                                    interactionStore.toggleLike(cardID: card.id)
+                                    interactionStore.toggleLike(postID: card.postID)
                                 },
                                 onMoreTap: {
-                                    toggleMoreMenu(cardID: card.id)
+                                    toggleMoreMenu(postID: card.postID)
                                 }
                             )
                             .accessibilityIdentifier("petWorld.feed.card.\(card.id)")
@@ -71,13 +71,13 @@ struct PetWorldFeedList: View {
                     onScrollPhaseChange(phase)
                 }
 
-                if presentedMoreMenuCardID != nil {
+                if presentedMoreMenuPostID != nil {
                     MHBOutsideTapDismissLayer(onDismiss: dismissMoreMenu)
                         .zIndex(1)
                 }
 
                 PetWorldFeedMoreMenuOverlay(
-                    isPresented: presentedMoreMenuCardID != nil,
+                    isPresented: presentedMoreMenuPostID != nil,
                     containerSize: proxy.size,
                     buttonFrame: presentedMoreMenuButtonFrame,
                     onAction: handleMoreMenuAction
@@ -89,36 +89,36 @@ struct PetWorldFeedList: View {
     }
 
     private var presentedMoreMenuButtonFrame: CGRect {
-        guard let presentedMoreMenuCardID else {
+        guard let presentedMoreMenuPostID else {
             return .zero
         }
 
-        return moreButtonFrames[presentedMoreMenuCardID] ?? .zero
+        return moreButtonFrames[presentedMoreMenuPostID] ?? .zero
     }
 
-    private func toggleMoreMenu(cardID: String) {
+    private func toggleMoreMenu(postID: String) {
         withAnimation(.snappy(duration: 0.22)) {
-            presentedMoreMenuCardID = presentedMoreMenuCardID == cardID ? nil : cardID
+            presentedMoreMenuPostID = presentedMoreMenuPostID == postID ? nil : postID
         }
     }
 
     private func dismissMoreMenu() {
-        guard presentedMoreMenuCardID != nil else {
+        guard presentedMoreMenuPostID != nil else {
             return
         }
 
         withAnimation(.snappy(duration: 0.18)) {
-            presentedMoreMenuCardID = nil
+            presentedMoreMenuPostID = nil
         }
     }
 
     private func handleMoreMenuAction(_ action: PetWorldFeedMoreAction) {
-        guard let cardID = presentedMoreMenuCardID else {
+        guard let postID = presentedMoreMenuPostID else {
             return
         }
 
         dismissMoreMenu()
-        onMoreAction(cardID, action)
+        onMoreAction(postID, action)
     }
 
 }

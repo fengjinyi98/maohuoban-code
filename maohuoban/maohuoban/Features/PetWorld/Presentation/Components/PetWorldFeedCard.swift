@@ -14,17 +14,24 @@ struct PetWorldFeedCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: PetWorldFeedCardMetrics.contentSectionSpacing) {
-            PetWorldFeedCardHeader(
-                title: card.petName ?? card.authorName,
-                recommendationReason: card.recommendationReason,
-                authorName: card.authorName,
-                publishedAt: card.publishedAt,
-                avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
-            )
+            NavigationLink(value: PetWorldRoute.feedDetail(postID: card.postID)) {
+                VStack(alignment: .leading, spacing: PetWorldFeedCardMetrics.contentSectionSpacing) {
+                    PetWorldFeedCardHeader(
+                        title: card.petName ?? card.authorName,
+                        recommendationReason: card.recommendationReason,
+                        authorName: card.authorName,
+                        publishedAt: card.publishedAt,
+                        avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
+                    )
 
-            PetWorldFeedCardText(text: card.text)
+                    PetWorldFeedCardText(text: card.text)
 
-            PetWorldFeedCardMedia(assetName: card.mediaAssetName)
+                    PetWorldFeedCardMedia(assetName: card.mediaAssetName)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("查看动态详情")
 
             PetWorldFeedCardActions(
                 isLiked: interactionState.isLiked,
@@ -37,7 +44,7 @@ struct PetWorldFeedCard: View {
         .accessibilityElement(children: .contain)
         .overlay(alignment: .topTrailing) {
             PetWorldFeedCardMoreButton(
-                cardID: card.id,
+                postID: card.postID,
                 onTap: onMoreTap
             )
             .padding(.top, PetWorldFeedCardMetrics.moreButtonTopPadding)
@@ -122,7 +129,7 @@ private struct PetWorldFeedCardHeader: View {
 // - 在卡片顶层提供稳定的更多操作命中区域
 // - 向列表层上报按钮 frame 作为自定义菜单锚点
 private struct PetWorldFeedCardMoreButton: View {
-    let cardID: String
+    let postID: String
     let onTap: () -> Void
 
     var body: some View {
@@ -141,7 +148,7 @@ private struct PetWorldFeedCardMoreButton: View {
                     onTap()
                 }
             )
-        .petWorldFeedMoreButtonFrame(cardID: cardID)
+        .petWorldFeedMoreButtonFrame(postID: postID)
         .accessibilityLabel("更多")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction {
@@ -220,23 +227,23 @@ private struct PetWorldFeedCardActions: View {
                 } label: {
                     PetWorldFeedActionItem(
                         systemImage: isLiked ? "heart.fill" : "heart",
-                        valueText: PetWorldCompactCountFormatter.string(for: likeCount),
-                        isHighlighted: isLiked
+                        value: likeCount,
+                        isHighlighted: isLiked,
+                        iconScale: isLikeFeedbackActive ? PetWorldFeedCardMetrics.likeFeedbackScale : 1
                     )
-                    .scaleEffect(isLikeFeedbackActive ? PetWorldFeedCardMetrics.likeFeedbackScale : 1)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isLiked ? "取消点赞" : "点赞")
 
                 PetWorldFeedActionItem(
                     systemImage: "arrow.2.squarepath",
-                    valueText: PetWorldCompactCountFormatter.string(for: repostCount),
+                    value: repostCount,
                     isHighlighted: false
                 )
 
                 PetWorldFeedActionItem(
                     systemImage: "bubble.right",
-                    valueText: PetWorldCompactCountFormatter.string(for: commentCount),
+                    value: commentCount,
                     isHighlighted: false
                 )
             }
@@ -282,19 +289,22 @@ private struct PetWorldFeedCardActions: View {
 // - 根据强调状态切换语义色
 private struct PetWorldFeedActionItem: View {
     let systemImage: String
-    let valueText: String
+    let value: Int
     let isHighlighted: Bool
+    var iconScale: CGFloat = 1
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s1 + MHBTheme.Spacing.s1 / 2) {
             Image(systemName: systemImage)
                 .font(.system(size: MHBTheme.IconSize.small + MHBTheme.Spacing.s1 / 2, weight: .semibold))
+                .foregroundStyle(foregroundColor)
+                .scaleEffect(iconScale)
 
-            Text(valueText)
-                .font(.system(size: 14, weight: .medium))
-                .monospacedDigit()
+            PetWorldRollingCountText(
+                value: value,
+                textColor: foregroundUIColor
+            )
         }
-        .foregroundStyle(foregroundColor)
         .accessibilityElement(children: .combine)
     }
 
@@ -302,6 +312,12 @@ private struct PetWorldFeedActionItem: View {
         isHighlighted
             ? MHBTheme.ColorToken.danger.color
             : MHBTheme.ColorToken.labelSecondary.color
+    }
+
+    private var foregroundUIColor: UIColor {
+        isHighlighted
+            ? MHBTheme.ColorToken.danger.uiColor
+            : MHBTheme.ColorToken.labelSecondary.uiColor
     }
 }
 
