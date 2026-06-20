@@ -102,6 +102,7 @@
 6. 不使用计算属性或 `@ViewBuilder` 方法拆大型 `body`。
 7. 副作用只能在用户事件、`task`、`onAppear`、ViewModel / Store 命令式入口触发。
 8. SwiftUI 渲染路径禁止写 `UserDefaults`、磁盘、数据库、缓存、全局状态或发网络请求。
+9. 普通页面纵向滚动容器统一使用 `Infrastructure/SwiftUI/MHBScreenScrollView`，避免业务页面直接散写原生 `ScrollView`；横向分页、嵌套局部滚动、特殊沉浸式首屏和 UIKit 桥接滚动场景需说明边界后再使用专门容器。
 
 ## 7. UIKit 使用规则
 

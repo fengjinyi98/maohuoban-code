@@ -3,8 +3,11 @@ import Foundation
 // ProfileRoute 我的页导航路由
 // 核心职责：
 // - 描述我的 Tab 内部系统导航目标
-// - 为我的动态列表和动态详情提供稳定 Hashable 值
+// - 为我的动态、宠物档案、相册和话题页面提供稳定 Hashable 值
 enum ProfileRoute: Hashable {
+    case myPets
+    case createPet
+    case editPetProfile(PetProfileEditContext)
     case posts
     case feedDetail(postID: String)
     case petAlbumList

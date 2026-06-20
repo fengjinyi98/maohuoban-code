@@ -39,6 +39,7 @@ struct MHBAppShell: View {
                 ProfileRootScreen(
                     topicStore: topicStore,
                     tabState: router.tabState,
+                    currentUserID: currentUserID,
                     onLogout: onLogout
                 )
             }

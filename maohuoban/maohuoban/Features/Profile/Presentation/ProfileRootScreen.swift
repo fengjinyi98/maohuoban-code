@@ -8,16 +8,19 @@ import MaohuobanDesignSystem
 struct ProfileRootScreen: View {
     let topicStore: TopicStore
     let tabState: MHBAppTabState
+    let currentUserID: String?
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
 
     init(
         topicStore: TopicStore = TopicStore(),
         tabState: MHBAppTabState = MHBAppTabState(),
+        currentUserID: String? = nil,
         onLogout: @escaping () -> Void
     ) {
         self.topicStore = topicStore
         self.tabState = tabState
+        self.currentUserID = currentUserID
         self.onLogout = onLogout
     }
 
@@ -78,6 +81,33 @@ struct ProfileRootScreen: View {
         }
         .navigationDestination(for: ProfileRoute.self) { route in
             switch route {
+            case .myPets:
+                PetManagementScreen(
+                    pets: PetManagementPet.mockPets,
+                    onOpenPet: { pet in
+                        tabState.appendProfileRoute(
+                            .editPetProfile(
+                                PetManagementPet.editContext(
+                                    selectedPet: pet,
+                                    pets: PetManagementPet.mockPets
+                                )
+                            )
+                        )
+                    },
+                    onAddPet: {
+                        tabState.appendProfileRoute(.createPet)
+                    }
+                )
+            case .createPet:
+                PetProfileAddScreen(
+                    currentUserID: currentUserID,
+                    onCreated: { _ in }
+                )
+            case .editPetProfile(let context):
+                PetProfileEditScreen(
+                    context: context,
+                    currentUserID: currentUserID
+                )
             case .posts:
                 ProfilePostsScreen(
                     interactionStore: feedInteractionStore
@@ -126,12 +156,7 @@ struct ProfileRootScreen: View {
     }
 
     private func quickEntryRoute(for item: ProfileQuickEntryItem) -> ProfileRoute? {
-        switch item.id {
-        case "petAlbum":
-            return .petAlbumList
-        default:
-            return nil
-        }
+        ProfileQuickEntryRouteResolver.route(for: item)
     }
 
     private func openPosts() {
