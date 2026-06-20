@@ -4,22 +4,13 @@ import MaohuobanDesignSystem
 // TopicFollowedListScreen 我关注的话题列表页
 // 核心职责：
 // - 展示当前用户已关注话题和更新状态
-// - 提供手动输入创建新话题的快速 UI 入口
+// - 通过系统导航承载话题详情跳转
 struct TopicFollowedListScreen: View {
     let store: TopicStore
-    @State private var draftTopicName = ""
 
     var body: some View {
         MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                TopicCreatePanel(
-                    draftName: $draftTopicName,
-                    title: "创建新话题",
-                    prompt: "手动输入一个新话题，创建后会加入你的关注列表。",
-                    buttonTitle: "创建并关注",
-                    onSubmit: createTopic
-                )
-
                 TopicFollowedSummaryHeader(count: store.followedTopics.count)
 
                 if store.followedTopics.isEmpty {
@@ -42,17 +33,9 @@ struct TopicFollowedListScreen: View {
             .padding(.vertical, MHBTheme.Spacing.s4)
         }
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
-        .navigationTitle("我关注的话题")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("topics.followedList")
-    }
-
-    private func createTopic() {
-        guard store.createOrFollowTopic(named: draftTopicName) != nil else {
-            return
-        }
-
-        draftTopicName = ""
     }
 }
 
