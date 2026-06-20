@@ -8,6 +8,9 @@ import Observation
 @MainActor
 @Observable
 final class PublishDraftStore {
+    static let maxTitleCharacterCount = 30
+    static let maxBodyCharacterCount = 1000
+
     var draft: PublishDraft
     var phase: PublishDraftPhase = .idle
     var successMessage: String?
@@ -30,14 +33,18 @@ final class PublishDraftStore {
         hasSelectedPet && hasContentPayload
     }
 
+    var bodyCharacterCount: Int {
+        draft.bodyText.count
+    }
+
     func updateTitle(_ title: String) {
-        draft.title = String(title.prefix(30))
+        draft.title = String(title.prefix(Self.maxTitleCharacterCount))
         phase = .idle
         successMessage = nil
     }
 
     func updateBodyText(_ bodyText: String) {
-        draft.bodyText = bodyText
+        draft.bodyText = String(bodyText.prefix(Self.maxBodyCharacterCount))
         phase = .idle
         successMessage = nil
     }

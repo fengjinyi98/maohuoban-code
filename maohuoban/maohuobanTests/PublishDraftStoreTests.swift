@@ -56,4 +56,18 @@ final class PublishDraftStoreTests: XCTestCase {
         XCTAssertEqual(store.phase, .prepared)
         XCTAssertEqual(store.successMessage, "图文发布草稿已准备好")
     }
+
+    @MainActor
+    func testTitleAndBodyTextRespectComposerLimits() {
+        let store = PublishDraftStore(context: PublishEntryContext(source: .home))
+        let longTitle = String(repeating: "标题", count: 20)
+        let longBody = String(repeating: "正文", count: 600)
+
+        store.updateTitle(longTitle)
+        store.updateBodyText(longBody)
+
+        XCTAssertEqual(store.draft.title.count, PublishDraftStore.maxTitleCharacterCount)
+        XCTAssertEqual(store.draft.bodyText.count, PublishDraftStore.maxBodyCharacterCount)
+        XCTAssertEqual(store.bodyCharacterCount, PublishDraftStore.maxBodyCharacterCount)
+    }
 }

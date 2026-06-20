@@ -118,6 +118,115 @@ struct PublishVisibilitySelectionSheet: View {
     }
 }
 
+// PublishTopicEditingSheet 发布话题编辑弹层
+// 核心职责：
+// - 承载发布页话题添加和移除操作
+// - 将话题编辑保持在明确用户事件边界内
+struct PublishTopicEditingSheet: View {
+    let topicNames: [String]
+    @Binding var draftTopicName: String
+    let onAddTopic: () -> Void
+    let onRemoveTopic: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                HStack(spacing: MHBTheme.Spacing.s2) {
+                    TextField("添加话题，例如 肠胃敏感", text: $draftTopicName)
+                        .font(MHBTheme.Typography.callout)
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .textInputAutocapitalization(.never)
+                        .padding(.horizontal, MHBTheme.Spacing.s3)
+                        .frame(height: 44)
+                        .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
+                        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+
+                    Button(action: onAddTopic) {
+                        Image(systemName: "plus")
+                            .font(.system(size: MHBTheme.IconSize.small, weight: .bold))
+                            .foregroundStyle(MHBTheme.ColorToken.cardSolid.color)
+                            .frame(width: 44, height: 44)
+                            .background(canAddTopic ? MHBTheme.ColorToken.labelPrimary.color : MHBTheme.ColorToken.separator.color)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canAddTopic)
+                    .accessibilityLabel("添加话题")
+                }
+
+                if topicNames.isEmpty {
+                    Text("还没有参与话题")
+                        .font(MHBTheme.Typography.callout)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(MHBTheme.Spacing.s4)
+                        .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
+                        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+                } else {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(
+                                .adaptive(minimum: 92),
+                                spacing: MHBTheme.Spacing.s2,
+                                alignment: .leading
+                            )
+                        ],
+                        alignment: .leading,
+                        spacing: MHBTheme.Spacing.s2
+                    ) {
+                        ForEach(topicNames, id: \.self) { topicName in
+                            Button {
+                                onRemoveTopic(topicName)
+                            } label: {
+                                MHBTagView("#\(topicName)", systemImage: "xmark", style: .primary, size: .medium)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("移除话题 \(topicName)")
+                        }
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(MHBTheme.Spacing.s5)
+            .background(MHBTheme.ColorToken.background.color)
+            .navigationTitle("参与话题")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") {
+                        dismiss()
+                    }
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                }
+            }
+        }
+    }
+
+    private var canAddTopic: Bool {
+        !draftTopicName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+// PublishAlbumSelectionSheet 发布相册选择弹层
+// 核心职责：
+// - 提供图文发布选择同步相册的候选
+struct PublishAlbumSelectionSheet: View {
+    let selectedAlbumTitle: String?
+    let onSelect: (PublishSelectionOption) -> Void
+
+    var body: some View {
+        PublishSelectionSheet(
+            title: "同步存入宠物相册",
+            options: PublishMockOptions.albumOptions,
+            selectedID: selectedAlbumTitle,
+            onSelect: onSelect
+        )
+    }
+}
+
 // PublishSelectionSheet 发布候选选择弹层
 // 核心职责：
 // - 统一渲染发布配置项的本地候选列表
@@ -171,7 +280,7 @@ private struct PublishSelectionSheet: View {
 
 // PublishMockOptions 发布页本地候选数据
 // 核心职责：
-// - 为前端 UI 阶段提供宠物和同城地点候选
+// - 为前端 UI 阶段提供宠物、同城地点和相册候选
 private enum PublishMockOptions {
     static let petOptions: [PublishSelectionOption] = [
         PublishSelectionOption(
@@ -205,16 +314,37 @@ private enum PublishMockOptions {
         PublishSelectionOption(
             id: "huaxi-hospital",
             title: "华西宠物医院",
-            subtitle: "医院实体 · 就诊和复诊记录",
+            subtitle: "医院实体 · 就诊 and 复诊记录",
             systemImage: "stethoscope",
             city: "成都"
         ),
         PublishSelectionOption(
             id: "wutong-cattery",
             title: "梧桐猫舍",
-            subtitle: "认证猫舍 · 看宠和交易履约",
+            subtitle: "认证猫舍 · 看宠 and 交易履约",
             systemImage: "house.fill",
             city: "成都"
+        )
+    ]
+
+    static let albumOptions: [PublishSelectionOption] = [
+        PublishSelectionOption(
+            id: "album-daily",
+            title: "日常相册",
+            subtitle: "默认存储日常瞬间",
+            systemImage: "photo.on.rectangle"
+        ),
+        PublishSelectionOption(
+            id: "album-growth",
+            title: "成长记录",
+            subtitle: "存储身长、体重等成长点滴",
+            systemImage: "waveform.path.ecg"
+        ),
+        PublishSelectionOption(
+            id: "album-medical",
+            title: "医疗相册",
+            subtitle: "同步存储病历和诊断快照",
+            systemImage: "stethoscope"
         )
     ]
 }
