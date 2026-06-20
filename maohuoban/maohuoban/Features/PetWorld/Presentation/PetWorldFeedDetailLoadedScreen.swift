@@ -92,13 +92,12 @@ struct PetWorldFeedDetailLoadedScreen: View {
                     authorName: detail.authorName,
                     isAuthorVisible: isNavigationAuthorVisible,
                     isAuthorSubtitleVisible: isNavigationAuthorSubtitleVisible,
-                    showsDeleteAction: detail.isOwnedByCurrentUser,
+                    isOwnedByCurrentUser: detail.isOwnedByCurrentUser,
                     onBack: {
                         dismiss()
                     },
                     onShare: handleShare,
-                    onReport: handleReport,
-                    onDelete: handleDelete
+                    onReport: handleReport
                 )
                 .padding(.top, MHBTheme.Spacing.s1)
                 .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -230,10 +229,6 @@ struct PetWorldFeedDetailLoadedScreen: View {
 
     private func handleReport() {
         // 快速 UI 阶段暂不接入举报提交流程。
-    }
-
-    private func handleDelete() {
-        // 快速 UI 阶段暂不接入删除提交流程。
     }
 
     private func presentCommentComposer() {

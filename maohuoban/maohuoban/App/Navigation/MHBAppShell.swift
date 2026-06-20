@@ -38,6 +38,7 @@ struct MHBAppShell: View {
             MHBRootTabStack(tab: .profile, tabState: router.tabState, isSelected: router.selectedTab == .profile) {
                 ProfileRootScreen(
                     topicStore: topicStore,
+                    tabState: router.tabState,
                     onLogout: onLogout
                 )
             }

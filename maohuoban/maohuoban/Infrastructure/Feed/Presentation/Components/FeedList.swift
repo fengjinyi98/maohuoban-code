@@ -13,6 +13,7 @@ struct FeedList<DetailRoute: Hashable>: View {
     let topTrailingAction: FeedCardTopTrailingAction
     let showsRecommendationReason: Bool
     let detailRoute: (FeedItem) -> DetailRoute
+    let onOpenDetail: ((DetailRoute) -> Void)?
     let onMoreAction: (String, FeedMoreAction) -> Void
     let onScrollOffsetChange: (CGFloat) -> Void
     let onScrollPhaseChange: (ScrollPhase) -> Void
@@ -28,6 +29,7 @@ struct FeedList<DetailRoute: Hashable>: View {
         topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
         showsRecommendationReason: Bool = true,
         detailRoute: @escaping (FeedItem) -> DetailRoute,
+        onOpenDetail: ((DetailRoute) -> Void)? = nil,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
         onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
         onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in }
@@ -39,6 +41,7 @@ struct FeedList<DetailRoute: Hashable>: View {
         self.topTrailingAction = topTrailingAction
         self.showsRecommendationReason = showsRecommendationReason
         self.detailRoute = detailRoute
+        self.onOpenDetail = onOpenDetail
         self.onMoreAction = onMoreAction
         self.onScrollOffsetChange = onScrollOffsetChange
         self.onScrollPhaseChange = onScrollPhaseChange
@@ -56,6 +59,7 @@ struct FeedList<DetailRoute: Hashable>: View {
                                 detailRoute: detailRoute(card),
                                 topTrailingAction: topTrailingAction,
                                 showsRecommendationReason: showsRecommendationReason,
+                                onOpenDetail: onOpenDetail,
                                 onToggleLike: {
                                     interactionStore.toggleLike(postID: card.postID)
                                 },

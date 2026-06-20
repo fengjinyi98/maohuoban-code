@@ -7,14 +7,14 @@ import MaohuobanDesignSystem
 // - 承载动态、关注和粉丝统计卡片
 struct ProfileAccountSummarySection: View {
     let profile: ProfileAccountSummary
-    let postsRoute: ProfileRoute?
+    let onOpenPosts: (() -> Void)?
 
     init(
         profile: ProfileAccountSummary,
-        postsRoute: ProfileRoute? = nil
+        onOpenPosts: (() -> Void)? = nil
     ) {
         self.profile = profile
-        self.postsRoute = postsRoute
+        self.onOpenPosts = onOpenPosts
     }
 
     var body: some View {
@@ -24,7 +24,7 @@ struct ProfileAccountSummarySection: View {
 
             ProfileAccountStatsCard(
                 stats: profile.stats,
-                postsRoute: postsRoute
+                onOpenPosts: onOpenPosts
             )
         }
         .accessibilityElement(children: .contain)
@@ -173,14 +173,14 @@ private struct ProfileAccountEntryIcons: View {
 // - 使用白色圆角卡片和竖向分隔线对齐参考布局
 private struct ProfileAccountStatsCard: View {
     let stats: [ProfileAccountStat]
-    let postsRoute: ProfileRoute?
+    let onOpenPosts: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                 ProfileAccountStatColumn(
                     stat: stat,
-                    route: stat.isPostsEntry ? postsRoute : nil
+                    onTap: stat.isPostsEntry ? onOpenPosts : nil
                 )
 
                 if index < stats.count - 1 {
@@ -205,20 +205,28 @@ private struct ProfileAccountStatsCard: View {
 // - 保持三列等宽排布
 private struct ProfileAccountStatColumn: View {
     let stat: ProfileAccountStat
-    let route: ProfileRoute?
+    let onTap: (() -> Void)?
 
     var body: some View {
         Group {
-            if let route {
-                NavigationLink(value: route) {
-                    ProfileAccountStatContent(stat: stat)
-                }
-                .buttonStyle(.plain)
+            if let onTap {
+                ProfileAccountStatContent(stat: stat)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onTap()
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction {
+                        onTap()
+                    }
+                    .accessibilityLabel("\(stat.title) \(stat.value)，查看我的动态")
             } else {
                 ProfileAccountStatContent(stat: stat)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("\(stat.title) \(stat.value)")
             }
         }
-        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 }

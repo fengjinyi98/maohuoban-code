@@ -11,11 +11,10 @@ struct PetWorldFeedDetailHeaderControls: View {
     let authorName: String
     let isAuthorVisible: Bool
     let isAuthorSubtitleVisible: Bool
-    let showsDeleteAction: Bool
+    let isOwnedByCurrentUser: Bool
     let onBack: () -> Void
     let onShare: () -> Void
     let onReport: () -> Void
-    let onDelete: () -> Void
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
@@ -30,10 +29,9 @@ struct PetWorldFeedDetailHeaderControls: View {
                     Spacer(minLength: MHBTheme.Spacing.s3)
 
                     PetWorldFeedDetailMoreMenuButton(
-                        showsDeleteAction: showsDeleteAction,
+                        isOwnedByCurrentUser: isOwnedByCurrentUser,
                         onShare: onShare,
-                        onReport: onReport,
-                        onDelete: onDelete
+                        onReport: onReport
                     )
                 }
 
@@ -129,41 +127,39 @@ private struct PetWorldFeedDetailHeaderButton: View {
 // PetWorldFeedDetailMoreMenuButton 详情页更多原生菜单
 // 核心职责：
 // - 使用系统 Menu 承载详情页二级操作
-// - 根据帖子所有权控制删除入口展示
+// - 根据帖子所有权控制举报入口展示
 private struct PetWorldFeedDetailMoreMenuButton: View {
-    let showsDeleteAction: Bool
+    let isOwnedByCurrentUser: Bool
     let onShare: () -> Void
     let onReport: () -> Void
-    let onDelete: () -> Void
+
+    private var actions: [PetWorldFeedDetailMoreMenuAction] {
+        PetWorldFeedDetailMoreMenuActionResolver.actions(
+            isOwnedByCurrentUser: isOwnedByCurrentUser
+        )
+    }
 
     var body: some View {
         Menu {
-            Button {
-                onShare()
-            } label: {
-                Label("分享", systemImage: "square.and.arrow.up")
-            }
-
-            Button(role: .destructive) {
-                onReport()
-            } label: {
-                PetWorldFeedDetailDestructiveMenuLabel(
-                    title: "举报",
-                    systemImage: "exclamationmark.triangle"
-                )
-            }
-            .tint(MHBTheme.ColorToken.danger.color)
-
-            if showsDeleteAction {
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    PetWorldFeedDetailDestructiveMenuLabel(
-                        title: "删除",
-                        systemImage: "trash"
-                    )
+            ForEach(actions) { action in
+                switch action {
+                case .share:
+                    Button {
+                        onShare()
+                    } label: {
+                        Label("分享", systemImage: "square.and.arrow.up")
+                    }
+                case .report:
+                    Button(role: .destructive) {
+                        onReport()
+                    } label: {
+                        PetWorldFeedDetailDestructiveMenuLabel(
+                            title: "举报",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                    }
+                    .tint(MHBTheme.ColorToken.danger.color)
                 }
-                .tint(MHBTheme.ColorToken.danger.color)
             }
         } label: {
             Image(systemName: "ellipsis")
@@ -184,7 +180,7 @@ private struct PetWorldFeedDetailMoreMenuButton: View {
 
 // PetWorldFeedDetailDestructiveMenuLabel 详情页危险菜单标签
 // 核心职责：
-// - 为举报和删除菜单项提供统一危险色
+// - 为危险菜单项提供统一危险色
 // - 同时染色文本和图标以匹配破坏性操作语义
 private struct PetWorldFeedDetailDestructiveMenuLabel: View {
     let title: String

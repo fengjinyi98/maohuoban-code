@@ -7,14 +7,17 @@ import MaohuobanDesignSystem
 // - 承载个人信息概览和系统导航栏工具入口
 struct ProfileRootScreen: View {
     let topicStore: TopicStore
+    let tabState: MHBAppTabState
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
 
     init(
         topicStore: TopicStore = TopicStore(),
+        tabState: MHBAppTabState = MHBAppTabState(),
         onLogout: @escaping () -> Void
     ) {
         self.topicStore = topicStore
+        self.tabState = tabState
         self.onLogout = onLogout
     }
 
@@ -23,7 +26,7 @@ struct ProfileRootScreen: View {
             VStack(spacing: MHBTheme.Spacing.s3) {
                 ProfileAccountSummarySection(
                     profile: ProfileAccountSummary.mock,
-                    postsRoute: .posts
+                    onOpenPosts: openPosts
                 )
 
                 ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
@@ -76,7 +79,12 @@ struct ProfileRootScreen: View {
         .navigationDestination(for: ProfileRoute.self) { route in
             switch route {
             case .posts:
-                ProfilePostsScreen(interactionStore: feedInteractionStore)
+                ProfilePostsScreen(
+                    interactionStore: feedInteractionStore,
+                    onOpenRoute: { route in
+                        tabState.append(route, to: .profile)
+                    }
+                )
             case .feedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
@@ -98,5 +106,9 @@ struct ProfileRootScreen: View {
         default:
             return nil
         }
+    }
+
+    private func openPosts() {
+        tabState.append(ProfileRoute.posts, to: .profile)
     }
 }

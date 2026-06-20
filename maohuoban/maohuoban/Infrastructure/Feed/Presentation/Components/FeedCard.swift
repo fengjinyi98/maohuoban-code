@@ -12,29 +12,35 @@ struct FeedCard<DetailRoute: Hashable>: View {
     let detailRoute: DetailRoute
     let topTrailingAction: FeedCardTopTrailingAction
     let showsRecommendationReason: Bool
+    let onOpenDetail: ((DetailRoute) -> Void)?
     let onToggleLike: () -> Void
     let onMoreTap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
-            NavigationLink(value: detailRoute) {
-                VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
-                    FeedCardHeader(
-                        title: card.petName ?? card.authorName,
-                        recommendationReason: card.recommendationReason,
-                        showsRecommendationReason: showsRecommendationReason,
-                        authorName: card.authorName,
-                        publishedAt: card.publishedAt,
-                        avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
+            Group {
+                if let onOpenDetail {
+                    FeedCardNavigationContent(
+                        card: card,
+                        showsRecommendationReason: showsRecommendationReason
                     )
-
-                    FeedCardText(text: card.text)
-
-                    FeedCardMedia(assetName: card.mediaAssetName)
+                    .onTapGesture {
+                        onOpenDetail(detailRoute)
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction {
+                        onOpenDetail(detailRoute)
+                    }
+                } else {
+                    NavigationLink(value: detailRoute) {
+                        FeedCardNavigationContent(
+                            card: card,
+                            showsRecommendationReason: showsRecommendationReason
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
             .accessibilityLabel("查看动态详情")
 
             FeedCardActions(
@@ -55,6 +61,33 @@ struct FeedCard<DetailRoute: Hashable>: View {
             .padding(.top, FeedCardMetrics.moreButtonTopPadding)
             .zIndex(1)
         }
+    }
+}
+
+// FeedCardNavigationContent Feed 卡片详情入口内容
+// 核心职责：
+// - 统一 NavigationLink 和按钮模式下的卡片主内容
+// - 保持头像、正文和媒体图的命中区域一致
+private struct FeedCardNavigationContent: View {
+    let card: FeedItem
+    let showsRecommendationReason: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
+            FeedCardHeader(
+                title: card.petName ?? card.authorName,
+                recommendationReason: card.recommendationReason,
+                showsRecommendationReason: showsRecommendationReason,
+                authorName: card.authorName,
+                publishedAt: card.publishedAt,
+                avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
+            )
+
+            FeedCardText(text: card.text)
+
+            FeedCardMedia(assetName: card.mediaAssetName)
+        }
+        .contentShape(Rectangle())
     }
 }
 
