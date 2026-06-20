@@ -11,10 +11,20 @@ struct PublishComposerEditorSurface: View {
     let mode: PublishComposerMode
     let selectedImages: [PublishSelectedImage]
     let canAddMore: Bool
+    let pendingInsertedArticleMediaIDs: [UUID]
+    let pendingTopicInsertionNonce: Int
+    let pendingMentionInsertionNonce: Int
     @Binding var title: String
     @Binding var bodyText: String
+    @Binding var articleBlocks: [PublishArticleBlock]
+    let onPendingArticleMediaInsertionHandled: ([UUID]) -> Void
+    let onPendingTopicInsertionHandled: () -> Void
+    let onPendingMentionInsertionHandled: () -> Void
+    let onTopicsChange: ([String]) -> Void
     let onAddMedia: () -> Void
     let onRemoveMedia: (UUID) -> Void
+    let onRemoveArticleImageBlock: (UUID) -> Void
+    let onReplaceArticleImageBlock: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -29,7 +39,12 @@ struct PublishComposerEditorSurface: View {
                 )
                 
                 PublishGalleryEditor(
-                    bodyText: $bodyText
+                    bodyText: $bodyText,
+                    pendingTopicInsertionNonce: pendingTopicInsertionNonce,
+                    pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                    onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
+                    onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
+                    onTopicsChange: onTopicsChange
                 )
                 
             case .richText:
@@ -39,8 +54,17 @@ struct PublishComposerEditorSurface: View {
                     canAddMore: canAddMore,
                     title: $title,
                     bodyText: $bodyText,
+                    articleBlocks: $articleBlocks,
+                    pendingInsertedMediaIDs: pendingInsertedArticleMediaIDs,
+                    pendingTopicInsertionNonce: pendingTopicInsertionNonce,
+                    pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                    onPendingMediaInsertionHandled: onPendingArticleMediaInsertionHandled,
+                    onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
+                    onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
+                    onTopicsChange: onTopicsChange,
                     onAddMedia: onAddMedia,
-                    onRemoveMedia: onRemoveMedia
+                    onRemoveImageBlock: onRemoveArticleImageBlock,
+                    onReplaceImageBlock: onReplaceArticleImageBlock
                 )
             }
         }
@@ -87,8 +111,19 @@ private struct PublishRichTextEditor: View {
     let canAddMore: Bool
     @Binding var title: String
     @Binding var bodyText: String
+    @Binding var articleBlocks: [PublishArticleBlock]
+    let pendingInsertedMediaIDs: [UUID]
+    let pendingTopicInsertionNonce: Int
+    let pendingMentionInsertionNonce: Int
+    let onPendingMediaInsertionHandled: ([UUID]) -> Void
+    let onPendingTopicInsertionHandled: () -> Void
+    let onPendingMentionInsertionHandled: () -> Void
+    let onTopicsChange: ([String]) -> Void
     let onAddMedia: () -> Void
-    let onRemoveMedia: (UUID) -> Void
+    let onRemoveImageBlock: (UUID) -> Void
+    let onReplaceImageBlock: (UUID) -> Void
+
+    @State private var editorHeight: CGFloat = 220
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -112,26 +147,28 @@ private struct PublishRichTextEditor: View {
             }
 
             // 正文
-            PublishBodyTextEditor(
-                text: $bodyText,
-                placeholder: "添加正文",
-                minHeight: 180
+            PublishArticleRichTextEditor(
+                blocks: $articleBlocks,
+                editorHeight: $editorHeight,
+                selectedImages: selectedImages,
+                pendingInsertedMediaIDs: pendingInsertedMediaIDs,
+                pendingTopicInsertionNonce: pendingTopicInsertionNonce,
+                pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                onPendingInsertionHandled: onPendingMediaInsertionHandled,
+                onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
+                onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
+                onTopicsChange: onTopicsChange,
+                onRemoveImageBlock: onRemoveImageBlock,
+                onReplaceImageBlock: onReplaceImageBlock
             )
+            .frame(height: editorHeight)
+            .accessibilityIdentifier("publish.bodyInput")
 
-            // 图文模式下的图片在正文下方展示
-            if selectedImages.isEmpty {
+            // 图文模式的图片会插入富文本流，这里只保留插入入口
+            if canAddMore, selectedImages.isEmpty {
                 PublishInlineMediaPlaceholder(onAddMedia: onAddMedia)
-            } else {
-                ForEach(selectedImages) { selectedImage in
-                    PublishInlineImageBlock(
-                        selectedImage: selectedImage,
-                        onRemoveMedia: onRemoveMedia
-                    )
-                }
-
-                if canAddMore {
-                    PublishInsertMediaFocus(onAddMedia: onAddMedia)
-                }
+            } else if canAddMore {
+                PublishInsertMediaFocus(onAddMedia: onAddMedia)
             }
         }
     }
@@ -140,41 +177,24 @@ private struct PublishRichTextEditor: View {
 // PublishGalleryEditor 画廊模式编辑器
 private struct PublishGalleryEditor: View {
     @Binding var bodyText: String
+    let pendingTopicInsertionNonce: Int
+    let pendingMentionInsertionNonce: Int
+    let onPendingTopicInsertionHandled: () -> Void
+    let onPendingMentionInsertionHandled: () -> Void
+    let onTopicsChange: ([String]) -> Void
 
     var body: some View {
-        PublishBodyTextEditor(
+        PublishTopicTextEditor(
             text: $bodyText,
             placeholder: "添加正文",
-            minHeight: 220
+            minHeight: 220,
+            pendingTopicInsertionNonce: pendingTopicInsertionNonce,
+            pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+            onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
+            onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
+            onTopicsChange: onTopicsChange
         )
-    }
-}
-
-// PublishBodyTextEditor 发布正文编辑器
-private struct PublishBodyTextEditor: View {
-    @Binding var text: String
-    let placeholder: String
-    let minHeight: CGFloat
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $text)
-                .font(MHBTheme.Typography.body)
-                .lineSpacing(MHBTheme.Spacing.s1)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(minHeight: minHeight)
-                .scrollContentBackground(.hidden)
-                .padding(.horizontal, -MHBTheme.Spacing.s1)
-                .accessibilityIdentifier("publish.bodyInput")
-
-            if text.isEmpty {
-                Text(placeholder)
-                    .font(MHBTheme.Typography.body)
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                    .padding(.top, MHBTheme.Spacing.s2)
-                    .allowsHitTesting(false)
-            }
-        }
+        .accessibilityIdentifier("publish.bodyInput")
     }
 }
 

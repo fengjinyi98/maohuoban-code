@@ -5,8 +5,7 @@ import MaohuobanDesignSystem
 // PublishEventComposerScreen 图文发布页面
 // 核心职责：
 // - 结合小红书设计风格重构整体布局，去除冗余大间距
-// - 保留选择宠物 (`PublishPetContextBar`) 核心上下文入口
-// - 保留头部导航栏 `PublishComposerModePicker` 模式切换
+// - 在系统导航栏承载发布模式切换和关联宠物入口
 // - 将发布/存草稿操作和各个发布配置项融合为流畅的列表与底栏
 struct PublishEventComposerScreen: View {
     let context: PublishEntryContext
@@ -14,11 +13,15 @@ struct PublishEventComposerScreen: View {
 
     @State private var store: PublishDraftStore
     @State private var selectedImages: [PublishSelectedImage] = []
-    @State private var composerMode: PublishComposerMode = .richText
+    @State private var articleBlocks: [PublishArticleBlock] = []
+    @State private var composerMode: PublishComposerMode = .gallery
     @State private var selectedAlbumTitle: String? = "日常相册"
     @State private var isMediaPickerPresented = false
     @State private var activeSheet: PublishComposerSheet?
-    @State private var draftTopicName = ""
+    @State private var pendingInsertedArticleMediaIDs: [UUID] = []
+    @State private var replacingArticleBlockID: UUID?
+    @State private var pendingTopicInsertionNonce = 0
+    @State private var pendingMentionInsertionNonce = 0
 
     // 环境 dismissal 用于支持点击“存草稿”时直接关闭发布页面
     @Environment(\.dismiss) private var dismiss
@@ -51,123 +54,37 @@ struct PublishEventComposerScreen: View {
                         PublishPreparedBanner(message: successMessage)
                     }
 
-                // 紧凑的内容编辑组合区
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                    // 关联宠物选择条 (选择宠物保持不变)
-                    PublishPetContextBar(
-                        selectedPetName: store.draft.selectedPetName,
-                        source: context.source,
-                        onSelectPet: { activeSheet = .pet }
-                    )
+                    // 紧凑的内容编辑组合区
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+                        // 编辑器内容表面 (图文与画廊呈现不同排版结构)
+                        PublishComposerEditorSurface(
+                            mode: composerMode,
+                            selectedImages: selectedImages,
+                            canAddMore: selectedImages.count < PublishComposerLimits.maxImageCount,
+                            pendingInsertedArticleMediaIDs: pendingInsertedArticleMediaIDs,
+                            pendingTopicInsertionNonce: pendingTopicInsertionNonce,
+                            pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                            title: $draftStore.titleText,
+                            bodyText: $draftStore.bodyText,
+                            articleBlocks: $articleBlocks,
+                            onPendingArticleMediaInsertionHandled: handlePendingArticleMediaInsertionHandled(_:),
+                            onPendingTopicInsertionHandled: handlePendingTopicInsertionHandled,
+                            onPendingMentionInsertionHandled: handlePendingMentionInsertionHandled,
+                            onTopicsChange: handleTopicsChange(_:),
+                            onAddMedia: openMediaPicker,
+                            onRemoveMedia: removeImage(_:),
+                            onRemoveArticleImageBlock: removeArticleImageBlock(_:),
+                            onReplaceArticleImageBlock: replaceArticleImageBlock(_:)
+                        )
 
-                    // 编辑器内容表面 (图文与画廊呈现不同排版结构)
-                    PublishComposerEditorSurface(
-                        mode: composerMode,
-                        selectedImages: selectedImages,
-                        canAddMore: selectedImages.count < PublishComposerLimits.maxImageCount,
-                        title: $draftStore.titleText,
-                        bodyText: $draftStore.bodyText,
-                        onAddMedia: openMediaPicker,
-                        onRemoveMedia: removeImage(_:)
-                    )
-
-                    // 推荐话题标签水平滚动栏
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: MHBTheme.Spacing.s2) {
-                            ForEach(suggestedTags, id: \.self) { tag in
-                                Button {
-                                    appendTag(tag)
-                                } label: {
-                                    Text(tag)
-                                        .font(MHBTheme.Typography.caption)
-                                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                                        .padding(.horizontal, MHBTheme.Spacing.s3)
-                                        .padding(.vertical, 6)
-                                        .background(MHBTheme.ColorToken.separatorSoft.color)
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, MHBTheme.Spacing.s4)
-                    }
-                    .padding(.horizontal, -MHBTheme.Spacing.s4)
-
-                    // 互动操作药丸行（# 话题，@ 用户，📊 投票）
-                    HStack(spacing: MHBTheme.Spacing.s2) {
-                        Button {
-                            activeSheet = .topic
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text("#")
-                                    .font(.system(size: 16, weight: .bold))
-                                Text("话题")
-                                    .font(MHBTheme.Typography.caption.weight(.medium))
-                            }
-                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                            .padding(.horizontal, MHBTheme.Spacing.s3)
-                            .frame(height: 32)
-                            .background(MHBTheme.ColorToken.separatorSoft.color)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("参与话题")
-
-                        Button(action: {}) {
-                            HStack(spacing: 4) {
-                                Text("@")
-                                    .font(.system(size: 14, weight: .bold))
-                                Text("用户")
-                                    .font(MHBTheme.Typography.caption.weight(.medium))
-                            }
-                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                            .padding(.horizontal, MHBTheme.Spacing.s3)
-                            .frame(height: 32)
-                            .background(MHBTheme.ColorToken.separatorSoft.color)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-
-                        Button(action: {}) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chart.bar.xaxis")
-                                    .font(.system(size: 12))
-                                Text("投票")
-                                    .font(MHBTheme.Typography.caption.weight(.medium))
-                            }
-                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                            .padding(.horizontal, MHBTheme.Spacing.s3)
-                            .frame(height: 32)
-                            .background(MHBTheme.ColorToken.separatorSoft.color)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                // 表单设置行列表（小红书同款风格）
-                VStack(spacing: 0) {
-                    Divider()
-                        .background(MHBTheme.ColorToken.separatorSoft.color)
-
-                    // 标记地点
-                    PublishConfigurationRow(
-                        iconName: "mappin.and.ellipse",
-                        iconColor: MHBTheme.ColorToken.labelSecondary.color,
-                        title: "标记地点",
-                        value: resolvedLocationTitle,
-                        action: { activeSheet = .location }
-                    )
-
-                    // 推荐地点快捷水平滑动栏 (只有未标记地点时展示，匹配小红书细节)
-                    if resolvedLocationTitle == nil {
+                        // 推荐话题标签水平滚动栏
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: MHBTheme.Spacing.s2) {
-                                ForEach(suggestedLocations, id: \.self) { locName in
+                                ForEach(suggestedTags, id: \.self) { tag in
                                     Button {
-                                        store.selectLocation(city: context.city, localEntityName: locName)
+                                        appendTag(tag)
                                     } label: {
-                                        Text(locName)
+                                        Text(tag)
                                             .font(MHBTheme.Typography.caption)
                                             .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                                             .padding(.horizontal, MHBTheme.Spacing.s3)
@@ -181,40 +98,76 @@ struct PublishEventComposerScreen: View {
                             .padding(.horizontal, MHBTheme.Spacing.s4)
                         }
                         .padding(.horizontal, -MHBTheme.Spacing.s4)
-                        .padding(.bottom, MHBTheme.Spacing.s2)
                     }
 
-                    Divider()
-                        .background(MHBTheme.ColorToken.separatorSoft.color)
+                    // 表单设置行列表（小红书同款风格）
+                    VStack(spacing: 0) {
+                        Divider()
+                            .background(MHBTheme.ColorToken.separatorSoft.color)
 
-                    // 公开可见 (可见范围)
-                    PublishConfigurationRow(
-                        iconName: "eye.fill",
-                        iconColor: MHBTheme.ColorToken.labelSecondary.color,
-                        title: "公开可见",
-                        value: store.draft.visibility.title,
-                        action: { activeSheet = .visibility }
-                    )
+                        // 标记地点
+                        PublishConfigurationRow(
+                            iconName: "mappin.and.ellipse",
+                            iconColor: MHBTheme.ColorToken.labelSecondary.color,
+                            title: "标记地点",
+                            value: resolvedLocationTitle,
+                            action: { activeSheet = .location }
+                        )
 
-                    Divider()
-                        .background(MHBTheme.ColorToken.separatorSoft.color)
+                        // 推荐地点快捷水平滑动栏 (只有未标记地点时展示，匹配小红书细节)
+                        if resolvedLocationTitle == nil {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: MHBTheme.Spacing.s2) {
+                                    ForEach(suggestedLocations, id: \.self) { locName in
+                                        Button {
+                                            store.selectLocation(city: context.city, localEntityName: locName)
+                                        } label: {
+                                            Text(locName)
+                                                .font(MHBTheme.Typography.caption)
+                                                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                                                .padding(.horizontal, MHBTheme.Spacing.s3)
+                                                .padding(.vertical, 6)
+                                                .background(MHBTheme.ColorToken.separatorSoft.color)
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, MHBTheme.Spacing.s4)
+                            }
+                            .padding(.horizontal, -MHBTheme.Spacing.s4)
+                            .padding(.bottom, MHBTheme.Spacing.s2)
+                        }
 
-                    // 同步存入相册 (点击打开选择相册的 Sheet，不再是 Switch 开关)
-                    PublishConfigurationRow(
-                        iconName: "folder.fill",
-                        iconColor: MHBTheme.ColorToken.labelSecondary.color,
-                        title: "存入宠物相册",
-                        value: selectedAlbumTitle,
-                        action: { activeSheet = .album }
-                    )
+                        Divider()
+                            .background(MHBTheme.ColorToken.separatorSoft.color)
 
+                        // 公开可见 (可见范围)
+                        PublishConfigurationRow(
+                            iconName: "eye.fill",
+                            iconColor: MHBTheme.ColorToken.labelSecondary.color,
+                            title: "公开可见",
+                            value: store.draft.visibility.title,
+                            action: { activeSheet = .visibility }
+                        )
 
+                        Divider()
+                            .background(MHBTheme.ColorToken.separatorSoft.color)
+
+                        // 同步存入相册 (点击打开选择相册的 Sheet，不再是 Switch 开关)
+                        PublishConfigurationRow(
+                            iconName: "folder.fill",
+                            iconColor: MHBTheme.ColorToken.labelSecondary.color,
+                            title: "存入宠物相册",
+                            value: selectedAlbumTitle,
+                            action: { activeSheet = .album }
+                        )
+                    }
                 }
             }
             .padding(.horizontal, MHBTheme.Spacing.s4)
             .padding(.top, MHBTheme.Spacing.s3)
             .padding(.bottom, 40 + MHBTheme.Spacing.s2 * 2 + geometry.safeAreaInsets.bottom + MHBTheme.Spacing.s4)
-        }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .overlay(alignment: .bottom) {
             // 底部固定操作栏（小红书同款非对称宽度设计，发动态宽，存草稿窄，和帖子详情页底部操作栏一样贯通至屏幕底部，不单独把安全区域分离）
@@ -264,16 +217,32 @@ struct PublishEventComposerScreen: View {
             .glassEffect(.regular, in: .rect(cornerRadius: 0))
             .ignoresSafeArea(edges: .bottom)
         }
-    }
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 PublishComposerModePicker(selection: $composerMode)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    activeSheet = .pet
+                } label: {
+                    Text("关联宠物")
+                        .font(MHBTheme.Typography.callout.weight(.semibold))
+                        .foregroundStyle(
+                            store.draft.selectedPetID == nil
+                                ? MHBTheme.ColorToken.labelSecondary.color
+                                : MHBTheme.ColorToken.primary.color
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("关联宠物")
             }
         }
         .sheet(isPresented: $isMediaPickerPresented) {
             MHBSystemMediaPicker(
                 request: MHBMediaPickerRequest(
-                    maxSelectionCount: PublishComposerLimits.maxImageCount - selectedImages.count,
+                    maxSelectionCount: mediaPickerMaxSelectionCount,
                     filter: .images
                 ),
                 onComplete: handleMediaPickerResult(_:),
@@ -288,7 +257,18 @@ struct PublishEventComposerScreen: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+        .onChange(of: composerMode) { _, newMode in
+            if newMode == .richText {
+                seedArticleBlocksFromDraftIfNeeded()
+            } else {
+                syncDraftBodyTextFromArticleBlocksIfNeeded()
+            }
+        }
+        .onChange(of: articleBlocks) { _, _ in
+            syncDraftBodyTextFromArticleBlocksIfNeeded()
+        }
         .accessibilityIdentifier("publish.eventComposer.screen")
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
     private var resolvedLocationTitle: String? {
@@ -299,6 +279,13 @@ struct PublishEventComposerScreen: View {
             return city
         }
         return nil
+    }
+
+    private var mediaPickerMaxSelectionCount: Int {
+        if replacingArticleBlockID != nil {
+            return 1
+        }
+        return max(0, PublishComposerLimits.maxImageCount - selectedImages.count)
     }
 
     @ViewBuilder
@@ -328,13 +315,6 @@ struct PublishEventComposerScreen: View {
                     activeSheet = nil
                 }
             )
-        case .topic:
-            PublishTopicEditingSheet(
-                topicNames: store.draft.topicNames,
-                draftTopicName: $draftTopicName,
-                onAddTopic: addDraftTopic,
-                onRemoveTopic: store.removeTopic(named:)
-            )
         case .album:
             PublishAlbumSelectionSheet(
                 selectedAlbumTitle: selectedAlbumTitle,
@@ -347,6 +327,7 @@ struct PublishEventComposerScreen: View {
     }
 
     private func openMediaPicker() {
+        replacingArticleBlockID = nil
         guard selectedImages.count < PublishComposerLimits.maxImageCount else {
             return
         }
@@ -355,22 +336,67 @@ struct PublishEventComposerScreen: View {
 
     private func handleMediaPickerResult(_ result: MHBMediaPickerResult) {
         isMediaPickerPresented = false
+        if let replacingArticleBlockID {
+            handleArticleImageReplacement(
+                blockID: replacingArticleBlockID,
+                image: result.images.first
+            )
+            return
+        }
+
         let remainingCount = max(0, PublishComposerLimits.maxImageCount - selectedImages.count)
         let newImages = result.images
             .prefix(remainingCount)
             .map { PublishSelectedImage(image: $0) }
         selectedImages.append(contentsOf: newImages)
+        if composerMode == .richText {
+            pendingInsertedArticleMediaIDs.append(contentsOf: newImages.map(\.id))
+        }
         store.updateMediaCount(selectedImages.count)
     }
 
     private func removeImage(_ id: UUID) {
         selectedImages.removeAll { $0.id == id }
+        articleBlocks.removeAll { $0.mediaID == id }
+        pendingInsertedArticleMediaIDs.removeAll { $0 == id }
         store.updateMediaCount(selectedImages.count)
     }
 
-    private func addDraftTopic() {
-        store.addTopic(named: draftTopicName)
-        draftTopicName = ""
+    private func removeArticleImageBlock(_ blockID: UUID) {
+        guard let block = articleBlocks.first(where: { $0.id == blockID }) else { return }
+        articleBlocks.removeAll { $0.id == blockID }
+        if let mediaID = block.mediaID {
+            selectedImages.removeAll { $0.id == mediaID }
+            pendingInsertedArticleMediaIDs.removeAll { $0 == mediaID }
+        }
+        store.updateMediaCount(selectedImages.count)
+    }
+
+    private func replaceArticleImageBlock(_ blockID: UUID) {
+        replacingArticleBlockID = blockID
+        isMediaPickerPresented = true
+    }
+
+    private func handleArticleImageReplacement(blockID: UUID, image: UIImage?) {
+        defer {
+            replacingArticleBlockID = nil
+            store.updateMediaCount(selectedImages.count)
+        }
+        guard let image,
+              let blockIndex = articleBlocks.firstIndex(where: { $0.id == blockID })
+        else {
+            return
+        }
+
+        let previousMediaID = articleBlocks[blockIndex].mediaID
+        let replacement = PublishSelectedImage(image: image)
+        if let previousMediaID,
+           let imageIndex = selectedImages.firstIndex(where: { $0.id == previousMediaID }) {
+            selectedImages[imageIndex] = replacement
+        } else {
+            selectedImages.append(replacement)
+        }
+        articleBlocks[blockIndex].mediaID = replacement.id
     }
 
     private func prepareDraft() {
@@ -380,7 +406,33 @@ struct PublishEventComposerScreen: View {
         }
     }
 
+    private func insertTopic() {
+        pendingTopicInsertionNonce += 1
+    }
+
+    private func insertMention() {
+        pendingMentionInsertionNonce += 1
+    }
+
+    private func handlePendingArticleMediaInsertionHandled(_ mediaIDs: [UUID]) {
+        pendingInsertedArticleMediaIDs.removeAll { mediaIDs.contains($0) }
+    }
+
+    private func handlePendingTopicInsertionHandled() {}
+
+    private func handlePendingMentionInsertionHandled() {}
+
+    private func handleTopicsChange(_ topicNames: [String]) {
+        store.updateTopics(topicNames)
+    }
+
     private func appendTag(_ tag: String) {
+        guard composerMode == .gallery else {
+            appendTagToArticleBlocks(tag)
+            store.addTopic(named: tag)
+            return
+        }
+
         let currentText = store.draft.bodyText
         if currentText.isEmpty {
             store.updateBodyText(tag + " ")
@@ -389,6 +441,58 @@ struct PublishEventComposerScreen: View {
         } else {
             store.updateBodyText(currentText + " " + tag + " ")
         }
+        store.addTopic(named: tag)
+    }
+
+    private func appendTagToArticleBlocks(_ tag: String) {
+        if let index = articleBlocks.lastIndex(where: { $0.kind == .text }) {
+            let currentText = articleBlocks[index].text
+            if currentText.isEmpty {
+                articleBlocks[index].text = tag + " "
+            } else if currentText.hasSuffix(" ") || currentText.hasSuffix("\n") {
+                articleBlocks[index].text = currentText + tag + " "
+            } else {
+                articleBlocks[index].text = currentText + " " + tag + " "
+            }
+        } else {
+            articleBlocks.append(PublishArticleBlock(kind: .text, text: tag + " "))
+        }
+    }
+
+    private func seedArticleBlocksFromDraftIfNeeded() {
+        guard articleBlocks.isEmpty else { return }
+
+        var nextBlocks: [PublishArticleBlock] = []
+        let bodyText = store.draft.bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if bodyText.isEmpty == false {
+            nextBlocks.append(PublishArticleBlock(kind: .text, text: bodyText))
+        }
+
+        for selectedImage in selectedImages {
+            nextBlocks.append(
+                PublishArticleBlock(
+                    kind: .image,
+                    mediaID: selectedImage.id
+                )
+            )
+        }
+
+        articleBlocks = nextBlocks
+    }
+
+    private func syncDraftBodyTextFromArticleBlocksIfNeeded() {
+        guard composerMode == .richText else { return }
+        let nextBodyText = articleBlocksPlainText()
+        guard store.draft.bodyText != nextBodyText else { return }
+        store.updateBodyText(nextBodyText)
+    }
+
+    private func articleBlocksPlainText() -> String {
+        articleBlocks.compactMap { block in
+            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        }
+        .joined(separator: "\n")
     }
 }
 
@@ -436,7 +540,6 @@ private enum PublishComposerSheet: String, Identifiable {
     case pet
     case location
     case visibility
-    case topic
     case album
 
     var id: String { rawValue }
@@ -444,8 +547,13 @@ private enum PublishComposerSheet: String, Identifiable {
 
 // PublishSelectedImage 发布页本地图片预览模型
 struct PublishSelectedImage: Identifiable {
-    let id = UUID()
+    let id: UUID
     let image: UIImage
+
+    init(id: UUID = UUID(), image: UIImage) {
+        self.id = id
+        self.image = image
+    }
 }
 
 // PublishComposerLimits 发布页本地限制

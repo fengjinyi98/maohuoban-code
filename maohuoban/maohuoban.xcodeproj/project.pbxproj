@@ -12,6 +12,7 @@
 		B9BC33702FD7200000F40E35 /* MaohuobanDesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33712FD7200000F40E35 /* MaohuobanDesignSystem */; };
 		B9BC338B2FD8900000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 		B9BC33972FD8A20000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
+		B9BC33A12FD9800000F40E35 /* Proton in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33A02FD9800000F40E35 /* Proton */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +65,7 @@
 				B9BC33642FD7100000F40E35 /* AppIntents.framework in Frameworks */,
 				B9BC33702FD7200000F40E35 /* MaohuobanDesignSystem in Frameworks */,
 				B9BC33602FD6D70000F40E35 /* MaohuobanDiagnostics in Frameworks */,
+				B9BC33A12FD9800000F40E35 /* Proton in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -137,6 +139,7 @@
 			packageProductDependencies = (
 				B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */,
 				B9BC33712FD7200000F40E35 /* MaohuobanDesignSystem */,
+				B9BC33A02FD9800000F40E35 /* Proton */,
 			);
 			productName = maohuoban;
 			productReference = B9BC334D2FD6C95400F40E35 /* maohuoban.app */;
@@ -219,6 +222,7 @@
 			packageReferences = (
 				B9BC33622FD6D70000F40E35 /* XCLocalSwiftPackageReference "../maohuoban-diagnostics-sdk/swift" */,
 				B9BC33722FD7200000F40E35 /* XCLocalSwiftPackageReference "Packages/MaohuobanDesignSystem" */,
+				B9BC33A22FD9800000F40E35 /* XCRemoteSwiftPackageReference "proton" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B9BC334E2FD6C95400F40E35 /* Products */;
@@ -631,6 +635,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		B9BC33A22FD9800000F40E35 /* XCRemoteSwiftPackageReference "proton" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/fengjinyi98/proton.git";
+			requirement = {
+				kind = revision;
+				revision = 30c0f87c48ccba6f89935d16096b6c01c204a82d;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		B9BC33612FD6D70000F40E35 /* MaohuobanDiagnostics */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -641,6 +656,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B9BC33722FD7200000F40E35 /* XCLocalSwiftPackageReference "Packages/MaohuobanDesignSystem" */;
 			productName = MaohuobanDesignSystem;
+		};
+		B9BC33A02FD9800000F40E35 /* Proton */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B9BC33A22FD9800000F40E35 /* XCRemoteSwiftPackageReference "proton" */;
+			productName = Proton;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

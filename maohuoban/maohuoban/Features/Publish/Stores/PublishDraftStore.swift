@@ -76,9 +76,7 @@ final class PublishDraftStore {
     }
 
     func addTopic(named topicName: String) {
-        let normalizedName = topicName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .removingLeadingHash()
+        let normalizedName = topicName.normalizedPublishTopicName()
         guard !normalizedName.isEmpty,
               !draft.topicNames.contains(normalizedName)
         else {
@@ -91,6 +89,25 @@ final class PublishDraftStore {
 
     func removeTopic(named topicName: String) {
         draft.topicNames.removeAll { $0 == topicName }
+        phase = .idle
+        successMessage = nil
+    }
+
+    func updateTopics(_ topicNames: [String]) {
+        let normalizedNames = topicNames.reduce(into: [String]()) { result, topicName in
+            let normalizedName = topicName.normalizedPublishTopicName()
+            guard !normalizedName.isEmpty,
+                  !result.contains(normalizedName)
+            else {
+                return
+            }
+            result.append(normalizedName)
+        }
+
+        guard draft.topicNames != normalizedNames else {
+            return
+        }
+        draft.topicNames = normalizedNames
         phase = .idle
         successMessage = nil
     }
@@ -122,10 +139,11 @@ final class PublishDraftStore {
 }
 
 private extension String {
-    func removingLeadingHash() -> String {
-        guard first == "#" else {
-            return self
+    func normalizedPublishTopicName() -> String {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.first == "#" else {
+            return trimmed
         }
-        return String(dropFirst())
+        return String(trimmed.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
