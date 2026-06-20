@@ -8,4 +8,9 @@ enum ProfileRoute: Hashable {
     case posts
     case feedDetail(postID: String)
     case petAlbumList
+    case petAlbumDetail(albumID: String)
+    case followedTopics
+    case topicDetail(topicID: String)
+    case topicFeedDetail(postID: String)
+    case topicComposer(seedTopicID: String?)
 }

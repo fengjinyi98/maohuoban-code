@@ -5,10 +5,10 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 展示“我关注的话题”卡片头部（带右箭头入口）
 // - 承载水平滚动的关注话题列表并进入话题功能页
-struct ProfileFollowedTopicsSection: View {
+struct ProfileFollowedTopicsSection<Route: Hashable>: View {
     let topics: [TopicSummary]
-    let headerRoute: TopicRoute
-    let topicRoute: (TopicSummary) -> TopicRoute
+    let headerRoute: Route
+    let topicRoute: (TopicSummary) -> Route
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -57,9 +57,9 @@ struct ProfileFollowedTopicsSection: View {
 // ProfileFollowedTopicItemView 话题卡片中的单个话题视图
 // 核心职责：
 // - 渲染单个话题的方形缩略图、标题和更新状态
-private struct ProfileFollowedTopicItemView: View {
+private struct ProfileFollowedTopicItemView<Route: Hashable>: View {
     let topic: TopicSummary
-    let route: TopicRoute
+    let route: Route
 
     var body: some View {
         NavigationLink(value: route) {

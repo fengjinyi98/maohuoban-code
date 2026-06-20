@@ -4,15 +4,17 @@ import SwiftUI
 // 核心职责：
 // - 根据帖子 ID 承载 Feed 详情系统导航目标
 // - 组合主图、正文、互动状态和评论树
-struct PetWorldFeedDetailScreen: View {
+struct PetWorldFeedDetailScreen<TopicRouteValue: Hashable>: View {
     let postID: String
     let interactionStore: FeedInteractionStore
+    let topicRoute: (String) -> TopicRouteValue
 
     var body: some View {
         if let detail = PetWorldMockFeedDetail.detail(for: postID) {
             PetWorldFeedDetailLoadedScreen(
                 detail: detail,
-                interactionStore: interactionStore
+                interactionStore: interactionStore,
+                topicRoute: topicRoute
             )
         } else {
             PetWorldFeedDetailMissingScreen()

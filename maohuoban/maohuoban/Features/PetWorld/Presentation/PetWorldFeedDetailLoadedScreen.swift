@@ -6,11 +6,12 @@ import UIKit
 // 核心职责：
 // - 渲染帖子详情完整滚动内容
 // - 保持详情页点赞状态与 Feed 列表共享同一 Store
-struct PetWorldFeedDetailLoadedScreen: View {
+struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
     @Environment(\.dismiss) private var dismiss
 
     let detail: PetWorldFeedDetailItem
     let interactionStore: FeedInteractionStore
+    let topicRoute: (String) -> TopicRouteValue
     @State private var selectedMediaIndex = 0
     @State private var isNavigationAuthorVisible = false
     @State private var isNavigationAuthorSubtitleVisible = false
@@ -59,6 +60,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
                             topPadding: detailContentTopPadding(
                                 topSafeArea: geometry.safeAreaInsets.top
                             ),
+                            topicRoute: topicRoute,
                             onAuthorOffsetChange: updateNavigationAuthorOffset(_:),
                             onCommentReply: presentReplyComposer(for:),
                             onCommentToggleLike: handleCommentLike(_:),
@@ -122,7 +124,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
                     onDismiss: handleCommentComposerDismiss
                 ) {
                     PetWorldFeedDetailCommentEditorHeader(
-                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
+                        currentUserAvatarAssetName: currentUserAvatarAssetName,
                         titleText: commentComposerTitleText,
                         onDismiss: dismissCommentComposerFromShield
                     )
@@ -156,7 +158,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
                         commentCount: commentCount,
                         repostCount: detail.repostCount,
                         bottomSafeArea: geometry.safeAreaInsets.bottom,
-                        currentUserAvatarAssetName: Self.currentUserAvatarAssetName,
+                        currentUserAvatarAssetName: currentUserAvatarAssetName,
                         onCommentTap: presentCommentComposer
                     ) {
                         interactionStore.toggleLike(postID: detail.postID)
@@ -180,11 +182,15 @@ struct PetWorldFeedDetailLoadedScreen: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-        .background(MHBInteractivePopGestureRestorer())
     }
 
-    private static let currentUserAvatarAssetName = "HomeUserAvatarMock"
-    private static let currentUserName = "小满"
+    private var currentUserAvatarAssetName: String {
+        "HomeUserAvatarMock"
+    }
+
+    private var currentUserName: String {
+        "小满"
+    }
 
     private var imagePreviewGalleryID: String {
         "pet-world-detail-\(detail.postID)"
@@ -256,8 +262,8 @@ struct PetWorldFeedDetailLoadedScreen: View {
 
         let newComment = FeedComment(
             id: "local-comment-\(UUID().uuidString)",
-            authorName: Self.currentUserName,
-            avatarAssetName: Self.currentUserAvatarAssetName,
+            authorName: currentUserName,
+            avatarAssetName: currentUserAvatarAssetName,
             text: trimmedText,
             publishedAt: Date(),
             isPostAuthor: detail.isOwnedByCurrentUser,

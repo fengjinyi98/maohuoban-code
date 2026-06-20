@@ -5,13 +5,18 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 展示用户整理的宠物相册集合
 // - 承载新建相册入口并通过系统导航进入相册详情
-struct PetAlbumListScreen: View {
+struct PetAlbumListScreen<DetailRoute: Hashable>: View {
     @State private var store = PetAlbumStore()
+    let detailRoute: (PetAlbumSummary) -> DetailRoute
 
     private let columns = [
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4),
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4)
     ]
+
+    init(detailRoute: @escaping (PetAlbumSummary) -> DetailRoute) {
+        self.detailRoute = detailRoute
+    }
 
     var body: some View {
         MHBScreenScrollView {
@@ -20,7 +25,7 @@ struct PetAlbumListScreen: View {
                     .accessibilityIdentifier("petAlbum.list.create")
 
                 ForEach(store.albums) { album in
-                    NavigationLink(value: PetAlbumRoute.detail(albumID: album.id)) {
+                    NavigationLink(value: detailRoute(album)) {
                         PetAlbumPhotoStackCard(
                             title: album.title,
                             photoCountText: album.photoCountText,
@@ -46,12 +51,6 @@ struct PetAlbumListScreen: View {
                 }
                 .accessibilityLabel("搜索相册")
                 .accessibilityIdentifier("petAlbum.list.search")
-            }
-        }
-        .navigationDestination(for: PetAlbumRoute.self) { route in
-            switch route {
-            case .detail(let albumID):
-                PetAlbumDetailScreen(albumID: albumID)
             }
         }
     }

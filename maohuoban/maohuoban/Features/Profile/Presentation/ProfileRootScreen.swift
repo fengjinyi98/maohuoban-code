@@ -47,9 +47,9 @@ struct ProfileRootScreen: View {
 
                 ProfileFollowedTopicsSection(
                     topics: Array(topicStore.followedTopics.prefix(8)),
-                    headerRoute: .followedList
+                    headerRoute: ProfileRoute.followedTopics
                 ) { topic in
-                    .detail(topicID: topic.id)
+                    ProfileRoute.topicDetail(topicID: topic.id)
                 }
             }
             .padding(.horizontal, MHBTheme.Spacing.s3)
@@ -80,10 +80,7 @@ struct ProfileRootScreen: View {
             switch route {
             case .posts:
                 ProfilePostsScreen(
-                    interactionStore: feedInteractionStore,
-                    onOpenRoute: { route in
-                        tabState.append(route, to: .profile)
-                    }
+                    interactionStore: feedInteractionStore
                 )
             case .feedDetail(let postID):
                 ProfileFeedDetailScreen(
@@ -91,11 +88,34 @@ struct ProfileRootScreen: View {
                     interactionStore: feedInteractionStore
                 )
             case .petAlbumList:
-                PetAlbumListScreen()
+                PetAlbumListScreen { album in
+                    ProfileRoute.petAlbumDetail(albumID: album.id)
+                }
+            case .petAlbumDetail(let albumID):
+                PetAlbumDetailScreen(albumID: albumID)
+            case .followedTopics:
+                TopicFollowedListScreen(store: topicStore) { topic in
+                    ProfileRoute.topicDetail(topicID: topic.id)
+                }
+            case .topicDetail(let topicID):
+                TopicDetailScreen(
+                    topicID: topicID,
+                    store: topicStore,
+                    feedDetailRoute: { item in
+                        ProfileRoute.topicFeedDetail(postID: item.postID)
+                    },
+                    composerRoute: { topicID in
+                        ProfileRoute.topicComposer(seedTopicID: topicID)
+                    }
+                )
+            case .topicFeedDetail(let postID):
+                ProfileFeedDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore
+                )
+            case .topicComposer(let seedTopicID):
+                TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)
             }
-        }
-        .navigationDestination(for: TopicRoute.self) { route in
-            TopicRouteDestinationScreen(route: route, store: topicStore)
         }
     }
 
@@ -109,6 +129,6 @@ struct ProfileRootScreen: View {
     }
 
     private func openPosts() {
-        tabState.append(ProfileRoute.posts, to: .profile)
+        tabState.appendProfileRoute(.posts)
     }
 }

@@ -45,20 +45,9 @@ final class MHBAppTabState {
         )
     }
 
-    /// 追加指定 Tab 的导航目标
-    func append<Route: Hashable>(_ route: Route, to tab: MHBAppTab) {
-        switch tab {
-        case .home:
-            homePath.append(route)
-        case .petWorld:
-            petWorldPath.append(route)
-        case .sameCity:
-            sameCityPath.append(route)
-        case .message:
-            messagePath.append(route)
-        case .profile:
-            profilePath.append(route)
-        }
+    /// 追加我的 Tab 导航目标
+    func appendProfileRoute(_ route: ProfileRoute) {
+        profilePath.append(route)
     }
 
     /// 路径为空时显示 TabBar，非空时在 push 页面中隐藏

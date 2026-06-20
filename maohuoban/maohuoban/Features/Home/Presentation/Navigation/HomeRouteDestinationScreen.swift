@@ -109,7 +109,9 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .petAlbumList:
-            PetAlbumListScreen()
+            PetAlbumListScreen { album in
+                HomeRoute.petAlbumDetail(albumID: album.id)
+            }
         case .petAlbumDetail(let albumID):
             PetAlbumDetailScreen(albumID: albumID)
         }

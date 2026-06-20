@@ -52,7 +52,7 @@ struct PetWorldRootScreen: View {
                 .zIndex(1)
         }
         .safeAreaInset(edge: .bottom) {
-            PetWorldPublishEntryButton()
+            PetWorldPublishEntryButton(route: PetWorldRoute.topicComposer(seedTopicID: nil))
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -62,12 +62,33 @@ struct PetWorldRootScreen: View {
             case .feedDetail(let postID):
                 PetWorldFeedDetailScreen(
                     postID: postID,
-                    interactionStore: feedInteractionStore
+                    interactionStore: feedInteractionStore,
+                    topicRoute: { topicName in
+                        PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    }
                 )
+            case .topicDetail(let topicID):
+                TopicDetailScreen(
+                    topicID: topicID,
+                    store: topicStore,
+                    feedDetailRoute: { item in
+                        PetWorldRoute.topicFeedDetail(postID: item.postID)
+                    },
+                    composerRoute: { topicID in
+                        PetWorldRoute.topicComposer(seedTopicID: topicID)
+                    }
+                )
+            case .topicFeedDetail(let postID):
+                PetWorldFeedDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore,
+                    topicRoute: { topicName in
+                        PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    }
+                )
+            case .topicComposer(let seedTopicID):
+                TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)
             }
-        }
-        .navigationDestination(for: TopicRoute.self) { route in
-            TopicRouteDestinationScreen(route: route, store: topicStore)
         }
     }
 
@@ -128,12 +149,14 @@ struct PetWorldRootScreen: View {
 // 核心职责：
 // - 在快速 UI 阶段提供进入发布话题选择原型的入口
 // - 使用系统导航值进入发布草稿页面
-private struct PetWorldPublishEntryButton: View {
+private struct PetWorldPublishEntryButton<Route: Hashable>: View {
+    let route: Route
+
     var body: some View {
         HStack {
             Spacer()
 
-            NavigationLink(value: TopicRoute.composer(seedTopicID: nil)) {
+            NavigationLink(value: route) {
                 Label("发布", systemImage: "square.and.pencil")
                     .font(MHBTheme.Typography.callout.weight(.semibold))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)

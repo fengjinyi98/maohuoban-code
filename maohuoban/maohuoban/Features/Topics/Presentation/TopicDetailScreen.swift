@@ -5,9 +5,11 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 展示单个话题的头部信息、关注状态和话题内容流
 // - 复用通用 Feed 基础设施承载话题 UGC 列表
-struct TopicDetailScreen: View {
+struct TopicDetailScreen<FeedDetailRoute: Hashable, ComposerRoute: Hashable>: View {
     let topicID: String
     let store: TopicStore
+    let feedDetailRoute: (FeedItem) -> FeedDetailRoute
+    let composerRoute: (String) -> ComposerRoute
 
     var body: some View {
         if let topic = store.topic(id: topicID) {
@@ -15,6 +17,8 @@ struct TopicDetailScreen: View {
                 topic: topic,
                 feedItems: store.topicFeedItems(topicID: topic.id),
                 isFollowed: store.isFollowed(topicID: topic.id),
+                feedDetailRoute: feedDetailRoute,
+                composerRoute: composerRoute,
                 onToggleFollow: {
                     store.toggleFollow(topicID: topic.id)
                 }
@@ -28,10 +32,12 @@ struct TopicDetailScreen: View {
 // TopicDetailLoadedScreen 话题详情已加载页
 // 核心职责：
 // - 组合话题头部、Feed 内容流和底部参与入口
-private struct TopicDetailLoadedScreen: View {
+private struct TopicDetailLoadedScreen<FeedDetailRoute: Hashable, ComposerRoute: Hashable>: View {
     let topic: TopicSummary
     let feedItems: [FeedItem]
     let isFollowed: Bool
+    let feedDetailRoute: (FeedItem) -> FeedDetailRoute
+    let composerRoute: (String) -> ComposerRoute
     let onToggleFollow: () -> Void
     @State private var interactionStore: FeedInteractionStore
 
@@ -39,11 +45,15 @@ private struct TopicDetailLoadedScreen: View {
         topic: TopicSummary,
         feedItems: [FeedItem],
         isFollowed: Bool,
+        feedDetailRoute: @escaping (FeedItem) -> FeedDetailRoute,
+        composerRoute: @escaping (String) -> ComposerRoute,
         onToggleFollow: @escaping () -> Void
     ) {
         self.topic = topic
         self.feedItems = feedItems
         self.isFollowed = isFollowed
+        self.feedDetailRoute = feedDetailRoute
+        self.composerRoute = composerRoute
         self.onToggleFollow = onToggleFollow
         _interactionStore = State(initialValue: FeedInteractionStore(cards: feedItems))
     }
@@ -65,9 +75,7 @@ private struct TopicDetailLoadedScreen: View {
                     interactionStore: interactionStore,
                     topContentInset: MHBTheme.Spacing.s4,
                     accessibilityIdentifierPrefix: "topics.detail.feed.card",
-                    detailRoute: { card in
-                        TopicRoute.feedDetail(postID: card.postID)
-                    }
+                    detailRoute: feedDetailRoute
                 ) {
                     TopicDetailFeedHeader(
                         topic: topic,
@@ -80,7 +88,7 @@ private struct TopicDetailLoadedScreen: View {
         .navigationTitle(topic.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
-            TopicDetailBottomAction(topicID: topic.id)
+            TopicDetailBottomAction(route: composerRoute(topic.id))
         }
         .accessibilityIdentifier("topics.detail.\(topic.id)")
     }
@@ -198,11 +206,11 @@ private struct TopicDetailStatPill: View {
 // TopicDetailBottomAction 话题详情底部操作
 // 核心职责：
 // - 提供进入发布草稿并默认选中当前话题的入口
-private struct TopicDetailBottomAction: View {
-    let topicID: String
+private struct TopicDetailBottomAction<Route: Hashable>: View {
+    let route: Route
 
     var body: some View {
-        NavigationLink(value: TopicRoute.composer(seedTopicID: topicID)) {
+        NavigationLink(value: route) {
             Label("参与讨论", systemImage: "square.and.pencil")
                 .font(MHBTheme.Typography.callout.weight(.semibold))
                 .foregroundStyle(.white)

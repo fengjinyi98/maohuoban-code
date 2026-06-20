@@ -12,7 +12,10 @@ struct ProfileFeedDetailScreen: View {
         if let detail = ProfileMockFeedDetail.detail(for: postID) {
             PetWorldFeedDetailLoadedScreen(
                 detail: detail,
-                interactionStore: interactionStore
+                interactionStore: interactionStore,
+                topicRoute: { topicName in
+                    ProfileRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                }
             )
         } else {
             PetWorldFeedDetailMissingScreen()

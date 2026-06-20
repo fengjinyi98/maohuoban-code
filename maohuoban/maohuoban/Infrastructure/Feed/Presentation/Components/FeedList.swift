@@ -13,7 +13,6 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
     let topTrailingAction: FeedCardTopTrailingAction
     let showsRecommendationReason: Bool
     let detailRoute: (FeedItem) -> DetailRoute
-    let onOpenDetail: ((DetailRoute) -> Void)?
     let onMoreAction: (String, FeedMoreAction) -> Void
     let onScrollOffsetChange: (CGFloat) -> Void
     let onScrollPhaseChange: (ScrollPhase) -> Void
@@ -30,7 +29,6 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
         topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
         showsRecommendationReason: Bool = true,
         detailRoute: @escaping (FeedItem) -> DetailRoute,
-        onOpenDetail: ((DetailRoute) -> Void)? = nil,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
         onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
         onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in },
@@ -43,7 +41,6 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
         self.topTrailingAction = topTrailingAction
         self.showsRecommendationReason = showsRecommendationReason
         self.detailRoute = detailRoute
-        self.onOpenDetail = onOpenDetail
         self.onMoreAction = onMoreAction
         self.onScrollOffsetChange = onScrollOffsetChange
         self.onScrollPhaseChange = onScrollPhaseChange
@@ -64,7 +61,6 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
                                 detailRoute: detailRoute(card),
                                 topTrailingAction: topTrailingAction,
                                 showsRecommendationReason: showsRecommendationReason,
-                                onOpenDetail: onOpenDetail,
                                 onToggleLike: {
                                     interactionStore.toggleLike(postID: card.postID)
                                 },
@@ -165,7 +161,6 @@ extension FeedList where Header == EmptyView {
         topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
         showsRecommendationReason: Bool = true,
         detailRoute: @escaping (FeedItem) -> DetailRoute,
-        onOpenDetail: ((DetailRoute) -> Void)? = nil,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
         onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
         onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in }
@@ -178,7 +173,6 @@ extension FeedList where Header == EmptyView {
             topTrailingAction: topTrailingAction,
             showsRecommendationReason: showsRecommendationReason,
             detailRoute: detailRoute,
-            onOpenDetail: onOpenDetail,
             onMoreAction: onMoreAction,
             onScrollOffsetChange: onScrollOffsetChange,
             onScrollPhaseChange: onScrollPhaseChange

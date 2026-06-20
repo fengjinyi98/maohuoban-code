@@ -12,35 +12,18 @@ struct FeedCard<DetailRoute: Hashable>: View {
     let detailRoute: DetailRoute
     let topTrailingAction: FeedCardTopTrailingAction
     let showsRecommendationReason: Bool
-    let onOpenDetail: ((DetailRoute) -> Void)?
     let onToggleLike: () -> Void
     let onMoreTap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
-            Group {
-                if let onOpenDetail {
-                    FeedCardNavigationContent(
-                        card: card,
-                        showsRecommendationReason: showsRecommendationReason
-                    )
-                    .onTapGesture {
-                        onOpenDetail(detailRoute)
-                    }
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction {
-                        onOpenDetail(detailRoute)
-                    }
-                } else {
-                    NavigationLink(value: detailRoute) {
-                        FeedCardNavigationContent(
-                            card: card,
-                            showsRecommendationReason: showsRecommendationReason
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+            NavigationLink(value: detailRoute) {
+                FeedCardNavigationContent(
+                    card: card,
+                    showsRecommendationReason: showsRecommendationReason
+                )
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("查看动态详情")
 
             FeedCardActions(

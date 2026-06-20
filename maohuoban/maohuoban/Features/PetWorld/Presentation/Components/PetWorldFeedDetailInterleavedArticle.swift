@@ -5,7 +5,7 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 按标题、作者、有序正文块顺序展示图文混排内容
 // - 保持公开元信息、话题与推荐解释复用当前详情页展示组件
-struct PetWorldFeedDetailInterleavedArticle: View {
+struct PetWorldFeedDetailInterleavedArticle<TopicRouteValue: Hashable>: View {
     let galleryID: String
     let petName: String
     let petAvatarAssetName: String
@@ -19,6 +19,7 @@ struct PetWorldFeedDetailInterleavedArticle: View {
     let viewCount: Int
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
+    let topicRoute: (String) -> TopicRouteValue
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -49,7 +50,7 @@ struct PetWorldFeedDetailInterleavedArticle: View {
             )
 
             if !topics.isEmpty {
-                PetWorldFeedDetailTopics(topics: topics)
+                PetWorldFeedDetailTopics(topics: topics, topicRoute: topicRoute)
             }
 
             if showsRecommendationExplanation {

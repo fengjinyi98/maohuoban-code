@@ -5,12 +5,13 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 组合作者信息、正文话题、推荐解释和评论树
 // - 保持详情内容流与底部互动操作栏职责分离
-struct PetWorldFeedDetailContent: View {
+struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
     let galleryID: String
     let detail: PetWorldFeedDetailItem
     let comments: [FeedComment]
     let showsRecommendationExplanation: Bool
     let topPadding: CGFloat
+    let topicRoute: (String) -> TopicRouteValue
     var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
     let onCommentReply: (FeedComment) -> Void
     let onCommentToggleLike: (FeedComment) -> Void
@@ -33,6 +34,7 @@ struct PetWorldFeedDetailContent: View {
                     viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
                     showsRecommendationExplanation: showsRecommendationExplanation,
+                    topicRoute: topicRoute,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             case .interleaved:
@@ -50,6 +52,7 @@ struct PetWorldFeedDetailContent: View {
                     viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
                     showsRecommendationExplanation: showsRecommendationExplanation,
+                    topicRoute: topicRoute,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             }
@@ -71,7 +74,7 @@ struct PetWorldFeedDetailContent: View {
 // 核心职责：
 // - 保持当前画廊详情页作者、标题、正文、话题和推荐解释布局
 // - 继续作为导航作者显隐逻辑的观测入口
-private struct PetWorldFeedDetailGalleryArticle: View {
+private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View {
     let petName: String
     let petAvatarAssetName: String
     let authorName: String
@@ -84,6 +87,7 @@ private struct PetWorldFeedDetailGalleryArticle: View {
     let viewCount: Int
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
+    let topicRoute: (String) -> TopicRouteValue
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -104,7 +108,8 @@ private struct PetWorldFeedDetailGalleryArticle: View {
                 visibleLocationName: visibleLocationName,
                 viewCount: viewCount,
                 recommendationExplanation: recommendationExplanation,
-                showsRecommendationExplanation: showsRecommendationExplanation
+                showsRecommendationExplanation: showsRecommendationExplanation,
+                topicRoute: topicRoute
             )
         }
     }
@@ -179,7 +184,7 @@ struct PetWorldFeedDetailAuthorSection: View {
 // 核心职责：
 // - 按标题、正文、公开元信息、话题、推荐解释顺序展示文本内容
 // - 让推荐解释使用与 Feed 卡片一致的轻量信息样式
-private struct PetWorldFeedDetailCaption: View {
+private struct PetWorldFeedDetailCaption<TopicRouteValue: Hashable>: View {
     let title: String
     let bodyText: String
     let topics: [String]
@@ -187,6 +192,7 @@ private struct PetWorldFeedDetailCaption: View {
     let viewCount: Int
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
+    let topicRoute: (String) -> TopicRouteValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -209,7 +215,7 @@ private struct PetWorldFeedDetailCaption: View {
             )
 
             if !topics.isEmpty {
-                PetWorldFeedDetailTopics(topics: topics)
+                PetWorldFeedDetailTopics(topics: topics, topicRoute: topicRoute)
             }
 
             if showsRecommendationExplanation {
@@ -233,14 +239,15 @@ private struct PetWorldFeedDetailCaption: View {
 // 核心职责：
 // - 展示帖子正文下方的话题标签
 // - 支持点击话题进入话题详情页
-struct PetWorldFeedDetailTopics: View {
+struct PetWorldFeedDetailTopics<TopicRouteValue: Hashable>: View {
     let topics: [String]
+    let topicRoute: (String) -> TopicRouteValue
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MHBTheme.Spacing.s2) {
                 ForEach(topics, id: \.self) { topic in
-                    PetWorldFeedDetailTopicChip(topic: topic)
+                    PetWorldFeedDetailTopicChip(topic: topic, route: topicRoute(topic))
                 }
             }
         }
@@ -252,11 +259,12 @@ struct PetWorldFeedDetailTopics: View {
 // 核心职责：
 // - 呈现单个话题文本并进入话题详情路由
 // - 复用主题色形成轻量可点击感
-private struct PetWorldFeedDetailTopicChip: View {
+private struct PetWorldFeedDetailTopicChip<TopicRouteValue: Hashable>: View {
     let topic: String
+    let route: TopicRouteValue
 
     var body: some View {
-        NavigationLink(value: TopicRoute.detail(topicID: TopicIdentifier.id(for: topic))) {
+        NavigationLink(value: route) {
             MHBTagView(displayText, style: .primary, size: .medium)
         }
         .buttonStyle(.plain)

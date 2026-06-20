@@ -4,9 +4,10 @@ import MaohuobanDesignSystem
 // TopicFollowedListScreen 我关注的话题列表页
 // 核心职责：
 // - 展示当前用户已关注话题和更新状态
-// - 通过系统导航承载话题详情跳转
-struct TopicFollowedListScreen: View {
+// - 通过所属 Tab 注入的话题详情路由承载系统跳转
+struct TopicFollowedListScreen<DetailRoute: Hashable>: View {
     let store: TopicStore
+    let detailRoute: (TopicSummary) -> DetailRoute
 
     var body: some View {
         MHBScreenScrollView {
@@ -21,6 +22,7 @@ struct TopicFollowedListScreen: View {
                             TopicFollowedListRow(
                                 topic: topic,
                                 isFollowed: store.isFollowed(topicID: topic.id),
+                                route: detailRoute(topic),
                                 onToggleFollow: {
                                     store.toggleFollow(topicID: topic.id)
                                 }
@@ -127,15 +129,17 @@ private struct TopicFollowedSummaryHeader: View {
 // 核心职责：
 // - 展示话题封面、名称、更新状态和关注按钮
 // - 将详情跳转与关注切换拆成独立点击目标
-private struct TopicFollowedListRow: View {
+private struct TopicFollowedListRow<DetailRoute: Hashable>: View {
     let topic: TopicSummary
     let isFollowed: Bool
+    let route: DetailRoute
     let onToggleFollow: () -> Void
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
             TopicFollowedListLink(
                 topic: topic,
+                route: route,
                 statsText: "\(topic.postCount) 篇动态 · \(topic.followerCount) 人关注"
             )
 
@@ -153,12 +157,13 @@ private struct TopicFollowedListRow: View {
 // TopicFollowedListLink 已关注话题详情跳转区
 // 核心职责：
 // - 承载话题行内进入详情页的点击区域
-private struct TopicFollowedListLink: View {
+private struct TopicFollowedListLink<DetailRoute: Hashable>: View {
     let topic: TopicSummary
+    let route: DetailRoute
     let statsText: String
 
     var body: some View {
-        NavigationLink(value: TopicRoute.detail(topicID: topic.id)) {
+        NavigationLink(value: route) {
             TopicFollowedListNavigationContent(
                 assetName: topic.thumbnailAssetName,
                 showUnreadDot: topic.todayPostCount > 0,

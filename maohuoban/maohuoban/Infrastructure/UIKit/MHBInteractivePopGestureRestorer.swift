@@ -3,8 +3,8 @@ import UIKit
 
 // MHBInteractivePopGestureRestorer 系统侧滑返回手势恢复器
 // 核心职责：
-// - 在隐藏系统返回按钮的页面恢复 UINavigationController 侧滑返回手势
-// - 仅在导航栈存在可返回页面时启用系统交互式返回手势
+// - 在 NavigationStack 宿主层集中恢复 UINavigationController 侧滑返回手势
+// - 处理 iOS 26+ 内容返回手势与横向滚动容器的识别冲突
 struct MHBInteractivePopGestureRestorer: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> ProbeViewController {
         ProbeViewController(coordinator: context.coordinator)
@@ -19,17 +19,172 @@ struct MHBInteractivePopGestureRestorer: UIViewControllerRepresentable {
         Coordinator()
     }
 
+    static func dismantleUIViewController(
+        _ uiViewController: ProbeViewController,
+        coordinator: Coordinator
+    ) {
+        coordinator.restoreOriginalGestureState()
+    }
+
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         weak var navigationController: UINavigationController?
+        private weak var contentPopGestureRecognizer: UIGestureRecognizer?
+        private weak var originalEdgeDelegate: UIGestureRecognizerDelegate?
+        private weak var originalContentDelegate: UIGestureRecognizerDelegate?
+        private var originalEdgeEnabled: Bool?
+        private var originalContentEnabled: Bool?
+        private var navigationObserver: NSObjectProtocol?
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-            guard let navigationController else {
+            guard let navigationController,
+                  isNavigationPopGesture(gestureRecognizer, in: navigationController),
+                  navigationController.viewControllers.count > 1,
+                  navigationController.presentedViewController == nil,
+                  navigationController.transitionCoordinator == nil else {
+                return false
+            }
+
+            let location = gestureRecognizer.location(in: navigationController.view)
+            guard let hitView = navigationController.view.hitTest(location, with: nil) else {
                 return true
             }
 
-            return navigationController.viewControllers.count > 1 &&
-            navigationController.transitionCoordinator == nil
+            return shouldAllowPopGesture(from: hitView)
         }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            guard let navigationController,
+                  isNavigationPopGesture(gestureRecognizer, in: navigationController),
+                  let scrollView = otherGestureRecognizer.view?.mhbNearestScrollView() else {
+                return false
+            }
+
+            return MHBNavigationGestureScrollConflictPolicy.shouldAllowPopGesture(
+                contentSize: scrollView.contentSize,
+                bounds: scrollView.bounds,
+                contentOffset: scrollView.contentOffset,
+                adjustedContentInsetLeft: scrollView.adjustedContentInset.left
+            )
+        }
+
+        func install(on navigationController: UINavigationController) {
+            if self.navigationController !== navigationController {
+                restoreOriginalGestureState()
+                self.navigationController = navigationController
+                contentPopGestureRecognizer = navigationController.mhbInteractiveContentPopGestureRecognizer
+                captureOriginalGestureState(from: navigationController)
+                observeNavigationDidShow(for: navigationController)
+            }
+
+            restore(navigationController.interactivePopGestureRecognizer)
+            restore(navigationController.mhbInteractiveContentPopGestureRecognizer)
+        }
+
+        func restoreOriginalGestureState() {
+            stopObservingNavigationDidShow()
+
+            if let navigationController {
+                if let originalEdgeEnabled {
+                    navigationController.interactivePopGestureRecognizer?.isEnabled = originalEdgeEnabled
+                }
+                if navigationController.interactivePopGestureRecognizer?.delegate === self {
+                    navigationController.interactivePopGestureRecognizer?.delegate = originalEdgeDelegate
+                }
+
+                let contentGesture = contentPopGestureRecognizer ?? navigationController.mhbInteractiveContentPopGestureRecognizer
+                if let originalContentEnabled {
+                    contentGesture?.isEnabled = originalContentEnabled
+                }
+                if contentGesture?.delegate === self {
+                    contentGesture?.delegate = originalContentDelegate
+                }
+            }
+
+            navigationController = nil
+            contentPopGestureRecognizer = nil
+            originalEdgeDelegate = nil
+            originalContentDelegate = nil
+            originalEdgeEnabled = nil
+            originalContentEnabled = nil
+        }
+
+        private func captureOriginalGestureState(from navigationController: UINavigationController) {
+            originalEdgeDelegate = navigationController.interactivePopGestureRecognizer?.delegate
+            originalEdgeEnabled = navigationController.interactivePopGestureRecognizer?.isEnabled
+
+            let contentGesture = navigationController.mhbInteractiveContentPopGestureRecognizer
+            originalContentDelegate = contentGesture?.delegate
+            originalContentEnabled = contentGesture?.isEnabled
+        }
+
+        private func restore(_ gestureRecognizer: UIGestureRecognizer?) {
+            guard let gestureRecognizer else {
+                return
+            }
+
+            gestureRecognizer.isEnabled = true
+            gestureRecognizer.delegate = self
+        }
+
+        private func observeNavigationDidShow(for navigationController: UINavigationController) {
+            stopObservingNavigationDidShow()
+            navigationObserver = NotificationCenter.default.addObserver(
+                forName: Self.navigationControllerDidShowNotification,
+                object: navigationController,
+                queue: .main
+            ) { [weak self, weak navigationController] _ in
+                guard let self,
+                      let navigationController else {
+                    return
+                }
+                MainActor.assumeIsolated {
+                    self.install(on: navigationController)
+                }
+            }
+        }
+
+        private func stopObservingNavigationDidShow() {
+            if let navigationObserver {
+                NotificationCenter.default.removeObserver(navigationObserver)
+                self.navigationObserver = nil
+            }
+        }
+
+        private func isNavigationPopGesture(
+            _ gestureRecognizer: UIGestureRecognizer,
+            in navigationController: UINavigationController
+        ) -> Bool {
+            if gestureRecognizer === navigationController.interactivePopGestureRecognizer {
+                return true
+            }
+
+            return gestureRecognizer === navigationController.mhbInteractiveContentPopGestureRecognizer
+        }
+
+        private func shouldAllowPopGesture(from hitView: UIView) -> Bool {
+            var currentView: UIView? = hitView
+            while let view = currentView {
+                if let scrollView = view as? UIScrollView,
+                   scrollView.contentSize.width > scrollView.bounds.width {
+                    return MHBNavigationGestureScrollConflictPolicy.shouldAllowPopGesture(
+                        contentSize: scrollView.contentSize,
+                        bounds: scrollView.bounds,
+                        contentOffset: scrollView.contentOffset,
+                        adjustedContentInsetLeft: scrollView.adjustedContentInset.left
+                    )
+                }
+                currentView = view.superview
+            }
+
+            return true
+        }
+
+        private static let navigationControllerDidShowNotification = Notification.Name(
+            "UINavigationControllerDidShowNotification"
+        )
     }
 
     final class ProbeViewController: UIViewController {
@@ -56,27 +211,11 @@ struct MHBInteractivePopGestureRestorer: UIViewControllerRepresentable {
         }
 
         func restoreInteractivePopGesture() {
-            guard let navigationController = containingNavigationController(),
-                  navigationController.viewControllers.count > 1
-            else {
+            guard let navigationController = containingNavigationController() else {
                 return
             }
 
-            coordinator.navigationController = navigationController
-            restore(navigationController.interactivePopGestureRecognizer)
-
-            if #available(iOS 26.0, *) {
-                restore(navigationController.interactiveContentPopGestureRecognizer)
-            }
-        }
-
-        private func restore(_ gestureRecognizer: UIGestureRecognizer?) {
-            guard let gestureRecognizer else {
-                return
-            }
-
-            gestureRecognizer.isEnabled = true
-            gestureRecognizer.delegate = coordinator
+            coordinator.install(on: navigationController)
         }
 
         private func containingNavigationController() -> UINavigationController? {
@@ -144,5 +283,20 @@ struct MHBInteractivePopGestureRestorer: UIViewControllerRepresentable {
 
             return nil
         }
+    }
+}
+
+private extension UINavigationController {
+    var mhbInteractiveContentPopGestureRecognizer: UIGestureRecognizer? {
+        value(forKey: "interactiveContentPopGestureRecognizer") as? UIGestureRecognizer
+    }
+}
+
+private extension UIView {
+    func mhbNearestScrollView() -> UIScrollView? {
+        if let scrollView = self as? UIScrollView {
+            return scrollView
+        }
+        return superview?.mhbNearestScrollView()
     }
 }
