@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 // MHBImagePreviewHostModifier 图片预览宿主修饰器
 // 核心职责：
 // - 在页面顶层注入图片预览环境能力
@@ -8,6 +12,11 @@ struct MHBImagePreviewHostModifier: ViewModifier {
     @State private var coordinator: MHBImagePreviewCoordinator
     @State private var presentAction: MHBImagePreviewPresentAction
     @State private var registrar: MHBImagePreviewSourceRegistrar
+#if canImport(UIKit)
+    @State private var overlayWindowState: MHBImagePreviewWindowState
+    @State private var overlayWindow: MHBImagePreviewOverlayWindow?
+    @State private var overlayController: MHBImagePreviewWindowHostingController?
+#endif
 
     @MainActor
     init() {
@@ -34,9 +43,25 @@ struct MHBImagePreviewHostModifier: ViewModifier {
                 }
             )
         )
+#if canImport(UIKit)
+        _overlayWindowState = State(initialValue: MHBImagePreviewWindowState())
+#endif
     }
 
     func body(content: Content) -> some View {
+#if canImport(UIKit)
+        content
+            .environment(\.mhbImagePreviewPresentAction, presentAction)
+            .environment(\.mhbImagePreviewSourceRegistrar, registrar)
+            .environment(\.mhbImagePreviewPresenting, coordinator.session != nil)
+            .background(MHBWindowExtractor { mainWindow in
+                createOverlayWindow(from: mainWindow)
+                syncOverlayWindowSession(coordinator.session)
+            })
+            .onChange(of: coordinator.session != nil) { _, _ in
+                syncOverlayWindowSession(coordinator.session)
+            }
+#else
         content
             .environment(\.mhbImagePreviewPresentAction, presentAction)
             .environment(\.mhbImagePreviewSourceRegistrar, registrar)
@@ -54,7 +79,44 @@ struct MHBImagePreviewHostModifier: ViewModifier {
                     .zIndex(999)
                 }
             }
+#endif
     }
+
+#if canImport(UIKit)
+    @MainActor
+    private func createOverlayWindow(from mainWindow: UIWindow) {
+        guard overlayWindow == nil,
+              let windowScene = mainWindow.windowScene else {
+            return
+        }
+
+        let window = MHBImagePreviewOverlayWindow(windowScene: windowScene)
+        window.backgroundColor = .clear
+        window.isUserInteractionEnabled = true
+        window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.normal.rawValue + 1)
+        window.isHidden = true
+        window.previewState = overlayWindowState
+
+        let controller = MHBImagePreviewWindowHostingController(
+            rootView: MHBImagePreviewWindowContent(
+                state: overlayWindowState,
+                coordinator: coordinator
+            )
+        )
+        controller.view.backgroundColor = .clear
+        window.rootViewController = controller
+
+        overlayWindow = window
+        overlayController = controller
+    }
+
+    @MainActor
+    private func syncOverlayWindowSession(_ session: MHBImagePreviewSession?) {
+        overlayWindowState.session = session
+        overlayWindow?.isHidden = session == nil
+        overlayController?.isPreviewStatusBarHidden = session != nil
+    }
+#endif
 }
 
 public extension View {

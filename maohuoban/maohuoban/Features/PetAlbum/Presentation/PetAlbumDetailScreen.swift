@@ -28,6 +28,7 @@ struct PetAlbumDetailScreen: View {
             .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
+        .mhbImagePreviewHost()
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

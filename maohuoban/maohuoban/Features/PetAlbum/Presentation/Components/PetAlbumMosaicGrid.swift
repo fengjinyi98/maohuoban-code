@@ -9,11 +9,33 @@ struct PetAlbumMosaicGrid: View {
     let assets: [PetAlbumAsset]
 
     private let clusterSize = 7
+    private var galleryID: String {
+        assets.first?.albumID ?? "pet-album-empty"
+    }
+
+    private var previewAssets: [MHBImagePreviewAsset] {
+        assets.map { asset in
+            MHBImagePreviewAsset(
+                id: asset.id,
+                sourceKind: .localAsset(asset.imageAssetName),
+                pixelSize: CGSize(
+                    width: asset.pixelSize.width,
+                    height: asset.pixelSize.height
+                ),
+                accessibilityLabel: asset.caption ?? "查看相册照片"
+            )
+        }
+    }
 
     var body: some View {
         LazyVStack(spacing: MHBTheme.Spacing.s2) {
             ForEach(clusters) { cluster in
-                PetAlbumMosaicCluster(assets: cluster.assets)
+                PetAlbumMosaicCluster(
+                    assets: cluster.assets,
+                    startIndex: cluster.startIndex,
+                    galleryID: galleryID,
+                    previewAssets: previewAssets
+                )
             }
         }
         .accessibilityElement(children: .contain)
@@ -24,7 +46,11 @@ struct PetAlbumMosaicGrid: View {
         stride(from: 0, to: assets.count, by: clusterSize).map { startIndex in
             let endIndex = min(startIndex + clusterSize, assets.count)
             let clusterAssets = Array(assets[startIndex..<endIndex])
-            return PetAlbumMosaicClusterData(id: clusterAssets.first?.id ?? "empty-\(startIndex)", assets: clusterAssets)
+            return PetAlbumMosaicClusterData(
+                id: clusterAssets.first?.id ?? "empty-\(startIndex)",
+                startIndex: startIndex,
+                assets: clusterAssets
+            )
         }
     }
 }
@@ -35,6 +61,7 @@ struct PetAlbumMosaicGrid: View {
 // - 持有当前分组需要布局的照片集合
 private struct PetAlbumMosaicClusterData: Identifiable {
     let id: String
+    let startIndex: Int
     let assets: [PetAlbumAsset]
 }
 
@@ -44,6 +71,9 @@ private struct PetAlbumMosaicClusterData: Identifiable {
 // - 将布局计算限制为当前分组的纯几何计算
 private struct PetAlbumMosaicCluster: View {
     let assets: [PetAlbumAsset]
+    let startIndex: Int
+    let galleryID: String
+    let previewAssets: [MHBImagePreviewAsset]
 
     var body: some View {
         GeometryReader { proxy in
@@ -58,6 +88,9 @@ private struct PetAlbumMosaicCluster: View {
                     if frames.indices.contains(index) {
                         PetAlbumMosaicTile(
                             asset: asset,
+                            previewAssets: previewAssets,
+                            previewIndex: startIndex + index,
+                            galleryID: galleryID,
                             width: frames[index].width,
                             height: frames[index].height
                         )
@@ -77,11 +110,22 @@ private struct PetAlbumMosaicCluster: View {
 // - 提供图片来源与说明的无障碍描述
 private struct PetAlbumMosaicTile: View {
     let asset: PetAlbumAsset
+    let previewAssets: [MHBImagePreviewAsset]
+    let previewIndex: Int
+    let galleryID: String
     let width: CGFloat
     let height: CGFloat
 
     var body: some View {
-        PetAlbumAssetImage(imageAssetName: asset.imageAssetName)
+        MHBPreviewableImage(
+            galleryID: galleryID,
+            items: previewAssets,
+            index: previewIndex,
+            cornerRadius: MHBTheme.Radius.large,
+            contentMode: .fill
+        ) {
+            MHBTheme.ColorToken.separatorSoft.color
+        }
             .frame(width: width, height: height)
             .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
             .overlay {
