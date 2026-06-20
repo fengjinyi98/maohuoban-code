@@ -72,6 +72,8 @@ struct PublishEventComposerScreen: View {
                             onPendingMentionInsertionHandled: handlePendingMentionInsertionHandled,
                             onTopicsChange: handleTopicsChange(_:),
                             onAddMedia: openMediaPicker,
+                            onInsertTopic: insertTopic,
+                            onMentionUser: insertMention,
                             onRemoveMedia: removeImage(_:),
                             onRemoveArticleImageBlock: removeArticleImageBlock(_:),
                             onReplaceArticleImageBlock: replaceArticleImageBlock(_:)

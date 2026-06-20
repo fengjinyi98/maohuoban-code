@@ -36,14 +36,11 @@ struct PublishTopicTextEditor: UIViewRepresentable {
         textView.placeholderColor = MHBTheme.ColorToken.labelTertiary.publishUIKitColor
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
         context.coordinator.applyPlainText(text, to: textView)
-        context.coordinator.activeTextView = textView
-        textView.inputAccessoryView = context.coordinator.makeKeyboardAccessoryView()
         return textView
     }
 
     func updateUIView(_ uiView: PublishPlaceholderTextView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.activeTextView = uiView
         uiView.font = Self.textFont
         uiView.textColor = MHBTheme.ColorToken.labelPrimary.publishUIKitColor
         uiView.tintColor = MHBTheme.ColorToken.primary.publishUIKitColor
@@ -95,7 +92,6 @@ struct PublishTopicTextEditor: UIViewRepresentable {
         var lastHandledPendingMentionInsertionNonce: Int
         var activeTopicAnchorLocation: Int?
         var isProgrammaticChange = false
-        weak var activeTextView: PublishPlaceholderTextView?
 
         private var commitSyncGate = PublishCommittedTextSyncGate()
 
@@ -103,20 +99,6 @@ struct PublishTopicTextEditor: UIViewRepresentable {
             self.parent = parent
             self.lastHandledPendingTopicInsertionNonce = parent.pendingTopicInsertionNonce
             self.lastHandledPendingMentionInsertionNonce = parent.pendingMentionInsertionNonce
-        }
-
-        @MainActor
-        func makeKeyboardAccessoryView() -> UIView {
-            PublishKeyboardSymbolAccessoryView(
-                onInsertTopic: { [weak self] in
-                    guard let self, let activeTextView else { return }
-                    insertTopicMarker(into: activeTextView)
-                },
-                onInsertMention: { [weak self] in
-                    guard let self, let activeTextView else { return }
-                    insertMention(into: activeTextView)
-                }
-            )
         }
 
         @MainActor

@@ -60,17 +60,15 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> EditorView {
-        let editor = PublishArticleEditorView()
+        let editor = EditorView()
         editor.delegate = context.coordinator
         context.coordinator.selectedImages = selectedImages
-        context.coordinator.activeEditor = editor
         editor.isScrollEnabled = false
         editor.backgroundColor = .clear
         editor.textColor = MHBTheme.ColorToken.labelPrimary.publishUIKitColor
         editor.tintColor = MHBTheme.ColorToken.primary.publishUIKitColor
         editor.font = Self.textFont
         editor.textContainerInset = .zero
-        editor.keyboardAccessoryView = context.coordinator.makeKeyboardAccessoryView()
         editor.placeholderText = NSAttributedString(
             string: "添加正文",
             attributes: [
@@ -89,7 +87,6 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
     func updateUIView(_ uiView: EditorView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.selectedImages = selectedImages
-        context.coordinator.activeEditor = uiView
         uiView.textColor = MHBTheme.ColorToken.labelPrimary.publishUIKitColor
         uiView.tintColor = MHBTheme.ColorToken.primary.publishUIKitColor
 
@@ -209,7 +206,6 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
         var lastHandledPendingMentionInsertionNonce: Int
         var selectedImages: [PublishSelectedImage] = []
         var pendingParentBlocks: [PublishArticleBlock]?
-        weak var activeEditor: EditorView?
 
         private var handledPendingMediaIDs = Set<UUID>()
         private var isApplyingBlocks = false
@@ -224,20 +220,6 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
             self.parent = parent
             self.lastHandledPendingTopicInsertionNonce = parent.pendingTopicInsertionNonce
             self.lastHandledPendingMentionInsertionNonce = parent.pendingMentionInsertionNonce
-        }
-
-        @MainActor
-        func makeKeyboardAccessoryView() -> UIView {
-            PublishKeyboardSymbolAccessoryView(
-                onInsertTopic: { [weak self] in
-                    guard let self, let activeEditor else { return }
-                    insertTopic(into: activeEditor)
-                },
-                onInsertMention: { [weak self] in
-                    guard let self, let activeEditor else { return }
-                    insertMention(into: activeEditor)
-                }
-            )
         }
 
         @MainActor
@@ -607,7 +589,7 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
             let fittingSize = editor.sizeThatFits(
                 CGSize(width: fittingWidth, height: .greatestFiniteMagnitude)
             )
-            let measuredHeight = max(220, fittingSize.height)
+            let measuredHeight = max(240, fittingSize.height)
             guard abs(parent.editorHeight - measuredHeight) > 1 else { return }
             DispatchQueue.main.async { [weak self] in
                 self?.parent.editorHeight = measuredHeight
@@ -860,19 +842,6 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
                 self.syncBlocks(from: editor)
             }
         }
-    }
-}
-
-// PublishArticleEditorView 图文编辑器宿主视图
-// 核心职责：
-// - 为 Proton Editor 注入可配置的键盘工具栏
-// - 避免直接写只读 inputAccessoryView 导致的编译错误
-@MainActor
-final class PublishArticleEditorView: EditorView {
-    var keyboardAccessoryView: UIView?
-
-    override var inputAccessoryView: UIView? {
-        keyboardAccessoryView
     }
 }
 
