@@ -19,6 +19,8 @@ struct ProfileRootScreen: View {
 
                 ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
                     print("Tapped quick entry: \(item.title)")
+                } routeForItem: { item in
+                    quickEntryRoute(for: item)
                 }
 
                 ProfileFAQBanner {
@@ -70,7 +72,18 @@ struct ProfileRootScreen: View {
                     postID: postID,
                     interactionStore: feedInteractionStore
                 )
+            case .petAlbumList:
+                PetAlbumListScreen()
             }
+        }
+    }
+
+    private func quickEntryRoute(for item: ProfileQuickEntryItem) -> ProfileRoute? {
+        switch item.id {
+        case "petAlbum":
+            return .petAlbumList
+        default:
+            return nil
         }
     }
 }

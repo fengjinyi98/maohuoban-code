@@ -8,14 +8,22 @@ import MaohuobanDesignSystem
 struct ProfileQuickEntriesSection: View {
     let items: [ProfileQuickEntryItem]
     let onItemClick: (ProfileQuickEntryItem) -> Void
+    let routeForItem: (ProfileQuickEntryItem) -> ProfileRoute?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 4)
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: MHBTheme.Spacing.s3) {
             ForEach(items) { item in
-                ProfileQuickEntryButton(item: item) {
-                    onItemClick(item)
+                if let route = routeForItem(item) {
+                    NavigationLink(value: route) {
+                        ProfileQuickEntryContent(item: item)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    ProfileQuickEntryButton(item: item) {
+                        onItemClick(item)
+                    }
                 }
             }
         }
@@ -38,20 +46,34 @@ private struct ProfileQuickEntryButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: MHBTheme.Spacing.s1) {
-                Image(systemName: item.systemImage)
-                    .font(.system(size: MHBTheme.IconSize.medium, weight: .medium))
-                    .foregroundStyle(item.color)
-                    .frame(width: 32, height: 32)
-
-                Text(item.title)
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
+            ProfileQuickEntryContent(item: item)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// ProfileQuickEntryContent 我的页快捷入口内容
+// 核心职责：
+// - 统一快捷入口图标和标题展示
+// - 供普通按钮和导航入口复用一致视觉
+private struct ProfileQuickEntryContent: View {
+    let item: ProfileQuickEntryItem
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s1) {
+            Image(systemName: item.systemImage)
+                .font(.system(size: MHBTheme.IconSize.medium, weight: .medium))
+                .foregroundStyle(item.color)
+                .frame(width: 32, height: 32)
+
+            Text(item.title)
+                .font(MHBTheme.Typography.caption)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(item.title)
     }
 }
 

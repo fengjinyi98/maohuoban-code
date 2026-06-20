@@ -7,4 +7,5 @@ import Foundation
 enum ProfileRoute: Hashable {
     case posts
     case feedDetail(postID: String)
+    case petAlbumList
 }

@@ -108,6 +108,10 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
+        case .petAlbumList:
+            PetAlbumListScreen()
+        case .petAlbumDetail(let albumID):
+            PetAlbumDetailScreen(albumID: albumID)
         }
     }
 }

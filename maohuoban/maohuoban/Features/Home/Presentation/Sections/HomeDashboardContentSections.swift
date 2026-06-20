@@ -61,7 +61,13 @@ struct HomeDashboardContentSections: View {
             }
 
             if let gallery = snapshot.galleryAlbums, !gallery.isEmpty {
-                HomePetGallerySection(albums: gallery)
+                HomePetGallerySection(
+                    albums: gallery,
+                    listRoute: .petAlbumList,
+                    detailRoute: { album in
+                        .petAlbumDetail(albumID: album.id)
+                    }
+                )
             }
 
             if let merchantDashboard = snapshot.merchantDashboard {

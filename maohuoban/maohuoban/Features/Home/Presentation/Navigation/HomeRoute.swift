@@ -18,6 +18,8 @@ enum HomeRoute: Hashable {
     case merchantLitter(merchantID: String, litterID: String)
     case merchantTask(merchantID: String, reminderID: String)
     case timelineEvent(eventID: String)
+    case petAlbumList
+    case petAlbumDetail(albumID: String)
 }
 
 extension HomeRoute {
@@ -35,6 +37,8 @@ extension HomeRoute {
         case .merchantLitter: "point.3.connected.trianglepath.dotted"
         case .merchantTask: "checklist"
         case .timelineEvent: "clock.arrow.circlepath"
+        case .petAlbumList: "photo.on.rectangle.angled"
+        case .petAlbumDetail: "photo"
         }
     }
 
@@ -52,6 +56,8 @@ extension HomeRoute {
         case .merchantLitter: "窝次详情"
         case .merchantTask: "待处理任务"
         case .timelineEvent: "事件详情"
+        case .petAlbumList: "宠物相册"
+        case .petAlbumDetail: "相册详情"
         }
     }
 
@@ -69,6 +75,8 @@ extension HomeRoute {
         case .merchantLitter: "查看出生批次、父母和同窝关系"
         case .merchantTask: "处理商家工作台待办"
         case .timelineEvent: "查看宠物事件账本记录"
+        case .petAlbumList: "查看宠物照片相册"
+        case .petAlbumDetail: "查看单个相册中的照片"
         }
     }
 }

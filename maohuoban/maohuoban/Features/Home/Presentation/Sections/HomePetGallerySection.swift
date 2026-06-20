@@ -7,11 +7,13 @@ import MaohuobanDesignSystem
 // - 呈现 Apple Music "热门视频排行" 风格的 16:9 宽屏横滑列表卡片
 struct HomePetGallerySection: View {
     let albums: [HomeDashboardSnapshot.PetGalleryAlbum]
+    let listRoute: HomeRoute
+    let detailRoute: (HomeDashboardSnapshot.PetGalleryAlbum) -> HomeRoute
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
             // 头部 "相册 >"
-            Button(action: {}) {
+            NavigationLink(value: listRoute) {
                 HStack(spacing: MHBTheme.Spacing.s1) {
                     Text("相册")
                         .font(.system(size: 18, weight: .bold))
@@ -30,7 +32,7 @@ struct HomePetGallerySection: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: MHBTheme.Spacing.s3) {
                     ForEach(albums) { album in
-                        Button(action: {}) {
+                        NavigationLink(value: detailRoute(album)) {
                             HomeGalleryCard(album: album)
                         }
                         .buttonStyle(.plain)
