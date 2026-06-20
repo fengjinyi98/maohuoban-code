@@ -35,7 +35,7 @@ private struct TopicDetailLoadedScreen: View {
     let onToggleFollow: () -> Void
 
     var body: some View {
-        ScrollView {
+        MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
                 TopicDetailHeroSection(
                     topic: topic,

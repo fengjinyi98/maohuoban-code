@@ -96,6 +96,7 @@ struct ProfileRootScreen: View {
         }
         .navigationDestination(for: TopicRoute.self) { route in
             TopicRouteDestinationScreen(route: route, store: topicStore)
+                .toolbar(.visible, for: .navigationBar)
         }
     }
 

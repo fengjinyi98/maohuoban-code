@@ -10,7 +10,7 @@ struct TopicFollowedListScreen: View {
     @State private var draftTopicName = ""
 
     var body: some View {
-        ScrollView {
+        MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 TopicCreatePanel(
                     draftName: $draftTopicName,
@@ -29,7 +29,6 @@ struct TopicFollowedListScreen: View {
                         ForEach(store.followedTopics) { topic in
                             TopicFollowedListRow(
                                 topic: topic,
-                                store: store,
                                 isFollowed: store.isFollowed(topicID: topic.id),
                                 onToggleFollow: {
                                     store.toggleFollow(topicID: topic.id)
@@ -147,7 +146,6 @@ private struct TopicFollowedSummaryHeader: View {
 // - 将详情跳转与关注切换拆成独立点击目标
 private struct TopicFollowedListRow: View {
     let topic: TopicSummary
-    let store: TopicStore
     let isFollowed: Bool
     let onToggleFollow: () -> Void
 
@@ -155,7 +153,6 @@ private struct TopicFollowedListRow: View {
         HStack(spacing: MHBTheme.Spacing.s3) {
             TopicFollowedListLink(
                 topic: topic,
-                store: store,
                 statsText: "\(topic.postCount) 篇动态 · \(topic.followerCount) 人关注"
             )
 
@@ -175,13 +172,10 @@ private struct TopicFollowedListRow: View {
 // - 承载话题行内进入详情页的点击区域
 private struct TopicFollowedListLink: View {
     let topic: TopicSummary
-    let store: TopicStore
     let statsText: String
 
     var body: some View {
-        NavigationLink {
-            TopicDetailScreen(topicID: topic.id, store: store)
-        } label: {
+        NavigationLink(value: TopicRoute.detail(topicID: topic.id)) {
             TopicFollowedListNavigationContent(
                 assetName: topic.thumbnailAssetName,
                 showUnreadDot: topic.todayPostCount > 0,

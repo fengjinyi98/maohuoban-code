@@ -14,7 +14,7 @@ struct PetAlbumListScreen: View {
     ]
 
     var body: some View {
-        ScrollView {
+        MHBScreenScrollView {
             LazyVGrid(columns: columns, alignment: .center, spacing: MHBTheme.Spacing.s5) {
                 PetAlbumCreateCard(action: {})
                     .accessibilityIdentifier("petAlbum.list.create")

@@ -21,7 +21,7 @@ struct TopicPostComposerScreen: View {
     }
 
     var body: some View {
-        ScrollView {
+        MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 if didPrepareDraft {
                     TopicComposerPreparedBanner()

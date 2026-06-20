@@ -14,6 +14,7 @@ struct MHBRootTabStack<Content: View>: View {
     var body: some View {
         NavigationStack(path: tabState.binding(for: tab)) {
             content()
+                .background(MHBInteractivePopGestureRestorer())
         }
         .toolbar(tabState.shouldShowTabBar(for: tab) ? .visible : .hidden, for: .tabBar)
         .tabItem {

@@ -13,7 +13,7 @@ struct PetAlbumDetailScreen: View {
         let album = resolvedAlbum
         let assets = store.assets(for: album.id)
 
-        ScrollView {
+        MHBScreenScrollView {
             LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
                 PetAlbumDetailHeader(
                     title: album.title,
