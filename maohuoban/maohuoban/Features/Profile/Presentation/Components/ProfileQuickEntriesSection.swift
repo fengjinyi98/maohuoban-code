@@ -60,10 +60,10 @@ private extension ProfileQuickEntryItem {
         switch id {
         case "myPets":     return MHBTheme.ColorToken.success.color
         case "petAlbum":   return MHBTheme.ColorToken.teal.color
-        case "maoQiu":     return MHBTheme.ColorToken.purple.color
+        case "myRescues":  return MHBTheme.ColorToken.danger.color
         case "myFavorites":return MHBTheme.ColorToken.warning.color
         case "myPosts":    return MHBTheme.ColorToken.primary.color
-        case "myTrades":   return MHBTheme.ColorToken.danger.color
+        case "myTrades":   return MHBTheme.ColorToken.purple.color
         case "myReplies":  return MHBTheme.ColorToken.warning.color
         default:           return MHBTheme.ColorToken.labelSecondary.color
         }

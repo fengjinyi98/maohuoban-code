@@ -20,6 +20,18 @@ struct ProfileRootScreen: View {
                 ProfileFAQBanner {
                     print("Tapped FAQ banner")
                 }
+
+                ProfileBadgesSection(badges: ProfileBadge.mockBadges) {
+                    print("Tapped badges header")
+                } onBadgeClick: { badge in
+                    print("Tapped badge: \(badge.title)")
+                }
+
+                ProfileFollowedTopicsSection(topics: ProfileFollowedTopic.mockTopics) {
+                    print("Tapped followed topics header")
+                } onTopicClick: { topic in
+                    print("Tapped followed topic: \(topic.title)")
+                }
             }
             .padding(.horizontal, MHBTheme.Spacing.s3)
             .padding(.top, MHBTheme.Spacing.s3)
@@ -30,6 +42,13 @@ struct ProfileRootScreen: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {} label: {
+                    Image(systemName: "sparkles")
+                }
+                .accessibilityLabel("毛球")
+                .accessibilityIdentifier("profile.maoqiuButton")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {} label: {
                     Image(systemName: "gearshape")

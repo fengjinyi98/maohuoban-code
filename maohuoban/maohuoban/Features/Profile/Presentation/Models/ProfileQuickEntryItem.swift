@@ -12,7 +12,7 @@ struct ProfileQuickEntryItem: Identifiable, Equatable {
     static let mockItems = [
         ProfileQuickEntryItem(id: "myPets", title: "我的宠物", systemImage: "pawprint.fill"),
         ProfileQuickEntryItem(id: "petAlbum", title: "宠物相册", systemImage: "photo.fill"),
-        ProfileQuickEntryItem(id: "maoQiu", title: "毛球", systemImage: "sparkles"),
+        ProfileQuickEntryItem(id: "myRescues", title: "我的救助", systemImage: "cross.case.fill"),
         ProfileQuickEntryItem(id: "myFavorites", title: "我的收藏", systemImage: "star.fill"),
         ProfileQuickEntryItem(id: "myPosts", title: "我的图文", systemImage: "doc.text.fill"),
         ProfileQuickEntryItem(id: "myTrades", title: "我的交易", systemImage: "bag.fill"),
