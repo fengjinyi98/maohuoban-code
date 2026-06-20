@@ -8,13 +8,15 @@ struct PetWorldFeedDetailScreen<TopicRouteValue: Hashable>: View {
     let postID: String
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
 
     var body: some View {
         if let detail = PetWorldMockFeedDetail.detail(for: postID) {
             PetWorldFeedDetailLoadedScreen(
                 detail: detail,
                 interactionStore: interactionStore,
-                topicRoute: topicRoute
+                topicRoute: topicRoute,
+                onOpenTopicRoute: onOpenTopicRoute
             )
         } else {
             PetWorldFeedDetailMissingScreen()

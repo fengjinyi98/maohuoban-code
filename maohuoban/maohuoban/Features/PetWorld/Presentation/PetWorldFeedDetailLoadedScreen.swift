@@ -12,6 +12,7 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
     let detail: PetWorldFeedDetailItem
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
     @State private var selectedMediaIndex = 0
     @State private var isNavigationAuthorVisible = false
     @State private var isNavigationAuthorSubtitleVisible = false
@@ -20,7 +21,6 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
     @State private var replyTargetCommentID: String?
     @State private var replyTargetName: String?
     @State private var selectedCommentForActions: FeedComment?
-    @State private var doubleTapLikeBursts: [PetWorldFeedDetailDoubleTapLikeBurst] = []
 
     var body: some View {
         GeometryReader { geometry in
@@ -61,6 +61,7 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
                                 topSafeArea: geometry.safeAreaInsets.top
                             ),
                             topicRoute: topicRoute,
+                            onOpenTopicRoute: onOpenTopicRoute,
                             onAuthorOffsetChange: updateNavigationAuthorOffset(_:),
                             onCommentReply: presentReplyComposer(for:),
                             onCommentToggleLike: handleCommentLike(_:),
@@ -76,16 +77,6 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
                 }
                 .scrollIndicators(.hidden)
                 .ignoresSafeArea(edges: .top)
-                .highPriorityGesture(
-                    SpatialTapGesture(count: 2, coordinateSpace: .local)
-                        .onEnded { value in
-                            handleDoubleTapLike(
-                                at: value.location,
-                                currentIsLiked: interactionState.isLiked
-                            )
-                        },
-                    including: .all
-                )
                 .zIndex(0)
 
                 PetWorldFeedDetailHeaderControls(
@@ -104,9 +95,6 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
                 .padding(.top, MHBTheme.Spacing.s1)
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .zIndex(1)
-
-                PetWorldFeedDetailDoubleTapLikeOverlay(bursts: doubleTapLikeBursts)
-                    .zIndex(1.5)
 
                 if isCommentComposerPresented {
                     PetWorldFeedDetailCommentInputShield(
@@ -297,34 +285,6 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
             postID: detail.postID,
             commentID: comment.id
         )
-    }
-
-    private func handleDoubleTapLike(
-        at location: CGPoint,
-        currentIsLiked: Bool
-    ) {
-        guard !isCommentComposerPresented,
-              selectedCommentForActions == nil
-        else {
-            return
-        }
-
-        let nextIsLiked = !currentIsLiked
-        let burst = PetWorldFeedDetailDoubleTapLikeBurst(
-            location: location,
-            isLiked: nextIsLiked
-        )
-
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred(
-            intensity: nextIsLiked ? 0.9 : 0.58
-        )
-        doubleTapLikeBursts.append(burst)
-        interactionStore.toggleLike(postID: detail.postID)
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(760))
-            doubleTapLikeBursts.removeAll { $0.id == burst.id }
-        }
     }
 
     private func presentCommentActionSheet(for comment: FeedComment) {

@@ -85,7 +85,10 @@ struct ProfileRootScreen: View {
             case .feedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
-                    interactionStore: feedInteractionStore
+                    interactionStore: feedInteractionStore,
+                    onOpenTopicRoute: { route in
+                        tabState.appendProfileRoute(route)
+                    }
                 )
             case .petAlbumList:
                 PetAlbumListScreen { album in
@@ -111,7 +114,10 @@ struct ProfileRootScreen: View {
             case .topicFeedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
-                    interactionStore: feedInteractionStore
+                    interactionStore: feedInteractionStore,
+                    onOpenTopicRoute: { route in
+                        tabState.appendProfileRoute(route)
+                    }
                 )
             case .topicComposer(let seedTopicID):
                 TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)

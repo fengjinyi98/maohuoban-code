@@ -7,13 +7,18 @@ import MaohuobanDesignSystem
 // - 在系统导航栏位置承载频道 tab 和搜索入口
 struct PetWorldRootScreen: View {
     let topicStore: TopicStore
+    let tabState: MHBAppTabState
     @State private var selectedTab = PetWorldNavigationTab.recommended
     @State private var lastFeedScrollOffset: CGFloat = 0
     @State private var isNavigationHeaderHidden = false
     @State private var feedInteractionStore = FeedInteractionStore(cards: PetWorldMockFeed.cards)
 
-    init(topicStore: TopicStore = TopicStore()) {
+    init(
+        topicStore: TopicStore = TopicStore(),
+        tabState: MHBAppTabState = MHBAppTabState()
+    ) {
         self.topicStore = topicStore
+        self.tabState = tabState
     }
 
     var body: some View {
@@ -65,6 +70,9 @@ struct PetWorldRootScreen: View {
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    },
+                    onOpenTopicRoute: { route in
+                        tabState.appendPetWorldRoute(route)
                     }
                 )
             case .topicDetail(let topicID):
@@ -84,6 +92,9 @@ struct PetWorldRootScreen: View {
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    },
+                    onOpenTopicRoute: { route in
+                        tabState.appendPetWorldRoute(route)
                     }
                 )
             case .topicComposer(let seedTopicID):

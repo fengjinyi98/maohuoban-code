@@ -171,10 +171,6 @@ private struct PetWorldFeedDetailCommentRow: View {
             .scaleEffect(isPressing ? 0.985 : 1)
             .animation(.easeOut(duration: 0.16), value: isPressing)
             .sensoryFeedback(.selection, trigger: hapticTrigger)
-            .accessibilityAddTraits(.isButton)
-            .onTapGesture {
-                onReply(comment)
-            }
             .onLongPressGesture(minimumDuration: 0.35, pressing: updatePressingState) {
                 hapticTrigger += 1
                 onLongPress(comment)

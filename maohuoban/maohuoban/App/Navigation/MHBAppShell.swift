@@ -24,7 +24,7 @@ struct MHBAppShell: View {
             }
 
             MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
-                PetWorldRootScreen(topicStore: topicStore)
+                PetWorldRootScreen(topicStore: topicStore, tabState: router.tabState)
             }
 
             MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {

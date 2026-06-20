@@ -12,6 +12,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
     let showsRecommendationExplanation: Bool
     let topPadding: CGFloat
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
     var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
     let onCommentReply: (FeedComment) -> Void
     let onCommentToggleLike: (FeedComment) -> Void
@@ -35,6 +36,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
                     recommendationExplanation: detail.recommendationExplanation,
                     showsRecommendationExplanation: showsRecommendationExplanation,
                     topicRoute: topicRoute,
+                    onOpenTopicRoute: onOpenTopicRoute,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             case .interleaved:
@@ -53,6 +55,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
                     recommendationExplanation: detail.recommendationExplanation,
                     showsRecommendationExplanation: showsRecommendationExplanation,
                     topicRoute: topicRoute,
+                    onOpenTopicRoute: onOpenTopicRoute,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             }
@@ -88,6 +91,7 @@ private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -109,7 +113,8 @@ private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View
                 viewCount: viewCount,
                 recommendationExplanation: recommendationExplanation,
                 showsRecommendationExplanation: showsRecommendationExplanation,
-                topicRoute: topicRoute
+                topicRoute: topicRoute,
+                onOpenTopicRoute: onOpenTopicRoute
             )
         }
     }
@@ -193,6 +198,7 @@ private struct PetWorldFeedDetailCaption<TopicRouteValue: Hashable>: View {
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -215,7 +221,11 @@ private struct PetWorldFeedDetailCaption<TopicRouteValue: Hashable>: View {
             )
 
             if !topics.isEmpty {
-                PetWorldFeedDetailTopics(topics: topics, topicRoute: topicRoute)
+                PetWorldFeedDetailTopics(
+                    topics: topics,
+                    topicRoute: topicRoute,
+                    onOpenTopicRoute: onOpenTopicRoute
+                )
             }
 
             if showsRecommendationExplanation {
@@ -242,12 +252,17 @@ private struct PetWorldFeedDetailCaption<TopicRouteValue: Hashable>: View {
 struct PetWorldFeedDetailTopics<TopicRouteValue: Hashable>: View {
     let topics: [String]
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: MHBTheme.Spacing.s2) {
                 ForEach(topics, id: \.self) { topic in
-                    PetWorldFeedDetailTopicChip(topic: topic, route: topicRoute(topic))
+                    PetWorldFeedDetailTopicChip(
+                        topic: topic,
+                        route: topicRoute(topic),
+                        onOpenTopicRoute: onOpenTopicRoute
+                    )
                 }
             }
         }
@@ -262,12 +277,16 @@ struct PetWorldFeedDetailTopics<TopicRouteValue: Hashable>: View {
 private struct PetWorldFeedDetailTopicChip<TopicRouteValue: Hashable>: View {
     let topic: String
     let route: TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
 
     var body: some View {
-        NavigationLink(value: route) {
+        Button {
+            onOpenTopicRoute(route)
+        } label: {
             MHBTagView(displayText, style: .primary, size: .medium)
         }
         .buttonStyle(.plain)
+        .contentShape(Capsule())
     }
 
     private var displayText: String {

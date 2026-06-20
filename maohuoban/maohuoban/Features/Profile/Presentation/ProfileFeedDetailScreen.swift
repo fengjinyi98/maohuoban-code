@@ -7,6 +7,7 @@ import SwiftUI
 struct ProfileFeedDetailScreen: View {
     let postID: String
     let interactionStore: FeedInteractionStore
+    let onOpenTopicRoute: (ProfileRoute) -> Void
 
     var body: some View {
         if let detail = ProfileMockFeedDetail.detail(for: postID) {
@@ -15,7 +16,8 @@ struct ProfileFeedDetailScreen: View {
                 interactionStore: interactionStore,
                 topicRoute: { topicName in
                     ProfileRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
-                }
+                },
+                onOpenTopicRoute: onOpenTopicRoute
             )
         } else {
             PetWorldFeedDetailMissingScreen()

@@ -20,6 +20,7 @@ struct PetWorldFeedDetailInterleavedArticle<TopicRouteValue: Hashable>: View {
     let recommendationExplanation: String
     let showsRecommendationExplanation: Bool
     let topicRoute: (String) -> TopicRouteValue
+    let onOpenTopicRoute: (TopicRouteValue) -> Void
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -50,7 +51,11 @@ struct PetWorldFeedDetailInterleavedArticle<TopicRouteValue: Hashable>: View {
             )
 
             if !topics.isEmpty {
-                PetWorldFeedDetailTopics(topics: topics, topicRoute: topicRoute)
+                PetWorldFeedDetailTopics(
+                    topics: topics,
+                    topicRoute: topicRoute,
+                    onOpenTopicRoute: onOpenTopicRoute
+                )
             }
 
             if showsRecommendationExplanation {
