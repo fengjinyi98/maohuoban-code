@@ -8,12 +8,13 @@ import MaohuobanDesignSystem
 struct PetWorldFeedDetailContent: View {
     let galleryID: String
     let detail: PetWorldFeedDetailItem
-    let comments: [PetWorldFeedComment]
+    let comments: [FeedComment]
+    let showsRecommendationExplanation: Bool
     let topPadding: CGFloat
     var onAuthorOffsetChange: (CGFloat) -> Void = { _ in }
-    let onCommentReply: (PetWorldFeedComment) -> Void
-    let onCommentToggleLike: (PetWorldFeedComment) -> Void
-    let onCommentLongPress: (PetWorldFeedComment) -> Void
+    let onCommentReply: (FeedComment) -> Void
+    let onCommentToggleLike: (FeedComment) -> Void
+    let onCommentLongPress: (FeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
@@ -31,6 +32,7 @@ struct PetWorldFeedDetailContent: View {
                     visibleLocationName: detail.visibleLocationName,
                     viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
+                    showsRecommendationExplanation: showsRecommendationExplanation,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             case .interleaved:
@@ -47,6 +49,7 @@ struct PetWorldFeedDetailContent: View {
                     visibleLocationName: detail.visibleLocationName,
                     viewCount: detail.viewCount,
                     recommendationExplanation: detail.recommendationExplanation,
+                    showsRecommendationExplanation: showsRecommendationExplanation,
                     onAuthorOffsetChange: onAuthorOffsetChange
                 )
             }
@@ -80,6 +83,7 @@ private struct PetWorldFeedDetailGalleryArticle: View {
     let visibleLocationName: String?
     let viewCount: Int
     let recommendationExplanation: String
+    let showsRecommendationExplanation: Bool
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -99,7 +103,8 @@ private struct PetWorldFeedDetailGalleryArticle: View {
                 topics: topics,
                 visibleLocationName: visibleLocationName,
                 viewCount: viewCount,
-                recommendationExplanation: recommendationExplanation
+                recommendationExplanation: recommendationExplanation,
+                showsRecommendationExplanation: showsRecommendationExplanation
             )
         }
     }
@@ -181,6 +186,7 @@ private struct PetWorldFeedDetailCaption: View {
     let visibleLocationName: String?
     let viewCount: Int
     let recommendationExplanation: String
+    let showsRecommendationExplanation: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -206,7 +212,9 @@ private struct PetWorldFeedDetailCaption: View {
                 PetWorldFeedDetailTopics(topics: topics)
             }
 
-            PetWorldFeedDetailRecommendationExplanation(text: recommendationExplanation)
+            if showsRecommendationExplanation {
+                PetWorldFeedDetailRecommendationExplanation(text: recommendationExplanation)
+            }
         }
     }
 
@@ -295,7 +303,7 @@ struct PetWorldFeedDetailMetaLine: View {
 
             PetWorldFeedDetailMetaItem(
                 icon: .system("eye.fill"),
-                text: "\(PetWorldCompactCountFormatter.string(for: viewCount)) 浏览"
+                text: "\(FeedCompactCountFormatter.string(for: viewCount)) 浏览"
             )
         }
         .font(MHBTheme.Typography.footnote)

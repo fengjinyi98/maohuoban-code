@@ -1,10 +1,10 @@
 import Foundation
 
-// PetWorldCompactCountFormatter 宠物世界紧凑计数格式化器
+// FeedCompactCountFormatter Feed 紧凑计数格式化器
 // 核心职责：
 // - 将互动计数转换为 Feed 卡片短文本
 // - 保持千级和万级展示规则集中维护
-enum PetWorldCompactCountFormatter {
+enum FeedCompactCountFormatter {
     static func string(for count: Int) -> String {
         let normalizedCount = max(count, 0)
 

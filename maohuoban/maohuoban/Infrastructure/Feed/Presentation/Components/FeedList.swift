@@ -1,15 +1,19 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// PetWorldFeedList 宠物世界 Feed 列表
+// FeedList 通用 UGC Feed 列表
 // 核心职责：
-// - 承载宠物世界信息流纵向滚动布局
-// - 通过顶部内容间距避开自定义导航头部
-struct PetWorldFeedList: View {
-    let cards: [PetWorldFeedItem]
-    let interactionStore: PetWorldFeedInteractionStore
+// - 承载帖子卡片纵向滚动布局
+// - 为不同页面提供统一卡片、更多菜单和滚动事件能力
+struct FeedList<DetailRoute: Hashable>: View {
+    let cards: [FeedItem]
+    let interactionStore: FeedInteractionStore
     let topContentInset: CGFloat
-    let onMoreAction: (String, PetWorldFeedMoreAction) -> Void
+    let accessibilityIdentifierPrefix: String
+    let topTrailingAction: FeedCardTopTrailingAction
+    let showsRecommendationReason: Bool
+    let detailRoute: (FeedItem) -> DetailRoute
+    let onMoreAction: (String, FeedMoreAction) -> Void
     let onScrollOffsetChange: (CGFloat) -> Void
     let onScrollPhaseChange: (ScrollPhase) -> Void
 
@@ -17,16 +21,24 @@ struct PetWorldFeedList: View {
     @State private var moreButtonFrames: [String: CGRect] = [:]
 
     init(
-        cards: [PetWorldFeedItem],
-        interactionStore: PetWorldFeedInteractionStore,
+        cards: [FeedItem],
+        interactionStore: FeedInteractionStore,
         topContentInset: CGFloat,
-        onMoreAction: @escaping (String, PetWorldFeedMoreAction) -> Void = { _, _ in },
+        accessibilityIdentifierPrefix: String = "feed.card",
+        topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
+        showsRecommendationReason: Bool = true,
+        detailRoute: @escaping (FeedItem) -> DetailRoute,
+        onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
         onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
         onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in }
     ) {
         self.cards = cards
         self.interactionStore = interactionStore
         self.topContentInset = topContentInset
+        self.accessibilityIdentifierPrefix = accessibilityIdentifierPrefix
+        self.topTrailingAction = topTrailingAction
+        self.showsRecommendationReason = showsRecommendationReason
+        self.detailRoute = detailRoute
         self.onMoreAction = onMoreAction
         self.onScrollOffsetChange = onScrollOffsetChange
         self.onScrollPhaseChange = onScrollPhaseChange
@@ -35,28 +47,30 @@ struct PetWorldFeedList: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .topLeading) {
-                ScrollView(.vertical, showsIndicators: false) {
+                MHBScreenScrollView(showsIndicators: false) {
                     LazyVStack(spacing: MHBTheme.Spacing.s8) {
                         ForEach(cards) { card in
-                            PetWorldFeedCard(
+                            FeedCard(
                                 card: card,
                                 interactionState: interactionStore.interactionState(for: card),
+                                detailRoute: detailRoute(card),
+                                topTrailingAction: topTrailingAction,
+                                showsRecommendationReason: showsRecommendationReason,
                                 onToggleLike: {
                                     interactionStore.toggleLike(postID: card.postID)
                                 },
                                 onMoreTap: {
-                                    toggleMoreMenu(postID: card.postID)
+                                    handleTopTrailingAction(postID: card.postID)
                                 }
                             )
-                            .accessibilityIdentifier("petWorld.feed.card.\(card.id)")
+                            .accessibilityIdentifier("\(accessibilityIdentifierPrefix).\(card.id)")
                         }
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
                     .padding(.top, topContentInset)
                     .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                 }
-                .scrollIndicators(.hidden)
-                .onPreferenceChange(PetWorldFeedMoreButtonFramePreferenceKey.self) { frames in
+                .onPreferenceChange(FeedMoreButtonFramePreferenceKey.self) { frames in
                     moreButtonFrames = frames
                 }
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
@@ -76,7 +90,7 @@ struct PetWorldFeedList: View {
                         .zIndex(1)
                 }
 
-                PetWorldFeedMoreMenuOverlay(
+                FeedMoreMenuOverlay(
                     isPresented: presentedMoreMenuPostID != nil,
                     containerSize: proxy.size,
                     buttonFrame: presentedMoreMenuButtonFrame,
@@ -84,7 +98,7 @@ struct PetWorldFeedList: View {
                 )
                 .zIndex(2)
             }
-            .coordinateSpace(name: PetWorldFeedCoordinateSpace.name)
+            .coordinateSpace(name: FeedCoordinateSpace.name)
         }
     }
 
@@ -102,6 +116,16 @@ struct PetWorldFeedList: View {
         }
     }
 
+    private func handleTopTrailingAction(postID: String) {
+        guard let directAction = topTrailingAction.directAction else {
+            toggleMoreMenu(postID: postID)
+            return
+        }
+
+        dismissMoreMenu()
+        onMoreAction(postID, directAction)
+    }
+
     private func dismissMoreMenu() {
         guard presentedMoreMenuPostID != nil else {
             return
@@ -112,7 +136,7 @@ struct PetWorldFeedList: View {
         }
     }
 
-    private func handleMoreMenuAction(_ action: PetWorldFeedMoreAction) {
+    private func handleMoreMenuAction(_ action: FeedMoreAction) {
         guard let postID = presentedMoreMenuPostID else {
             return
         }

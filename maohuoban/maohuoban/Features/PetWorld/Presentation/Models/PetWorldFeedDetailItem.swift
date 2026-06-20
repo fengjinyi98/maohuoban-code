@@ -24,7 +24,7 @@ struct PetWorldFeedDetailItem: Identifiable, Equatable {
     let viewCount: Int
     let repostCount: Int
     let commentCount: Int
-    let comments: [PetWorldFeedComment]
+    let comments: [FeedComment]
 
     var id: String {
         postID

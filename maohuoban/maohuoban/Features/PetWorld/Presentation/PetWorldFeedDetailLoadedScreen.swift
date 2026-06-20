@@ -10,7 +10,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let detail: PetWorldFeedDetailItem
-    let interactionStore: PetWorldFeedInteractionStore
+    let interactionStore: FeedInteractionStore
     @State private var selectedMediaIndex = 0
     @State private var isNavigationAuthorVisible = false
     @State private var isNavigationAuthorSubtitleVisible = false
@@ -18,7 +18,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
     @State private var draftComment = ""
     @State private var replyTargetCommentID: String?
     @State private var replyTargetName: String?
-    @State private var selectedCommentForActions: PetWorldFeedComment?
+    @State private var selectedCommentForActions: FeedComment?
     @State private var doubleTapLikeBursts: [PetWorldFeedDetailDoubleTapLikeBurst] = []
 
     var body: some View {
@@ -55,6 +55,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
                             galleryID: imagePreviewGalleryID,
                             detail: detail,
                             comments: comments,
+                            showsRecommendationExplanation: !detail.isOwnedByCurrentUser,
                             topPadding: detailContentTopPadding(
                                 topSafeArea: geometry.safeAreaInsets.top
                             ),
@@ -241,7 +242,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
         isCommentComposerPresented = true
     }
 
-    private func presentReplyComposer(for comment: PetWorldFeedComment) {
+    private func presentReplyComposer(for comment: FeedComment) {
         replyTargetCommentID = comment.id
         replyTargetName = comment.authorName
         isCommentComposerPresented = true
@@ -258,7 +259,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
             return
         }
 
-        let newComment = PetWorldFeedComment(
+        let newComment = FeedComment(
             id: "local-comment-\(UUID().uuidString)",
             authorName: Self.currentUserName,
             avatarAssetName: Self.currentUserAvatarAssetName,
@@ -290,7 +291,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
         }
     }
 
-    private func handleCommentLike(_ comment: PetWorldFeedComment) {
+    private func handleCommentLike(_ comment: FeedComment) {
         interactionStore.toggleCommentLike(
             postID: detail.postID,
             commentID: comment.id
@@ -325,7 +326,7 @@ struct PetWorldFeedDetailLoadedScreen: View {
         }
     }
 
-    private func presentCommentActionSheet(for comment: PetWorldFeedComment) {
+    private func presentCommentActionSheet(for comment: FeedComment) {
         withAnimation(PetWorldFeedDetailLayout.commentComposerAnimation) {
             selectedCommentForActions = comment
         }

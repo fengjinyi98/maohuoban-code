@@ -1,15 +1,15 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// PetWorldFeedMoreMenuOverlay Feed 更多菜单覆盖层
+// FeedMoreMenuOverlay Feed 更多菜单覆盖层
 // 核心职责：
 // - 使用统一锚点浮动面板展示卡片更多菜单
 // - 根据按钮位置计算菜单展开方向和屏幕内偏移
-struct PetWorldFeedMoreMenuOverlay: View {
+struct FeedMoreMenuOverlay: View {
     let isPresented: Bool
     let containerSize: CGSize
     let buttonFrame: CGRect
-    let onAction: (PetWorldFeedMoreAction) -> Void
+    let onAction: (FeedMoreAction) -> Void
 
     private var isReadyToPresent: Bool {
         isPresented && buttonFrame != .zero && containerSize.width > 0
@@ -17,40 +17,40 @@ struct PetWorldFeedMoreMenuOverlay: View {
 
     private var shouldOpenUpward: Bool {
         buttonFrame.maxY
-            + PetWorldFeedMoreMenuMetrics.verticalGap
-            + PetWorldFeedMoreMenuMetrics.estimatedHeight
-            > containerSize.height - PetWorldFeedMoreMenuMetrics.verticalMargin
+            + FeedMoreMenuMetrics.verticalGap
+            + FeedMoreMenuMetrics.estimatedHeight
+            > containerSize.height - FeedMoreMenuMetrics.verticalMargin
     }
 
     private var offset: CGSize {
         let maxX = max(
-            PetWorldFeedMoreMenuMetrics.horizontalMargin,
+            FeedMoreMenuMetrics.horizontalMargin,
             containerSize.width
-                - PetWorldFeedMoreMenuMetrics.width
-                - PetWorldFeedMoreMenuMetrics.horizontalMargin
+                - FeedMoreMenuMetrics.width
+                - FeedMoreMenuMetrics.horizontalMargin
         )
         let x = min(
             max(
-                buttonFrame.maxX - PetWorldFeedMoreMenuMetrics.width,
-                PetWorldFeedMoreMenuMetrics.horizontalMargin
+                buttonFrame.maxX - FeedMoreMenuMetrics.width,
+                FeedMoreMenuMetrics.horizontalMargin
             ),
             maxX
         )
 
         let downwardY = min(
-            buttonFrame.maxY + PetWorldFeedMoreMenuMetrics.verticalGap,
+            buttonFrame.maxY + FeedMoreMenuMetrics.verticalGap,
             max(
-                PetWorldFeedMoreMenuMetrics.verticalMargin,
+                FeedMoreMenuMetrics.verticalMargin,
                 containerSize.height
-                    - PetWorldFeedMoreMenuMetrics.estimatedHeight
-                    - PetWorldFeedMoreMenuMetrics.verticalMargin
+                    - FeedMoreMenuMetrics.estimatedHeight
+                    - FeedMoreMenuMetrics.verticalMargin
             )
         )
         let upwardY = max(
-            PetWorldFeedMoreMenuMetrics.verticalMargin,
+            FeedMoreMenuMetrics.verticalMargin,
             buttonFrame.minY
-                - PetWorldFeedMoreMenuMetrics.estimatedHeight
-                - PetWorldFeedMoreMenuMetrics.verticalGap
+                - FeedMoreMenuMetrics.estimatedHeight
+                - FeedMoreMenuMetrics.verticalGap
         )
 
         return CGSize(width: x, height: shouldOpenUpward ? upwardY : downwardY)
@@ -66,39 +66,39 @@ struct PetWorldFeedMoreMenuOverlay: View {
             offset: offset,
             scaleAnchor: scaleAnchor
         ) {
-            PetWorldFeedMoreMenu(onAction: onAction)
+            FeedMoreMenu(onAction: onAction)
         }
         .animation(.snappy(duration: 0.22), value: isPresented)
     }
 }
 
-// PetWorldFeedMoreMenu Feed 卡片更多菜单
+// FeedMoreMenu Feed 卡片更多菜单
 // 核心职责：
 // - 展示卡片级二级操作入口
 // - 使用 Liquid Glass 维持与项目浮层基础设施一致的视觉
-struct PetWorldFeedMoreMenu: View {
-    let onAction: (PetWorldFeedMoreAction) -> Void
+struct FeedMoreMenu: View {
+    let onAction: (FeedMoreAction) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-            PetWorldFeedMoreMenuRow(action: .dislike, onAction: onAction)
-            PetWorldFeedMoreMenuRow(action: .report, onAction: onAction)
+            FeedMoreMenuRow(action: .dislike, onAction: onAction)
+            FeedMoreMenuRow(action: .report, onAction: onAction)
         }
         .padding(MHBTheme.Spacing.s2)
-        .frame(width: PetWorldFeedMoreMenuMetrics.width)
+        .frame(width: FeedMoreMenuMetrics.width)
         .glassEffect(.regular, in: .rect(cornerRadius: MHBTheme.Radius.large))
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("petWorld.feed.moreMenu")
+        .accessibilityIdentifier("feed.moreMenu")
     }
 }
 
-// PetWorldFeedMoreMenuRow Feed 更多菜单行
+// FeedMoreMenuRow Feed 更多菜单行
 // 核心职责：
 // - 展示单个更多操作的图标和标题
 // - 根据操作语义呈现普通或危险色
-private struct PetWorldFeedMoreMenuRow: View {
-    let action: PetWorldFeedMoreAction
-    let onAction: (PetWorldFeedMoreAction) -> Void
+private struct FeedMoreMenuRow: View {
+    let action: FeedMoreAction
+    let onAction: (FeedMoreAction) -> Void
 
     var body: some View {
         Button(role: action.buttonRole) {
@@ -125,11 +125,11 @@ private struct PetWorldFeedMoreMenuRow: View {
     }
 }
 
-// PetWorldFeedMoreMenuMetrics Feed 更多菜单尺寸配置
+// FeedMoreMenuMetrics Feed 更多菜单尺寸配置
 // 核心职责：
 // - 收敛菜单宽度、边距和定位估算值
 // - 让菜单布局与列表定位逻辑共享同一套参数
-private enum PetWorldFeedMoreMenuMetrics {
+private enum FeedMoreMenuMetrics {
     static let width: CGFloat = 128
     static let estimatedHeight: CGFloat = 88
     static let horizontalMargin: CGFloat = MHBTheme.Spacing.s4
@@ -137,13 +137,15 @@ private enum PetWorldFeedMoreMenuMetrics {
     static let verticalGap: CGFloat = MHBTheme.Spacing.s1
 }
 
-private extension PetWorldFeedMoreAction {
+private extension FeedMoreAction {
     var title: String {
         switch self {
         case .dislike:
             "不喜欢"
         case .report:
             "举报"
+        case .delete:
+            "删除"
         }
     }
 
@@ -153,6 +155,8 @@ private extension PetWorldFeedMoreAction {
             "hand.thumbsdown"
         case .report:
             "exclamationmark.triangle"
+        case .delete:
+            "trash"
         }
     }
 
@@ -161,6 +165,8 @@ private extension PetWorldFeedMoreAction {
         case .dislike:
             MHBTheme.ColorToken.labelPrimary.color
         case .report:
+            MHBTheme.ColorToken.danger.color
+        case .delete:
             MHBTheme.ColorToken.danger.color
         }
     }
@@ -171,15 +177,19 @@ private extension PetWorldFeedMoreAction {
             nil
         case .report:
             .destructive
+        case .delete:
+            .destructive
         }
     }
 
     var accessibilityIdentifier: String {
         switch self {
         case .dislike:
-            "petWorld.feed.moreMenu.dislike"
+            "feed.moreMenu.dislike"
         case .report:
-            "petWorld.feed.moreMenu.report"
+            "feed.moreMenu.report"
+        case .delete:
+            "feed.moreMenu.delete"
         }
     }
 }

@@ -2,38 +2,42 @@ import SwiftUI
 import MaohuobanDesignSystem
 import UIKit
 
-// PetWorldFeedCard 宠物世界 Feed 卡片
+// FeedCard 通用 UGC Feed 卡片
 // 核心职责：
 // - 呈现头像、作者、场景文案、媒体内容和互动数据
-// - 复刻参考 HTML 的大圆角图片、轻内描边和低对比操作区
-struct PetWorldFeedCard: View {
-    let card: PetWorldFeedItem
-    let interactionState: PetWorldFeedInteractionState
+// - 为宠物世界、我的动态等内容流提供一致卡片展示
+struct FeedCard<DetailRoute: Hashable>: View {
+    let card: FeedItem
+    let interactionState: FeedInteractionState
+    let detailRoute: DetailRoute
+    let topTrailingAction: FeedCardTopTrailingAction
+    let showsRecommendationReason: Bool
     let onToggleLike: () -> Void
     let onMoreTap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: PetWorldFeedCardMetrics.contentSectionSpacing) {
-            NavigationLink(value: PetWorldRoute.feedDetail(postID: card.postID)) {
-                VStack(alignment: .leading, spacing: PetWorldFeedCardMetrics.contentSectionSpacing) {
-                    PetWorldFeedCardHeader(
+        VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
+            NavigationLink(value: detailRoute) {
+                VStack(alignment: .leading, spacing: FeedCardMetrics.contentSectionSpacing) {
+                    FeedCardHeader(
                         title: card.petName ?? card.authorName,
                         recommendationReason: card.recommendationReason,
+                        showsRecommendationReason: showsRecommendationReason,
                         authorName: card.authorName,
                         publishedAt: card.publishedAt,
                         avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
                     )
 
-                    PetWorldFeedCardText(text: card.text)
+                    FeedCardText(text: card.text)
 
-                    PetWorldFeedCardMedia(assetName: card.mediaAssetName)
+                    FeedCardMedia(assetName: card.mediaAssetName)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("查看动态详情")
 
-            PetWorldFeedCardActions(
+            FeedCardActions(
                 isLiked: interactionState.isLiked,
                 likeCount: interactionState.likeCount,
                 repostCount: card.repostCount,
@@ -43,21 +47,22 @@ struct PetWorldFeedCard: View {
         }
         .accessibilityElement(children: .contain)
         .overlay(alignment: .topTrailing) {
-            PetWorldFeedCardMoreButton(
+            FeedCardMoreButton(
                 postID: card.postID,
+                action: topTrailingAction,
                 onTap: onMoreTap
             )
-            .padding(.top, PetWorldFeedCardMetrics.moreButtonTopPadding)
+            .padding(.top, FeedCardMetrics.moreButtonTopPadding)
             .zIndex(1)
         }
     }
 }
 
-// PetWorldFeedCardText Feed 卡片正文
+// FeedCardText Feed 卡片正文
 // 核心职责：
 // - 展示图片上方的卡片正文内容
 // - 将正文起点对齐到媒体圆角后的直线区域
-private struct PetWorldFeedCardText: View {
+private struct FeedCardText: View {
     let text: String
 
     var body: some View {
@@ -66,18 +71,19 @@ private struct PetWorldFeedCardText: View {
             .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.leading, PetWorldFeedCardMetrics.mediaTextLeadingInset)
+            .padding(.leading, FeedCardMetrics.mediaTextLeadingInset)
             .padding(.trailing, MHBTheme.Spacing.s2)
     }
 }
 
-// PetWorldFeedCardHeader Feed 卡片头部
+// FeedCardHeader Feed 卡片头部
 // 核心职责：
 // - 展示宠物头像、宠物名称和发帖人时间信息
 // - 承载自定义更多菜单的触发入口和锚点测量
-private struct PetWorldFeedCardHeader: View {
+private struct FeedCardHeader: View {
     let title: String
-    let recommendationReason: PetWorldFeedRecommendationReason
+    let recommendationReason: FeedRecommendationReason
+    let showsRecommendationReason: Bool
     let authorName: String
     let publishedAt: Date
     let avatarAssetName: String
@@ -87,7 +93,7 @@ private struct PetWorldFeedCardHeader: View {
             Image(avatarAssetName)
                 .resizable()
                 .scaledToFill()
-                .frame(width: PetWorldFeedCardMetrics.avatarSize, height: PetWorldFeedCardMetrics.avatarSize)
+                .frame(width: FeedCardMetrics.avatarSize, height: FeedCardMetrics.avatarSize)
                 .clipShape(Circle())
                 .overlay {
                     Circle()
@@ -102,7 +108,9 @@ private struct PetWorldFeedCardHeader: View {
                         .lineLimit(1)
                         .layoutPriority(1)
 
-                    PetWorldFeedRecommendationBadge(reason: recommendationReason)
+                    if showsRecommendationReason {
+                        FeedRecommendationBadge(reason: recommendationReason)
+                    }
                 }
 
                 Text("by \(authorName) · \(publishedAt, format: MHBUTCDateDisplayFormatter.localShortDateTimeStyle())")
@@ -116,30 +124,31 @@ private struct PetWorldFeedCardHeader: View {
 
             Color.clear
                 .frame(
-                    width: PetWorldFeedCardMetrics.moreButtonHitSize,
-                    height: PetWorldFeedCardMetrics.moreButtonHitSize
+                    width: FeedCardMetrics.moreButtonHitSize,
+                    height: FeedCardMetrics.moreButtonHitSize
                 )
                 .allowsHitTesting(false)
         }
     }
 }
 
-// PetWorldFeedCardMoreButton Feed 卡片更多按钮
+// FeedCardMoreButton Feed 卡片更多按钮
 // 核心职责：
 // - 在卡片顶层提供稳定的更多操作命中区域
 // - 向列表层上报按钮 frame 作为自定义菜单锚点
-private struct PetWorldFeedCardMoreButton: View {
+private struct FeedCardMoreButton: View {
     let postID: String
+    let action: FeedCardTopTrailingAction
     let onTap: () -> Void
 
     var body: some View {
-        Image(systemName: "ellipsis")
+        Image(systemName: action.systemImageName)
             .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+            .foregroundStyle(action.foregroundColor)
             .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
             .frame(
-                width: PetWorldFeedCardMetrics.moreButtonHitSize,
-                height: PetWorldFeedCardMetrics.moreButtonHitSize,
+                width: FeedCardMetrics.moreButtonHitSize,
+                height: FeedCardMetrics.moreButtonHitSize,
                 alignment: .trailing
             )
             .contentShape(Rectangle())
@@ -148,8 +157,8 @@ private struct PetWorldFeedCardMoreButton: View {
                     onTap()
                 }
             )
-        .petWorldFeedMoreButtonFrame(postID: postID)
-        .accessibilityLabel("更多")
+        .feedMoreButtonFrame(postID: postID)
+        .accessibilityLabel(action.accessibilityLabel)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction {
             onTap()
@@ -157,12 +166,12 @@ private struct PetWorldFeedCardMoreButton: View {
     }
 }
 
-// PetWorldFeedRecommendationBadge Feed 推荐解释标签
+// FeedRecommendationBadge Feed 推荐解释标签
 // 核心职责：
 // - 在宠物名称后展示推荐关系短标签
 // - 使用与发帖人时间信息一致的轻量文本样式
-private struct PetWorldFeedRecommendationBadge: View {
-    let reason: PetWorldFeedRecommendationReason
+private struct FeedRecommendationBadge: View {
+    let reason: FeedRecommendationReason
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s1) {
@@ -178,11 +187,11 @@ private struct PetWorldFeedRecommendationBadge: View {
     }
 }
 
-// PetWorldFeedCardMedia Feed 卡片媒体图
+// FeedCardMedia Feed 卡片媒体图
 // 核心职责：
 // - 展示参考 HTML 风格的大圆角图片
 // - 使用轻量内描边增强图片边界
-private struct PetWorldFeedCardMedia: View {
+private struct FeedCardMedia: View {
     let assetName: String
 
     var body: some View {
@@ -193,24 +202,24 @@ private struct PetWorldFeedCardMedia: View {
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .clipped()
         }
-        .aspectRatio(PetWorldFeedCardMetrics.mediaAspectRatio, contentMode: .fit)
+        .aspectRatio(FeedCardMetrics.mediaAspectRatio, contentMode: .fit)
         .background(MHBTheme.ColorToken.separatorSoft.color)
-        .clipShape(PetWorldFeedCardMetrics.mediaShape)
+        .clipShape(FeedCardMetrics.mediaShape)
         .overlay {
-            PetWorldFeedCardMetrics.mediaShape
+            FeedCardMetrics.mediaShape
                 .strokeBorder(
-                    MHBTheme.ColorToken.labelPrimary.color.opacity(PetWorldFeedCardMetrics.mediaInnerBorderOpacity),
-                    lineWidth: PetWorldFeedCardMetrics.mediaInnerBorderWidth
+                    MHBTheme.ColorToken.labelPrimary.color.opacity(FeedCardMetrics.mediaInnerBorderOpacity),
+                    lineWidth: FeedCardMetrics.mediaInnerBorderWidth
                 )
         }
     }
 }
 
-// PetWorldFeedCardActions Feed 卡片互动区
+// FeedCardActions Feed 卡片互动区
 // 核心职责：
 // - 展示点赞、转发、评论和分享入口
 // - 保持参考 HTML 的轻量低对比图标文本组合
-private struct PetWorldFeedCardActions: View {
+private struct FeedCardActions: View {
     let isLiked: Bool
     let likeCount: Int
     let repostCount: Int
@@ -221,27 +230,27 @@ private struct PetWorldFeedCardActions: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            HStack(spacing: PetWorldFeedCardMetrics.actionItemSpacing) {
+            HStack(spacing: FeedCardMetrics.actionItemSpacing) {
                 Button {
                     triggerLikeFeedback()
                 } label: {
-                    PetWorldFeedActionItem(
+                    FeedActionItem(
                         systemImage: isLiked ? "heart.fill" : "heart",
                         value: likeCount,
                         isHighlighted: isLiked,
-                        iconScale: isLikeFeedbackActive ? PetWorldFeedCardMetrics.likeFeedbackScale : 1
+                        iconScale: isLikeFeedbackActive ? FeedCardMetrics.likeFeedbackScale : 1
                     )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(isLiked ? "取消点赞" : "点赞")
 
-                PetWorldFeedActionItem(
+                FeedActionItem(
                     systemImage: "arrow.2.squarepath",
                     value: repostCount,
                     isHighlighted: false
                 )
 
-                PetWorldFeedActionItem(
+                FeedActionItem(
                     systemImage: "bubble.right",
                     value: commentCount,
                     isHighlighted: false
@@ -269,25 +278,25 @@ private struct PetWorldFeedCardActions: View {
     private func triggerLikeFeedback() {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.82)
 
-        withAnimation(PetWorldFeedCardMetrics.likePressAnimation) {
+        withAnimation(FeedCardMetrics.likePressAnimation) {
             isLikeFeedbackActive = true
             onToggleLike()
         }
 
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(90))
-            withAnimation(PetWorldFeedCardMetrics.likeReleaseAnimation) {
+            withAnimation(FeedCardMetrics.likeReleaseAnimation) {
                 isLikeFeedbackActive = false
             }
         }
     }
 }
 
-// PetWorldFeedActionItem Feed 卡片互动数据项
+// FeedActionItem Feed 卡片互动数据项
 // 核心职责：
 // - 组合互动图标和计数文本
 // - 根据强调状态切换语义色
-private struct PetWorldFeedActionItem: View {
+private struct FeedActionItem: View {
     let systemImage: String
     let value: Int
     let isHighlighted: Bool
@@ -300,7 +309,7 @@ private struct PetWorldFeedActionItem: View {
                 .foregroundStyle(foregroundColor)
                 .scaleEffect(iconScale)
 
-            PetWorldRollingCountText(
+            FeedRollingCountText(
                 value: value,
                 textColor: foregroundUIColor
             )
@@ -321,11 +330,11 @@ private struct PetWorldFeedActionItem: View {
     }
 }
 
-// PetWorldFeedCardMetrics Feed 卡片视觉参数
+// FeedCardMetrics Feed 卡片视觉参数
 // 核心职责：
 // - 收敛参考 HTML 转译后的卡片局部尺寸
 // - 让卡片主视图保持渲染职责清晰
-private enum PetWorldFeedCardMetrics {
+private enum FeedCardMetrics {
     static let avatarSize: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
     static let contentSectionSpacing: CGFloat = (MHBTheme.Spacing.s3 + MHBTheme.Spacing.s1 / 2) / 2
     static let mediaAspectRatio: CGFloat = 1.04

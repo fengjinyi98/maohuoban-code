@@ -90,7 +90,7 @@ enum PetWorldMockFeedDetail {
     }
 
     private static func makeDetail(
-        card: PetWorldFeedItem,
+        card: FeedItem,
         mediaAssetNames: [String],
         bodyText: String,
         displayMode: PetWorldFeedDetailDisplayMode = .gallery,
@@ -100,7 +100,7 @@ enum PetWorldMockFeedDetail {
         recommendationExplanation: String,
         isOwnedByCurrentUser: Bool,
         viewCount: Int,
-        comments: [PetWorldFeedComment]
+        comments: [FeedComment]
     ) -> PetWorldFeedDetailItem {
         PetWorldFeedDetailItem(
             postID: card.postID,
@@ -147,11 +147,11 @@ enum PetWorldMockFeedDetail {
     }
 
     private static func markPostAuthorComments(
-        _ comments: [PetWorldFeedComment],
+        _ comments: [FeedComment],
         postAuthorName: String
-    ) -> [PetWorldFeedComment] {
+    ) -> [FeedComment] {
         comments.map { comment in
-            PetWorldFeedComment(
+            FeedComment(
                 id: comment.id,
                 authorName: comment.authorName,
                 avatarAssetName: comment.avatarAssetName,
@@ -190,7 +190,7 @@ enum PetWorldMockFeedDetail {
         }
     }
 
-    private static var beachWalkComments: [PetWorldFeedComment] {
+    private static var beachWalkComments: [FeedComment] {
         [
             comment(
                 id: "beach-walk-comment-aloe",
@@ -239,7 +239,7 @@ enum PetWorldMockFeedDetail {
         ]
     }
 
-    private static var sunnyAlbumComments: [PetWorldFeedComment] {
+    private static var sunnyAlbumComments: [FeedComment] {
         [
             comment(
                 id: "sunny-comment-nanako",
@@ -270,7 +270,7 @@ enum PetWorldMockFeedDetail {
         ]
     }
 
-    private static var parkTrainingComments: [PetWorldFeedComment] {
+    private static var parkTrainingComments: [FeedComment] {
         [
             comment(
                 id: "park-comment-xiaoman",
@@ -316,13 +316,13 @@ enum PetWorldMockFeedDetail {
         text: String,
         utcString: String,
         likeCount: Int,
-        replies: [PetWorldFeedComment] = []
-    ) -> PetWorldFeedComment {
+        replies: [FeedComment] = []
+    ) -> FeedComment {
         guard let publishedAt = MHBUTCDateDisplayFormatter.date(fromUTCString: utcString) else {
             preconditionFailure("PetWorld detail mock UTC 时间格式无效: \(utcString)")
         }
 
-        return PetWorldFeedComment(
+        return FeedComment(
             id: id,
             authorName: authorName,
             avatarAssetName: avatarAssetName,

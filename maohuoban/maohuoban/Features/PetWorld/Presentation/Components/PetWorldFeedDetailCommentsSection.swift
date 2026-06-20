@@ -6,10 +6,10 @@ import MaohuobanDesignSystem
 // - 展示评论总数和评论树列表
 // - 支持父评论与多层子评论的层级布局
 struct PetWorldFeedDetailCommentsSection: View {
-    let comments: [PetWorldFeedComment]
-    let onReply: (PetWorldFeedComment) -> Void
-    let onToggleLike: (PetWorldFeedComment) -> Void
-    let onLongPress: (PetWorldFeedComment) -> Void
+    let comments: [FeedComment]
+    let onReply: (FeedComment) -> Void
+    let onToggleLike: (FeedComment) -> Void
+    let onLongPress: (FeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
@@ -38,7 +38,7 @@ struct PetWorldFeedDetailCommentsSection: View {
         }
     }
 
-    private static func totalCount(in comments: [PetWorldFeedComment]) -> Int {
+    private static func totalCount(in comments: [FeedComment]) -> Int {
         comments.reduce(0) { partialResult, comment in
             partialResult + 1 + totalCount(in: comment.replies)
         }
@@ -50,10 +50,10 @@ struct PetWorldFeedDetailCommentsSection: View {
 // - 渲染单条评论内容、时间和轻互动信息
 // - 递归展示当前评论的子评论
 private struct PetWorldFeedDetailCommentNode: View {
-    let comment: PetWorldFeedComment
-    let onReply: (PetWorldFeedComment) -> Void
-    let onToggleLike: (PetWorldFeedComment) -> Void
-    let onLongPress: (PetWorldFeedComment) -> Void
+    let comment: FeedComment
+    let onReply: (FeedComment) -> Void
+    let onToggleLike: (FeedComment) -> Void
+    let onLongPress: (FeedComment) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -94,10 +94,10 @@ private struct PetWorldFeedDetailCommentNode: View {
 // - 展示评论作者头像、正文和发布时间
 // - 提供回复和轻量点赞信息的视觉入口
 private struct PetWorldFeedDetailCommentRow: View {
-    let comment: PetWorldFeedComment
-    let onReply: (PetWorldFeedComment) -> Void
-    let onToggleLike: (PetWorldFeedComment) -> Void
-    let onLongPress: (PetWorldFeedComment) -> Void
+    let comment: FeedComment
+    let onReply: (FeedComment) -> Void
+    let onToggleLike: (FeedComment) -> Void
+    let onLongPress: (FeedComment) -> Void
 
     @State private var isPressing = false
     @State private var hapticTrigger = 0
@@ -150,7 +150,7 @@ private struct PetWorldFeedDetailCommentRow: View {
                             Image(systemName: comment.isLiked ? "heart.fill" : "heart")
                                 .imageScale(.small)
                                 .scaleEffect(isLikeFeedbackActive ? PetWorldFeedDetailLayout.likeFeedbackScale : 1)
-                            Text(comment.likeCount > 0 ? PetWorldCompactCountFormatter.string(for: comment.likeCount) : "赞")
+                            Text(comment.likeCount > 0 ? FeedCompactCountFormatter.string(for: comment.likeCount) : "赞")
                         }
                         .font(MHBTheme.Typography.caption)
                         .foregroundStyle(comment.isLiked ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)

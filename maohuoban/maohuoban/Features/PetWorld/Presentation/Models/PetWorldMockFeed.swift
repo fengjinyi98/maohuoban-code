@@ -5,7 +5,7 @@ import Foundation
 // - 集中维护快速 UI 阶段的宠物世界信息流样例
 // - 复用项目本地图片资源，保证真机首屏稳定展示
 enum PetWorldMockFeed {
-    static let cards: [PetWorldFeedItem] = [
+    static let cards: [FeedItem] = [
         makeCard(
             postID: "beach-walk",
             petName: "奶油",
@@ -61,7 +61,7 @@ enum PetWorldMockFeed {
         postID: String,
         petName: String?,
         petAvatarAssetName: String?,
-        recommendationReason: PetWorldFeedRecommendationReason,
+        recommendationReason: FeedRecommendationReason,
         text: String,
         authorAvatarAssetName: String,
         authorName: String,
@@ -71,12 +71,12 @@ enum PetWorldMockFeed {
         likeCount: Int,
         repostCount: Int,
         commentCount: Int
-    ) -> PetWorldFeedItem {
+    ) -> FeedItem {
         guard let publishedAt = MHBUTCDateDisplayFormatter.date(fromUTCString: publishedAtUTCString) else {
             preconditionFailure("PetWorld mock UTC 时间格式无效: \(publishedAtUTCString)")
         }
 
-        return PetWorldFeedItem(
+        return FeedItem(
             postID: postID,
             petName: petName,
             petAvatarAssetName: petAvatarAssetName,

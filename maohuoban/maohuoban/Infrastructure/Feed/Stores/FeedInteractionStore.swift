@@ -1,22 +1,22 @@
 import Foundation
 import Observation
 
-// PetWorldFeedInteractionStore 宠物世界 Feed 互动状态源
+// FeedInteractionStore Feed 互动状态源
 // 核心职责：
 // - 统一管理 Feed 与后续详情页共享的点赞状态
 // - 通过显式用户事件更新点赞状态和计数
 @MainActor
 @Observable
-final class PetWorldFeedInteractionStore {
-    private var interactionsByPostID: [String: PetWorldFeedInteractionState]
-    private var commentsByPostID: [String: [PetWorldFeedComment]] = [:]
+final class FeedInteractionStore {
+    private var interactionsByPostID: [String: FeedInteractionState]
+    private var commentsByPostID: [String: [FeedComment]] = [:]
 
-    init(cards: [PetWorldFeedItem]) {
+    init(cards: [FeedItem]) {
         interactionsByPostID = Dictionary(
             uniqueKeysWithValues: cards.map { card in
                 (
                     card.postID,
-                    PetWorldFeedInteractionState(
+                    FeedInteractionState(
                         isLiked: card.isLiked,
                         likeCount: card.likeCount
                     )
@@ -29,8 +29,8 @@ final class PetWorldFeedInteractionStore {
     // 核心职责：
     // - 为列表卡片提供 Store 中的最新点赞快照
     // - 在缺失状态时回退到帖子初始展示数据
-    func interactionState(for card: PetWorldFeedItem) -> PetWorldFeedInteractionState {
-        interactionsByPostID[card.postID] ?? PetWorldFeedInteractionState(
+    func interactionState(for card: FeedItem) -> FeedInteractionState {
+        interactionsByPostID[card.postID] ?? FeedInteractionState(
             isLiked: card.isLiked,
             likeCount: card.likeCount
         )
@@ -44,8 +44,8 @@ final class PetWorldFeedInteractionStore {
         postID: String,
         fallbackIsLiked: Bool,
         fallbackLikeCount: Int
-    ) -> PetWorldFeedInteractionState {
-        interactionsByPostID[postID] ?? PetWorldFeedInteractionState(
+    ) -> FeedInteractionState {
+        interactionsByPostID[postID] ?? FeedInteractionState(
             isLiked: fallbackIsLiked,
             likeCount: fallbackLikeCount
         )
@@ -66,7 +66,7 @@ final class PetWorldFeedInteractionStore {
             currentState.likeCount + (nextIsLiked ? 1 : -1)
         )
 
-        interactionsByPostID[postID] = PetWorldFeedInteractionState(
+        interactionsByPostID[postID] = FeedInteractionState(
             isLiked: nextIsLiked,
             likeCount: nextLikeCount
         )
@@ -78,7 +78,7 @@ final class PetWorldFeedInteractionStore {
     // - 避免 SwiftUI 渲染读取路径写入 Store
     func prepareCommentsIfNeeded(
         postID: String,
-        comments: [PetWorldFeedComment]
+        comments: [FeedComment]
     ) {
         guard commentsByPostID[postID] == nil else {
             return
@@ -93,8 +93,8 @@ final class PetWorldFeedInteractionStore {
     // - 在 Store 尚未安装时回退到详情初始评论
     func comments(
         postID: String,
-        fallbackComments: [PetWorldFeedComment]
-    ) -> [PetWorldFeedComment] {
+        fallbackComments: [FeedComment]
+    ) -> [FeedComment] {
         commentsByPostID[postID] ?? fallbackComments
     }
 
@@ -104,7 +104,7 @@ final class PetWorldFeedInteractionStore {
     // - 为底部操作栏评论计数提供同一状态源
     func commentCount(
         postID: String,
-        fallbackComments: [PetWorldFeedComment]
+        fallbackComments: [FeedComment]
     ) -> Int {
         Self.totalCommentCount(
             in: comments(
@@ -128,7 +128,7 @@ final class PetWorldFeedInteractionStore {
             in: currentComments
         ) { comment in
             let nextIsLiked = !comment.isLiked
-            return PetWorldFeedComment(
+            return FeedComment(
                 id: comment.id,
                 authorName: comment.authorName,
                 avatarAssetName: comment.avatarAssetName,
@@ -150,7 +150,7 @@ final class PetWorldFeedInteractionStore {
     func addComment(
         postID: String,
         parentCommentID: String?,
-        comment: PetWorldFeedComment
+        comment: FeedComment
     ) {
         let currentComments = commentsByPostID[postID] ?? []
         guard let parentCommentID else {
@@ -162,7 +162,7 @@ final class PetWorldFeedInteractionStore {
             commentID: parentCommentID,
             in: currentComments
         ) { parent in
-            PetWorldFeedComment(
+            FeedComment(
                 id: parent.id,
                 authorName: parent.authorName,
                 avatarAssetName: parent.avatarAssetName,
@@ -194,7 +194,7 @@ final class PetWorldFeedInteractionStore {
         )
     }
 
-    private static func totalCommentCount(in comments: [PetWorldFeedComment]) -> Int {
+    private static func totalCommentCount(in comments: [FeedComment]) -> Int {
         comments.reduce(0) { partialResult, comment in
             partialResult + 1 + totalCommentCount(in: comment.replies)
         }
@@ -202,8 +202,8 @@ final class PetWorldFeedInteractionStore {
 
     private static func comment(
         commentID: String,
-        in comments: [PetWorldFeedComment]
-    ) -> PetWorldFeedComment? {
+        in comments: [FeedComment]
+    ) -> FeedComment? {
         for comment in comments {
             if comment.id == commentID {
                 return comment
@@ -219,9 +219,9 @@ final class PetWorldFeedInteractionStore {
 
     private static func updateComment(
         commentID: String,
-        in comments: [PetWorldFeedComment],
-        transform: (PetWorldFeedComment) -> PetWorldFeedComment
-    ) -> [PetWorldFeedComment] {
+        in comments: [FeedComment],
+        transform: (FeedComment) -> FeedComment
+    ) -> [FeedComment] {
         comments.map { comment in
             if comment.id == commentID {
                 return transform(comment)
@@ -237,7 +237,7 @@ final class PetWorldFeedInteractionStore {
                 return comment
             }
 
-            return PetWorldFeedComment(
+            return FeedComment(
                 id: comment.id,
                 authorName: comment.authorName,
                 avatarAssetName: comment.avatarAssetName,
@@ -254,8 +254,8 @@ final class PetWorldFeedInteractionStore {
 
     private static func deleteComment(
         commentID: String,
-        from comments: [PetWorldFeedComment]
-    ) -> [PetWorldFeedComment] {
+        from comments: [FeedComment]
+    ) -> [FeedComment] {
         comments.compactMap { comment in
             if comment.id == commentID {
                 return nil
@@ -270,7 +270,7 @@ final class PetWorldFeedInteractionStore {
                 return comment
             }
 
-            return PetWorldFeedComment(
+            return FeedComment(
                 id: comment.id,
                 authorName: comment.authorName,
                 avatarAssetName: comment.avatarAssetName,

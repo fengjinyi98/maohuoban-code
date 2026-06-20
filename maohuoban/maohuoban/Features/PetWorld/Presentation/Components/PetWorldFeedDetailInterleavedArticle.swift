@@ -18,6 +18,7 @@ struct PetWorldFeedDetailInterleavedArticle: View {
     let visibleLocationName: String?
     let viewCount: Int
     let recommendationExplanation: String
+    let showsRecommendationExplanation: Bool
     let onAuthorOffsetChange: (CGFloat) -> Void
 
     var body: some View {
@@ -51,7 +52,9 @@ struct PetWorldFeedDetailInterleavedArticle: View {
                 PetWorldFeedDetailTopics(topics: topics)
             }
 
-            PetWorldFeedDetailRecommendationExplanation(text: recommendationExplanation)
+            if showsRecommendationExplanation {
+                PetWorldFeedDetailRecommendationExplanation(text: recommendationExplanation)
+            }
         }
     }
 

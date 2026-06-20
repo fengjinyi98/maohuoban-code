@@ -6,7 +6,7 @@ import MaohuobanDesignSystem
 // - 承接评论长按后的底部操作
 // - 根据评论所有权展示删除或举报危险操作
 struct PetWorldFeedDetailCommentActionSheet: View {
-    let comment: PetWorldFeedComment
+    let comment: FeedComment
     let onReply: () -> Void
     let onCopy: () -> Void
     let onReport: () -> Void
@@ -89,7 +89,7 @@ struct PetWorldFeedDetailCommentActionSheet: View {
 // - 提供底部评论操作面板的呈现和退出动画
 // - 通过遮罩点击关闭当前操作上下文
 struct PetWorldFeedDetailCommentActionSheetOverlay: View {
-    let comment: PetWorldFeedComment
+    let comment: FeedComment
     let onDismiss: () -> Void
     let onReply: () -> Void
     let onCopy: () -> Void

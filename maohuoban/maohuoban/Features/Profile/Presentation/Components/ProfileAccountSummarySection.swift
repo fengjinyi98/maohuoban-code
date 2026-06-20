@@ -7,13 +7,25 @@ import MaohuobanDesignSystem
 // - 承载动态、关注和粉丝统计卡片
 struct ProfileAccountSummarySection: View {
     let profile: ProfileAccountSummary
+    let postsRoute: ProfileRoute?
+
+    init(
+        profile: ProfileAccountSummary,
+        postsRoute: ProfileRoute? = nil
+    ) {
+        self.profile = profile
+        self.postsRoute = postsRoute
+    }
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {
             ProfileAccountIdentityRow(profile: profile)
                 .padding(.horizontal, MHBTheme.Spacing.s2)
 
-            ProfileAccountStatsCard(stats: profile.stats)
+            ProfileAccountStatsCard(
+                stats: profile.stats,
+                postsRoute: postsRoute
+            )
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.accountSummary")
@@ -161,11 +173,15 @@ private struct ProfileAccountEntryIcons: View {
 // - 使用白色圆角卡片和竖向分隔线对齐参考布局
 private struct ProfileAccountStatsCard: View {
     let stats: [ProfileAccountStat]
+    let postsRoute: ProfileRoute?
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
-                ProfileAccountStatColumn(stat: stat)
+                ProfileAccountStatColumn(
+                    stat: stat,
+                    route: stat.isPostsEntry ? postsRoute : nil
+                )
 
                 if index < stats.count - 1 {
                     Rectangle()
@@ -189,6 +205,30 @@ private struct ProfileAccountStatsCard: View {
 // - 保持三列等宽排布
 private struct ProfileAccountStatColumn: View {
     let stat: ProfileAccountStat
+    let route: ProfileRoute?
+
+    var body: some View {
+        Group {
+            if let route {
+                NavigationLink(value: route) {
+                    ProfileAccountStatContent(stat: stat)
+                }
+                .buttonStyle(.plain)
+            } else {
+                ProfileAccountStatContent(stat: stat)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// ProfileAccountStatContent 我的页统计内容
+// 核心职责：
+// - 展示统计数值和标题
+// - 让可点击与不可点击状态共享同一套视觉
+private struct ProfileAccountStatContent: View {
+    let stat: ProfileAccountStat
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s1) {
@@ -203,8 +243,5 @@ private struct ProfileAccountStatColumn: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
     }
 }
-

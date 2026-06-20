@@ -136,7 +136,7 @@ private struct PetWorldFeedDetailBottomActionItem: View {
                 .foregroundStyle(foregroundColor)
                 .scaleEffect(iconScale)
 
-            PetWorldRollingCountText(
+            FeedRollingCountText(
                 value: value,
                 textColor: foregroundUIColor
             )

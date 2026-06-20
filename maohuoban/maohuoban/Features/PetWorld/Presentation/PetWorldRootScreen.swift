@@ -9,17 +9,21 @@ struct PetWorldRootScreen: View {
     @State private var selectedTab = PetWorldNavigationTab.recommended
     @State private var lastFeedScrollOffset: CGFloat = 0
     @State private var isNavigationHeaderHidden = false
-    @State private var feedInteractionStore = PetWorldFeedInteractionStore(cards: PetWorldMockFeed.cards)
+    @State private var feedInteractionStore = FeedInteractionStore(cards: PetWorldMockFeed.cards)
 
     var body: some View {
         ZStack(alignment: .top) {
             MHBTheme.ColorToken.background.color
                 .ignoresSafeArea()
 
-            PetWorldFeedList(
+            FeedList(
                 cards: PetWorldMockFeed.cards,
                 interactionStore: feedInteractionStore,
                 topContentInset: PetWorldRootLayout.contentTopInset,
+                accessibilityIdentifierPrefix: "petWorld.feed.card",
+                detailRoute: { card in
+                    PetWorldRoute.feedDetail(postID: card.postID)
+                },
                 onMoreAction: handleFeedMoreAction(postID:action:),
                 onScrollOffsetChange: handleFeedScrollOffset(_:),
                 onScrollPhaseChange: handleFeedScrollPhase(_:)
@@ -96,12 +100,14 @@ struct PetWorldRootScreen: View {
 
     private func handleFeedMoreAction(
         postID: String,
-        action: PetWorldFeedMoreAction
+        action: FeedMoreAction
     ) {
         switch action {
         case .dislike:
             break
         case .report:
+            break
+        case .delete:
             break
         }
     }

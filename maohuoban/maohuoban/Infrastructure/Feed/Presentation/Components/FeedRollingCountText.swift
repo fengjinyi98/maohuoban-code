@@ -2,11 +2,11 @@ import SwiftUI
 import MaohuobanDesignSystem
 import UIKit
 
-// PetWorldRollingCountText 宠物世界滚动计数字符
+// FeedRollingCountText Feed 滚动计数字符
 // 核心职责：
 // - 复用 DesignSystem 滚轮文字组件展示互动计数变化
 // - 根据计数增减方向切换向上或向下滚动动画
-struct PetWorldRollingCountText: View {
+struct FeedRollingCountText: View {
     let value: Int
     let textColor: UIColor
 
@@ -18,7 +18,7 @@ struct PetWorldRollingCountText: View {
         self.value = value
         self.textColor = textColor
 
-        let initialText = PetWorldCompactCountFormatter.string(for: value)
+        let initialText = FeedCompactCountFormatter.string(for: value)
         _displayedValue = State(initialValue: value)
         _displayedText = State(initialValue: initialText)
         _configuration = State(initialValue: Self.configuration(direction: .up))
@@ -46,7 +46,7 @@ struct PetWorldRollingCountText: View {
             direction: newValue > displayedValue ? .up : .down
         )
         displayedValue = newValue
-        displayedText = PetWorldCompactCountFormatter.string(for: newValue)
+        displayedText = FeedCompactCountFormatter.string(for: newValue)
     }
 
     private static let font = UIFont.monospacedDigitSystemFont(

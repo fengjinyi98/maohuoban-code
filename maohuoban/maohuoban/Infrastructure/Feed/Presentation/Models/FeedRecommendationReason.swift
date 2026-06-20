@@ -1,16 +1,16 @@
 import Foundation
 
-// PetWorldFeedRecommendationReason 宠物世界 Feed 推荐解释
+// FeedRecommendationReason Feed 推荐解释
 // 核心职责：
 // - 限定快速 UI 阶段卡片可展示的推荐关系类型
 // - 承载后端或 mock 数据映射后的具体解释文案
-struct PetWorldFeedRecommendationReason: Equatable {
+struct FeedRecommendationReason: Equatable {
     let kind: Kind
     let text: String
 
     // Kind 推荐解释类型
     // 核心职责：
-    // - 对齐宠物世界 V1 推荐池类型
+    // - 对齐 UGC 内容流推荐池类型
     // - 限制 UI 阶段只展示轻关系和优质内容
     enum Kind: Equatable {
         case lightRelationship

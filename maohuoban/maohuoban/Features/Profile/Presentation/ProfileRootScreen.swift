@@ -7,11 +7,15 @@ import MaohuobanDesignSystem
 // - 承载个人信息概览和系统导航栏工具入口
 struct ProfileRootScreen: View {
     let onLogout: () -> Void
+    @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
 
     var body: some View {
         ScrollView {
             VStack(spacing: MHBTheme.Spacing.s3) {
-                ProfileAccountSummarySection(profile: ProfileAccountSummary.mock)
+                ProfileAccountSummarySection(
+                    profile: ProfileAccountSummary.mock,
+                    postsRoute: .posts
+                )
 
                 ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
                     print("Tapped quick entry: \(item.title)")
@@ -55,6 +59,17 @@ struct ProfileRootScreen: View {
                 }
                 .accessibilityLabel("设置")
                 .accessibilityIdentifier("profile.settingsButton")
+            }
+        }
+        .navigationDestination(for: ProfileRoute.self) { route in
+            switch route {
+            case .posts:
+                ProfilePostsScreen(interactionStore: feedInteractionStore)
+            case .feedDetail(let postID):
+                ProfileFeedDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore
+                )
             }
         }
     }

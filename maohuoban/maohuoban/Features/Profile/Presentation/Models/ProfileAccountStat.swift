@@ -8,4 +8,8 @@ struct ProfileAccountStat: Identifiable, Equatable {
     let id: String
     let value: String
     let title: String
+
+    var isPostsEntry: Bool {
+        id == "posts"
+    }
 }
