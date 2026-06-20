@@ -31,7 +31,7 @@
 推荐技术栈：
 
 ```text
-maohuoban-web
+maohuoban-his-web
   -> TypeScript
   -> React
   -> Vite
@@ -52,7 +52,7 @@ maohuoban-web
 
 | 范围 | 目标 |
 |---|---|
-| Web 工程骨架 | 新建独立 `maohuoban-web/`，具备开发、构建、测试、类型检查和 lint 命令 |
+| Web 工程骨架 | 新建独立 `maohuoban-his-web/`，具备开发、构建、测试、类型检查和 lint 命令 |
 | 登录壳 | mock 医院员工账号登录，支持选择医院租户、院区和角色 |
 | 权限壳 | 根据角色控制导航、按钮、页面入口和危险操作展示 |
 | 主导航 | 建立医院工作台、患者、接诊、收费、药房、健康档案、授权审计、设置等一级模块 |
@@ -226,7 +226,7 @@ hospital tenant
 Web 工程建议放在仓库根目录：
 
 ```text
-maohuoban-web/
+maohuoban-his-web/
   package.json
   vite.config.ts
   tsconfig.json
@@ -755,7 +755,7 @@ docs/engineering/web-his/01_Web_HIS前端Goal进度追踪.md
 
 | 任务 | 内容 |
 |---|---|
-| 工程创建 | 新建 `maohuoban-web/`，配置 React + TypeScript + Vite |
+| 工程创建 | 新建 `maohuoban-his-web/`，配置 React + TypeScript + Vite |
 | 基础工具 | 配置 ESLint、Prettier、Vitest、Playwright |
 | 目录骨架 | 建立 `app/shared/features` 目录 |
 | MVVM 骨架 | 为首批 Feature 建立 `domain/data/view-models/presentation` 模板 |
@@ -937,12 +937,12 @@ docs/engineering/web-his/01_Web_HIS前端Goal进度追踪.md
 
 | 类型 | 命令 |
 |---|---|
-| 安装 | `cd maohuoban-web && pnpm install` |
-| 类型检查 | `cd maohuoban-web && pnpm typecheck` |
-| Lint | `cd maohuoban-web && pnpm lint` |
-| 单元测试 | `cd maohuoban-web && pnpm test` |
-| 构建 | `cd maohuoban-web && pnpm build` |
-| E2E | `cd maohuoban-web && pnpm test:e2e` |
+| 安装 | `cd maohuoban-his-web && pnpm install` |
+| 类型检查 | `cd maohuoban-his-web && pnpm typecheck` |
+| Lint | `cd maohuoban-his-web && pnpm lint` |
+| 单元测试 | `cd maohuoban-his-web && pnpm test` |
+| 构建 | `cd maohuoban-his-web && pnpm build` |
+| E2E | `cd maohuoban-his-web && pnpm test:e2e` |
 
 涉及 UI 调整时必须额外完成浏览器验证：
 
@@ -1026,7 +1026,7 @@ docs/engineering/web-his/01_Web_HIS前端Goal进度追踪.md
 |---|---|
 | 是否现在启动 Web 前端 | 可以启动 |
 | 后端是否同步开发 | 当前目标期暂缓 |
-| 前端工程目录 | `maohuoban-web/` |
+| 前端工程目录 | `maohuoban-his-web/` |
 | 语言 | TypeScript |
 | 框架 | React + Vite |
 | UI | HeroUI v3 React + Tailwind CSS v4，沉淀毛伙伴 Web 组件 |
