@@ -7,6 +7,7 @@ import SwiftUI
 enum TopicRoute: Hashable {
     case followedList
     case detail(topicID: String)
+    case feedDetail(postID: String)
     case composer(seedTopicID: String?)
 }
 
@@ -17,13 +18,29 @@ enum TopicRoute: Hashable {
 struct TopicRouteDestinationScreen: View {
     let route: TopicRoute
     let store: TopicStore
+    @State private var interactionStore = FeedInteractionStore(cards: PetWorldMockFeed.cards)
 
     var body: some View {
+        routedContent
+            .toolbar(.visible, for: .navigationBar)
+            .background(MHBInteractivePopGestureRestorer())
+    }
+
+    @ViewBuilder
+    private var routedContent: some View {
         switch route {
         case .followedList:
             TopicFollowedListScreen(store: store)
         case .detail(let topicID):
-            TopicDetailScreen(topicID: topicID, store: store)
+            TopicDetailScreen(
+                topicID: topicID,
+                store: store
+            )
+        case .feedDetail(let postID):
+            PetWorldFeedDetailScreen(
+                postID: postID,
+                interactionStore: interactionStore
+            )
         case .composer(let seedTopicID):
             TopicPostComposerScreen(seedTopicID: seedTopicID, store: store)
         }

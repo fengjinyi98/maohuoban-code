@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // TopicDetailScreen 话题详情页
 // 核心职责：
 // - 展示单个话题的头部信息、关注状态和话题内容流
-// - 提供进入发布草稿并参与当前话题的入口
+// - 复用通用 Feed 基础设施承载话题 UGC 列表
 struct TopicDetailScreen: View {
     let topicID: String
     let store: TopicStore
@@ -13,7 +13,7 @@ struct TopicDetailScreen: View {
         if let topic = store.topic(id: topicID) {
             TopicDetailLoadedScreen(
                 topic: topic,
-                posts: store.topicPosts(topicID: topic.id),
+                feedItems: store.topicFeedItems(topicID: topic.id),
                 isFollowed: store.isFollowed(topicID: topic.id),
                 onToggleFollow: {
                     store.toggleFollow(topicID: topic.id)
@@ -27,33 +27,56 @@ struct TopicDetailScreen: View {
 
 // TopicDetailLoadedScreen 话题详情已加载页
 // 核心职责：
-// - 组合话题头部、内容流和底部参与入口
+// - 组合话题头部、Feed 内容流和底部参与入口
 private struct TopicDetailLoadedScreen: View {
     let topic: TopicSummary
-    let posts: [TopicPostPreview]
+    let feedItems: [FeedItem]
     let isFollowed: Bool
     let onToggleFollow: () -> Void
+    @State private var interactionStore: FeedInteractionStore
+
+    init(
+        topic: TopicSummary,
+        feedItems: [FeedItem],
+        isFollowed: Bool,
+        onToggleFollow: @escaping () -> Void
+    ) {
+        self.topic = topic
+        self.feedItems = feedItems
+        self.isFollowed = isFollowed
+        self.onToggleFollow = onToggleFollow
+        _interactionStore = State(initialValue: FeedInteractionStore(cards: feedItems))
+    }
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                TopicDetailHeroSection(
+        ZStack {
+            MHBTheme.ColorToken.background.color
+                .ignoresSafeArea()
+
+            if feedItems.isEmpty {
+                TopicDetailEmptyContent(
                     topic: topic,
                     isFollowed: isFollowed,
                     onToggleFollow: onToggleFollow
                 )
-
-                if posts.isEmpty {
-                    TopicDetailEmptyFeedState(topicName: topic.displayName)
-                } else {
-                    TopicDetailFeedSection(posts: posts)
+            } else {
+                FeedList(
+                    cards: feedItems,
+                    interactionStore: interactionStore,
+                    topContentInset: MHBTheme.Spacing.s4,
+                    accessibilityIdentifierPrefix: "topics.detail.feed.card",
+                    detailRoute: { card in
+                        TopicRoute.feedDetail(postID: card.postID)
+                    }
+                ) {
+                    TopicDetailFeedHeader(
+                        topic: topic,
+                        isFollowed: isFollowed,
+                        onToggleFollow: onToggleFollow
+                    )
                 }
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.top, MHBTheme.Spacing.s3)
-            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
         }
-        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle(topic.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
@@ -63,9 +86,34 @@ private struct TopicDetailLoadedScreen: View {
     }
 }
 
+// TopicDetailFeedHeader 话题详情 Feed 头部
+// 核心职责：
+// - 保持话题信息和内容流处于同一滚动上下文
+// - 为通用 Feed 列表提供轻量分区标题
+private struct TopicDetailFeedHeader: View {
+    let topic: TopicSummary
+    let isFollowed: Bool
+    let onToggleFollow: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+            TopicDetailHeroSection(
+                topic: topic,
+                isFollowed: isFollowed,
+                onToggleFollow: onToggleFollow
+            )
+
+            Text("最新动态")
+                .font(MHBTheme.Typography.headline)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+        }
+    }
+}
+
 // TopicDetailHeroSection 话题详情头部
 // 核心职责：
 // - 展示话题封面、简介、统计和关注按钮
+// - 作为非卡片式页面头部融入 Feed 滚动流
 private struct TopicDetailHeroSection: View {
     let topic: TopicSummary
     let isFollowed: Bool
@@ -74,7 +122,10 @@ private struct TopicDetailHeroSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                TopicAvatarView(assetName: topic.thumbnailAssetName, showUnreadDot: topic.todayPostCount > 0)
+                TopicAvatarView(
+                    assetName: topic.thumbnailAssetName,
+                    showUnreadDot: topic.todayPostCount > 0
+                )
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     Text(topic.displayName)
@@ -112,9 +163,6 @@ private struct TopicDetailHeroSection: View {
                 TopicDetailStatPill(title: "今日", value: "\(topic.todayPostCount)")
             }
         }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
     }
 
     private var followButtonBackground: Color {
@@ -125,6 +173,7 @@ private struct TopicDetailHeroSection: View {
 // TopicDetailStatPill 话题详情统计标签
 // 核心职责：
 // - 展示话题动态数、关注数和今日更新数
+// - 保持头部统计区域轻量分组
 private struct TopicDetailStatPill: View {
     let title: String
     let value: String
@@ -143,116 +192,6 @@ private struct TopicDetailStatPill: View {
         .padding(.vertical, MHBTheme.Spacing.s2)
         .background(MHBTheme.ColorToken.separatorSoft.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
-    }
-}
-
-// TopicDetailFeedSection 话题详情内容流
-// 核心职责：
-// - 展示话题下的帖子预览卡片列表
-private struct TopicDetailFeedSection: View {
-    let posts: [TopicPostPreview]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            Text("最新动态")
-                .font(MHBTheme.Typography.headline)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-            ForEach(posts) { post in
-                TopicPostPreviewCard(post: post)
-            }
-        }
-    }
-}
-
-// TopicPostPreviewCard 话题帖子预览卡片
-// 核心职责：
-// - 渲染话题详情页中的轻量帖子预览
-private struct TopicPostPreviewCard: View {
-    let post: TopicPostPreview
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            TopicPostPreviewHeader(
-                authorName: post.authorName,
-                avatarAssetName: post.avatarAssetName,
-                publishedText: post.publishedText
-            )
-
-            Text(post.caption)
-                .font(MHBTheme.Typography.body)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Image(post.mediaAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(maxWidth: .infinity)
-                .aspectRatio(4.0 / 3.0, contentMode: .fit)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-
-            TopicPostPreviewActions(
-                likeCountText: post.likeCountText,
-                commentCountText: post.commentCountText
-            )
-        }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-    }
-}
-
-// TopicPostPreviewHeader 话题帖子预览头部
-// 核心职责：
-// - 展示作者头像、昵称和发布时间
-private struct TopicPostPreviewHeader: View {
-    let authorName: String
-    let avatarAssetName: String
-    let publishedText: String
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: MHBTheme.Spacing.s8, height: MHBTheme.Spacing.s8)
-                .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1 / 2) {
-                Text(authorName)
-                    .font(MHBTheme.Typography.callout.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                Text(publishedText)
-                    .font(MHBTheme.Typography.section)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-            }
-
-            Spacer()
-
-            Image(systemName: "ellipsis")
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-        }
-    }
-}
-
-// TopicPostPreviewActions 话题帖子预览互动区
-// 核心职责：
-// - 展示点赞、评论和分享入口占位
-private struct TopicPostPreviewActions: View {
-    let likeCountText: String
-    let commentCountText: String
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s4) {
-            Label(likeCountText, systemImage: "heart")
-            Label(commentCountText, systemImage: "bubble.right")
-            Spacer()
-            Image(systemName: "square.and.arrow.up")
-        }
-        .font(MHBTheme.Typography.footnote)
-        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
     }
 }
 
@@ -276,6 +215,33 @@ private struct TopicDetailBottomAction: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, MHBTheme.Spacing.s4)
         .padding(.vertical, MHBTheme.Spacing.s2)
+    }
+}
+
+// TopicDetailEmptyContent 话题详情空内容
+// 核心职责：
+// - 在新建话题没有动态时保留话题头部
+// - 使用统一滚动容器展示空态
+private struct TopicDetailEmptyContent: View {
+    let topic: TopicSummary
+    let isFollowed: Bool
+    let onToggleFollow: () -> Void
+
+    var body: some View {
+        MHBScreenScrollView {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                TopicDetailHeroSection(
+                    topic: topic,
+                    isFollowed: isFollowed,
+                    onToggleFollow: onToggleFollow
+                )
+
+                TopicDetailEmptyFeedState(topicName: topic.displayName)
+            }
+            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.top, MHBTheme.Spacing.s3)
+            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+        }
     }
 }
 

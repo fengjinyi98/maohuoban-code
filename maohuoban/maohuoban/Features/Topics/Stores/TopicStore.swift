@@ -103,6 +103,19 @@ final class TopicStore {
         postsByTopicID[topicID] ?? []
     }
 
+    // topicFeedItems 读取话题详情通用 Feed 卡片
+    // 核心职责：
+    // - 为话题详情页复用 FeedList 和 FeedCard 基础设施
+    // - 使用可进入宠物世界详情页的稳定帖子 ID
+    func topicFeedItems(topicID: String) -> [FeedItem] {
+        topicPosts(topicID: topicID).enumerated().map { index, post in
+            Self.makeFeedItem(
+                post: post,
+                template: Self.feedTemplates[index % Self.feedTemplates.count]
+            )
+        }
+    }
+
     // selectableTopics 读取发布草稿可选话题
     // 核心职责：
     // - 为发布手动话题输入页提供稳定候选列表
@@ -188,4 +201,76 @@ private extension TopicStore {
             )
         ]
     }
+
+    static let feedTemplates: [TopicFeedTemplate] = [
+        TopicFeedTemplate(
+            postID: "beach-walk",
+            petName: "奶油",
+            petAvatarAssetName: "HomePetHeroMock",
+            recommendationReason: .lightRelationship("同话题高互动"),
+            publishedAtUTCString: "2026-06-18T20:31:00Z",
+            repostCount: 1
+        ),
+        TopicFeedTemplate(
+            postID: "sunny-album",
+            petName: "布丁",
+            petAvatarAssetName: "HomePetAlbum1",
+            recommendationReason: .qualityContent("话题精选"),
+            publishedAtUTCString: "2026-06-18T07:12:00Z",
+            repostCount: 0
+        ),
+        TopicFeedTemplate(
+            postID: "park-training",
+            petName: "豆包",
+            petAvatarAssetName: "HomeGalleryAlbum2",
+            recommendationReason: .lightRelationship("训练相关"),
+            publishedAtUTCString: "2026-06-17T12:06:00Z",
+            repostCount: 4
+        )
+    ]
+
+    static func makeFeedItem(
+        post: TopicPostPreview,
+        template: TopicFeedTemplate
+    ) -> FeedItem {
+        guard let publishedAt = MHBUTCDateDisplayFormatter.date(
+            fromUTCString: template.publishedAtUTCString
+        ) else {
+            preconditionFailure("Topic mock UTC 时间格式无效: \(template.publishedAtUTCString)")
+        }
+
+        return FeedItem(
+            postID: template.postID,
+            petName: template.petName,
+            petAvatarAssetName: template.petAvatarAssetName,
+            recommendationReason: template.recommendationReason,
+            text: post.caption,
+            authorAvatarAssetName: post.avatarAssetName,
+            authorName: post.authorName,
+            publishedAt: publishedAt,
+            mediaAssetName: post.mediaAssetName,
+            isLiked: false,
+            likeCount: Self.count(from: post.likeCountText),
+            repostCount: template.repostCount,
+            commentCount: Self.count(from: post.commentCountText)
+        )
+    }
+
+    static func count(from text: String) -> Int {
+        if text.lowercased().hasSuffix("k"),
+           let value = Double(text.dropLast()) {
+            return Int(value * 1000)
+        }
+
+        return Int(text) ?? 0
+    }
+}
+
+private struct TopicFeedTemplate {
+    let postID: String
+    let petName: String
+    let petAvatarAssetName: String
+    let recommendationReason: FeedRecommendationReason
+    let publishedAtUTCString: String
+    let repostCount: Int
 }

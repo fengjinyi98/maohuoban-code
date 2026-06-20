@@ -5,7 +5,7 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 承载帖子卡片纵向滚动布局
 // - 为不同页面提供统一卡片、更多菜单和滚动事件能力
-struct FeedList<DetailRoute: Hashable>: View {
+struct FeedList<DetailRoute: Hashable, Header: View>: View {
     let cards: [FeedItem]
     let interactionStore: FeedInteractionStore
     let topContentInset: CGFloat
@@ -17,6 +17,7 @@ struct FeedList<DetailRoute: Hashable>: View {
     let onMoreAction: (String, FeedMoreAction) -> Void
     let onScrollOffsetChange: (CGFloat) -> Void
     let onScrollPhaseChange: (ScrollPhase) -> Void
+    @ViewBuilder let header: () -> Header
 
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
@@ -32,7 +33,8 @@ struct FeedList<DetailRoute: Hashable>: View {
         onOpenDetail: ((DetailRoute) -> Void)? = nil,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
         onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
-        onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in }
+        onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in },
+        @ViewBuilder header: @escaping () -> Header
     ) {
         self.cards = cards
         self.interactionStore = interactionStore
@@ -45,6 +47,7 @@ struct FeedList<DetailRoute: Hashable>: View {
         self.onMoreAction = onMoreAction
         self.onScrollOffsetChange = onScrollOffsetChange
         self.onScrollPhaseChange = onScrollPhaseChange
+        self.header = header
     }
 
     var body: some View {
@@ -52,6 +55,8 @@ struct FeedList<DetailRoute: Hashable>: View {
             ZStack(alignment: .topLeading) {
                 MHBScreenScrollView(showsIndicators: false) {
                     LazyVStack(spacing: MHBTheme.Spacing.s8) {
+                        header()
+
                         ForEach(cards) { card in
                             FeedCard(
                                 card: card,
@@ -149,4 +154,36 @@ struct FeedList<DetailRoute: Hashable>: View {
         onMoreAction(postID, action)
     }
 
+}
+
+extension FeedList where Header == EmptyView {
+    init(
+        cards: [FeedItem],
+        interactionStore: FeedInteractionStore,
+        topContentInset: CGFloat,
+        accessibilityIdentifierPrefix: String = "feed.card",
+        topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
+        showsRecommendationReason: Bool = true,
+        detailRoute: @escaping (FeedItem) -> DetailRoute,
+        onOpenDetail: ((DetailRoute) -> Void)? = nil,
+        onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
+        onScrollOffsetChange: @escaping (CGFloat) -> Void = { _ in },
+        onScrollPhaseChange: @escaping (ScrollPhase) -> Void = { _ in }
+    ) {
+        self.init(
+            cards: cards,
+            interactionStore: interactionStore,
+            topContentInset: topContentInset,
+            accessibilityIdentifierPrefix: accessibilityIdentifierPrefix,
+            topTrailingAction: topTrailingAction,
+            showsRecommendationReason: showsRecommendationReason,
+            detailRoute: detailRoute,
+            onOpenDetail: onOpenDetail,
+            onMoreAction: onMoreAction,
+            onScrollOffsetChange: onScrollOffsetChange,
+            onScrollPhaseChange: onScrollPhaseChange
+        ) {
+            EmptyView()
+        }
+    }
 }
