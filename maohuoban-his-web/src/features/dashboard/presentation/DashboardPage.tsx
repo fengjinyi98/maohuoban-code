@@ -1,14 +1,15 @@
-import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
-  Clock,
-  FileCheck2,
+  CalendarClock,
+  CircleDollarSign,
+  FileClock,
+  Link2,
   Pill,
-  ReceiptText,
   Stethoscope,
+  Syringe,
 } from "lucide-react";
-import { HisPageShell } from "../../../shared/components/HisPageShell";
+import { Link } from "react-router-dom";
 import { HisStatusChip } from "../../../shared/components/HisStatusChip";
 import {
   encounterStatusLabels,
@@ -19,226 +20,300 @@ import { useDashboardViewModel } from "../view-models/useDashboardViewModel";
 
 // DashboardPage 今日工作台
 // 核心职责：
-// - 展示今日概览、队列、角色待办和风险提醒
-// - 提供到接诊、收费、药房和发布模块的快捷入口
+// - 展示今日接诊队列和高频状态
+// - 提供选中宠物医疗概览和病历入口
 export function DashboardPage() {
   const vm = useDashboardViewModel();
 
   if (vm.isLoading) {
-    return (
-      <HisPageShell title="今日工作台">
-        <div className="mhb-card">加载今日队列...</div>
-      </HisPageShell>
-    );
+    return <div className="mhb-panel">加载今日队列...</div>;
   }
 
   if (!vm.data) {
-    return (
-      <HisPageShell title="今日工作台">
-        <div className="mhb-card">今日数据加载失败</div>
-      </HisPageShell>
-    );
+    return <div className="mhb-panel">今日数据加载失败</div>;
   }
 
+  const selectedEncounter =
+    vm.data.encounters.find((item) =>
+      ["triage", "in_progress"].includes(item.status),
+    ) ?? vm.data.encounters[0];
+  const pendingInvoices = vm.data.invoices.filter(
+    (invoice) => invoice.status === "unpaid",
+  );
+  const pendingPublications = vm.data.publications.filter(
+    (publication) => publication.status !== "published",
+  );
   const summary = [
-    { label: "今日预约", value: vm.data.summary.appointments, icon: Clock },
     {
-      label: "待接诊",
+      label: "预约",
+      value: vm.data.summary.appointments,
+      icon: CalendarClock,
+    },
+    {
+      label: "候诊",
       value: vm.data.summary.pendingEncounter,
       icon: Stethoscope,
     },
     {
-      label: "待收费",
+      label: "收费",
       value: vm.data.summary.pendingBilling,
-      icon: ReceiptText,
+      icon: CircleDollarSign,
     },
-    { label: "待发药", value: vm.data.summary.pendingDispense, icon: Pill },
+    { label: "发药", value: vm.data.summary.pendingDispense, icon: Pill },
     {
-      label: "待发布",
+      label: "发布",
       value: vm.data.summary.pendingPublication,
-      icon: FileCheck2,
+      icon: FileClock,
     },
   ];
 
   return (
-    <HisPageShell
-      title="今日工作台"
-      description="按角色聚合今日预约、接诊、收费、发药、发布和风险提醒。"
-    >
-      <div className="mhb-grid mhb-grid-5">
-        {summary.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div className="mhb-card" key={item.label}>
-              <Icon size={20} color="var(--mhb-primary)" />
-              <div
-                style={{
-                  marginTop: 12,
-                  color: "var(--mhb-muted)",
-                  fontSize: 13,
-                }}
-              >
-                {item.label}
+    <div className="mhb-workbench">
+      <section className="mhb-queue-panel">
+        <div className="mhb-panel-header">
+          <div>
+            <h1 className="mhb-panel-title">今日工作台</h1>
+            <p>
+              医生排班与队列，按到院、接诊、收费、发药和发布状态处理今日任务。
+            </p>
+          </div>
+          <div className="mhb-queue-filters">
+            <button className="active" type="button">
+              全部
+            </button>
+            <button type="button">
+              候诊中 ({vm.data.summary.pendingEncounter})
+            </button>
+            <button type="button">
+              待收费 ({vm.data.summary.pendingBilling})
+            </button>
+          </div>
+        </div>
+
+        <div className="mhb-mini-metrics">
+          {summary.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div className="mhb-mini-metric" key={item.label}>
+                <Icon size={16} />
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
               </div>
-              <strong style={{ fontSize: 28 }}>{item.value}</strong>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      <div className="mhb-grid mhb-grid-2">
-        <section className="mhb-card">
-          <h2 style={{ marginTop: 0 }}>角色主待办</h2>
-          <div className="mhb-grid">
-            {vm.roleTasks.map((task) =>
-              "encounterId" in task ? null : (
-                <Link
-                  key={task.id}
-                  to={
-                    task.status === "pending_dispense"
-                      ? "/pharmacy"
-                      : `/encounters/${task.id}`
-                  }
-                  className="mhb-card"
-                  style={{ padding: 12 }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}
-                  >
-                    <strong>{task.patientName}</strong>
-                    <HisStatusChip
-                      tone={
-                        task.status === "pending_dispense" ? "info" : "warning"
-                      }
-                    >
-                      {encounterStatusLabels[task.status]}
-                    </HisStatusChip>
-                  </div>
-                  <p style={{ margin: "6px 0 0", color: "var(--mhb-muted)" }}>
-                    {task.chiefComplaint}
-                  </p>
-                </Link>
-              ),
-            )}
-            {vm.roleTasks.length === 0 ? (
-              <p style={{ color: "var(--mhb-muted)" }}>当前角色暂无待办。</p>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="mhb-card">
-          <h2 style={{ marginTop: 0 }}>风险提醒</h2>
-          <div className="mhb-grid">
-            {vm.data.inventoryRisks.map((item) => (
-              <Link
-                key={item.id}
-                to="/pharmacy"
-                className="mhb-card"
-                style={{ padding: 12 }}
-              >
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <AlertTriangle size={18} color="var(--mhb-warning)" />
-                  <strong>{item.name}</strong>
-                  <HisStatusChip
-                    tone={item.status === "low_stock" ? "danger" : "warning"}
-                  >
-                    {item.status === "low_stock" ? "低库存" : "近效期"}
-                  </HisStatusChip>
+        <div className="mhb-queue-list">
+          {vm.data.encounters.map((encounter, index) => (
+            <Link
+              className={`mhb-patient-card${encounter.id === selectedEncounter?.id ? " selected" : ""}`}
+              key={encounter.id}
+              to={`/encounters/${encounter.id}`}
+            >
+              <div className="mhb-time-col">
+                {index === 0 ? "09:30" : index === 1 ? "10:00" : "10:20"}
+              </div>
+              <span
+                className={`mhb-status-dot ${encounter.status === "in_progress" || encounter.status === "triage" ? "active" : "waiting"}`}
+              />
+              <div className="mhb-pet-avatar">{encounter.patientName[0]}</div>
+              <div className="mhb-patient-info">
+                <div>
+                  <strong>{encounter.patientName}</strong>
+                  {index === 0 ? (
+                    <span className="mhb-auth-badge">
+                      <Link2 size={11} />
+                      含外院授权病史
+                    </span>
+                  ) : null}
                 </div>
-                <p style={{ margin: "6px 0 0", color: "var(--mhb-muted)" }}>
-                  当前库存 {item.stock}
-                  {item.unit}，阈值 {item.threshold}
-                  {item.unit}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
+                <span>主人：{encounter.ownerName}</span>
+              </div>
+              <div className="mhb-reason-col">
+                <Stethoscope size={14} />
+                {encounter.chiefComplaint}
+              </div>
+              <HisStatusChip
+                tone={
+                  encounter.status === "pending_dispense"
+                    ? "info"
+                    : encounter.status === "pending_billing"
+                      ? "warning"
+                      : "success"
+                }
+              >
+                {encounterStatusLabels[encounter.status]}
+              </HisStatusChip>
+            </Link>
+          ))}
 
-      <section className="mhb-table-wrap">
-        <table className="mhb-table">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>宠物</th>
-              <th>主人</th>
-              <th>事项</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vm.data.appointments.map((item) => (
-              <tr key={item.id}>
-                <td>{item.startsAt}</td>
-                <td>{item.patientName}</td>
-                <td>{item.ownerName}</td>
-                <td>{item.reason}</td>
-                <td>
-                  <HisStatusChip
-                    tone={item.status === "scheduled" ? "neutral" : "success"}
-                  >
-                    {item.status === "scheduled" ? "待到院" : "已到院"}
-                  </HisStatusChip>
-                </td>
-                <td>
-                  <Link
-                    className="mhb-button secondary"
-                    to={`/patients/${item.patientId}`}
-                  >
-                    查看 <ArrowRight size={14} />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {vm.data.invoices.map((item) => (
-              <tr key={item.id}>
-                <td>{item.createdAt.slice(11)}</td>
-                <td>{item.patientName}</td>
-                <td>{item.ownerName}</td>
-                <td>收费单</td>
-                <td>
-                  <HisStatusChip
-                    tone={item.status === "unpaid" ? "warning" : "success"}
-                  >
-                    {invoiceStatusLabels[item.status]}
-                  </HisStatusChip>
-                </td>
-                <td>
-                  <Link className="mhb-button secondary" to="/billing">
-                    处理
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {vm.data.publications.map((item) => (
-              <tr key={item.id}>
-                <td>待审核</td>
-                <td>{item.patientName}</td>
-                <td>-</td>
-                <td>健康档案发布</td>
-                <td>
-                  <HisStatusChip
-                    tone={item.status === "pending" ? "warning" : "info"}
-                  >
-                    {publicationStatusLabels[item.status]}
-                  </HisStatusChip>
-                </td>
-                <td>
-                  <Link className="mhb-button secondary" to="/health-records">
-                    审核
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          {pendingInvoices.map((invoice) => (
+            <Link
+              className="mhb-patient-card compact"
+              key={invoice.id}
+              to="/billing"
+            >
+              <div className="mhb-time-col">{invoice.createdAt.slice(11)}</div>
+              <span className="mhb-status-dot waiting" />
+              <div className="mhb-pet-avatar billing">收</div>
+              <div className="mhb-patient-info">
+                <div>
+                  <strong>{invoice.patientName}</strong>
+                </div>
+                <span>主人：{invoice.ownerName}</span>
+              </div>
+              <div className="mhb-reason-col">
+                <CircleDollarSign size={14} />
+                收费单待处理
+              </div>
+              <HisStatusChip tone="warning">
+                {invoiceStatusLabels[invoice.status]}
+              </HisStatusChip>
+            </Link>
+          ))}
+
+          {pendingPublications.map((publication) => (
+            <Link
+              className="mhb-patient-card compact"
+              key={publication.id}
+              to="/health-records"
+            >
+              <div className="mhb-time-col">待审</div>
+              <span className="mhb-status-dot waiting" />
+              <div className="mhb-pet-avatar publish">档</div>
+              <div className="mhb-patient-info">
+                <div>
+                  <strong>{publication.patientName}</strong>
+                </div>
+                <span>健康档案发布审核</span>
+              </div>
+              <div className="mhb-reason-col">
+                <FileClock size={14} />
+                App 回流摘要
+              </div>
+              <HisStatusChip tone="info">
+                {publicationStatusLabels[publication.status]}
+              </HisStatusChip>
+            </Link>
+          ))}
+        </div>
       </section>
-    </HisPageShell>
+
+      <aside className="mhb-detail-panel">
+        {selectedEncounter ? (
+          <>
+            <div className="mhb-detail-scroll">
+              <div className="mhb-detail-header">
+                <div className="mhb-pet-avatar large">
+                  {selectedEncounter.patientName[0]}
+                </div>
+                <div>
+                  <h2>{selectedEncounter.patientName}</h2>
+                  <p>
+                    {selectedEncounter.ownerName} ·{" "}
+                    {selectedEncounter.vitals.weightKg}kg
+                  </p>
+                  <div className="mhb-detail-tags">
+                    <span>{selectedEncounter.diagnosis}</span>
+                    <span>{selectedEncounter.doctorName}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mhb-alert-block">
+                <AlertTriangle size={18} />
+                <div>
+                  <strong>医疗预警</strong>
+                  <p>处方前核对过敏史、当前用药和近期报告，避免重复用药。</p>
+                </div>
+              </div>
+
+              <section className="mhb-detail-section">
+                <div className="mhb-detail-section-title">近期体征</div>
+                <div className="mhb-vitals-grid">
+                  <div>
+                    <span>体重</span>
+                    <strong>{selectedEncounter.vitals.weightKg} kg</strong>
+                  </div>
+                  <div>
+                    <span>体温</span>
+                    <strong>{selectedEncounter.vitals.temperatureC} ℃</strong>
+                  </div>
+                  <div>
+                    <span>心率</span>
+                    <strong>{selectedEncounter.vitals.heartRate}</strong>
+                  </div>
+                  <div>
+                    <span>精神</span>
+                    <strong>{selectedEncounter.vitals.spirit}</strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mhb-detail-section">
+                <div className="mhb-detail-section-title">
+                  <span>既往病史摘要</span>
+                  <Link to={`/patients/${selectedEncounter.patientId}`}>
+                    查看完整档案
+                  </Link>
+                </div>
+                <div className="mhb-history-list">
+                  <div className="mhb-history-item">
+                    <div className="mhb-history-date">
+                      <strong>12</strong>
+                      <span>MAY</span>
+                    </div>
+                    <div>
+                      <strong>外院授权病史</strong>
+                      <p>宠物主授权后可查看近期病史、当前用药和关键报告。</p>
+                      <span>来源可追溯</span>
+                    </div>
+                  </div>
+                  <div className="mhb-history-item">
+                    <div className="mhb-history-date">
+                      <strong>05</strong>
+                      <span>JAN</span>
+                    </div>
+                    <div>
+                      <strong>院内复诊记录</strong>
+                      <p>{selectedEncounter.followUpAdvice}</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mhb-detail-section">
+                <div className="mhb-detail-section-title">风险提醒</div>
+                <div className="mhb-risk-list">
+                  {vm.data.inventoryRisks.map((risk) => (
+                    <Link key={risk.id} to="/pharmacy">
+                      <Syringe size={15} />
+                      <span>{risk.name}</span>
+                      <HisStatusChip
+                        tone={
+                          risk.status === "low_stock" ? "danger" : "warning"
+                        }
+                      >
+                        {risk.status === "low_stock" ? "低库存" : "近效期"}
+                      </HisStatusChip>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="mhb-detail-footer">
+              <Link
+                className="mhb-button primary"
+                to={`/encounters/${selectedEncounter.id}`}
+              >
+                立即进入病历书写
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          </>
+        ) : null}
+      </aside>
+    </div>
   );
 }

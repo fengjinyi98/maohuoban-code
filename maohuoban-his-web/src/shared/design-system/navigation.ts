@@ -1,7 +1,8 @@
 import {
   ClipboardList,
   FileCheck2,
-  LayoutDashboard,
+  FlaskConical,
+  Monitor,
   Pill,
   ReceiptText,
   Settings,
@@ -15,62 +16,93 @@ export interface NavItem {
   path: string;
   label: string;
   permission: Permission;
-  icon: typeof LayoutDashboard;
+  icon: typeof Monitor;
 }
 
-export const navItems: NavItem[] = [
+export interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+export const navGroups: NavGroup[] = [
   {
-    path: "/dashboard",
-    label: "今日工作台",
-    permission: "dashboard.view",
-    icon: LayoutDashboard,
+    title: "工作台",
+    items: [
+      {
+        path: "/dashboard",
+        label: "今日接诊",
+        permission: "dashboard.view",
+        icon: Monitor,
+      },
+      {
+        path: "/encounters/e-001",
+        label: "快速接诊",
+        permission: "encounters.view",
+        icon: ClipboardList,
+      },
+    ],
   },
   {
-    path: "/patients",
-    label: "宠物患者",
-    permission: "patients.view",
-    icon: Users,
+    title: "医疗业务",
+    items: [
+      {
+        path: "/encounters",
+        label: "电子病历 EMR",
+        permission: "encounters.view",
+        icon: Stethoscope,
+      },
+      {
+        path: "/pharmacy",
+        label: "处方与发药",
+        permission: "pharmacy.view",
+        icon: Pill,
+      },
+      {
+        path: "/health-records",
+        label: "健康档案发布",
+        permission: "healthRecords.view",
+        icon: FileCheck2,
+      },
+      {
+        path: "/audit",
+        label: "授权审计",
+        permission: "audit.view",
+        icon: ShieldCheck,
+      },
+      {
+        path: "/encounters",
+        label: "检查检验 LIS/PACS",
+        permission: "encounters.view",
+        icon: FlaskConical,
+      },
+    ],
   },
   {
-    path: "/encounters",
-    label: "接诊病历",
-    permission: "encounters.view",
-    icon: Stethoscope,
+    title: "医院运营",
+    items: [
+      {
+        path: "/patients",
+        label: "客户与患宠管理",
+        permission: "patients.view",
+        icon: Users,
+      },
+      {
+        path: "/billing",
+        label: "收费结算",
+        permission: "billing.view",
+        icon: ReceiptText,
+      },
+    ],
   },
   {
-    path: "/billing",
-    label: "收费",
-    permission: "billing.view",
-    icon: ReceiptText,
-  },
-  {
-    path: "/pharmacy",
-    label: "药房库存",
-    permission: "pharmacy.view",
-    icon: Pill,
-  },
-  {
-    path: "/health-records",
-    label: "健康档案",
-    permission: "healthRecords.view",
-    icon: FileCheck2,
-  },
-  {
-    path: "/audit",
-    label: "授权审计",
-    permission: "audit.view",
-    icon: ShieldCheck,
-  },
-  {
-    path: "/settings",
-    label: "设置",
-    permission: "settings.view",
-    icon: Settings,
-  },
-  {
-    path: "/encounters/e-001",
-    label: "快速接诊",
-    permission: "encounters.view",
-    icon: ClipboardList,
+    title: "系统管理",
+    items: [
+      {
+        path: "/settings",
+        label: "员工与权限",
+        permission: "settings.view",
+        icon: Settings,
+      },
+    ],
   },
 ];

@@ -6,17 +6,25 @@ import Foundation
 // - 让动作映射不直接依赖完整首页快照
 struct HomeActionRoutingContext: Equatable {
     let selectedPetID: String?
+    let selectedPetName: String?
     let merchantID: String?
     let city: String?
 
-    init(selectedPetID: String? = nil, merchantID: String? = nil, city: String? = nil) {
+    init(
+        selectedPetID: String? = nil,
+        selectedPetName: String? = nil,
+        merchantID: String? = nil,
+        city: String? = nil
+    ) {
         self.selectedPetID = selectedPetID
+        self.selectedPetName = selectedPetName
         self.merchantID = merchantID
         self.city = city
     }
 
     init(snapshot: HomeDashboardSnapshot) {
         self.selectedPetID = snapshot.selectedPet?.id
+        self.selectedPetName = snapshot.selectedPet?.name
         self.merchantID = snapshot.merchantDashboard?.merchantID
         self.city = snapshot.identity.city
     }
@@ -35,7 +43,14 @@ enum HomeActionRouteResolver {
         case .createPet:
             return .createPet
         case .dailyRecord:
-            return .recordDaily(petID: context.selectedPetID)
+            return .publishEvent(
+                PublishEntryContext(
+                    source: .home,
+                    selectedPetID: context.selectedPetID,
+                    selectedPetName: context.selectedPetName,
+                    city: context.city
+                )
+            )
         case .healthRecord:
             return .recordHealth(petID: context.selectedPetID)
         case .bookHospital:

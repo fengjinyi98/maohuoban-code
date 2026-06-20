@@ -41,6 +41,32 @@ final class HomeActionRouteResolverTests: XCTestCase {
     }
 
     @MainActor
+    func testDailyRecordActionRoutesToPublishWithCurrentPetContext() {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let action = HomeDashboardSnapshot.Action(
+            kind: .dailyRecord,
+            title: "记录日常",
+            subtitle: nil
+        )
+
+        let route = HomeActionRouteResolver.route(
+            for: action,
+            context: HomeActionRoutingContext(snapshot: snapshot)
+        )
+
+        XCTAssertEqual(
+            route,
+            .publishEvent(
+                PublishEntryContext(
+                    source: .home,
+                    selectedPetID: "pet-1",
+                    selectedPetName: "糯米"
+                )
+            )
+        )
+    }
+
+    @MainActor
     func testMerchantActionCarriesMerchantID() {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(merchantID: "merchant-1")
         let action = HomeDashboardSnapshot.Action(

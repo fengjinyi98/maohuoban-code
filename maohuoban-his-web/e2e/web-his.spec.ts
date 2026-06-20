@@ -25,19 +25,19 @@ test("接诊到收费、发药、发布和审计闭环", async ({ page }) => {
   await page.getByRole("button", { name: "退出登录" }).click();
   await page.getByRole("button", { name: /陈前台/ }).click();
   await page.getByRole("button", { name: "进入今日工作台" }).click();
-  await page.getByRole("link", { name: "收费" }).click();
+  await page.getByRole("link", { name: "收费结算" }).click();
   await page.getByRole("button", { name: "微信收款" }).first().click();
 
   await page.getByRole("button", { name: "退出登录" }).click();
   await page.getByRole("button", { name: /王药房/ }).click();
   await page.getByRole("button", { name: "进入今日工作台" }).click();
-  await page.getByRole("link", { name: "药房库存" }).click();
+  await page.getByRole("link", { name: "处方与发药" }).click();
   await page.getByRole("button", { name: "确认发药" }).first().click();
 
   await page.getByRole("button", { name: "退出登录" }).click();
   await page.getByRole("button", { name: /周医生/ }).click();
   await page.getByRole("button", { name: "进入今日工作台" }).click();
-  await page.getByRole("link", { name: "健康档案" }).click();
+  await page.getByRole("link", { name: "健康档案发布", exact: true }).click();
   await expect(
     page.getByText("内部备注、成本、利润、方案模板未进入发布预览。").first(),
   ).toBeVisible();

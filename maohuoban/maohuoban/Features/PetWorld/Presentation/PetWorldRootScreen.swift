@@ -57,7 +57,11 @@ struct PetWorldRootScreen: View {
                 .zIndex(1)
         }
         .safeAreaInset(edge: .bottom) {
-            PetWorldPublishEntryButton(route: PetWorldRoute.topicComposer(seedTopicID: nil))
+            PetWorldPublishEntryButton(
+                route: PetWorldRoute.publishEvent(
+                    PublishEntryContext(source: .petWorld)
+                )
+            )
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -83,7 +87,12 @@ struct PetWorldRootScreen: View {
                         PetWorldRoute.topicFeedDetail(postID: item.postID)
                     },
                     composerRoute: { topicID in
-                        PetWorldRoute.topicComposer(seedTopicID: topicID)
+                        PetWorldRoute.publishEvent(
+                            PublishEntryContext(
+                                source: .petWorld,
+                                seedTopicID: topicID
+                            )
+                        )
                     }
                 )
             case .topicFeedDetail(let postID):
@@ -97,8 +106,15 @@ struct PetWorldRootScreen: View {
                         tabState.appendPetWorldRoute(route)
                     }
                 )
+            case .publishEvent(let context):
+                PublishEventComposerScreen(context: context)
             case .topicComposer(let seedTopicID):
-                TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)
+                PublishEventComposerScreen(
+                    context: PublishEntryContext(
+                        source: .petWorld,
+                        seedTopicID: seedTopicID
+                    )
+                )
             }
         }
     }

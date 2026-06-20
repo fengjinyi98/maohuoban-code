@@ -7,6 +7,7 @@ import Foundation
 // - 后续随首页功能迭代扩展 case
 enum HomeRoute: Hashable {
     case createPet
+    case publishEvent(PublishEntryContext)
     case editPetProfile(PetProfileEditContext)
     case recordDaily(petID: String?)
     case recordHealth(petID: String?)
@@ -26,6 +27,7 @@ extension HomeRoute {
     var systemImage: String {
         switch self {
         case .createPet: "plus.circle.fill"
+        case .publishEvent: "photo.on.rectangle.angled"
         case .editPetProfile: "pencil.circle.fill"
         case .recordDaily: "square.and.pencil"
         case .recordHealth: "cross.case.fill"
@@ -45,6 +47,7 @@ extension HomeRoute {
     var title: LocalizedStringResource {
         switch self {
         case .createPet: "添加宠物"
+        case .publishEvent: "发布动态"
         case .editPetProfile: "编辑档案"
         case .recordDaily: "记录日常"
         case .recordHealth: "健康记录"
@@ -64,6 +67,7 @@ extension HomeRoute {
     var subtitle: LocalizedStringResource {
         switch self {
         case .createPet: "添加一只新的宠物档案"
+        case .publishEvent: "记录一次带图片和正文的宠物事件"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"
         case .recordDaily: "为当前宠物补充一条日常事件"
         case .recordHealth: "记录体重、疫苗、驱虫或就诊信息"

@@ -18,6 +18,13 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(petID)
                 }
             )
+        case .publishEvent(let context):
+            PublishEventComposerScreen(
+                context: context,
+                onPrepared: {
+                    onHomeMutationCompleted(nil)
+                }
+            )
         case .editPetProfile(let context):
             PetProfileEditScreen(
                 context: context,
