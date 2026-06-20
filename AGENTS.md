@@ -30,6 +30,22 @@
 4. 高风险确认、长表单、需要形成独立流程或后续可能接入异步提交的页面，应优先判断是否属于普通导航或 sheet；不得因为“全屏”视觉需求默认使用 `fullScreenCover`。
 5. 自定义 full cover 仅在系统 `fullScreenCover` 出现真实限制时使用，例如闪屏、预热内容、特殊转场、安全区控制或宿主层级控制；自定义方案必须封装为基础设施。
 
+### 1.5 Tab 路径归属与二级推进规则
+1. 每个 Tab 的 `NavigationPath` 归属对应 Tab 根容器或统一 Tab 状态对象管理，例如 `MHBAppTabState`；业务子页面不得自行创建新的 `NavigationStack` 承载同一层级推进。
+2. `navigationDestination(for:)` 必须优先声明在 Tab 根视图或根导航容器上，子页面通过 route 值和回调把推进意图交回根容器。
+3. 从详情页内部继续进入话题、作者、相册、帖子详情等二级页面时，使用 `Button` / 显式事件回调触发当前 Tab 的 path append；避免在详情页正文、Feed 卡片内部直接嵌套会抢占手势仲裁的 `NavigationLink(value:)`。
+4. 跨 Feature 复用页面必须通过泛型 Route 或闭包接收路由构造与打开动作，例如详情页只负责产出 `topicRoute(topicName)` 并调用 `onOpenTopicRoute(route)`。
+5. 同一导航链路只能有一个 path 写入口；不得同时混用 `NavigationLink(value:)`、本地 `@State selectedItem`、`sheet/fullScreenCover` 和外部 path append 表达同一推进行为。
+6. 路由 mutation 必须发生在明确用户事件边界，例如按钮点击、列表项点击、工具栏操作；不得在 `body`、同步布局读取、`GeometryReader` 同步闭包或纯展示 formatter 中写 path。
+
+### 1.6 导航手势与交互冲突规则
+1. 新增页面级手势前必须评估系统侧滑返回、ScrollView 滚动、Button 点击、Feed 卡片点击和输入控件焦点的冲突风险。
+2. 详情页正文、Feed 流、评论区等可点击密集区域不得添加全屏高优先级 Tap / Double Tap 手势；确需添加时必须先封装为基础设施，并验证不会延迟 Button / NavigationLink 的单击响应。
+3. 行级 UI 需要多个动作时，优先使用明确按钮承载动作，例如评论回复使用“回复”按钮；整行点击只用于唯一主动作。
+4. 系统侧滑返回失效时，优先排查当前页面是否隐藏或替换了系统导航栏、是否新建了嵌套 `NavigationStack`、是否使用 `fullScreenCover` 承载普通页面、是否添加了高优先级手势。
+5. 真机出现“返回手势后触发点击 / 点击后返回失效 / push 响应延迟”时，必须先加临时日志定位 path mutation、命中测试、手势开始结束、页面 `onAppear/onDisappear` 时序；用户确认修复后删除临时日志并扫描残留。
+6. 所有导航修复完成后必须保留系统返回按钮与系统侧滑返回能力，禁止用自定义返回逻辑掩盖根因。
+
 ## 2. 项目定位
 
 毛伙伴以宠物为主体。
