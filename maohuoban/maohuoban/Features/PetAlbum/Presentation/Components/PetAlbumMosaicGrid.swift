@@ -56,9 +56,12 @@ private struct PetAlbumMosaicCluster: View {
             ZStack(alignment: .topLeading) {
                 ForEach(assets.enumerated(), id: \.element.id) { index, asset in
                     if frames.indices.contains(index) {
-                        PetAlbumMosaicTile(asset: asset)
-                            .frame(width: frames[index].width, height: frames[index].height)
-                            .offset(x: frames[index].minX, y: frames[index].minY)
+                        PetAlbumMosaicTile(
+                            asset: asset,
+                            width: frames[index].width,
+                            height: frames[index].height
+                        )
+                        .offset(x: frames[index].minX, y: frames[index].minY)
                     }
                 }
             }
@@ -74,9 +77,12 @@ private struct PetAlbumMosaicCluster: View {
 // - 提供图片来源与说明的无障碍描述
 private struct PetAlbumMosaicTile: View {
     let asset: PetAlbumAsset
+    let width: CGFloat
+    let height: CGFloat
 
     var body: some View {
         PetAlbumAssetImage(imageAssetName: asset.imageAssetName)
+            .frame(width: width, height: height)
             .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)

@@ -22,7 +22,7 @@ struct TopicRouteDestinationScreen: View {
 
     var body: some View {
         routedContent
-            .toolbar(.visible, for: .navigationBar)
+            .toolbar(route.navigationBarVisibility, for: .navigationBar)
             .background(MHBInteractivePopGestureRestorer())
     }
 
@@ -43,6 +43,17 @@ struct TopicRouteDestinationScreen: View {
             )
         case .composer(let seedTopicID):
             TopicPostComposerScreen(seedTopicID: seedTopicID, store: store)
+        }
+    }
+}
+
+private extension TopicRoute {
+    var navigationBarVisibility: Visibility {
+        switch self {
+        case .feedDetail:
+            return .hidden
+        case .followedList, .detail, .composer:
+            return .visible
         }
     }
 }
