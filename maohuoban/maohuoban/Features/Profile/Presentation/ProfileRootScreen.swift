@@ -6,8 +6,17 @@ import MaohuobanDesignSystem
 // - 作为"我的"Tab NavigationStack 的根内容
 // - 承载个人信息概览和系统导航栏工具入口
 struct ProfileRootScreen: View {
+    let topicStore: TopicStore
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
+
+    init(
+        topicStore: TopicStore = TopicStore(),
+        onLogout: @escaping () -> Void
+    ) {
+        self.topicStore = topicStore
+        self.onLogout = onLogout
+    }
 
     var body: some View {
         ScrollView {
@@ -31,10 +40,11 @@ struct ProfileRootScreen: View {
                     print("Tapped badge: \(badge.title)")
                 }
 
-                ProfileFollowedTopicsSection(topics: ProfileFollowedTopic.mockTopics) {
-                    print("Tapped followed topics header")
-                } onTopicClick: { topic in
-                    print("Tapped followed topic: \(topic.title)")
+                ProfileFollowedTopicsSection(
+                    topics: Array(topicStore.followedTopics.prefix(8)),
+                    headerRoute: .followedList
+                ) { topic in
+                    .detail(topicID: topic.id)
                 }
             }
             .padding(.horizontal, MHBTheme.Spacing.s3)
@@ -71,6 +81,9 @@ struct ProfileRootScreen: View {
                     interactionStore: feedInteractionStore
                 )
             }
+        }
+        .navigationDestination(for: TopicRoute.self) { route in
+            TopicRouteDestinationScreen(route: route, store: topicStore)
         }
     }
 }

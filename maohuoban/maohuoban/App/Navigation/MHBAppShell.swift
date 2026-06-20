@@ -10,6 +10,7 @@ struct MHBAppShell: View {
     @Bindable var router: MHBAppRouter
     let currentUserID: String?
     let onLogout: () -> Void
+    @State private var topicStore = TopicStore()
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -23,7 +24,7 @@ struct MHBAppShell: View {
             }
 
             MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
-                PetWorldRootScreen()
+                PetWorldRootScreen(topicStore: topicStore)
             }
 
             MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
@@ -35,7 +36,10 @@ struct MHBAppShell: View {
             }
 
             MHBRootTabStack(tab: .profile, tabState: router.tabState, isSelected: router.selectedTab == .profile) {
-                ProfileRootScreen(onLogout: onLogout)
+                ProfileRootScreen(
+                    topicStore: topicStore,
+                    onLogout: onLogout
+                )
             }
         }
         .tint(MHBTheme.ColorToken.primary.color)

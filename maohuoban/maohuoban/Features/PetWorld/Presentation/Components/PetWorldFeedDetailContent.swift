@@ -232,7 +232,7 @@ private struct PetWorldFeedDetailCaption: View {
 // PetWorldFeedDetailTopics 详情页话题区
 // 核心职责：
 // - 展示帖子正文下方的话题标签
-// - 保持话题可横向浏览并避免挤压正文
+// - 支持点击话题进入话题详情页
 struct PetWorldFeedDetailTopics: View {
     let topics: [String]
 
@@ -250,13 +250,16 @@ struct PetWorldFeedDetailTopics: View {
 
 // PetWorldFeedDetailTopicChip 详情页话题标签
 // 核心职责：
-// - 呈现单个话题文本
+// - 呈现单个话题文本并进入话题详情路由
 // - 复用主题色形成轻量可点击感
 private struct PetWorldFeedDetailTopicChip: View {
     let topic: String
 
     var body: some View {
-        MHBTagView(displayText, style: .primary, size: .medium)
+        NavigationLink(value: TopicRoute.detail(topicID: TopicIdentifier.id(for: topic))) {
+            MHBTagView(displayText, style: .primary, size: .medium)
+        }
+        .buttonStyle(.plain)
     }
 
     private var displayText: String {

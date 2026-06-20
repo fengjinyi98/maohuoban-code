@@ -6,10 +6,15 @@ import MaohuobanDesignSystem
 // - 保留宠物世界 Tab 的空页面入口
 // - 在系统导航栏位置承载频道 tab 和搜索入口
 struct PetWorldRootScreen: View {
+    let topicStore: TopicStore
     @State private var selectedTab = PetWorldNavigationTab.recommended
     @State private var lastFeedScrollOffset: CGFloat = 0
     @State private var isNavigationHeaderHidden = false
     @State private var feedInteractionStore = FeedInteractionStore(cards: PetWorldMockFeed.cards)
+
+    init(topicStore: TopicStore = TopicStore()) {
+        self.topicStore = topicStore
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -46,6 +51,9 @@ struct PetWorldRootScreen: View {
                 )
                 .zIndex(1)
         }
+        .safeAreaInset(edge: .bottom) {
+            PetWorldPublishEntryButton()
+        }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
@@ -57,6 +65,10 @@ struct PetWorldRootScreen: View {
                     interactionStore: feedInteractionStore
                 )
             }
+        }
+        .navigationDestination(for: TopicRoute.self) { route in
+            TopicRouteDestinationScreen(route: route, store: topicStore)
+                .toolbar(.visible, for: .navigationBar)
         }
     }
 
@@ -109,6 +121,30 @@ struct PetWorldRootScreen: View {
             break
         case .delete:
             break
+        }
+    }
+}
+
+// PetWorldPublishEntryButton 宠物世界发布入口
+// 核心职责：
+// - 在快速 UI 阶段提供进入发布话题选择原型的入口
+// - 使用系统导航值进入发布草稿页面
+private struct PetWorldPublishEntryButton: View {
+    var body: some View {
+        HStack {
+            Spacer()
+
+            NavigationLink(value: TopicRoute.composer(seedTopicID: nil)) {
+                Label("发布", systemImage: "square.and.pencil")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .frame(height: MHBTheme.Spacing.s8 + MHBTheme.Spacing.s3)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, MHBTheme.Spacing.s5)
+            .padding(.bottom, MHBTheme.Spacing.s2)
         }
     }
 }

@@ -4,16 +4,15 @@ import MaohuobanDesignSystem
 // ProfileFollowedTopicsSection 我关注的话题区块
 // 核心职责：
 // - 展示“我关注的话题”卡片头部（带右箭头入口）
-// - 承载水平滚动的关注话题列表，呈现 Mock 宠物内容
+// - 承载水平滚动的关注话题列表并进入话题功能页
 struct ProfileFollowedTopicsSection: View {
-    let topics: [ProfileFollowedTopic]
-    let onHeaderClick: () -> Void
-    let onTopicClick: (ProfileFollowedTopic) -> Void
+    let topics: [TopicSummary]
+    let headerRoute: TopicRoute
+    let topicRoute: (TopicSummary) -> TopicRoute
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            // Header Row
-            Button(action: onHeaderClick) {
+            NavigationLink(value: headerRoute) {
                 HStack {
                     Text("我关注的话题")
                         .font(MHBTheme.Typography.headline)
@@ -29,16 +28,21 @@ struct ProfileFollowedTopicsSection: View {
             }
             .buttonStyle(.plain)
 
-            // Horizontal ScrollView
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: MHBTheme.Spacing.s3) {
-                    ForEach(topics) { topic in
-                        ProfileFollowedTopicItemView(topic: topic) {
-                            onTopicClick(topic)
+            if topics.isEmpty {
+                ProfileFollowedTopicEmptyHint()
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: MHBTheme.Spacing.s3) {
+                        ForEach(topics) { topic in
+                            ProfileFollowedTopicItemView(
+                                topic: topic,
+                                route: topicRoute(topic)
+                            )
                         }
                     }
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s4)
             }
         }
         .padding(.vertical, MHBTheme.Spacing.s4)
@@ -52,32 +56,32 @@ struct ProfileFollowedTopicsSection: View {
 
 // ProfileFollowedTopicItemView 话题卡片中的单个话题视图
 // 核心职责：
-// - 渲染单个话题的方形缩略图、标题和动态数统计
+// - 渲染单个话题的方形缩略图、标题和更新状态
 private struct ProfileFollowedTopicItemView: View {
-    let topic: ProfileFollowedTopic
-    let action: () -> Void
+    let topic: TopicSummary
+    let route: TopicRoute
 
     var body: some View {
-        Button(action: action) {
+        NavigationLink(value: route) {
             VStack(alignment: .center, spacing: MHBTheme.Spacing.s1) {
-                Image(topic.imageName)
+                Image(topic.thumbnailAssetName)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 60, height: 60)
                     .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
-                            .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
+                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
                     }
 
-                Text(topic.title)
+                Text(topic.name)
                     .font(MHBTheme.Typography.caption.bold())
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                     .lineLimit(1)
                     .frame(width: 72)
                     .multilineTextAlignment(.center)
 
-                Text(topic.statsText)
+                Text(topic.updateText)
                     .font(MHBTheme.Typography.section)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .lineLimit(1)
@@ -86,5 +90,26 @@ private struct ProfileFollowedTopicItemView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+// ProfileFollowedTopicEmptyHint 我关注的话题空提示
+// 核心职责：
+// - 在我的页关注话题为空时提供轻量入口提示
+private struct ProfileFollowedTopicEmptyHint: View {
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s2) {
+            Image(systemName: "number")
+                .foregroundStyle(MHBTheme.ColorToken.primary.color)
+
+            Text("创建或关注话题后会显示在这里")
+                .font(MHBTheme.Typography.footnote)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(MHBTheme.Spacing.s3)
+        .background(MHBTheme.ColorToken.separatorSoft.color)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
     }
 }
