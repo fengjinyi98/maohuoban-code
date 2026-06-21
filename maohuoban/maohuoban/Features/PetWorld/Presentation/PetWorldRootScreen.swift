@@ -40,7 +40,10 @@ struct PetWorldRootScreen: View {
             )
                 .accessibilityIdentifier("petWorld.root")
 
-            PetWorldNavigationHeader(selection: $selectedTab)
+            PetWorldNavigationHeader(
+                selection: $selectedTab,
+                searchRoute: PetWorldRoute.search(.petWorld)
+            )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .padding(.top, MHBTheme.Spacing.s1)
                 .offset(
@@ -68,6 +71,8 @@ struct PetWorldRootScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(for: PetWorldRoute.self) { route in
             switch route {
+            case .search(let context):
+                SearchScreen(context: context)
             case .feedDetail(let postID):
                 PetWorldFeedDetailScreen(
                     postID: postID,

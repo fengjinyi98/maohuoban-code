@@ -78,7 +78,9 @@ struct SameCityRootScreen: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                SameCitySearchButton()
+                SameCitySearchButton(
+                    route: SameCityRoute.search(.sameCity(city: SameCityRootLayout.currentCity))
+                )
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -86,6 +88,8 @@ struct SameCityRootScreen: View {
         }
         .navigationDestination(for: SameCityRoute.self) { route in
             switch route {
+            case .search(let context):
+                SearchScreen(context: context)
             case .publishEvent(let context):
                 PublishEventComposerScreen(context: context)
             }
@@ -202,12 +206,12 @@ private enum SameCityRootTab: CaseIterable, Identifiable, Hashable {
 // SameCitySearchButton 同城搜索入口
 // 核心职责：
 // - 在系统 toolbar 右侧展示搜索按钮
-// - 为后续同城搜索页预留触发入口
-private struct SameCitySearchButton: View {
+// - 使用系统导航值进入搜索页
+private struct SameCitySearchButton<Route: Hashable>: View {
+    let route: Route
+
     var body: some View {
-        Button {
-            // 待接入同城搜索页。
-        } label: {
+        NavigationLink(value: route) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)

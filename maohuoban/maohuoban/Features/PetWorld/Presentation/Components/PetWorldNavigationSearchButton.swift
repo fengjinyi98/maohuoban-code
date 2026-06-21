@@ -5,11 +5,11 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 在系统导航栏右侧承载搜索入口
 // - 使用 Liquid Glass 圆形容器提供独立触控反馈
-struct PetWorldNavigationSearchButton: View {
+struct PetWorldNavigationSearchButton<Route: Hashable>: View {
+    let route: Route
+
     var body: some View {
-        Button {
-            // 待接入宠物世界搜索。
-        } label: {
+        NavigationLink(value: route) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 23, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
