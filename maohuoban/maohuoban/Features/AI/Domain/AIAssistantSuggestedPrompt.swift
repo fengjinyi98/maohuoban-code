@@ -7,6 +7,7 @@ import Foundation
 struct AIAssistantSuggestedPrompt: Identifiable, Hashable {
     let id: String
     let title: String
+    let subtitle: String
     let prompt: String
     let systemImage: String
 }

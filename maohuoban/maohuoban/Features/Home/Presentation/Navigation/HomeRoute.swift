@@ -48,7 +48,7 @@ extension HomeRoute {
 
     var title: LocalizedStringResource {
         switch self {
-        case .petAssistant: "毛伙伴 AI"
+        case .petAssistant: "毛球"
         case .createPet: "添加宠物"
         case .publishEvent: "发布动态"
         case .editPetProfile: "编辑档案"
@@ -69,7 +69,7 @@ extension HomeRoute {
 
     var subtitle: LocalizedStringResource {
         switch self {
-        case .petAssistant: "当前宠物的私域 AI 助手"
+        case .petAssistant: "当前宠物的私域助手"
         case .createPet: "添加一只新的宠物档案"
         case .publishEvent: "记录一次带图片和正文的宠物事件"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"

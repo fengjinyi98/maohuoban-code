@@ -7,15 +7,21 @@ import Foundation
 struct AIAssistantEntryContext: Hashable {
     let selectedPetID: String?
     let selectedPetName: String?
+    let selectedPetAvatarURL: String?
+    let selectedPetSpecies: AIAssistantPetSpecies
     let ugcContextTitle: String?
 
     init(
         selectedPetID: String? = nil,
         selectedPetName: String? = nil,
+        selectedPetAvatarURL: String? = nil,
+        selectedPetSpecies: AIAssistantPetSpecies = .other,
         ugcContextTitle: String? = nil
     ) {
         self.selectedPetID = selectedPetID
         self.selectedPetName = selectedPetName
+        self.selectedPetAvatarURL = selectedPetAvatarURL
+        self.selectedPetSpecies = selectedPetSpecies
         self.ugcContextTitle = ugcContextTitle
     }
 
@@ -25,4 +31,14 @@ struct AIAssistantEntryContext: Hashable {
         }
         return selectedPetName
     }
+}
+
+// AIAssistantPetSpecies AI 助手宠物物种
+// 核心职责：
+// - 为 AI 页面头像兜底图标提供稳定物种分类
+// - 避免 AI Feature 依赖首页快照模型
+enum AIAssistantPetSpecies: Hashable {
+    case dog
+    case cat
+    case other
 }

@@ -61,9 +61,21 @@ struct HomeImmersiveHeaderControls: View {
         HomeRoute.petAssistant(
             AIAssistantEntryContext(
                 selectedPetID: selectedPet?.id,
-                selectedPetName: selectedPet?.name
+                selectedPetName: selectedPet?.name,
+                selectedPetAvatarURL: selectedPet?.avatarURL,
+                selectedPetSpecies: selectedPet?.species.aiAssistantSpecies ?? .other
             )
         )
+    }
+}
+
+private extension HomeDashboardSnapshot.Species {
+    var aiAssistantSpecies: AIAssistantPetSpecies {
+        switch self {
+        case .dog: .dog
+        case .cat: .cat
+        case .other: .other
+        }
     }
 }
 
@@ -95,7 +107,7 @@ private struct HomeImmersiveAIAssistantButton: View {
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("打开毛伙伴 AI，当前宠物 \(pet?.name ?? "未知")")
+        .accessibilityLabel("打开毛球，当前宠物 \(pet?.name ?? "未知")")
         .accessibilityIdentifier("home.aiAssistantButton")
     }
 }

@@ -1,9 +1,10 @@
 import Foundation
+import UIKit
 
 // AIAssistantStore AI 助手本地状态容器
 // 核心职责：
 // - 管理前端对话消息、输入草稿和待确认动作
-// - 在后端接入前提供可交互的本地模拟回复
+// - 管理系统相机、相册入口和本地附件摘要
 @MainActor
 @Observable
 final class AIAssistantStore {
@@ -11,23 +12,47 @@ final class AIAssistantStore {
     var draftText = ""
     var messages: [AIAssistantMessage]
     var pendingAction: AIAssistantProposedAction?
+    var presentedAttachmentSource: AIAssistantAttachmentSource?
+    var selectedAttachment: AIAssistantSelectedAttachment?
+    var selectedAttachmentImage: UIImage?
+
+    let conversationHistories: [AIAssistantConversationHistoryItem] = [
+        AIAssistantConversationHistoryItem(
+            id: "today-vaccine",
+            title: "疫苗和驱虫提醒",
+            subtitle: "今天"
+        ),
+        AIAssistantConversationHistoryItem(
+            id: "health-triage",
+            title: "腹泻观察建议",
+            subtitle: "昨天"
+        ),
+        AIAssistantConversationHistoryItem(
+            id: "food-review",
+            title: "猫粮测评适配分析",
+            subtitle: "本周"
+        )
+    ]
 
     let suggestedPrompts: [AIAssistantSuggestedPrompt] = [
         AIAssistantSuggestedPrompt(
             id: "vaccine",
             title: "下一次疫苗",
+            subtitle: "什么时候",
             prompt: "下一次疫苗是什么时候？",
             systemImage: "syringe.fill"
         ),
         AIAssistantSuggestedPrompt(
             id: "health",
             title: "腹泻要就医吗",
+            subtitle: "帮我判断",
             prompt: "今天有点拉肚子，需要去医院吗？",
             systemImage: "cross.case.fill"
         ),
         AIAssistantSuggestedPrompt(
             id: "ugc",
             title: "测评是否适合",
+            subtitle: "结合档案",
             prompt: "这篇猫粮测评适合我家宠物吗？",
             systemImage: "doc.text.magnifyingglass"
         )
@@ -35,17 +60,7 @@ final class AIAssistantStore {
 
     init(context: AIAssistantEntryContext) {
         self.context = context
-        self.messages = [
-            AIAssistantMessage(
-                role: .system,
-                text: "私域宠物助手已绑定 \(context.displayPetName)。涉及宠物档案、提醒和健康记录时，会在后端接入后按授权范围读取。",
-                referenceChips: ["私域数据边界", "写操作需确认"]
-            ),
-            AIAssistantMessage(
-                role: .assistant,
-                text: "今天可以先帮你梳理疫苗、驱虫、日常异常和 UGC 内容适配问题。"
-            )
-        ]
+        self.messages = []
     }
 
     var canSendDraft: Bool {
@@ -64,6 +79,32 @@ final class AIAssistantStore {
 
     func sendSuggestedPrompt(_ prompt: AIAssistantSuggestedPrompt) {
         send(prompt.prompt)
+    }
+
+    func requestAttachmentSource(_ source: AIAssistantAttachmentSource) {
+        presentedAttachmentSource = source
+    }
+
+    func cancelAttachmentSelection() {
+        presentedAttachmentSource = nil
+    }
+
+    func completeAttachmentSelection(
+        source: AIAssistantAttachmentSource,
+        image: UIImage
+    ) {
+        presentedAttachmentSource = nil
+        selectedAttachmentImage = image
+        selectedAttachment = AIAssistantSelectedAttachment(
+            source: source,
+            title: "已添加 1 张图片"
+        )
+    }
+
+    func clearAttachment() {
+        selectedAttachment = nil
+        selectedAttachmentImage = nil
+        presentedAttachmentSource = nil
     }
 
     func confirmPendingAction() {
@@ -108,6 +149,7 @@ final class AIAssistantStore {
                 text: text
             )
         )
+        clearAttachment()
 
         let response = responseMessage(for: text)
         messages.append(response.message)

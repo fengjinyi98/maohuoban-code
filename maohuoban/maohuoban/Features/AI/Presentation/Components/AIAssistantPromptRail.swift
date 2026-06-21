@@ -16,43 +16,44 @@ struct AIAssistantPromptRail: View {
                     Button {
                         onSelect(prompt)
                     } label: {
-                        AIAssistantPromptChip(prompt: prompt)
+                        AIAssistantPromptCard(prompt: prompt)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("ai.assistant.prompt.\(prompt.id)")
                 }
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.horizontal, MHBTheme.Spacing.s5)
+            .padding(.vertical, MHBTheme.Spacing.s1)
         }
-        .padding(.horizontal, -MHBTheme.Spacing.s4)
         .accessibilityIdentifier("ai.assistant.promptRail")
     }
 }
 
-// AIAssistantPromptChip AI 助手建议问题标签
+// AIAssistantPromptCard AI 助手建议问题卡片
 // 核心职责：
 // - 渲染单个建议问题入口
-// - 使用稳定尺寸避免横滑布局跳动
-private struct AIAssistantPromptChip: View {
+// - 使用稳定尺寸贴近底部输入区建议布局
+private struct AIAssistantPromptCard: View {
     let prompt: AIAssistantSuggestedPrompt
 
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(systemName: prompt.systemImage)
-                .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
             Text(prompt.title)
-                .font(MHBTheme.Typography.footnote.weight(.semibold))
+                .font(MHBTheme.Typography.headline)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .lineLimit(1)
-                .minimumScaleFactor(0.86)
+
+            Text(prompt.subtitle)
+                .font(MHBTheme.Typography.body)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .lineLimit(1)
         }
-        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-        .padding(.horizontal, MHBTheme.Spacing.s3)
-        .frame(height: 40)
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .frame(width: 142, height: 76, alignment: .leading)
         .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
         .overlay {
-            Capsule()
+            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
                 .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
         }
     }
