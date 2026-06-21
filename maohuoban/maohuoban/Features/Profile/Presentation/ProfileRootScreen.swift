@@ -126,6 +126,8 @@ struct ProfileRootScreen: View {
                 ProfileFollowingScreen()
             case .followers:
                 ProfileFollowersScreen()
+            case .replies:
+                ProfileRepliesScreen()
             case .badges(let selectedBadgeID):
                 ProfileBadgesScreen(
                     badges: ProfileBadge.mockBadges,

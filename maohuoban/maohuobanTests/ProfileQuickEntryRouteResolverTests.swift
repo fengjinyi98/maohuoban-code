@@ -25,6 +25,15 @@ final class ProfileQuickEntryRouteResolverTests: XCTestCase {
     }
 
     @MainActor
+    func testMyRepliesEntryRoutesToProfileRepliesScreen() {
+        let item = ProfileQuickEntryItem(id: "myReplies", title: "我的回复", systemImage: "bubble.left.fill")
+
+        let route = ProfileQuickEntryRouteResolver.route(for: item)
+
+        XCTAssertEqual(route, .replies)
+    }
+
+    @MainActor
     func testFollowingStatRoutesToProfileFollowingScreen() {
         let stat = ProfileAccountStat(id: "following", value: "41", title: "关注")
 

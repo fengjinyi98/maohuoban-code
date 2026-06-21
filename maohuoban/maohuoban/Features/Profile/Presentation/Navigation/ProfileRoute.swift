@@ -11,6 +11,7 @@ enum ProfileRoute: Hashable {
     case posts
     case following
     case followers
+    case replies
     case badges(selectedBadgeID: String?)
     case feedDetail(postID: String)
     case petAlbumList
