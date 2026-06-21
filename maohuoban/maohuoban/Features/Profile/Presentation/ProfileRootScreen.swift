@@ -9,6 +9,7 @@ struct ProfileRootScreen: View {
     let topicStore: TopicStore
     let tabState: MHBAppTabState
     let currentUserID: String?
+    let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
     @State private var settingsDeviceSessionStore = SettingsDeviceSessionStore(
@@ -19,11 +20,13 @@ struct ProfileRootScreen: View {
         topicStore: TopicStore = TopicStore(),
         tabState: MHBAppTabState = MHBAppTabState(),
         currentUserID: String? = nil,
+        appAppearanceStore: AppAppearanceStore = AppAppearanceStore(),
         onLogout: @escaping () -> Void
     ) {
         self.topicStore = topicStore
         self.tabState = tabState
         self.currentUserID = currentUserID
+        self.appAppearanceStore = appAppearanceStore
         self.onLogout = onLogout
     }
 
@@ -213,9 +216,12 @@ struct ProfileRootScreen: View {
                     }
                 )
             case .generalSettings:
-                SettingsGeneralSettingsScreen {
-                    tabState.appendProfileRoute(.darkMode)
-                }
+                SettingsGeneralSettingsScreen(
+                    appAppearanceStore: appAppearanceStore,
+                    onDarkMode: {
+                        tabState.appendProfileRoute(.darkMode)
+                    }
+                )
             case .notificationSettings:
                 SettingsNotificationSettingsScreen()
             case .privacySettings:
@@ -273,7 +279,7 @@ struct ProfileRootScreen: View {
                     store: settingsDeviceSessionStore
                 )
             case .darkMode:
-                SettingsDarkModeScreen()
+                SettingsDarkModeScreen(store: appAppearanceStore)
             case .onlineStatus:
                 SettingsOnlineStatusScreen()
             case .dmPrivacy:

@@ -6,6 +6,7 @@ import MaohuobanDesignSystem
 // - 管理深色模式、播放、流量和发布体验设置入口
 // - 提供旧项目通用设置页的开关布局
 struct SettingsGeneralSettingsScreen: View {
+    let appAppearanceStore: AppAppearanceStore
     let onDarkMode: () -> Void
 
     @State private var isMuteDefault = false
@@ -23,7 +24,7 @@ struct SettingsGeneralSettingsScreen: View {
         MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 SettingsSection {
-                    SettingsRow(title: "深色模式", value: "跟随系统", action: onDarkMode)
+                    SettingsRow(title: "深色模式", value: appAppearanceStore.displayText, action: onDarkMode)
                     SettingsDivider()
                     SettingsToggleRow(title: "默认播放图文动态声音", isOn: .constant(false))
                 }

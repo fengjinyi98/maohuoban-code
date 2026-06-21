@@ -9,6 +9,7 @@ import MaohuobanDesignSystem
 struct AuthRootView: View {
     @Bindable var viewModel: AuthViewModel
     let router: MHBAppRouter
+    let appAppearanceStore: AppAppearanceStore
 
     var body: some View {
         ZStack {
@@ -16,6 +17,7 @@ struct AuthRootView: View {
                 MHBAppShell(
                     router: router,
                     currentUserID: viewModel.currentUser?.id,
+                    appAppearanceStore: appAppearanceStore,
                     onLogout: handleLogout
                 )
                 .transition(.opacity)

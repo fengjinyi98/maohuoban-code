@@ -17,6 +17,7 @@ struct MaohuobanApp: App {
     @State private var isLaunchCompleted: Bool
     @State private var authViewModel = AuthViewModel()
     @State private var router = MHBAppRouter()
+    @State private var appAppearanceStore = AppAppearanceStore()
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
@@ -35,7 +36,11 @@ struct MaohuobanApp: App {
         WindowGroup {
             ZStack {
                 if isLaunchCompleted {
-                    AuthRootView(viewModel: authViewModel, router: router)
+                    AuthRootView(
+                        viewModel: authViewModel,
+                        router: router,
+                        appAppearanceStore: appAppearanceStore
+                    )
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
                     LaunchScreenView(isCompleted: $isLaunchCompleted)

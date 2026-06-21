@@ -9,6 +9,7 @@ import MaohuobanDesignSystem
 struct MHBAppShell: View {
     @Bindable var router: MHBAppRouter
     let currentUserID: String?
+    let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
     @State private var topicStore = TopicStore()
 
@@ -21,23 +22,28 @@ struct MHBAppShell: View {
             MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
                 PetWorldRootScreen(topicStore: topicStore, tabState: router.tabState)
             }
+            .preferredColorScheme(MHBAppTab.petWorld.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
                 SameCityRootScreen()
             }
+            .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .message, tabState: router.tabState, isSelected: router.selectedTab == .message) {
                 MessageRootScreen()
             }
+            .preferredColorScheme(MHBAppTab.message.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .profile, tabState: router.tabState, isSelected: router.selectedTab == .profile) {
                 ProfileRootScreen(
                     topicStore: topicStore,
                     tabState: router.tabState,
                     currentUserID: currentUserID,
+                    appAppearanceStore: appAppearanceStore,
                     onLogout: onLogout
                 )
             }
+            .preferredColorScheme(MHBAppTab.profile.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
         }
         .tint(MHBTheme.ColorToken.primary.color)
     }

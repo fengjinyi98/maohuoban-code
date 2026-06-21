@@ -50,4 +50,13 @@ enum MHBAppTab: CaseIterable, Hashable, Identifiable {
     func systemImage(isSelected: Bool) -> String {
         isSelected ? selectedSystemImage : systemImage
     }
+
+    var appliesAppAppearancePreference: Bool {
+        switch self {
+        case .home:
+            false
+        case .petWorld, .sameCity, .message, .profile:
+            true
+        }
+    }
 }
