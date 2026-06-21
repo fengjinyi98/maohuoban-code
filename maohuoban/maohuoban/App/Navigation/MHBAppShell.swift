@@ -33,7 +33,7 @@ struct MHBAppShell: View {
             .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .message, tabState: router.tabState, isSelected: router.selectedTab == .message) {
-                MessageRootScreen()
+                MessageRootScreen(tabState: router.tabState)
             }
             .preferredColorScheme(MHBAppTab.message.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 

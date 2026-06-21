@@ -217,16 +217,14 @@ private struct PetDailyNoteSection: View {
     @Binding var note: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-            Text("备注")
-                .font(MHBTheme.Typography.section)
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                .textCase(.uppercase)
-
-            TextField("备注", text: $note, prompt: Text("添加备注（选填）"), axis: .vertical)
-                .lineLimit(4...7)
-                .font(MHBTheme.Typography.callout)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+        PetDailyChecklistSection(title: "备注") {
+            PetHealthFormCard {
+                TextField("备注", text: $note, prompt: Text("添加备注（选填）"), axis: .vertical)
+                    .lineLimit(4...7)
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .padding(.vertical, MHBTheme.Spacing.s2)
+            }
         }
     }
 }
