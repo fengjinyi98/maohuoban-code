@@ -9,15 +9,18 @@ struct ProfileAccountSummarySection: View {
     let profile: ProfileAccountSummary
     let onOpenPosts: (() -> Void)?
     let onOpenFollowing: (() -> Void)?
+    let onOpenFollowers: (() -> Void)?
 
     init(
         profile: ProfileAccountSummary,
         onOpenPosts: (() -> Void)? = nil,
-        onOpenFollowing: (() -> Void)? = nil
+        onOpenFollowing: (() -> Void)? = nil,
+        onOpenFollowers: (() -> Void)? = nil
     ) {
         self.profile = profile
         self.onOpenPosts = onOpenPosts
         self.onOpenFollowing = onOpenFollowing
+        self.onOpenFollowers = onOpenFollowers
     }
 
     var body: some View {
@@ -28,7 +31,8 @@ struct ProfileAccountSummarySection: View {
             ProfileAccountStatsCard(
                 stats: profile.stats,
                 onOpenPosts: onOpenPosts,
-                onOpenFollowing: onOpenFollowing
+                onOpenFollowing: onOpenFollowing,
+                onOpenFollowers: onOpenFollowers
             )
         }
         .accessibilityElement(children: .contain)
@@ -179,6 +183,7 @@ private struct ProfileAccountStatsCard: View {
     let stats: [ProfileAccountStat]
     let onOpenPosts: (() -> Void)?
     let onOpenFollowing: (() -> Void)?
+    let onOpenFollowers: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -209,6 +214,8 @@ private struct ProfileAccountStatsCard: View {
             onOpenPosts
         case .following:
             onOpenFollowing
+        case .followers:
+            onOpenFollowers
         default:
             nil
         }

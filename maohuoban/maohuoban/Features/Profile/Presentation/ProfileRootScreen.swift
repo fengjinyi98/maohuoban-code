@@ -30,7 +30,8 @@ struct ProfileRootScreen: View {
                 ProfileAccountSummarySection(
                     profile: ProfileAccountSummary.mock,
                     onOpenPosts: openPosts,
-                    onOpenFollowing: openFollowing
+                    onOpenFollowing: openFollowing,
+                    onOpenFollowers: openFollowers
                 )
 
                 ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
@@ -115,6 +116,8 @@ struct ProfileRootScreen: View {
                 )
             case .following:
                 ProfileFollowingScreen()
+            case .followers:
+                ProfileFollowersScreen()
             case .badges(let selectedBadgeID):
                 ProfileBadgesScreen(
                     badges: ProfileBadge.mockBadges,
@@ -173,5 +176,9 @@ struct ProfileRootScreen: View {
 
     private func openFollowing() {
         tabState.appendProfileRoute(.following)
+    }
+
+    private func openFollowers() {
+        tabState.appendProfileRoute(.followers)
     }
 }

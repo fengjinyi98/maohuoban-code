@@ -3,12 +3,13 @@ import MaohuobanDesignSystem
 
 // ProfileFollowingScreen 我的关注页面
 // 核心职责：
-// - 使用系统导航、系统搜索栏和系统 tabs Picker 展示关注关系
+// - 使用系统导航、系统底部搜索工具项和系统 tabs Picker 展示关注关系
 // - 按宠物、用户和互相关注三类展示并筛选 mock 关注数据
 struct ProfileFollowingScreen: View {
     let items: [ProfileFollowingItem]
     @State private var selectedScope: ProfileFollowingScope = .pets
     @State private var searchText = ""
+    @State private var isSearchPresented = false
 
     init(items: [ProfileFollowingItem] = .profileFollowingMockItems) {
         self.items = items
@@ -41,6 +42,7 @@ struct ProfileFollowingScreen: View {
         }
         .navigationTitle("我的关注")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(removing: .search)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {} label: {
@@ -48,10 +50,13 @@ struct ProfileFollowingScreen: View {
                 }
                 .accessibilityLabel("发现好友")
             }
+
+            DefaultToolbarItem(kind: .search, placement: .bottomBar)
         }
         .searchable(
             text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .always),
+            isPresented: $isSearchPresented,
+            placement: .automatic,
             prompt: Text(selectedScope.searchPrompt)
         )
         .searchPresentationToolbarBehavior(.avoidHidingContent)
@@ -104,8 +109,6 @@ private struct ProfileFollowingList: View {
                     }
                 }
             }
-            .background(MHBTheme.ColorToken.cardSolid.color)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("profile.following.list")
         }

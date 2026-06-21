@@ -11,6 +11,8 @@ enum ProfileAccountStatRouteResolver {
             .posts
         case "following":
             .following
+        case "followers":
+            .followers
         default:
             nil
         }
