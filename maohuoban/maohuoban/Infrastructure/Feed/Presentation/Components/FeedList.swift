@@ -76,7 +76,14 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
                     .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                 }
                 .onPreferenceChange(FeedMoreButtonFramePreferenceKey.self) { frames in
-                    moreButtonFrames = frames
+                    guard let resolvedFrames = FeedMoreButtonFrameStateResolver.resolvedUpdate(
+                        current: moreButtonFrames,
+                        incoming: frames
+                    ) else {
+                        return
+                    }
+
+                    moreButtonFrames = resolvedFrames
                 }
                 .onScrollGeometryChange(for: CGFloat.self) { geometry in
                     max(geometry.contentOffset.y, 0)

@@ -77,6 +77,26 @@ struct MHBSlotTextTests {
     }
 
     @MainActor
+    @Test("字符 cell 尺寸约束允许系统临时测量约束优先")
+    func slotTextCellSizeConstraintsYieldToTemporaryFittingConstraints() {
+        let cell = MHBSlotTextCellView(
+            character: "9",
+            font: .monospacedDigitSystemFont(ofSize: 14, weight: .medium),
+            textColor: .label
+        )
+
+        let widthConstraint = cell.constraints.first {
+            $0.firstItem === cell && $0.firstAttribute == .width
+        }
+        let heightConstraint = cell.constraints.first {
+            $0.firstItem === cell && $0.firstAttribute == .height
+        }
+
+        #expect(widthConstraint?.priority.rawValue ?? 0 < UILayoutPriority.required.rawValue)
+        #expect(heightConstraint?.priority.rawValue ?? 0 < UILayoutPriority.required.rawValue)
+    }
+
+    @MainActor
     @Test("UIKit 视图可在无动画模式直接更新文本")
     func slotTextViewUpdatesTextWithoutAnimation() {
         let view = MHBSlotTextView(text: "重新发送")

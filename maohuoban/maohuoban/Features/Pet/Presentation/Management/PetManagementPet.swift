@@ -10,10 +10,10 @@ struct PetManagementPet: Hashable, Identifiable {
         case female
         case unknown
 
-        var systemImage: String? {
+        var symbolText: String? {
             switch self {
-            case .male: "mars"
-            case .female: "venus"
+            case .male: "♂"
+            case .female: "♀"
             case .unknown: nil
             }
         }

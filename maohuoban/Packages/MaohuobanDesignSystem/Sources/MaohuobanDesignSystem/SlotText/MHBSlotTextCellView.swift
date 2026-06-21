@@ -219,6 +219,7 @@ final class MHBSlotTextCellView: UIView {
             constraint.constant = constant
         } else {
             let newConstraint = attribute.constraint(equalToConstant: constant)
+            newConstraint.priority = .defaultHigh
             newConstraint.isActive = true
             constraint = newConstraint
         }

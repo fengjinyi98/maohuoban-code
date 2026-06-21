@@ -7,7 +7,7 @@ import SwiftUI
 struct HomeImmersivePetHeaderPresentation {
     let calendarDay: String
     let formattedDate: String
-    let genderIconSystemName: String?
+    let genderSymbolText: String?
     let genderColor: Color
     let worldDaysText: String
     let companionshipText: String
@@ -20,19 +20,19 @@ struct HomeImmersivePetHeaderPresentation {
         HomeImmersivePetHeaderPresentation(
             calendarDay: currentDayString(from: date),
             formattedDate: formattedDate(from: date),
-            genderIconSystemName: genderIconSystemName(for: pet),
+            genderSymbolText: genderSymbolText(for: pet),
             genderColor: genderColor(for: pet),
             worldDaysText: "来到世界的第 \(worldDays(for: pet, date: date)) 天",
             companionshipText: "已陪伴 \(displayName) \(pet.companionshipDays ?? 365) 天"
         )
     }
 
-    private static func genderIconSystemName(for pet: HomeDashboardSnapshot.PetHeroSummary) -> String? {
+    private static func genderSymbolText(for pet: HomeDashboardSnapshot.PetHeroSummary) -> String? {
         switch pet.sex {
         case .male:
-            return "mars"
+            return "♂"
         case .female:
-            return "venus"
+            return "♀"
         case .unknown:
             return nil
         }

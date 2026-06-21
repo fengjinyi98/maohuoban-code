@@ -64,14 +64,14 @@ struct HomePartnerSection: View {
 
                 // 2. 右侧字段布局 (名字/性别 -> 标签 -> 关系原因)
                 VStack(alignment: .leading, spacing: 6) {
-                    // 第一行：姓名 + 性别符号 (使用 SF Symbolsvenus/mars)
+                    // 第一行：姓名 + 性别文本符号
                     HStack(alignment: .bottom, spacing: 4) {
                         Text(partner.petName)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.white)
 
                         if let sex = partner.sex {
-                            Image(systemName: sex == .female ? "venus" : "mars")
+                            Text(verbatim: sex == .female ? "♀" : "♂")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(sex == .female ? Color(mhbHex: "F43F5E") : Color(mhbHex: "3B82F6"))
                                 .padding(.bottom, 2)
@@ -149,4 +149,3 @@ private struct RoundedRectangleWithCutout: Shape {
         return path
     }
 }
-

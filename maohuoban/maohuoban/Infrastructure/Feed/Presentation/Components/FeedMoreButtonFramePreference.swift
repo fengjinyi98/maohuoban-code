@@ -23,6 +23,23 @@ struct FeedMoreButtonFramePreferenceKey: PreferenceKey {
     }
 }
 
+// FeedMoreButtonFrameStateResolver 更多按钮位置状态解析器
+// 核心职责：
+// - 过滤重复 frame 输入，避免 SwiftUI 状态在同一布局结果下重复写入
+// - 保留按钮锚点真实变化时的浮层定位更新
+struct FeedMoreButtonFrameStateResolver {
+    static func resolvedUpdate(
+        current: [String: CGRect],
+        incoming: [String: CGRect]
+    ) -> [String: CGRect]? {
+        guard incoming != current else {
+            return nil
+        }
+
+        return incoming
+    }
+}
+
 extension View {
     // feedMoreButtonFrame 记录 Feed 更多按钮位置
     // 核心职责：

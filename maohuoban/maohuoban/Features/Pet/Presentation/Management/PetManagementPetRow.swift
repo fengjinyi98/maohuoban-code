@@ -28,8 +28,8 @@ struct PetManagementPetRow: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
 
-                            if let systemImage = pet.sex.systemImage {
-                                Image(systemName: systemImage)
+                            if let symbolText = pet.sex.symbolText {
+                                Text(verbatim: symbolText)
                                     .font(MHBTheme.Typography.caption)
                                     .fontWeight(.bold)
                                     .foregroundStyle(sexIconColor)

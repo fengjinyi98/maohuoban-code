@@ -78,8 +78,8 @@ struct HomeImmersivePetHeaderSection: View {
                                 .lineLimit(1)
                                 .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
 
-                            if let genderIconSystemName = presentation.genderIconSystemName {
-                                Image(systemName: genderIconSystemName)
+                            if let genderSymbolText = presentation.genderSymbolText {
+                                Text(verbatim: genderSymbolText)
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundStyle(presentation.genderColor)
                                     .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
