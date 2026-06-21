@@ -53,4 +53,25 @@ final class AIAssistantStoreTests: XCTestCase {
         XCTAssertEqual(store.selectedAttachment?.source, .photoLibrary)
         XCTAssertEqual(store.selectedAttachment?.title, "已添加 1 张图片")
     }
+
+    @MainActor
+    func testSelectingConversationHistoryLoadsMockMessages() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let image = UIImage()
+        let history = store.conversationHistories[1]
+        store.draftText = "临时问题"
+        store.completeAttachmentSelection(
+            source: .camera,
+            image: image
+        )
+
+        store.selectConversationHistory(history)
+
+        XCTAssertEqual(store.selectedConversationHistoryID, history.id)
+        XCTAssertEqual(store.messages, history.messages)
+        XCTAssertTrue(store.draftText.isEmpty)
+        XCTAssertNil(store.selectedAttachment)
+        XCTAssertNil(store.selectedAttachmentImage)
+        XCTAssertNil(store.pendingAction)
+    }
 }

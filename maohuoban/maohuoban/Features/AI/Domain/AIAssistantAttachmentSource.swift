@@ -22,13 +22,3 @@ enum AIAssistantAttachmentSource: Hashable, Identifiable {
         }
     }
 }
-
-// AIAssistantConversationHistoryItem AI 对话历史项
-// 核心职责：
-// - 为右侧对话记录栏提供前端展示数据
-// - 保持历史列表与当前本地会话解耦
-struct AIAssistantConversationHistoryItem: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let subtitle: String
-}

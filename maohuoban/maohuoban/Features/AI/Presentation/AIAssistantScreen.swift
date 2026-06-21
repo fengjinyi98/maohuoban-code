@@ -7,7 +7,7 @@ import MaohuobanDesignSystem
 // - 在后端接入前提供前端可交互的本地对话壳
 struct AIAssistantScreen: View {
     @State private var store: AIAssistantStore
-    @State private var isHistorySidebarPresented = false
+    @State private var isHistoryScreenPresented = false
     @State private var isCameraFailureAlertPresented = false
     @State private var cameraFailureMessage = ""
 
@@ -65,13 +65,6 @@ struct AIAssistantScreen: View {
                 }
             }
 
-            AIAssistantHistorySidebarOverlay(
-                isPresented: isHistorySidebarPresented,
-                histories: store.conversationHistories,
-                onDismiss: {
-                    isHistorySidebarPresented = false
-                }
-            )
         }
         .safeAreaInset(edge: .bottom) {
             AIAssistantComposerBar(
@@ -110,7 +103,7 @@ struct AIAssistantScreen: View {
                     )
 
                     Button {
-                        isHistorySidebarPresented = true
+                        isHistoryScreenPresented = true
                     } label: {
                         Image("IconMore")
                             .resizable()
@@ -123,6 +116,15 @@ struct AIAssistantScreen: View {
                     .accessibilityIdentifier("ai.assistant.moreButton")
                 }
             }
+        }
+        .navigationDestination(isPresented: $isHistoryScreenPresented) {
+            AIAssistantHistoryScreen(
+                histories: store.conversationHistories,
+                selectedHistoryID: store.selectedConversationHistoryID,
+                onSelect: { history in
+                    store.selectConversationHistory(history)
+                }
+            )
         }
         .sheet(
             isPresented: Binding(
