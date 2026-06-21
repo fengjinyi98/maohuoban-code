@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // ProfileRootScreen 我的 Tab 根视图
@@ -42,10 +43,11 @@ struct ProfileRootScreen: View {
                     print("Tapped FAQ banner")
                 }
 
-                ProfileBadgesSection(badges: ProfileBadge.mockBadges) {
-                    print("Tapped badges header")
+                ProfileBadgesSection(badges: ProfileBadge.mockBadges.filter(\.isEarned)) {
+                    tabState.appendProfileRoute(.badges(selectedBadgeID: nil))
                 } onBadgeClick: { badge in
-                    print("Tapped badge: \(badge.title)")
+                    triggerBadgeDetailFeedback(for: badge)
+                    tabState.appendProfileRoute(.badges(selectedBadgeID: badge.id))
                 }
 
                 ProfileFollowedTopicsSection(
@@ -112,6 +114,11 @@ struct ProfileRootScreen: View {
                 ProfilePostsScreen(
                     interactionStore: feedInteractionStore
                 )
+            case .badges(let selectedBadgeID):
+                ProfileBadgesScreen(
+                    badges: ProfileBadge.mockBadges,
+                    initialSelectedBadgeID: selectedBadgeID
+                )
             case .feedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
@@ -161,5 +168,14 @@ struct ProfileRootScreen: View {
 
     private func openPosts() {
         tabState.appendProfileRoute(.posts)
+    }
+
+    // triggerBadgeDetailFeedback 勋章详情触感反馈
+    // 核心职责：
+    // - 仅在已获得勋章进入详情前触发轻量反馈
+    // - 避免未获得勋章产生奖励感反馈
+    private func triggerBadgeDetailFeedback(for badge: ProfileBadge) {
+        guard badge.isEarned else { return }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.78)
     }
 }

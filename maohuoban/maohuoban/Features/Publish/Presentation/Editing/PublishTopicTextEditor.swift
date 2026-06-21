@@ -5,7 +5,7 @@ import MaohuobanDesignSystem
 // PublishTopicTextEditor 发布正文话题输入器
 // 核心职责：
 // - 承载正文输入、占位提示和自适应高度
-// - 支持键盘工具栏触发的井号话题与用户提及插入
+// - 支持发布页工具栏触发的井号话题与用户提及插入
 // - 将正文中识别到的话题同步为结构化草稿字段
 struct PublishTopicTextEditor: UIViewRepresentable {
     @Binding var text: String
@@ -14,6 +14,7 @@ struct PublishTopicTextEditor: UIViewRepresentable {
     let minHeight: CGFloat
     let pendingTopicInsertionNonce: Int
     let pendingMentionInsertionNonce: Int
+    let pendingMentionInsertionText: String?
     let onPendingTopicInsertionHandled: () -> Void
     let onPendingMentionInsertionHandled: () -> Void
     let onTopicsChange: ([String]) -> Void
@@ -54,13 +55,20 @@ struct PublishTopicTextEditor: UIViewRepresentable {
         if pendingTopicInsertionNonce > context.coordinator.lastHandledPendingTopicInsertionNonce {
             context.coordinator.insertTopicMarker(into: uiView)
             context.coordinator.lastHandledPendingTopicInsertionNonce = pendingTopicInsertionNonce
-            onPendingTopicInsertionHandled()
+            DispatchQueue.main.async {
+                onPendingTopicInsertionHandled()
+            }
         }
 
         if pendingMentionInsertionNonce > context.coordinator.lastHandledPendingMentionInsertionNonce {
-            context.coordinator.insertMention(into: uiView)
+            context.coordinator.insertMention(
+                pendingMentionInsertionText ?? "@",
+                into: uiView
+            )
             context.coordinator.lastHandledPendingMentionInsertionNonce = pendingMentionInsertionNonce
-            onPendingMentionInsertionHandled()
+            DispatchQueue.main.async {
+                onPendingMentionInsertionHandled()
+            }
         }
 
         if context.coordinator.isProgrammaticChange == false,
@@ -155,7 +163,10 @@ struct PublishTopicTextEditor: UIViewRepresentable {
         }
 
         @MainActor
-        func insertMention(into textView: PublishPlaceholderTextView) {
+        func insertMention(
+            _ mentionText: String,
+            into textView: PublishPlaceholderTextView
+        ) {
             let attributedText = NSMutableAttributedString(attributedString: textView.attributedText)
             let selectedRange = textView.selectedRange
             let safeLocation = max(0, min(selectedRange.location, attributedText.length))
@@ -163,10 +174,11 @@ struct PublishTopicTextEditor: UIViewRepresentable {
                 location: safeLocation,
                 length: max(0, min(selectedRange.length, attributedText.length - safeLocation))
             )
-            attributedText.replaceCharacters(in: safeRange, with: "@")
+            attributedText.replaceCharacters(in: safeRange, with: mentionText)
+            let insertionLength = (mentionText as NSString).length
             applyAttributedText(
                 attributedText,
-                selectedRange: NSRange(location: safeRange.location + 1, length: 0),
+                selectedRange: NSRange(location: safeRange.location + insertionLength, length: 0),
                 to: textView
             )
             textView.becomeFirstResponder()

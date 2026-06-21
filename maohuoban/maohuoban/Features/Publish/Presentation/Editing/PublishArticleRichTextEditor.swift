@@ -48,6 +48,7 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
     let pendingInsertedMediaIDs: [UUID]
     let pendingTopicInsertionNonce: Int
     let pendingMentionInsertionNonce: Int
+    let pendingMentionInsertionText: String?
     let onPendingInsertionHandled: ([UUID]) -> Void
     let onPendingTopicInsertionHandled: () -> Void
     let onPendingMentionInsertionHandled: () -> Void
@@ -182,7 +183,10 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
         }
 
         if pendingMentionInsertionNonce > context.coordinator.lastHandledPendingMentionInsertionNonce {
-            context.coordinator.insertMention(into: uiView)
+            context.coordinator.insertMention(
+                pendingMentionInsertionText ?? "@",
+                into: uiView
+            )
             context.coordinator.lastHandledPendingMentionInsertionNonce = pendingMentionInsertionNonce
             DispatchQueue.main.async {
                 onPendingMentionInsertionHandled()
@@ -481,15 +485,19 @@ struct PublishArticleRichTextEditor: UIViewRepresentable {
         }
 
         @MainActor
-        func insertMention(into editor: EditorView) {
+        func insertMention(
+            _ mentionText: String,
+            into editor: EditorView
+        ) {
             let shouldRestoreFocus = editor.isFirstResponder == false
             let selectionRange = preferredSelectionRange(for: editor)
 
             isApplyingBlocks = true
             markNextCommittedTextChangeAsProgrammatic()
-            editor.replaceCharacters(in: selectionRange, with: "@")
+            editor.replaceCharacters(in: selectionRange, with: mentionText)
+            let insertionLength = (mentionText as NSString).length
             let nextRange = NSRange(
-                location: min(selectionRange.location + 1, editor.attributedText.length),
+                location: min(selectionRange.location + insertionLength, editor.attributedText.length),
                 length: 0
             )
             lastKnownSelectionRange = nextRange

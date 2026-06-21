@@ -9,6 +9,7 @@ enum ProfileRoute: Hashable {
     case createPet
     case editPetProfile(PetProfileEditContext)
     case posts
+    case badges(selectedBadgeID: String?)
     case feedDetail(postID: String)
     case petAlbumList
     case petAlbumDetail(albumID: String)

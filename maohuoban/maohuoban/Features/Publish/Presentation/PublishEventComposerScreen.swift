@@ -22,6 +22,7 @@ struct PublishEventComposerScreen: View {
     @State private var replacingArticleBlockID: UUID?
     @State private var pendingTopicInsertionNonce = 0
     @State private var pendingMentionInsertionNonce = 0
+    @State private var pendingMentionInsertionText: String?
 
     // 环境 dismissal 用于支持点击“存草稿”时直接关闭发布页面
     @Environment(\.dismiss) private var dismiss
@@ -64,6 +65,7 @@ struct PublishEventComposerScreen: View {
                             pendingInsertedArticleMediaIDs: pendingInsertedArticleMediaIDs,
                             pendingTopicInsertionNonce: pendingTopicInsertionNonce,
                             pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                            pendingMentionInsertionText: pendingMentionInsertionText,
                             title: $draftStore.titleText,
                             bodyText: $draftStore.bodyText,
                             articleBlocks: $articleBlocks,
@@ -73,7 +75,7 @@ struct PublishEventComposerScreen: View {
                             onTopicsChange: handleTopicsChange(_:),
                             onAddMedia: openMediaPicker,
                             onInsertTopic: insertTopic,
-                            onMentionUser: insertMention,
+                            onMentionUser: openMentionUserPicker,
                             onRemoveMedia: removeImage(_:),
                             onRemoveArticleImageBlock: removeArticleImageBlock(_:),
                             onReplaceArticleImageBlock: replaceArticleImageBlock(_:)
@@ -256,7 +258,7 @@ struct PublishEventComposerScreen: View {
         }
         .sheet(item: $activeSheet) { sheet in
             optionSheet(for: sheet)
-                .presentationDetents([.medium])
+                .presentationDetents(sheet.presentationDetents)
                 .presentationDragIndicator(.visible)
         }
         .onChange(of: composerMode) { _, newMode in
@@ -322,6 +324,16 @@ struct PublishEventComposerScreen: View {
                 selectedAlbumTitle: selectedAlbumTitle,
                 onSelect: { option in
                     selectedAlbumTitle = option.title
+                    activeSheet = nil
+                }
+            )
+        case .mentionUser:
+            PublishMentionUserSelectionSheet(
+                onCancel: {
+                    activeSheet = nil
+                },
+                onConfirm: { users in
+                    insertMentions(users)
                     activeSheet = nil
                 }
             )
@@ -412,7 +424,16 @@ struct PublishEventComposerScreen: View {
         pendingTopicInsertionNonce += 1
     }
 
-    private func insertMention() {
+    private func openMentionUserPicker() {
+        activeSheet = .mentionUser
+    }
+
+    private func insertMentions(_ users: [PublishMentionUserOption]) {
+        let insertionText = users
+            .map { "@\($0.name) " }
+            .joined()
+        guard insertionText.isEmpty == false else { return }
+        pendingMentionInsertionText = insertionText
         pendingMentionInsertionNonce += 1
     }
 
@@ -422,7 +443,9 @@ struct PublishEventComposerScreen: View {
 
     private func handlePendingTopicInsertionHandled() {}
 
-    private func handlePendingMentionInsertionHandled() {}
+    private func handlePendingMentionInsertionHandled() {
+        pendingMentionInsertionText = nil
+    }
 
     private func handleTopicsChange(_ topicNames: [String]) {
         store.updateTopics(topicNames)
@@ -543,8 +566,18 @@ private enum PublishComposerSheet: String, Identifiable {
     case location
     case visibility
     case album
+    case mentionUser
 
     var id: String { rawValue }
+
+    var presentationDetents: Set<PresentationDetent> {
+        switch self {
+        case .mentionUser:
+            [.large]
+        case .pet, .location, .visibility, .album:
+            [.medium]
+        }
+    }
 }
 
 // PublishSelectedImage 发布页本地图片预览模型

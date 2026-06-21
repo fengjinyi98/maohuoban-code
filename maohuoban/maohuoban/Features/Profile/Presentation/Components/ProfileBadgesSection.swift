@@ -60,20 +60,12 @@ private struct ProfileBadgeItemView: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .center, spacing: MHBTheme.Spacing.s1) {
-                // Concord concentric circle badge layout
-                ZStack {
-                    Circle()
-                        .fill(badge.color.opacity(0.08))
-                        .frame(width: 52, height: 52)
-
-                    Circle()
-                        .stroke(badge.color.opacity(0.24), lineWidth: 1.5)
-                        .frame(width: 46, height: 46)
-
-                    Image(systemName: badge.systemImage)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(badge.color)
-                }
+                ProfileBadgeArtwork(
+                    imageAssetName: badge.imageAssetName,
+                    isEarned: badge.isEarned,
+                    size: 56,
+                    shadowRadius: 5
+                )
                 .frame(width: 56, height: 56)
 
                 Text(badge.title)
@@ -83,26 +75,10 @@ private struct ProfileBadgeItemView: View {
                     .frame(width: 72)
                     .multilineTextAlignment(.center)
 
-                Text(badge.description)
-                    .font(MHBTheme.Typography.section)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .lineLimit(1)
-                    .frame(width: 72)
-                    .multilineTextAlignment(.center)
+                ProfileBadgeStatusPill(badge: badge)
             }
         }
         .buttonStyle(.plain)
-    }
-}
-
-private extension ProfileBadge {
-    var color: Color {
-        switch id {
-        case "genesis":  return MHBTheme.ColorToken.warning.color  // Gold/Yellow
-        case "expert":   return MHBTheme.ColorToken.success.color  // Green
-        case "rescuer":  return MHBTheme.ColorToken.danger.color   // Red
-        case "active":   return MHBTheme.ColorToken.teal.color     // Teal/Cyan
-        default:         return MHBTheme.ColorToken.primary.color
-        }
+        .accessibilityLabel("\(badge.title)，\(badge.progressText)")
     }
 }

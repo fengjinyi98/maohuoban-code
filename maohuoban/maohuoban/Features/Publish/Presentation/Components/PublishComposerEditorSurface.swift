@@ -14,6 +14,7 @@ struct PublishComposerEditorSurface: View {
     let pendingInsertedArticleMediaIDs: [UUID]
     let pendingTopicInsertionNonce: Int
     let pendingMentionInsertionNonce: Int
+    let pendingMentionInsertionText: String?
     @Binding var title: String
     @Binding var bodyText: String
     @Binding var articleBlocks: [PublishArticleBlock]
@@ -44,6 +45,7 @@ struct PublishComposerEditorSurface: View {
                     bodyText: $bodyText,
                     pendingTopicInsertionNonce: pendingTopicInsertionNonce,
                     pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                    pendingMentionInsertionText: pendingMentionInsertionText,
                     onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
                     onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
                     onTopicsChange: onTopicsChange
@@ -66,6 +68,7 @@ struct PublishComposerEditorSurface: View {
                     pendingInsertedMediaIDs: pendingInsertedArticleMediaIDs,
                     pendingTopicInsertionNonce: pendingTopicInsertionNonce,
                     pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                    pendingMentionInsertionText: pendingMentionInsertionText,
                     onPendingMediaInsertionHandled: onPendingArticleMediaInsertionHandled,
                     onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
                     onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
@@ -124,6 +127,7 @@ private struct PublishRichTextEditor: View {
     let pendingInsertedMediaIDs: [UUID]
     let pendingTopicInsertionNonce: Int
     let pendingMentionInsertionNonce: Int
+    let pendingMentionInsertionText: String?
     let onPendingMediaInsertionHandled: ([UUID]) -> Void
     let onPendingTopicInsertionHandled: () -> Void
     let onPendingMentionInsertionHandled: () -> Void
@@ -160,6 +164,7 @@ private struct PublishRichTextEditor: View {
                 pendingInsertedMediaIDs: pendingInsertedMediaIDs,
                 pendingTopicInsertionNonce: pendingTopicInsertionNonce,
                 pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+                pendingMentionInsertionText: pendingMentionInsertionText,
                 onPendingInsertionHandled: onPendingMediaInsertionHandled,
                 onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
                 onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
@@ -283,6 +288,7 @@ private struct PublishGalleryEditor: View {
     @Binding var bodyText: String
     let pendingTopicInsertionNonce: Int
     let pendingMentionInsertionNonce: Int
+    let pendingMentionInsertionText: String?
     let onPendingTopicInsertionHandled: () -> Void
     let onPendingMentionInsertionHandled: () -> Void
     let onTopicsChange: ([String]) -> Void
@@ -294,6 +300,7 @@ private struct PublishGalleryEditor: View {
             minHeight: 220,
             pendingTopicInsertionNonce: pendingTopicInsertionNonce,
             pendingMentionInsertionNonce: pendingMentionInsertionNonce,
+            pendingMentionInsertionText: pendingMentionInsertionText,
             onPendingTopicInsertionHandled: onPendingTopicInsertionHandled,
             onPendingMentionInsertionHandled: onPendingMentionInsertionHandled,
             onTopicsChange: onTopicsChange
