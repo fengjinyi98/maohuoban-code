@@ -7,14 +7,17 @@ import MaohuobanDesignSystem
 // - 后续在此注册 HomeRoute 的 navigationDestination
 struct HomeRootScreen: View {
     let currentUserID: String?
+    let tabState: MHBAppTabState
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
 
     init(
-        currentUserID: String? = nil
+        currentUserID: String? = nil,
+        tabState: MHBAppTabState = MHBAppTabState()
     ) {
         self.currentUserID = currentUserID
+        self.tabState = tabState
     }
 
     var body: some View {
@@ -63,7 +66,10 @@ struct HomeRootScreen: View {
         .navigationDestination(for: HomeRoute.self) { route in
             HomeRouteDestinationScreen(
                 route: route,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                onRouteRequested: { nextRoute in
+                    tabState.appendHomeRoute(nextRoute)
+                }
             ) { mutatedPetID in
                 if let mutatedPetID {
                     selectedPetID = mutatedPetID

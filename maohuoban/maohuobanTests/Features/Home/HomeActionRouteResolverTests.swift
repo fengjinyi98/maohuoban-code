@@ -41,7 +41,7 @@ final class HomeActionRouteResolverTests: XCTestCase {
     }
 
     @MainActor
-    func testDailyRecordActionRoutesToPublishWithCurrentPetContext() {
+    func testDailyRecordActionRoutesToRecordPageWithCurrentPetContext() {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
         let action = HomeDashboardSnapshot.Action(
             kind: .dailyRecord,
@@ -56,7 +56,7 @@ final class HomeActionRouteResolverTests: XCTestCase {
 
         XCTAssertEqual(
             route,
-            .publishEvent(
+            .recordDaily(
                 PublishEntryContext(
                     source: .home,
                     selectedPetID: "pet-1",

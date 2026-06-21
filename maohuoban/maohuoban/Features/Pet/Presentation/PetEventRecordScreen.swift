@@ -9,59 +9,98 @@ struct PetEventRecordScreen: View {
     let petID: String?
     let currentUserID: String?
     let mode: PetEventRecordMode
+    let onRecordAndPublish: () -> Void
     let onRecorded: () -> Void
 
     @State private var store = PetWriteStore()
     @State private var title: String
     @State private var summary = ""
     @State private var occurredAt = Date()
+    @State private var dailyEnergy = PetDailyRecordEnergy.steady
+    @State private var dailyDidFeed = false
+    @State private var dailyFoodText = ""
+    @State private var dailyDidCleanPoop = false
+    @State private var dailyPoopStatus = PetDailyRecordPoopStatus.healthy
+    @State private var dailyDidAddWater = false
+    @State private var dailyDidWalk = false
+    @State private var dailyDidBath = false
+    @State private var dailyNote = ""
+    @State private var selectedHealthType = PetHealthRecordType.vaccine
+    @State private var healthWeightText = ""
+    @State private var healthVaccineBrand = ""
+    @State private var healthVaccineDose = ""
+    @State private var healthVisitReason = ""
+    @State private var healthNote = ""
+    @State private var healthReminderEnabled = true
+    @State private var healthReminderDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
 
     init(
         petID: String?,
         currentUserID: String?,
         mode: PetEventRecordMode,
+        onRecordAndPublish: @escaping () -> Void = {},
         onRecorded: @escaping () -> Void
     ) {
         self.petID = petID
         self.currentUserID = currentUserID
         self.mode = mode
+        self.onRecordAndPublish = onRecordAndPublish
         self.onRecorded = onRecorded
         self._title = State(initialValue: mode.defaultTitle)
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                PetWriteStatusSection(
-                    phase: store.phase,
-                    successMessage: store.successMessage
-                )
-
-                if petID == nil {
-                    PetRecordUnavailableSection()
-                } else {
-                    PetEventRecordFields(
-                        mode: mode,
-                        title: $title,
-                        summary: $summary,
-                        occurredAt: $occurredAt
+        GeometryReader { geometry in
+            MHBScreenScrollView {
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+                    PetWriteStatusSection(
+                        phase: store.phase,
+                        successMessage: store.successMessage
                     )
 
-                    PetWriteSubmitButton(
-                        title: mode.submitTitle,
-                        isSubmitting: store.isSubmitting,
-                        diagnosticsID: "pet.event.record.submit"
-                    ) {
-                        Task { await submit() }
+                    if petID == nil {
+                        PetRecordUnavailableSection()
+                    } else {
+                        recordFields
                     }
                 }
+                .padding(mode == .daily ? 0 : MHBTheme.Spacing.s4)
+                .padding(.bottom, mode == .daily ? dailyBottomPadding(geometry: geometry) : 0)
             }
-            .padding(MHBTheme.Spacing.s4)
+            .overlay(alignment: .bottom) {
+                if mode == .daily {
+                    PetDailyRecordBottomBar(
+                        isSubmitting: store.isSubmitting,
+                        onRecordAndPublish: {
+                            Task { await submit(thenPublish: true) }
+                        },
+                        onSave: {
+                            Task { await submit(thenPublish: false) }
+                        }
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .padding(.top, MHBTheme.Spacing.s2)
+                    .padding(.bottom, MHBTheme.Spacing.s2 + geometry.safeAreaInsets.bottom)
+                    .frame(maxWidth: .infinity)
+                    .glassEffect(.regular, in: .rect(cornerRadius: 0))
+                    .ignoresSafeArea(edges: .bottom)
+                }
+            }
         }
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        .toolbar {
+            if mode == .health {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(mode.submitTitle) {
+                        Task { await submit(thenPublish: false) }
+                    }
+                    .font(MHBTheme.Typography.headline)
+                    .disabled(store.isSubmitting || petID == nil)
+                }
+            }
+        }
         .petWriteToastBridge(
             phase: store.phase,
             successMessage: store.successMessage
@@ -69,26 +108,114 @@ struct PetEventRecordScreen: View {
         .accessibilityIdentifier("pet.eventRecord.screen")
     }
 
+    @ViewBuilder
+    private var recordFields: some View {
+        switch mode {
+        case .daily:
+            PetDailyRecordContent(
+                petID: petID,
+                occurredAt: $occurredAt,
+                energy: $dailyEnergy,
+                didFeed: $dailyDidFeed,
+                foodText: $dailyFoodText,
+                didCleanPoop: $dailyDidCleanPoop,
+                poopStatus: $dailyPoopStatus,
+                didAddWater: $dailyDidAddWater,
+                didWalk: $dailyDidWalk,
+                didBath: $dailyDidBath,
+                note: $dailyNote
+            )
+        case .health:
+            PetHealthRecordContent(
+                petID: petID,
+                selectedType: $selectedHealthType,
+                occurredAt: $occurredAt,
+                weightText: $healthWeightText,
+                vaccineBrand: $healthVaccineBrand,
+                vaccineDose: $healthVaccineDose,
+                visitReason: $healthVisitReason,
+                note: $healthNote,
+                reminderEnabled: $healthReminderEnabled,
+                reminderDate: $healthReminderDate
+            )
+        }
+    }
+
     // submit 提交宠物事件
     // 核心职责：
     // - 将表单状态转换为事件草稿
     // - 成功后通知首页刷新聚合快照
-    private func submit() async {
+    private func submit(thenPublish: Bool) async {
+        let eventDraft = makeEventDraft()
         await store.createEvent(
             petID: petID,
-            draft: PetEventDraft(
-                kind: mode.eventKind,
-                subkind: mode.subkind,
-                title: title,
-                summary: summary,
-                visibility: .private,
-                occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
-            ),
+            draft: eventDraft,
             currentUserID: currentUserID
         )
         if case .recordedEvent = store.phase {
             onRecorded()
+            if thenPublish {
+                onRecordAndPublish()
+            }
         }
+    }
+
+    private func makeEventDraft() -> PetEventDraft {
+        switch mode {
+        case .daily:
+            let dailyDraft = PetDailyRecordFormDraft(
+                energy: dailyEnergy,
+                didFeed: dailyDidFeed,
+                foodText: dailyFoodText,
+                didCleanPoop: dailyDidCleanPoop,
+                poopStatus: dailyPoopStatus,
+                didAddWater: dailyDidAddWater,
+                didWalk: dailyDidWalk,
+                didBath: dailyDidBath,
+                note: dailyNote
+            )
+            return PetEventDraft(
+                kind: mode.eventKind,
+                subkind: mode.subkind,
+                title: dailyDraft.eventTitle,
+                summary: dailyDraft.eventSummary,
+                visibility: .private,
+                occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
+            )
+        case .health:
+            let healthDraft = PetHealthRecordFormDraft(
+                type: selectedHealthType,
+                weightText: healthWeightText,
+                vaccineBrand: healthVaccineBrand,
+                vaccineDose: healthVaccineDose,
+                visitReason: healthVisitReason,
+                note: healthNote,
+                reminderEnabled: healthReminderEnabled,
+                reminderDateText: reminderDateText
+            )
+            return PetEventDraft(
+                kind: mode.eventKind,
+                subkind: healthDraft.eventSubkind,
+                title: healthDraft.eventTitle,
+                summary: healthDraft.eventSummary,
+                visibility: .private,
+                occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
+            )
+        }
+    }
+
+    private var reminderDateText: String {
+        let components = Calendar(identifier: .gregorian).dateComponents([.year, .month, .day], from: healthReminderDate)
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day else {
+            return ""
+        }
+        return String(format: "%04d-%02d-%02d", year, month, day)
+    }
+
+    private func dailyBottomPadding(geometry: GeometryProxy) -> CGFloat {
+        40 + MHBTheme.Spacing.s2 * 2 + geometry.safeAreaInsets.bottom + MHBTheme.Spacing.s4
     }
 }
 
@@ -130,8 +257,8 @@ enum PetEventRecordMode: Equatable {
 
     var submitTitle: LocalizedStringResource {
         switch self {
-        case .daily: "保存日常"
-        case .health: "保存健康记录"
+        case .daily: "保存"
+        case .health: "保存"
         }
     }
 }

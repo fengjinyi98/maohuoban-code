@@ -7,6 +7,7 @@ import SwiftUI
 struct HomeRouteDestinationScreen: View {
     let route: HomeRoute
     let currentUserID: String?
+    var onRouteRequested: (HomeRoute) -> Void = { _ in }
     let onHomeMutationCompleted: (String?) -> Void
 
     var body: some View {
@@ -35,11 +36,14 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
-        case .recordDaily(let petID):
+        case .recordDaily(let context):
             PetEventRecordScreen(
-                petID: petID,
+                petID: context.selectedPetID,
                 currentUserID: currentUserID,
                 mode: .daily,
+                onRecordAndPublish: {
+                    onRouteRequested(.publishEvent(context))
+                },
                 onRecorded: {
                     onHomeMutationCompleted(nil)
                 }

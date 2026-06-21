@@ -3,59 +3,110 @@ import MaohuobanDesignSystem
 
 // SearchScreen 通用搜索落地页
 // 核心职责：
-// - 使用系统原生搜索框承载搜索输入
+// - 使用 UIKit 原生搜索栏承载导航栏内搜索输入
 // - 根据入口上下文展示宠物世界或同城热搜
 struct SearchScreen: View {
     let context: SearchEntryContext
 
     @State private var searchText = ""
-    @State private var isSearchPresented = true
+    @State private var isSearchFocused = true
+    @State private var keyboardDismissRequestNonce = 0
+    @State private var didRequestDismissDuringScroll = false
     @State private var historyState = SearchHistoryState()
 
     var body: some View {
-        ZStack {
-            MHBTheme.ColorToken.cardSolid.color
-                .ignoresSafeArea()
+        let searchBarConfiguration = SearchNavigationSearchBarConfiguration(context: context)
 
-            MHBScreenScrollView {
-                VStack(spacing: 0) {
-                    SearchHistorySection(
-                        keywords: historyState.keywords,
-                        onSelectKeyword: selectKeyword,
-                        onClearHistory: clearHistory
-                    )
+        GeometryReader { proxy in
+            ZStack {
+                MHBTheme.ColorToken.cardSolid.color
+                    .ignoresSafeArea()
 
-                    SearchDividerBand()
+                MHBScreenScrollView {
+                    ZStack(alignment: .top) {
+                        MHBOutsideTapDismissLayer {
+                            dismissKeyboard(reason: "blankTap")
+                        }
 
-                    SearchHotListSection(
-                        title: context.hotSectionTitle,
-                        keywords: SearchHotKeywordProvider.hotKeywords(for: context),
-                        onSelectKeyword: selectKeyword
-                    )
+                        VStack(spacing: 0) {
+                            SearchHistorySection(
+                                keywords: historyState.keywords,
+                                onSelectKeyword: selectKeyword,
+                                onClearHistory: clearHistory
+                            )
+
+                            SearchDividerBand()
+
+                            SearchHotListSection(
+                                title: context.hotSectionTitle,
+                                keywords: SearchHotKeywordProvider.hotKeywords(for: context),
+                                onSelectKeyword: selectKeyword
+                            )
+                        }
+                        .padding(.top, MHBTheme.Spacing.s3)
+                        .padding(.bottom, MHBTheme.Spacing.s8)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .top)
                 }
-                .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s8)
+                .scrollDismissesKeyboard(.interactively)
+                .onScrollPhaseChange { _, phase in
+                    handleScrollPhaseChange(phase)
+                }
             }
         }
-        .navigationTitle("搜索")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(
-            text: $searchText,
-            isPresented: $isSearchPresented,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: Text(context.searchPrompt)
+        .background(
+            SearchNavigationSearchBar(
+                text: $searchText,
+                isFocused: $isSearchFocused,
+                dismissRequestNonce: keyboardDismissRequestNonce,
+                configuration: searchBarConfiguration,
+                onSubmit: submitSearch
+            )
         )
-        .searchPresentationToolbarBehavior(.avoidHidingContent)
         .accessibilityIdentifier("search.screen")
     }
 
     private func selectKeyword(_ keyword: String) {
         searchText = keyword
-        isSearchPresented = true
+        isSearchFocused = true
     }
 
     private func clearHistory() {
         historyState.clear()
+    }
+
+    private func submitSearch() {
+        dismissKeyboard(reason: "submit")
+    }
+
+    private func dismissKeyboard(reason: String) {
+        keyboardDismissRequestNonce += 1
+        isSearchFocused = false
+        MHBKeyboardDismissal.dismissActiveKeyboard()
+
+        #if DEBUG
+        print(
+            "[DEBUG:SearchKeyboardDismiss] requested "
+            + "reason=\(reason) "
+            + "nonce=\(keyboardDismissRequestNonce)"
+        )
+        #endif
+    }
+
+    private func handleScrollPhaseChange(_ phase: ScrollPhase) {
+        if phase == .idle {
+            didRequestDismissDuringScroll = false
+            return
+        }
+
+        guard !didRequestDismissDuringScroll else {
+            return
+        }
+
+        didRequestDismissDuringScroll = true
+        dismissKeyboard(reason: "scroll")
     }
 }
 

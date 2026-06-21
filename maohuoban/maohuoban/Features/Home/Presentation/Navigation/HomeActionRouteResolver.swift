@@ -43,7 +43,7 @@ enum HomeActionRouteResolver {
         case .createPet:
             return .createPet
         case .dailyRecord:
-            return .publishEvent(
+            return .recordDaily(
                 PublishEntryContext(
                     source: .home,
                     selectedPetID: context.selectedPetID,

@@ -16,7 +16,10 @@ struct MHBAppShell: View {
     var body: some View {
         TabView(selection: $router.selectedTab) {
             MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
-                HomeRootScreen(currentUserID: currentUserID)
+                HomeRootScreen(
+                    currentUserID: currentUserID,
+                    tabState: router.tabState
+                )
             }
 
             MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {

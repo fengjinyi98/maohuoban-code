@@ -10,7 +10,7 @@ enum HomeRoute: Hashable {
     case createPet
     case publishEvent(PublishEntryContext)
     case editPetProfile(PetProfileEditContext)
-    case recordDaily(petID: String?)
+    case recordDaily(PublishEntryContext)
     case recordHealth(petID: String?)
     case bookHospital(petID: String?, city: String?)
     case importTradePet
