@@ -11,6 +11,9 @@ struct ProfileRootScreen: View {
     let currentUserID: String?
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
+    @State private var settingsDeviceSessionStore = SettingsDeviceSessionStore(
+        repository: MockSettingsDeviceSessionRepository()
+    )
 
     init(
         topicStore: TopicStore = TopicStore(),
@@ -74,7 +77,9 @@ struct ProfileRootScreen: View {
                 .accessibilityIdentifier("profile.maoqiuButton")
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {} label: {
+                Button {
+                    tabState.appendProfileRoute(.settings)
+                } label: {
                     Image(systemName: "gearshape")
                 }
                 .accessibilityLabel("设置")
@@ -162,6 +167,131 @@ struct ProfileRootScreen: View {
                 )
             case .topicComposer(let seedTopicID):
                 TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)
+            case .settings:
+                SettingsScreen(
+                    username: SettingsMockData.username,
+                    onLogout: onLogout,
+                    onSwitchAccount: {
+                        tabState.appendProfileRoute(.accountManagement)
+                    },
+                    onStorageSpace: {
+                        tabState.appendProfileRoute(.storageSpace)
+                    },
+                    onAccountSecurity: {
+                        tabState.appendProfileRoute(.accountSecurity)
+                    },
+                    onGeneralSettings: {
+                        tabState.appendProfileRoute(.generalSettings)
+                    },
+                    onNotificationSettings: {
+                        tabState.appendProfileRoute(.notificationSettings)
+                    },
+                    onPrivacySettings: {
+                        tabState.appendProfileRoute(.privacySettings)
+                    },
+                    onAddressList: {
+                        tabState.appendProfileRoute(.addressList)
+                    }
+                )
+            case .accountSecurity:
+                SettingsAccountSecurityScreen(
+                    phoneMasked: SettingsMockData.phoneMasked,
+                    passwordStatusText: "未设置",
+                    rememberLoginEnabled: true,
+                    onRememberLoginChange: { _ in },
+                    onSetPassword: {
+                        tabState.appendProfileRoute(.setPassword)
+                    },
+                    onRealNameAuth: {
+                        tabState.appendProfileRoute(.realNameAuth)
+                    },
+                    onOfficialVerification: {
+                        tabState.appendProfileRoute(.officialVerification)
+                    },
+                    onDeviceManagement: {
+                        tabState.appendProfileRoute(.deviceManagement)
+                    }
+                )
+            case .generalSettings:
+                SettingsGeneralSettingsScreen {
+                    tabState.appendProfileRoute(.darkMode)
+                }
+            case .notificationSettings:
+                SettingsNotificationSettingsScreen()
+            case .privacySettings:
+                SettingsPrivacySettingsScreen(
+                    onOnlineStatus: {
+                        tabState.appendProfileRoute(.onlineStatus)
+                    },
+                    onDMPrivacy: {
+                        tabState.appendProfileRoute(.dmPrivacy)
+                    },
+                    onCollectionPrivacy: {
+                        tabState.appendProfileRoute(.collectionPrivacy)
+                    },
+                    onEvaluationPrivacy: {
+                        tabState.appendProfileRoute(.evaluationPrivacy)
+                    },
+                    onFindMeWay: {
+                        tabState.appendProfileRoute(.findMeWay)
+                    },
+                    onRelationshipPrivacy: {
+                        tabState.appendProfileRoute(.relationshipPrivacy)
+                    },
+                    onBlacklist: {
+                        tabState.appendProfileRoute(.blacklist)
+                    },
+                    onSystemPermissions: {
+                        tabState.appendProfileRoute(.systemPermissions)
+                    },
+                    onPersonalization: {
+                        tabState.appendProfileRoute(.personalization)
+                    }
+                )
+            case .storageSpace:
+                SettingsStorageSpaceScreen()
+            case .addressList:
+                SettingsAddressListScreen()
+            case .accountManagement:
+                SettingsAccountManagementScreen()
+            case .setPassword:
+                SettingsSetPasswordScreen(store: SettingsPasswordStore(hasPassword: false))
+            case .realNameAuth:
+                SettingsRealNameAuthScreen()
+            case .officialVerification:
+                SettingsOfficialVerificationScreen()
+            case .deviceManagement:
+                SettingsDeviceManagementScreen(
+                    store: settingsDeviceSessionStore,
+                    onDeviceDetail: { deviceID in
+                        tabState.appendProfileRoute(.deviceDetail(deviceID: deviceID))
+                    }
+                )
+            case .deviceDetail(let deviceID):
+                SettingsDeviceDetailScreen(
+                    deviceID: deviceID,
+                    store: settingsDeviceSessionStore
+                )
+            case .darkMode:
+                SettingsDarkModeScreen()
+            case .onlineStatus:
+                SettingsOnlineStatusScreen()
+            case .dmPrivacy:
+                SettingsDMPrivacyScreen()
+            case .collectionPrivacy:
+                SettingsCollectionPrivacyScreen()
+            case .evaluationPrivacy:
+                SettingsEvaluationPrivacyScreen()
+            case .findMeWay:
+                SettingsFindMeWayScreen()
+            case .relationshipPrivacy:
+                SettingsRelationshipPrivacyScreen()
+            case .blacklist:
+                SettingsBlacklistScreen()
+            case .systemPermissions:
+                SettingsSystemPermissionsScreen()
+            case .personalization:
+                SettingsPersonalizationScreen()
             }
         }
     }
