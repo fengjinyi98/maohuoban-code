@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 承载新建相册入口并通过系统导航进入相册详情
 struct PetAlbumListScreen<DetailRoute: Hashable>: View {
     @State private var store = PetAlbumStore()
+    let createRoute: DetailRoute
     let detailRoute: (PetAlbumSummary) -> DetailRoute
 
     private let columns = [
@@ -14,15 +15,22 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4)
     ]
 
-    init(detailRoute: @escaping (PetAlbumSummary) -> DetailRoute) {
+    init(
+        createRoute: DetailRoute,
+        detailRoute: @escaping (PetAlbumSummary) -> DetailRoute
+    ) {
+        self.createRoute = createRoute
         self.detailRoute = detailRoute
     }
 
     var body: some View {
         MHBScreenScrollView {
             LazyVGrid(columns: columns, alignment: .center, spacing: MHBTheme.Spacing.s5) {
-                PetAlbumCreateCard(action: {})
-                    .accessibilityIdentifier("petAlbum.list.create")
+                NavigationLink(value: createRoute) {
+                    PetAlbumCreateCard()
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("petAlbum.list.create")
 
                 ForEach(store.albums) { album in
                     NavigationLink(value: detailRoute(album)) {
@@ -30,7 +38,8 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
                             title: album.title,
                             photoCountText: album.photoCountText,
                             updatedText: album.updatedText,
-                            coverImageAssetName: album.coverImageAssetName
+                            coverImageAssetName: album.coverImageAssetName,
+                            isPrivate: album.isPrivate
                         )
                     }
                     .buttonStyle(.plain)
@@ -47,10 +56,11 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: {}) {
-                    Image(systemName: "magnifyingglass")
+                    Text("管理")
+                        .font(MHBTheme.Typography.callout.weight(.semibold))
                 }
-                .accessibilityLabel("搜索相册")
-                .accessibilityIdentifier("petAlbum.list.search")
+                .accessibilityLabel("管理相册")
+                .accessibilityIdentifier("petAlbum.list.manage")
             }
         }
     }

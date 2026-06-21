@@ -11,6 +11,8 @@ enum ProfileQuickEntryRouteResolver {
             .myPets
         case "petAlbum":
             .petAlbumList
+        case "myFavorites":
+            .favoriteFolders
         case "myReplies":
             .replies
         default:

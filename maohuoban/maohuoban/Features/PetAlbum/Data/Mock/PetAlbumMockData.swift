@@ -20,7 +20,8 @@ enum PetAlbumMockData {
             petName: "糯米",
             updatedText: "本周更新",
             photoCount: 36,
-            coverImageAssetName: "HomeGalleryAlbum2"
+            coverImageAssetName: "HomeGalleryAlbum2",
+            isPrivate: true
         ),
         PetAlbumSummary(
             id: "gallery-3",
@@ -44,7 +45,8 @@ enum PetAlbumMockData {
             petName: "糯米",
             updatedText: "创建于 2025年",
             photoCount: 31,
-            coverImageAssetName: "HomePetAlbum2"
+            coverImageAssetName: "HomePetAlbum2",
+            isPrivate: true
         ),
         PetAlbumSummary(
             id: "album-3",

@@ -34,6 +34,15 @@ final class ProfileQuickEntryRouteResolverTests: XCTestCase {
     }
 
     @MainActor
+    func testMyFavoritesEntryRoutesToProfileFavoriteFoldersScreen() {
+        let item = ProfileQuickEntryItem(id: "myFavorites", title: "我的收藏", systemImage: "star.fill")
+
+        let route = ProfileQuickEntryRouteResolver.route(for: item)
+
+        XCTAssertEqual(route, .favoriteFolders)
+    }
+
+    @MainActor
     func testFollowingStatRoutesToProfileFollowingScreen() {
         let stat = ProfileAccountStat(id: "following", value: "41", title: "关注")
 

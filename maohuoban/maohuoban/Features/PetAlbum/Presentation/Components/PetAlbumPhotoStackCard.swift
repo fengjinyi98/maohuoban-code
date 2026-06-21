@@ -10,10 +10,14 @@ struct PetAlbumPhotoStackCard: View {
     let photoCountText: String
     let updatedText: String
     let coverImageAssetName: String
+    let isPrivate: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-            PetAlbumPhotoStackCover(imageAssetName: coverImageAssetName)
+            PetAlbumPhotoStackCover(
+                imageAssetName: coverImageAssetName,
+                isPrivate: isPrivate
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -35,36 +39,62 @@ struct PetAlbumPhotoStackCard: View {
 
 // PetAlbumPhotoStackCover 相册叠放封面
 // 核心职责：
-// - 绘制封面下方的多层照片纸
+// - 绘制设计稿中的多层照片纸叠放效果
 // - 保持封面图片与内描边视觉一致
 private struct PetAlbumPhotoStackCover: View {
     let imageAssetName: String
+    let isPrivate: Bool
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                .fill(MHBTheme.ColorToken.separatorSoft.color)
-                .rotationEffect(.degrees(5))
-                .scaleEffect(0.92)
-                .offset(y: MHBTheme.Spacing.s1)
+        ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .top) {
+                // 底部第三层纸张
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                    .fill(MHBTheme.ColorToken.labelQuaternary.color.opacity(0.6))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                    }
+                    .frame(height: MHBTheme.Spacing.s5)
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .offset(y: -MHBTheme.Spacing.s3)
 
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                .fill(MHBTheme.ColorToken.background.color)
-                .rotationEffect(.degrees(-4))
-                .scaleEffect(0.96)
+                // 底部第二层纸张
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                    .fill(MHBTheme.ColorToken.labelQuaternary.color)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                    }
+                    .frame(height: MHBTheme.Spacing.s5)
+                    .padding(.horizontal, MHBTheme.Spacing.s3)
+                    .offset(y: -MHBTheme.Spacing.s3 / 2)
 
-            PetAlbumAssetImage(imageAssetName: imageAssetName)
-                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                        .strokeBorder(MHBTheme.ColorToken.labelPrimary.color.opacity(0.12), lineWidth: 3)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                        .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-                }
+                // 主相册封面图片
+                PetAlbumAssetImage(imageAssetName: imageAssetName)
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.labelPrimary.color.opacity(0.12), lineWidth: 3)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                    }
+            }
+
+            if isPrivate {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.cardSolid.color)
+                    .frame(width: MHBTheme.Spacing.s6, height: MHBTheme.Spacing.s6)
+                    .background(MHBTheme.ColorToken.labelPrimary.color.opacity(0.42), in: Circle())
+                    .padding(MHBTheme.Spacing.s3)
+                    .accessibilityHidden(true)
+            }
         }
         .aspectRatio(1, contentMode: .fit)
-        .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.08), radius: 10, y: 6)
+        .padding(.top, MHBTheme.Spacing.s3)
+        .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.06), radius: 10, y: 6)
     }
 }

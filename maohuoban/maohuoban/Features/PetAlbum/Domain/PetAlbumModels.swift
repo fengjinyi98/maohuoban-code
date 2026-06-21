@@ -39,6 +39,25 @@ struct PetAlbumSummary: Identifiable, Equatable, Hashable {
     let updatedText: String
     let photoCount: Int
     let coverImageAssetName: String
+    let isPrivate: Bool
+
+    init(
+        id: String,
+        title: String,
+        petName: String,
+        updatedText: String,
+        photoCount: Int,
+        coverImageAssetName: String,
+        isPrivate: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.petName = petName
+        self.updatedText = updatedText
+        self.photoCount = photoCount
+        self.coverImageAssetName = coverImageAssetName
+        self.isPrivate = isPrivate
+    }
 
     var photoCountText: String {
         "\(photoCount) 张照片"

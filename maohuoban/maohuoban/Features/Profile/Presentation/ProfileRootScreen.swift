@@ -128,6 +128,17 @@ struct ProfileRootScreen: View {
                 ProfileFollowersScreen()
             case .replies:
                 ProfileRepliesScreen()
+            case .favoriteFolders:
+                ProfileFavoriteFoldersScreen(createRoute: ProfileRoute.createFavoriteFolder) { folder in
+                    ProfileRoute.favoriteFolderContent(folderID: folder.id)
+                }
+            case .createFavoriteFolder:
+                ProfileFavoriteFolderCreateScreen()
+            case .favoriteFolderContent(let folderID):
+                ProfileFavoriteFolderContentScreen(
+                    folderID: folderID,
+                    interactionStore: feedInteractionStore
+                )
             case .badges(let selectedBadgeID):
                 ProfileBadgesScreen(
                     badges: ProfileBadge.mockBadges,
@@ -142,9 +153,11 @@ struct ProfileRootScreen: View {
                     }
                 )
             case .petAlbumList:
-                PetAlbumListScreen { album in
+                PetAlbumListScreen(createRoute: ProfileRoute.createPetAlbum) { album in
                     ProfileRoute.petAlbumDetail(albumID: album.id)
                 }
+            case .createPetAlbum:
+                PetAlbumCreateScreen()
             case .petAlbumDetail(let albumID):
                 PetAlbumDetailScreen(albumID: albumID)
             case .followedTopics:

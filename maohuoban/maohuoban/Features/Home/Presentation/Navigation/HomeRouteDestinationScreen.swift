@@ -118,9 +118,11 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .petAlbumList:
-            PetAlbumListScreen { album in
+            PetAlbumListScreen(createRoute: HomeRoute.createPetAlbum) { album in
                 HomeRoute.petAlbumDetail(albumID: album.id)
             }
+        case .createPetAlbum:
+            PetAlbumCreateScreen()
         case .petAlbumDetail(let albumID):
             PetAlbumDetailScreen(albumID: albumID)
         }
