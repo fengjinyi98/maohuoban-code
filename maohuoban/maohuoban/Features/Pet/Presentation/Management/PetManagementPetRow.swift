@@ -11,14 +11,14 @@ struct PetManagementPetRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: MHBTheme.Spacing.s4) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
                 PetManagementPetAvatar(
                     assetName: pet.avatarAssetName,
                     avatarURL: pet.avatarURL,
                     species: pet.species
                 )
 
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     titleRow
 
                     Text("\(pet.breedText) · \(pet.ageText)")
@@ -33,12 +33,12 @@ struct PetManagementPetRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "chevron.right")
-                    .font(MHBTheme.Typography.body)
-                    .fontWeight(.semibold)
+                    .font(MHBTheme.Typography.footnote)
+                    .fontWeight(.medium)
                     .foregroundStyle(MHBTheme.ColorToken.labelQuaternary.color)
             }
             .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.vertical, MHBTheme.Spacing.s6)
+            .padding(.vertical, MHBTheme.Spacing.s4)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background(MHBTheme.ColorToken.cardSolid.color)
@@ -57,7 +57,7 @@ struct PetManagementPetRow: View {
     private var titleRow: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
             Text(pet.name)
-                .font(MHBTheme.Typography.title)
+                .font(MHBTheme.Typography.headline)
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .lineLimit(1)
                 .truncationMode(.tail)

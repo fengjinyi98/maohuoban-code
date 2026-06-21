@@ -10,9 +10,9 @@ struct PetManagementPetAvatar: View {
     let avatarURL: String?
     let species: PetProfileEditProfile.Species
 
-    private let size: CGFloat = 76
-    private let cornerRadius: CGFloat = 24
-
+    private let size: CGFloat = 60
+    private let cornerRadius: CGFloat = 18
+ 
     var body: some View {
         ZStack {
             if let assetName {
@@ -31,11 +31,7 @@ struct PetManagementPetAvatar: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(MHBTheme.ColorToken.labelPrimary.color.opacity(0.12), lineWidth: 3)
+                .stroke(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1.5)
         }
     }
 
