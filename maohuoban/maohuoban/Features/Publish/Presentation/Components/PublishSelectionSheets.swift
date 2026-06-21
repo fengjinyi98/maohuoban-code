@@ -3,7 +3,7 @@ import MaohuobanDesignSystem
 
 // PublishSelectionOption 发布配置候选项
 // 核心职责：
-// - 为宠物、地点等本地选项提供统一展示字段
+// - 为宠物、可见范围等本地选项提供统一展示字段
 struct PublishSelectionOption: Identifiable, Hashable {
     let id: String
     let title: String
@@ -68,23 +68,6 @@ struct PublishEventTypeSelectionSheet: View {
                 }
                 onSelect(eventType)
             }
-        )
-    }
-}
-
-// PublishLocationSelectionSheet 发布地点选择弹层
-// 核心职责：
-// - 提供同城实体和城市级地点候选
-struct PublishLocationSelectionSheet: View {
-    let selectedTitle: String?
-    let onSelect: (PublishSelectionOption) -> Void
-
-    var body: some View {
-        PublishSelectionSheet(
-            title: "标记地点",
-            options: PublishMockOptions.locationOptions,
-            selectedID: selectedTitle,
-            onSelect: onSelect
         )
     }
 }
@@ -188,7 +171,7 @@ private struct PublishSelectionSheet: View {
 
 // PublishMockOptions 发布页本地候选数据
 // 核心职责：
-// - 为前端 UI 阶段提供宠物、同城地点和相册候选
+// - 为前端 UI 阶段提供宠物和相册候选
 private enum PublishMockOptions {
     static let petOptions: [PublishSelectionOption] = [
         PublishSelectionOption(
@@ -208,30 +191,6 @@ private enum PublishMockOptions {
             title: "布丁",
             subtitle: "柯基 · 3岁 · 同城活动常用",
             systemImage: "dog.fill"
-        )
-    ]
-
-    static let locationOptions: [PublishSelectionOption] = [
-        PublishSelectionOption(
-            id: "chengdu",
-            title: "成都",
-            subtitle: "城市级位置，仅用于同城推荐",
-            systemImage: "map.fill",
-            city: "成都"
-        ),
-        PublishSelectionOption(
-            id: "huaxi-hospital",
-            title: "华西宠物医院",
-            subtitle: "医院实体 · 就诊 and 复诊记录",
-            systemImage: "stethoscope",
-            city: "成都"
-        ),
-        PublishSelectionOption(
-            id: "wutong-cattery",
-            title: "梧桐猫舍",
-            subtitle: "认证猫舍 · 看宠 and 交易履约",
-            systemImage: "house.fill",
-            city: "成都"
         )
     ]
 

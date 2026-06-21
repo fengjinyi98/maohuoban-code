@@ -69,8 +69,35 @@ final class PublishDraftStore {
     }
 
     func selectLocation(city: String?, localEntityName: String?) {
+        let displayName = [
+            localEntityName,
+            city,
+        ]
+        .compactMap { value in
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed?.isEmpty == false ? trimmed : nil
+        }
+        .first
+
+        draft.location = displayName.map {
+            PublishLocation(
+                displayName: $0,
+                poiName: localEntityName,
+                city: city
+            )
+        }
         draft.city = city
         draft.localEntityName = localEntityName
+        draft.localEntityID = nil
+        phase = .idle
+        successMessage = nil
+    }
+
+    func selectLocation(_ location: PublishLocation?) {
+        draft.location = location
+        draft.city = location?.city
+        draft.localEntityName = location?.poiName ?? location?.displayName
+        draft.localEntityID = nil
         phase = .idle
         successMessage = nil
     }

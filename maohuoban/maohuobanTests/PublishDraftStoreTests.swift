@@ -70,4 +70,34 @@ final class PublishDraftStoreTests: XCTestCase {
         XCTAssertEqual(store.draft.bodyText.count, PublishDraftStore.maxBodyCharacterCount)
         XCTAssertEqual(store.bodyCharacterCount, PublishDraftStore.maxBodyCharacterCount)
     }
+
+    @MainActor
+    func testSelectStructuredLocationUpdatesDisplayAndCompatibilityFields() {
+        let store = PublishDraftStore(context: PublishEntryContext(source: .sameCity))
+        let location = PublishLocation(
+            displayName: "梧桐猫舍",
+            poiName: "梧桐猫舍",
+            formattedAddress: "成都市锦江区宠物街 18 号",
+            country: "中国",
+            province: "四川",
+            city: "成都",
+            district: "锦江",
+            latitude: 30.657,
+            longitude: 104.066
+        )
+
+        store.selectPet(id: "pet-1", name: "糯米")
+        store.updateMediaCount(1)
+        store.prepareDraft()
+        XCTAssertEqual(store.phase, .prepared)
+
+        store.selectLocation(location)
+
+        XCTAssertEqual(store.draft.location, location)
+        XCTAssertEqual(store.draft.city, "成都")
+        XCTAssertEqual(store.draft.localEntityName, "梧桐猫舍")
+        XCTAssertNil(store.draft.localEntityID)
+        XCTAssertEqual(store.phase, .idle)
+        XCTAssertNil(store.successMessage)
+    }
 }

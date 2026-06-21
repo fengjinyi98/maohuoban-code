@@ -14,6 +14,7 @@ struct PublishDraft: Equatable, Sendable {
     var city: String?
     var localEntityID: String?
     var localEntityName: String?
+    var location: PublishLocation?
     var topicNames: [String]
     var mediaCount: Int
 
@@ -27,8 +28,37 @@ struct PublishDraft: Equatable, Sendable {
         self.city = context.city
         self.localEntityID = context.localEntityID
         self.localEntityName = context.localEntityName
+        self.location = Self.makeLocation(
+            city: context.city,
+            localEntityName: context.localEntityName
+        )
         self.topicNames = context.seedTopicName.map { [$0] } ?? []
         self.mediaCount = 0
+    }
+
+    private static func makeLocation(
+        city: String?,
+        localEntityName: String?
+    ) -> PublishLocation? {
+        let displayName = [
+            localEntityName,
+            city,
+        ]
+        .compactMap { value in
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed?.isEmpty == false ? trimmed : nil
+        }
+        .first
+
+        guard let displayName else {
+            return nil
+        }
+
+        return PublishLocation(
+            displayName: displayName,
+            poiName: localEntityName,
+            city: city
+        )
     }
 }
 

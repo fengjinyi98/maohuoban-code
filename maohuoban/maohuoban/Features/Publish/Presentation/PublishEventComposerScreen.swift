@@ -30,12 +30,6 @@ struct PublishEventComposerScreen: View {
     // 推荐的常用宠物话题标签
     private let suggestedTags = ["#萌宠日常", "#猫咪成长", "#新手养猫", "#宠物同城", "#铲屎官日常"]
 
-    // 推荐的常用地点
-    private var suggestedLocations: [String] {
-        let city = context.city ?? "同城"
-        return ["\(city)同城", "萌宠公园", "宠物大世界", "爱心宠物医院"]
-    }
-
     init(
         context: PublishEntryContext,
         onPrepared: @escaping () -> Void = {}
@@ -118,31 +112,6 @@ struct PublishEventComposerScreen: View {
                             value: resolvedLocationTitle,
                             action: { activeSheet = .location }
                         )
-
-                        // 推荐地点快捷水平滑动栏 (只有未标记地点时展示，匹配小红书细节)
-                        if resolvedLocationTitle == nil {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: MHBTheme.Spacing.s2) {
-                                    ForEach(suggestedLocations, id: \.self) { locName in
-                                        Button {
-                                            store.selectLocation(city: context.city, localEntityName: locName)
-                                        } label: {
-                                            Text(locName)
-                                                .font(MHBTheme.Typography.caption)
-                                                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                                                .padding(.horizontal, MHBTheme.Spacing.s3)
-                                                .padding(.vertical, 6)
-                                                .background(MHBTheme.ColorToken.separatorSoft.color)
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, MHBTheme.Spacing.s4)
-                            }
-                            .padding(.horizontal, -MHBTheme.Spacing.s4)
-                            .padding(.bottom, MHBTheme.Spacing.s2)
-                        }
 
                         Divider()
                             .background(MHBTheme.ColorToken.separatorSoft.color)
@@ -277,6 +246,10 @@ struct PublishEventComposerScreen: View {
     }
 
     private var resolvedLocationTitle: String? {
+        if let locationName = store.draft.location?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+           !locationName.isEmpty {
+            return locationName
+        }
         if let localEntityName = store.draft.localEntityName, !localEntityName.isEmpty {
             return localEntityName
         }
@@ -305,10 +278,10 @@ struct PublishEventComposerScreen: View {
                 }
             )
         case .location:
-            PublishLocationSelectionSheet(
-                selectedTitle: resolvedLocationTitle,
-                onSelect: { option in
-                    store.selectLocation(city: option.city, localEntityName: option.title)
+            PublishLocationPickerSheet(
+                selectedLocation: store.draft.location,
+                onSelectLocation: store.selectLocation(_:),
+                onDismiss: {
                     activeSheet = nil
                 }
             )
@@ -577,9 +550,9 @@ private enum PublishComposerSheet: String, Identifiable {
 
     var presentationDetents: Set<PresentationDetent> {
         switch self {
-        case .mentionUser:
+        case .location, .mentionUser:
             [.large]
-        case .pet, .location, .visibility, .album:
+        case .pet, .visibility, .album:
             [.medium]
         }
     }

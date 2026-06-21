@@ -52,4 +52,34 @@ final class ProfileBadgeMockDataTests: XCTestCase {
     func testDetailPresentationFeedbackUsesNoticeableImpactIntensity() {
         XCTAssertEqual(ProfileBadgeDetailFeedbackPolicy.presentationFeedbackIntensity, 1.0)
     }
+
+    func testDetailSheetDoesNotPersistFeedbackStateAcrossBadgePresentations() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot().appendingPathComponent(
+                "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeDetailSheet.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(
+            source.contains("didTriggerPresentationFeedback"),
+            "Badge detail sheet must evaluate presentation feedback per appearance instead of persisting a cross-badge trigger flag."
+        )
+    }
+
+    private static func repositoryRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.isEmpty == false {
+            let candidate = url.appendingPathComponent("maohuoban/maohuoban.xcodeproj")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return url
+            }
+            url.deleteLastPathComponent()
+        }
+        throw NSError(
+            domain: "ProfileBadgeMockDataTests",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Unable to locate repository root."]
+        )
+    }
 }

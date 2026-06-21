@@ -11,8 +11,6 @@ struct ProfileBadgeDetailSheet: View {
 
     let badge: ProfileBadge
 
-    @State private var didTriggerPresentationFeedback = false
-
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .center, spacing: badge.isEarned ? MHBTheme.Spacing.s4 : MHBTheme.Spacing.s3) {
@@ -62,11 +60,8 @@ struct ProfileBadgeDetailSheet: View {
     // - 仅在已获得勋章详情出现时触发一次奖励触感
     // - 使用集中策略控制触发条件和反馈强度
     private func triggerPresentationFeedbackIfNeeded() {
-        let shouldTriggerFeedback = ProfileBadgeDetailFeedbackPolicy.shouldTriggerPresentationFeedback(for: badge)
+        guard ProfileBadgeDetailFeedbackPolicy.shouldTriggerPresentationFeedback(for: badge) else { return }
 
-        guard shouldTriggerFeedback, !didTriggerPresentationFeedback else { return }
-
-        didTriggerPresentationFeedback = true
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.prepare()
         generator.impactOccurred(intensity: ProfileBadgeDetailFeedbackPolicy.presentationFeedbackIntensity)
