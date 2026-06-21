@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // ProfileBadgeDetailSheet 勋章详情弹层
@@ -9,6 +10,8 @@ struct ProfileBadgeDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let badge: ProfileBadge
+
+    @State private var didTriggerPresentationFeedback = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -48,7 +51,25 @@ struct ProfileBadgeDetailSheet: View {
             .padding(.bottom, MHBTheme.Spacing.s6)
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
+        .onAppear {
+            triggerPresentationFeedbackIfNeeded()
+        }
         .accessibilityIdentifier("profile.badges.detail")
+    }
+
+    // triggerPresentationFeedbackIfNeeded 触发详情弹层出现反馈
+    // 核心职责：
+    // - 仅在已获得勋章详情出现时触发一次奖励触感
+    // - 使用集中策略控制触发条件和反馈强度
+    private func triggerPresentationFeedbackIfNeeded() {
+        let shouldTriggerFeedback = ProfileBadgeDetailFeedbackPolicy.shouldTriggerPresentationFeedback(for: badge)
+
+        guard shouldTriggerFeedback, !didTriggerPresentationFeedback else { return }
+
+        didTriggerPresentationFeedback = true
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.prepare()
+        generator.impactOccurred(intensity: ProfileBadgeDetailFeedbackPolicy.presentationFeedbackIntensity)
     }
 }
 

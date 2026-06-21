@@ -29,78 +29,95 @@ struct PublishMentionUserSelectionSheet: View {
     private let follows = PublishMentionUserMockOptions.follows
 
     var body: some View {
-        VStack(spacing: 0) {
-            PublishMentionUserSheetHeader(
-                title: "@用户",
-                canConfirm: selectedUserIDs.isEmpty == false,
-                isSearchFocused: isSearchFocused,
-                onCancel: onCancel,
-                onConfirm: {
-                    onConfirm(selectedUsersInDisplayOrder)
-                }
-            )
+        NavigationStack {
+            VStack(spacing: 0) {
+                PublishMentionUserSearchBar(
+                    searchText: $searchText,
+                    isSearchFocused: $isSearchFocused,
+                    onClear: clearSearch,
+                    onCancelSearch: cancelSearch
+                )
 
-            PublishMentionUserSearchBar(
-                searchText: $searchText,
-                isSearchFocused: $isSearchFocused,
-                onClear: clearSearch,
-                onCancelSearch: cancelSearch
-            )
+                Divider()
 
-            Divider()
-
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if isSearchFocused, searchText.isEmpty == false {
-                        ForEach(filteredUsers) { user in
-                            PublishMentionUserSelectorRow(
-                                user: user,
-                                isSelected: selectedUserIDs.contains(user.id),
-                                action: { toggleUserSelection(user.id) }
-                            )
-                        }
-                    } else {
-                        PublishMentionUserGroupHeader(
-                            title: "我的粉丝 (\(fans.count))",
-                            isExpanded: isFansExpanded,
-                            toggleExpansion: toggleFansExpanded,
-                            toggleSelectAll: { toggleSelectAllUsers(in: fans) }
-                        )
-
-                        if isFansExpanded {
-                            ForEach(fans) { user in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if isSearchFocused, searchText.isEmpty == false {
+                            ForEach(filteredUsers) { user in
                                 PublishMentionUserSelectorRow(
                                     user: user,
                                     isSelected: selectedUserIDs.contains(user.id),
                                     action: { toggleUserSelection(user.id) }
                                 )
                             }
-                        }
+                        } else {
+                            PublishMentionUserGroupHeader(
+                                title: "我的粉丝 (\(fans.count))",
+                                isExpanded: isFansExpanded,
+                                toggleExpansion: toggleFansExpanded,
+                                toggleSelectAll: { toggleSelectAllUsers(in: fans) }
+                            )
 
-                        Divider()
-                            .padding(.horizontal, MHBTheme.Spacing.s4)
+                            if isFansExpanded {
+                                ForEach(fans) { user in
+                                    PublishMentionUserSelectorRow(
+                                        user: user,
+                                        isSelected: selectedUserIDs.contains(user.id),
+                                        action: { toggleUserSelection(user.id) }
+                                    )
+                                }
+                            }
 
-                        PublishMentionUserGroupHeader(
-                            title: "关注的人 (\(follows.count))",
-                            isExpanded: isFollowsExpanded,
-                            toggleExpansion: toggleFollowsExpanded,
-                            toggleSelectAll: { toggleSelectAllUsers(in: follows) }
-                        )
+                            Divider()
+                                .padding(.horizontal, MHBTheme.Spacing.s4)
 
-                        if isFollowsExpanded {
-                            ForEach(follows) { user in
-                                PublishMentionUserSelectorRow(
-                                    user: user,
-                                    isSelected: selectedUserIDs.contains(user.id),
-                                    action: { toggleUserSelection(user.id) }
-                                )
+                            PublishMentionUserGroupHeader(
+                                title: "关注的人 (\(follows.count))",
+                                isExpanded: isFollowsExpanded,
+                                toggleExpansion: toggleFollowsExpanded,
+                                toggleSelectAll: { toggleSelectAllUsers(in: follows) }
+                            )
+
+                            if isFollowsExpanded {
+                                ForEach(follows) { user in
+                                    PublishMentionUserSelectorRow(
+                                        user: user,
+                                        isSelected: selectedUserIDs.contains(user.id),
+                                        action: { toggleUserSelection(user.id) }
+                                    )
+                                }
                             }
                         }
                     }
+                    .padding(.bottom, MHBTheme.Spacing.s6)
                 }
-                .padding(.bottom, MHBTheme.Spacing.s6)
+                .scrollIndicators(.hidden)
             }
-            .scrollIndicators(.hidden)
+            .navigationTitle("@用户")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if !isSearchFocused {
+                        Button("取消", action: onCancel)
+                            .font(MHBTheme.Typography.body)
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if !isSearchFocused {
+                        Button("确定") {
+                            onConfirm(selectedUsersInDisplayOrder)
+                        }
+                        .font(MHBTheme.Typography.body.weight(.semibold))
+                        .foregroundStyle(
+                            selectedUserIDs.isEmpty == false
+                                ? MHBTheme.ColorToken.primary.color
+                                : MHBTheme.ColorToken.labelTertiary.color
+                        )
+                        .disabled(selectedUserIDs.isEmpty)
+                    }
+                }
+            }
         }
     }
 
@@ -154,47 +171,7 @@ struct PublishMentionUserSelectionSheet: View {
     }
 }
 
-// PublishMentionUserSheetHeader 提及用户弹层头部
-// 核心职责：
-// - 承载取消、标题和确认动作
-private struct PublishMentionUserSheetHeader: View {
-    let title: String
-    let canConfirm: Bool
-    let isSearchFocused: Bool
-    let onCancel: () -> Void
-    let onConfirm: () -> Void
 
-    var body: some View {
-        HStack {
-            Button("取消", action: onCancel)
-                .font(MHBTheme.Typography.body)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .opacity(isSearchFocused ? 0 : 1)
-                .allowsHitTesting(isSearchFocused == false)
-
-            Spacer()
-
-            Text(title)
-                .font(MHBTheme.Typography.body.weight(.bold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-            Spacer()
-
-            Button("确定", action: onConfirm)
-                .font(MHBTheme.Typography.body.weight(.semibold))
-                .foregroundStyle(
-                    canConfirm
-                        ? MHBTheme.ColorToken.primary.color
-                        : MHBTheme.ColorToken.labelTertiary.color
-                )
-                .opacity(isSearchFocused ? 0 : 1)
-                .allowsHitTesting(isSearchFocused == false && canConfirm)
-        }
-        .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.top, MHBTheme.Spacing.s2)
-        .padding(.bottom, MHBTheme.Spacing.s3)
-    }
-}
 
 // PublishMentionUserSearchBar 提及用户搜索栏
 // 核心职责：
@@ -235,6 +212,7 @@ private struct PublishMentionUserSearchBar: View {
                 .allowsHitTesting(isSearchFocused.wrappedValue)
         }
         .padding(.horizontal, MHBTheme.Spacing.s4)
+        .padding(.top, MHBTheme.Spacing.s2)
         .padding(.bottom, MHBTheme.Spacing.s3)
     }
 }

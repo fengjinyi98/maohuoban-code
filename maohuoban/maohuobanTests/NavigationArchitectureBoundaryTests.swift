@@ -38,6 +38,27 @@ final class NavigationArchitectureBoundaryTests: XCTestCase {
         )
     }
 
+    func testFollowedTopicsScreenUsesSystemLargeNavigationTitle() throws {
+        let repositoryRoot = try Self.repositoryRoot()
+        let sourcePath = repositoryRoot.appendingPathComponent(
+            "maohuoban/maohuoban/Features/Topics/Presentation/TopicFollowedListScreen.swift"
+        )
+        let source = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            source.contains(".navigationTitle(\"我关注的话题\")"),
+            "Followed topics screen must expose the title through the system navigation bar."
+        )
+        XCTAssertTrue(
+            source.contains(".navigationBarTitleDisplayMode(.large)"),
+            "Followed topics screen must use a large title so it collapses into the navigation bar on scroll."
+        )
+        XCTAssertFalse(
+            source.contains(".navigationTitle(\"\")"),
+            "Followed topics screen must not clear the system navigation title."
+        )
+    }
+
     func testInteractivePopGestureRestorerIsOnlyInstalledByRootTabStack() throws {
         let repositoryRoot = try Self.repositoryRoot()
         let allowedRelativePath = "maohuoban/maohuoban/App/Navigation/MHBRootTabStack.swift"

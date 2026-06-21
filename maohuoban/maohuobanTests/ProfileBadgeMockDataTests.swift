@@ -38,4 +38,18 @@ final class ProfileBadgeMockDataTests: XCTestCase {
         XCTAssertEqual(monthlyCaregiver?.progressTarget, 30)
         XCTAssertEqual(monthlyCaregiver?.progressText, "12/30")
     }
+
+    @MainActor
+    func testDetailPresentationFeedbackOnlyTargetsEarnedBadges() throws {
+        let earnedBadge = try XCTUnwrap(ProfileBadge.mockBadges.first { $0.isEarned })
+        let lockedBadge = try XCTUnwrap(ProfileBadge.mockBadges.first { !$0.isEarned })
+
+        XCTAssertTrue(ProfileBadgeDetailFeedbackPolicy.shouldTriggerPresentationFeedback(for: earnedBadge))
+        XCTAssertFalse(ProfileBadgeDetailFeedbackPolicy.shouldTriggerPresentationFeedback(for: lockedBadge))
+    }
+
+    @MainActor
+    func testDetailPresentationFeedbackUsesNoticeableImpactIntensity() {
+        XCTAssertEqual(ProfileBadgeDetailFeedbackPolicy.presentationFeedbackIntensity, 1.0)
+    }
 }

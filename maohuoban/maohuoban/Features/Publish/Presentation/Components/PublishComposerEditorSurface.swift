@@ -25,6 +25,7 @@ struct PublishComposerEditorSurface: View {
     let onAddMedia: () -> Void
     let onInsertTopic: () -> Void
     let onMentionUser: () -> Void
+    let onDismissKeyboard: () -> Void
     let onRemoveMedia: (UUID) -> Void
     let onRemoveArticleImageBlock: (UUID) -> Void
     let onReplaceArticleImageBlock: (UUID) -> Void
@@ -55,7 +56,8 @@ struct PublishComposerEditorSurface: View {
                     canAddMedia: false,
                     onAddMedia: onAddMedia,
                     onInsertTopic: onInsertTopic,
-                    onMentionUser: onMentionUser
+                    onMentionUser: onMentionUser,
+                    onDismissKeyboard: onDismissKeyboard
                 )
                 
             case .richText:
@@ -76,6 +78,7 @@ struct PublishComposerEditorSurface: View {
                     onAddMedia: onAddMedia,
                     onInsertTopic: onInsertTopic,
                     onMentionUser: onMentionUser,
+                    onDismissKeyboard: onDismissKeyboard,
                     onRemoveImageBlock: onRemoveArticleImageBlock,
                     onReplaceImageBlock: onReplaceArticleImageBlock
                 )
@@ -135,6 +138,7 @@ private struct PublishRichTextEditor: View {
     let onAddMedia: () -> Void
     let onInsertTopic: () -> Void
     let onMentionUser: () -> Void
+    let onDismissKeyboard: () -> Void
     let onRemoveImageBlock: (UUID) -> Void
     let onReplaceImageBlock: (UUID) -> Void
 
@@ -180,7 +184,8 @@ private struct PublishRichTextEditor: View {
                 canAddMedia: canAddMore,
                 onAddMedia: onAddMedia,
                 onInsertTopic: onInsertTopic,
-                onMentionUser: onMentionUser
+                onMentionUser: onMentionUser,
+                onDismissKeyboard: onDismissKeyboard
             )
             .padding(.bottom, 12)
         }
@@ -190,12 +195,13 @@ private struct PublishRichTextEditor: View {
 // PublishComposerInlineToolStrip 发布正文快捷工具条
 // 核心职责：
 // - 对齐旧版发布正文区的横向插入工具条
-// - 为图文和画廊正文提供话题与用户提及入口
+// - 为图文和画廊正文提供话题、用户提及和键盘收起入口
 private struct PublishComposerInlineToolStrip: View {
     let canAddMedia: Bool
     let onAddMedia: () -> Void
     let onInsertTopic: () -> Void
     let onMentionUser: () -> Void
+    let onDismissKeyboard: () -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -218,6 +224,10 @@ private struct PublishComposerInlineToolStrip: View {
                     symbol: "@",
                     title: "用户",
                     action: onMentionUser
+                )
+
+                PublishComposerKeyboardDismissButton(
+                    action: onDismissKeyboard
                 )
             }
         }
@@ -280,6 +290,25 @@ private struct PublishComposerInlineToolButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
+    }
+}
+
+// PublishComposerKeyboardDismissButton 发布正文键盘收起按钮
+// 核心职责：
+// - 在正文工具条中提供明确的收起键盘入口
+private struct PublishComposerKeyboardDismissButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "keyboard.chevron.compact.down")
+                .font(MHBTheme.Typography.callout.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 40, height: 36)
+                .background(MHBTheme.ColorToken.separatorSoft.color, in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("收起键盘")
     }
 }
 

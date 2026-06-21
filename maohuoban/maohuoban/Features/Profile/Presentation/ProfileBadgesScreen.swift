@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 import MaohuobanDesignSystem
 
 // ProfileBadgesScreen 我的全部勋章页
@@ -48,12 +47,8 @@ struct ProfileBadgesScreen: View {
 
     // openBadgeDetail 打开勋章详情
     // 核心职责：
-    // - 在用户点击已获得勋章时触发轻量触感
     // - 更新选中勋章并交给 sheet 展示详情
     private func openBadgeDetail(_ badge: ProfileBadge) {
-        if badge.isEarned {
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.78)
-        }
         selectedBadge = badge
     }
 }

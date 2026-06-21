@@ -76,6 +76,7 @@ struct PublishEventComposerScreen: View {
                             onAddMedia: openMediaPicker,
                             onInsertTopic: insertTopic,
                             onMentionUser: openMentionUserPicker,
+                            onDismissKeyboard: dismissKeyboard,
                             onRemoveMedia: removeImage(_:),
                             onRemoveArticleImageBlock: removeArticleImageBlock(_:),
                             onReplaceArticleImageBlock: replaceArticleImageBlock(_:)
@@ -426,6 +427,10 @@ struct PublishEventComposerScreen: View {
 
     private func openMentionUserPicker() {
         activeSheet = .mentionUser
+    }
+
+    private func dismissKeyboard() {
+        MHBKeyboardDismissal.dismissActiveKeyboard()
     }
 
     private func insertMentions(_ users: [PublishMentionUserOption]) {

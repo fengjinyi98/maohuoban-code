@@ -35,8 +35,8 @@ struct TopicFollowedListScreen<DetailRoute: Hashable>: View {
             .padding(.vertical, MHBTheme.Spacing.s4)
         }
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("我关注的话题")
+        .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("topics.followedList")
     }
 }
@@ -112,14 +112,12 @@ private struct TopicFollowedSummaryHeader: View {
     let count: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-            Text("我关注的话题")
-                .font(MHBTheme.Typography.headline)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
+        HStack {
             Text("共 \(count) 个订阅")
                 .font(MHBTheme.Typography.footnote)
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            Spacer(minLength: MHBTheme.Spacing.s3)
         }
         .padding(.top, MHBTheme.Spacing.s2)
     }
