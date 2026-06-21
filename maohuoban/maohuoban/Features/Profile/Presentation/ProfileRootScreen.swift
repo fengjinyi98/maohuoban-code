@@ -29,7 +29,8 @@ struct ProfileRootScreen: View {
             VStack(spacing: MHBTheme.Spacing.s3) {
                 ProfileAccountSummarySection(
                     profile: ProfileAccountSummary.mock,
-                    onOpenPosts: openPosts
+                    onOpenPosts: openPosts,
+                    onOpenFollowing: openFollowing
                 )
 
                 ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
@@ -112,6 +113,8 @@ struct ProfileRootScreen: View {
                 ProfilePostsScreen(
                     interactionStore: feedInteractionStore
                 )
+            case .following:
+                ProfileFollowingScreen()
             case .badges(let selectedBadgeID):
                 ProfileBadgesScreen(
                     badges: ProfileBadge.mockBadges,
@@ -166,5 +169,9 @@ struct ProfileRootScreen: View {
 
     private func openPosts() {
         tabState.appendProfileRoute(.posts)
+    }
+
+    private func openFollowing() {
+        tabState.appendProfileRoute(.following)
     }
 }

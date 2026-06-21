@@ -16,6 +16,7 @@ final class AIAssistantStore {
     var selectedAttachment: AIAssistantSelectedAttachment?
     var selectedAttachmentImage: UIImage?
     var selectedConversationHistoryID: String?
+    var currentConversationTitle: String?
 
     let conversationHistories: [AIAssistantConversationHistory] = [
         AIAssistantConversationHistory(
@@ -105,6 +106,22 @@ final class AIAssistantStore {
         sanitizedDraft.isEmpty == false
     }
 
+    var navigationTitle: String {
+        currentConversationTitle ?? "新对话"
+    }
+
+    var navigationSubtitle: String? {
+        currentConversationTitle == nil ? "内容由毛球 AI 生成" : nil
+    }
+
+    var shouldShowSuggestedPrompts: Bool {
+        messages.isEmpty && currentConversationTitle == nil
+    }
+
+    var conversationHistoryNavigationTitle: String {
+        "\(context.displayPetName)的对话记录"
+    }
+
     func submitDraft() {
         let prompt = sanitizedDraft
         guard prompt.isEmpty == false else {
@@ -147,6 +164,7 @@ final class AIAssistantStore {
 
     func selectConversationHistory(_ history: AIAssistantConversationHistory) {
         selectedConversationHistoryID = history.id
+        currentConversationTitle = history.title
         draftText = ""
         pendingAction = nil
         clearAttachment()
@@ -189,6 +207,10 @@ final class AIAssistantStore {
     }
 
     private func send(_ text: String) {
+        if currentConversationTitle == nil {
+            currentConversationTitle = makeConversationTitle(from: text)
+        }
+
         messages.append(
             AIAssistantMessage(
                 role: .user,
@@ -200,6 +222,15 @@ final class AIAssistantStore {
         let response = responseMessage(for: text)
         messages.append(response.message)
         pendingAction = response.action
+    }
+
+    private func makeConversationTitle(from text: String) -> String {
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.count > 18 else {
+            return title
+        }
+
+        return "\(title.prefix(18))..."
     }
 
     private func responseMessage(for text: String) -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {

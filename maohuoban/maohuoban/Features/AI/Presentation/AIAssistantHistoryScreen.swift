@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct AIAssistantHistoryScreen: View {
     @Environment(\.dismiss) private var dismiss
 
+    let title: String
     let histories: [AIAssistantConversationHistory]
     let selectedHistoryID: String?
     let onSelect: (AIAssistantConversationHistory) -> Void
@@ -39,7 +40,7 @@ struct AIAssistantHistoryScreen: View {
                 }
             }
         }
-        .navigationTitle("对话记录")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ai.assistant.historyScreen")
     }

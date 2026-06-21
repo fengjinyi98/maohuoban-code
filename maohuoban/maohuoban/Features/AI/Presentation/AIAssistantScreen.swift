@@ -68,7 +68,7 @@ struct AIAssistantScreen: View {
         }
         .safeAreaInset(edge: .bottom) {
             AIAssistantComposerBar(
-                prompts: store.suggestedPrompts,
+                prompts: store.shouldShowSuggestedPrompts ? store.suggestedPrompts : [],
                 selectedAttachment: store.selectedAttachment,
                 selectedAttachmentImage: store.selectedAttachmentImage,
                 draftText: $store.draftText,
@@ -91,34 +91,29 @@ struct AIAssistantScreen: View {
                 }
             )
         }
-        .navigationTitle("毛球")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: MHBTheme.Spacing.s3) {
-                    AIAssistantPetAvatar(
-                        avatarURL: store.context.selectedPetAvatarURL,
-                        species: store.context.selectedPetSpecies,
-                        size: 32
-                    )
+            ToolbarItem(placement: .principal) {
+                AIAssistantNavigationTitle(
+                    title: store.navigationTitle,
+                    subtitle: store.navigationSubtitle
+                )
+            }
 
-                    Button {
+            ToolbarItem(placement: .topBarTrailing) {
+                AIAssistantTopBarActions(
+                    avatarURL: store.context.selectedPetAvatarURL,
+                    species: store.context.selectedPetSpecies,
+                    onOpenHistory: {
                         isHistoryScreenPresented = true
-                    } label: {
-                        Image("IconMore")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: MHBTheme.IconSize.medium, height: MHBTheme.IconSize.medium)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .accessibilityLabel("打开对话记录")
-                    .accessibilityIdentifier("ai.assistant.moreButton")
-                }
+                )
             }
         }
         .navigationDestination(isPresented: $isHistoryScreenPresented) {
             AIAssistantHistoryScreen(
+                title: store.conversationHistoryNavigationTitle,
                 histories: store.conversationHistories,
                 selectedHistoryID: store.selectedConversationHistoryID,
                 onSelect: { history in
@@ -201,5 +196,67 @@ struct AIAssistantScreen: View {
     private func presentCameraFailure(_ message: String) {
         cameraFailureMessage = message
         isCameraFailureAlertPresented = true
+    }
+}
+
+// AIAssistantNavigationTitle AI 会话导航标题
+// 核心职责：
+// - 展示新对话或当前会话标题
+// - 仅在无会话标题时展示 AI 生成内容提示
+private struct AIAssistantNavigationTitle: View {
+    let title: String
+    let subtitle: String?
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(MHBTheme.Typography.headline)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .lineLimit(1)
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(MHBTheme.Typography.caption)
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: 190)
+        .accessibilityIdentifier("ai.assistant.navigationTitle")
+    }
+}
+
+// AIAssistantTopBarActions AI 顶部操作区
+// 核心职责：
+// - 展示当前宠物头像作为上下文提示
+// - 将对话记录入口命中区域限制在更多按钮自身
+private struct AIAssistantTopBarActions: View {
+    let avatarURL: String?
+    let species: AIAssistantPetSpecies
+    let onOpenHistory: () -> Void
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s3) {
+            AIAssistantPetAvatar(
+                avatarURL: avatarURL,
+                species: species,
+                size: 32
+            )
+            .allowsHitTesting(false)
+
+            Button(action: onOpenHistory) {
+                Image("IconMore")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: MHBTheme.IconSize.medium, height: MHBTheme.IconSize.medium)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+            .accessibilityLabel("打开对话记录")
+            .accessibilityIdentifier("ai.assistant.moreButton")
+        }
+        .fixedSize()
     }
 }

@@ -74,4 +74,40 @@ final class AIAssistantStoreTests: XCTestCase {
         XCTAssertNil(store.selectedAttachmentImage)
         XCTAssertNil(store.pendingAction)
     }
+
+    @MainActor
+    func testNewConversationShowsDefaultTitleAndSuggestedPrompts() {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(selectedPetName: "雪球")
+        )
+
+        XCTAssertEqual(store.navigationTitle, "新对话")
+        XCTAssertEqual(store.navigationSubtitle, "内容由毛球 AI 生成")
+        XCTAssertTrue(store.shouldShowSuggestedPrompts)
+        XCTAssertEqual(store.conversationHistoryNavigationTitle, "雪球的对话记录")
+    }
+
+    @MainActor
+    func testSelectingHistoryUsesHistoryTitleAndHidesSuggestedPrompts() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let history = store.conversationHistories[0]
+
+        store.selectConversationHistory(history)
+
+        XCTAssertEqual(store.navigationTitle, history.title)
+        XCTAssertNil(store.navigationSubtitle)
+        XCTAssertFalse(store.shouldShowSuggestedPrompts)
+    }
+
+    @MainActor
+    func testSubmittingFirstMessageUsesQuestionAsConversationTitle() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        store.draftText = "下一次疫苗是什么时候？"
+
+        store.submitDraft()
+
+        XCTAssertEqual(store.navigationTitle, "下一次疫苗是什么时候？")
+        XCTAssertNil(store.navigationSubtitle)
+        XCTAssertFalse(store.shouldShowSuggestedPrompts)
+    }
 }

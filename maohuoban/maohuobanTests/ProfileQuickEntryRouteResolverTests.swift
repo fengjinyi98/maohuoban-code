@@ -23,4 +23,13 @@ final class ProfileQuickEntryRouteResolverTests: XCTestCase {
 
         XCTAssertNil(route)
     }
+
+    @MainActor
+    func testFollowingStatRoutesToProfileFollowingScreen() {
+        let stat = ProfileAccountStat(id: "following", value: "41", title: "关注")
+
+        let route = ProfileAccountStatRouteResolver.route(for: stat)
+
+        XCTAssertEqual(route, .following)
+    }
 }

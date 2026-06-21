@@ -8,13 +8,16 @@ import MaohuobanDesignSystem
 struct ProfileAccountSummarySection: View {
     let profile: ProfileAccountSummary
     let onOpenPosts: (() -> Void)?
+    let onOpenFollowing: (() -> Void)?
 
     init(
         profile: ProfileAccountSummary,
-        onOpenPosts: (() -> Void)? = nil
+        onOpenPosts: (() -> Void)? = nil,
+        onOpenFollowing: (() -> Void)? = nil
     ) {
         self.profile = profile
         self.onOpenPosts = onOpenPosts
+        self.onOpenFollowing = onOpenFollowing
     }
 
     var body: some View {
@@ -24,7 +27,8 @@ struct ProfileAccountSummarySection: View {
 
             ProfileAccountStatsCard(
                 stats: profile.stats,
-                onOpenPosts: onOpenPosts
+                onOpenPosts: onOpenPosts,
+                onOpenFollowing: onOpenFollowing
             )
         }
         .accessibilityElement(children: .contain)
@@ -174,13 +178,14 @@ private struct ProfileAccountEntryIcons: View {
 private struct ProfileAccountStatsCard: View {
     let stats: [ProfileAccountStat]
     let onOpenPosts: (() -> Void)?
+    let onOpenFollowing: (() -> Void)?
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
                 ProfileAccountStatColumn(
                     stat: stat,
-                    onTap: stat.isPostsEntry ? onOpenPosts : nil
+                    onTap: action(for: stat)
                 )
 
                 if index < stats.count - 1 {
@@ -196,6 +201,17 @@ private struct ProfileAccountStatsCard: View {
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraExtraLarge, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile.statsCard")
+    }
+
+    private func action(for stat: ProfileAccountStat) -> (() -> Void)? {
+        switch ProfileAccountStatRouteResolver.route(for: stat) {
+        case .posts:
+            onOpenPosts
+        case .following:
+            onOpenFollowing
+        default:
+            nil
+        }
     }
 }
 
@@ -220,7 +236,7 @@ private struct ProfileAccountStatColumn: View {
                     .accessibilityAction {
                         onTap()
                     }
-                    .accessibilityLabel("\(stat.title) \(stat.value)，查看我的动态")
+                    .accessibilityLabel("\(stat.title) \(stat.value)，查看\(stat.title)")
             } else {
                 ProfileAccountStatContent(stat: stat)
                     .frame(maxWidth: .infinity)

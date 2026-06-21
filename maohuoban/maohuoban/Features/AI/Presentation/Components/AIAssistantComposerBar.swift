@@ -19,10 +19,12 @@ struct AIAssistantComposerBar: View {
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {
-            AIAssistantPromptRail(
-                prompts: prompts,
-                onSelect: onSelectPrompt
-            )
+            if prompts.isEmpty == false {
+                AIAssistantPromptRail(
+                    prompts: prompts,
+                    onSelect: onSelectPrompt
+                )
+            }
 
             AIAssistantComposerSurface(
                 selectedAttachment: selectedAttachment,
