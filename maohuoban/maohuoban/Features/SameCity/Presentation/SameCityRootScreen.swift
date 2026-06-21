@@ -6,9 +6,10 @@ import MaohuobanDesignSystem
 // - 作为同城 Tab NavigationStack 的根内容
 // - 在系统 toolbar 中承载城市和搜索入口
 // - 使用与我的关注一致的系统 tabs Picker 承载同城分类
-// - 保持同城 feed 为空并提供底部发布入口
+// - 展示同城商品 Feed 并提供底部发布入口
 struct SameCityRootScreen: View {
     @State private var selectedTab = SameCityRootTab.recommended
+    @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
 
     var body: some View {
         ZStack {
@@ -19,11 +20,19 @@ struct SameCityRootScreen: View {
                 VStack(spacing: MHBTheme.Spacing.s3) {
                     SameCityRootTabPicker(selection: $selectedTab)
 
-                    SameCityEmptyFeedSurface()
+                    if visibleCommodityItems.isEmpty {
+                        SameCityEmptyFeedSurface()
+                    } else {
+                        SameCityCommodityFeedList(
+                            items: visibleCommodityItems,
+                            interactionStore: feedInteractionStore,
+                            onMoreTap: handleCommodityMoreTap(_:)
+                        )
+                    }
                 }
                 .padding(.horizontal, MHBTheme.Spacing.s3)
                 .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s6)
+                .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
             }
         }
         .navigationTitle("")
@@ -56,6 +65,16 @@ struct SameCityRootScreen: View {
             localEntityName: "\(SameCityRootLayout.currentCity)同城"
         )
     }
+
+    private var visibleCommodityItems: [SameCityCommodityFeedItem] {
+        SameCityCommodityMockFeed.items.filter { item in
+            selectedTab.includes(commodityKind: item.kind)
+        }
+    }
+
+    private func handleCommodityMoreTap(_: SameCityCommodityFeedItem) {
+        // 待接入同城商品更多操作。
+    }
 }
 
 // SameCityRootTab 同城首页分类
@@ -78,6 +97,19 @@ private enum SameCityRootTab: CaseIterable, Identifiable, Hashable {
         case .breeding: "活体繁育"
         case .merchants: "附近商家"
         case .missingPets: "寻宠启事"
+        }
+    }
+
+    func includes(commodityKind: SameCityCommodityKind) -> Bool {
+        switch (self, commodityKind) {
+        case (.recommended, _):
+            true
+        case (.adoption, .adoption):
+            true
+        case (.breeding, .breeding):
+            true
+        case (.merchants, _), (.missingPets, _), (.adoption, _), (.breeding, _):
+            false
         }
     }
 }
@@ -154,8 +186,8 @@ private struct SameCityRootTabPicker: View {
 
 // SameCityEmptyFeedSurface 同城空 feed 承载面
 // 核心职责：
-// - 保持同城首版 feed 数据为空
-// - 提供可滚动内容面以配合系统搜索栏边界
+// - 为暂无商品的分类提供稳定占位
+// - 提供可滚动内容面以配合底部发布按钮边界
 private struct SameCityEmptyFeedSurface: View {
     var body: some View {
         Color.clear

@@ -74,24 +74,6 @@ private struct FeedCardNavigationContent: View {
     }
 }
 
-// FeedCardText Feed 卡片正文
-// 核心职责：
-// - 展示图片上方的卡片正文内容
-// - 将正文起点对齐到媒体圆角后的直线区域
-private struct FeedCardText: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.leading, FeedCardMetrics.mediaTextLeadingInset)
-            .padding(.trailing, MHBTheme.Spacing.s2)
-    }
-}
-
 // FeedCardHeader Feed 卡片头部
 // 核心职责：
 // - 展示宠物头像、宠物名称和发帖人时间信息
@@ -105,46 +87,25 @@ private struct FeedCardHeader: View {
     let avatarAssetName: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: FeedCardMetrics.avatarSize, height: FeedCardMetrics.avatarSize)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+        FeedAuthorRow(
+            title: title,
+            subtitle: "by \(authorName) · \(MHBUTCDateDisplayFormatter.localShortText(from: publishedAt))",
+            avatarAssetName: avatarAssetName,
+            badge: recommendationBadge,
+            reservesTrailingButtonSpace: true
+        )
+    }
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1 / 2) {
-                HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
-                    Text(title)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                        .lineLimit(1)
-                        .layoutPriority(1)
-
-                    if showsRecommendationReason {
-                        FeedRecommendationBadge(reason: recommendationReason)
-                    }
-                }
-
-                Text("by \(authorName) · \(publishedAt, format: MHBUTCDateDisplayFormatter.localShortDateTimeStyle())")
-                    .font(MHBTheme.Typography.footnote)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .lineLimit(1)
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: MHBTheme.Spacing.s2)
-
-            Color.clear
-                .frame(
-                    width: FeedCardMetrics.moreButtonHitSize,
-                    height: FeedCardMetrics.moreButtonHitSize
-                )
-                .allowsHitTesting(false)
+    private var recommendationBadge: FeedAuthorBadge? {
+        guard showsRecommendationReason else {
+            return nil
         }
+
+        return FeedAuthorBadge(
+            title: recommendationReason.text,
+            systemImageName: "exclamationmark.circle.fill",
+            style: .subtle
+        )
     }
 }
 
@@ -152,7 +113,7 @@ private struct FeedCardHeader: View {
 // 核心职责：
 // - 在卡片顶层提供稳定的更多操作命中区域
 // - 向列表层上报按钮 frame 作为自定义菜单锚点
-private struct FeedCardMoreButton: View {
+struct FeedCardMoreButton: View {
     let postID: String
     let action: FeedCardTopTrailingAction
     let onTap: () -> Void
@@ -182,27 +143,6 @@ private struct FeedCardMoreButton: View {
     }
 }
 
-// FeedRecommendationBadge Feed 推荐解释标签
-// 核心职责：
-// - 在宠物名称后展示推荐关系短标签
-// - 使用与发帖人时间信息一致的轻量文本样式
-private struct FeedRecommendationBadge: View {
-    let reason: FeedRecommendationReason
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s1) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .imageScale(.small)
-
-            Text(reason.text)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .font(MHBTheme.Typography.footnote)
-        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-    }
-}
-
 // FeedCardMedia Feed 卡片媒体图
 // 核心职责：
 // - 展示参考 HTML 风格的大圆角图片
@@ -211,23 +151,7 @@ private struct FeedCardMedia: View {
     let assetName: String
 
     var body: some View {
-        GeometryReader { proxy in
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .clipped()
-        }
-        .aspectRatio(FeedCardMetrics.mediaAspectRatio, contentMode: .fit)
-        .background(MHBTheme.ColorToken.separatorSoft.color)
-        .clipShape(FeedCardMetrics.mediaShape)
-        .overlay {
-            FeedCardMetrics.mediaShape
-                .strokeBorder(
-                    MHBTheme.ColorToken.labelPrimary.color.opacity(FeedCardMetrics.mediaInnerBorderOpacity),
-                    lineWidth: FeedCardMetrics.mediaInnerBorderWidth
-                )
-        }
+        FeedMediaContainer(assetName: assetName)
     }
 }
 
@@ -235,7 +159,7 @@ private struct FeedCardMedia: View {
 // 核心职责：
 // - 展示点赞、转发、评论和分享入口
 // - 保持参考 HTML 的轻量低对比图标文本组合
-private struct FeedCardActions: View {
+struct FeedCardActions: View {
     let isLiked: Bool
     let likeCount: Int
     let repostCount: Int
@@ -350,7 +274,7 @@ private struct FeedActionItem: View {
 // 核心职责：
 // - 收敛参考 HTML 转译后的卡片局部尺寸
 // - 让卡片主视图保持渲染职责清晰
-private enum FeedCardMetrics {
+enum FeedCardMetrics {
     static let avatarSize: CGFloat = MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
     static let contentSectionSpacing: CGFloat = (MHBTheme.Spacing.s3 + MHBTheme.Spacing.s1 / 2) / 2
     static let mediaAspectRatio: CGFloat = 1.04

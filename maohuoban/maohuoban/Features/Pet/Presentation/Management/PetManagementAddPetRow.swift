@@ -10,22 +10,23 @@ struct PetManagementAddPetRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: MHBTheme.Spacing.s4) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
                 Image(systemName: "plus")
                     .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .frame(width: 50, height: 50)
+                    .frame(width: 48, height: 48)
                     .background(MHBTheme.ColorToken.labelQuaternary.color.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
 
                 Text("添加新宠物")
-                    .font(MHBTheme.Typography.headline)
+                    .font(MHBTheme.Typography.body)
+                    .fontWeight(.semibold)
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
                 Spacer(minLength: MHBTheme.Spacing.s2)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.vertical, MHBTheme.Spacing.s6)
+            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.vertical, MHBTheme.Spacing.s3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background(MHBTheme.ColorToken.cardSolid.color)

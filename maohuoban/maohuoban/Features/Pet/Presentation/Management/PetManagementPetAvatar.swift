@@ -10,8 +10,8 @@ struct PetManagementPetAvatar: View {
     let avatarURL: String?
     let species: PetProfileEditProfile.Species
 
-    private let size: CGFloat = 60
-    private let cornerRadius: CGFloat = 18
+    private let size: CGFloat = 48
+    private let cornerRadius: CGFloat = MHBTheme.Radius.medium
  
     var body: some View {
         ZStack {
@@ -37,7 +37,7 @@ struct PetManagementPetAvatar: View {
 
     private var fallbackAvatar: some View {
         Image(systemName: species.systemImage)
-            .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+            .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
             .foregroundStyle(MHBTheme.ColorToken.primary.color)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(MHBTheme.ColorToken.primaryBackground.color)

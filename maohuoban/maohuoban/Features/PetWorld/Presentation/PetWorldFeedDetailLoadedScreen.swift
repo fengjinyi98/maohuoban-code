@@ -38,107 +38,97 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
                 fallbackComments: detail.comments
             )
 
-            ZStack(alignment: .topLeading) {
-                MHBTheme.ColorToken.background.color
-                    .ignoresSafeArea()
+            ZStack(alignment: .bottom) {
+                ZStack(alignment: .topLeading) {
+                    MHBTheme.ColorToken.background.color
+                        .ignoresSafeArea()
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        if detail.displayMode == .gallery {
-                            PetWorldFeedDetailHeroCarousel(
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            if detail.displayMode == .gallery {
+                                PetWorldFeedDetailHeroCarousel(
+                                    galleryID: imagePreviewGalleryID,
+                                    mediaItems: detail.mediaItems,
+                                    selectedIndex: $selectedMediaIndex
+                                )
+                            }
+
+                            PetWorldFeedDetailContent(
                                 galleryID: imagePreviewGalleryID,
-                                mediaItems: detail.mediaItems,
-                                selectedIndex: $selectedMediaIndex
+                                detail: detail,
+                                comments: comments,
+                                showsRecommendationExplanation: !detail.isOwnedByCurrentUser,
+                                topPadding: detailContentTopPadding(
+                                    topSafeArea: geometry.safeAreaInsets.top
+                                ),
+                                topicRoute: topicRoute,
+                                onOpenTopicRoute: onOpenTopicRoute,
+                                onAuthorOffsetChange: updateNavigationAuthorOffset(_:),
+                                onCommentReply: presentReplyComposer(for:),
+                                onCommentToggleLike: handleCommentLike(_:),
+                                onCommentLongPress: presentCommentActionSheet(for:)
+                            )
+                            .padding(
+                                .bottom,
+                                PetWorldFeedDetailLayout.inputBarReservedHeight(
+                                    bottomSafeArea: geometry.safeAreaInsets.bottom
+                                )
                             )
                         }
+                    }
+                    .scrollIndicators(.hidden)
+                    .ignoresSafeArea(edges: .top)
+                    .zIndex(0)
 
-                        PetWorldFeedDetailContent(
-                            galleryID: imagePreviewGalleryID,
-                            detail: detail,
-                            comments: comments,
-                            showsRecommendationExplanation: !detail.isOwnedByCurrentUser,
-                            topPadding: detailContentTopPadding(
-                                topSafeArea: geometry.safeAreaInsets.top
-                            ),
-                            topicRoute: topicRoute,
-                            onOpenTopicRoute: onOpenTopicRoute,
-                            onAuthorOffsetChange: updateNavigationAuthorOffset(_:),
-                            onCommentReply: presentReplyComposer(for:),
-                            onCommentToggleLike: handleCommentLike(_:),
-                            onCommentLongPress: presentCommentActionSheet(for:)
+                    PetWorldFeedDetailHeaderControls(
+                        petName: detail.petName,
+                        petAvatarAssetName: detail.petAvatarAssetName,
+                        authorName: detail.authorName,
+                        isAuthorVisible: isNavigationAuthorVisible,
+                        isAuthorSubtitleVisible: isNavigationAuthorSubtitleVisible,
+                        isOwnedByCurrentUser: detail.isOwnedByCurrentUser,
+                        onBack: {
+                            dismiss()
+                        },
+                        onShare: handleShare,
+                        onReport: handleReport
+                    )
+                    .padding(.top, MHBTheme.Spacing.s1)
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .zIndex(1)
+
+                    if isCommentComposerPresented {
+                        PetWorldFeedDetailCommentInputShield(
+                            onDismiss: dismissCommentComposerFromShield
                         )
-                        .padding(
-                            .bottom,
-                            PetWorldFeedDetailLayout.inputBarReservedHeight(
-                                bottomSafeArea: geometry.safeAreaInsets.bottom
-                            )
+                        .zIndex(1.8)
+                    }
+
+                    MHBKeyboardAccessoryTextViewHost(
+                        isPresented: $isCommentComposerPresented,
+                        text: $draftComment,
+                        placeholder: commentComposerPlaceholderText,
+                        minTextHeight: PetWorldFeedDetailLayout.commentComposerTextMinHeight,
+                        maxTextHeight: commentComposerTextMaxHeight,
+                        onDismiss: handleCommentComposerDismiss
+                    ) {
+                        PetWorldFeedDetailCommentEditorHeader(
+                            currentUserAvatarAssetName: currentUserAvatarAssetName,
+                            titleText: commentComposerTitleText,
+                            onDismiss: dismissCommentComposerFromShield
+                        )
+                    } toolbar: {
+                        PetWorldFeedDetailCommentComposerToolbar(
+                            draftText: draftComment,
+                            onSend: handleCommentSend
                         )
                     }
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
+                    .zIndex(2)
                 }
-                .scrollIndicators(.hidden)
-                .ignoresSafeArea(edges: .top)
-                .zIndex(0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                PetWorldFeedDetailHeaderControls(
-                    petName: detail.petName,
-                    petAvatarAssetName: detail.petAvatarAssetName,
-                    authorName: detail.authorName,
-                    isAuthorVisible: isNavigationAuthorVisible,
-                    isAuthorSubtitleVisible: isNavigationAuthorSubtitleVisible,
-                    isOwnedByCurrentUser: detail.isOwnedByCurrentUser,
-                    onBack: {
-                        dismiss()
-                    },
-                    onShare: handleShare,
-                    onReport: handleReport
-                )
-                .padding(.top, MHBTheme.Spacing.s1)
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .zIndex(1)
-
-                if isCommentComposerPresented {
-                    PetWorldFeedDetailCommentInputShield(
-                        onDismiss: dismissCommentComposerFromShield
-                    )
-                    .zIndex(1.8)
-                }
-
-                MHBKeyboardAccessoryTextViewHost(
-                    isPresented: $isCommentComposerPresented,
-                    text: $draftComment,
-                    placeholder: commentComposerPlaceholderText,
-                    minTextHeight: PetWorldFeedDetailLayout.commentComposerTextMinHeight,
-                    maxTextHeight: commentComposerTextMaxHeight,
-                    onDismiss: handleCommentComposerDismiss
-                ) {
-                    PetWorldFeedDetailCommentEditorHeader(
-                        currentUserAvatarAssetName: currentUserAvatarAssetName,
-                        titleText: commentComposerTitleText,
-                        onDismiss: dismissCommentComposerFromShield
-                    )
-                } toolbar: {
-                    PetWorldFeedDetailCommentComposerToolbar(
-                        draftText: draftComment,
-                        onSend: handleCommentSend
-                    )
-                }
-                .frame(width: 1, height: 1)
-                .allowsHitTesting(false)
-                .zIndex(2)
-
-                if let selectedCommentForActions {
-                    PetWorldFeedDetailCommentActionSheetOverlay(
-                        comment: selectedCommentForActions,
-                        onDismiss: dismissCommentActionSheet,
-                        onReply: replyFromActionSheet,
-                        onCopy: copySelectedComment,
-                        onReport: reportSelectedComment,
-                        onDelete: deleteSelectedComment
-                    )
-                    .zIndex(4)
-                }
-            }
-            .overlay(alignment: .bottom) {
                 PetWorldFeedDetailPreviewAwareBottomBar {
                     PetWorldFeedDetailInputBar(
                         isLiked: interactionState.isLiked,
@@ -154,6 +144,19 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
                 }
                 .allowsHitTesting(!isCommentComposerPresented)
                 .ignoresSafeArea(edges: .bottom)
+                .zIndex(3)
+
+                if let selectedCommentForActions {
+                    PetWorldFeedDetailCommentActionSheetOverlay(
+                        comment: selectedCommentForActions,
+                        onDismiss: dismissCommentActionSheet,
+                        onReply: replyFromActionSheet,
+                        onCopy: copySelectedComment,
+                        onReport: reportSelectedComment,
+                        onDelete: deleteSelectedComment
+                    )
+                    .zIndex(4)
+                }
             }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)

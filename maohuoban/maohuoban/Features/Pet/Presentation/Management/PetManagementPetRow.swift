@@ -19,16 +19,40 @@ struct PetManagementPetRow: View {
                 )
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                    titleRow
+                    HStack(alignment: .center) {
+                        HStack(spacing: MHBTheme.Spacing.s1) {
+                            Text(pet.name)
+                                .font(MHBTheme.Typography.body)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
 
-                    Text("\(pet.breedText) · \(pet.ageText)")
-                        .font(MHBTheme.Typography.footnote)
-                        .fontWeight(.medium)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                            if let systemImage = pet.sex.systemImage {
+                                Image(systemName: systemImage)
+                                    .font(MHBTheme.Typography.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(sexIconColor)
+                            }
+                        }
 
-                    metaRow
+                        Spacer()
+
+                        PetManagementCompanionshipText(days: pet.companionshipDays)
+                    }
+
+                    HStack(alignment: .center) {
+                        Text("\(pet.breedText) · \(pet.ageText)")
+                            .font(MHBTheme.Typography.footnote)
+                            .fontWeight(.medium)
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
+                        Spacer()
+
+                        PetManagementTagStrip(tags: pet.statusTags)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -37,8 +61,8 @@ struct PetManagementPetRow: View {
                     .fontWeight(.medium)
                     .foregroundStyle(MHBTheme.ColorToken.labelQuaternary.color)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.vertical, MHBTheme.Spacing.s4)
+            .padding(.horizontal, MHBTheme.Spacing.s4)
+            .padding(.vertical, MHBTheme.Spacing.s3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background(MHBTheme.ColorToken.cardSolid.color)
@@ -52,38 +76,6 @@ struct PetManagementPetRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(pet.name)，\(pet.breedText)，\(pet.ageText)")
         .accessibilityIdentifier("pet.management.row.\(pet.id)")
-    }
-
-    private var titleRow: some View {
-        HStack(spacing: MHBTheme.Spacing.s2) {
-            Text(pet.name)
-                .font(MHBTheme.Typography.headline)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            if let systemImage = pet.sex.systemImage {
-                Image(systemName: systemImage)
-                    .font(MHBTheme.Typography.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(sexIconColor)
-            }
-        }
-    }
-
-    private var metaRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                PetManagementTagStrip(tags: pet.statusTags)
-                Spacer(minLength: MHBTheme.Spacing.s2)
-                PetManagementCompanionshipText(days: pet.companionshipDays)
-            }
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                PetManagementTagStrip(tags: pet.statusTags)
-                PetManagementCompanionshipText(days: pet.companionshipDays)
-            }
-        }
     }
 
     private var sexIconColor: Color {
