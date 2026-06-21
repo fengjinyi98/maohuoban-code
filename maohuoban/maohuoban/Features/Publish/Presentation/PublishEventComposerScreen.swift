@@ -27,8 +27,12 @@ struct PublishEventComposerScreen: View {
     // 环境 dismissal 用于支持点击“存草稿”时直接关闭发布页面
     @Environment(\.dismiss) private var dismiss
 
-    // 推荐的常用宠物话题标签
-    private let suggestedTags = ["#萌宠日常", "#猫咪成长", "#新手养猫", "#宠物同城", "#铲屎官日常"]
+    // 话题候选策略 发布页话题预选数据
+    // 核心职责：
+    // - 当前前端阶段使用冷启动占位话题，展示基础宠物日常话题
+    // - 后端接入后仅在有活动时展示活动推荐话题，否则优先展示用户上次输入过的话题
+    // - 用户数据积累后由后端替换为基于正文输入和历史行为的智能推荐
+    private let suggestedTags = ["#萌宠日常", "#猫咪日常", "#新手养猫", "#宠物同城", "#铲屎官日常"]
 
     init(
         context: PublishEntryContext,
@@ -76,7 +80,7 @@ struct PublishEventComposerScreen: View {
                             onReplaceArticleImageBlock: replaceArticleImageBlock(_:)
                         )
 
-                        // 推荐话题标签水平滚动栏
+                        // 话题候选水平滚动栏
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: MHBTheme.Spacing.s2) {
                                 ForEach(suggestedTags, id: \.self) { tag in
@@ -106,7 +110,7 @@ struct PublishEventComposerScreen: View {
 
                         // 标记地点
                         PublishConfigurationRow(
-                            iconName: "mappin.and.ellipse",
+                            assetIconName: "IconLocationPin",
                             iconColor: MHBTheme.ColorToken.labelSecondary.color,
                             title: "标记地点",
                             value: resolvedLocationTitle,
@@ -138,12 +142,12 @@ struct PublishEventComposerScreen: View {
                         )
                     }
                 }
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.top, MHBTheme.Spacing.s3)
+                .padding(.bottom, 40 + MHBTheme.Spacing.s2 * 2 + geometry.safeAreaInsets.bottom + MHBTheme.Spacing.s4)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s4)
-            .padding(.top, MHBTheme.Spacing.s3)
-            .padding(.bottom, 40 + MHBTheme.Spacing.s2 * 2 + geometry.safeAreaInsets.bottom + MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
-        .overlay(alignment: .bottom) {
+            .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
+            .overlay(alignment: .bottom) {
             // 底部固定操作栏（小红书同款非对称宽度设计，发动态宽，存草稿窄，和帖子详情页底部操作栏一样贯通至屏幕底部，不单独把安全区域分离）
             HStack(spacing: MHBTheme.Spacing.s3) {
                 Button {
@@ -499,21 +503,58 @@ struct PublishEventComposerScreen: View {
     }
 }
 
+// PublishConfigurationIcon 发布配置行图标来源
+// 核心职责：
+// - 区分系统 SF Symbol 和项目资产图标
+// - 为发布配置行提供统一的图标渲染入口
+private enum PublishConfigurationIcon {
+    case system(String)
+    case asset(String)
+}
+
 // PublishConfigurationRow 小红书风格配置行
+// 核心职责：
+// - 渲染发布页配置入口的图标、标题和值
+// - 承载点击后打开对应配置弹层的入口
 private struct PublishConfigurationRow: View {
-    let iconName: String
+    let icon: PublishConfigurationIcon
     let iconColor: Color
     let title: String
     let value: String?
     let action: () -> Void
 
+    init(
+        iconName: String,
+        iconColor: Color,
+        title: String,
+        value: String?,
+        action: @escaping () -> Void
+    ) {
+        self.icon = .system(iconName)
+        self.iconColor = iconColor
+        self.title = title
+        self.value = value
+        self.action = action
+    }
+
+    init(
+        assetIconName: String,
+        iconColor: Color,
+        title: String,
+        value: String?,
+        action: @escaping () -> Void
+    ) {
+        self.icon = .asset(assetIconName)
+        self.iconColor = iconColor
+        self.title = title
+        self.value = value
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: MHBTheme.Spacing.s3) {
-                Image(systemName: iconName)
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 24, height: 24)
+                PublishConfigurationIconView(icon: icon, color: iconColor)
 
                 Text(title)
                     .font(MHBTheme.Typography.body.weight(.medium))
@@ -535,6 +576,34 @@ private struct PublishConfigurationRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// PublishConfigurationIconView 发布配置行图标视图
+// 核心职责：
+// - 根据图标来源渲染统一尺寸的行内图标
+// - 保持资产图标和系统图标的主题色一致
+private struct PublishConfigurationIconView: View {
+    let icon: PublishConfigurationIcon
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            switch icon {
+            case .system(let name):
+                Image(systemName: name)
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(color)
+            case .asset(let name):
+                Image(name)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(color)
+                    .frame(width: MHBTheme.IconSize.small, height: MHBTheme.IconSize.small)
+            }
+        }
+        .frame(width: 24, height: 24)
     }
 }
 
