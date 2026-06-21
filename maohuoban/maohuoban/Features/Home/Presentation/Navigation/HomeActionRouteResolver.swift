@@ -7,17 +7,20 @@ import Foundation
 struct HomeActionRoutingContext: Equatable {
     let selectedPetID: String?
     let selectedPetName: String?
+    let selectedPetSex: PetRecordPetSex
     let merchantID: String?
     let city: String?
 
     init(
         selectedPetID: String? = nil,
         selectedPetName: String? = nil,
+        selectedPetSex: PetRecordPetSex = .unknown,
         merchantID: String? = nil,
         city: String? = nil
     ) {
         self.selectedPetID = selectedPetID
         self.selectedPetName = selectedPetName
+        self.selectedPetSex = selectedPetSex
         self.merchantID = merchantID
         self.city = city
     }
@@ -25,8 +28,22 @@ struct HomeActionRoutingContext: Equatable {
     init(snapshot: HomeDashboardSnapshot) {
         self.selectedPetID = snapshot.selectedPet?.id
         self.selectedPetName = snapshot.selectedPet?.name
+        self.selectedPetSex = PetRecordPetSex(homeDashboardSex: snapshot.selectedPet?.sex)
         self.merchantID = snapshot.merchantDashboard?.merchantID
         self.city = snapshot.identity.city
+    }
+}
+
+private extension PetRecordPetSex {
+    init(homeDashboardSex: HomeDashboardSnapshot.Sex?) {
+        switch homeDashboardSex {
+        case .female:
+            self = .female
+        case .male:
+            self = .male
+        case .unknown, nil:
+            self = .unknown
+        }
     }
 }
 
@@ -44,15 +61,26 @@ enum HomeActionRouteResolver {
             return .createPet
         case .dailyRecord:
             return .recordDaily(
-                PublishEntryContext(
-                    source: .home,
-                    selectedPetID: context.selectedPetID,
-                    selectedPetName: context.selectedPetName,
-                    city: context.city
+                PetDailyRecordEntryContext(
+                    recordContext: PetRecordEntryContext(
+                        petID: context.selectedPetID,
+                        petSex: context.selectedPetSex
+                    ),
+                    publishContext: PublishEntryContext(
+                        source: .home,
+                        selectedPetID: context.selectedPetID,
+                        selectedPetName: context.selectedPetName,
+                        city: context.city
+                    )
                 )
             )
         case .healthRecord:
-            return .recordHealth(petID: context.selectedPetID)
+            return .recordHealth(
+                PetRecordEntryContext(
+                    petID: context.selectedPetID,
+                    petSex: context.selectedPetSex
+                )
+            )
         case .bookHospital:
             return .bookHospital(petID: context.selectedPetID, city: context.city)
         case .importTradePet:

@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 通过 PetWriteStore 调用宠物事件追加接口
 struct PetEventRecordScreen: View {
     let petID: String?
+    let petSex: PetRecordPetSex
     let currentUserID: String?
     let mode: PetEventRecordMode
     let onRecordAndPublish: () -> Void
@@ -36,12 +37,14 @@ struct PetEventRecordScreen: View {
 
     init(
         petID: String?,
+        petSex: PetRecordPetSex = .unknown,
         currentUserID: String?,
         mode: PetEventRecordMode,
         onRecordAndPublish: @escaping () -> Void = {},
         onRecorded: @escaping () -> Void
     ) {
         self.petID = petID
+        self.petSex = petSex
         self.currentUserID = currentUserID
         self.mode = mode
         self.onRecordAndPublish = onRecordAndPublish
@@ -106,6 +109,7 @@ struct PetEventRecordScreen: View {
         case .daily:
             PetDailyRecordContent(
                 petID: petID,
+                petSex: petSex,
                 occurredAt: $occurredAt,
                 energy: $dailyEnergy,
                 didFeed: $dailyDidFeed,
@@ -120,6 +124,7 @@ struct PetEventRecordScreen: View {
         case .health:
             PetHealthRecordContent(
                 petID: petID,
+                petSex: petSex,
                 selectedType: $selectedHealthType,
                 occurredAt: $occurredAt,
                 weightText: $healthWeightText,

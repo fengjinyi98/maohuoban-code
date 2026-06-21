@@ -24,7 +24,7 @@ final class HomeActionRouteResolverTests: XCTestCase {
     }
 
     @MainActor
-    func testHealthRecordActionCarriesCurrentPetID() {
+    func testHealthRecordActionCarriesCurrentPetContext() {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
         let action = HomeDashboardSnapshot.Action(
             kind: .healthRecord,
@@ -37,7 +37,15 @@ final class HomeActionRouteResolverTests: XCTestCase {
             context: HomeActionRoutingContext(snapshot: snapshot)
         )
 
-        XCTAssertEqual(route, .recordHealth(petID: "pet-1"))
+        XCTAssertEqual(
+            route,
+            .recordHealth(
+                PetRecordEntryContext(
+                    petID: "pet-1",
+                    petSex: .female
+                )
+            )
+        )
     }
 
     @MainActor
@@ -57,10 +65,16 @@ final class HomeActionRouteResolverTests: XCTestCase {
         XCTAssertEqual(
             route,
             .recordDaily(
-                PublishEntryContext(
-                    source: .home,
-                    selectedPetID: "pet-1",
-                    selectedPetName: "糯米"
+                PetDailyRecordEntryContext(
+                    recordContext: PetRecordEntryContext(
+                        petID: "pet-1",
+                        petSex: .female
+                    ),
+                    publishContext: PublishEntryContext(
+                        source: .home,
+                        selectedPetID: "pet-1",
+                        selectedPetName: "糯米"
+                    )
                 )
             )
         )

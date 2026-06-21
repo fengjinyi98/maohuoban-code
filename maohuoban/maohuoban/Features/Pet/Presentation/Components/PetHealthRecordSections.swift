@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 通过窄 Binding 将用户输入回传给提交层
 struct PetHealthRecordContent: View {
     let petID: String?
+    let petSex: PetRecordPetSex
     @Binding var selectedType: PetHealthRecordType
     @Binding var occurredAt: Date
     @Binding var weightText: String
@@ -19,7 +20,11 @@ struct PetHealthRecordContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-            PetHealthPetIdentityCard(petID: petID)
+            PetRecordPetIdentityCard(
+                petID: petID,
+                petSex: petSex,
+                description: "正在为它添加健康记录"
+            )
             PetHealthTypeGrid(selectedType: $selectedType)
             PetHealthCoreFormSection(
                 selectedType: selectedType,
@@ -38,50 +43,6 @@ struct PetHealthRecordContent: View {
                 reminderDate: $reminderDate
             )
             PetHealthTrustHint()
-        }
-    }
-}
-
-// PetHealthPetIdentityCard 宠物身份卡
-// 核心职责：
-// - 展示当前记录绑定到宠物上下文
-// - 在缺少宠物时给出明确阻断状态
-private struct PetHealthPetIdentityCard: View {
-    let petID: String?
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Image(systemName: petID == nil ? "pawprint.circle" : "pawprint.fill")
-                .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-                .foregroundStyle(healthAccentColor)
-                .frame(width: 44, height: 44)
-                .background(healthAccentColor.opacity(0.12), in: .rect(cornerRadius: MHBTheme.Radius.large))
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                Text(petID == nil ? "未选择宠物" : "当前宠物")
-                    .font(MHBTheme.Typography.headline)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                Text(petID == nil ? "请先创建或选择一只宠物" : "正在为它添加健康记录")
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-            }
-
-            Spacer(minLength: MHBTheme.Spacing.s2)
-
-            // 右侧切换图标 (圆形白底微阴影)
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(width: 32, height: 32)
-                .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
-                .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.06), radius: 4, x: 0, y: 2)
-        }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.background.color) // 使用灰色背景使白底圆按钮更显着
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
         }
     }
 }
