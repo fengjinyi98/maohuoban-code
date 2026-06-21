@@ -47,8 +47,11 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
     assert_eq!(dashboard_body["data"]["selected_pet"]["name"], "糯米");
     assert_eq!(dashboard_body["data"]["selected_pet"]["id"], pet_id);
     assert_eq!(
-        dashboard_body["data"]["quick_actions"][0]["kind"],
-        "daily_record"
+        dashboard_body["data"]["quick_actions"]
+            .as_array()
+            .expect("quick actions array")
+            .len(),
+        0
     );
     assert_eq!(
         dashboard_body["data"]["recent_timeline"][0]["title"],

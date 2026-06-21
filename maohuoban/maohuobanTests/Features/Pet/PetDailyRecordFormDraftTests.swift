@@ -15,7 +15,6 @@ final class PetDailyRecordFormDraftTests: XCTestCase {
             didCleanPoop: true,
             poopStatus: .healthy,
             didAddWater: true,
-            didWalk: false,
             didBath: true,
             note: "晚上食欲稳定"
         )

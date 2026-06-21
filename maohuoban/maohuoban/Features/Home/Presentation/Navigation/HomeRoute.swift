@@ -11,6 +11,7 @@ enum HomeRoute: Hashable {
     case publishEvent(PublishEntryContext)
     case editPetProfile(PetProfileEditContext)
     case recordDaily(PetDailyRecordEntryContext)
+    case recordWalk(PetRecordEntryContext)
     case recordHealth(PetRecordEntryContext)
     case bookHospital(petID: String?, city: String?)
     case importTradePet
@@ -33,6 +34,7 @@ extension HomeRoute {
         case .publishEvent: "photo.on.rectangle.angled"
         case .editPetProfile: "pencil.circle.fill"
         case .recordDaily: "square.and.pencil"
+        case .recordWalk: "figure.walk"
         case .recordHealth: "cross.case.fill"
         case .bookHospital: "stethoscope"
         case .importTradePet: "tray.and.arrow.down.fill"
@@ -55,6 +57,7 @@ extension HomeRoute {
         case .publishEvent: "发布动态"
         case .editPetProfile: "编辑档案"
         case .recordDaily: "记录日常"
+        case .recordWalk: "遛弯"
         case .recordHealth: "健康记录"
         case .bookHospital: "预约医院"
         case .importTradePet: "导入交易宠物"
@@ -77,6 +80,7 @@ extension HomeRoute {
         case .publishEvent: "记录一次带图片和正文的宠物事件"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"
         case .recordDaily: "为当前宠物补充一条日常事件"
+        case .recordWalk: "记录当前宠物的一次户外遛弯"
         case .recordHealth: "记录体重、疫苗、驱虫或就诊信息"
         case .bookHospital: "进入同城医院预约协作"
         case .importTradePet: "把交易履约宠物导入档案"

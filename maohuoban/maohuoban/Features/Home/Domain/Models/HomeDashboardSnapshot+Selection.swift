@@ -6,6 +6,35 @@ private extension Array {
     }
 }
 
+private extension Array where Element == HomeDashboardSnapshot.Action {
+    func resolvedQuickActions(
+        for identityKind: HomeDashboardSnapshot.IdentityKind,
+        fallback: [HomeDashboardSnapshot.Action]
+    ) -> [HomeDashboardSnapshot.Action] {
+        let clientActions = HomeDashboardSnapshot.Action.clientOwnedQuickActions(for: identityKind)
+        guard clientActions.isEmpty else {
+            return appendingServerOnlyActions(after: clientActions)
+        }
+
+        return isEmpty ? fallback : self
+    }
+
+    func appendingServerOnlyActions(
+        after clientActions: [HomeDashboardSnapshot.Action]
+    ) -> [HomeDashboardSnapshot.Action] {
+        guard clientActions.isEmpty == false else {
+            return self
+        }
+
+        let clientKinds = clientActions.map(\.kind)
+        let serverOnlyActions = filter { action in
+            !clientKinds.contains(action.kind)
+        }
+
+        return clientActions + serverOnlyActions
+    }
+}
+
 extension HomeDashboardSnapshot {
     // supplementingMissingSections 合并首页缺省展示模块
     // 核心职责：
@@ -18,7 +47,10 @@ extension HomeDashboardSnapshot {
             petSwitcher: petSwitcher,
             careSummary: careSummary ?? fallback.careSummary,
             reminders: reminders.isEmpty ? fallback.reminders : reminders,
-            quickActions: quickActions.isEmpty ? fallback.quickActions : quickActions,
+            quickActions: quickActions.resolvedQuickActions(
+                for: identity.kind,
+                fallback: fallback.quickActions
+            ),
             partnerRecommendation: partnerRecommendation ?? fallback.partnerRecommendation,
             recentTimeline: recentTimeline.isEmpty ? fallback.recentTimeline : recentTimeline,
             merchantDashboard: merchantDashboard,
@@ -29,6 +61,67 @@ extension HomeDashboardSnapshot {
         )
     }
 
+    // resolvingClientOwnedQuickActions 解析客户端自有快捷入口
+    // 核心职责：
+    // - 让基础功能入口脱离后端 quick_actions 控制
+    // - 保留后端后续可能追加的非基础业务入口
+    func resolvingClientOwnedQuickActions() -> HomeDashboardSnapshot {
+        HomeDashboardSnapshot(
+            identity: identity,
+            selectedPet: selectedPet,
+            petSwitcher: petSwitcher,
+            careSummary: careSummary,
+            reminders: reminders,
+            quickActions: quickActions.resolvedQuickActions(
+                for: identity.kind,
+                fallback: []
+            ),
+            partnerRecommendation: partnerRecommendation,
+            recentTimeline: recentTimeline,
+            merchantDashboard: merchantDashboard,
+            emptyState: emptyState,
+            recommendedContent: recommendedContent,
+            petAlbums: petAlbums,
+            galleryAlbums: galleryAlbums
+        )
+    }
+}
+
+private extension HomeDashboardSnapshot.Action {
+    static func clientOwnedQuickActions(
+        for identityKind: HomeDashboardSnapshot.IdentityKind
+    ) -> [HomeDashboardSnapshot.Action] {
+        switch identityKind {
+        case .petOwner:
+            [
+                HomeDashboardSnapshot.Action(
+                    kind: .dailyRecord,
+                    title: "记录日常",
+                    subtitle: "饮食、情绪、排便"
+                ),
+                HomeDashboardSnapshot.Action(
+                    kind: .walk,
+                    title: "遛弯",
+                    subtitle: "户外活动记录"
+                ),
+                HomeDashboardSnapshot.Action(
+                    kind: .healthRecord,
+                    title: "健康记录",
+                    subtitle: "疫苗、驱虫、体检"
+                ),
+                HomeDashboardSnapshot.Action(
+                    kind: .bookHospital,
+                    title: "预约医院",
+                    subtitle: "同城服务协同"
+                )
+            ]
+        case .newUser, .familyCaretaker, .certifiedMerchant, .unverifiedMerchant:
+            []
+        }
+    }
+}
+
+extension HomeDashboardSnapshot {
     // optimisticSelectingPet 构造宠物切换的乐观首页快照
     // 核心职责：
     // - 在后端新快照返回前立即更新选中宠物入口

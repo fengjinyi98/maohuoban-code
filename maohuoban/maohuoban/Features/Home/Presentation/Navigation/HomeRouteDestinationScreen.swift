@@ -59,6 +59,13 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
+        case .recordWalk:
+            MHBTabPlaceholderRootScreen(
+                systemImage: route.systemImage,
+                title: route.title,
+                subtitle: route.subtitle,
+                accessibilityIdentifier: "home.routeDestination"
+            )
         case .merchantPets(let merchantID, let status):
             if let status = MerchantPetStatus(rawValue: status) {
                 MerchantPetsScreen(

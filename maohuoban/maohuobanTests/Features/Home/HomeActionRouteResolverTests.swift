@@ -81,6 +81,31 @@ final class HomeActionRouteResolverTests: XCTestCase {
     }
 
     @MainActor
+    func testWalkActionRoutesToIndependentWalkFlow() {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let action = HomeDashboardSnapshot.Action(
+            kind: .walk,
+            title: "遛弯",
+            subtitle: nil
+        )
+
+        let route = HomeActionRouteResolver.route(
+            for: action,
+            context: HomeActionRoutingContext(snapshot: snapshot)
+        )
+
+        XCTAssertEqual(
+            route,
+            .recordWalk(
+                PetRecordEntryContext(
+                    petID: "pet-1",
+                    petSex: .female
+                )
+            )
+        )
+    }
+
+    @MainActor
     func testMerchantActionCarriesMerchantID() {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(merchantID: "merchant-1")
         let action = HomeDashboardSnapshot.Action(

@@ -174,4 +174,53 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertFalse(supplementedNewUser.petAlbums?.isEmpty ?? true)
         XCTAssertFalse(supplementedNewUser.galleryAlbums?.isEmpty ?? true)
     }
+
+    func testPetOwnerQuickActionsUseClientOwnedBaseEntries() {
+        let backendSnapshot = HomeDashboardSnapshot(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .petOwner,
+                displayName: "真实用户",
+                city: nil,
+                verificationBadge: nil
+            ),
+            selectedPet: nil,
+            petSwitcher: [],
+            careSummary: nil,
+            reminders: [],
+            quickActions: [
+                HomeDashboardSnapshot.Action(
+                    kind: .dailyRecord,
+                    title: "记录日常",
+                    subtitle: nil
+                ),
+                HomeDashboardSnapshot.Action(
+                    kind: .healthRecord,
+                    title: "健康记录",
+                    subtitle: nil
+                ),
+                HomeDashboardSnapshot.Action(
+                    kind: .bookHospital,
+                    title: "预约医院",
+                    subtitle: nil
+                )
+            ],
+            partnerRecommendation: nil,
+            recentTimeline: [],
+            merchantDashboard: nil,
+            emptyState: nil,
+            recommendedContent: []
+        )
+        let mockSnapshot = HomeMockDashboardFixtures.snapshot(
+            scenario: .petOwner,
+            selectedPetID: nil
+        )
+
+        let supplemented = backendSnapshot.supplementingMissingSections(from: mockSnapshot)
+
+        XCTAssertEqual(
+            supplemented.quickActions.map(\.kind),
+            [.dailyRecord, .walk, .healthRecord, .bookHospital]
+        )
+        XCTAssertFalse(supplemented.quickActions.map(\.kind).contains(.importTradePet))
+    }
 }

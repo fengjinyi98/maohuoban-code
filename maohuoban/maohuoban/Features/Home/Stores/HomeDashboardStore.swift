@@ -69,7 +69,7 @@ final class HomeDashboardStore {
             activeLoadContext = nil
             loadedContext = context
             failedContext = nil
-            phase = .loaded(snapshot)
+            phase = .loaded(snapshot.resolvingClientOwnedQuickActions())
         } catch {
             guard isLatestDashboardRequest(requestID) else {
                 return
@@ -117,7 +117,7 @@ final class HomeDashboardStore {
             activeLoadContext = nil
             loadedContext = context
             failedContext = nil
-            phase = .loaded(snapshot)
+            phase = .loaded(snapshot.resolvingClientOwnedQuickActions())
         } catch {
             guard isLatestDashboardRequest(requestID) else {
                 return

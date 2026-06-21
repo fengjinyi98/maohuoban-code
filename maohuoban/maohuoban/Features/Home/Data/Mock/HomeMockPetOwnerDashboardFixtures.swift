@@ -218,6 +218,11 @@ extension HomeMockDashboardFixtures {
                 subtitle: "饮食、情绪、排便"
             ),
             HomeDashboardSnapshot.Action(
+                kind: .walk,
+                title: "遛弯",
+                subtitle: "户外活动记录"
+            ),
+            HomeDashboardSnapshot.Action(
                 kind: .healthRecord,
                 title: "健康记录",
                 subtitle: "疫苗、驱虫、体检"
@@ -226,11 +231,6 @@ extension HomeMockDashboardFixtures {
                 kind: .bookHospital,
                 title: "预约医院",
                 subtitle: "同城服务协同"
-            ),
-            HomeDashboardSnapshot.Action(
-                kind: .importTradePet,
-                title: "导入交易",
-                subtitle: "沉淀履约档案"
             )
         ]
     }

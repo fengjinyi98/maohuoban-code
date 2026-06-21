@@ -15,7 +15,6 @@ struct PetDailyRecordContent: View {
     @Binding var didCleanPoop: Bool
     @Binding var poopStatus: PetDailyRecordPoopStatus
     @Binding var didAddWater: Bool
-    @Binding var didWalk: Bool
     @Binding var didBath: Bool
     @Binding var note: String
 
@@ -35,7 +34,6 @@ struct PetDailyRecordContent: View {
                 didAddWater: $didAddWater
             )
             PetDailyExerciseCareSection(
-                didWalk: $didWalk,
                 didBath: $didBath
             )
             PetDailyNoteSection(note: $note)
@@ -99,21 +97,14 @@ private struct PetDailyMealCareSection: View {
 
 // PetDailyExerciseCareSection 运动护理记录区
 // 核心职责：
-// - 收集外出和清洁类日常动作
+// - 收集清洁类日常动作
 // - 维持与健康记录详情表单一致的卡片行布局
 private struct PetDailyExerciseCareSection: View {
-    @Binding var didWalk: Bool
     @Binding var didBath: Bool
 
     var body: some View {
         PetDailyChecklistSection(title: "运动与护理") {
             PetHealthFormCard {
-                PetDailyCheckItem(
-                    title: "户外遛弯",
-                    systemImage: "figure.walk",
-                    isOn: $didWalk
-                )
-                PetHealthDivider()
                 PetDailyCheckItem(
                     title: "洗澡清洁",
                     systemImage: "shower.fill",

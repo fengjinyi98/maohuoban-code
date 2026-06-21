@@ -81,6 +81,13 @@ enum HomeActionRouteResolver {
                     petSex: context.selectedPetSex
                 )
             )
+        case .walk:
+            return .recordWalk(
+                PetRecordEntryContext(
+                    petID: context.selectedPetID,
+                    petSex: context.selectedPetSex
+                )
+            )
         case .bookHospital:
             return .bookHospital(petID: context.selectedPetID, city: context.city)
         case .importTradePet:

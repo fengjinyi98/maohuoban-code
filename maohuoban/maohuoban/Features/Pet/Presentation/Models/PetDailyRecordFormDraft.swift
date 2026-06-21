@@ -53,7 +53,6 @@ struct PetDailyRecordFormDraft: Equatable {
     let didCleanPoop: Bool
     let poopStatus: PetDailyRecordPoopStatus
     let didAddWater: Bool
-    let didWalk: Bool
     let didBath: Bool
     let note: String
 
@@ -78,9 +77,6 @@ struct PetDailyRecordFormDraft: Equatable {
         }
         if didAddWater {
             lines.append("补充水分")
-        }
-        if didWalk {
-            lines.append("户外遛弯")
         }
         if didBath {
             lines.append("洗澡清洁")

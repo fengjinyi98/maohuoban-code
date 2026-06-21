@@ -135,6 +135,7 @@ private enum HomeQuickActionIcon {
         switch kind {
         case .createPet: "plus.circle.fill"
         case .dailyRecord: "square.and.pencil"
+        case .walk: "figure.walk"
         case .healthRecord: "cross.case.fill"
         case .bookHospital: "stethoscope"
         case .importTradePet: "tray.and.arrow.down.fill"

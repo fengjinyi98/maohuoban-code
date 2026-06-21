@@ -23,7 +23,6 @@ struct PetEventRecordScreen: View {
     @State private var dailyDidCleanPoop = false
     @State private var dailyPoopStatus = PetDailyRecordPoopStatus.healthy
     @State private var dailyDidAddWater = false
-    @State private var dailyDidWalk = false
     @State private var dailyDidBath = false
     @State private var dailyNote = ""
     @State private var selectedHealthType = PetHealthRecordType.vaccine
@@ -117,7 +116,6 @@ struct PetEventRecordScreen: View {
                 didCleanPoop: $dailyDidCleanPoop,
                 poopStatus: $dailyPoopStatus,
                 didAddWater: $dailyDidAddWater,
-                didWalk: $dailyDidWalk,
                 didBath: $dailyDidBath,
                 note: $dailyNote
             )
@@ -167,7 +165,6 @@ struct PetEventRecordScreen: View {
                 didCleanPoop: dailyDidCleanPoop,
                 poopStatus: dailyPoopStatus,
                 didAddWater: dailyDidAddWater,
-                didWalk: dailyDidWalk,
                 didBath: dailyDidBath,
                 note: dailyNote
             )

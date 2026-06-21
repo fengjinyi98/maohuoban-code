@@ -28,7 +28,7 @@ final class HomeDashboardStoreTests: XCTestCase {
 
         XCTAssertEqual(store.phase, .loading)
         await task.value
-        XCTAssertEqual(store.phase, .loaded(snapshot))
+        XCTAssertEqual(store.phase, .loaded(snapshot.resolvingClientOwnedQuickActions()))
         XCTAssertEqual(repository.receivedUserID, "user-1")
     }
 
@@ -52,7 +52,7 @@ final class HomeDashboardStoreTests: XCTestCase {
 
         XCTAssertEqual(repository.receivedUserID, "user-1")
         XCTAssertEqual(repository.receivedSelectedPetID, "pet-2")
-        XCTAssertEqual(store.phase, .loaded(snapshot))
+        XCTAssertEqual(store.phase, .loaded(snapshot.resolvingClientOwnedQuickActions()))
     }
 
     @MainActor
@@ -96,7 +96,35 @@ final class HomeDashboardStoreTests: XCTestCase {
         await store.load(currentUserID: "user-1")
 
         XCTAssertEqual(repository.requestCount, 1)
-        XCTAssertEqual(store.phase, .loaded(snapshot))
+        XCTAssertEqual(store.phase, .loaded(snapshot.resolvingClientOwnedQuickActions()))
+    }
+
+    @MainActor
+    func testLoadResolvesClientOwnedPetOwnerQuickActions() async {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let repository = DelayedHomeRepository(
+            result: .success(
+                MHBAPIResponse(
+                    success: true,
+                    code: "ok",
+                    message: "首页已加载",
+                    data: snapshot
+                )
+            ),
+            delayMilliseconds: 0
+        )
+        let store = HomeDashboardStore(repository: repository)
+
+        await store.load(currentUserID: "user-1")
+
+        guard case .loaded(let loadedSnapshot) = store.phase else {
+            XCTFail("首页应加载成功")
+            return
+        }
+        XCTAssertEqual(
+            loadedSnapshot.quickActions.map(\.kind),
+            [.dailyRecord, .walk, .healthRecord, .bookHospital]
+        )
     }
 }
 

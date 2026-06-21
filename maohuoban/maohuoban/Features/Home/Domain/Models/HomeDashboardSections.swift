@@ -79,6 +79,7 @@ extension HomeDashboardSnapshot {
         enum Kind: String, Decodable, Equatable {
             case createPet = "create_pet"
             case dailyRecord = "daily_record"
+            case walk
             case healthRecord = "health_record"
             case bookHospital = "book_hospital"
             case importTradePet = "import_trade_pet"
@@ -184,4 +185,3 @@ extension HomeDashboardSnapshot {
         }
     }
 }
-

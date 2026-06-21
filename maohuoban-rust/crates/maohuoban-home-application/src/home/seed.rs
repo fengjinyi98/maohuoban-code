@@ -64,23 +64,7 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
             subtitle: "预计 6 月 16 日提醒".to_owned(),
             due_text: "3 天后".to_owned(),
         }],
-        quick_actions: vec![
-            HomeAction {
-                kind: HomeActionKind::DailyRecord,
-                title: "记录日常".to_owned(),
-                subtitle: Some("为当前宠物记录一次事件".to_owned()),
-            },
-            HomeAction {
-                kind: HomeActionKind::HealthRecord,
-                title: "健康记录".to_owned(),
-                subtitle: Some("体重、疫苗、异常观察".to_owned()),
-            },
-            HomeAction {
-                kind: HomeActionKind::BookHospital,
-                title: "预约医院".to_owned(),
-                subtitle: Some("关联当前宠物".to_owned()),
-            },
-        ],
+        quick_actions: Vec::new(),
         partner_recommendation: Some(PartnerRecommendation {
             pet_id: seed_uuid("1de33bb1-6656-44bb-b805-2172ebd6dd50"),
             pet_name: "奶盖".to_owned(),
