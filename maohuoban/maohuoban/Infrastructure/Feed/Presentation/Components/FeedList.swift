@@ -124,7 +124,10 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
 
     private func toggleMoreMenu(postID: String) {
         withAnimation(.snappy(duration: 0.22)) {
-            presentedMoreMenuPostID = presentedMoreMenuPostID == postID ? nil : postID
+            presentedMoreMenuPostID = FeedMoreMenuPresentationStateResolver.toggledPostID(
+                current: presentedMoreMenuPostID,
+                postID: postID
+            )
         }
     }
 

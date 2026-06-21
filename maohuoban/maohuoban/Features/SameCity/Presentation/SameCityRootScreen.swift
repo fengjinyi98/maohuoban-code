@@ -10,29 +10,64 @@ import MaohuobanDesignSystem
 struct SameCityRootScreen: View {
     @State private var selectedTab = SameCityRootTab.recommended
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
+    @State private var presentedMoreMenuPostID: String?
+    @State private var moreButtonFrames: [String: CGRect] = [:]
 
     var body: some View {
         ZStack {
             MHBTheme.ColorToken.background.color
                 .ignoresSafeArea()
 
-            MHBScreenScrollView(showsIndicators: false) {
-                VStack(spacing: MHBTheme.Spacing.s3) {
-                    SameCityRootTabPicker(selection: $selectedTab)
+            GeometryReader { proxy in
+                ZStack(alignment: .topLeading) {
+                    MHBScreenScrollView(showsIndicators: false) {
+                        VStack(spacing: MHBTheme.Spacing.s3) {
+                            SameCityRootTabPicker(selection: $selectedTab)
 
-                    if visibleCommodityItems.isEmpty {
-                        SameCityEmptyFeedSurface()
-                    } else {
-                        SameCityCommodityFeedList(
-                            items: visibleCommodityItems,
-                            interactionStore: feedInteractionStore,
-                            onMoreTap: handleCommodityMoreTap(_:)
-                        )
+                            if visibleCommodityItems.isEmpty {
+                                SameCityEmptyFeedSurface()
+                            } else {
+                                SameCityCommodityFeedList(
+                                    items: visibleCommodityItems,
+                                    interactionStore: feedInteractionStore,
+                                    onMoreTap: handleCommodityMoreTap(_:)
+                                )
+                            }
+                        }
+                        .padding(.horizontal, MHBTheme.Spacing.s3)
+                        .padding(.top, MHBTheme.Spacing.s3)
+                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
+                    .onPreferenceChange(FeedMoreButtonFramePreferenceKey.self) { frames in
+                        guard let resolvedFrames = FeedMoreButtonFrameStateResolver.resolvedUpdate(
+                            current: moreButtonFrames,
+                            incoming: frames
+                        ) else {
+                            return
+                        }
+
+                        moreButtonFrames = resolvedFrames
+                    }
+                    .onScrollPhaseChange { _, phase in
+                        if phase != .idle {
+                            dismissCommodityMoreMenu()
+                        }
+                    }
+
+                    if presentedMoreMenuPostID != nil {
+                        MHBOutsideTapDismissLayer(onDismiss: dismissCommodityMoreMenu)
+                            .zIndex(1)
+                    }
+
+                    FeedMoreMenuOverlay(
+                        isPresented: presentedMoreMenuPostID != nil,
+                        containerSize: proxy.size,
+                        buttonFrame: presentedMoreMenuButtonFrame,
+                        onAction: handleCommodityMoreMenuAction(_:)
+                    )
+                    .zIndex(2)
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s3)
-                .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                .coordinateSpace(name: FeedCoordinateSpace.name)
             }
         }
         .navigationTitle("")
@@ -72,8 +107,58 @@ struct SameCityRootScreen: View {
         }
     }
 
-    private func handleCommodityMoreTap(_: SameCityCommodityFeedItem) {
-        // 待接入同城商品更多操作。
+    private var presentedMoreMenuButtonFrame: CGRect {
+        guard let presentedMoreMenuPostID else {
+            return .zero
+        }
+
+        return moreButtonFrames[presentedMoreMenuPostID] ?? .zero
+    }
+
+    private func handleCommodityMoreTap(_ item: SameCityCommodityFeedItem) {
+        toggleCommodityMoreMenu(postID: item.feedItem.postID)
+    }
+
+    private func toggleCommodityMoreMenu(postID: String) {
+        withAnimation(.snappy(duration: 0.22)) {
+            presentedMoreMenuPostID = FeedMoreMenuPresentationStateResolver.toggledPostID(
+                current: presentedMoreMenuPostID,
+                postID: postID
+            )
+        }
+    }
+
+    private func dismissCommodityMoreMenu() {
+        guard presentedMoreMenuPostID != nil else {
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            presentedMoreMenuPostID = nil
+        }
+    }
+
+    private func handleCommodityMoreMenuAction(_ action: FeedMoreAction) {
+        guard let postID = presentedMoreMenuPostID else {
+            return
+        }
+
+        dismissCommodityMoreMenu()
+        handleCommodityMoreAction(postID: postID, action: action)
+    }
+
+    private func handleCommodityMoreAction(
+        postID: String,
+        action: FeedMoreAction
+    ) {
+        switch action {
+        case .dislike:
+            break
+        case .report:
+            break
+        case .delete:
+            break
+        }
     }
 }
 
