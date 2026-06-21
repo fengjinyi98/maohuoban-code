@@ -19,17 +19,39 @@ struct PetDailyRecordContent: View {
     @Binding var note: String
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             PetDailyHeaderSection(petID: petID, occurredAt: $occurredAt)
-            PetDailyFlatSection(title: "精神与活力") {
-                PetDailyChipGroup(
-                    options: PetDailyRecordEnergy.allCases,
-                    selection: $energy,
-                    title: \.title
-                )
-            }
-            PetDailyThickDivider()
-            PetDailyFlatSection(title: "饮食与排泄") {
+            PetDailyEnergySection(energy: $energy)
+            PetDailyMealCareSection(
+                didFeed: $didFeed,
+                foodText: $foodText,
+                didCleanPoop: $didCleanPoop,
+                poopStatus: $poopStatus,
+                didAddWater: $didAddWater
+            )
+            PetDailyExerciseCareSection(
+                didWalk: $didWalk,
+                didBath: $didBath
+            )
+            PetDailyNoteSection(note: $note)
+        }
+    }
+}
+
+// PetDailyMealCareSection 饮食排泄记录区
+// 核心职责：
+// - 收集喂食、排泄和补水打卡
+// - 复用健康记录表单卡片和行分割视觉
+private struct PetDailyMealCareSection: View {
+    @Binding var didFeed: Bool
+    @Binding var foodText: String
+    @Binding var didCleanPoop: Bool
+    @Binding var poopStatus: PetDailyRecordPoopStatus
+    @Binding var didAddWater: Bool
+
+    var body: some View {
+        PetDailyChecklistSection(title: "饮食与排泄") {
+            PetHealthFormCard {
                 PetDailyCheckItem(
                     title: "完成喂食",
                     systemImage: "fork.knife",
@@ -42,6 +64,7 @@ struct PetDailyRecordContent: View {
                         prompt: "例如 渴望六种鱼"
                     )
                 }
+                PetHealthDivider()
                 PetDailyCheckItem(
                     title: "清理粪便",
                     systemImage: "trash.fill",
@@ -58,35 +81,41 @@ struct PetDailyRecordContent: View {
                         )
                     }
                 }
+                PetHealthDivider()
                 PetDailyCheckItem(
                     title: "补充水分",
                     systemImage: "drop.fill",
                     isOn: $didAddWater
                 )
             }
-            PetDailyThickDivider()
-            PetDailyFlatSection(title: "运动与护理") {
+        }
+    }
+}
+
+// PetDailyExerciseCareSection 运动护理记录区
+// 核心职责：
+// - 收集外出和清洁类日常动作
+// - 维持与健康记录详情表单一致的卡片行布局
+private struct PetDailyExerciseCareSection: View {
+    @Binding var didWalk: Bool
+    @Binding var didBath: Bool
+
+    var body: some View {
+        PetDailyChecklistSection(title: "运动与护理") {
+            PetHealthFormCard {
                 PetDailyCheckItem(
                     title: "户外遛弯",
                     systemImage: "figure.walk",
                     isOn: $didWalk
                 )
+                PetHealthDivider()
                 PetDailyCheckItem(
                     title: "洗澡清洁",
                     systemImage: "shower.fill",
                     isOn: $didBath
                 )
             }
-            PetDailyThickDivider()
-            PetDailyFlatSection(title: "附加信息") {
-                TextField("添加备注（选填）", text: $note, axis: .vertical)
-                    .lineLimit(4...7)
-                    .font(MHBTheme.Typography.body)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .padding(.vertical, MHBTheme.Spacing.s4)
-            }
         }
-        .background(MHBTheme.ColorToken.cardSolid.color)
     }
 }
 
@@ -99,61 +128,106 @@ private struct PetDailyHeaderSection: View {
     @Binding var occurredAt: Date
 
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                Image(systemName: "pawprint.fill")
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
+                Image(systemName: petID == nil ? "pawprint.circle" : "pawprint.fill")
+                    .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
                     .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                    .frame(width: 32, height: 32)
-                    .background(MHBTheme.ColorToken.primaryBackground.color, in: Circle())
-                Text(petID == nil ? "未选择宠物" : "当前宠物")
-                    .font(MHBTheme.Typography.callout.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            }
-            .padding(.leading, MHBTheme.Spacing.s2)
-            .padding(.trailing, MHBTheme.Spacing.s3)
-            .padding(.vertical, MHBTheme.Spacing.s1)
-            .background(MHBTheme.ColorToken.primaryBackgroundSoft.color, in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-            }
+                    .frame(width: 44, height: 44)
+                    .background(MHBTheme.ColorToken.primary.color.opacity(0.12), in: .rect(cornerRadius: MHBTheme.Radius.large))
 
-            Spacer(minLength: MHBTheme.Spacing.s2)
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text(petID == nil ? "未选择宠物" : "当前宠物")
+                        .font(MHBTheme.Typography.headline)
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    Text(petID == nil ? "请先创建或选择一只宠物" : "正在为它添加日常记录")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                }
+
+                Spacer(minLength: MHBTheme.Spacing.s2)
+
+                Image(systemName: "arrow.left.arrow.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .frame(width: 32, height: 32)
+                    .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
+                    .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.06), radius: 4, x: 0, y: 2)
+            }
 
             DatePicker(
-                "发生时间",
+                "时间",
                 selection: $occurredAt,
                 displayedComponents: [.date, .hourAndMinute]
             )
-            .labelsHidden()
-            .font(MHBTheme.Typography.callout.weight(.semibold))
+            .font(MHBTheme.Typography.callout)
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
         }
-        .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.vertical, MHBTheme.Spacing.s3)
     }
 }
 
-// PetDailyFlatSection 日常记录平铺分组
+// PetDailyEnergySection 日常精神状态区
 // 核心职责：
-// - 提供日常记录页面的无卡片分区
-// - 统一标题、左右留白和内容间距
-private struct PetDailyFlatSection<Content: View>: View {
+// - 展示精神与活力选项
+// - 使用健康记录类型选择区一致的轻量直铺布局
+private struct PetDailyEnergySection: View {
+    @Binding var energy: PetDailyRecordEnergy
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+            Text("精神与活力")
+                .font(MHBTheme.Typography.section)
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .textCase(.uppercase)
+
+            PetDailyChipGroup(
+                options: PetDailyRecordEnergy.allCases,
+                selection: $energy,
+                title: \.title
+            )
+        }
+    }
+}
+
+// PetDailyChecklistSection 日常打卡分组
+// 核心职责：
+// - 提供日常记录卡片上方的分组标题
+// - 保持饮食、运动和备注区与健康记录详情区一致
+private struct PetDailyChecklistSection<Content: View>: View {
     let title: LocalizedStringResource
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
             Text(title)
                 .font(MHBTheme.Typography.section)
                 .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                .padding(.top, MHBTheme.Spacing.s5)
+                .textCase(.uppercase)
 
             content()
-                .padding(.bottom, MHBTheme.Spacing.s5)
         }
-        .padding(.horizontal, MHBTheme.Spacing.s4)
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// PetDailyNoteSection 日常备注区
+// 核心职责：
+// - 收集本次日常记录的补充描述
+// - 以无背景输入区承载可选备注
+private struct PetDailyNoteSection: View {
+    @Binding var note: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+            Text("备注")
+                .font(MHBTheme.Typography.section)
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .textCase(.uppercase)
+
+            TextField("备注", text: $note, prompt: Text("添加备注（选填）"), axis: .vertical)
+                .lineLimit(4...7)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+        }
     }
 }
 
@@ -255,68 +329,6 @@ private struct PetDailyCheckItem<Content: View>: View {
                 .padding(.bottom, MHBTheme.Spacing.s4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
-
-            PetHealthDivider()
-        }
-    }
-}
-
-// PetDailyThickDivider 日常记录分区带
-// 核心职责：
-// - 使用宽分割带表达日常表单区块边界
-// - 避免额外卡片嵌套造成页面拥挤
-private struct PetDailyThickDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(MHBTheme.ColorToken.background.color)
-            .frame(height: MHBTheme.Spacing.s2)
-    }
-}
-
-// PetDailyRecordBottomBar 日常记录底部操作栏
-// 核心职责：
-// - 以一行双按钮承载保存与发布前记录动作
-// - 复用发布页底部操作栏的胶囊按钮和玻璃底栏形态
-struct PetDailyRecordBottomBar: View {
-    let isSubmitting: Bool
-    let onRecordAndPublish: () -> Void
-    let onSave: () -> Void
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Button(action: onRecordAndPublish) {
-                Text("记录并去发布动态")
-                    .font(MHBTheme.Typography.headline)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-                    .background(MHBTheme.ColorToken.cardSolid.color)
-                    .clipShape(Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-                    }
-            }
-            .buttonStyle(.plain)
-            .disabled(isSubmitting)
-            .accessibilityIdentifier("pet.dailyRecord.action.recordAndPublish")
-
-            Button(action: onSave) {
-                Text(isSubmitting ? "保存中" : "保存")
-                    .font(MHBTheme.Typography.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 96)
-                    .frame(height: 40)
-                    .background(
-                        isSubmitting
-                            ? MHBTheme.ColorToken.primary.color.opacity(0.5)
-                            : MHBTheme.ColorToken.primary.color
-                    )
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(isSubmitting)
-            .accessibilityIdentifier("pet.dailyRecord.action.save")
         }
     }
 }

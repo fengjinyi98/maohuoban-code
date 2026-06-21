@@ -50,49 +50,41 @@ struct PetEventRecordScreen: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            MHBScreenScrollView {
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                    PetWriteStatusSection(
-                        phase: store.phase,
-                        successMessage: store.successMessage
-                    )
+        MHBScreenScrollView {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+                PetWriteStatusSection(
+                    phase: store.phase,
+                    successMessage: store.successMessage
+                )
 
-                    if petID == nil {
-                        PetRecordUnavailableSection()
-                    } else {
-                        recordFields
-                    }
-                }
-                .padding(mode == .daily ? 0 : MHBTheme.Spacing.s4)
-                .padding(.bottom, mode == .daily ? dailyBottomPadding(geometry: geometry) : 0)
-            }
-            .overlay(alignment: .bottom) {
-                if mode == .daily {
-                    PetDailyRecordBottomBar(
-                        isSubmitting: store.isSubmitting,
-                        onRecordAndPublish: {
-                            Task { await submit(thenPublish: true) }
-                        },
-                        onSave: {
-                            Task { await submit(thenPublish: false) }
-                        }
-                    )
-                    .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .padding(.top, MHBTheme.Spacing.s2)
-                    .padding(.bottom, MHBTheme.Spacing.s2 + geometry.safeAreaInsets.bottom)
-                    .frame(maxWidth: .infinity)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 0))
-                    .ignoresSafeArea(edges: .bottom)
+                if petID == nil {
+                    PetRecordUnavailableSection()
+                } else {
+                    recordFields
                 }
             }
+            .padding(MHBTheme.Spacing.s4)
         }
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if mode == .health {
-                ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
+                switch mode {
+                case .daily:
+                    Menu {
+                        Button("仅保存记录") {
+                            Task { await submit(thenPublish: false) }
+                        }
+                        Button("记录并去发布动态") {
+                            Task { await submit(thenPublish: true) }
+                        }
+                    } label: {
+                        Text(mode.submitTitle)
+                            .font(MHBTheme.Typography.headline)
+                    }
+                    .disabled(store.isSubmitting || petID == nil)
+                case .health:
                     Button(mode.submitTitle) {
                         Task { await submit(thenPublish: false) }
                     }
@@ -214,9 +206,6 @@ struct PetEventRecordScreen: View {
         return String(format: "%04d-%02d-%02d", year, month, day)
     }
 
-    private func dailyBottomPadding(geometry: GeometryProxy) -> CGFloat {
-        40 + MHBTheme.Spacing.s2 * 2 + geometry.safeAreaInsets.bottom + MHBTheme.Spacing.s4
-    }
 }
 
 // PetEventRecordMode 宠物事件记录模式

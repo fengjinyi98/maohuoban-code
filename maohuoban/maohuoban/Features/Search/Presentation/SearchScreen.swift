@@ -25,7 +25,7 @@ struct SearchScreen: View {
                 MHBScreenScrollView {
                     ZStack(alignment: .top) {
                         MHBOutsideTapDismissLayer {
-                            dismissKeyboard(reason: "blankTap")
+                            dismissKeyboard()
                         }
 
                         VStack(spacing: 0) {
@@ -78,21 +78,13 @@ struct SearchScreen: View {
     }
 
     private func submitSearch() {
-        dismissKeyboard(reason: "submit")
+        dismissKeyboard()
     }
 
-    private func dismissKeyboard(reason: String) {
+    private func dismissKeyboard() {
         keyboardDismissRequestNonce += 1
         isSearchFocused = false
         MHBKeyboardDismissal.dismissActiveKeyboard()
-
-        #if DEBUG
-        print(
-            "[DEBUG:SearchKeyboardDismiss] requested "
-            + "reason=\(reason) "
-            + "nonce=\(keyboardDismissRequestNonce)"
-        )
-        #endif
     }
 
     private func handleScrollPhaseChange(_ phase: ScrollPhase) {
@@ -106,7 +98,7 @@ struct SearchScreen: View {
         }
 
         didRequestDismissDuringScroll = true
-        dismissKeyboard(reason: "scroll")
+        dismissKeyboard()
     }
 }
 
