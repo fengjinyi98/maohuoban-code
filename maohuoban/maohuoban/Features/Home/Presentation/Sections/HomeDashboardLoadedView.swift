@@ -7,7 +7,6 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
-    let onOpenProfile: () -> Void
     let onSelectPet: (String) -> Void
 
     @State private var scrollOffset: CGFloat = 0
@@ -110,9 +109,6 @@ struct HomeDashboardLoadedView: View {
                     HomeImmersiveHeaderControls(
                         selectedPet: snapshot.selectedPet,
                         pets: snapshot.petSwitcher,
-                        avatarURL: snapshot.identity.avatarURL,
-                        displayName: snapshot.identity.displayName,
-                        onOpenProfile: onOpenProfile,
                         onSelectPet: onSelectPet,
                         isPetSwitcherPresented: petSwitcherBinding
                     )

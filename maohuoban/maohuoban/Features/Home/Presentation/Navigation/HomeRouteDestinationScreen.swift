@@ -11,6 +11,8 @@ struct HomeRouteDestinationScreen: View {
 
     var body: some View {
         switch route {
+        case .petAssistant(let context):
+            AIAssistantScreen(context: context)
         case .createPet:
             PetProfileAddScreen(
                 currentUserID: currentUserID,

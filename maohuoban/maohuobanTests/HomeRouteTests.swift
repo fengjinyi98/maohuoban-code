@@ -7,6 +7,25 @@ import XCTest
 // - 防止商家待办入口丢失商家上下文
 final class HomeRouteTests: XCTestCase {
     @MainActor
+    func testPetAssistantRouteCarriesCurrentPetContext() {
+        let route = HomeRoute.petAssistant(
+            AIAssistantEntryContext(
+                selectedPetID: "pet-1",
+                selectedPetName: "糯米"
+            )
+        )
+
+        guard case .petAssistant(let context) = route else {
+            XCTFail("Expected pet assistant route")
+            return
+        }
+
+        XCTAssertEqual(context.selectedPetID, "pet-1")
+        XCTAssertEqual(context.selectedPetName, "糯米")
+        XCTAssertEqual(route.systemImage, "sparkles")
+    }
+
+    @MainActor
     func testBookHospitalRouteCarriesPetAndCityContext() {
         let action = HomeDashboardSnapshot.Action(
             kind: .bookHospital,

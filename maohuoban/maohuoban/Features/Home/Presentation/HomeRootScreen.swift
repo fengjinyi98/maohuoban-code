@@ -7,17 +7,14 @@ import MaohuobanDesignSystem
 // - 后续在此注册 HomeRoute 的 navigationDestination
 struct HomeRootScreen: View {
     let currentUserID: String?
-    let onOpenProfile: () -> Void
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
 
     init(
-        currentUserID: String? = nil,
-        onOpenProfile: @escaping () -> Void = {}
+        currentUserID: String? = nil
     ) {
         self.currentUserID = currentUserID
-        self.onOpenProfile = onOpenProfile
     }
 
     var body: some View {
@@ -28,7 +25,6 @@ struct HomeRootScreen: View {
             case .loaded(let snapshot):
                 HomeDashboardLoadedView(
                     snapshot: snapshot,
-                    onOpenProfile: onOpenProfile,
                     onSelectPet: { petID in
                         selectedPetID = petID
                         Task {

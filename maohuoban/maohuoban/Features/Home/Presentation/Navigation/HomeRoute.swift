@@ -6,6 +6,7 @@ import Foundation
 // - 关联值携带目标页面所需的最小参数
 // - 后续随首页功能迭代扩展 case
 enum HomeRoute: Hashable {
+    case petAssistant(AIAssistantEntryContext)
     case createPet
     case publishEvent(PublishEntryContext)
     case editPetProfile(PetProfileEditContext)
@@ -26,6 +27,7 @@ enum HomeRoute: Hashable {
 extension HomeRoute {
     var systemImage: String {
         switch self {
+        case .petAssistant: "sparkles"
         case .createPet: "plus.circle.fill"
         case .publishEvent: "photo.on.rectangle.angled"
         case .editPetProfile: "pencil.circle.fill"
@@ -46,6 +48,7 @@ extension HomeRoute {
 
     var title: LocalizedStringResource {
         switch self {
+        case .petAssistant: "毛伙伴 AI"
         case .createPet: "添加宠物"
         case .publishEvent: "发布动态"
         case .editPetProfile: "编辑档案"
@@ -66,6 +69,7 @@ extension HomeRoute {
 
     var subtitle: LocalizedStringResource {
         switch self {
+        case .petAssistant: "当前宠物的私域 AI 助手"
         case .createPet: "添加一只新的宠物档案"
         case .publishEvent: "记录一次带图片和正文的宠物事件"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"
