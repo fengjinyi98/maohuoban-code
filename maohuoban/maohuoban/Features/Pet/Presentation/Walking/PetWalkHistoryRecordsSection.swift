@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 在无记录时展示空态
 struct PetWalkHistoryRecordsSection: View {
     let sections: [PetWalkHistorySection]
+    let onSelectRecord: (PetWalkHistoryRecord) -> Void
 
     var body: some View {
         if sections.isEmpty {
@@ -14,7 +15,11 @@ struct PetWalkHistoryRecordsSection: View {
         } else {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                 ForEach(sections) { section in
-                    PetWalkHistoryWeekSection(title: section.title, records: section.records)
+                    PetWalkHistoryWeekSection(
+                        title: section.title,
+                        records: section.records,
+                        onSelectRecord: onSelectRecord
+                    )
                 }
             }
         }
@@ -28,6 +33,7 @@ struct PetWalkHistoryRecordsSection: View {
 private struct PetWalkHistoryWeekSection: View {
     let title: String
     let records: [PetWalkHistoryRecord]
+    let onSelectRecord: (PetWalkHistoryRecord) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -37,7 +43,13 @@ private struct PetWalkHistoryWeekSection: View {
                 .padding(.leading, MHBTheme.Spacing.s1)
 
             ForEach(records) { record in
-                PetWalkHistoryRecordCard(record: record)
+                Button {
+                    onSelectRecord(record)
+                } label: {
+                    PetWalkHistoryRecordCard(record: record)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("pet.walkHistory.recordButton.\(record.id)")
             }
         }
     }

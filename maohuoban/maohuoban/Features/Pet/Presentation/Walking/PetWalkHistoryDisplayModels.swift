@@ -37,7 +37,7 @@ nonisolated struct PetWalkHistoryMonth: Equatable, Hashable, Sendable {
 // 核心职责：
 // - 表达记录在列表中的时间分组
 // - 为分组标题提供稳定排序
-nonisolated enum PetWalkHistoryWeekGroup: Int, CaseIterable, Sendable {
+nonisolated enum PetWalkHistoryWeekGroup: Int, CaseIterable, Hashable, Sendable {
     case thisWeek
     case lastWeek
 
@@ -53,7 +53,7 @@ nonisolated enum PetWalkHistoryWeekGroup: Int, CaseIterable, Sendable {
 // 核心职责：
 // - 为 mock 记录提供稳定的迷你路线形态
 // - 避免 UI 层用记录顺序推导视觉差异
-nonisolated enum PetWalkHistoryRoutePreview: String, Sendable {
+nonisolated enum PetWalkHistoryRoutePreview: String, Hashable, Sendable {
     case arc
     case loop
     case curve
@@ -63,7 +63,7 @@ nonisolated enum PetWalkHistoryRoutePreview: String, Sendable {
 // 核心职责：
 // - 承载单次遛弯记录卡片所需展示数据
 // - 保持宠物、月份和分组信息可独立筛选
-nonisolated struct PetWalkHistoryRecord: Equatable, Identifiable, Sendable {
+nonisolated struct PetWalkHistoryRecord: Equatable, Hashable, Identifiable, Sendable {
     let id: String
     let petID: String
     let month: PetWalkHistoryMonth
@@ -85,6 +85,31 @@ nonisolated struct PetWalkHistoryRecord: Equatable, Identifiable, Sendable {
 
     var caloriesText: String {
         "\(max(0, calories)) 千卡"
+    }
+
+    func detailTitle(petName: String) -> String {
+        "\(petName)的\(walkMomentName)遛弯"
+    }
+
+    var detailDateTimeText: String {
+        "\(dateText) \(timeRangeText)"
+    }
+
+    private var walkMomentName: String {
+        guard let startHour = Int(timeRangeText.prefix(2)) else {
+            return "日常"
+        }
+
+        switch startHour {
+        case 5..<11:
+            return "晨间"
+        case 11..<17:
+            return "午后"
+        case 17..<21:
+            return "傍晚"
+        default:
+            return "夜间"
+        }
     }
 }
 

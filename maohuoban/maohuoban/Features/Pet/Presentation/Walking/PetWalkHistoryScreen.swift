@@ -12,6 +12,7 @@ struct PetWalkHistoryScreen: View {
 
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var month = PetWalkHistoryMonth.current()
+    @State private var selectedRecord: PetWalkHistoryRecord?
 
     init(context: PetRecordEntryContext) {
         self.context = context
@@ -35,7 +36,10 @@ struct PetWalkHistoryScreen: View {
 
                         PetWalkHistoryContentTitle(title: historyTitle)
 
-                        PetWalkHistoryRecordsSection(sections: displayState.sections)
+                        PetWalkHistoryRecordsSection(
+                            sections: displayState.sections,
+                            onSelectRecord: openRecordDetail
+                        )
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
                     .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
@@ -63,6 +67,14 @@ struct PetWalkHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(item: $selectedRecord) { record in
+            PetWalkHistoryDetailScreen(
+                record: record,
+                petName: currentPetName,
+                petAvatarURL: resolvedPetAvatarURL,
+                petSex: currentPetSex
+            )
+        }
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
         }
@@ -93,6 +105,19 @@ struct PetWalkHistoryScreen: View {
 
     private var currentPetName: String {
         selectedPet?.name ?? context.petName ?? "未命名宠物"
+    }
+
+    private var currentPetAvatarURL: String? {
+        selectedPet?.avatarURL ?? context.petAvatarURL
+    }
+
+    private var resolvedPetAvatarURL: URL? {
+        guard let currentPetAvatarURL else { return nil }
+        return MHBBackendEndpoint.resolve(currentPetAvatarURL)
+    }
+
+    private var currentPetSex: PetRecordPetSex {
+        selectedPet?.sex ?? context.petSex
     }
 
     private var historyTitle: String {
@@ -128,6 +153,10 @@ struct PetWalkHistoryScreen: View {
             sex: pet.sex,
             isSelected: true
         )
+    }
+
+    private func openRecordDetail(_ record: PetWalkHistoryRecord) {
+        selectedRecord = record
     }
 }
 
