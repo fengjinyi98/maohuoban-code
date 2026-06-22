@@ -583,14 +583,8 @@ private struct PetWalkUnavailablePanel: View {
 
 private extension PetRecordPetSex {
     var markerUIColor: UIColor {
-        switch self {
-        case .male:
-            UIColor(red: 59 / 255, green: 130 / 255, blue: 246 / 255, alpha: 1)
-        case .female:
-            UIColor(red: 244 / 255, green: 63 / 255, blue: 94 / 255, alpha: 1)
-        case .unknown:
-            UIColor.black
-        }
+        let rgb = walkMarkerRGB
+        return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
     }
 }
 
