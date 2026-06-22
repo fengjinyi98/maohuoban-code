@@ -11,23 +11,32 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
     @Binding var selection: Selection
     let segmentWidth: CGFloat
     let height: CGFloat
+    let selectedSegmentTintColor: UIColor?
+    let normalTitleColor: UIColor
+    let selectedTitleColor: UIColor
+    let scrollingSelectedTitleColor: UIColor?
     let accessibilityIdentifier: String
-    let debugContext: String
 
     init(
         items: [Item],
         selection: Binding<Selection>,
         segmentWidth: CGFloat = 64,
         height: CGFloat = 44,
-        accessibilityIdentifier: String,
-        debugContext: String
+        selectedSegmentTintColor: UIColor? = nil,
+        normalTitleColor: UIColor = .label,
+        selectedTitleColor: UIColor = .label,
+        scrollingSelectedTitleColor: UIColor? = nil,
+        accessibilityIdentifier: String
     ) {
         self.items = items
         self._selection = selection
         self.segmentWidth = segmentWidth
         self.height = height
+        self.selectedSegmentTintColor = selectedSegmentTintColor
+        self.normalTitleColor = normalTitleColor
+        self.selectedTitleColor = selectedTitleColor
+        self.scrollingSelectedTitleColor = scrollingSelectedTitleColor
         self.accessibilityIdentifier = accessibilityIdentifier
-        self.debugContext = debugContext
     }
 
     func makeCoordinator() -> Coordinator {
@@ -37,7 +46,6 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
     func makeUIView(context: Context) -> MHBToolbarLikeSegmentedTabsContainer {
         let container = MHBToolbarLikeSegmentedTabsContainer()
         let control = container.segmentedControl
-        control.mhb_debugContext = debugContext
         control.accessibilityIdentifier = accessibilityIdentifier
         control.isMomentary = false
         control.backgroundColor = .clear
@@ -51,7 +59,6 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
             for: .valueChanged
         )
         context.coordinator.configure(container)
-        print("[DEBUG:TabsBridge] make context=\(debugContext) items=\(items.map(\.title)) selected=\(String(describing: selection)) width=\(preferredWidth)")
         return container
     }
 
@@ -67,14 +74,7 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
         context: Context
     ) -> CGSize? {
         let visibleWidth = min(preferredWidth, proposal.width ?? preferredWidth)
-        let size = CGSize(width: visibleWidth, height: height)
-        context.coordinator.logSizeThatFits(
-            proposal: proposal,
-            intrinsicSize: uiView.segmentedControl.intrinsicContentSize,
-            returnedSize: size,
-            bounds: uiView.bounds
-        )
-        return size
+        return CGSize(width: visibleWidth, height: height)
     }
 
     private var preferredWidth: CGFloat {
@@ -99,11 +99,9 @@ extension MHBToolbarLikeSegmentedTabs {
     // Coordinator 分段控件状态协调器
     // 核心职责：
     // - 同步 UIKit 选中态与 SwiftUI Binding
-    // - 输出本轮实验所需的临时布局诊断日志
+    // - 协调横向滚动与选中项可见状态
     final class Coordinator: NSObject {
         var parent: MHBToolbarLikeSegmentedTabs
-        private var lastUpdateSignature = ""
-        private var lastSizeSignature = ""
 
         init(parent: MHBToolbarLikeSegmentedTabs) {
             self.parent = parent
@@ -111,56 +109,37 @@ extension MHBToolbarLikeSegmentedTabs {
 
         func configure(_ container: MHBToolbarLikeSegmentedTabsContainer) {
             let control = container.segmentedControl
-            container.mhb_debugContext = parent.debugContext
             container.updateContentLayout(
                 preferredContentWidth: parent.preferredWidth,
                 preferredHeight: parent.height,
                 segmentWidth: parent.segmentWidth
             )
+            container.onScrollInteractionStateChange = { [weak self, weak control] isActive in
+                guard let self, let control else {
+                    return
+                }
+
+                self.applyAppearance(to: control, isScrollInteractionActive: isActive)
+            }
             reconcileSegments(in: control)
-            applyAppearance(to: control)
+            applyAppearance(to: control, isScrollInteractionActive: container.isScrollInteractionActive)
             applyLayout(to: control)
             applySelection(to: control)
             container.scrollSelectedSegmentToVisible(animated: false)
-            logUpdate(container)
         }
 
         @objc
         func selectionDidChange(_ sender: UISegmentedControl) {
             let selectedIndex = sender.selectedSegmentIndex
             guard parent.items.indices.contains(selectedIndex) else {
-                print("[DEBUG:TabsBridge] valueChanged context=\(parent.debugContext) invalidIndex=\(selectedIndex)")
                 return
             }
 
             let item = parent.items[selectedIndex]
-            print("[DEBUG:TabsBridge] valueChanged context=\(parent.debugContext) index=\(selectedIndex) title=\(item.title) value=\(String(describing: item.selection))")
             if let container = (sender as? MHBToolbarLikeSegmentedControl)?.mhb_tabsContainer {
                 container.scrollSelectedSegmentToVisible(animated: true)
             }
             parent.selection = item.selection
-        }
-
-        func logSizeThatFits(
-            proposal: ProposedViewSize,
-            intrinsicSize: CGSize,
-            returnedSize: CGSize,
-            bounds: CGRect
-        ) {
-            let signature = [
-                "context=\(parent.debugContext)",
-                "proposal=\(format(proposal))",
-                "intrinsic=\(format(intrinsicSize))",
-                "returned=\(format(returnedSize))",
-                "bounds=\(format(bounds))"
-            ].joined(separator: " ")
-
-            guard signature != lastSizeSignature else {
-                return
-            }
-
-            lastSizeSignature = signature
-            print("[DEBUG:TabsBridge] sizeThatFits \(signature)")
         }
 
         private func reconcileSegments(in control: UISegmentedControl) {
@@ -177,17 +156,28 @@ extension MHBToolbarLikeSegmentedTabs {
             }
         }
 
-        private func applyAppearance(to control: UISegmentedControl) {
+        private func applyAppearance(
+            to control: UISegmentedControl,
+            isScrollInteractionActive: Bool
+        ) {
+            let selectedTitleColor = isScrollInteractionActive
+                ? parent.scrollingSelectedTitleColor ?? parent.selectedTitleColor
+                : parent.selectedTitleColor
             let normalAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-                .foregroundColor: UIColor.label
+                .foregroundColor: parent.normalTitleColor
             ]
             let selectedAttributes: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 17, weight: .semibold),
-                .foregroundColor: UIColor.label
+                .foregroundColor: selectedTitleColor
             ]
+            control.selectedSegmentTintColor = parent.selectedSegmentTintColor
             control.setTitleTextAttributes(normalAttributes, for: .normal)
             control.setTitleTextAttributes(selectedAttributes, for: .selected)
+            control.setTitleTextAttributes(selectedAttributes, for: .highlighted)
+            control.setTitleTextAttributes(selectedAttributes, for: [.selected, .highlighted])
+            control.setNeedsLayout()
+            control.setNeedsDisplay()
         }
 
         private func applyLayout(to control: UISegmentedControl) {
@@ -205,57 +195,6 @@ extension MHBToolbarLikeSegmentedTabs {
 
             control.selectedSegmentIndex = selectedIndex
         }
-
-        private func logUpdate(_ container: MHBToolbarLikeSegmentedTabsContainer) {
-            let control = container.segmentedControl
-            let signature = [
-                "context=\(parent.debugContext)",
-                "segments=\(control.numberOfSegments)",
-                "selectedIndex=\(control.selectedSegmentIndex)",
-                "segmentWidth=\(format(parent.segmentWidth))",
-                "preferredWidth=\(format(parent.preferredWidth))",
-                "height=\(format(parent.height))",
-                "viewport=\(format(container.bounds.size))",
-                "contentOffset=\(format(container.scrollView.contentOffset))",
-                "bounds=\(format(control.bounds))",
-                "intrinsic=\(format(control.intrinsicContentSize))"
-            ].joined(separator: " ")
-
-            guard signature != lastUpdateSignature else {
-                return
-            }
-
-            lastUpdateSignature = signature
-            print("[DEBUG:TabsBridge] update \(signature)")
-        }
-
-        private func format(_ proposal: ProposedViewSize) -> String {
-            "w:\(format(proposal.width)) h:\(format(proposal.height))"
-        }
-
-        private func format(_ size: CGSize) -> String {
-            "w:\(format(size.width)) h:\(format(size.height))"
-        }
-
-        private func format(_ rect: CGRect) -> String {
-            "x:\(format(rect.origin.x)) y:\(format(rect.origin.y)) w:\(format(rect.width)) h:\(format(rect.height))"
-        }
-
-        private func format(_ point: CGPoint) -> String {
-            "x:\(format(point.x)) y:\(format(point.y))"
-        }
-
-        private func format(_ value: CGFloat?) -> String {
-            guard let value else {
-                return "nil"
-            }
-
-            return format(value)
-        }
-
-        private func format(_ value: CGFloat) -> String {
-            String(format: "%.1f", value)
-        }
     }
 }
 
@@ -263,24 +202,24 @@ extension MHBToolbarLikeSegmentedTabs {
 // 核心职责：
 // - 承载超出可视宽度的 UISegmentedControl
 // - 在选中项变化时将对应 segment 滚动到可见区域
-final class MHBToolbarLikeSegmentedTabsContainer: UIView {
+final class MHBToolbarLikeSegmentedTabsContainer: UIView, UIScrollViewDelegate {
     let scrollView = UIScrollView()
     let segmentedControl = MHBToolbarLikeSegmentedControl()
 
-    var mhb_debugContext = ""
+    var onScrollInteractionStateChange: ((Bool) -> Void)?
+    private(set) var isScrollInteractionActive = false
 
     private var preferredContentWidth: CGFloat = 0
     private var preferredHeight: CGFloat = 0
     private var segmentWidth: CGFloat = 0
     private var shouldScrollSelectionAfterLayout = false
-    private var lastLayoutSignature = ""
-    private var lastScrollSignature = ""
 
     override init(frame: CGRect) {
         super.init(frame: frame)
 
         isOpaque = false
         backgroundColor = .clear
+        clipsToBounds = true
 
         scrollView.backgroundColor = .clear
         scrollView.clipsToBounds = true
@@ -288,6 +227,8 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView {
         scrollView.showsVerticalScrollIndicator = false
         scrollView.alwaysBounceHorizontal = false
         scrollView.alwaysBounceVertical = false
+        scrollView.delaysContentTouches = false
+        scrollView.delegate = self
 
         segmentedControl.mhb_tabsContainer = self
 
@@ -303,19 +244,24 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
 
+        let capsuleRadius = bounds.height / 2
+        let visibleContentWidth = max(preferredContentWidth, bounds.width)
+        let segmentedControlX = max(0, (visibleContentWidth - preferredContentWidth) / 2)
+
+        applyCapsuleClipping(radius: capsuleRadius)
+
         scrollView.frame = bounds
         scrollView.contentSize = CGSize(
-            width: preferredContentWidth,
+            width: visibleContentWidth,
             height: max(bounds.height, preferredHeight)
         )
         segmentedControl.frame = CGRect(
-            x: 0,
+            x: segmentedControlX,
             y: max(0, (bounds.height - preferredHeight) / 2),
             width: preferredContentWidth,
             height: preferredHeight
         )
         clampContentOffsetIfNeeded()
-        logLayoutIfNeeded()
 
         if shouldScrollSelectionAfterLayout {
             shouldScrollSelectionAfterLayout = false
@@ -348,22 +294,41 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView {
         layoutIfNeeded()
 
         let segmentFrame = CGRect(
-            x: CGFloat(selectedIndex) * segmentWidth,
+            x: segmentedControl.frame.minX + CGFloat(selectedIndex) * segmentWidth,
             y: 0,
             width: segmentWidth,
             height: max(bounds.height, preferredHeight)
         )
-        let targetFrame = segmentFrame.insetBy(dx: -MHBToolbarLikeSegmentedTabsLayout.autoScrollMargin, dy: 0)
-        let wasVisible = scrollView.bounds.contains(segmentFrame)
+        let maxOffsetX = max(0, scrollView.contentSize.width - scrollView.bounds.width)
+        let centeredOffsetX = segmentFrame.midX - scrollView.bounds.width / 2
+        let targetOffsetX = min(max(0, centeredOffsetX), maxOffsetX)
         let previousOffset = scrollView.contentOffset
-        scrollView.scrollRectToVisible(targetFrame, animated: animated)
-        logSelectionScrollIfNeeded(
-            selectedIndex: selectedIndex,
-            animated: animated,
-            wasVisible: wasVisible,
-            previousOffset: previousOffset,
-            targetFrame: targetFrame
+        let shouldAnimateScroll = animated && !targetOffsetX.mhb_isApproximatelyEqual(to: previousOffset.x)
+        if shouldAnimateScroll {
+            updateScrollInteractionActive(true)
+        }
+        scrollView.setContentOffset(
+            CGPoint(x: targetOffsetX, y: previousOffset.y),
+            animated: animated
         )
+    }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        updateScrollInteractionActive(true)
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate {
+            updateScrollInteractionActive(false)
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        updateScrollInteractionActive(false)
+    }
+
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        updateScrollInteractionActive(false)
     }
 
     private func clampContentOffsetIfNeeded() {
@@ -376,89 +341,30 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView {
         scrollView.contentOffset.x = clampedOffsetX
     }
 
-    private func logLayoutIfNeeded() {
-        let signature = [
-            "context=\(mhb_debugContext)",
-            "viewport=w:\(bounds.width.mhb_formattedTabsBridgeValue) h:\(bounds.height.mhb_formattedTabsBridgeValue)",
-            "content=w:\(preferredContentWidth.mhb_formattedTabsBridgeValue) h:\(preferredHeight.mhb_formattedTabsBridgeValue)",
-            "offset=x:\(scrollView.contentOffset.x.mhb_formattedTabsBridgeValue)",
-            "selectedIndex=\(segmentedControl.selectedSegmentIndex)"
-        ].joined(separator: " ")
-
-        guard signature != lastLayoutSignature else {
+    private func updateScrollInteractionActive(_ isActive: Bool) {
+        guard isScrollInteractionActive != isActive else {
             return
         }
 
-        lastLayoutSignature = signature
-        print("[DEBUG:TabsBridge] scrollLayout \(signature)")
+        isScrollInteractionActive = isActive
+        onScrollInteractionStateChange?(isActive)
     }
 
-    private func logSelectionScrollIfNeeded(
-        selectedIndex: Int,
-        animated: Bool,
-        wasVisible: Bool,
-        previousOffset: CGPoint,
-        targetFrame: CGRect
-    ) {
-        let signature = [
-            "context=\(mhb_debugContext)",
-            "selectedIndex=\(selectedIndex)",
-            "animated=\(animated)",
-            "wasVisible=\(wasVisible)",
-            "from=x:\(previousOffset.x.mhb_formattedTabsBridgeValue)",
-            "to=x:\(scrollView.contentOffset.x.mhb_formattedTabsBridgeValue)",
-            "target=x:\(targetFrame.origin.x.mhb_formattedTabsBridgeValue) w:\(targetFrame.width.mhb_formattedTabsBridgeValue)"
-        ].joined(separator: " ")
+    private func applyCapsuleClipping(radius: CGFloat) {
+        layer.cornerRadius = radius
+        layer.cornerCurve = .continuous
+        layer.masksToBounds = true
 
-        guard signature != lastScrollSignature else {
-            return
-        }
-
-        lastScrollSignature = signature
-        print("[DEBUG:TabsBridge] autoScroll \(signature)")
+        scrollView.layer.cornerRadius = radius
+        scrollView.layer.cornerCurve = .continuous
+        scrollView.layer.masksToBounds = true
     }
 }
 
-// MHBToolbarLikeSegmentedTabsLayout 分段控件滚动布局参数
-// 核心职责：
-// - 统一 UIKit tabs 自动滚动的可视边距
-// - 避免选中 segment 紧贴滚动容器边缘
-private enum MHBToolbarLikeSegmentedTabsLayout {
-    static let autoScrollMargin: CGFloat = 12
-}
-
-// MHBToolbarLikeSegmentedControl 分段控件布局诊断子类
+// MHBToolbarLikeSegmentedControl 分段控件容器引用子类
 // 核心职责：
 // - 保留 UISegmentedControl 原生绘制与交互
-// - 在布局结果变化时输出临时诊断日志
+// - 让 valueChanged 回调能访问外层滚动容器
 final class MHBToolbarLikeSegmentedControl: UISegmentedControl {
-    var mhb_debugContext = ""
     weak var mhb_tabsContainer: MHBToolbarLikeSegmentedTabsContainer?
-    private var lastLoggedBounds = CGRect.null
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-
-        guard !lastLoggedBounds.mhb_isApproximatelyEqual(to: bounds) else {
-            return
-        }
-
-        lastLoggedBounds = bounds
-        print("[DEBUG:TabsBridge] layout context=\(mhb_debugContext) bounds=x:\(bounds.origin.x.mhb_formattedTabsBridgeValue) y:\(bounds.origin.y.mhb_formattedTabsBridgeValue) w:\(bounds.width.mhb_formattedTabsBridgeValue) h:\(bounds.height.mhb_formattedTabsBridgeValue) intrinsic=w:\(intrinsicContentSize.width.mhb_formattedTabsBridgeValue) h:\(intrinsicContentSize.height.mhb_formattedTabsBridgeValue)")
-    }
-}
-
-private extension CGRect {
-    func mhb_isApproximatelyEqual(to other: CGRect) -> Bool {
-        origin.x.mhb_isApproximatelyEqual(to: other.origin.x) &&
-            origin.y.mhb_isApproximatelyEqual(to: other.origin.y) &&
-            width.mhb_isApproximatelyEqual(to: other.width) &&
-            height.mhb_isApproximatelyEqual(to: other.height)
-    }
-}
-
-private extension CGFloat {
-    var mhb_formattedTabsBridgeValue: String {
-        String(format: "%.1f", self)
-    }
 }

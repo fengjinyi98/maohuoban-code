@@ -1,12 +1,12 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // MessageTabsExperimentScreen tabs 布局实验页
 // 核心职责：
-// - 在系统导航栏区域承载 UIKit bridge tabs
-// - 在页面内容流中承载同样尺寸的 UIKit bridge tabs
+// - 在页面内容流中验证 UIKit bridge tabs 基础设施
+// - 观察多 tabs 横向滚动与选中项自动可见行为
 struct MessageTabsExperimentScreen: View {
-    @State private var navigationSelection: MessageTabsExperimentTab = .experimentOne
     @State private var contentSelection: MessageTabsExperimentTab = .experimentOne
 
     var body: some View {
@@ -23,15 +23,6 @@ struct MessageTabsExperimentScreen: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                MessageTabsExperimentBridgeTabs(
-                    selection: $navigationSelection,
-                    accessibilityIdentifier: "message.tabsExperiment.navigationPicker",
-                    debugContext: "toolbar"
-                )
-            }
-        }
         .accessibilityIdentifier("message.tabsExperiment.screen")
     }
 }
@@ -44,16 +35,37 @@ private struct MessageTabsExperimentFixedTabsOverlay: View {
     @Binding var selection: MessageTabsExperimentTab
 
     var body: some View {
-        MessageTabsExperimentBridgeTabs(
-            selection: $selection,
-            accessibilityIdentifier: "message.tabsExperiment.contentPicker",
-            debugContext: "content"
-        )
-        .glassEffect(.regular.interactive(), in: .capsule)
-        .padding(.top, MessageTabsExperimentLayout.fixedTabsTopPadding)
-        .onAppear {
-            print("[DEBUG:TabsBridge] fixedOverlay glass=regularInteractive shape=capsule visibleWidth=\(MessageTabsExperimentLayout.visibleTabsWidth.mhb_tabsExperimentFormattedValue) contentWidth=\(MessageTabsExperimentLayout.tabsWidth.mhb_tabsExperimentFormattedValue) height=\(MessageTabsExperimentLayout.tabsHeight.mhb_tabsExperimentFormattedValue) topPadding=\(MessageTabsExperimentLayout.fixedTabsTopPadding.mhb_tabsExperimentFormattedValue)")
+        GeometryReader { proxy in
+            let visibleWidth = MessageTabsExperimentLayout.visibleTabsWidth(for: proxy.size.width)
+
+            HStack {
+                ZStack {
+                    Color.clear
+                        .frame(
+                            width: visibleWidth,
+                            height: MessageTabsExperimentLayout.tabsHeight
+                        )
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .allowsHitTesting(false)
+
+                    MessageTabsExperimentBridgeTabs(
+                        selection: $selection,
+                        accessibilityIdentifier: "message.tabsExperiment.contentPicker"
+                    )
+                    .frame(
+                        width: visibleWidth,
+                        height: MessageTabsExperimentLayout.tabsHeight
+                    )
+                }
+                .frame(
+                    width: visibleWidth,
+                    height: MessageTabsExperimentLayout.tabsHeight
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, MessageTabsExperimentLayout.fixedTabsTopPadding)
         }
+        .frame(height: MessageTabsExperimentLayout.fixedTabsReservedHeight)
     }
 }
 
@@ -109,13 +121,13 @@ private struct MessageTabsExperimentContentRow: View {
 
 // MessageTabsExperimentBridgeTabs UIKit bridge tabs 选择器
 // 核心职责：
-// - 使用原生 UISegmentedControl 渲染两个实验选项
+// - 使用原生 UISegmentedControl 渲染多个实验选项
 // - 为 toolbar 与内容流提供一致的固定尺寸
+// - 使用主题色验证选中填充配置
 // - 将选中项回写给调用方状态
 private struct MessageTabsExperimentBridgeTabs: View {
     @Binding var selection: MessageTabsExperimentTab
     let accessibilityIdentifier: String
-    let debugContext: String
 
     var body: some View {
         MHBToolbarLikeSegmentedTabs(
@@ -128,12 +140,10 @@ private struct MessageTabsExperimentBridgeTabs: View {
             selection: $selection,
             segmentWidth: MessageTabsExperimentLayout.segmentWidth,
             height: MessageTabsExperimentLayout.tabsHeight,
-            accessibilityIdentifier: accessibilityIdentifier,
-            debugContext: debugContext
-        )
-        .frame(
-            width: MessageTabsExperimentLayout.visibleTabsWidth,
-            height: MessageTabsExperimentLayout.tabsHeight
+            selectedSegmentTintColor: MHBTheme.ColorToken.primary.uiColor,
+            normalTitleColor: MHBTheme.ColorToken.labelPrimary.uiColor,
+            selectedTitleColor: MessageTabsExperimentColors.selectedTitle,
+            accessibilityIdentifier: accessibilityIdentifier
         )
     }
 }
@@ -197,7 +207,7 @@ private enum MessageTabsExperimentTab: CaseIterable, Identifiable, Hashable {
 private enum MessageTabsExperimentLayout {
     static let segmentWidth: CGFloat = 72
     static let tabsHeight: CGFloat = 44
-    static let visibleTabsWidth: CGFloat = 260
+    static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
     static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s3
     static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s4
 
@@ -205,13 +215,31 @@ private enum MessageTabsExperimentLayout {
         fixedTabsTopPadding + tabsHeight + fixedTabsBottomSpacing
     }
 
-    static var tabsWidth: CGFloat {
-        CGFloat(MessageTabsExperimentTab.allCases.count) * segmentWidth
+    static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {
+        max(0, screenWidth - fixedTabsHorizontalInset * 2)
     }
 }
 
-private extension CGFloat {
-    var mhb_tabsExperimentFormattedValue: String {
-        String(format: "%.1f", self)
+// MessageTabsExperimentColors tabs 实验颜色配置
+// 核心职责：
+// - 保持选中填充使用主题色
+// - 为主题填充上的文字提供浅深色都稳定的对比度
+private enum MessageTabsExperimentColors {
+    static let selectedTitle = UIColor { traits in
+        let token = traits.userInterfaceStyle == .dark
+            ? MHBTheme.ColorToken.labelPrimary
+            : MHBTheme.ColorToken.cardSolid
+
+        return token.mhb_resolvedUIColor(for: traits)
+    }
+}
+
+private extension MHBTheme.ColorToken {
+    func mhb_resolvedUIColor(for traits: UITraitCollection) -> UIColor {
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: darkRed, green: darkGreen, blue: darkBlue, alpha: darkAlpha)
+        }
+
+        return UIColor(red: red, green: green, blue: blue, alpha: alpha)
     }
 }

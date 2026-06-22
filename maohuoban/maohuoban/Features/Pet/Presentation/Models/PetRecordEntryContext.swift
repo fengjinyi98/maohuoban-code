@@ -7,13 +7,19 @@ import MaohuobanDesignSystem
 // - 为宠物切换卡片提供性别展示状态
 struct PetRecordEntryContext: Hashable, Sendable {
     let petID: String?
+    let petName: String?
+    let petAvatarURL: String?
     let petSex: PetRecordPetSex
 
     init(
         petID: String?,
+        petName: String? = nil,
+        petAvatarURL: String? = nil,
         petSex: PetRecordPetSex = .unknown
     ) {
         self.petID = petID
+        self.petName = petName
+        self.petAvatarURL = petAvatarURL
         self.petSex = petSex
     }
 }

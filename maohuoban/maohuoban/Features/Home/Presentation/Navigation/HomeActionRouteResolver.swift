@@ -7,6 +7,7 @@ import Foundation
 struct HomeActionRoutingContext: Equatable {
     let selectedPetID: String?
     let selectedPetName: String?
+    let selectedPetAvatarURL: String?
     let selectedPetSex: PetRecordPetSex
     let merchantID: String?
     let city: String?
@@ -14,12 +15,14 @@ struct HomeActionRoutingContext: Equatable {
     init(
         selectedPetID: String? = nil,
         selectedPetName: String? = nil,
+        selectedPetAvatarURL: String? = nil,
         selectedPetSex: PetRecordPetSex = .unknown,
         merchantID: String? = nil,
         city: String? = nil
     ) {
         self.selectedPetID = selectedPetID
         self.selectedPetName = selectedPetName
+        self.selectedPetAvatarURL = selectedPetAvatarURL
         self.selectedPetSex = selectedPetSex
         self.merchantID = merchantID
         self.city = city
@@ -28,6 +31,7 @@ struct HomeActionRoutingContext: Equatable {
     init(snapshot: HomeDashboardSnapshot) {
         self.selectedPetID = snapshot.selectedPet?.id
         self.selectedPetName = snapshot.selectedPet?.name
+        self.selectedPetAvatarURL = snapshot.selectedPet?.avatarURL
         self.selectedPetSex = PetRecordPetSex(homeDashboardSex: snapshot.selectedPet?.sex)
         self.merchantID = snapshot.merchantDashboard?.merchantID
         self.city = snapshot.identity.city
@@ -64,6 +68,8 @@ enum HomeActionRouteResolver {
                 PetDailyRecordEntryContext(
                     recordContext: PetRecordEntryContext(
                         petID: context.selectedPetID,
+                        petName: context.selectedPetName,
+                        petAvatarURL: context.selectedPetAvatarURL,
                         petSex: context.selectedPetSex
                     ),
                     publishContext: PublishEntryContext(
@@ -78,6 +84,8 @@ enum HomeActionRouteResolver {
             return .recordHealth(
                 PetRecordEntryContext(
                     petID: context.selectedPetID,
+                    petName: context.selectedPetName,
+                    petAvatarURL: context.selectedPetAvatarURL,
                     petSex: context.selectedPetSex
                 )
             )
@@ -85,6 +93,8 @@ enum HomeActionRouteResolver {
             return .recordWalk(
                 PetRecordEntryContext(
                     petID: context.selectedPetID,
+                    petName: context.selectedPetName,
+                    petAvatarURL: context.selectedPetAvatarURL,
                     petSex: context.selectedPetSex
                 )
             )
