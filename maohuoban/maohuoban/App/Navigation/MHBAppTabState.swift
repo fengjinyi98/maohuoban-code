@@ -60,11 +60,6 @@ final class MHBAppTabState {
         homePath.append(route)
     }
 
-    /// 追加消息 Tab 导航目标
-    func appendMessageRoute(_ route: MessageRoute) {
-        messagePath.append(route)
-    }
-
     /// 路径为空时显示 TabBar，非空时在 push 页面中隐藏
     func shouldShowTabBar(for tab: MHBAppTab) -> Bool {
         path(for: tab).isEmpty

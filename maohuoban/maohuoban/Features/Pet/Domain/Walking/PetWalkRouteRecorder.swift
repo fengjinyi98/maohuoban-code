@@ -131,6 +131,11 @@ struct PetWalkRouteRecorder: Equatable {
     }
 
     private func accepts(_ point: PetWalkRoutePoint) -> Bool {
-        point.horizontalAccuracy >= 0 && point.horizontalAccuracy <= 50
+        guard point.horizontalAccuracy >= 0 && point.horizontalAccuracy <= 30 else {
+            return false
+        }
+
+        guard let startedAt else { return false }
+        return point.timestamp >= startedAt.addingTimeInterval(-1)
     }
 }

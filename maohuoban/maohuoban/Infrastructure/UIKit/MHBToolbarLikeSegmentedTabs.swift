@@ -9,7 +9,7 @@ import UIKit
 struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
     let items: [Item]
     @Binding var selection: Selection
-    let segmentWidth: CGFloat
+    let segmentWidths: [CGFloat]
     let height: CGFloat
     let selectedSegmentTintColor: UIColor?
     let normalTitleColor: UIColor
@@ -30,7 +30,29 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
     ) {
         self.items = items
         self._selection = selection
-        self.segmentWidth = segmentWidth
+        self.segmentWidths = Array(repeating: max(0, segmentWidth), count: items.count)
+        self.height = height
+        self.selectedSegmentTintColor = selectedSegmentTintColor
+        self.normalTitleColor = normalTitleColor
+        self.selectedTitleColor = selectedTitleColor
+        self.scrollingSelectedTitleColor = scrollingSelectedTitleColor
+        self.accessibilityIdentifier = accessibilityIdentifier
+    }
+
+    init(
+        items: [Item],
+        selection: Binding<Selection>,
+        segmentWidths: [CGFloat],
+        height: CGFloat = 44,
+        selectedSegmentTintColor: UIColor? = nil,
+        normalTitleColor: UIColor = .label,
+        selectedTitleColor: UIColor = .label,
+        scrollingSelectedTitleColor: UIColor? = nil,
+        accessibilityIdentifier: String
+    ) {
+        self.items = items
+        self._selection = selection
+        self.segmentWidths = segmentWidths
         self.height = height
         self.selectedSegmentTintColor = selectedSegmentTintColor
         self.normalTitleColor = normalTitleColor
@@ -73,12 +95,21 @@ struct MHBToolbarLikeSegmentedTabs<Selection: Hashable>: UIViewRepresentable {
         uiView: MHBToolbarLikeSegmentedTabsContainer,
         context: Context
     ) -> CGSize? {
-        let visibleWidth = min(preferredWidth, proposal.width ?? preferredWidth)
+        let visibleWidth = proposal.width ?? preferredWidth
         return CGSize(width: visibleWidth, height: height)
     }
 
     private var preferredWidth: CGFloat {
-        CGFloat(items.count) * segmentWidth
+        resolvedSegmentWidths.reduce(0, +)
+    }
+
+    private var resolvedSegmentWidths: [CGFloat] {
+        let fallbackWidth = max(0, segmentWidths.first ?? 64)
+        guard segmentWidths.count == items.count else {
+            return Array(repeating: fallbackWidth, count: items.count)
+        }
+
+        return segmentWidths.map { max(0, $0) }
     }
 }
 
@@ -109,10 +140,10 @@ extension MHBToolbarLikeSegmentedTabs {
 
         func configure(_ container: MHBToolbarLikeSegmentedTabsContainer) {
             let control = container.segmentedControl
-            container.updateContentLayout(
+            let layoutChanged = container.updateContentLayout(
                 preferredContentWidth: parent.preferredWidth,
                 preferredHeight: parent.height,
-                segmentWidth: parent.segmentWidth
+                segmentWidths: parent.resolvedSegmentWidths
             )
             container.onScrollInteractionStateChange = { [weak self, weak control] isActive in
                 guard let self, let control else {
@@ -124,8 +155,10 @@ extension MHBToolbarLikeSegmentedTabs {
             reconcileSegments(in: control)
             applyAppearance(to: control, isScrollInteractionActive: container.isScrollInteractionActive)
             applyLayout(to: control)
-            applySelection(to: control)
-            container.scrollSelectedSegmentToVisible(animated: false)
+            let selectionChanged = applySelection(to: control)
+            if layoutChanged || selectionChanged {
+                container.scrollSelectedSegmentToVisible(animated: false)
+            }
         }
 
         @objc
@@ -182,18 +215,20 @@ extension MHBToolbarLikeSegmentedTabs {
 
         private func applyLayout(to control: UISegmentedControl) {
             control.apportionsSegmentWidthsByContent = false
-            for index in 0..<control.numberOfSegments {
-                control.setWidth(parent.segmentWidth, forSegmentAt: index)
+            for index in 0..<control.numberOfSegments where parent.resolvedSegmentWidths.indices.contains(index) {
+                control.setWidth(parent.resolvedSegmentWidths[index], forSegmentAt: index)
             }
         }
 
-        private func applySelection(to control: UISegmentedControl) {
+        private func applySelection(to control: UISegmentedControl) -> Bool {
+            let previousIndex = control.selectedSegmentIndex
             guard let selectedIndex = parent.items.firstIndex(where: { $0.selection == parent.selection }) else {
                 control.selectedSegmentIndex = UISegmentedControl.noSegment
-                return
+                return previousIndex != UISegmentedControl.noSegment
             }
 
             control.selectedSegmentIndex = selectedIndex
+            return previousIndex != selectedIndex
         }
     }
 }
@@ -211,7 +246,7 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView, UIScrollViewDelegate {
 
     private var preferredContentWidth: CGFloat = 0
     private var preferredHeight: CGFloat = 0
-    private var segmentWidth: CGFloat = 0
+    private var segmentWidths: [CGFloat] = []
     private var shouldScrollSelectionAfterLayout = false
 
     override init(frame: CGRect) {
@@ -269,22 +304,31 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView, UIScrollViewDelegate {
         }
     }
 
+    @discardableResult
     func updateContentLayout(
         preferredContentWidth: CGFloat,
         preferredHeight: CGFloat,
-        segmentWidth: CGFloat
-    ) {
+        segmentWidths: [CGFloat]
+    ) -> Bool {
+        let layoutChanged = !preferredContentWidth.mhb_isApproximatelyEqual(to: self.preferredContentWidth) ||
+            !preferredHeight.mhb_isApproximatelyEqual(to: self.preferredHeight) ||
+            segmentWidths != self.segmentWidths
+
         self.preferredContentWidth = preferredContentWidth
         self.preferredHeight = preferredHeight
-        self.segmentWidth = segmentWidth
-        setNeedsLayout()
+        self.segmentWidths = segmentWidths
+        if layoutChanged {
+            setNeedsLayout()
+        }
+
+        return layoutChanged
     }
 
     func scrollSelectedSegmentToVisible(animated: Bool) {
         let selectedIndex = segmentedControl.selectedSegmentIndex
         guard selectedIndex != UISegmentedControl.noSegment,
               selectedIndex >= 0,
-              segmentWidth > 0,
+              segmentWidths.indices.contains(selectedIndex),
               bounds.width > 0
         else {
             shouldScrollSelectionAfterLayout = true
@@ -294,9 +338,9 @@ final class MHBToolbarLikeSegmentedTabsContainer: UIView, UIScrollViewDelegate {
         layoutIfNeeded()
 
         let segmentFrame = CGRect(
-            x: segmentedControl.frame.minX + CGFloat(selectedIndex) * segmentWidth,
+            x: segmentedControl.frame.minX + segmentWidths.prefix(selectedIndex).reduce(0, +),
             y: 0,
-            width: segmentWidth,
+            width: segmentWidths[selectedIndex],
             height: max(bounds.height, preferredHeight)
         )
         let maxOffsetX = max(0, scrollView.contentSize.width - scrollView.bounds.width)

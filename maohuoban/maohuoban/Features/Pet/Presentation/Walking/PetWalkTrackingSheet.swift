@@ -108,7 +108,7 @@ struct PetWalkCollapsedSheetEntry: View {
 // PetWalkExpandedMetrics Sheet 展开态指标
 // 核心职责：
 // - 展示当前距离主指标
-// - 展示时长、配速和热量三个辅助指标
+// - 展示时长和热量两个辅助指标
 private struct PetWalkExpandedMetrics: View {
     let metrics: PetWalkMetrics
 
@@ -131,11 +131,6 @@ private struct PetWalkExpandedMetrics: View {
                 PetWalkMetricItem(
                     title: "时长",
                     value: PetWalkDisplayFormatters.elapsedText(from: metrics.elapsedSeconds)
-                )
-
-                PetWalkMetricItem(
-                    title: "配速",
-                    value: PetWalkDisplayFormatters.paceText(from: metrics)
                 )
 
                 PetWalkMetricItem(
@@ -349,7 +344,7 @@ private struct PetWalkAvatarImage: View {
 
 // PetWalkDisplayFormatters 遛弯展示格式化器
 // 核心职责：
-// - 统一距离、时长和配速展示文本
+// - 统一距离和时长展示文本
 // - 避免页面组件散落格式化规则
 private enum PetWalkDisplayFormatters {
     static func distanceText(from kilometers: Double) -> String {
@@ -361,16 +356,5 @@ private enum PetWalkDisplayFormatters {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return String(format: "%02d:%02d", minutes, seconds)
-    }
-
-    static func paceText(from metrics: PetWalkMetrics) -> String {
-        guard metrics.distanceKilometers >= 0.01 else {
-            return "--'--\""
-        }
-
-        let secondsPerKilometer = max(0, Int((metrics.elapsedSeconds / metrics.distanceKilometers).rounded()))
-        let minutes = secondsPerKilometer / 60
-        let seconds = secondsPerKilometer % 60
-        return String(format: "%d'%02d\"", minutes, seconds)
     }
 }

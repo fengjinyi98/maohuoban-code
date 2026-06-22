@@ -15,6 +15,9 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
     @ObservationIgnored
     private var isStartPendingAfterAuthorization = false
 
+    @ObservationIgnored
+    private var referenceLocation: CLLocation?
+
     private(set) var recorder = PetWalkRouteRecorder()
     private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
     private(set) var errorMessage: String?
@@ -99,6 +102,10 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
         recorder.metrics(at: date)
     }
 
+    func updateReferenceLocation(_ location: CLLocation) {
+        referenceLocation = location
+    }
+
     private func startLocationUpdates() {
         guard isLocationUpdating == false else { return }
         isLocationUpdating = true
@@ -145,6 +152,13 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
     ) {
         guard let location = locations.last else { return }
         Task { @MainActor in
+            if let referenceLocation {
+                let distanceFromReference = location.distance(from: referenceLocation)
+                if distanceFromReference > 80 {
+                    return
+                }
+            }
+
             let point = PetWalkRoutePoint(
                 coordinate: location.coordinate,
                 horizontalAccuracy: location.horizontalAccuracy,

@@ -1,17 +1,19 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // SameCityRootScreen 同城 Tab 根视图
 // 核心职责：
 // - 作为同城 Tab NavigationStack 的根内容
 // - 在系统 toolbar 中承载城市和搜索入口
-// - 使用与我的关注一致的系统 tabs Picker 承载同城分类
+// - 使用统一 Liquid Glass tabs 基础设施承载同城分类
 // - 展示同城商品 Feed 并提供底部发布入口
 struct SameCityRootScreen: View {
     @State private var selectedTab = SameCityRootTab.recommended
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
+    @State private var fixedTabsTopY: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -22,8 +24,6 @@ struct SameCityRootScreen: View {
                 ZStack(alignment: .topLeading) {
                     MHBScreenScrollView(showsIndicators: false) {
                         VStack(spacing: MHBTheme.Spacing.s3) {
-                            SameCityRootTabPicker(selection: $selectedTab)
-
                             if visibleCommodityItems.isEmpty {
                                 SameCityEmptyFeedSurface()
                             } else {
@@ -35,7 +35,7 @@ struct SameCityRootScreen: View {
                             }
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s3)
-                        .padding(.top, MHBTheme.Spacing.s3)
+                        .padding(.top, SameCityRootLayout.fixedTabsReservedHeight)
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
                     .onPreferenceChange(FeedMoreButtonFramePreferenceKey.self) { frames in
@@ -54,10 +54,19 @@ struct SameCityRootScreen: View {
                         }
                     }
 
+                    MHBScreenScrollTopBlurOverlay(
+                        configuration: SameCityRootLayout.fixedTabsTopBlur(height: fixedTabsTopY)
+                    )
+                    .offset(y: SameCityRootLayout.fixedTabsTopBlurOffset(for: fixedTabsTopY))
+                    .zIndex(1)
+
                     if presentedMoreMenuPostID != nil {
                         MHBOutsideTapDismissLayer(onDismiss: dismissCommodityMoreMenu)
-                            .zIndex(1)
+                            .zIndex(3)
                     }
+
+                    SameCityFixedTabsOverlay(selection: $selectedTab)
+                        .zIndex(2)
 
                     FeedMoreMenuOverlay(
                         isPresented: presentedMoreMenuPostID != nil,
@@ -65,9 +74,12 @@ struct SameCityRootScreen: View {
                         buttonFrame: presentedMoreMenuButtonFrame,
                         onAction: handleCommodityMoreMenuAction(_:)
                     )
-                    .zIndex(2)
+                    .zIndex(4)
                 }
                 .coordinateSpace(name: FeedCoordinateSpace.name)
+                .onPreferenceChange(SameCityFixedTabsTopPreferenceKey.self) { topY in
+                    handleFixedTabsTopChange(topY)
+                }
             }
         }
         .navigationTitle("")
@@ -142,6 +154,22 @@ struct SameCityRootScreen: View {
         }
     }
 
+    private func handleFixedTabsTopChange(_ topY: CGFloat) {
+        guard topY.isFinite, topY > 0 else {
+            return
+        }
+
+        let roundedTopY = (topY * 10).rounded() / 10
+        guard abs(fixedTabsTopY - roundedTopY) > 0.5 else {
+            return
+        }
+
+        fixedTabsTopY = roundedTopY
+        print(
+            "[DEBUG:SameCityTopBlur] tabsTopY=\(roundedTopY) blurHeight=\(roundedTopY) blurOffset=\(SameCityRootLayout.fixedTabsTopBlurOffset(for: roundedTopY))"
+        )
+    }
+
     private func handleCommodityMoreMenuAction(_ action: FeedMoreAction) {
         guard let postID = presentedMoreMenuPostID else {
             return
@@ -166,9 +194,51 @@ struct SameCityRootScreen: View {
     }
 }
 
+// SameCityFixedTabsOverlay 同城固定分类 tabs 容器
+// 核心职责：
+// - 将同城分类 tabs 固定在滚动内容上方
+// - 保持与页面水平间距一致的可视宽度
+private struct SameCityFixedTabsOverlay: View {
+    @Binding var selection: SameCityRootTab
+
+    var body: some View {
+        GeometryReader { proxy in
+            let visibleWidth = SameCityRootLayout.visibleTabsWidth(for: proxy.size.width)
+
+            HStack {
+                SameCityRootTabPicker(selection: $selection)
+                    .frame(width: visibleWidth, height: SameCityRootLayout.categoryTabsHeight)
+                    .background {
+                        GeometryReader { tabsProxy in
+                            Color.clear.preference(
+                                key: SameCityFixedTabsTopPreferenceKey.self,
+                                value: tabsProxy.frame(in: .global).minY
+                            )
+                        }
+                    }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, SameCityRootLayout.fixedTabsTopPadding)
+        }
+        .frame(height: SameCityRootLayout.fixedTabsReservedHeight)
+    }
+}
+
+// SameCityFixedTabsTopPreferenceKey 同城固定 tabs 顶边位置
+// 核心职责：
+// - 将 tabs 在屏幕全局坐标中的顶边回传给根视图
+// - 为顶部扩展模糊层提供真实覆盖高度
+private struct SameCityFixedTabsTopPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // SameCityRootTab 同城首页分类
 // 核心职责：
-// - 定义同城顶部官方 Tabs Picker 的分类
+// - 定义同城顶部 tabs 分类
 // - 为后续 feed 数据接入保留稳定筛选状态
 private enum SameCityRootTab: CaseIterable, Identifiable, Hashable {
     case recommended
@@ -179,7 +249,7 @@ private enum SameCityRootTab: CaseIterable, Identifiable, Hashable {
 
     var id: Self { self }
 
-    var title: LocalizedStringResource {
+    var title: String {
         switch self {
         case .recommended: "推荐"
         case .adoption: "领养救助"
@@ -256,20 +326,28 @@ private struct SameCityLocationButton: View {
 
 // SameCityRootTabPicker 同城分类切换器
 // 核心职责：
-// - 使用系统 tabs Picker 呈现同城首页分类
-// - 与我的关注页面保持一致的系统 tabs 样式
+// - 使用统一 Liquid Glass tabs 基础设施呈现同城首页分类
+// - 将分类选择回写给同城 feed 筛选状态
 private struct SameCityRootTabPicker: View {
     @Binding var selection: SameCityRootTab
 
     var body: some View {
-        Picker("同城分类", selection: $selection) {
-            ForEach(SameCityRootTab.allCases) { tab in
-                Text(tab.title)
-                    .tag(tab)
-            }
-        }
-        .pickerStyle(.tabs)
-        .accessibilityIdentifier("sameCity.category.tabs")
+        MHBGlassSegmentedTabsBar(
+            items: SameCityRootTab.allCases.map { tab in
+                MHBGlassSegmentedTabsBar<SameCityRootTab>.Item(
+                    selection: tab,
+                    title: tab.title
+                )
+            },
+            selection: $selection,
+            widthStrategy: .content,
+            height: SameCityRootLayout.categoryTabsHeight,
+            selectedSegmentTintColor: MHBTheme.ColorToken.primary.uiColor,
+            normalTitleColor: MHBTheme.ColorToken.labelPrimary.uiColor,
+            selectedTitleColor: .white,
+            accessibilityIdentifier: "sameCity.category.tabs"
+        )
+        .frame(height: SameCityRootLayout.categoryTabsHeight)
     }
 }
 
@@ -320,6 +398,42 @@ private struct SameCityPublishEntryButton<Route: Hashable>: View {
 private enum SameCityRootLayout {
     static let currentCity = "上海"
     static let toolbarControlHeight: CGFloat = 36
+    static let categoryTabsHeight: CGFloat = 44
+    static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s1
+    static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s3
     static let locationButtonMinWidth: CGFloat = 66
     static let emptyFeedMinHeight: CGFloat = 520
+
+    static var fixedTabsReservedHeight: CGFloat {
+        fixedTabsTopPadding + categoryTabsHeight + fixedTabsBottomSpacing
+    }
+
+    static func fixedTabsTopBlur(height: CGFloat) -> MHBScreenScrollTopBlurConfiguration? {
+        guard height > 0 else {
+            return nil
+        }
+
+        return MHBScreenScrollTopBlurConfiguration(
+            height: height,
+            maxBlurRadius: 16,
+            startOffset: 0,
+            tintColor: MHBTheme.ColorToken.background.color,
+            topTintOpacity: 0.76,
+            middleTintOpacity: 0.34,
+            middleLocation: 0.62
+        )
+    }
+
+    static func fixedTabsTopBlurOffset(for tabsTopY: CGFloat) -> CGFloat {
+        guard tabsTopY > fixedTabsTopPadding else {
+            return 0
+        }
+
+        return fixedTabsTopPadding - tabsTopY
+    }
+
+    static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {
+        max(0, screenWidth - fixedTabsHorizontalInset * 2)
+    }
 }

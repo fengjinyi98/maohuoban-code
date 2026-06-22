@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import UIKit
 import MaohuobanDesignSystem
@@ -18,10 +19,12 @@ struct PetWalkTrackingScreen: View {
         ZStack {
             MHBRouteMapView(
                 coordinates: store.points.map(\.coordinate),
+                showsCurrentLocation: context.petID != nil,
                 followsUser: store.phase == .tracking,
                 petAvatarURL: resolvedPetAvatarURL,
                 petMarkerColor: context.petSex.markerUIColor,
-                recenterRequestID: recenterRequestID
+                recenterRequestID: recenterRequestID,
+                onUserLocationUpdated: updateReferenceLocation
             )
             .ignoresSafeArea()
 
@@ -56,6 +59,11 @@ struct PetWalkTrackingScreen: View {
                     phase: store.phase,
                     gpsStatusText: store.gpsStatusText
                 )
+            }
+        }
+        .background {
+            PetWalkScreenLifecycleObserver {
+                dismissTrackingSheetBeforeNavigation()
             }
         }
         .sheet(isPresented: $isTrackingSheetPresented) {
@@ -96,6 +104,10 @@ struct PetWalkTrackingScreen: View {
         recenterRequestID += 1
     }
 
+    private func updateReferenceLocation(_ location: CLLocation) {
+        store.updateReferenceLocation(location)
+    }
+
     private func openTrackingSheet() {
         isTrackingSheetPresented = true
     }
@@ -107,8 +119,43 @@ struct PetWalkTrackingScreen: View {
     }
 
     private func finishTracking() {
+        dismissTrackingSheetBeforeNavigation()
         store.finish()
         onFinished()
+    }
+
+    private func dismissTrackingSheetBeforeNavigation() {
+        guard isTrackingSheetPresented else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            isTrackingSheetPresented = false
+        }
+    }
+}
+
+// PetWalkScreenLifecycleObserver 遛弯页面生命周期观察器
+// 核心职责：
+// - 在系统导航 pop 动画开始前通知业务页收起 sheet
+// - 保持系统返回按钮和侧滑返回路径不被业务页替换
+private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
+    let onWillDisappear: () -> Void
+
+    func makeUIViewController(context: Context) -> Controller {
+        Controller()
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.onWillDisappear = onWillDisappear
+    }
+
+    final class Controller: UIViewController {
+        var onWillDisappear: (() -> Void)?
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            onWillDisappear?()
+        }
     }
 }
 
@@ -132,10 +179,10 @@ private struct PetWalkMapControls: View {
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                         .frame(width: 48, height: 48)
-                        .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
-                        .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
                 }
                 .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .circle)
+                .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
                 .padding(.trailing, MHBTheme.Spacing.s5)
                 .padding(.bottom, isSheetPresented ? 286 : 132)
             }

@@ -8,10 +8,21 @@ import UIKit
 // - 将轨迹点渲染为运动路线 overlay
 struct MHBRouteMapView: UIViewRepresentable {
     let coordinates: [CLLocationCoordinate2D]
+    let showsCurrentLocation: Bool
     let followsUser: Bool
     let petAvatarURL: URL?
     let petMarkerColor: UIColor
     let recenterRequestID: Int
+    let onUserLocationUpdated: (CLLocation) -> Void
+
+    private enum FocusMeters {
+        static let initial: CLLocationDistance = 350
+        static let recenter: CLLocationDistance = 300
+    }
+
+    private var shouldShowUserLocation: Bool {
+        showsCurrentLocation || followsUser || recenterRequestID > 0
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -20,7 +31,12 @@ struct MHBRouteMapView: UIViewRepresentable {
     func makeUIView(context: Context) -> MKMapView {
         let mapView = MKMapView(frame: .zero)
         mapView.delegate = context.coordinator
-        mapView.showsUserLocation = followsUser
+        context.coordinator.petAvatarURL = petAvatarURL
+        context.coordinator.petMarkerColor = petMarkerColor
+        context.coordinator.onUserLocationUpdated = onUserLocationUpdated
+        context.coordinator.isUserLocationRecenterPending = shouldShowUserLocation
+        context.coordinator.pendingFocusMeters = FocusMeters.initial
+        mapView.showsUserLocation = shouldShowUserLocation
         mapView.userTrackingMode = .none
         mapView.pointOfInterestFilter = .includingAll
         mapView.preferredConfiguration = MKStandardMapConfiguration(elevationStyle: .flat)
@@ -31,7 +47,10 @@ struct MHBRouteMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
-        mapView.showsUserLocation = followsUser
+        context.coordinator.petAvatarURL = petAvatarURL
+        context.coordinator.petMarkerColor = petMarkerColor
+        context.coordinator.onUserLocationUpdated = onUserLocationUpdated
+        mapView.showsUserLocation = shouldShowUserLocation
         refreshRouteOverlay(in: mapView)
         refreshRouteAnnotations(in: mapView)
 
@@ -40,7 +59,7 @@ struct MHBRouteMapView: UIViewRepresentable {
             coordinateCount: coordinates.count,
             followsUser: followsUser
         ) {
-            focusLatestPoint(in: mapView)
+            focusUserLocation(in: mapView)
         }
         context.coordinator.lastRecenterRequestID = recenterRequestID
         context.coordinator.lastCoordinateCount = coordinates.count
@@ -83,28 +102,43 @@ struct MHBRouteMapView: UIViewRepresentable {
             )
         }
 
-        mapView.addAnnotation(
-            MHBRouteMapAnnotation(
-                coordinate: latestCoordinate,
-                kind: .pet,
-                avatarURL: petAvatarURL,
-                markerColor: petMarkerColor
+        if mapView.userLocation.location == nil {
+            mapView.addAnnotation(
+                MHBRouteMapAnnotation(
+                    coordinate: latestCoordinate,
+                    kind: .pet,
+                    avatarURL: petAvatarURL,
+                    markerColor: petMarkerColor
+                )
             )
-        )
+        }
     }
 
-    private func focusLatestPoint(in mapView: MKMapView) {
-        guard let latestCoordinate = coordinates.last else {
-            if followsUser {
-                mapView.setUserTrackingMode(.follow, animated: true)
-            }
-            return
-        }
+    private func focusUserLocation(in mapView: MKMapView) {
+        guard shouldShowUserLocation else { return }
 
+        if let userCoordinate = mapView.userLocation.location?.coordinate {
+            setVisibleRegion(
+                centeredAt: userCoordinate,
+                meters: FocusMeters.recenter,
+                in: mapView
+            )
+        } else {
+            let coordinator = mapView.delegate as? Coordinator
+            coordinator?.isUserLocationRecenterPending = true
+            coordinator?.pendingFocusMeters = FocusMeters.recenter
+        }
+    }
+
+    private func setVisibleRegion(
+        centeredAt coordinate: CLLocationCoordinate2D,
+        meters: CLLocationDistance,
+        in mapView: MKMapView
+    ) {
         let region = MKCoordinateRegion(
-            center: latestCoordinate,
-            latitudinalMeters: 650,
-            longitudinalMeters: 650
+            center: coordinate,
+            latitudinalMeters: meters,
+            longitudinalMeters: meters
         )
         mapView.setRegion(region, animated: true)
     }
@@ -116,17 +150,18 @@ struct MHBRouteMapView: UIViewRepresentable {
     final class Coordinator: NSObject, MKMapViewDelegate {
         var lastRecenterRequestID = 0
         var lastCoordinateCount = 0
+        var isUserLocationRecenterPending = false
+        var pendingFocusMeters = FocusMeters.initial
+        var petAvatarURL: URL?
+        var petMarkerColor = UIColor.black
+        var onUserLocationUpdated: ((CLLocation) -> Void)?
 
         func shouldRecenter(
             recenterRequestID: Int,
             coordinateCount: Int,
             followsUser: Bool
         ) -> Bool {
-            if recenterRequestID != lastRecenterRequestID {
-                return true
-            }
-
-            return followsUser && lastCoordinateCount == 0 && coordinateCount > 0
+            recenterRequestID != lastRecenterRequestID
         }
 
         func mapView(
@@ -154,6 +189,21 @@ struct MHBRouteMapView: UIViewRepresentable {
             _ mapView: MKMapView,
             viewFor annotation: MKAnnotation
         ) -> MKAnnotationView? {
+            if annotation is MKUserLocation {
+                let view = mapView.dequeueReusableAnnotationView(
+                    withIdentifier: MHBPetRouteMarkerAnnotationView.userLocationReuseIdentifier
+                ) as? MHBPetRouteMarkerAnnotationView ?? MHBPetRouteMarkerAnnotationView(
+                    annotation: annotation,
+                    reuseIdentifier: MHBPetRouteMarkerAnnotationView.userLocationReuseIdentifier
+                )
+                view.configure(
+                    annotation: annotation,
+                    avatarURL: petAvatarURL,
+                    markerColor: petMarkerColor
+                )
+                return view
+            }
+
             guard let routeAnnotation = annotation as? MHBRouteMapAnnotation else {
                 return nil
             }
@@ -178,6 +228,22 @@ struct MHBRouteMapView: UIViewRepresentable {
                 view.configure(with: routeAnnotation)
                 return view
             }
+        }
+
+        func mapView(_ mapView: MKMapView, didUpdate userLocation: MKUserLocation) {
+            guard let location = userLocation.location else { return }
+
+            let coordinate = location.coordinate
+            onUserLocationUpdated?(location)
+
+            guard isUserLocationRecenterPending else { return }
+            isUserLocationRecenterPending = false
+            let region = MKCoordinateRegion(
+                center: coordinate,
+                latitudinalMeters: pendingFocusMeters,
+                longitudinalMeters: pendingFocusMeters
+            )
+            mapView.setRegion(region, animated: true)
         }
     }
 }
@@ -250,6 +316,7 @@ private final class MHBRouteStartAnnotationView: MKAnnotationView {
 // - 在地图轨迹末端表达当前宠物位置
 private final class MHBPetRouteMarkerAnnotationView: MKAnnotationView {
     static let reuseIdentifier = "MHBPetRouteMarkerAnnotationView"
+    static let userLocationReuseIdentifier = "MHBPetUserLocationAnnotationView"
 
     private let pulseView = UIView(frame: CGRect(x: 23, y: 55, width: 12, height: 12))
     private let teardropView = UIView(frame: CGRect(x: 2, y: 0, width: 54, height: 54))
@@ -304,12 +371,21 @@ private final class MHBPetRouteMarkerAnnotationView: MKAnnotationView {
     }
 
     func configure(with annotation: MHBRouteMapAnnotation) {
+        configure(
+            annotation: annotation,
+            avatarURL: annotation.avatarURL,
+            markerColor: annotation.markerColor
+        )
+    }
+
+    func configure(annotation: MKAnnotation, avatarURL: URL?, markerColor: UIColor) {
         self.annotation = annotation
-        teardropView.backgroundColor = annotation.markerColor
-        imageView.layer.borderColor = annotation.markerColor.cgColor
+        teardropView.backgroundColor = markerColor
+        pulseView.backgroundColor = markerColor
+        imageView.layer.borderColor = markerColor.cgColor
         imageView.layer.borderWidth = 2
         imageView.image = Self.placeholderImage()
-        loadAvatar(from: annotation.avatarURL)
+        loadAvatar(from: avatarURL)
     }
 
     private func loadAvatar(from url: URL?) {
