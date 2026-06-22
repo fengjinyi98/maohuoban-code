@@ -19,7 +19,7 @@ enum SameCityCommodityGrowthRecordMockData {
                 dataTag: nil,
                 content: "刚吃完早饭，在阳光下睡大觉。呼噜声巨大，超级粘人。",
                 mediaItems: [
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "today-sun-nap-photo",
                         assetName: "HomeGalleryAlbum2",
                         aspect: .portrait
@@ -38,12 +38,12 @@ enum SameCityCommodityGrowthRecordMockData {
                 ),
                 content: "带去医院打了最后一针妙三多，还做了全面的基础体检，医生说骨架发育得非常好，是个壮实的小伙子！",
                 mediaItems: [
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "third-vaccine-photo-1",
                         assetName: "HomeGalleryAlbum3",
                         aspect: .square
                     ),
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "third-vaccine-photo-2",
                         assetName: "HomePetAlbum4",
                         aspect: .square
@@ -71,17 +71,17 @@ enum SameCityCommodityGrowthRecordMockData {
                 dataTag: nil,
                 content: "和同窝的兄弟姐妹在一起玩疯了，最调皮的就是他。",
                 mediaItems: [
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "siblings-play-photo-1",
                         assetName: "HomePetAlbum2",
                         aspect: .square
                     ),
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "siblings-play-photo-2",
                         assetName: "HomeGalleryAlbum2",
                         aspect: .square
                     ),
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "siblings-play-photo-3",
                         assetName: "HomeGalleryAlbum3",
                         aspect: .square
@@ -100,7 +100,7 @@ enum SameCityCommodityGrowthRecordMockData {
                 ),
                 content: "平安降生！是一只毛色非常干净的 NY12 小公猫，眼睛还没睁开，叫声很响亮。",
                 mediaItems: [
-                    SameCityCommodityGrowthRecordMediaItem(
+                    makeMediaItem(
                         id: "birth-photo",
                         assetName: "HomePetAlbum3",
                         aspect: .portrait
@@ -109,4 +109,21 @@ enum SameCityCommodityGrowthRecordMockData {
             )
         ]
     )
+
+    // makeMediaItem 构造携带原图尺寸的成长记录媒资
+    // 核心职责：
+    // - 将本地样例资源名映射为预览可用的媒资模型
+    // - 模拟后端返回的图片尺寸元数据
+    private static func makeMediaItem(
+        id: String,
+        assetName: String,
+        aspect: SameCityCommodityGrowthRecordMediaAspect
+    ) -> SameCityCommodityGrowthRecordMediaItem {
+        SameCityCommodityGrowthRecordMediaItem(
+            id: id,
+            assetName: assetName,
+            aspect: aspect,
+            pixelSize: SameCityMediaPixelSizeCatalog.pixelSize(for: assetName)
+        )
+    }
 }

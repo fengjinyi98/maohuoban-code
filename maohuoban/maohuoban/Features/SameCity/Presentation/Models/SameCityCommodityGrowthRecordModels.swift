@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 // SameCityCommodityGrowthRecordCard 商品详情成长记录卡片
@@ -67,6 +68,7 @@ struct SameCityCommodityGrowthRecordMediaItem: Identifiable, Equatable {
     let id: String
     let assetName: String
     let aspect: SameCityCommodityGrowthRecordMediaAspect
+    let pixelSize: CGSize?
 }
 
 // SameCityCommodityGrowthRecordNodeStyle 成长记录节点样式

@@ -321,7 +321,10 @@ private enum SameCityCommodityGrowthRecordPreviewAssets {
         MHBImagePreviewAsset.localGallery(
             galleryID: galleryID,
             items: mediaItems.map { mediaItem in
-                MHBImagePreviewAsset.LocalGalleryItem(imageName: mediaItem.assetName)
+                MHBImagePreviewAsset.LocalGalleryItem(
+                    imageName: mediaItem.assetName,
+                    pixelSize: mediaItem.pixelSize
+                )
             }
         )
     }

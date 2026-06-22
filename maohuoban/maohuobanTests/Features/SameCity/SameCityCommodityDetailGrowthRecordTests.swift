@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import maohuoban
 
 // SameCityCommodityDetailGrowthRecordTests 商品详情成长记录测试
@@ -69,6 +70,29 @@ final class SameCityCommodityDetailGrowthRecordTests: XCTestCase {
                 in: mediaItems
             ),
             2
+        )
+    }
+
+    func testCommodityDetailMediaItemsCarryPreviewPixelSizes() throws {
+        let detail = try XCTUnwrap(SameCityCommodityMockDetail.detail(for: "samecity-breeding-golden"))
+        let expectedPixelSize = CGSize(width: 1024, height: 1024)
+
+        XCTAssertEqual(detail.mediaItems.map(\.pixelSize), [
+            expectedPixelSize,
+            expectedPixelSize,
+            expectedPixelSize
+        ])
+    }
+
+    func testGrowthRecordTimelineMediaCarriesPreviewPixelSizes() throws {
+        let detail = try XCTUnwrap(SameCityCommodityMockDetail.detail(for: "samecity-breeding-golden"))
+        let archive = try XCTUnwrap(detail.growthRecordCard?.archive)
+        let mediaItems = SameCityCommodityGrowthRecordPreviewPlan.mediaItems(from: archive.entries)
+        let expectedPixelSize = CGSize(width: 1024, height: 1024)
+
+        XCTAssertEqual(
+            mediaItems.map(\.pixelSize),
+            Array(repeating: expectedPixelSize, count: mediaItems.count)
         )
     }
 }

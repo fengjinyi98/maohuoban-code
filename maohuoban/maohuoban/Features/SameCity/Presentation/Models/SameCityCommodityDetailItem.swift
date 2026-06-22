@@ -95,9 +95,9 @@ enum SameCityCommodityMockDetail {
             viewCount: 23800,
             topics: ["同城领养", "上海宠友", "流浪猫救助"],
             mediaItems: [
-                FeedDetailHeroMediaItem(id: "adopt-hero", assetName: "HomePetAlbum1", pixelSize: nil),
-                FeedDetailHeroMediaItem(id: "adopt-gallery-1", assetName: "HomeGalleryAlbum1", pixelSize: nil),
-                FeedDetailHeroMediaItem(id: "adopt-gallery-2", assetName: "HomePetAlbum2", pixelSize: nil)
+                makeMediaItem(id: "adopt-hero", assetName: "HomePetAlbum1"),
+                makeMediaItem(id: "adopt-gallery-1", assetName: "HomeGalleryAlbum1"),
+                makeMediaItem(id: "adopt-gallery-2", assetName: "HomePetAlbum2")
             ],
             isLiked: true,
             likeCount: 1200,
@@ -175,9 +175,9 @@ enum SameCityCommodityMockDetail {
             viewCount: 8200,
             topics: ["活体繁育", "担保交易", "金渐层"],
             mediaItems: [
-                FeedDetailHeroMediaItem(id: "breed-hero", assetName: "HomeGalleryAlbum2", pixelSize: nil),
-                FeedDetailHeroMediaItem(id: "breed-gallery-1", assetName: "HomeGalleryAlbum3", pixelSize: nil),
-                FeedDetailHeroMediaItem(id: "breed-gallery-2", assetName: "HomePetAlbum4", pixelSize: nil)
+                makeMediaItem(id: "breed-hero", assetName: "HomeGalleryAlbum2"),
+                makeMediaItem(id: "breed-gallery-1", assetName: "HomeGalleryAlbum3"),
+                makeMediaItem(id: "breed-gallery-2", assetName: "HomePetAlbum4")
             ],
             isLiked: false,
             likeCount: 342,
@@ -204,6 +204,21 @@ enum SameCityCommodityMockDetail {
             ]
         )
     ]
+
+    // makeMediaItem 构造携带原图尺寸的商品详情媒资
+    // 核心职责：
+    // - 将本地样例资源名映射为预览可用的媒资模型
+    // - 模拟后端返回的图片尺寸元数据
+    private static func makeMediaItem(
+        id: String,
+        assetName: String
+    ) -> FeedDetailHeroMediaItem {
+        FeedDetailHeroMediaItem(
+            id: id,
+            assetName: assetName,
+            pixelSize: SameCityMediaPixelSizeCatalog.pixelSize(for: assetName)
+        )
+    }
 
     // makeComment 构造详情留言
     // 核心职责：
