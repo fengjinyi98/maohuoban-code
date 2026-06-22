@@ -169,6 +169,7 @@ struct PetWalkCollapsedSheetEntry: View {
     let petName: String?
     let petAvatarURL: URL?
     let petSex: PetRecordPetSex
+    let bottomInset: CGFloat
     let onOpenSheet: () -> Void
     let onStart: () -> Void
     let onPause: () -> Void
@@ -218,7 +219,7 @@ struct PetWalkCollapsedSheetEntry: View {
                 .background(MHBTheme.ColorToken.cardSolid.color, in: .rect(cornerRadius: 32))
                 .shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 10)
                 .padding(.horizontal, MHBTheme.Spacing.s4)
-                .padding(.bottom, MHBTheme.Spacing.s5)
+                .padding(.bottom, MHBTheme.Spacing.s5 + bottomInset)
             }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))

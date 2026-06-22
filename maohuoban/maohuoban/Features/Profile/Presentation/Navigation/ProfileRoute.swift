@@ -14,11 +14,13 @@ enum ProfileRoute: Hashable {
     case replies
     case favoriteFolders
     case createFavoriteFolder
+    case editFavoriteFolder(ProfileFavoriteFolderEditContext)
     case favoriteFolderContent(folderID: String)
     case badges(selectedBadgeID: String?)
     case feedDetail(postID: String)
     case petAlbumList
     case createPetAlbum
+    case editPetAlbum(PetAlbumEditContext)
     case petAlbumDetail(albumID: String)
     case followedTopics
     case topicDetail(topicID: String)

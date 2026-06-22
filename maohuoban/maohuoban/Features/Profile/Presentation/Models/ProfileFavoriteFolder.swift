@@ -10,7 +10,26 @@ struct ProfileFavoriteFolder: Identifiable, Equatable, Hashable {
     let itemCountText: String
     let coverImageAssetName: String
     let isPrivate: Bool
+    let isPinned: Bool
     let postIDs: [String]
+
+    init(
+        id: String,
+        title: String,
+        itemCountText: String,
+        coverImageAssetName: String,
+        isPrivate: Bool,
+        isPinned: Bool = false,
+        postIDs: [String]
+    ) {
+        self.id = id
+        self.title = title
+        self.itemCountText = itemCountText
+        self.coverImageAssetName = coverImageAssetName
+        self.isPrivate = isPrivate
+        self.isPinned = isPinned
+        self.postIDs = postIDs
+    }
 }
 
 extension Array where Element == ProfileFavoriteFolder {

@@ -82,7 +82,6 @@ struct HomeRootScreen: View {
                     )
                 }
             }
-            .toolbar(.visible, for: .navigationBar)
         }
         .onChange(of: store.phase) { _, phase in
             if case .loaded(let snapshot) = phase {

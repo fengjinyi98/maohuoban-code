@@ -174,6 +174,8 @@ struct SameCityRootScreen: View {
             break
         case .delete:
             break
+        case .removeFromFavoriteFolder:
+            break
         }
     }
 }

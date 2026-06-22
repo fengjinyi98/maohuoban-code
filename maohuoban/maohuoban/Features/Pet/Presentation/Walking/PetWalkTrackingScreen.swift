@@ -8,11 +8,14 @@ import MaohuobanDesignSystem
 // - 展示真实地图、用户位置和遛弯轨迹
 // - 使用系统 sheet 承载遛弯数据和记录操作
 struct PetWalkTrackingScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let context: PetRecordEntryContext
     let onFinished: () -> Void
 
     @State private var store = PetWalkTrackingStore()
     @State private var isTrackingSheetPresented = true
+    @State private var activeDetent: PresentationDetent = .height(260)
     @State private var recenterRequestID = 0
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
@@ -21,7 +24,7 @@ struct PetWalkTrackingScreen: View {
             let effectiveTopInset = max(proxy.safeAreaInsets.top, windowSafeAreaInsets.top)
             let effectiveBottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
 
-            ZStack {
+            ZStack(alignment: .top) {
                 MHBRouteMapView(
                     coordinates: store.points.map(\.coordinate),
                     showsCurrentLocation: context.petID != nil,
@@ -42,6 +45,9 @@ struct PetWalkTrackingScreen: View {
                 } else {
                     PetWalkMapControls(
                         isSheetPresented: isTrackingSheetPresented,
+                        activeDetent: activeDetent,
+                        effectiveBottomInset: effectiveBottomInset,
+                        screenHeight: proxy.size.height + effectiveBottomInset,
                         onRecenter: recenterMap
                     )
 
@@ -51,6 +57,7 @@ struct PetWalkTrackingScreen: View {
                             petName: context.petName,
                             petAvatarURL: resolvedPetAvatarURL,
                             petSex: context.petSex,
+                            bottomInset: effectiveBottomInset,
                             onOpenSheet: openTrackingSheet,
                             onStart: startTracking,
                             onPause: store.pause,
@@ -75,24 +82,22 @@ struct PetWalkTrackingScreen: View {
                     effectiveBottomInset: effectiveBottomInset
                 )
                 #endif
+
+                PetWalkTopChrome(
+                    phase: store.phase,
+                    gpsStatusText: store.gpsStatusText,
+                    onBack: handleBack
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .zIndex(2)
             }
         }
         .ignoresSafeArea(.container, edges: [.top, .bottom])
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                PetWalkNavigationStatus(
-                    phase: store.phase,
-                    gpsStatusText: store.gpsStatusText
-                )
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .padding(.vertical, MHBTheme.Spacing.s2)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .accessibilityIdentifier("pet.walkTracking.navigationStatus")
-            }
-        }
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .background {
             PetWalkScreenLifecycleObserver {
                 dismissTrackingSheetBeforeNavigation()
@@ -110,7 +115,7 @@ struct PetWalkTrackingScreen: View {
                     onResume: store.resume,
                     onFinish: finishTracking
                 )
-                .presentationDetents([.height(260), .medium])
+                .presentationDetents([.height(260), .medium], selection: $activeDetent)
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(32)
                 .presentationBackground(.clear)
@@ -122,6 +127,9 @@ struct PetWalkTrackingScreen: View {
             print("[DEBUG:WalkGlass] screen appear sheet=\(isTrackingSheetPresented) petExists=\(context.petID != nil) phase=\(store.phase)")
             #endif
             isTrackingSheetPresented = context.petID != nil
+            if isTrackingSheetPresented {
+                activeDetent = .height(260)
+            }
         }
         .onChange(of: isTrackingSheetPresented) { _, newValue in
             #if DEBUG
@@ -153,7 +161,13 @@ struct PetWalkTrackingScreen: View {
     }
 
     private func openTrackingSheet() {
+        activeDetent = .height(260)
         isTrackingSheetPresented = true
+    }
+
+    private func handleBack() {
+        dismissTrackingSheetBeforeNavigation()
+        dismiss()
     }
 
     private func startTracking() {
@@ -239,12 +253,30 @@ private struct PetWalkRootLayoutDiagnostics: View {
 // PetWalkMapControls 地图浮动控件
 // 核心职责：
 // - 在地图上提供回到当前定位入口
-// - 根据 sheet 展示状态调整按钮位置
+// - 根据 sheet 展示状态和安全区域调整按钮位置
 private struct PetWalkMapControls: View {
     let isSheetPresented: Bool
+    let activeDetent: PresentationDetent
+    let effectiveBottomInset: CGFloat
+    let screenHeight: CGFloat
     let onRecenter: () -> Void
 
     var body: some View {
+        let paddingBottom: CGFloat = {
+            if isSheetPresented {
+                if activeDetent == .medium {
+                    // medium detent is approximately 45% of screen height
+                    return screenHeight * 0.45 + 20
+                } else {
+                    // 260 height detent + safe area + offset (increased to 44 to clear rounded corners and top layout of sheet)
+                    return 260 + effectiveBottomInset + 44
+                }
+            } else {
+                // Collapsed entry height (84) + s5 padding (20) + safe area + offset (increased to 20)
+                return 84 + MHBTheme.Spacing.s5 + effectiveBottomInset + 20
+            }
+        }()
+
         VStack {
             Spacer()
 
@@ -261,17 +293,62 @@ private struct PetWalkMapControls: View {
                 .glassEffect(.regular.interactive(), in: .circle)
                 .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
                 .padding(.trailing, MHBTheme.Spacing.s5)
-                .padding(.bottom, isSheetPresented ? 286 : 132)
+                .padding(.bottom, paddingBottom)
             }
         }
-        .animation(.spring(response: 0.36, dampingFraction: 0.86), value: isSheetPresented)
+        .animation(.spring(response: 0.36, dampingFraction: 0.86), value: paddingBottom)
         .accessibilityLabel("回到当前位置")
+    }
+}
+
+// PetWalkTopChrome 遛弯页自绘顶部导航控件
+// 核心职责：
+// - 在系统导航栏位置展示返回按钮和记录状态
+// - 避免系统导航栏背景参与地图页渲染
+private struct PetWalkTopChrome: View {
+    let phase: PetWalkSessionPhase
+    let gpsStatusText: String
+    let onBack: () -> Void
+
+    var body: some View {
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            ZStack {
+                HStack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                            .frame(width: 48, height: 48)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .accessibilityLabel("返回")
+                    .accessibilityIdentifier("pet.walkTracking.backButton")
+
+                    Spacer(minLength: MHBTheme.Spacing.s4)
+
+                    Color.clear
+                        .frame(width: 48, height: 48)
+                }
+
+                PetWalkNavigationStatus(
+                    phase: phase,
+                    gpsStatusText: gpsStatusText
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.vertical, MHBTheme.Spacing.s2)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .accessibilityIdentifier("pet.walkTracking.navigationStatus")
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
 // PetWalkNavigationStatus 遛弯导航栏状态
 // 核心职责：
-// - 在系统导航栏中展示当前记录状态
+// - 在顶部自绘导航区域展示当前记录状态
 // - 展示 GPS 和权限状态提示
 private struct PetWalkNavigationStatus: View {
     let phase: PetWalkSessionPhase

@@ -5,7 +5,7 @@ import UIKit
 // ProfileFavoriteFolderCreateScreen 新建收藏夹页面
 // 核心职责：
 // - 承载收藏夹封面、名称和私密状态输入
-// - 通过系统导航栏完成创建操作
+// - 通过模式复用新建收藏夹和编辑收藏夹入口
 struct ProfileFavoriteFolderCreateScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -14,18 +14,26 @@ struct ProfileFavoriteFolderCreateScreen: View {
     @State private var selectedCoverImage: UIImage?
     @State private var isCoverPickerPresented = false
 
-    let onCreate: (ProfileFavoriteFolderCreateDraft) -> Void
+    let mode: ProfileFavoriteFolderCreateMode
+    let onSubmit: (ProfileFavoriteFolderCreateDraft) -> Void
 
     init(
-        onCreate: @escaping (ProfileFavoriteFolderCreateDraft) -> Void = { _ in }
+        mode: ProfileFavoriteFolderCreateMode = .create,
+        onSubmit: @escaping (ProfileFavoriteFolderCreateDraft) -> Void = { _ in }
     ) {
-        self.onCreate = onCreate
+        self.mode = mode
+        self.onSubmit = onSubmit
+        _name = State(initialValue: mode.initialName)
+        _isPrivate = State(initialValue: mode.initialIsPrivate)
     }
 
     var body: some View {
         MHBScreenScrollView {
             VStack(spacing: MHBTheme.Spacing.s8) {
-                MHBCoverImagePickerButton(selectedImage: selectedCoverImage) {
+                MHBCoverImagePickerButton(
+                    selectedImage: selectedCoverImage,
+                    initialImageAssetName: mode.initialCoverImageAssetName
+                ) {
                     isCoverPickerPresented = true
                 }
                 .accessibilityIdentifier("profile.favoriteFolder.create.coverButton")
@@ -44,11 +52,11 @@ struct ProfileFavoriteFolderCreateScreen: View {
             .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
-        .navigationTitle("新建收藏夹")
+        .navigationTitle(mode.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("创建") {
+                Button(mode.submitTitle) {
                     createIfNeeded()
                 }
                 .font(MHBTheme.Typography.callout.weight(.bold))
@@ -84,7 +92,7 @@ struct ProfileFavoriteFolderCreateScreen: View {
 
     private func createIfNeeded() {
         guard canCreate else { return }
-        onCreate(draft)
+        onSubmit(draft)
         dismiss()
     }
 

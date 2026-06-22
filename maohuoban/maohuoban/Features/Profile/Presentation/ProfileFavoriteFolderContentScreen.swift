@@ -10,6 +10,7 @@ struct ProfileFavoriteFolderContentScreen: View {
     let interactionStore: FeedInteractionStore
     let folders: [ProfileFavoriteFolder]
     let allItems: [FeedItem]
+    @State private var removedPostIDs: Set<String> = []
 
     init(
         folderID: String,
@@ -34,10 +35,12 @@ struct ProfileFavoriteFolderContentScreen: View {
                 topContentInset: MHBTheme.Spacing.s4,
                 accessibilityIdentifierPrefix: "profile.favoriteFolder.feed.card",
                 topTrailingAction: .moreMenu,
+                moreMenuContext: .favoriteFolder,
                 showsRecommendationReason: false,
                 detailRoute: { card in
                     ProfileRoute.feedDetail(postID: card.postID)
-                }
+                },
+                onMoreAction: handleMoreAction
             )
             .accessibilityIdentifier("profile.favoriteFolder.feedList")
         }
@@ -58,6 +61,18 @@ struct ProfileFavoriteFolderContentScreen: View {
             folderID: folderID,
             folders: folders,
             allItems: allItems
-        )
+        ).filter { removedPostIDs.contains($0.postID) == false }
+    }
+
+    private func handleMoreAction(
+        postID: String,
+        action: FeedMoreAction
+    ) {
+        switch action {
+        case .removeFromFavoriteFolder:
+            removedPostIDs.insert(postID)
+        case .dislike, .report, .delete:
+            break
+        }
     }
 }

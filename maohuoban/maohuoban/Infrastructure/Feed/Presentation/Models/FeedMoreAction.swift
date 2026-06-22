@@ -8,4 +8,5 @@ enum FeedMoreAction: Equatable {
     case dislike
     case report
     case delete
+    case removeFromFavoriteFolder
 }

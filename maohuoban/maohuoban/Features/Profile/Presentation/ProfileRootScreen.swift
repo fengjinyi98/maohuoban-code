@@ -129,11 +129,22 @@ struct ProfileRootScreen: View {
             case .replies:
                 ProfileRepliesScreen()
             case .favoriteFolders:
-                ProfileFavoriteFoldersScreen(createRoute: ProfileRoute.createFavoriteFolder) { folder in
-                    ProfileRoute.favoriteFolderContent(folderID: folder.id)
-                }
+                ProfileFavoriteFoldersScreen(
+                    createRoute: ProfileRoute.createFavoriteFolder,
+                    detailRoute: { folder in
+                        ProfileRoute.favoriteFolderContent(folderID: folder.id)
+                    },
+                    editRoute: { context in
+                        ProfileRoute.editFavoriteFolder(context)
+                    },
+                    onOpenRoute: { route in
+                        tabState.appendProfileRoute(route)
+                    }
+                )
             case .createFavoriteFolder:
                 ProfileFavoriteFolderCreateScreen()
+            case .editFavoriteFolder(let context):
+                ProfileFavoriteFolderCreateScreen(mode: .edit(context))
             case .favoriteFolderContent(let folderID):
                 ProfileFavoriteFolderContentScreen(
                     folderID: folderID,
@@ -153,11 +164,22 @@ struct ProfileRootScreen: View {
                     }
                 )
             case .petAlbumList:
-                PetAlbumListScreen(createRoute: ProfileRoute.createPetAlbum) { album in
-                    ProfileRoute.petAlbumDetail(albumID: album.id)
-                }
+                PetAlbumListScreen(
+                    createRoute: ProfileRoute.createPetAlbum,
+                    detailRoute: { album in
+                        ProfileRoute.petAlbumDetail(albumID: album.id)
+                    },
+                    editRoute: { context in
+                        ProfileRoute.editPetAlbum(context)
+                    },
+                    onOpenRoute: { route in
+                        tabState.appendProfileRoute(route)
+                    }
+                )
             case .createPetAlbum:
                 PetAlbumCreateScreen()
+            case .editPetAlbum(let context):
+                PetAlbumCreateScreen(mode: .edit(context))
             case .petAlbumDetail(let albumID):
                 PetAlbumDetailScreen(albumID: albumID)
             case .followedTopics:

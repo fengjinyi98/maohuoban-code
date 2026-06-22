@@ -131,11 +131,20 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .petAlbumList:
-            PetAlbumListScreen(createRoute: HomeRoute.createPetAlbum) { album in
-                HomeRoute.petAlbumDetail(albumID: album.id)
-            }
+            PetAlbumListScreen(
+                createRoute: HomeRoute.createPetAlbum,
+                detailRoute: { album in
+                    HomeRoute.petAlbumDetail(albumID: album.id)
+                },
+                editRoute: { context in
+                    HomeRoute.editPetAlbum(context)
+                },
+                onOpenRoute: onRouteRequested
+            )
         case .createPetAlbum:
             PetAlbumCreateScreen()
+        case .editPetAlbum(let context):
+            PetAlbumCreateScreen(mode: .edit(context))
         case .petAlbumDetail(let albumID):
             PetAlbumDetailScreen(albumID: albumID)
         }

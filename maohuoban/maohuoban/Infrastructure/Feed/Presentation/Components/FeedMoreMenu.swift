@@ -9,7 +9,22 @@ struct FeedMoreMenuOverlay: View {
     let isPresented: Bool
     let containerSize: CGSize
     let buttonFrame: CGRect
+    let actions: [FeedMoreAction]
     let onAction: (FeedMoreAction) -> Void
+
+    init(
+        isPresented: Bool,
+        containerSize: CGSize,
+        buttonFrame: CGRect,
+        actions: [FeedMoreAction] = FeedMoreMenuActionResolver.actions(context: .standard),
+        onAction: @escaping (FeedMoreAction) -> Void
+    ) {
+        self.isPresented = isPresented
+        self.containerSize = containerSize
+        self.buttonFrame = buttonFrame
+        self.actions = actions
+        self.onAction = onAction
+    }
 
     private var isReadyToPresent: Bool {
         isPresented && buttonFrame != .zero && containerSize.width > 0
@@ -18,8 +33,12 @@ struct FeedMoreMenuOverlay: View {
     private var shouldOpenUpward: Bool {
         buttonFrame.maxY
             + FeedMoreMenuMetrics.verticalGap
-            + FeedMoreMenuMetrics.estimatedHeight
+            + estimatedHeight
             > containerSize.height - FeedMoreMenuMetrics.verticalMargin
+    }
+
+    private var estimatedHeight: CGFloat {
+        FeedMoreMenuMetrics.estimatedHeight(actionCount: actions.count)
     }
 
     private var offset: CGSize {
@@ -42,14 +61,14 @@ struct FeedMoreMenuOverlay: View {
             max(
                 FeedMoreMenuMetrics.verticalMargin,
                 containerSize.height
-                    - FeedMoreMenuMetrics.estimatedHeight
+                    - estimatedHeight
                     - FeedMoreMenuMetrics.verticalMargin
             )
         )
         let upwardY = max(
             FeedMoreMenuMetrics.verticalMargin,
             buttonFrame.minY
-                - FeedMoreMenuMetrics.estimatedHeight
+                - estimatedHeight
                 - FeedMoreMenuMetrics.verticalGap
         )
 
@@ -66,7 +85,7 @@ struct FeedMoreMenuOverlay: View {
             offset: offset,
             scaleAnchor: scaleAnchor
         ) {
-            FeedMoreMenu(onAction: onAction)
+            FeedMoreMenu(actions: actions, onAction: onAction)
         }
         .animation(.snappy(duration: 0.22), value: isPresented)
     }
@@ -77,12 +96,22 @@ struct FeedMoreMenuOverlay: View {
 // - 展示卡片级二级操作入口
 // - 使用 Liquid Glass 维持与项目浮层基础设施一致的视觉
 struct FeedMoreMenu: View {
+    let actions: [FeedMoreAction]
     let onAction: (FeedMoreAction) -> Void
+
+    init(
+        actions: [FeedMoreAction] = FeedMoreMenuActionResolver.actions(context: .standard),
+        onAction: @escaping (FeedMoreAction) -> Void
+    ) {
+        self.actions = actions
+        self.onAction = onAction
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-            FeedMoreMenuRow(action: .dislike, onAction: onAction)
-            FeedMoreMenuRow(action: .report, onAction: onAction)
+            ForEach(actions, id: \.self) { action in
+                FeedMoreMenuRow(action: action, onAction: onAction)
+            }
         }
         .padding(MHBTheme.Spacing.s2)
         .frame(width: FeedMoreMenuMetrics.width)
@@ -131,10 +160,16 @@ private struct FeedMoreMenuRow: View {
 // - 让菜单布局与列表定位逻辑共享同一套参数
 private enum FeedMoreMenuMetrics {
     static let width: CGFloat = 128
-    static let estimatedHeight: CGFloat = 88
     static let horizontalMargin: CGFloat = MHBTheme.Spacing.s4
     static let verticalMargin: CGFloat = MHBTheme.Spacing.s4
     static let verticalGap: CGFloat = MHBTheme.Spacing.s1
+
+    static func estimatedHeight(actionCount: Int) -> CGFloat {
+        let rowHeight: CGFloat = 36
+        let verticalPadding = MHBTheme.Spacing.s2 * 2
+        let rowGaps = MHBTheme.Spacing.s1 * CGFloat(max(actionCount - 1, 0))
+        return verticalPadding + rowHeight * CGFloat(actionCount) + rowGaps
+    }
 }
 
 private extension FeedMoreAction {
@@ -146,6 +181,8 @@ private extension FeedMoreAction {
             "举报"
         case .delete:
             "删除"
+        case .removeFromFavoriteFolder:
+            "移出收藏夹"
         }
     }
 
@@ -157,6 +194,8 @@ private extension FeedMoreAction {
             "exclamationmark.triangle"
         case .delete:
             "trash"
+        case .removeFromFavoriteFolder:
+            "folder.badge.minus"
         }
     }
 
@@ -167,6 +206,8 @@ private extension FeedMoreAction {
         case .report:
             MHBTheme.ColorToken.danger.color
         case .delete:
+            MHBTheme.ColorToken.danger.color
+        case .removeFromFavoriteFolder:
             MHBTheme.ColorToken.danger.color
         }
     }
@@ -179,6 +220,8 @@ private extension FeedMoreAction {
             .destructive
         case .delete:
             .destructive
+        case .removeFromFavoriteFolder:
+            .destructive
         }
     }
 
@@ -190,6 +233,8 @@ private extension FeedMoreAction {
             "feed.moreMenu.report"
         case .delete:
             "feed.moreMenu.delete"
+        case .removeFromFavoriteFolder:
+            "feed.moreMenu.removeFromFavoriteFolder"
         }
     }
 }

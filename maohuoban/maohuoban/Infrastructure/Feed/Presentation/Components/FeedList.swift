@@ -11,6 +11,7 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
     let topContentInset: CGFloat
     let accessibilityIdentifierPrefix: String
     let topTrailingAction: FeedCardTopTrailingAction
+    let moreMenuContext: FeedMoreMenuContext
     let showsRecommendationReason: Bool
     let detailRoute: (FeedItem) -> DetailRoute
     let onMoreAction: (String, FeedMoreAction) -> Void
@@ -27,6 +28,7 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
         topContentInset: CGFloat,
         accessibilityIdentifierPrefix: String = "feed.card",
         topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
+        moreMenuContext: FeedMoreMenuContext = .standard,
         showsRecommendationReason: Bool = true,
         detailRoute: @escaping (FeedItem) -> DetailRoute,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
@@ -39,6 +41,7 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
         self.topContentInset = topContentInset
         self.accessibilityIdentifierPrefix = accessibilityIdentifierPrefix
         self.topTrailingAction = topTrailingAction
+        self.moreMenuContext = moreMenuContext
         self.showsRecommendationReason = showsRecommendationReason
         self.detailRoute = detailRoute
         self.onMoreAction = onMoreAction
@@ -106,6 +109,7 @@ struct FeedList<DetailRoute: Hashable, Header: View>: View {
                     isPresented: presentedMoreMenuPostID != nil,
                     containerSize: proxy.size,
                     buttonFrame: presentedMoreMenuButtonFrame,
+                    actions: FeedMoreMenuActionResolver.actions(context: moreMenuContext),
                     onAction: handleMoreMenuAction
                 )
                 .zIndex(2)
@@ -169,6 +173,7 @@ extension FeedList where Header == EmptyView {
         topContentInset: CGFloat,
         accessibilityIdentifierPrefix: String = "feed.card",
         topTrailingAction: FeedCardTopTrailingAction = .moreMenu,
+        moreMenuContext: FeedMoreMenuContext = .standard,
         showsRecommendationReason: Bool = true,
         detailRoute: @escaping (FeedItem) -> DetailRoute,
         onMoreAction: @escaping (String, FeedMoreAction) -> Void = { _, _ in },
@@ -181,6 +186,7 @@ extension FeedList where Header == EmptyView {
             topContentInset: topContentInset,
             accessibilityIdentifierPrefix: accessibilityIdentifierPrefix,
             topTrailingAction: topTrailingAction,
+            moreMenuContext: moreMenuContext,
             showsRecommendationReason: showsRecommendationReason,
             detailRoute: detailRoute,
             onMoreAction: onMoreAction,

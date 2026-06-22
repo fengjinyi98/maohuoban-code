@@ -23,6 +23,7 @@ enum HomeRoute: Hashable {
     case timelineEvent(eventID: String)
     case petAlbumList
     case createPetAlbum
+    case editPetAlbum(PetAlbumEditContext)
     case petAlbumDetail(albumID: String)
 }
 
@@ -46,6 +47,7 @@ extension HomeRoute {
         case .timelineEvent: "clock.arrow.circlepath"
         case .petAlbumList: "photo.on.rectangle.angled"
         case .createPetAlbum: "plus.square.on.square"
+        case .editPetAlbum: "pencil"
         case .petAlbumDetail: "photo"
         }
     }
@@ -69,6 +71,7 @@ extension HomeRoute {
         case .timelineEvent: "事件详情"
         case .petAlbumList: "宠物相册"
         case .createPetAlbum: "新建相册"
+        case .editPetAlbum: "编辑相册"
         case .petAlbumDetail: "相册详情"
         }
     }
@@ -92,6 +95,7 @@ extension HomeRoute {
         case .timelineEvent: "查看宠物事件账本记录"
         case .petAlbumList: "查看宠物照片相册"
         case .createPetAlbum: "新建宠物照片相册"
+        case .editPetAlbum: "编辑相册标题和封面"
         case .petAlbumDetail: "查看单个相册中的照片"
         }
     }

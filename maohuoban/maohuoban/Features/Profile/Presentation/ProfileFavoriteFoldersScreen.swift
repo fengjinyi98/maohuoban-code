@@ -6,9 +6,12 @@ import MaohuobanDesignSystem
 // - 展示用户收藏夹的两列网格
 // - 通过系统导航进入单个收藏夹内容页
 struct ProfileFavoriteFoldersScreen<DetailRoute: Hashable>: View {
-    let folders: [ProfileFavoriteFolder]
+    @State private var folders: [ProfileFavoriteFolder]
+    @State private var pendingDeleteFolder: ProfileFavoriteFolder?
     let createRoute: DetailRoute
     let detailRoute: (ProfileFavoriteFolder) -> DetailRoute
+    let editRoute: (ProfileFavoriteFolderEditContext) -> DetailRoute
+    let onOpenRoute: (DetailRoute) -> Void
 
     private let columns = [
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4),
@@ -18,11 +21,15 @@ struct ProfileFavoriteFoldersScreen<DetailRoute: Hashable>: View {
     init(
         folders: [ProfileFavoriteFolder] = .profileFavoriteMockFolders,
         createRoute: DetailRoute,
-        detailRoute: @escaping (ProfileFavoriteFolder) -> DetailRoute
+        detailRoute: @escaping (ProfileFavoriteFolder) -> DetailRoute,
+        editRoute: @escaping (ProfileFavoriteFolderEditContext) -> DetailRoute,
+        onOpenRoute: @escaping (DetailRoute) -> Void
     ) {
-        self.folders = folders
+        _folders = State(initialValue: folders)
         self.createRoute = createRoute
         self.detailRoute = detailRoute
+        self.editRoute = editRoute
+        self.onOpenRoute = onOpenRoute
     }
 
     var body: some View {
@@ -39,12 +46,38 @@ struct ProfileFavoriteFoldersScreen<DetailRoute: Hashable>: View {
                         ProfileFavoriteFolderCard(folder: folder)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        ForEach(
+                            ProfileFavoriteFolderContextMenuActionResolver.actions(isPinned: folder.isPinned)
+                        ) { action in
+                            Button(role: action.buttonRole) {
+                                handleMenuAction(action, folder: folder)
+                            } label: {
+                                Label(action.title, systemImage: action.systemImageName)
+                            }
+                        }
+                    }
                     .accessibilityIdentifier("profile.favorites.folder.\(folder.id)")
                 }
             }
             .padding(.horizontal, MHBTheme.Spacing.s3)
             .padding(.top, MHBTheme.Spacing.s6)
             .padding(.bottom, MHBTheme.Spacing.s8)
+        }
+        .alert(
+            "删除收藏夹",
+            isPresented: deleteFolderAlertBinding,
+            presenting: pendingDeleteFolder
+        ) { folder in
+            Button("删除", role: .destructive) {
+                deleteFolder(folder)
+            }
+
+            Button("取消", role: .cancel) {
+                pendingDeleteFolder = nil
+            }
+        } message: { folder in
+            Text("将删除“\(folder.title)”收藏夹。")
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .navigationTitle("我的收藏夹")
@@ -60,6 +93,56 @@ struct ProfileFavoriteFoldersScreen<DetailRoute: Hashable>: View {
             }
         }
         .accessibilityIdentifier("profile.favorites.screen")
+    }
+
+    private var deleteFolderAlertBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeleteFolder != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    pendingDeleteFolder = nil
+                }
+            }
+        )
+    }
+
+    private func handleMenuAction(
+        _ action: ProfileFavoriteFolderContextMenuAction,
+        folder: ProfileFavoriteFolder
+    ) {
+        switch action {
+        case .editNameAndPrivacy:
+            onOpenRoute(editRoute(ProfileFavoriteFolderEditContext(folder: folder)))
+        case .togglePin:
+            togglePinned(folderID: folder.id)
+        case .share:
+            break
+        case .delete:
+            pendingDeleteFolder = folder
+        }
+    }
+
+    private func togglePinned(folderID: String) {
+        folders = folders.map { folder in
+            guard folder.id == folderID else {
+                return folder
+            }
+
+            return ProfileFavoriteFolder(
+                id: folder.id,
+                title: folder.title,
+                itemCountText: folder.itemCountText,
+                coverImageAssetName: folder.coverImageAssetName,
+                isPrivate: folder.isPrivate,
+                isPinned: !folder.isPinned,
+                postIDs: folder.postIDs
+            )
+        }
+    }
+
+    private func deleteFolder(_ folder: ProfileFavoriteFolder) {
+        folders.removeAll { $0.id == folder.id }
+        pendingDeleteFolder = nil
     }
 }
 
@@ -196,5 +279,16 @@ private struct ProfileFavoriteFolderCreateCard: View {
         }
         .contentShape(Rectangle())
         .accessibilityLabel("新建收藏夹")
+    }
+}
+
+private extension ProfileFavoriteFolderContextMenuAction {
+    var buttonRole: ButtonRole? {
+        switch self {
+        case .editNameAndPrivacy, .togglePin, .share:
+            nil
+        case .delete:
+            .destructive
+        }
     }
 }

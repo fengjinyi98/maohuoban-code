@@ -10,6 +10,8 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
     @State private var pendingDeleteAlbum: PetAlbumSummary?
     let createRoute: DetailRoute
     let detailRoute: (PetAlbumSummary) -> DetailRoute
+    let editRoute: (PetAlbumEditContext) -> DetailRoute
+    let onOpenRoute: (DetailRoute) -> Void
 
     private let columns = [
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4),
@@ -18,10 +20,14 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
 
     init(
         createRoute: DetailRoute,
-        detailRoute: @escaping (PetAlbumSummary) -> DetailRoute
+        detailRoute: @escaping (PetAlbumSummary) -> DetailRoute,
+        editRoute: @escaping (PetAlbumEditContext) -> DetailRoute,
+        onOpenRoute: @escaping (DetailRoute) -> Void
     ) {
         self.createRoute = createRoute
         self.detailRoute = detailRoute
+        self.editRoute = editRoute
+        self.onOpenRoute = onOpenRoute
     }
 
     var body: some View {
@@ -60,10 +66,9 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
             .padding(.top, MHBTheme.Spacing.s4)
             .padding(.bottom, MHBTheme.Spacing.s8)
         }
-        .confirmationDialog(
+        .alert(
             "删除相册",
-            isPresented: deleteAlbumDialogBinding,
-            titleVisibility: .visible,
+            isPresented: deleteAlbumAlertBinding,
             presenting: pendingDeleteAlbum
         ) { album in
             Button("删除相册", role: .destructive) {
@@ -92,7 +97,7 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         }
     }
 
-    private var deleteAlbumDialogBinding: Binding<Bool> {
+    private var deleteAlbumAlertBinding: Binding<Bool> {
         Binding(
             get: { pendingDeleteAlbum != nil },
             set: { isPresented in
@@ -108,7 +113,11 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         album: PetAlbumSummary
     ) {
         switch action {
-        case .edit, .addPhotos, .playMemory:
+        case .edit:
+            onOpenRoute(editRoute(PetAlbumEditContext(album: album)))
+        case .addPhotos:
+            break
+        case .shareAlbum:
             break
         case .deleteAlbum:
             pendingDeleteAlbum = album

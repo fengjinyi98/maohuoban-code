@@ -7,7 +7,7 @@ import Foundation
 enum PetAlbumContextMenuAction: Equatable, Identifiable {
     case edit
     case addPhotos
-    case playMemory
+    case shareAlbum
     case deleteAlbum
     case togglePin(isPinned: Bool)
 
@@ -17,8 +17,8 @@ enum PetAlbumContextMenuAction: Equatable, Identifiable {
             "edit"
         case .addPhotos:
             "addPhotos"
-        case .playMemory:
-            "playMemory"
+        case .shareAlbum:
+            "shareAlbum"
         case .deleteAlbum:
             "deleteAlbum"
         case .togglePin(let isPinned):
@@ -29,11 +29,11 @@ enum PetAlbumContextMenuAction: Equatable, Identifiable {
     nonisolated var title: String {
         switch self {
         case .edit:
-            "编辑标题和照片"
+            "编辑标题和封面"
         case .addPhotos:
             "添加照片"
-        case .playMemory:
-            "播放“回忆”视频"
+        case .shareAlbum:
+            "分享相册"
         case .deleteAlbum:
             "删除相册"
         case .togglePin(let isPinned):
@@ -47,8 +47,8 @@ enum PetAlbumContextMenuAction: Equatable, Identifiable {
             "pencil"
         case .addPhotos:
             "plus"
-        case .playMemory:
-            "play.circle"
+        case .shareAlbum:
+            "square.and.arrow.up"
         case .deleteAlbum:
             "trash"
         case .togglePin(let isPinned):
@@ -66,7 +66,7 @@ enum PetAlbumContextMenuActionResolver {
         [
             .edit,
             .addPhotos,
-            .playMemory,
+            .shareAlbum,
             .deleteAlbum,
             .togglePin(isPinned: isPinned)
         ]
@@ -109,5 +109,51 @@ enum PetAlbumPhotoContextMenuAction: Equatable, Identifiable {
 enum PetAlbumPhotoContextMenuActionResolver {
     nonisolated static func actions() -> [PetAlbumPhotoContextMenuAction] {
         [.deletePhoto]
+    }
+}
+
+// PetAlbumDetailToolbarMenuAction 相册详情工具栏菜单动作
+// 核心职责：
+// - 描述相册详情页右上角菜单当前可执行的操作
+// - 为菜单文案、图标和展示顺序提供稳定来源
+enum PetAlbumDetailToolbarMenuAction: Equatable, Identifiable {
+    case uploadPhotos
+    case shareAlbum
+
+    nonisolated var id: String {
+        switch self {
+        case .uploadPhotos:
+            "uploadPhotos"
+        case .shareAlbum:
+            "shareAlbum"
+        }
+    }
+
+    nonisolated var title: String {
+        switch self {
+        case .uploadPhotos:
+            "上传照片"
+        case .shareAlbum:
+            "分享相册"
+        }
+    }
+
+    nonisolated var systemImageName: String {
+        switch self {
+        case .uploadPhotos:
+            "photo.badge.plus"
+        case .shareAlbum:
+            "square.and.arrow.up"
+        }
+    }
+}
+
+// PetAlbumDetailToolbarMenuActionResolver 相册详情工具栏菜单动作解析器
+// 核心职责：
+// - 收敛详情页右上角菜单当前阶段的操作集合
+// - 保持工具栏菜单规则独立于 SwiftUI 视图
+enum PetAlbumDetailToolbarMenuActionResolver {
+    nonisolated static func actions() -> [PetAlbumDetailToolbarMenuAction] {
+        [.uploadPhotos, .shareAlbum]
     }
 }
