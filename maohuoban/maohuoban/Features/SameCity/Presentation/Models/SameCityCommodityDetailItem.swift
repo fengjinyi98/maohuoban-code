@@ -10,6 +10,7 @@ struct SameCityCommodityDetailItem: Identifiable, Equatable {
     let tradeTitle: String
     let tradeSubtitle: String
     let metaTags: [String]
+    let growthRecordCard: SameCityCommodityGrowthRecordCard?
     let healthItems: [SameCityCommodityDetailChecklistItem]
     let storyTitle: String
     let storyParagraphs: [String]
@@ -26,6 +27,24 @@ struct SameCityCommodityDetailItem: Identifiable, Equatable {
 
     var id: String {
         postID
+    }
+}
+
+// SameCityCommodityGrowthRecordCard 商品详情成长记录卡片
+// 核心职责：
+// - 表达发布商品时导入的宠物成长记录摘要
+// - 为商品详情页提供缩略图预览和剩余记录计数
+struct SameCityCommodityGrowthRecordCard: Equatable {
+    let title: String
+    let recordCount: Int
+    let thumbnailAssetNames: [String]
+
+    var summaryText: String {
+        "包含 \(recordCount) 条图文动态"
+    }
+
+    var remainingThumbnailCount: Int {
+        max(recordCount - thumbnailAssetNames.count, 0)
     }
 }
 
@@ -66,6 +85,7 @@ enum SameCityCommodityMockDetail {
             tradeTitle: "免费领养",
             tradeSubtitle: "要求：定期回访 · 签订协议",
             metaTags: ["三花猫", "约 3 个月", "妹妹"],
+            growthRecordCard: nil,
             healthItems: [
                 SameCityCommodityDetailChecklistItem(id: "vaccine", title: "首针已打", isCompleted: true),
                 SameCityCommodityDetailChecklistItem(id: "deworm", title: "内外驱虫", isCompleted: true),
@@ -135,6 +155,16 @@ enum SameCityCommodityMockDetail {
             tradeTitle: "¥ 6,500",
             tradeSubtitle: "平台担保交易 · 7 天健康保障",
             metaTags: ["金渐层", "约 3 个月", "弟弟"],
+            growthRecordCard: SameCityCommodityGrowthRecordCard(
+                title: "TA的成长记录",
+                recordCount: 45,
+                thumbnailAssetNames: [
+                    "HomePetAlbum2",
+                    "HomeGalleryAlbum2",
+                    "HomeGalleryAlbum3",
+                    "HomePetAlbum4"
+                ]
+            ),
             healthItems: [
                 SameCityCommodityDetailChecklistItem(id: "certificate", title: "CFA 血统证", isCompleted: true),
                 SameCityCommodityDetailChecklistItem(id: "vaccine", title: "3 针齐全", isCompleted: true),

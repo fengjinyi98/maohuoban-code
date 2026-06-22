@@ -11,6 +11,7 @@ struct SameCityCommodityDetailContent: View {
     let topPadding: CGFloat
     let topicRoute: (String) -> SameCityRoute
     let onOpenTopicRoute: (SameCityRoute) -> Void
+    let onGrowthRecordTap: () -> Void
     let onPublisherOffsetChange: (CGFloat) -> Void
     let onCommentReply: (FeedComment) -> Void
     let onCommentToggleLike: (FeedComment) -> Void
@@ -26,6 +27,15 @@ struct SameCityCommodityDetailContent: View {
             )
 
             SameCityCommodityDetailDivider()
+
+            if let growthRecordCard = detail.growthRecordCard {
+                SameCityCommodityGrowthRecordCardView(
+                    card: growthRecordCard,
+                    onTap: onGrowthRecordTap
+                )
+
+                SameCityCommodityDetailDivider()
+            }
 
             SameCityCommodityHealthSection(items: detail.healthItems)
 

@@ -80,6 +80,7 @@ private struct SameCityCommodityDetailLoadedScreen: View {
                                 topPadding: MHBTheme.Spacing.s6,
                                 topicRoute: topicRoute,
                                 onOpenTopicRoute: onOpenTopicRoute,
+                                onGrowthRecordTap: handleGrowthRecordTap,
                                 onPublisherOffsetChange: updateNavigationIdentityOffset(_:),
                                 onCommentReply: presentReplyComposer(for:),
                                 onCommentToggleLike: handleCommentLike(_:),
@@ -243,6 +244,10 @@ private struct SameCityCommodityDetailLoadedScreen: View {
 
     private func handlePrivateChat() {
         // 完整咨询、购买和领养 SOP 后续在 IM 中完成。
+    }
+
+    private func handleGrowthRecordTap() {
+        // TODO: 接入宠物成长记录详情页。
     }
 
     private func presentReplyComposer(for comment: FeedComment) {
