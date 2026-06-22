@@ -62,8 +62,17 @@ struct PetWalkTrackingScreen: View {
             }
         }
         .background {
-            PetWalkScreenLifecycleObserver {
-                dismissTrackingSheetBeforeNavigation()
+            ZStack {
+                PetWalkScreenLifecycleObserver {
+                    dismissTrackingSheetBeforeNavigation()
+                }
+
+                #if DEBUG
+                PetWalkNavigationDiagnostics(
+                    isSheetPresented: isTrackingSheetPresented,
+                    phase: store.phase
+                )
+                #endif
             }
         }
         .sheet(isPresented: $isTrackingSheetPresented) {
@@ -81,13 +90,25 @@ struct PetWalkTrackingScreen: View {
                 .presentationDetents([.height(260), .medium])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(32)
+                .presentationBackground(.clear)
                 .presentationBackgroundInteraction(.enabled)
             }
         }
         .onAppear {
+            #if DEBUG
+            print("[DEBUG:WalkGlass] screen appear sheet=\(isTrackingSheetPresented) petExists=\(context.petID != nil) phase=\(store.phase)")
+            #endif
             isTrackingSheetPresented = context.petID != nil
         }
+        .onChange(of: isTrackingSheetPresented) { _, newValue in
+            #if DEBUG
+            print("[DEBUG:WalkGlass] sheet state changed presented=\(newValue) phase=\(store.phase)")
+            #endif
+        }
         .onDisappear {
+            #if DEBUG
+            print("[DEBUG:WalkGlass] screen disappear sheet=\(isTrackingSheetPresented) phase=\(store.phase)")
+            #endif
             if store.phase == .tracking || store.phase == .paused {
                 store.finish()
             }
@@ -158,6 +179,80 @@ private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
         }
     }
 }
+
+#if DEBUG
+// PetWalkNavigationDiagnostics 遛弯页导航栏临时诊断
+// 核心职责：
+// - 打印系统导航栏背景视图与 appearance 状态
+// - 协助定位地图页顶部背景来源
+private struct PetWalkNavigationDiagnostics: UIViewControllerRepresentable {
+    let isSheetPresented: Bool
+    let phase: PetWalkSessionPhase
+
+    func makeUIViewController(context: Context) -> Controller {
+        Controller()
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.isSheetPresented = isSheetPresented
+        controller.phaseDescription = String(describing: phase)
+        controller.scheduleLog(reason: "update")
+    }
+
+    final class Controller: UIViewController {
+        var isSheetPresented = false
+        var phaseDescription = ""
+        private var lastSignature = ""
+
+        func scheduleLog(reason: String) {
+            DispatchQueue.main.async { [weak self] in
+                self?.log(reason: reason)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.log(reason: "\(reason)+0.35s")
+            }
+        }
+
+        private func log(reason: String) {
+            let navigationBar = navigationController?.navigationBar
+            let window = view.window
+            let signature = [
+                reason,
+                "\(isSheetPresented)",
+                phaseDescription,
+                "\(navigationBar?.frame.debugDescription ?? "nil")",
+                "\(window?.frame.debugDescription ?? "nil")"
+            ].joined(separator: "|")
+            guard signature != lastSignature else { return }
+            lastSignature = signature
+
+            let navSubviews = navigationBar?.subviews.enumerated().map { index, subview in
+                "navSubview#\(index):alpha=\(String(format: "%.2f", subview.alpha)),hidden=\(subview.isHidden),frame=\(subview.frame.debugDescription),bg=\(subview.backgroundColor?.description ?? "nil")"
+            }.joined(separator: " || ") ?? "nil"
+            let appearance = navigationBar.map(Self.describeAppearance) ?? "nil"
+            let windowSubviews = window?.subviews.enumerated().map { index, subview in
+                "windowSubview#\(index):frame=\(subview.frame.debugDescription),alpha=\(String(format: "%.2f", subview.alpha)),hidden=\(subview.isHidden)"
+            }.joined(separator: " || ") ?? "nil"
+
+            print("[DEBUG:WalkGlass] nav reason=\(reason) sheet=\(isSheetPresented) phase=\(phaseDescription) navFrame=\(navigationBar?.frame.debugDescription ?? "nil") navTranslucent=\(navigationBar?.isTranslucent.description ?? "nil") appearance=\(appearance) navSubviews=\(navSubviews) window=\(window?.description ?? "nil") windowSubviews=\(windowSubviews)")
+        }
+
+        private static func describeAppearance(_ navigationBar: UINavigationBar) -> String {
+            let standard = describe(navigationBar.standardAppearance)
+            let scrollEdge = navigationBar.scrollEdgeAppearance.map(describe) ?? "nil"
+            let compact = navigationBar.compactAppearance.map(describe) ?? "nil"
+            return "standard={\(standard)} scrollEdge={\(scrollEdge)} compact={\(compact)}"
+        }
+
+        private static func describe(_ appearance: UINavigationBarAppearance) -> String {
+            let backgroundColor = appearance.backgroundColor?.description ?? "nil"
+            let backgroundEffect = appearance.backgroundEffect?.description ?? "nil"
+            let shadowColor = appearance.shadowColor?.description ?? "nil"
+            return "bgColor=\(backgroundColor),bgEffect=\(backgroundEffect),shadowColor=\(shadowColor)"
+        }
+    }
+}
+#endif
 
 // PetWalkMapControls 地图浮动控件
 // 核心职责：

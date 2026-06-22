@@ -13,7 +13,6 @@ struct SameCityRootScreen: View {
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
-    @State private var fixedTabsTopY: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -21,6 +20,10 @@ struct SameCityRootScreen: View {
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
+                let topBlurLayout = SameCityRootLayout.fixedTabsTopBlurLayout(
+                    contentTopY: proxy.frame(in: .global).minY
+                )
+
                 ZStack(alignment: .topLeading) {
                     MHBScreenScrollView(showsIndicators: false) {
                         VStack(spacing: MHBTheme.Spacing.s3) {
@@ -55,9 +58,9 @@ struct SameCityRootScreen: View {
                     }
 
                     MHBScreenScrollTopBlurOverlay(
-                        configuration: SameCityRootLayout.fixedTabsTopBlur(height: fixedTabsTopY)
+                        configuration: SameCityRootLayout.fixedTabsTopBlur(height: topBlurLayout.blurHeight)
                     )
-                    .offset(y: SameCityRootLayout.fixedTabsTopBlurOffset(for: fixedTabsTopY))
+                    .offset(y: topBlurLayout.blurOffsetY)
                     .zIndex(1)
 
                     if presentedMoreMenuPostID != nil {
@@ -77,9 +80,6 @@ struct SameCityRootScreen: View {
                     .zIndex(4)
                 }
                 .coordinateSpace(name: FeedCoordinateSpace.name)
-                .onPreferenceChange(SameCityFixedTabsTopPreferenceKey.self) { topY in
-                    handleFixedTabsTopChange(topY)
-                }
             }
         }
         .navigationTitle("")
@@ -154,22 +154,6 @@ struct SameCityRootScreen: View {
         }
     }
 
-    private func handleFixedTabsTopChange(_ topY: CGFloat) {
-        guard topY.isFinite, topY > 0 else {
-            return
-        }
-
-        let roundedTopY = (topY * 10).rounded() / 10
-        guard abs(fixedTabsTopY - roundedTopY) > 0.5 else {
-            return
-        }
-
-        fixedTabsTopY = roundedTopY
-        print(
-            "[DEBUG:SameCityTopBlur] tabsTopY=\(roundedTopY) blurHeight=\(roundedTopY) blurOffset=\(SameCityRootLayout.fixedTabsTopBlurOffset(for: roundedTopY))"
-        )
-    }
-
     private func handleCommodityMoreMenuAction(_ action: FeedMoreAction) {
         guard let postID = presentedMoreMenuPostID else {
             return
@@ -208,31 +192,11 @@ private struct SameCityFixedTabsOverlay: View {
             HStack {
                 SameCityRootTabPicker(selection: $selection)
                     .frame(width: visibleWidth, height: SameCityRootLayout.categoryTabsHeight)
-                    .background {
-                        GeometryReader { tabsProxy in
-                            Color.clear.preference(
-                                key: SameCityFixedTabsTopPreferenceKey.self,
-                                value: tabsProxy.frame(in: .global).minY
-                            )
-                        }
-                    }
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, SameCityRootLayout.fixedTabsTopPadding)
         }
         .frame(height: SameCityRootLayout.fixedTabsReservedHeight)
-    }
-}
-
-// SameCityFixedTabsTopPreferenceKey 同城固定 tabs 顶边位置
-// 核心职责：
-// - 将 tabs 在屏幕全局坐标中的顶边回传给根视图
-// - 为顶部扩展模糊层提供真实覆盖高度
-private struct SameCityFixedTabsTopPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 
@@ -402,11 +366,20 @@ private enum SameCityRootLayout {
     static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
     static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s1
     static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopBlurBottomOverlap: CGFloat = MHBTheme.Spacing.s2
     static let locationButtonMinWidth: CGFloat = 66
     static let emptyFeedMinHeight: CGFloat = 520
 
     static var fixedTabsReservedHeight: CGFloat {
         fixedTabsTopPadding + categoryTabsHeight + fixedTabsBottomSpacing
+    }
+
+    static func fixedTabsTopBlurLayout(contentTopY: CGFloat) -> MHBScreenScrollTopBlurLayout {
+        MHBScreenScrollTopBlurLayout(
+            contentTopY: contentTopY,
+            topPadding: fixedTabsTopPadding,
+            bottomOverlap: fixedTabsTopBlurBottomOverlap
+        )
     }
 
     static func fixedTabsTopBlur(height: CGFloat) -> MHBScreenScrollTopBlurConfiguration? {
@@ -416,21 +389,14 @@ private enum SameCityRootLayout {
 
         return MHBScreenScrollTopBlurConfiguration(
             height: height,
-            maxBlurRadius: 16,
+            maxBlurRadius: 10,
             startOffset: 0,
             tintColor: MHBTheme.ColorToken.background.color,
-            topTintOpacity: 0.76,
-            middleTintOpacity: 0.34,
-            middleLocation: 0.62
+            topTintOpacity: 0.58,
+            middleTintOpacity: 0.18,
+            middleLocation: 0.62,
+            ignoresTopSafeArea: true
         )
-    }
-
-    static func fixedTabsTopBlurOffset(for tabsTopY: CGFloat) -> CGFloat {
-        guard tabsTopY > fixedTabsTopPadding else {
-            return 0
-        }
-
-        return fixedTabsTopPadding - tabsTopY
     }
 
     static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {

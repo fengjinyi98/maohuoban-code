@@ -59,6 +59,28 @@ struct MHBScreenScrollTopBlurConfiguration {
     }
 }
 
+// MHBScreenScrollTopBlurLayout 顶部扩展模糊布局参数
+// 核心职责：
+// - 描述从屏幕顶边到固定头部顶边的模糊覆盖范围
+// - 为固定 tabs 和固定 header 场景提供统一高度与偏移计算
+struct MHBScreenScrollTopBlurLayout: Equatable {
+    let contentTopY: CGFloat
+    let blurHeight: CGFloat
+    let blurOffsetY: CGFloat
+
+    init(
+        contentTopY: CGFloat,
+        topPadding: CGFloat,
+        bottomOverlap: CGFloat = 0
+    ) {
+        let normalizedContentTopY = max(0, (contentTopY * 10).rounded() / 10)
+
+        self.contentTopY = normalizedContentTopY
+        self.blurHeight = normalizedContentTopY + topPadding + bottomOverlap
+        self.blurOffsetY = -normalizedContentTopY
+    }
+}
+
 // MHBScreenScrollTopBlurOverlay 顶部扩展模糊层
 // 核心职责：
 // - 在滚动内容上方提供不参与命中的渐进模糊层

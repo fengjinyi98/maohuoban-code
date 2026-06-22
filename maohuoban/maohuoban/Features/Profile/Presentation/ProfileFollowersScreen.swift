@@ -1,9 +1,10 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // ProfileFollowersScreen 我的粉丝页面
 // 核心职责：
-// - 使用系统导航、系统底部搜索工具项和系统 tabs Picker 展示粉丝关系
+// - 使用系统导航、系统底部搜索工具项和固定 Liquid Glass tabs 展示粉丝关系
 // - 按全部、未回关和互相关注三类展示并筛选 mock 粉丝数据
 struct ProfileFollowersScreen: View {
     let items: [ProfileFollowerItem]
@@ -20,24 +21,41 @@ struct ProfileFollowersScreen: View {
             MHBTheme.ColorToken.background.color
                 .ignoresSafeArea()
 
-            MHBScreenScrollView {
-                let visibleItems = ProfileFollowerFilter.filteredItems(
-                    items,
-                    scope: selectedScope,
-                    query: searchText
+            GeometryReader { proxy in
+                let topBlurLayout = ProfileFollowersLayout.fixedTabsTopBlurLayout(
+                    contentTopY: proxy.frame(in: .global).minY
                 )
 
-                VStack(spacing: MHBTheme.Spacing.s3) {
-                    ProfileFollowerScopePicker(selection: $selectedScope)
+                ZStack(alignment: .topLeading) {
+                    MHBScreenScrollView {
+                        let visibleItems = ProfileFollowerFilter.filteredItems(
+                            items,
+                            scope: selectedScope,
+                            query: searchText
+                        )
 
-                    ProfileFollowerList(
-                        items: visibleItems,
-                        emptyTitle: emptyTitle
+                        VStack(spacing: MHBTheme.Spacing.s3) {
+                            ProfileFollowerList(
+                                items: visibleItems,
+                                emptyTitle: emptyTitle
+                            )
+                        }
+                        .padding(.horizontal, MHBTheme.Spacing.s3)
+                        .padding(.top, ProfileFollowersLayout.fixedTabsReservedHeight)
+                        .padding(.bottom, MHBTheme.Spacing.s6)
+                    }
+
+                    MHBScreenScrollTopBlurOverlay(
+                        configuration: ProfileFollowersLayout.fixedTabsTopBlur(
+                            height: topBlurLayout.blurHeight
+                        )
                     )
+                    .offset(y: topBlurLayout.blurOffsetY)
+                    .zIndex(1)
+
+                    ProfileFollowerFixedTabsOverlay(selection: $selectedScope)
+                        .zIndex(2)
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s3)
-                .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s6)
             }
         }
         .navigationTitle("我的粉丝 \(items.count)")
@@ -70,20 +88,51 @@ struct ProfileFollowersScreen: View {
 
 // ProfileFollowerScopePicker 我的粉丝分类切换器
 // 核心职责：
-// - 使用系统 tabs Picker 呈现三类粉丝关系
+// - 使用统一 Liquid Glass tabs 基础设施呈现三类粉丝关系
 // - 将分类选择回写给页面状态
 private struct ProfileFollowerScopePicker: View {
     @Binding var selection: ProfileFollowerScope
 
     var body: some View {
-        Picker("粉丝类型", selection: $selection) {
-            ForEach(ProfileFollowerScope.allCases) { scope in
-                Text(scope.title)
-                    .tag(scope)
-            }
-        }
-        .pickerStyle(.tabs)
+        MHBGlassSegmentedTabsBar(
+            items: ProfileFollowerScope.allCases.map { scope in
+                MHBGlassSegmentedTabsBar<ProfileFollowerScope>.Item(
+                    selection: scope,
+                    title: scope.title
+                )
+            },
+            selection: $selection,
+            widthStrategy: .equalVisible,
+            height: ProfileFollowersLayout.categoryTabsHeight,
+            selectedSegmentTintColor: MHBTheme.ColorToken.primary.uiColor,
+            normalTitleColor: MHBTheme.ColorToken.labelPrimary.uiColor,
+            selectedTitleColor: .white,
+            accessibilityIdentifier: "profile.followers.scopePicker"
+        )
+        .frame(height: ProfileFollowersLayout.categoryTabsHeight)
         .accessibilityIdentifier("profile.followers.scopePicker")
+    }
+}
+
+// ProfileFollowerFixedTabsOverlay 我的粉丝固定分类 tabs 容器
+// 核心职责：
+// - 将粉丝分类 tabs 固定在滚动内容上方
+// - 保持与页面水平间距一致的可视宽度
+private struct ProfileFollowerFixedTabsOverlay: View {
+    @Binding var selection: ProfileFollowerScope
+
+    var body: some View {
+        GeometryReader { proxy in
+            let visibleWidth = ProfileFollowersLayout.visibleTabsWidth(for: proxy.size.width)
+
+            HStack {
+                ProfileFollowerScopePicker(selection: $selection)
+                    .frame(width: visibleWidth, height: ProfileFollowersLayout.categoryTabsHeight)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, ProfileFollowersLayout.fixedTabsTopPadding)
+        }
+        .frame(height: ProfileFollowersLayout.fixedTabsReservedHeight)
     }
 }
 
@@ -318,5 +367,50 @@ private struct ProfileFollowerEmptyState: View {
         .frame(maxWidth: .infinity, minHeight: 180)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("profile.followers.emptyState")
+    }
+}
+
+// ProfileFollowersLayout 我的粉丝布局配置
+// 核心职责：
+// - 统一固定 tabs 宽度、高度和内容预留空间
+// - 为顶部扩展模糊提供与同城一致的几何参数
+private enum ProfileFollowersLayout {
+    static let categoryTabsHeight: CGFloat = 44
+    static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s1
+    static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopBlurBottomOverlap: CGFloat = MHBTheme.Spacing.s2
+
+    static var fixedTabsReservedHeight: CGFloat {
+        fixedTabsTopPadding + categoryTabsHeight + fixedTabsBottomSpacing
+    }
+
+    static func fixedTabsTopBlurLayout(contentTopY: CGFloat) -> MHBScreenScrollTopBlurLayout {
+        MHBScreenScrollTopBlurLayout(
+            contentTopY: contentTopY,
+            topPadding: fixedTabsTopPadding,
+            bottomOverlap: fixedTabsTopBlurBottomOverlap
+        )
+    }
+
+    static func fixedTabsTopBlur(height: CGFloat) -> MHBScreenScrollTopBlurConfiguration? {
+        guard height > 0 else {
+            return nil
+        }
+
+        return MHBScreenScrollTopBlurConfiguration(
+            height: height,
+            maxBlurRadius: 10,
+            startOffset: 0,
+            tintColor: MHBTheme.ColorToken.background.color,
+            topTintOpacity: 0.58,
+            middleTintOpacity: 0.18,
+            middleLocation: 0.62,
+            ignoresTopSafeArea: true
+        )
+    }
+
+    static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {
+        max(0, screenWidth - fixedTabsHorizontalInset * 2)
     }
 }

@@ -1,9 +1,10 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // ProfileRepliesScreen 我的回复页面
 // 核心职责：
-// - 使用系统导航和系统 tabs Picker 展示收到、发出的回复
+// - 使用系统导航和固定 Liquid Glass tabs 展示收到、发出的回复
 // - 按设计稿呈现回复内容、引用上下文和轻量操作区
 struct ProfileRepliesScreen: View {
     let items: [ProfileReplyItem]
@@ -18,24 +19,41 @@ struct ProfileRepliesScreen: View {
             MHBTheme.ColorToken.background.color
                 .ignoresSafeArea()
 
-            MHBScreenScrollView {
-                let visibleItems = ProfileReplyFilter.filteredItems(
-                    items,
-                    scope: selectedScope,
-                    query: ""
+            GeometryReader { proxy in
+                let topBlurLayout = ProfileRepliesLayout.fixedTabsTopBlurLayout(
+                    contentTopY: proxy.frame(in: .global).minY
                 )
 
-                VStack(spacing: MHBTheme.Spacing.s3) {
-                    ProfileReplyScopePicker(selection: $selectedScope)
+                ZStack(alignment: .topLeading) {
+                    MHBScreenScrollView {
+                        let visibleItems = ProfileReplyFilter.filteredItems(
+                            items,
+                            scope: selectedScope,
+                            query: ""
+                        )
 
-                    ProfileReplyList(
-                        items: visibleItems,
-                        emptyTitle: selectedScope.emptyTitle
+                        VStack(spacing: MHBTheme.Spacing.s3) {
+                            ProfileReplyList(
+                                items: visibleItems,
+                                emptyTitle: selectedScope.emptyTitle
+                            )
+                        }
+                        .padding(.horizontal, MHBTheme.Spacing.s3)
+                        .padding(.top, ProfileRepliesLayout.fixedTabsReservedHeight)
+                        .padding(.bottom, MHBTheme.Spacing.s6)
+                    }
+
+                    MHBScreenScrollTopBlurOverlay(
+                        configuration: ProfileRepliesLayout.fixedTabsTopBlur(
+                            height: topBlurLayout.blurHeight
+                        )
                     )
+                    .offset(y: topBlurLayout.blurOffsetY)
+                    .zIndex(1)
+
+                    ProfileReplyFixedTabsOverlay(selection: $selectedScope)
+                        .zIndex(2)
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s3)
-                .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s6)
             }
         }
         .navigationTitle("我的回复")
@@ -54,20 +72,51 @@ struct ProfileRepliesScreen: View {
 
 // ProfileReplyScopePicker 我的回复分类切换器
 // 核心职责：
-// - 使用系统 tabs Picker 呈现收到和发出两类回复
+// - 使用统一 Liquid Glass tabs 基础设施呈现收到和发出两类回复
 // - 将分类选择回写给页面状态
 private struct ProfileReplyScopePicker: View {
     @Binding var selection: ProfileReplyScope
 
     var body: some View {
-        Picker("回复类型", selection: $selection) {
-            ForEach(ProfileReplyScope.allCases) { scope in
-                Text(scope.title)
-                    .tag(scope)
-            }
-        }
-        .pickerStyle(.tabs)
+        MHBGlassSegmentedTabsBar(
+            items: ProfileReplyScope.allCases.map { scope in
+                MHBGlassSegmentedTabsBar<ProfileReplyScope>.Item(
+                    selection: scope,
+                    title: scope.title
+                )
+            },
+            selection: $selection,
+            widthStrategy: .equalVisible,
+            height: ProfileRepliesLayout.categoryTabsHeight,
+            selectedSegmentTintColor: MHBTheme.ColorToken.primary.uiColor,
+            normalTitleColor: MHBTheme.ColorToken.labelPrimary.uiColor,
+            selectedTitleColor: .white,
+            accessibilityIdentifier: "profile.replies.scopePicker"
+        )
+        .frame(height: ProfileRepliesLayout.categoryTabsHeight)
         .accessibilityIdentifier("profile.replies.scopePicker")
+    }
+}
+
+// ProfileReplyFixedTabsOverlay 我的回复固定分类 tabs 容器
+// 核心职责：
+// - 将回复分类 tabs 固定在滚动内容上方
+// - 保持与页面水平间距一致的可视宽度
+private struct ProfileReplyFixedTabsOverlay: View {
+    @Binding var selection: ProfileReplyScope
+
+    var body: some View {
+        GeometryReader { proxy in
+            let visibleWidth = ProfileRepliesLayout.visibleTabsWidth(for: proxy.size.width)
+
+            HStack {
+                ProfileReplyScopePicker(selection: $selection)
+                    .frame(width: visibleWidth, height: ProfileRepliesLayout.categoryTabsHeight)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, ProfileRepliesLayout.fixedTabsTopPadding)
+        }
+        .frame(height: ProfileRepliesLayout.fixedTabsReservedHeight)
     }
 }
 
@@ -351,5 +400,50 @@ private struct ProfileReplyEmptyState: View {
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("profile.replies.emptyState")
+    }
+}
+
+// ProfileRepliesLayout 我的回复布局配置
+// 核心职责：
+// - 统一固定 tabs 宽度、高度和内容预留空间
+// - 为顶部扩展模糊提供与同城一致的几何参数
+private enum ProfileRepliesLayout {
+    static let categoryTabsHeight: CGFloat = 44
+    static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s1
+    static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s3
+    static let fixedTabsTopBlurBottomOverlap: CGFloat = MHBTheme.Spacing.s2
+
+    static var fixedTabsReservedHeight: CGFloat {
+        fixedTabsTopPadding + categoryTabsHeight + fixedTabsBottomSpacing
+    }
+
+    static func fixedTabsTopBlurLayout(contentTopY: CGFloat) -> MHBScreenScrollTopBlurLayout {
+        MHBScreenScrollTopBlurLayout(
+            contentTopY: contentTopY,
+            topPadding: fixedTabsTopPadding,
+            bottomOverlap: fixedTabsTopBlurBottomOverlap
+        )
+    }
+
+    static func fixedTabsTopBlur(height: CGFloat) -> MHBScreenScrollTopBlurConfiguration? {
+        guard height > 0 else {
+            return nil
+        }
+
+        return MHBScreenScrollTopBlurConfiguration(
+            height: height,
+            maxBlurRadius: 10,
+            startOffset: 0,
+            tintColor: MHBTheme.ColorToken.background.color,
+            topTintOpacity: 0.58,
+            middleTintOpacity: 0.18,
+            middleLocation: 0.62,
+            ignoresTopSafeArea: true
+        )
+    }
+
+    static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {
+        max(0, screenWidth - fixedTabsHorizontalInset * 2)
     }
 }
