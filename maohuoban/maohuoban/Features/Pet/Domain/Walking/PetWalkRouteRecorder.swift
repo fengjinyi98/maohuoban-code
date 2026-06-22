@@ -5,7 +5,7 @@ import Foundation
 // 核心职责：
 // - 表达遛弯记录的操作阶段
 // - 为页面按钮状态和轨迹累计规则提供统一来源
-enum PetWalkSessionPhase: Equatable {
+nonisolated enum PetWalkSessionPhase: Equatable {
     case ready
     case tracking
     case paused
@@ -16,7 +16,7 @@ enum PetWalkSessionPhase: Equatable {
 // 核心职责：
 // - 保存一次可用于轨迹绘制的定位采样
 // - 携带精度和时间戳用于过滤与指标计算
-struct PetWalkRoutePoint: Equatable {
+nonisolated struct PetWalkRoutePoint: Equatable {
     let coordinate: CLLocationCoordinate2D
     let horizontalAccuracy: CLLocationAccuracy
     let timestamp: Date
@@ -33,7 +33,7 @@ struct PetWalkRoutePoint: Equatable {
 // 核心职责：
 // - 汇总轨迹距离、累计时长和热量估算
 // - 为遛弯地图面板提供稳定展示数据
-struct PetWalkMetrics: Equatable {
+nonisolated struct PetWalkMetrics: Equatable {
     var distanceMeters: CLLocationDistance = 0
     var elapsedSeconds: TimeInterval = 0
 
@@ -50,7 +50,7 @@ struct PetWalkMetrics: Equatable {
 // 核心职责：
 // - 过滤低精度定位采样
 // - 在 tracking 阶段累计轨迹、距离和时长
-struct PetWalkRouteRecorder: Equatable {
+nonisolated struct PetWalkRouteRecorder: Equatable {
     private(set) var phase: PetWalkSessionPhase = .ready
     private(set) var points: [PetWalkRoutePoint] = []
     private(set) var metrics = PetWalkMetrics()
