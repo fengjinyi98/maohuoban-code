@@ -54,6 +54,8 @@ struct PetWalkTrackingScreen: View {
                     PetWalkUnavailablePanel()
                 } else {
                     PetWalkMapControls(
+                        phase: store.phase,
+                        gpsStatusText: store.gpsStatusText,
                         isSheetPresented: isTrackingSheetPresented,
                         activeDetent: activeDetent,
                         effectiveBottomInset: effectiveBottomInset,
@@ -94,8 +96,6 @@ struct PetWalkTrackingScreen: View {
                 #endif
 
                 PetWalkTopChrome(
-                    phase: store.phase,
-                    gpsStatusText: store.gpsStatusText,
                     petItem: currentPetSwitcherItem,
                     petItems: petSwitcherItems,
                     isPetSwitcherDisabled: store.phase != .ready || petSwitcherItems.isEmpty,
@@ -337,9 +337,11 @@ private struct PetWalkRootLayoutDiagnostics: View {
 
 // PetWalkMapControls 地图浮动控件
 // 核心职责：
-// - 在地图上提供回到当前定位入口
+// - 在地图上提供记录状态和回到当前定位入口
 // - 根据 sheet 展示状态和安全区域调整按钮位置
 private struct PetWalkMapControls: View {
+    let phase: PetWalkSessionPhase
+    let gpsStatusText: String
     let isSheetPresented: Bool
     let activeDetent: PresentationDetent
     let effectiveBottomInset: CGFloat
@@ -365,34 +367,47 @@ private struct PetWalkMapControls: View {
         VStack {
             Spacer()
 
-            HStack {
-                Spacer()
+            GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+                ZStack {
+                    PetWalkNavigationStatus(
+                        phase: phase,
+                        gpsStatusText: gpsStatusText
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .padding(.vertical, MHBTheme.Spacing.s2)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                    .accessibilityIdentifier("pet.walkTracking.navigationStatus")
 
-                Button(action: onRecenter) {
-                    Image(systemName: "scope")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                        .frame(width: 48, height: 48)
+                    HStack {
+                        Spacer()
+
+                        Button(action: onRecenter) {
+                            Image(systemName: "scope")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                                .frame(width: 48, height: 48)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                        .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
+                        .accessibilityLabel("回到当前位置")
+                        .accessibilityIdentifier("pet.walkTracking.recenterButton")
+                    }
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .shadow(color: Color.black.opacity(0.14), radius: 16, x: 0, y: 6)
-                .padding(.trailing, MHBTheme.Spacing.s5)
+                .padding(.horizontal, MHBTheme.Spacing.s5)
                 .padding(.bottom, paddingBottom)
             }
         }
         .animation(.spring(response: 0.36, dampingFraction: 0.86), value: paddingBottom)
-        .accessibilityLabel("回到当前位置")
     }
 }
 
 // PetWalkTopChrome 遛弯页自绘顶部导航控件
 // 核心职责：
-// - 在系统导航栏位置展示返回按钮和记录状态
+// - 在系统导航栏位置展示返回、宠物切换和更多入口
 // - 避免系统导航栏背景参与地图页渲染
 private struct PetWalkTopChrome: View {
-    let phase: PetWalkSessionPhase
-    let gpsStatusText: String
     let petItem: MHBPetSwitcherItem?
     let petItems: [MHBPetSwitcherItem]
     let isPetSwitcherDisabled: Bool
@@ -403,59 +418,106 @@ private struct PetWalkTopChrome: View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
             ZStack {
                 HStack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                            .frame(width: 48, height: 48)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .accessibilityLabel("返回")
-                    .accessibilityIdentifier("pet.walkTracking.backButton")
-                    .frame(width: 148, alignment: .leading)
+                    PetWalkBackButton(onBack: onBack)
 
                     Spacer(minLength: MHBTheme.Spacing.s4)
 
-                    Menu {
-                        ForEach(petItems) { item in
-                            Button {
-                                guard item.isSelected == false else { return }
-                                onSelectPet(item.id)
-                            } label: {
-                                MHBPetSwitcherMenuItemLabel(item: item)
-                            }
-                        }
-                    } label: {
-                        MHBPetSwitcherCapsule(
-                            item: petItem,
-                            isDisabled: isPetSwitcherDisabled
-                        )
-                    }
-                    .disabled(isPetSwitcherDisabled)
-                    .buttonStyle(.plain)
-                    .frame(width: 148, alignment: .trailing)
-                    .accessibilityIdentifier("pet.walkTracking.petSwitcherButton")
+                    PetWalkMoreMenu()
                 }
 
-                PetWalkNavigationStatus(
-                    phase: phase,
-                    gpsStatusText: gpsStatusText
+                PetWalkPetSwitcherMenu(
+                    petItem: petItem,
+                    petItems: petItems,
+                    isPetSwitcherDisabled: isPetSwitcherDisabled,
+                    onSelectPet: onSelectPet
                 )
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .padding(.vertical, MHBTheme.Spacing.s2)
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .accessibilityIdentifier("pet.walkTracking.navigationStatus")
             }
         }
         .frame(maxWidth: .infinity)
     }
 }
 
+// PetWalkBackButton 遛弯页返回按钮
+// 核心职责：
+// - 承载顶部左侧返回动作
+// - 保持 Liquid Glass 圆形触控反馈
+private struct PetWalkBackButton: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        Button(action: onBack) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel("返回")
+        .accessibilityIdentifier("pet.walkTracking.backButton")
+    }
+}
+
+// PetWalkPetSwitcherMenu 遛弯页宠物切换菜单
+// 核心职责：
+// - 在顶部居中展示当前宠物
+// - 通过原生 Menu 承载宠物切换动作
+private struct PetWalkPetSwitcherMenu: View {
+    let petItem: MHBPetSwitcherItem?
+    let petItems: [MHBPetSwitcherItem]
+    let isPetSwitcherDisabled: Bool
+    let onSelectPet: (String) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(petItems) { item in
+                Button {
+                    guard item.isSelected == false else { return }
+                    onSelectPet(item.id)
+                } label: {
+                    MHBPetSwitcherMenuItemLabel(item: item)
+                }
+            }
+        } label: {
+            MHBPetSwitcherCapsule(
+                item: petItem,
+                isDisabled: isPetSwitcherDisabled
+            )
+        }
+        .disabled(isPetSwitcherDisabled)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("pet.walkTracking.petSwitcherButton")
+    }
+}
+
+// PetWalkMoreMenu 遛弯页更多菜单
+// 核心职责：
+// - 在顶部右侧展示更多入口
+// - 使用原生 Menu 承载后续遛弯相关动作
+private struct PetWalkMoreMenu: View {
+    var body: some View {
+        Menu {
+            Button {} label: {
+                Label("遛弯记录", systemImage: "clock.arrow.circlepath")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel("更多")
+        .accessibilityIdentifier("pet.walkTracking.moreButton")
+    }
+}
+
 // PetWalkNavigationStatus 遛弯导航栏状态
 // 核心职责：
-// - 在顶部自绘导航区域展示当前记录状态
+// - 在地图浮动控制区域展示当前记录状态
 // - 展示 GPS 和权限状态提示
 private struct PetWalkNavigationStatus: View {
     let phase: PetWalkSessionPhase
