@@ -14,27 +14,16 @@ struct PetWalkLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    PetWalkIslandPetHeaderView(
+                DynamicIslandExpandedRegion(.center) {
+                    PetWalkIslandCenterContentView(
                         petName: context.state.petName,
                         petAvatarURLString: context.state.petAvatarURLString,
                         statusText: context.state.statusText,
-                        status: context.state.status
-                    )
-                }
-
-                DynamicIslandExpandedRegion(.trailing) {
-                    PetWalkIslandElapsedView(
-                        elapsedText: context.state.elapsedText,
-                        status: context.state.status
-                    )
-                }
-
-                DynamicIslandExpandedRegion(.center) {
-                    PetWalkIslandMetricView(
+                        status: context.state.status,
                         distanceValueText: context.state.distanceValueText,
                         distanceUnitText: context.state.distanceUnitText,
-                        caloriesText: context.state.caloriesText
+                        caloriesText: context.state.caloriesText,
+                        elapsedText: context.state.elapsedText
                     )
                 }
 
@@ -118,81 +107,74 @@ private struct PetWalkLockScreenLiveActivityView: View {
     }
 }
 
-// PetWalkIslandPetHeaderView 灵动岛展开态宠物头部
+// PetWalkIslandCenterContentView 灵动岛展开态中心内容区
 // 核心职责：
-// - 展示宠物身份和遛弯状态
-// - 为展开态左侧区域提供稳定布局
-private struct PetWalkIslandPetHeaderView: View {
+// - 承载宠物头像、姓名、状态标签、时长与核心运动指标
+// - 按照设计稿横向并排的三行式布局，利用 .center 区域避开系统物理遮挡
+private struct PetWalkIslandCenterContentView: View {
     let petName: String
     let petAvatarURLString: String?
     let statusText: String
     let status: PetWalkLiveActivityStatus
-
-    var body: some View {
-        HStack(spacing: 10) {
-            PetWalkPetAvatarView(
-                avatarURLString: petAvatarURLString,
-                size: 44,
-                status: status
-            )
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(petName)
-                    .font(.headline.weight(.bold))
-                    .lineLimit(1)
-
-                PetWalkStatusBadgeView(statusText: statusText, status: status)
-            }
-        }
-    }
-}
-
-// PetWalkIslandElapsedView 灵动岛展开态时长视图
-// 核心职责：
-// - 在展开态右侧展示当前遛弯时长
-// - 使用等宽数字降低更新时的跳动
-private struct PetWalkIslandElapsedView: View {
-    let elapsedText: String
-    let status: PetWalkLiveActivityStatus
-
-    var body: some View {
-        Text(elapsedText)
-            .font(.system(size: 24, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(status.accentColor)
-    }
-}
-
-// PetWalkIslandMetricView 灵动岛展开态指标视图
-// 核心职责：
-// - 展示距离和千卡两项核心指标
-// - 对齐设计稿中的大数字与次级指标层级
-private struct PetWalkIslandMetricView: View {
     let distanceValueText: String
     let distanceUnitText: String
     let caloriesText: String
+    let elapsedText: String
 
     var body: some View {
-        HStack(alignment: .lastTextBaseline, spacing: 16) {
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(distanceValueText)
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .monospacedDigit()
+        VStack(alignment: .leading, spacing: 10) {
+            // 第一行：Header (头像 + 名字与状态 + 时长)
+            HStack(alignment: .center, spacing: 10) {
+                PetWalkPetAvatarView(
+                    avatarURLString: petAvatarURLString,
+                    size: 44,
+                    status: status
+                )
 
-                Text(distanceUnitText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(petName)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    PetWalkStatusBadgeView(statusText: statusText, status: status)
+                }
+
+                Spacer()
+
+                Text(elapsedText)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(status.accentColor)
             }
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(caloriesText)
-                    .font(.callout.weight(.bold))
-                    .monospacedDigit()
+            // 第二行：Metric (距离 + 消耗)
+            HStack(alignment: .bottom) {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(distanceValueText)
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
 
-                Text("已消耗")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    Text(distanceUnitText)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(caloriesText)
+                        .font(.system(size: 16, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+
+                    Text("已消耗")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
             }
+            .padding(.horizontal, 4)
         }
     }
 }
@@ -357,7 +339,7 @@ private struct PetWalkStatusBadgeView: View {
     let status: PetWalkLiveActivityStatus
 
     var body: some View {
-        Label(statusText, systemImage: "location.north.fill")
+        Label(statusText, systemImage: "location.fill")
             .font(.caption2.weight(.semibold))
             .foregroundStyle(status.accentColor)
     }
