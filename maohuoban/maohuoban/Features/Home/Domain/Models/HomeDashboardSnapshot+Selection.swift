@@ -140,6 +140,7 @@ extension HomeDashboardSnapshot {
                 avatarURL: item.avatarURL,
                 avatarWidth: item.avatarWidth,
                 avatarHeight: item.avatarHeight,
+                sex: item.sex,
                 nameEditPolicy: item.nameEditPolicy,
                 isSelected: item.id == petID
             )

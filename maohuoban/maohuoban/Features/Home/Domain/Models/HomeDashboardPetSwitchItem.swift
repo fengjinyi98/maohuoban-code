@@ -13,6 +13,7 @@ extension HomeDashboardSnapshot {
         let avatarURL: String?
         let avatarWidth: Int?
         let avatarHeight: Int?
+        let sex: Sex?
         let profileNumber: String?
         let microchipNumber: String?
         let birthday: String?
@@ -32,6 +33,7 @@ extension HomeDashboardSnapshot {
             case avatarURL = "avatar_url"
             case avatarWidth = "avatar_width"
             case avatarHeight = "avatar_height"
+            case sex
             case profileNumber = "profile_number"
             case microchipNumber = "microchip_number"
             case birthday
@@ -52,6 +54,7 @@ extension HomeDashboardSnapshot {
             avatarURL: String?,
             avatarWidth: Int? = nil,
             avatarHeight: Int? = nil,
+            sex: Sex? = nil,
             profileNumber: String? = nil,
             microchipNumber: String? = nil,
             birthday: String? = nil,
@@ -70,6 +73,7 @@ extension HomeDashboardSnapshot {
             self.avatarURL = avatarURL
             self.avatarWidth = avatarWidth
             self.avatarHeight = avatarHeight
+            self.sex = sex
             self.profileNumber = profileNumber
             self.microchipNumber = microchipNumber
             self.birthday = birthday
@@ -89,6 +93,7 @@ extension HomeDashboardSnapshot {
             avatarURL: String?,
             avatarWidth: Int? = nil,
             avatarHeight: Int? = nil,
+            sex: Sex? = nil,
             profileNumber: String? = nil,
             microchipNumber: String? = nil,
             birthday: String? = nil,
@@ -107,6 +112,7 @@ extension HomeDashboardSnapshot {
                 avatarURL: avatarURL,
                 avatarWidth: avatarWidth,
                 avatarHeight: avatarHeight,
+                sex: sex,
                 profileNumber: profileNumber,
                 microchipNumber: microchipNumber,
                 birthday: birthday,
@@ -129,6 +135,7 @@ extension HomeDashboardSnapshot {
             avatarURL = try container.decodeIfPresent(String.self, forKey: .avatarURL)
             avatarWidth = try container.decodeIfPresent(Int.self, forKey: .avatarWidth)
             avatarHeight = try container.decodeIfPresent(Int.self, forKey: .avatarHeight)
+            sex = try container.decodeIfPresent(Sex.self, forKey: .sex)
             profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
             microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
             birthday = try container.decodeIfPresent(String.self, forKey: .birthday)

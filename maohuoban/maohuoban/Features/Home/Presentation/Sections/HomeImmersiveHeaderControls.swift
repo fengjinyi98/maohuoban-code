@@ -9,52 +9,37 @@ struct HomeImmersiveHeaderControls: View {
     let selectedPet: HomeDashboardSnapshot.PetHeroSummary?
     let pets: [HomeDashboardSnapshot.PetSwitchItem]
     let onSelectPet: (String) -> Void
-
-    @Binding var isPetSwitcherPresented: Bool
+    let onAddPet: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
-                HStack(spacing: MHBTheme.Spacing.s3) {
-                    HomeImmersiveAIAssistantButton(
-                        pet: selectedPet,
-                        route: aiRoute
-                    )
-                    .layoutPriority(1)
-
-                    Spacer(minLength: MHBTheme.Spacing.s3)
-
-                    HomeImmersivePetSwitchAvatarButton(
-                        pet: selectedPet,
-                        isPresented: $isPetSwitcherPresented,
-                        action: {
-                            isPetSwitcherPresented.toggle()
-                        }
-                    )
-                }
-                .frame(maxWidth: .infinity)
-            }
-
-            MHBAnchoredFloatingPanel(
-                isPresented: isPetSwitcherPresented,
-                offset: CGSize(width: 0, height: 56),
-                scaleAnchor: .topTrailing
-            ) {
-                HomeImmersivePetSwitchPanel(
-                    pets: pets,
-                    onSelectPet: { petID in
-                        isPetSwitcherPresented = false
-                        onSelectPet(petID)
-                    },
-                    onShowMore: {
-                        isPetSwitcherPresented = false
-                        // TODO: 接入完整宠物列表入口
-                    }
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
+                HomeImmersiveAIAssistantButton(
+                    pet: selectedPet,
+                    route: aiRoute
                 )
-                .zIndex(1)
+                .layoutPriority(1)
+
+                Spacer(minLength: MHBTheme.Spacing.s3)
+
+                Menu {
+                    petMenuContent
+                } label: {
+                    MHBPetSwitcherCapsule(item: triggerItem)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.petHeaderSwitchButton")
             }
+            .frame(maxWidth: .infinity)
         }
-        .animation(.snappy(duration: 0.22), value: isPetSwitcherPresented)
+    }
+
+    private var triggerItem: MHBPetSwitcherItem? {
+        if let selectedPet {
+            return MHBPetSwitcherItem(homeHeroPet: selectedPet)
+        }
+
+        return pets.first(where: \.isSelected).map(MHBPetSwitcherItem.init(homeSwitchItem:))
     }
 
     private var aiRoute: HomeRoute {
@@ -66,6 +51,35 @@ struct HomeImmersiveHeaderControls: View {
                 selectedPetSpecies: selectedPet?.species.aiAssistantSpecies ?? .other
             )
         )
+    }
+
+    @ViewBuilder
+    private var petMenuContent: some View {
+        ForEach(petSwitcherItems) { item in
+            Button {
+                guard item.isSelected == false else { return }
+                onSelectPet(item.id)
+            } label: {
+                MHBPetSwitcherMenuItemLabel(item: item)
+            }
+        }
+
+        Divider()
+
+        Button(action: onAddPet) {
+            Label("添加新宠物", systemImage: "plus")
+        }
+    }
+
+    private var petSwitcherItems: [MHBPetSwitcherItem] {
+        pets.map { item in
+            if item.id == selectedPet?.id,
+               let selectedPet {
+                return MHBPetSwitcherItem(homeHeroPet: selectedPet)
+            }
+
+            return MHBPetSwitcherItem(homeSwitchItem: item)
+        }
     }
 }
 
@@ -112,40 +126,54 @@ private struct HomeImmersiveAIAssistantButton: View {
     }
 }
 
-// HomeImmersivePetSwitchAvatarButton 首页沉浸式宠物头像切换按钮
-// 核心职责：
-// - 在首页右上角展示当前宠物头像
-// - 控制宠物切换菜单展开与收起
-private struct HomeImmersivePetSwitchAvatarButton: View {
-    let pet: HomeDashboardSnapshot.PetHeroSummary?
-    @Binding var isPresented: Bool
-    let action: () -> Void
+extension MHBPetSwitcherItem {
+    init(homeHeroPet pet: HomeDashboardSnapshot.PetHeroSummary) {
+        self.init(
+            id: pet.id,
+            name: pet.name,
+            subtitle: [pet.breed, pet.ageText].filter { $0.isEmpty == false }.joined(separator: " · "),
+            avatarURLString: pet.avatarURL,
+            species: MHBPetSwitcherSpecies(homeDashboardSpecies: pet.species),
+            sex: MHBPetSwitcherSex(homeDashboardSex: pet.sex),
+            isSelected: true
+        )
+    }
 
-    var body: some View {
-        Button(action: action) {
-            HomeImmersivePetAvatar(
-                avatarURL: pet?.avatarURL,
-                species: pet?.species ?? .other,
-                isSelected: true,
-                size: 44
-            )
-            .background {
-                Circle()
-                    .fill(Color.black.opacity(0.18))
-            }
-            .glassEffect(.regular.interactive(), in: .circle)
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 16, height: 16)
-                    .background(MHBTheme.ColorToken.primary.color)
-                    .clipShape(Circle())
-                    .rotationEffect(.degrees(isPresented ? 180 : 0))
-            }
+    init(homeSwitchItem item: HomeDashboardSnapshot.PetSwitchItem) {
+        self.init(
+            id: item.id,
+            name: item.name,
+            subtitle: item.breed,
+            avatarURLString: item.avatarURL,
+            species: MHBPetSwitcherSpecies(homeDashboardSpecies: item.species),
+            sex: MHBPetSwitcherSex(homeDashboardSex: item.sex),
+            isSelected: item.isSelected
+        )
+    }
+}
+
+extension MHBPetSwitcherSpecies {
+    init(homeDashboardSpecies: HomeDashboardSnapshot.Species) {
+        switch homeDashboardSpecies {
+        case .dog:
+            self = .dog
+        case .cat:
+            self = .cat
+        case .other:
+            self = .other
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("切换宠物，当前宠物 \(pet?.name ?? "未知")")
-        .accessibilityIdentifier("home.petHeaderSwitchButton")
+    }
+}
+
+extension MHBPetSwitcherSex {
+    init(homeDashboardSex: HomeDashboardSnapshot.Sex?) {
+        switch homeDashboardSex {
+        case .female:
+            self = .female
+        case .male:
+            self = .male
+        case .unknown, nil:
+            self = .unknown
+        }
     }
 }

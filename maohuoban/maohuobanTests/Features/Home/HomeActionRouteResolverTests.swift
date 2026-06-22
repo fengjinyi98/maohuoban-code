@@ -82,7 +82,26 @@ final class HomeActionRouteResolverTests: XCTestCase {
 
     @MainActor
     func testWalkActionRoutesToIndependentWalkFlow() {
-        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let availablePets = [
+            PetRecordSwitchPet(
+                id: "pet-1",
+                name: "糯米",
+                species: .dog,
+                breed: "比熊",
+                avatarURL: nil,
+                sex: .female,
+                isSelected: true
+            ),
+            PetRecordSwitchPet(
+                id: "pet-2",
+                name: "煤球",
+                species: .cat,
+                breed: "英国短毛猫",
+                avatarURL: "/media/pet-2.png",
+                sex: .male,
+                isSelected: false
+            )
+        ]
         let action = HomeDashboardSnapshot.Action(
             kind: .walk,
             title: "遛弯",
@@ -91,7 +110,12 @@ final class HomeActionRouteResolverTests: XCTestCase {
 
         let route = HomeActionRouteResolver.route(
             for: action,
-            context: HomeActionRoutingContext(snapshot: snapshot)
+            context: HomeActionRoutingContext(
+                selectedPetID: "pet-1",
+                selectedPetName: "糯米",
+                selectedPetSex: .female,
+                availablePets: availablePets
+            )
         )
 
         XCTAssertEqual(
@@ -99,7 +123,9 @@ final class HomeActionRouteResolverTests: XCTestCase {
             .recordWalk(
                 PetRecordEntryContext(
                     petID: "pet-1",
-                    petSex: .female
+                    petName: "糯米",
+                    petSex: .female,
+                    availablePets: availablePets
                 )
             )
         )

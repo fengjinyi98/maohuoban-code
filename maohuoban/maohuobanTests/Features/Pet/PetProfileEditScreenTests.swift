@@ -7,6 +7,14 @@ import XCTest
 // - 覆盖前端本地编辑态和后端写入契约的衔接
 @MainActor
 final class PetProfileEditScreenTests: XCTestCase {
+    func testAvatarBorderSexStyleNormalizesSexText() {
+        XCTAssertEqual(PetProfileEditAvatarBorderSex(sexText: "公"), .male)
+        XCTAssertEqual(PetProfileEditAvatarBorderSex(sexText: "男"), .male)
+        XCTAssertEqual(PetProfileEditAvatarBorderSex(sexText: "母"), .female)
+        XCTAssertEqual(PetProfileEditAvatarBorderSex(sexText: "女"), .female)
+        XCTAssertEqual(PetProfileEditAvatarBorderSex(sexText: "未知"), .unknown)
+    }
+
     func testBreedEditSubmissionRemovesWhitespaceBeforeSave() {
         let submission = PetProfileBreedEditSubmission(rawValue: " 金 毛 寻 回 犬 ")
 

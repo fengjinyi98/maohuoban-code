@@ -14,10 +14,20 @@ struct PetWalkTrackingScreen: View {
     let onFinished: () -> Void
 
     @State private var store = PetWalkTrackingStore()
+    @State private var selectedPet: PetRecordSwitchPet?
     @State private var isTrackingSheetPresented = true
     @State private var activeDetent: PresentationDetent = .height(260)
     @State private var recenterRequestID = 0
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
+
+    init(
+        context: PetRecordEntryContext,
+        onFinished: @escaping () -> Void
+    ) {
+        self.context = context
+        self.onFinished = onFinished
+        self._selectedPet = State(initialValue: context.selectedSwitchPet)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -27,10 +37,10 @@ struct PetWalkTrackingScreen: View {
             ZStack(alignment: .top) {
                 MHBRouteMapView(
                     coordinates: store.points.map(\.coordinate),
-                    showsCurrentLocation: context.petID != nil,
+                    showsCurrentLocation: currentPetID != nil,
                     followsUser: store.phase == .tracking,
                     petAvatarURL: resolvedPetAvatarURL,
-                    petMarkerColor: context.petSex.markerUIColor,
+                    petMarkerColor: currentPetSex.markerUIColor,
                     recenterRequestID: recenterRequestID,
                     onUserLocationUpdated: updateReferenceLocation
                 )
@@ -40,7 +50,7 @@ struct PetWalkTrackingScreen: View {
                 )
                 .ignoresSafeArea(.container, edges: [.top, .bottom])
 
-                if context.petID == nil {
+                if currentPetID == nil {
                     PetWalkUnavailablePanel()
                 } else {
                     PetWalkMapControls(
@@ -54,9 +64,9 @@ struct PetWalkTrackingScreen: View {
                     if isTrackingSheetPresented == false {
                         PetWalkCollapsedSheetEntry(
                             store: store,
-                            petName: context.petName,
+                            petName: currentPetName,
                             petAvatarURL: resolvedPetAvatarURL,
-                            petSex: context.petSex,
+                            petSex: currentPetSex,
                             bottomInset: effectiveBottomInset,
                             onOpenSheet: openTrackingSheet,
                             onStart: startTracking,
@@ -86,7 +96,11 @@ struct PetWalkTrackingScreen: View {
                 PetWalkTopChrome(
                     phase: store.phase,
                     gpsStatusText: store.gpsStatusText,
-                    onBack: handleBack
+                    petItem: currentPetSwitcherItem,
+                    petItems: petSwitcherItems,
+                    isPetSwitcherDisabled: store.phase != .ready || petSwitcherItems.isEmpty,
+                    onBack: handleBack,
+                    onSelectPet: selectPetForWalk
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
@@ -107,12 +121,12 @@ struct PetWalkTrackingScreen: View {
             )
         }
         .sheet(isPresented: $isTrackingSheetPresented) {
-            if context.petID != nil {
+            if currentPetID != nil {
                 PetWalkTrackingSheet(
                     store: store,
-                    petName: context.petName,
+                    petName: currentPetName,
                     petAvatarURL: resolvedPetAvatarURL,
-                    petSex: context.petSex,
+                    petSex: currentPetSex,
                     onStart: startTracking,
                     onPause: store.pause,
                     onResume: store.resume,
@@ -127,9 +141,10 @@ struct PetWalkTrackingScreen: View {
         }
         .onAppear {
             #if DEBUG
-            print("[DEBUG:WalkGlass] screen appear sheet=\(isTrackingSheetPresented) petExists=\(context.petID != nil) phase=\(store.phase)")
+            print("[DEBUG:WalkGlass] screen appear sheet=\(isTrackingSheetPresented) petExists=\(currentPetID != nil) phase=\(store.phase)")
             #endif
-            isTrackingSheetPresented = context.petID != nil
+            selectedPet = selectedPet ?? context.selectedSwitchPet
+            isTrackingSheetPresented = currentPetID != nil
             if isTrackingSheetPresented {
                 activeDetent = .height(260)
             }
@@ -151,8 +166,42 @@ struct PetWalkTrackingScreen: View {
     }
 
     private var resolvedPetAvatarURL: URL? {
-        guard let petAvatarURL = context.petAvatarURL else { return nil }
+        guard let petAvatarURL = currentPetAvatarURL else { return nil }
         return MHBBackendEndpoint.resolve(petAvatarURL)
+    }
+
+    private var currentPetID: String? {
+        selectedPet?.id ?? context.petID
+    }
+
+    private var currentPetName: String? {
+        selectedPet?.name ?? context.petName
+    }
+
+    private var currentPetAvatarURL: String? {
+        selectedPet?.avatarURL ?? context.petAvatarURL
+    }
+
+    private var currentPetSex: PetRecordPetSex {
+        selectedPet?.sex ?? context.petSex
+    }
+
+    private var currentPetSwitcherItem: MHBPetSwitcherItem? {
+        petSwitcherItems.first(where: \.isSelected)
+    }
+
+    private var petSwitcherItems: [MHBPetSwitcherItem] {
+        let pets = context.availablePets.isEmpty
+            ? selectedPet.map { [$0] } ?? []
+            : context.availablePets
+
+        guard let currentPetID else {
+            return pets.map { MHBPetSwitcherItem(recordSwitchPet: $0, isSelected: false) }
+        }
+
+        return pets.map { pet in
+            MHBPetSwitcherItem(recordSwitchPet: pet, isSelected: pet.id == currentPetID)
+        }
     }
 
     private func recenterMap() {
@@ -177,8 +226,8 @@ struct PetWalkTrackingScreen: View {
     }
 
     private func startTracking() {
-        guard context.petID != nil, store.canStartTracking else { return }
-        store.start(petName: context.petName, petAvatarURL: context.petAvatarURL)
+        guard currentPetID != nil, store.canStartTracking else { return }
+        store.start(petName: currentPetName, petAvatarURL: currentPetAvatarURL)
         recenterMap()
     }
 
@@ -195,6 +244,20 @@ struct PetWalkTrackingScreen: View {
         withTransaction(transaction) {
             isTrackingSheetPresented = false
         }
+    }
+
+    private func selectPetForWalk(_ petID: String) {
+        guard store.phase == .ready else { return }
+        guard let pet = context.availablePets.first(where: { $0.id == petID }) else { return }
+        selectedPet = PetRecordSwitchPet(
+            id: pet.id,
+            name: pet.name,
+            species: pet.species,
+            breed: pet.breed,
+            avatarURL: pet.avatarURL,
+            sex: pet.sex,
+            isSelected: true
+        )
     }
 }
 
@@ -330,7 +393,11 @@ private struct PetWalkMapControls: View {
 private struct PetWalkTopChrome: View {
     let phase: PetWalkSessionPhase
     let gpsStatusText: String
+    let petItem: MHBPetSwitcherItem?
+    let petItems: [MHBPetSwitcherItem]
+    let isPetSwitcherDisabled: Bool
     let onBack: () -> Void
+    let onSelectPet: (String) -> Void
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
@@ -347,11 +414,29 @@ private struct PetWalkTopChrome: View {
                     .glassEffect(.regular.interactive(), in: .circle)
                     .accessibilityLabel("返回")
                     .accessibilityIdentifier("pet.walkTracking.backButton")
+                    .frame(width: 148, alignment: .leading)
 
                     Spacer(minLength: MHBTheme.Spacing.s4)
 
-                    Color.clear
-                        .frame(width: 48, height: 48)
+                    Menu {
+                        ForEach(petItems) { item in
+                            Button {
+                                guard item.isSelected == false else { return }
+                                onSelectPet(item.id)
+                            } label: {
+                                MHBPetSwitcherMenuItemLabel(item: item)
+                            }
+                        }
+                    } label: {
+                        MHBPetSwitcherCapsule(
+                            item: petItem,
+                            isDisabled: isPetSwitcherDisabled
+                        )
+                    }
+                    .disabled(isPetSwitcherDisabled)
+                    .buttonStyle(.plain)
+                    .frame(width: 148, alignment: .trailing)
+                    .accessibilityIdentifier("pet.walkTracking.petSwitcherButton")
                 }
 
                 PetWalkNavigationStatus(
@@ -457,6 +542,46 @@ private extension PetRecordPetSex {
             UIColor(red: 244 / 255, green: 63 / 255, blue: 94 / 255, alpha: 1)
         case .unknown:
             UIColor.black
+        }
+    }
+}
+
+private extension MHBPetSwitcherItem {
+    init(recordSwitchPet pet: PetRecordSwitchPet, isSelected: Bool) {
+        self.init(
+            id: pet.id,
+            name: pet.name ?? "未命名宠物",
+            subtitle: pet.breed,
+            avatarURLString: pet.avatarURL,
+            species: MHBPetSwitcherSpecies(recordSpecies: pet.species),
+            sex: MHBPetSwitcherSex(recordSex: pet.sex),
+            isSelected: isSelected
+        )
+    }
+}
+
+private extension MHBPetSwitcherSpecies {
+    init(recordSpecies: PetRecordPetSpecies) {
+        switch recordSpecies {
+        case .dog:
+            self = .dog
+        case .cat:
+            self = .cat
+        case .other:
+            self = .other
+        }
+    }
+}
+
+private extension MHBPetSwitcherSex {
+    init(recordSex: PetRecordPetSex) {
+        switch recordSex {
+        case .female:
+            self = .female
+        case .male:
+            self = .male
+        case .unknown:
+            self = .unknown
         }
     }
 }

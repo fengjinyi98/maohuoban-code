@@ -10,6 +10,7 @@ struct PetProfileEditPetPickerHeader: View {
     let profiles: [PetProfileEditProfile]
     let selectedProfileID: String
     let displayName: (PetProfileEditProfile) -> String
+    let displaySexText: (PetProfileEditProfile) -> String
     let avatarImage: (PetProfileEditProfile) -> UIImage?
     let avatarUploadState: PetMediaUploadSlotState
     let onSelectProfile: (String) -> Void
@@ -25,6 +26,7 @@ struct PetProfileEditPetPickerHeader: View {
                     PetProfileEditPetPickerItem(
                         profile: profile,
                         displayName: displayName(profile),
+                        sexText: displaySexText(profile),
                         localAvatarImage: avatarImage(profile),
                         uploadState: profile.id == selectedProfileID ? avatarUploadState : .idle,
                         isSelected: profile.id == selectedProfileID,
@@ -60,6 +62,7 @@ struct PetProfileEditPetPickerHeader: View {
 struct PetProfileEditPetPickerItem: View {
     let profile: PetProfileEditProfile
     let displayName: String
+    let sexText: String
     let localAvatarImage: UIImage?
     let uploadState: PetMediaUploadSlotState
     let isSelected: Bool
@@ -101,7 +104,7 @@ struct PetProfileEditPetPickerItem: View {
             .overlay {
                 Circle()
                     .strokeBorder(
-                        isSelected ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separatorSoft.color,
+                        PetProfileEditAvatarBorderSex(sexText: sexText).color,
                         lineWidth: isSelected ? 2.5 : 1
                     )
             }
@@ -119,6 +122,38 @@ struct PetProfileEditPetPickerItem: View {
                     }
                     .offset(x: 1, y: 1)
             }
+        }
+    }
+}
+
+// PetProfileEditAvatarBorderSex 编辑头像边框性别样式
+// 核心职责：
+// - 归一化编辑页性别文案
+// - 为头像边框提供稳定性别色
+enum PetProfileEditAvatarBorderSex: Hashable {
+    case male
+    case female
+    case unknown
+
+    init(sexText: String) {
+        switch sexText.trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "公", "男":
+            self = .male
+        case "母", "女":
+            self = .female
+        default:
+            self = .unknown
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .male:
+            Color(red: 59 / 255, green: 130 / 255, blue: 246 / 255)
+        case .female:
+            Color(red: 244 / 255, green: 63 / 255, blue: 94 / 255)
+        case .unknown:
+            MHBTheme.ColorToken.separatorSoft.color
         }
     }
 }

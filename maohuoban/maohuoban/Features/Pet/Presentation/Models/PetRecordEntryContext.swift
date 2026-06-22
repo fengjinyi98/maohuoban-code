@@ -10,18 +10,81 @@ struct PetRecordEntryContext: Hashable, Sendable {
     let petName: String?
     let petAvatarURL: String?
     let petSex: PetRecordPetSex
+    let availablePets: [PetRecordSwitchPet]
 
     init(
         petID: String?,
         petName: String? = nil,
         petAvatarURL: String? = nil,
-        petSex: PetRecordPetSex = .unknown
+        petSex: PetRecordPetSex = .unknown,
+        availablePets: [PetRecordSwitchPet] = []
     ) {
         self.petID = petID
         self.petName = petName
         self.petAvatarURL = petAvatarURL
         self.petSex = petSex
+        self.availablePets = availablePets
     }
+
+    var selectedSwitchPet: PetRecordSwitchPet? {
+        if let petID,
+           let selectedPet = availablePets.first(where: { $0.id == petID }) {
+            return selectedPet
+        }
+
+        guard let petID else { return nil }
+        return PetRecordSwitchPet(
+            id: petID,
+            name: petName,
+            species: .other,
+            breed: "",
+            avatarURL: petAvatarURL,
+            sex: petSex,
+            isSelected: true
+        )
+    }
+}
+
+// PetRecordSwitchPet 记录流程可切换宠物
+// 核心职责：
+// - 承载记录类页面切换宠物所需的最小资料
+// - 避免记录流程依赖首页完整快照模型
+struct PetRecordSwitchPet: Hashable, Identifiable, Sendable {
+    let id: String
+    let name: String?
+    let species: PetRecordPetSpecies
+    let breed: String
+    let avatarURL: String?
+    let sex: PetRecordPetSex
+    let isSelected: Bool
+
+    init(
+        id: String,
+        name: String? = nil,
+        species: PetRecordPetSpecies = .other,
+        breed: String = "",
+        avatarURL: String? = nil,
+        sex: PetRecordPetSex = .unknown,
+        isSelected: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.species = species
+        self.breed = breed
+        self.avatarURL = avatarURL
+        self.sex = sex
+        self.isSelected = isSelected
+    }
+}
+
+// PetRecordPetSpecies 记录流程宠物物种展示值
+// 核心职责：
+// - 以稳定枚举承载记录流程需要的物种信息
+// - 解耦记录上下文和首页模型
+enum PetRecordPetSpecies: String, Hashable, Sendable {
+    case dog
+    case cat
+    case other
 }
 
 // PetDailyRecordEntryContext 日常记录入口上下文

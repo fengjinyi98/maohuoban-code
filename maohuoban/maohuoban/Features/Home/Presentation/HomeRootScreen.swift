@@ -36,6 +36,9 @@ struct HomeRootScreen: View {
                                 petID: petID
                             )
                         }
+                    },
+                    onOpenRoute: { route in
+                        tabState.appendHomeRoute(route)
                     }
                 )
             case .failed(let message):

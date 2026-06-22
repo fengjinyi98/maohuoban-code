@@ -8,10 +8,10 @@ import MaohuobanDesignSystem
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
     let onSelectPet: (String) -> Void
+    let onOpenRoute: (HomeRoute) -> Void
 
     @State private var scrollOffset: CGFloat = 0
     @State private var isQuickActionsPanelPresented = false
-    @State private var isPetSwitcherPresented = false
     @State private var themeStore = HomeDashboardThemeStore()
 
     private var scrollProgress: CGFloat {
@@ -23,30 +23,13 @@ struct HomeDashboardLoadedView: View {
     }
 
     private var isAnyFloatingMenuPresented: Bool {
-        isQuickActionsPanelPresented || isPetSwitcherPresented
+        isQuickActionsPanelPresented
     }
 
     private var quickActionsPanelBinding: Binding<Bool> {
         Binding(
             get: { isQuickActionsPanelPresented },
-            set: { newValue in
-                if newValue {
-                    isPetSwitcherPresented = false
-                }
-                isQuickActionsPanelPresented = newValue
-            }
-        )
-    }
-
-    private var petSwitcherBinding: Binding<Bool> {
-        Binding(
-            get: { isPetSwitcherPresented },
-            set: { newValue in
-                if newValue {
-                    isQuickActionsPanelPresented = false
-                }
-                isPetSwitcherPresented = newValue
-            }
+            set: { isQuickActionsPanelPresented = $0 }
         )
     }
 
@@ -110,7 +93,9 @@ struct HomeDashboardLoadedView: View {
                         selectedPet: snapshot.selectedPet,
                         pets: snapshot.petSwitcher,
                         onSelectPet: onSelectPet,
-                        isPetSwitcherPresented: petSwitcherBinding
+                        onAddPet: {
+                            onOpenRoute(.createPet)
+                        }
                     )
                     .padding(.top, MHBTheme.Spacing.s1)
                     .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -148,7 +133,6 @@ struct HomeDashboardLoadedView: View {
     }
 
     private func dismissFloatingMenus() {
-        isPetSwitcherPresented = false
         isQuickActionsPanelPresented = false
     }
 

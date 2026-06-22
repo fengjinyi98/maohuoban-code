@@ -9,6 +9,7 @@ struct HomeActionRoutingContext: Equatable {
     let selectedPetName: String?
     let selectedPetAvatarURL: String?
     let selectedPetSex: PetRecordPetSex
+    let availablePets: [PetRecordSwitchPet]
     let merchantID: String?
     let city: String?
 
@@ -17,6 +18,7 @@ struct HomeActionRoutingContext: Equatable {
         selectedPetName: String? = nil,
         selectedPetAvatarURL: String? = nil,
         selectedPetSex: PetRecordPetSex = .unknown,
+        availablePets: [PetRecordSwitchPet] = [],
         merchantID: String? = nil,
         city: String? = nil
     ) {
@@ -24,6 +26,7 @@ struct HomeActionRoutingContext: Equatable {
         self.selectedPetName = selectedPetName
         self.selectedPetAvatarURL = selectedPetAvatarURL
         self.selectedPetSex = selectedPetSex
+        self.availablePets = availablePets
         self.merchantID = merchantID
         self.city = city
     }
@@ -33,6 +36,17 @@ struct HomeActionRoutingContext: Equatable {
         self.selectedPetName = snapshot.selectedPet?.name
         self.selectedPetAvatarURL = snapshot.selectedPet?.avatarURL
         self.selectedPetSex = PetRecordPetSex(homeDashboardSex: snapshot.selectedPet?.sex)
+        self.availablePets = snapshot.petSwitcher.map { item in
+            PetRecordSwitchPet(
+                id: item.id,
+                name: item.name,
+                species: PetRecordPetSpecies(homeDashboardSpecies: item.species),
+                breed: item.breed,
+                avatarURL: item.avatarURL,
+                sex: PetRecordPetSex(homeDashboardSex: item.sex ?? (item.id == snapshot.selectedPet?.id ? snapshot.selectedPet?.sex : nil)),
+                isSelected: item.id == snapshot.selectedPet?.id
+            )
+        }
         self.merchantID = snapshot.merchantDashboard?.merchantID
         self.city = snapshot.identity.city
     }
@@ -47,6 +61,19 @@ private extension PetRecordPetSex {
             self = .male
         case .unknown, nil:
             self = .unknown
+        }
+    }
+}
+
+private extension PetRecordPetSpecies {
+    init(homeDashboardSpecies: HomeDashboardSnapshot.Species) {
+        switch homeDashboardSpecies {
+        case .dog:
+            self = .dog
+        case .cat:
+            self = .cat
+        case .other:
+            self = .other
         }
     }
 }
@@ -95,7 +122,8 @@ enum HomeActionRouteResolver {
                     petID: context.selectedPetID,
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
-                    petSex: context.selectedPetSex
+                    petSex: context.selectedPetSex,
+                    availablePets: context.availablePets
                 )
             )
         case .bookHospital:

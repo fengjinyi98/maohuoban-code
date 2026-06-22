@@ -26,6 +26,7 @@ extension PetProfileEditScreen {
                             profiles: context.profiles,
                             selectedProfileID: profile.id,
                             displayName: { displayName(for: $0) },
+                            displaySexText: { displaySexText(for: $0) },
                             avatarImage: { editedAvatarImages[$0.id] },
                             avatarUploadState: mediaUploadStore.avatarState,
                             onSelectProfile: { profileID in
