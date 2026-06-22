@@ -1,0 +1,52 @@
+import SwiftUI
+import UIKit
+import MaohuobanDesignSystem
+
+// FeedDetailLayout Feed 详情通用布局参数
+// 核心职责：
+// - 统一详情页画廊、留言和底部操作栏尺寸
+// - 为跨 Feature 详情页复用沉浸式布局能力
+enum FeedDetailLayout {
+    static let heroAspectRatio: CGFloat = 4 / 5
+    static let heroCornerRadius: CGFloat = 40
+    static let heroInnerBorderWidth: CGFloat = 4
+    static let heroInnerBorderOpacity: CGFloat = 0.15
+    static let heroHairlineOpacity: CGFloat = 0.08
+    static let commentAvatarSize: CGFloat = 36
+    static let commentComposerAvatarSize: CGFloat = 36
+    static var commentComposerTextMinHeight: CGFloat {
+        ceil(
+            UIFont.preferredFont(forTextStyle: .body).lineHeight * 2 +
+                commentComposerTextVerticalPadding * 2
+        )
+    }
+    static let commentComposerTextMaxLines: CGFloat = 5
+    static let commentComposerTextVerticalPadding: CGFloat = MHBTheme.Spacing.s3
+    static let inputHeight: CGFloat = 40
+    static let inputVerticalPadding: CGFloat = MHBTheme.Spacing.s3
+    static let bottomActionHitSize: CGFloat = 40
+    static let likeFeedbackScale: CGFloat = 1.22
+    static let commentComposerAnimation = Animation.easeInOut(duration: 0.24)
+    static let likePressAnimation = Animation.smooth(duration: 0.18, extraBounce: 0.35)
+    static let likeReleaseAnimation = Animation.interactiveSpring(
+        response: 0.28,
+        dampingFraction: 0.62,
+        blendDuration: 0.08
+    )
+
+    static var heroShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: RectangleCornerRadii(
+                topLeading: 0,
+                bottomLeading: heroCornerRadius,
+                bottomTrailing: heroCornerRadius,
+                topTrailing: 0
+            ),
+            style: .continuous
+        )
+    }
+
+    static func bottomBarReservedHeight(bottomSafeArea: CGFloat) -> CGFloat {
+        inputHeight + inputVerticalPadding + bottomSafeArea
+    }
+}

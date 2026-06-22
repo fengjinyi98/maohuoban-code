@@ -27,6 +27,9 @@ struct SameCityRootScreen: View {
                             SameCityLocalFeedSection(
                                 items: SameCityCommodityMockFeed.items,
                                 interactionStore: feedInteractionStore,
+                                detailRoute: { item in
+                                    SameCityRoute.commodityDetail(postID: item.feedItem.postID)
+                                },
                                 onMoreTap: handleCommodityMoreTap(_:)
                             )
                         }
@@ -87,6 +90,11 @@ struct SameCityRootScreen: View {
                 SearchScreen(context: context)
             case .publishEvent(let context):
                 PublishEventComposerScreen(context: context)
+            case .commodityDetail(let postID):
+                SameCityCommodityDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore
+                )
             }
         }
         .accessibilityIdentifier("sameCity.root")
@@ -283,6 +291,7 @@ private enum SameCityServiceItem: String, CaseIterable, Identifiable {
 private struct SameCityLocalFeedSection: View {
     let items: [SameCityCommodityFeedItem]
     let interactionStore: FeedInteractionStore
+    let detailRoute: (SameCityCommodityFeedItem) -> SameCityRoute
     let onMoreTap: (SameCityCommodityFeedItem) -> Void
 
     var body: some View {
@@ -295,6 +304,7 @@ private struct SameCityLocalFeedSection: View {
                 SameCityCommodityFeedList(
                     items: items,
                     interactionStore: interactionStore,
+                    detailRoute: detailRoute,
                     onMoreTap: onMoreTap
                 )
             }

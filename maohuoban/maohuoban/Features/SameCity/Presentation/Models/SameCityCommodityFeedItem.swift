@@ -163,8 +163,8 @@ enum SameCityCommodityMockFeed {
                 style: .price
             ),
             tradeAction: SameCityCommodityTradeAction(
-                title: "进店预约",
-                systemImageName: "storefront"
+                title: "私信沟通",
+                systemImageName: "bubble.left.and.bubble.right"
             ),
             isLiked: false,
             likeCount: 342,

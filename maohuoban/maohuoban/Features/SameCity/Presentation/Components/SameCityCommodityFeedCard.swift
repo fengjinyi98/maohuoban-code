@@ -3,11 +3,12 @@ import MaohuobanDesignSystem
 
 // SameCityCommodityFeedList 同城商品 Feed 列表
 // 核心职责：
-// - 按同城 tabs 筛选结果展示商品卡片
-// - 复用 FeedInteractionStore 管理点赞状态
-struct SameCityCommodityFeedList: View {
+// - 展示同城商品动态卡片
+// - 复用 FeedInteractionStore 管理点赞状态并提供详情导航入口
+struct SameCityCommodityFeedList<Route: Hashable>: View {
     let items: [SameCityCommodityFeedItem]
     let interactionStore: FeedInteractionStore
+    let detailRoute: (SameCityCommodityFeedItem) -> Route
     let onMoreTap: (SameCityCommodityFeedItem) -> Void
 
     var body: some View {
@@ -15,6 +16,7 @@ struct SameCityCommodityFeedList: View {
             ForEach(items) { item in
                 SameCityCommodityFeedCard(
                     item: item,
+                    detailRoute: detailRoute(item),
                     interactionState: interactionStore.interactionState(for: item.feedItem),
                     onToggleLike: {
                         interactionStore.toggleLike(postID: item.feedItem.postID)
@@ -34,9 +36,10 @@ struct SameCityCommodityFeedList: View {
 // SameCityCommodityFeedCard 同城商品 Feed 卡片
 // 核心职责：
 // - 使用 Feed 基础组件组装商品卡片头部、媒体和互动区
-// - 呈现同城商品正文、健康标签和交易操作栏
-private struct SameCityCommodityFeedCard: View {
+// - 呈现同城商品正文、健康标签和详情点击入口
+private struct SameCityCommodityFeedCard<Route: Hashable>: View {
     let item: SameCityCommodityFeedItem
+    let detailRoute: Route
     let interactionState: FeedInteractionState
     let onToggleLike: () -> Void
     let onMoreTap: () -> Void
@@ -66,6 +69,14 @@ private struct SameCityCommodityFeedCard: View {
                         action: item.tradeAction
                     )
                 }
+
+                NavigationLink(value: detailRoute) {
+                    Color.clear
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看同城动态详情")
+                .zIndex(0.5)
 
                 FeedCardMoreButton(
                     postID: item.feedItem.postID,
@@ -132,10 +143,9 @@ private struct SameCityCommodityTagList: View {
     let tags: [SameCityCommodityTag]
 
     var body: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 102), spacing: MHBTheme.Spacing.s2)],
-            alignment: .leading,
-            spacing: MHBTheme.Spacing.s2
+        MHBFlowLayout(
+            horizontalSpacing: MHBTheme.Spacing.s2,
+            verticalSpacing: MHBTheme.Spacing.s2
         ) {
             ForEach(tags) { tag in
                 SameCityCommodityTagChip(tag: tag)
@@ -148,7 +158,7 @@ private struct SameCityCommodityTagList: View {
 // SameCityCommodityTagChip 同城商品标签
 // 核心职责：
 // - 使用统一标签组件展示图标和标签文本
-// - 为网格列提供稳定宽度和左对齐
+// - 保持内容宽度并交给流式布局排布
 private struct SameCityCommodityTagChip: View {
     let tag: SameCityCommodityTag
 
@@ -160,7 +170,6 @@ private struct SameCityCommodityTagChip: View {
             size: .small
         )
         .lineLimit(1)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

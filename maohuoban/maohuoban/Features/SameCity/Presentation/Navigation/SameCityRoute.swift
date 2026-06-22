@@ -7,4 +7,5 @@ import Foundation
 enum SameCityRoute: Hashable {
     case search(SearchEntryContext)
     case publishEvent(PublishEntryContext)
+    case commodityDetail(postID: String)
 }
