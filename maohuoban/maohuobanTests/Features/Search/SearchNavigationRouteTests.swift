@@ -18,4 +18,16 @@ final class SearchNavigationRouteTests: XCTestCase {
 
         XCTAssertEqual(route, SameCityRoute.search(.sameCity(city: "上海")))
     }
+
+    func testSameCityRouteCarriesTopicDetailContext() {
+        let route = SameCityRoute.topicDetail(topicID: "topic-cat-care")
+
+        XCTAssertEqual(route, SameCityRoute.topicDetail(topicID: "topic-cat-care"))
+    }
+
+    func testSameCityRouteCarriesTopicFeedDetailContext() {
+        let route = SameCityRoute.topicFeedDetail(postID: "same-city-commodity-001")
+
+        XCTAssertEqual(route, SameCityRoute.topicFeedDetail(postID: "same-city-commodity-001"))
+    }
 }

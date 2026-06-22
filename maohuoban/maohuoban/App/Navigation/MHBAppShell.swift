@@ -28,7 +28,7 @@ struct MHBAppShell: View {
             .preferredColorScheme(MHBAppTab.petWorld.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
-                SameCityRootScreen()
+                SameCityRootScreen(topicStore: topicStore, tabState: router.tabState)
             }
             .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 

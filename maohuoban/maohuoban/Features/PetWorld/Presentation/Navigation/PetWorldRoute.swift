@@ -10,5 +10,4 @@ enum PetWorldRoute: Hashable {
     case topicDetail(topicID: String)
     case topicFeedDetail(postID: String)
     case publishEvent(PublishEntryContext)
-    case topicComposer(seedTopicID: String?)
 }

@@ -19,8 +19,10 @@ struct PublishDraft: Equatable, Sendable {
     var mediaCount: Int
 
     init(context: PublishEntryContext) {
+        let seedTopicName = Self.normalizedTopicName(context.seedTopicName)
+
         self.title = ""
-        self.bodyText = ""
+        self.bodyText = seedTopicName.map { "#\($0) " } ?? ""
         self.selectedPetID = context.selectedPetID
         self.selectedPetName = context.selectedPetName
         self.eventType = context.source.defaultEventType
@@ -32,8 +34,17 @@ struct PublishDraft: Equatable, Sendable {
             city: context.city,
             localEntityName: context.localEntityName
         )
-        self.topicNames = context.seedTopicName.map { [$0] } ?? []
+        self.topicNames = seedTopicName.map { [$0] } ?? []
         self.mediaCount = 0
+    }
+
+    private static func normalizedTopicName(_ rawName: String?) -> String? {
+        var name = rawName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        while name.first == "#" {
+            name.removeFirst()
+            name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return name.isEmpty ? nil : name
     }
 
     private static func makeLocation(

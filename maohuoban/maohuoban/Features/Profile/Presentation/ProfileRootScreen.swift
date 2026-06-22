@@ -191,8 +191,14 @@ struct ProfileRootScreen: View {
                     feedDetailRoute: { item in
                         ProfileRoute.topicFeedDetail(postID: item.postID)
                     },
-                    composerRoute: { topicID in
-                        ProfileRoute.topicComposer(seedTopicID: topicID)
+                    composerRoute: { topic in
+                        ProfileRoute.publishEvent(
+                            PublishEntryContext(
+                                source: .profile,
+                                seedTopicID: topic.id,
+                                seedTopicName: topic.name
+                            )
+                        )
                     }
                 )
             case .topicFeedDetail(let postID):
@@ -203,8 +209,8 @@ struct ProfileRootScreen: View {
                         tabState.appendProfileRoute(route)
                     }
                 )
-            case .topicComposer(let seedTopicID):
-                TopicPostComposerScreen(seedTopicID: seedTopicID, store: topicStore)
+            case .publishEvent(let context):
+                PublishEventComposerScreen(context: context)
             case .settings:
                 SettingsScreen(
                     username: SettingsMockData.username,

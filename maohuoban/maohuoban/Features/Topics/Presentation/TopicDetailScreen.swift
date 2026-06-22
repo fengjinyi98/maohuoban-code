@@ -9,7 +9,7 @@ struct TopicDetailScreen<FeedDetailRoute: Hashable, ComposerRoute: Hashable>: Vi
     let topicID: String
     let store: TopicStore
     let feedDetailRoute: (FeedItem) -> FeedDetailRoute
-    let composerRoute: (String) -> ComposerRoute
+    let composerRoute: (TopicSummary) -> ComposerRoute
 
     var body: some View {
         if let topic = store.topic(id: topicID) {
@@ -37,7 +37,7 @@ private struct TopicDetailLoadedScreen<FeedDetailRoute: Hashable, ComposerRoute:
     let feedItems: [FeedItem]
     let isFollowed: Bool
     let feedDetailRoute: (FeedItem) -> FeedDetailRoute
-    let composerRoute: (String) -> ComposerRoute
+    let composerRoute: (TopicSummary) -> ComposerRoute
     let onToggleFollow: () -> Void
     @State private var interactionStore: FeedInteractionStore
 
@@ -46,7 +46,7 @@ private struct TopicDetailLoadedScreen<FeedDetailRoute: Hashable, ComposerRoute:
         feedItems: [FeedItem],
         isFollowed: Bool,
         feedDetailRoute: @escaping (FeedItem) -> FeedDetailRoute,
-        composerRoute: @escaping (String) -> ComposerRoute,
+        composerRoute: @escaping (TopicSummary) -> ComposerRoute,
         onToggleFollow: @escaping () -> Void
     ) {
         self.topic = topic
@@ -59,37 +59,46 @@ private struct TopicDetailLoadedScreen<FeedDetailRoute: Hashable, ComposerRoute:
     }
 
     var body: some View {
-        ZStack {
-            MHBTheme.ColorToken.background.color
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
 
-            if feedItems.isEmpty {
-                TopicDetailEmptyContent(
-                    topic: topic,
-                    isFollowed: isFollowed,
-                    onToggleFollow: onToggleFollow
-                )
-            } else {
-                FeedList(
-                    cards: feedItems,
-                    interactionStore: interactionStore,
-                    topContentInset: MHBTheme.Spacing.s4,
-                    accessibilityIdentifierPrefix: "topics.detail.feed.card",
-                    detailRoute: feedDetailRoute
-                ) {
-                    TopicDetailFeedHeader(
+            ZStack(alignment: .bottom) {
+                MHBTheme.ColorToken.background.color
+                    .ignoresSafeArea()
+
+                if feedItems.isEmpty {
+                    TopicDetailEmptyContent(
                         topic: topic,
                         isFollowed: isFollowed,
                         onToggleFollow: onToggleFollow
                     )
+                } else {
+                    FeedList(
+                        cards: feedItems,
+                        interactionStore: interactionStore,
+                        topContentInset: MHBTheme.Spacing.s4,
+                        accessibilityIdentifierPrefix: "topics.detail.feed.card",
+                        detailRoute: feedDetailRoute
+                    ) {
+                        TopicDetailFeedHeader(
+                            topic: topic,
+                            isFollowed: isFollowed,
+                            onToggleFollow: onToggleFollow
+                        )
+                    }
                 }
+
+                TopicDetailBottomAction(
+                    route: composerRoute(topic),
+                    bottomInset: bottomInset
+                )
+                .zIndex(2)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
+        .ignoresSafeArea(.container, edges: .bottom)
         .navigationTitle(topic.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
-            TopicDetailBottomAction(route: composerRoute(topic.id))
-        }
         .accessibilityIdentifier("topics.detail.\(topic.id)")
     }
 }
@@ -208,6 +217,7 @@ private struct TopicDetailStatPill: View {
 // - 提供进入发布草稿并默认选中当前话题的入口
 private struct TopicDetailBottomAction<Route: Hashable>: View {
     let route: Route
+    let bottomInset: CGFloat
 
     var body: some View {
         NavigationLink(value: route) {
@@ -220,9 +230,9 @@ private struct TopicDetailBottomAction<Route: Hashable>: View {
                 .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .trailing)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.vertical, MHBTheme.Spacing.s2)
+        .padding(.bottom, MHBTheme.Spacing.s5 + bottomInset)
     }
 }
 

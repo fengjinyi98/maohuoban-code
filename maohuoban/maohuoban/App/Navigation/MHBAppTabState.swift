@@ -55,6 +55,11 @@ final class MHBAppTabState {
         petWorldPath.append(route)
     }
 
+    /// 追加同城 Tab 导航目标
+    func appendSameCityRoute(_ route: SameCityRoute) {
+        sameCityPath.append(route)
+    }
+
     /// 追加首页 Tab 导航目标
     func appendHomeRoute(_ route: HomeRoute) {
         homePath.append(route)

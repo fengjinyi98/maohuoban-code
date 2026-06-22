@@ -25,7 +25,7 @@ enum ProfileRoute: Hashable {
     case followedTopics
     case topicDetail(topicID: String)
     case topicFeedDetail(postID: String)
-    case topicComposer(seedTopicID: String?)
+    case publishEvent(PublishEntryContext)
     case settings
     case accountSecurity
     case generalSettings

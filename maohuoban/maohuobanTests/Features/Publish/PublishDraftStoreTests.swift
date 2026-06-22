@@ -24,6 +24,20 @@ final class PublishDraftStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testTopicContextPrefillsBodyTextWithSeedTopic() {
+        let store = PublishDraftStore(
+            context: PublishEntryContext(
+                source: .petWorld,
+                seedTopicID: "topic-cat",
+                seedTopicName: "猫咪日常"
+            )
+        )
+
+        XCTAssertEqual(store.draft.topicNames, ["猫咪日常"])
+        XCTAssertEqual(store.draft.bodyText, "#猫咪日常 ")
+    }
+
+    @MainActor
     func testCanPrepareDraftRequiresPetAndTextOrMedia() {
         let store = PublishDraftStore(context: PublishEntryContext(source: .petWorld))
 

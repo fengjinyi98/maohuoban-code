@@ -9,6 +9,8 @@ struct SameCityCommodityDetailContent: View {
     let detail: SameCityCommodityDetailItem
     let comments: [FeedComment]
     let topPadding: CGFloat
+    let topicRoute: (String) -> SameCityRoute
+    let onOpenTopicRoute: (SameCityRoute) -> Void
     let onPublisherOffsetChange: (CGFloat) -> Void
     let onCommentReply: (FeedComment) -> Void
     let onCommentToggleLike: (FeedComment) -> Void
@@ -46,7 +48,9 @@ struct SameCityCommodityDetailContent: View {
             SameCityCommodityDetailBottomMetadataSection(
                 visibleLocationName: detail.visibleLocationName,
                 viewCount: detail.viewCount,
-                topics: detail.topics
+                topics: detail.topics,
+                topicRoute: topicRoute,
+                onOpenTopicRoute: onOpenTopicRoute
             )
 
             SameCityCommodityPublisherSection(
@@ -340,6 +344,8 @@ private struct SameCityCommodityDetailBottomMetadataSection: View {
     let visibleLocationName: String?
     let viewCount: Int
     let topics: [String]
+    let topicRoute: (String) -> SameCityRoute
+    let onOpenTopicRoute: (SameCityRoute) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -349,7 +355,9 @@ private struct SameCityCommodityDetailBottomMetadataSection: View {
             )
 
             if !topics.isEmpty {
-                FeedDetailTopics(topics: topics)
+                FeedDetailTopics(topics: topics) { topic in
+                    onOpenTopicRoute(topicRoute(topic))
+                }
             }
         }
     }

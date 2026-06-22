@@ -9,9 +9,19 @@ import MaohuobanDesignSystem
 // - 展示同城业务金刚区
 // - 展示同城商品 Feed 并提供底部发布入口
 struct SameCityRootScreen: View {
+    let topicStore: TopicStore
+    let tabState: MHBAppTabState
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
+
+    init(
+        topicStore: TopicStore = TopicStore(),
+        tabState: MHBAppTabState = MHBAppTabState()
+    ) {
+        self.topicStore = topicStore
+        self.tabState = tabState
+    }
 
     var body: some View {
         ZStack {
@@ -93,7 +103,43 @@ struct SameCityRootScreen: View {
             case .commodityDetail(let postID):
                 SameCityCommodityDetailScreen(
                     postID: postID,
-                    interactionStore: feedInteractionStore
+                    interactionStore: feedInteractionStore,
+                    topicRoute: { topicName in
+                        SameCityRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    },
+                    onOpenTopicRoute: { route in
+                        tabState.appendSameCityRoute(route)
+                    }
+                )
+            case .topicDetail(let topicID):
+                TopicDetailScreen(
+                    topicID: topicID,
+                    store: topicStore,
+                    feedDetailRoute: { item in
+                        SameCityRoute.topicFeedDetail(postID: item.postID)
+                    },
+                    composerRoute: { topic in
+                        SameCityRoute.publishEvent(
+                            PublishEntryContext(
+                                source: .sameCity,
+                                city: SameCityRootLayout.currentCity,
+                                localEntityName: "\(SameCityRootLayout.currentCity)同城",
+                                seedTopicID: topic.id,
+                                seedTopicName: topic.name
+                            )
+                        )
+                    }
+                )
+            case .topicFeedDetail(let postID):
+                SameCityCommodityDetailScreen(
+                    postID: postID,
+                    interactionStore: feedInteractionStore,
+                    topicRoute: { topicName in
+                        SameCityRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
+                    },
+                    onOpenTopicRoute: { route in
+                        tabState.appendSameCityRoute(route)
+                    }
                 )
             }
         }

@@ -9,12 +9,16 @@ import UIKit
 struct SameCityCommodityDetailScreen: View {
     let postID: String
     let interactionStore: FeedInteractionStore
+    let topicRoute: (String) -> SameCityRoute
+    let onOpenTopicRoute: (SameCityRoute) -> Void
 
     var body: some View {
         if let detail = SameCityCommodityMockDetail.detail(for: postID) {
             SameCityCommodityDetailLoadedScreen(
                 detail: detail,
-                interactionStore: interactionStore
+                interactionStore: interactionStore,
+                topicRoute: topicRoute,
+                onOpenTopicRoute: onOpenTopicRoute
             )
         } else {
             SameCityCommodityDetailMissingScreen()
@@ -31,6 +35,8 @@ private struct SameCityCommodityDetailLoadedScreen: View {
 
     let detail: SameCityCommodityDetailItem
     let interactionStore: FeedInteractionStore
+    let topicRoute: (String) -> SameCityRoute
+    let onOpenTopicRoute: (SameCityRoute) -> Void
 
     @State private var selectedMediaIndex = 0
     @State private var isNavigationIdentityVisible = false
@@ -72,6 +78,8 @@ private struct SameCityCommodityDetailLoadedScreen: View {
                                 detail: detail,
                                 comments: comments,
                                 topPadding: MHBTheme.Spacing.s6,
+                                topicRoute: topicRoute,
+                                onOpenTopicRoute: onOpenTopicRoute,
                                 onPublisherOffsetChange: updateNavigationIdentityOffset(_:),
                                 onCommentReply: presentReplyComposer(for:),
                                 onCommentToggleLike: handleCommentLike(_:),

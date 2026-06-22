@@ -91,11 +91,12 @@ struct PetWorldRootScreen: View {
                     feedDetailRoute: { item in
                         PetWorldRoute.topicFeedDetail(postID: item.postID)
                     },
-                    composerRoute: { topicID in
+                    composerRoute: { topic in
                         PetWorldRoute.publishEvent(
                             PublishEntryContext(
                                 source: .petWorld,
-                                seedTopicID: topicID
+                                seedTopicID: topic.id,
+                                seedTopicName: topic.name
                             )
                         )
                     }
@@ -113,13 +114,6 @@ struct PetWorldRootScreen: View {
                 )
             case .publishEvent(let context):
                 PublishEventComposerScreen(context: context)
-            case .topicComposer(let seedTopicID):
-                PublishEventComposerScreen(
-                    context: PublishEntryContext(
-                        source: .petWorld,
-                        seedTopicID: seedTopicID
-                    )
-                )
             }
         }
     }

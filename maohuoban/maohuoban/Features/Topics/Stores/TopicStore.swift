@@ -148,7 +148,13 @@ private extension TopicStore {
         makeTopic("公园训练", "户外召回、牵引和基础训练经验。", "HomeGalleryAlbum2", 3900, 144, 3),
         makeTopic("召回练习", "召回训练进度、奖励和环境干扰复盘。", "HomeGalleryAlbum3", 1760, 68, 1),
         makeTopic("狗狗成长", "幼犬成长、训练和健康记录。", "HomePetAlbum3", 10420, 361, 9),
-        makeTopic("宠物日常", "普通但值得记录的陪伴瞬间。", "HomePetAlbum1", 74200, 1890, 24)
+        makeTopic("宠物日常", "普通但值得记录的陪伴瞬间。", "HomePetAlbum1", 74200, 1890, 24),
+        makeTopic("同城领养", "本地领养、回访、封窗和领养协议集中讨论。", "HomePetAlbum1", 12680, 342, 11),
+        makeTopic("上海宠友", "上海本地养宠、同城互助和线下服务交流。", "HomePetAlbum2", 21540, 682, 18),
+        makeTopic("流浪猫救助", "救助、绝育、送养和志愿者经验沉淀。", "HomeGalleryAlbum1", 18320, 521, 14),
+        makeTopic("活体繁育", "繁育资质、健康保障和科学交易经验。", "HomeGalleryAlbum2", 9640, 218, 6),
+        makeTopic("担保交易", "平台担保、履约确认和售后保障讨论。", "HomeGalleryAlbum3", 7340, 176, 5),
+        makeTopic("金渐层", "金渐层品相、健康、饲养和家庭适应记录。", "HomePetAlbum4", 12890, 438, 9)
     ]
 
     static let seedPostsByTopicID: [String: [TopicPostPreview]] = {
