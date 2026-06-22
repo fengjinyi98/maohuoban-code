@@ -6,10 +6,9 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 作为同城 Tab NavigationStack 的根内容
 // - 在系统 toolbar 中承载城市和搜索入口
-// - 使用统一 Liquid Glass tabs 基础设施承载同城分类
+// - 展示同城业务金刚区
 // - 展示同城商品 Feed 并提供底部发布入口
 struct SameCityRootScreen: View {
-    @State private var selectedTab = SameCityRootTab.recommended
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
@@ -20,25 +19,18 @@ struct SameCityRootScreen: View {
                 .ignoresSafeArea()
 
             GeometryReader { proxy in
-                let topBlurLayout = SameCityRootLayout.fixedTabsTopBlurLayout(
-                    contentTopY: proxy.frame(in: .global).minY
-                )
-
                 ZStack(alignment: .topLeading) {
                     MHBScreenScrollView(showsIndicators: false) {
-                        VStack(spacing: MHBTheme.Spacing.s3) {
-                            if visibleCommodityItems.isEmpty {
-                                SameCityEmptyFeedSurface()
-                            } else {
-                                SameCityCommodityFeedList(
-                                    items: visibleCommodityItems,
-                                    interactionStore: feedInteractionStore,
-                                    onMoreTap: handleCommodityMoreTap(_:)
-                                )
-                            }
+                        VStack(alignment: .leading, spacing: SameCityRootLayout.sectionSpacing) {
+                            SameCityServiceMatrix()
+
+                            SameCityLocalFeedSection(
+                                items: SameCityCommodityMockFeed.items,
+                                interactionStore: feedInteractionStore,
+                                onMoreTap: handleCommodityMoreTap(_:)
+                            )
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s3)
-                        .padding(.top, SameCityRootLayout.fixedTabsReservedHeight)
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
                     .onPreferenceChange(FeedMoreButtonFramePreferenceKey.self) { frames in
@@ -57,19 +49,10 @@ struct SameCityRootScreen: View {
                         }
                     }
 
-                    MHBScreenScrollTopBlurOverlay(
-                        configuration: SameCityRootLayout.fixedTabsTopBlur(height: topBlurLayout.blurHeight)
-                    )
-                    .offset(y: topBlurLayout.blurOffsetY)
-                    .zIndex(1)
-
                     if presentedMoreMenuPostID != nil {
                         MHBOutsideTapDismissLayer(onDismiss: dismissCommodityMoreMenu)
                             .zIndex(3)
                     }
-
-                    SameCityFixedTabsOverlay(selection: $selectedTab)
-                        .zIndex(2)
 
                     FeedMoreMenuOverlay(
                         isPresented: presentedMoreMenuPostID != nil,
@@ -115,12 +98,6 @@ struct SameCityRootScreen: View {
             city: SameCityRootLayout.currentCity,
             localEntityName: "\(SameCityRootLayout.currentCity)同城"
         )
-    }
-
-    private var visibleCommodityItems: [SameCityCommodityFeedItem] {
-        SameCityCommodityMockFeed.items.filter { item in
-            selectedTab.includes(commodityKind: item.kind)
-        }
     }
 
     private var presentedMoreMenuButtonFrame: CGRect {
@@ -180,62 +157,163 @@ struct SameCityRootScreen: View {
     }
 }
 
-// SameCityFixedTabsOverlay 同城固定分类 tabs 容器
+// SameCityServiceMatrix 同城业务金刚区
 // 核心职责：
-// - 将同城分类 tabs 固定在滚动内容上方
-// - 保持与页面水平间距一致的可视宽度
-private struct SameCityFixedTabsOverlay: View {
-    @Binding var selection: SameCityRootTab
+// - 展示同城四类高频业务入口
+// - 参照设计稿维持四列轻量卡片布局
+private struct SameCityServiceMatrix: View {
+    private let services = SameCityServiceItem.allCases
 
     var body: some View {
-        GeometryReader { proxy in
-            let visibleWidth = SameCityRootLayout.visibleTabsWidth(for: proxy.size.width)
-
-            HStack {
-                SameCityRootTabPicker(selection: $selection)
-                    .frame(width: visibleWidth, height: SameCityRootLayout.categoryTabsHeight)
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: SameCityRootLayout.serviceItemSpacing),
+                count: SameCityRootLayout.serviceColumnCount
+            ),
+            spacing: SameCityRootLayout.serviceItemSpacing
+        ) {
+            ForEach(services) { service in
+                SameCityServiceButton(service: service)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, SameCityRootLayout.fixedTabsTopPadding)
         }
-        .frame(height: SameCityRootLayout.fixedTabsReservedHeight)
+        .padding(.top, MHBTheme.Spacing.s3)
+        .padding(.bottom, MHBTheme.Spacing.s1)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("sameCity.service.matrix")
     }
 }
 
-// SameCityRootTab 同城首页分类
+// SameCityServiceButton 同城业务入口按钮
 // 核心职责：
-// - 定义同城顶部 tabs 分类
-// - 为后续 feed 数据接入保留稳定筛选状态
-private enum SameCityRootTab: CaseIterable, Identifiable, Hashable {
-    case recommended
-    case adoption
-    case breeding
-    case merchants
-    case missingPets
+// - 呈现单个金刚区图标和标题
+// - 保留后续接入业务路由的触控边界
+private struct SameCityServiceButton: View {
+    let service: SameCityServiceItem
 
-    var id: Self { self }
+    var body: some View {
+        Button {
+            // 待接入同城业务入口。
+        } label: {
+            VStack(spacing: MHBTheme.Spacing.s2) {
+                Image(systemName: service.systemImageName)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(service.tintColor)
+                    .frame(
+                        width: SameCityRootLayout.serviceIconSize,
+                        height: SameCityRootLayout.serviceIconSize
+                    )
+                    .background(
+                        MHBTheme.ColorToken.cardSolid.color,
+                        in: .rect(cornerRadius: SameCityRootLayout.serviceIconCornerRadius)
+                    )
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: SameCityRootLayout.serviceIconCornerRadius,
+                            style: .continuous
+                        )
+                        .strokeBorder(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
+                    }
+
+                Text(service.title)
+                    .font(MHBTheme.Typography.caption.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(service.title)
+        .accessibilityIdentifier("sameCity.service.\(service.id)")
+    }
+}
+
+// SameCityServiceItem 同城金刚区入口
+// 核心职责：
+// - 固化同城根页四项业务入口
+// - 提供图标、文案和语义色
+private enum SameCityServiceItem: String, CaseIterable, Identifiable {
+    case liveTrade
+    case emergencyRescue
+    case adoption
+    case hospital
+
+    var id: String {
+        rawValue
+    }
 
     var title: String {
         switch self {
-        case .recommended: "推荐"
-        case .adoption: "领养救助"
-        case .breeding: "活体繁育"
-        case .merchants: "附近商家"
-        case .missingPets: "寻宠启事"
+        case .liveTrade: "活体买卖"
+        case .emergencyRescue: "紧急救助"
+        case .adoption: "爱心领养"
+        case .hospital: "找医院"
         }
     }
 
-    func includes(commodityKind: SameCityCommodityKind) -> Bool {
-        switch (self, commodityKind) {
-        case (.recommended, _):
-            true
-        case (.adoption, .adoption):
-            true
-        case (.breeding, .breeding):
-            true
-        case (.merchants, _), (.missingPets, _), (.adoption, _), (.breeding, _):
-            false
+    var systemImageName: String {
+        switch self {
+        case .liveTrade: "diamond.fill"
+        case .emergencyRescue: "lifepreserver.fill"
+        case .adoption: "house.fill"
+        case .hospital: "cross.case.fill"
         }
+    }
+
+    var tintColor: Color {
+        switch self {
+        case .liveTrade:
+            MHBTheme.ColorToken.warning.color
+        case .emergencyRescue:
+            MHBTheme.ColorToken.danger.color
+        case .adoption:
+            MHBTheme.ColorToken.success.color
+        case .hospital:
+            MHBTheme.ColorToken.primary.color
+        }
+    }
+}
+
+// SameCityLocalFeedSection 同城动态区块
+// 核心职责：
+// - 在 Feed 流前展示同城动态标题
+// - 保持现有同城商品 Feed 列表组件不变
+private struct SameCityLocalFeedSection: View {
+    let items: [SameCityCommodityFeedItem]
+    let interactionStore: FeedInteractionStore
+    let onMoreTap: (SameCityCommodityFeedItem) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+            SameCityLocalFeedTitle()
+
+            if items.isEmpty {
+                SameCityEmptyFeedSurface()
+            } else {
+                SameCityCommodityFeedList(
+                    items: items,
+                    interactionStore: interactionStore,
+                    onMoreTap: onMoreTap
+                )
+            }
+        }
+    }
+}
+
+// SameCityLocalFeedTitle 同城动态标题
+// 核心职责：
+// - 标识下方内容为同城动态 Feed
+// - 与页面标题层级保持区分
+private struct SameCityLocalFeedTitle: View {
+    var body: some View {
+        Text("同城动态")
+            .font(MHBTheme.Typography.headline.weight(.bold))
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("sameCity.feed.title")
     }
 }
 
@@ -290,33 +368,6 @@ private struct SameCityLocationButton: View {
     }
 }
 
-// SameCityRootTabPicker 同城分类切换器
-// 核心职责：
-// - 使用统一 Liquid Glass tabs 基础设施呈现同城首页分类
-// - 将分类选择回写给同城 feed 筛选状态
-private struct SameCityRootTabPicker: View {
-    @Binding var selection: SameCityRootTab
-
-    var body: some View {
-        MHBGlassSegmentedTabsBar(
-            items: SameCityRootTab.allCases.map { tab in
-                MHBGlassSegmentedTabsBar<SameCityRootTab>.Item(
-                    selection: tab,
-                    title: tab.title
-                )
-            },
-            selection: $selection,
-            widthStrategy: .content,
-            height: SameCityRootLayout.categoryTabsHeight,
-            selectedSegmentTintColor: MHBTheme.ColorToken.primary.uiColor,
-            normalTitleColor: MHBTheme.ColorToken.labelPrimary.uiColor,
-            selectedTitleColor: .white,
-            accessibilityIdentifier: "sameCity.category.tabs"
-        )
-        .frame(height: SameCityRootLayout.categoryTabsHeight)
-    }
-}
-
 // SameCityEmptyFeedSurface 同城空 feed 承载面
 // 核心职责：
 // - 为暂无商品的分类提供稳定占位
@@ -359,49 +410,16 @@ private struct SameCityPublishEntryButton<Route: Hashable>: View {
 
 // SameCityRootLayout 同城根页布局配置
 // 核心职责：
-// - 统一 toolbar 控件、tabs 宽度和空 feed 高度
-// - 避免顶部搜索、分类与底部发布按钮发生边界挤压
+// - 统一 toolbar 控件、金刚区和空 feed 高度
+// - 避免顶部搜索、业务入口与底部发布按钮发生边界挤压
 private enum SameCityRootLayout {
     static let currentCity = "上海"
     static let toolbarControlHeight: CGFloat = 36
-    static let categoryTabsHeight: CGFloat = 44
-    static let fixedTabsHorizontalInset: CGFloat = MHBTheme.Spacing.s3
-    static let fixedTabsTopPadding: CGFloat = MHBTheme.Spacing.s1
-    static let fixedTabsBottomSpacing: CGFloat = MHBTheme.Spacing.s3
-    static let fixedTabsTopBlurBottomOverlap: CGFloat = MHBTheme.Spacing.s2
+    static let sectionSpacing: CGFloat = MHBTheme.Spacing.s5
+    static let serviceColumnCount = 4
+    static let serviceItemSpacing: CGFloat = MHBTheme.Spacing.s3
+    static let serviceIconSize: CGFloat = 52
+    static let serviceIconCornerRadius: CGFloat = 20
     static let locationButtonMinWidth: CGFloat = 66
     static let emptyFeedMinHeight: CGFloat = 520
-
-    static var fixedTabsReservedHeight: CGFloat {
-        fixedTabsTopPadding + categoryTabsHeight + fixedTabsBottomSpacing
-    }
-
-    static func fixedTabsTopBlurLayout(contentTopY: CGFloat) -> MHBScreenScrollTopBlurLayout {
-        MHBScreenScrollTopBlurLayout(
-            contentTopY: contentTopY,
-            topPadding: fixedTabsTopPadding,
-            bottomOverlap: fixedTabsTopBlurBottomOverlap
-        )
-    }
-
-    static func fixedTabsTopBlur(height: CGFloat) -> MHBScreenScrollTopBlurConfiguration? {
-        guard height > 0 else {
-            return nil
-        }
-
-        return MHBScreenScrollTopBlurConfiguration(
-            height: height,
-            maxBlurRadius: 10,
-            startOffset: 0,
-            tintColor: MHBTheme.ColorToken.background.color,
-            topTintOpacity: 0.58,
-            middleTintOpacity: 0.18,
-            middleLocation: 0.62,
-            ignoresTopSafeArea: true
-        )
-    }
-
-    static func visibleTabsWidth(for screenWidth: CGFloat) -> CGFloat {
-        max(0, screenWidth - fixedTabsHorizontalInset * 2)
-    }
 }

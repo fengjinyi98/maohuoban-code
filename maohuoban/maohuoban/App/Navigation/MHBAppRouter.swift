@@ -32,7 +32,6 @@ final class MHBAppRouter {
         // 1. 解析 URL path/components → 确定目标 Tab + Route
         // 2. switchToTab(targetTab)
         // 3. tabState.path(for: targetTab).append(targetRoute)
-        print("[MHBAppRouter] Deep link received: \(url.absoluteString)")
     }
 
     // MARK: - 便捷方法

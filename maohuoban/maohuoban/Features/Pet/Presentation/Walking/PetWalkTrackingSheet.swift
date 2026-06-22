@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 import MaohuobanDesignSystem
 
 // PetWalkTrackingSheet 遛弯记录系统 Sheet
@@ -43,122 +42,9 @@ struct PetWalkTrackingSheet: View {
                 .glassEffect(.regular, in: .rect(cornerRadius: 32))
                 .ignoresSafeArea()
         }
-        #if DEBUG
-        .background {
-            PetWalkSheetPresentationDiagnostics()
-        }
-        .onAppear {
-            print("[DEBUG:WalkGlass] sheet content appear")
-        }
-        .onDisappear {
-            print("[DEBUG:WalkGlass] sheet content disappear")
-        }
-        #endif
         .accessibilityIdentifier("pet.walkTracking.sheet")
     }
 }
-
-#if DEBUG
-// PetWalkSheetPresentationDiagnostics 遛弯 Sheet 临时诊断
-// 核心职责：
-// - 打印系统 sheet presentation 宿主层级
-// - 协助定位 Liquid Glass 背景被覆盖或未合成的问题
-private struct PetWalkSheetPresentationDiagnostics: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> Controller {
-        Controller()
-    }
-
-    func updateUIViewController(_ controller: Controller, context: Context) {
-        controller.scheduleLog(reason: "update")
-    }
-
-    final class Controller: UIViewController {
-        private var lastSignature = ""
-
-        override func viewDidAppear(_ animated: Bool) {
-            super.viewDidAppear(animated)
-            scheduleLog(reason: "viewDidAppear")
-        }
-
-        func scheduleLog(reason: String) {
-            DispatchQueue.main.async { [weak self] in
-                self?.log(reason: reason)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                self?.log(reason: "\(reason)+0.35s")
-            }
-        }
-
-        private func log(reason: String) {
-            let parentChain = Self.describeControllerChain(from: self)
-            let presentation = Self.describePresentationChain(from: self)
-            let viewChain = Self.describeSuperviewChain(from: view)
-            let windowSubviews = view.window?.subviews.enumerated().map { index, subview in
-                "windowSubview#\(index):frame=\(subview.frame.debugDescription),alpha=\(String(format: "%.2f", subview.alpha)),hidden=\(subview.isHidden),bg=\(subview.backgroundColor?.description ?? "nil")"
-            }.joined(separator: " || ") ?? "nil"
-            let rootSubviewTree = view.window.map { Self.describeViewTree($0, maxDepth: 3) } ?? "nil"
-            let signature = [
-                reason,
-                "\(view.window?.frame.debugDescription ?? "nil")",
-                parentChain,
-                presentation
-            ].joined(separator: "|")
-            guard signature != lastSignature else { return }
-            lastSignature = signature
-
-            print("[DEBUG:WalkGlass] sheet reason=\(reason) controllerChain=\(parentChain) presentation=\(presentation) viewChain=\(viewChain) window=\(view.window?.description ?? "nil") windowSubviews=\(windowSubviews) tree=\(rootSubviewTree)")
-        }
-
-        private static func describeControllerChain(from controller: UIViewController) -> String {
-            var items: [String] = []
-            var current: UIViewController? = controller
-            var index = 0
-            while let controller = current {
-                items.append("controller#\(index):view=\(controller.view.frame.debugDescription),bg=\(controller.view.backgroundColor?.description ?? "nil")")
-                current = controller.parent
-                index += 1
-            }
-            return items.joined(separator: " -> ")
-        }
-
-        private static func describePresentationChain(from controller: UIViewController) -> String {
-            var items: [String] = []
-            var current: UIViewController? = controller
-            var index = 0
-            while let controller = current {
-                if let presentationController = controller.presentationController {
-                    items.append("presentation#\(index):containerFrame=\(presentationController.containerView?.frame.debugDescription ?? "nil")")
-                }
-                current = controller.parent
-                index += 1
-            }
-            return items.isEmpty ? "nil" : items.joined(separator: " -> ")
-        }
-
-        private static func describeSuperviewChain(from view: UIView) -> String {
-            var items: [String] = []
-            var current: UIView? = view
-            var index = 0
-            while let view = current {
-                items.append("view#\(index):frame=\(view.frame.debugDescription),alpha=\(String(format: "%.2f", view.alpha)),hidden=\(view.isHidden),bg=\(view.backgroundColor?.description ?? "nil")")
-                current = view.superview
-                index += 1
-            }
-            return items.joined(separator: " -> ")
-        }
-
-        private static func describeViewTree(_ view: UIView, maxDepth: Int, depth: Int = 0) -> String {
-            let indent = String(repeating: ".", count: depth)
-            let current = "\(indent)view:frame=\(view.frame.debugDescription),alpha=\(String(format: "%.2f", view.alpha)),hidden=\(view.isHidden),bg=\(view.backgroundColor?.description ?? "nil")"
-            guard depth < maxDepth else { return current }
-            let children = view.subviews.map {
-                describeViewTree($0, maxDepth: maxDepth, depth: depth + 1)
-            }
-            return ([current] + children).joined(separator: " | ")
-        }
-    }
-}
-#endif
 
 // PetWalkCollapsedSheetEntry Sheet 关闭后的迷你入口
 // 核心职责：

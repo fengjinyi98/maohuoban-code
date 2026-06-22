@@ -50,39 +50,6 @@ struct MHBPetSwitcherCapsule: View {
     }
 }
 
-// MHBPetSwitcherMenuItemLabel 宠物切换菜单项
-// 核心职责：
-// - 在原生 Menu 中展示宠物头像和名称
-// - 统一表达当前选中宠物状态
-struct MHBPetSwitcherMenuItemLabel: View {
-    let item: MHBPetSwitcherItem
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            MHBPetSwitcherAvatar(item: item, size: 26)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.name)
-                    .lineLimit(1)
-
-                if item.subtitle.isEmpty == false {
-                    Text(item.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            if item.isSelected {
-                Spacer(minLength: MHBTheme.Spacing.s3)
-
-                Image(systemName: "checkmark")
-                    .font(.body.weight(.semibold))
-            }
-        }
-    }
-}
-
 // MHBPetSwitcherAvatar 宠物切换头像
 // 核心职责：
 // - 优先展示宠物头像图片

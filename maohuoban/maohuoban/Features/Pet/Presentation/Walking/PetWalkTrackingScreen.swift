@@ -19,6 +19,8 @@ struct PetWalkTrackingScreen: View {
     @State private var activeDetent: PresentationDetent = .height(260)
     @State private var recenterRequestID = 0
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
+    @State private var completionSummary: PetWalkCompletionSummary?
+    @State private var isWalkHistoryPresented = false
 
     init(
         context: PetRecordEntryContext,
@@ -31,7 +33,6 @@ struct PetWalkTrackingScreen: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let effectiveTopInset = max(proxy.safeAreaInsets.top, windowSafeAreaInsets.top)
             let effectiveBottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
 
             ZStack(alignment: .top) {
@@ -80,27 +81,16 @@ struct PetWalkTrackingScreen: View {
 
                 MHBWindowSafeAreaReader { insets in
                     windowSafeAreaInsets = insets
-                    #if DEBUG
-                    print("[DEBUG:WalkGlass] window safeArea top=\(insets.top) bottom=\(insets.bottom) left=\(insets.left) right=\(insets.right)")
-                    #endif
                 }
                 .allowsHitTesting(false)
-
-                #if DEBUG
-                PetWalkRootLayoutDiagnostics(
-                    proxy: proxy,
-                    windowSafeAreaInsets: windowSafeAreaInsets,
-                    effectiveTopInset: effectiveTopInset,
-                    effectiveBottomInset: effectiveBottomInset
-                )
-                #endif
 
                 PetWalkTopChrome(
                     petItem: currentPetSwitcherItem,
                     petItems: petSwitcherItems,
                     isPetSwitcherDisabled: store.phase != .ready || petSwitcherItems.isEmpty,
                     onBack: handleBack,
-                    onSelectPet: selectPetForWalk
+                    onSelectPet: selectPetForWalk,
+                    onOpenHistory: openWalkHistory
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
@@ -139,25 +129,23 @@ struct PetWalkTrackingScreen: View {
                 .presentationBackgroundInteraction(.enabled)
             }
         }
+        .fullScreenCover(item: $completionSummary) { summary in
+            PetWalkCompletionScreen(
+                summary: summary,
+                onSave: saveCompletedWalk
+            )
+        }
+        .navigationDestination(isPresented: $isWalkHistoryPresented) {
+            PetWalkHistoryScreen(context: context)
+        }
         .onAppear {
-            #if DEBUG
-            print("[DEBUG:WalkGlass] screen appear sheet=\(isTrackingSheetPresented) petExists=\(currentPetID != nil) phase=\(store.phase)")
-            #endif
             selectedPet = selectedPet ?? context.selectedSwitchPet
             isTrackingSheetPresented = currentPetID != nil
             if isTrackingSheetPresented {
                 activeDetent = .height(260)
             }
         }
-        .onChange(of: isTrackingSheetPresented) { _, newValue in
-            #if DEBUG
-            print("[DEBUG:WalkGlass] sheet state changed presented=\(newValue) phase=\(store.phase)")
-            #endif
-        }
         .onDisappear {
-            #if DEBUG
-            print("[DEBUG:WalkGlass] screen disappear sheet=\(isTrackingSheetPresented) phase=\(store.phase)")
-            #endif
             if store.phase == .tracking || store.phase == .paused {
                 store.finish()
             }
@@ -232,9 +220,19 @@ struct PetWalkTrackingScreen: View {
     }
 
     private func finishTracking() {
+        let metrics = store.displayMetrics()
+        let summary = PetWalkCompletionSummary(
+            petName: currentPetName,
+            petAvatarURL: resolvedPetAvatarURL,
+            petSex: currentPetSex,
+            metrics: metrics,
+            routePoints: store.points.map(\.coordinate)
+        )
         dismissTrackingSheetBeforeNavigation()
         store.finish()
-        onFinished()
+        DispatchQueue.main.async {
+            completionSummary = summary
+        }
     }
 
     private func dismissTrackingSheetBeforeNavigation() {
@@ -258,6 +256,21 @@ struct PetWalkTrackingScreen: View {
             sex: pet.sex,
             isSelected: true
         )
+    }
+
+    private func saveCompletedWalk() {
+        completionSummary = nil
+        DispatchQueue.main.async {
+            onFinished()
+            dismiss()
+        }
+    }
+
+    private func openWalkHistory() {
+        dismissTrackingSheetBeforeNavigation()
+        DispatchQueue.main.async {
+            isWalkHistoryPresented = true
+        }
     }
 }
 
@@ -301,39 +314,6 @@ private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
         }
     }
 }
-
-#if DEBUG
-// PetWalkRootLayoutDiagnostics 遛弯根布局临时诊断
-// 核心职责：
-// - 打印根视图尺寸和安全区
-// - 协助定位地图是否延伸到导航栏区域
-private struct PetWalkRootLayoutDiagnostics: View {
-    let proxy: GeometryProxy
-    let windowSafeAreaInsets: UIEdgeInsets
-    let effectiveTopInset: CGFloat
-    let effectiveBottomInset: CGFloat
-
-    var body: some View {
-        Color.clear
-            .allowsHitTesting(false)
-            .onAppear {
-                print("[DEBUG:WalkGlass] root layout size=\(proxy.size.debugDescription) geometrySafeTop=\(proxy.safeAreaInsets.top) geometrySafeBottom=\(proxy.safeAreaInsets.bottom) windowSafeTop=\(windowSafeAreaInsets.top) windowSafeBottom=\(windowSafeAreaInsets.bottom) effectiveTop=\(effectiveTopInset) effectiveBottom=\(effectiveBottomInset)")
-            }
-            .onChange(of: proxy.safeAreaInsets.top) { _, newValue in
-                print("[DEBUG:WalkGlass] root geometrySafeTop changed=\(newValue) effectiveTop=\(effectiveTopInset) size=\(proxy.size.debugDescription)")
-            }
-            .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
-                print("[DEBUG:WalkGlass] root geometrySafeBottom changed=\(newValue) effectiveBottom=\(effectiveBottomInset) size=\(proxy.size.debugDescription)")
-            }
-            .onChange(of: windowSafeAreaInsets.top) { _, newValue in
-                print("[DEBUG:WalkGlass] root windowSafeTop changed=\(newValue) effectiveTop=\(effectiveTopInset) size=\(proxy.size.debugDescription)")
-            }
-            .onChange(of: windowSafeAreaInsets.bottom) { _, newValue in
-                print("[DEBUG:WalkGlass] root windowSafeBottom changed=\(newValue) effectiveBottom=\(effectiveBottomInset) size=\(proxy.size.debugDescription)")
-            }
-    }
-}
-#endif
 
 // PetWalkMapControls 地图浮动控件
 // 核心职责：
@@ -413,6 +393,7 @@ private struct PetWalkTopChrome: View {
     let isPetSwitcherDisabled: Bool
     let onBack: () -> Void
     let onSelectPet: (String) -> Void
+    let onOpenHistory: () -> Void
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
@@ -422,7 +403,7 @@ private struct PetWalkTopChrome: View {
 
                     Spacer(minLength: MHBTheme.Spacing.s4)
 
-                    PetWalkMoreMenu()
+                    PetWalkMoreMenu(onOpenHistory: onOpenHistory)
                 }
 
                 PetWalkPetSwitcherMenu(
@@ -476,7 +457,10 @@ private struct PetWalkPetSwitcherMenu: View {
                     guard item.isSelected == false else { return }
                     onSelectPet(item.id)
                 } label: {
-                    MHBPetSwitcherMenuItemLabel(item: item)
+                    Label(
+                        item.name,
+                        systemImage: item.isSelected ? "checkmark" : item.species.fallbackSystemImage
+                    )
                 }
             }
         } label: {
@@ -496,9 +480,11 @@ private struct PetWalkPetSwitcherMenu: View {
 // - 在顶部右侧展示更多入口
 // - 使用原生 Menu 承载后续遛弯相关动作
 private struct PetWalkMoreMenu: View {
+    let onOpenHistory: () -> Void
+
     var body: some View {
         Menu {
-            Button {} label: {
+            Button(action: onOpenHistory) {
                 Label("遛弯记录", systemImage: "clock.arrow.circlepath")
             }
         } label: {

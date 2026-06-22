@@ -60,7 +60,7 @@ struct HomeImmersiveHeaderControls: View {
                 guard item.isSelected == false else { return }
                 onSelectPet(item.id)
             } label: {
-                MHBPetSwitcherMenuItemLabel(item: item)
+                Label(item.name, systemImage: item.isSelected ? "checkmark" : item.species.fallbackSystemImage)
             }
         }
 

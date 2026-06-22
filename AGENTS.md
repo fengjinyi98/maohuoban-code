@@ -108,11 +108,13 @@
 
 1. UIKit 只在主线程使用。
 2. 导航、手势、输入、底部栏、模态、宿主控制器等基础设施可使用 UIKit。
-3. UIKit 能力必须封装成基础设施或 DesignSystem 组件。
-4. 业务页面不得直接散写 UIKit 桥接代码。
-5. SwiftUI 与 UIKit 桥接必须有清晰边界和可测试入口。
-6. SwiftUI 与 UIKit 混编时，若需在 NavigationStack 中嵌入 UIKit 滚动组件（如 UITextView/WKWebView），应剥离其滚动职责（isScrollEnabled = false），通过外层 SwiftUI ScrollView 包裹以支持系统导航栏透明与滚动效果，并实现 sizeThatFits 提供高度反馈。
-7. 沉浸式全屏页面或 UIKit 宿主页面使用 `.ignoresSafeArea()` / `fullScreenCover` / 自定义 presenter 时，不能只依赖 SwiftUI `GeometryProxy.safeAreaInsets` 判断顶部和底部安全区；该值可能为 0。需要把按钮、工具栏、底部操作区放入安全区时，应通过封装好的 UIKit window safe area 读取能力获取 `window.safeAreaInsets`，并在生命周期回调中回写到 SwiftUI 状态后再参与布局。
+3. 用户未明确要求使用 UIKit 时，禁止为解决 SwiftUI 布局、样式、菜单、材质或普通交互问题自行引入 UIKit / `UIViewRepresentable` / `UIViewControllerRepresentable` / UIKit 宿主控件。
+4. 若判断必须使用 UIKit 才能解决问题，必须先向用户说明：SwiftUI 方案为何不足、拟使用的 UIKit 能力、可能的布局/生命周期风险和可回退方案；得到明确确认后再实施。
+5. UIKit 能力必须封装成基础设施或 DesignSystem 组件。
+6. 业务页面不得直接散写 UIKit 桥接代码。
+7. SwiftUI 与 UIKit 桥接必须有清晰边界和可测试入口。
+8. SwiftUI 与 UIKit 混编时，若需在 NavigationStack 中嵌入 UIKit 滚动组件（如 UITextView/WKWebView），应剥离其滚动职责（isScrollEnabled = false），通过外层 SwiftUI ScrollView 包裹以支持系统导航栏透明与滚动效果，并实现 sizeThatFits 提供高度反馈。
+9. 沉浸式全屏页面或 UIKit 宿主页面使用 `.ignoresSafeArea()` / `fullScreenCover` / 自定义 presenter 时，不能只依赖 SwiftUI `GeometryProxy.safeAreaInsets` 判断顶部和底部安全区；该值可能为 0。需要把按钮、工具栏、底部操作区放入安全区时，应通过封装好的 UIKit window safe area 读取能力获取 `window.safeAreaInsets`，并在生命周期回调中回写到 SwiftUI 状态后再参与布局。
 
 ## 8. 主题与 UI Token
 

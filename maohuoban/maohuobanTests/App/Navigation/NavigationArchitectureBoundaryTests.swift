@@ -120,6 +120,35 @@ final class NavigationArchitectureBoundaryTests: XCTestCase {
         }
     }
 
+    // testSameCityRootUsesServiceMatrixInsteadOfTabs 固化同城根页首屏结构
+    // 核心职责：
+    // - 防止同城根页重新引入分类 tabs
+    // - 确认同城根页保留金刚区与动态标题
+    func testSameCityRootUsesServiceMatrixInsteadOfTabs() throws {
+        let repositoryRoot = try Self.repositoryRoot()
+        let sameCityRootPath = repositoryRoot.appendingPathComponent(
+            "maohuoban/maohuoban/Features/SameCity/Presentation/SameCityRootScreen.swift"
+        )
+        let source = try String(contentsOf: sameCityRootPath, encoding: .utf8)
+
+        XCTAssertFalse(
+            source.contains("SameCityRootTabPicker"),
+            "SameCity root must not render category tabs."
+        )
+        XCTAssertFalse(
+            source.contains("MHBGlassSegmentedTabsBar"),
+            "SameCity root must not use the segmented tabs infrastructure."
+        )
+        XCTAssertTrue(
+            source.contains("SameCityServiceMatrix"),
+            "SameCity root must render the service matrix."
+        )
+        XCTAssertTrue(
+            source.contains("同城动态"),
+            "SameCity root must expose the local feed title."
+        )
+    }
+
     private static func repositoryRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.isEmpty == false {

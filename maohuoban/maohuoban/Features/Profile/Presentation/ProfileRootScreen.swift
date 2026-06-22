@@ -40,14 +40,12 @@ struct ProfileRootScreen: View {
                     onOpenFollowers: openFollowers
                 )
 
-                ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { item in
-                    print("Tapped quick entry: \(item.title)")
+                ProfileQuickEntriesSection(items: ProfileQuickEntryItem.mockItems) { _ in
                 } routeForItem: { item in
                     quickEntryRoute(for: item)
                 }
 
                 ProfileFAQBanner {
-                    print("Tapped FAQ banner")
                 }
 
                 ProfileBadgesSection(badges: ProfileBadge.mockBadges.filter(\.isEarned)) {

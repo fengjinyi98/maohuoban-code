@@ -19,13 +19,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B9BC33B92FDA100000F40E35;
-			remoteInfo = maohuobanWidgets;
-		};
 		B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
@@ -39,6 +32,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = B9BC334C2FD6C95400F40E35;
 			remoteInfo = maohuoban;
+		};
+		B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B9BC33B92FDA100000F40E35;
+			remoteInfo = maohuobanWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -281,12 +281,12 @@
 					B9BC334C2FD6C95400F40E35 = {
 						CreatedOnToolsVersion = 27.0;
 					};
-					B9BC33B92FDA100000F40E35 = {
-						CreatedOnToolsVersion = 27.0;
-					};
 					B9BC338E2FD8A00000F40E35 = {
 						CreatedOnToolsVersion = 27.0;
 						TestTargetID = B9BC334C2FD6C95400F40E35;
+					};
+					B9BC33B92FDA100000F40E35 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -380,11 +380,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		B9BC33C12FDA100000F40E35 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B9BC33B92FDA100000F40E35 /* maohuobanWidgets */;
-			targetProxy = B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */;
-		};
 		B9BC338A2FD8800000F40E35 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
@@ -394,6 +389,11 @@
 			isa = PBXTargetDependency;
 			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
 			targetProxy = B9BC33922FD8A00000F40E35 /* PBXContainerItemProxy */;
+		};
+		B9BC33C12FDA100000F40E35 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B9BC33B92FDA100000F40E35 /* maohuobanWidgets */;
+			targetProxy = B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -697,10 +697,10 @@
 				DEVELOPMENT_TEAM = 42LNLCG255;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
 				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
 				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴遛弯";
 				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
-				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -731,10 +731,10 @@
 				DEVELOPMENT_TEAM = 42LNLCG255;
 				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
 				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
 				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
 				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴遛弯";
 				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
-				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
