@@ -99,9 +99,12 @@ struct PetWalkTrackingScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .background {
-            PetWalkScreenLifecycleObserver {
-                dismissTrackingSheetBeforeNavigation()
-            }
+            PetWalkScreenLifecycleObserver(
+                isSheetPresented: isTrackingSheetPresented,
+                onWillDisappear: {
+                    dismissTrackingSheetBeforeNavigation()
+                }
+            )
         }
         .sheet(isPresented: $isTrackingSheetPresented) {
             if context.petID != nil {
@@ -167,7 +170,10 @@ struct PetWalkTrackingScreen: View {
 
     private func handleBack() {
         dismissTrackingSheetBeforeNavigation()
-        dismiss()
+        // 延迟一个 runloop 确保 UIKit 层 sheet 已从层级移除再执行 NavigationStack pop
+        DispatchQueue.main.async {
+            dismiss()
+        }
     }
 
     private func startTracking() {
@@ -195,8 +201,9 @@ struct PetWalkTrackingScreen: View {
 // PetWalkScreenLifecycleObserver 遛弯页面生命周期观察器
 // 核心职责：
 // - 在系统导航 pop 动画开始前通知业务页收起 sheet
-// - 保持系统返回按钮和侧滑返回路径不被业务页替换
+// - sheet 展示期间禁用侧滑返回手势，强制走 handleBack 确保 sheet 先 dismiss 再 pop
 private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
+    let isSheetPresented: Bool
     let onWillDisappear: () -> Void
 
     func makeUIViewController(context: Context) -> Controller {
@@ -205,13 +212,28 @@ private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: Controller, context: Context) {
         controller.onWillDisappear = onWillDisappear
+        controller.isSheetPresented = isSheetPresented
     }
 
     final class Controller: UIViewController {
         var onWillDisappear: (() -> Void)?
+        var isSheetPresented: Bool = false {
+            didSet {
+                guard oldValue != isSheetPresented else { return }
+                navigationController?.interactivePopGestureRecognizer?.isEnabled = !isSheetPresented
+            }
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            // 确保手势状态与当前 sheet 状态一致
+            navigationController?.interactivePopGestureRecognizer?.isEnabled = !isSheetPresented
+        }
 
         override func viewWillDisappear(_ animated: Bool) {
             super.viewWillDisappear(animated)
+            // 即将离开页面时恢复手势
+            navigationController?.interactivePopGestureRecognizer?.isEnabled = true
             onWillDisappear?()
         }
     }
