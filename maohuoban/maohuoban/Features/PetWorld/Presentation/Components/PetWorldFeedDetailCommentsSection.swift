@@ -20,19 +20,25 @@ struct PetWorldFeedDetailCommentsSection: View {
 
                 Spacer(minLength: 0)
 
-                Text("按时间")
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                if !comments.isEmpty {
+                    Text("按时间")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                }
             }
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                ForEach(comments) { comment in
-                    PetWorldFeedDetailCommentNode(
-                        comment: comment,
-                        onReply: onReply,
-                        onToggleLike: onToggleLike,
-                        onLongPress: onLongPress
-                    )
+            if comments.isEmpty {
+                FeedDetailCommentsEmptyState()
+            } else {
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                    ForEach(comments) { comment in
+                        PetWorldFeedDetailCommentNode(
+                            comment: comment,
+                            onReply: onReply,
+                            onToggleLike: onToggleLike,
+                            onLongPress: onLongPress
+                        )
+                    }
                 }
             }
         }
