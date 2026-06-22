@@ -8,6 +8,7 @@ enum SameCityRoute: Hashable {
     case search(SearchEntryContext)
     case publishEvent(PublishEntryContext)
     case commodityDetail(postID: String)
+    case growthRecord(postID: String)
     case topicDetail(topicID: String)
     case topicFeedDetail(postID: String)
 }

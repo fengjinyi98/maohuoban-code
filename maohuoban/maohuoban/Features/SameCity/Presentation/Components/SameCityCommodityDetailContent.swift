@@ -18,6 +18,10 @@ struct SameCityCommodityDetailContent: View {
     let onCommentLongPress: (FeedComment) -> Void
 
     var body: some View {
+        let separatorPolicy = SameCityCommodityDetailContentSeparatorPolicy.resolve(
+            hasGrowthRecordCard: detail.growthRecordCard != nil
+        )
+
         VStack(alignment: .leading, spacing: SameCityCommodityDetailLayout.sectionSpacing) {
             SameCityCommodityDetailTitleSection(
                 tradeTitle: detail.tradeTitle,
@@ -26,7 +30,9 @@ struct SameCityCommodityDetailContent: View {
                 metaTags: detail.metaTags
             )
 
-            SameCityCommodityDetailDivider()
+            if separatorPolicy.showsDividerAfterTitle {
+                SameCityCommodityDetailDivider()
+            }
 
             if let growthRecordCard = detail.growthRecordCard {
                 SameCityCommodityGrowthRecordCardView(
@@ -34,7 +40,9 @@ struct SameCityCommodityDetailContent: View {
                     onTap: onGrowthRecordTap
                 )
 
-                SameCityCommodityDetailDivider()
+                if separatorPolicy.showsDividerAfterGrowthRecordCard {
+                    SameCityCommodityDetailDivider()
+                }
             }
 
             SameCityCommodityHealthSection(items: detail.healthItems)

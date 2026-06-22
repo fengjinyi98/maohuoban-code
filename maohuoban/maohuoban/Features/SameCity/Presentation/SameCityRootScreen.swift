@@ -109,8 +109,20 @@ struct SameCityRootScreen: View {
                     },
                     onOpenTopicRoute: { route in
                         tabState.appendSameCityRoute(route)
+                    },
+                    growthRecordRoute: { postID in
+                        SameCityRoute.growthRecord(postID: postID)
+                    },
+                    onOpenGrowthRecordRoute: { route in
+                        tabState.appendSameCityRoute(route)
                     }
                 )
+            case .growthRecord(let postID):
+                if let archive = SameCityCommodityMockDetail.detail(for: postID)?.growthRecordCard?.archive {
+                    SameCityCommodityGrowthRecordScreen(archive: archive)
+                } else {
+                    SameCityCommodityGrowthRecordMissingScreen()
+                }
             case .topicDetail(let topicID):
                 TopicDetailScreen(
                     topicID: topicID,
@@ -138,6 +150,12 @@ struct SameCityRootScreen: View {
                         SameCityRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
                     },
                     onOpenTopicRoute: { route in
+                        tabState.appendSameCityRoute(route)
+                    },
+                    growthRecordRoute: { postID in
+                        SameCityRoute.growthRecord(postID: postID)
+                    },
+                    onOpenGrowthRecordRoute: { route in
                         tabState.appendSameCityRoute(route)
                     }
                 )

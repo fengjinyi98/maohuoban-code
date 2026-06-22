@@ -30,24 +30,6 @@ struct SameCityCommodityDetailItem: Identifiable, Equatable {
     }
 }
 
-// SameCityCommodityGrowthRecordCard 商品详情成长记录卡片
-// 核心职责：
-// - 表达发布商品时导入的宠物成长记录摘要
-// - 为商品详情页提供缩略图预览和剩余记录计数
-struct SameCityCommodityGrowthRecordCard: Equatable {
-    let title: String
-    let recordCount: Int
-    let thumbnailAssetNames: [String]
-
-    var summaryText: String {
-        "包含 \(recordCount) 条图文动态"
-    }
-
-    var remainingThumbnailCount: Int {
-        max(recordCount - thumbnailAssetNames.count, 0)
-    }
-}
-
 // SameCityCommodityDetailChecklistItem 同城商品详情检查项
 // 核心职责：
 // - 描述健康档案或交易保障的短项
@@ -163,7 +145,8 @@ enum SameCityCommodityMockDetail {
                     "HomeGalleryAlbum2",
                     "HomeGalleryAlbum3",
                     "HomePetAlbum4"
-                ]
+                ],
+                archive: SameCityCommodityGrowthRecordMockData.goldenArchive
             ),
             healthItems: [
                 SameCityCommodityDetailChecklistItem(id: "certificate", title: "CFA 血统证", isCompleted: true),

@@ -22,4 +22,53 @@ final class SameCityCommodityDetailGrowthRecordTests: XCTestCase {
 
         XCTAssertNil(detail.growthRecordCard)
     }
+
+    func testGrowthRecordDetailHidesSurroundingSectionDividers() throws {
+        let detail = try XCTUnwrap(SameCityCommodityMockDetail.detail(for: "samecity-breeding-golden"))
+        let policy = SameCityCommodityDetailContentSeparatorPolicy.resolve(
+            hasGrowthRecordCard: detail.growthRecordCard != nil
+        )
+
+        XCTAssertFalse(policy.showsDividerAfterTitle)
+        XCTAssertFalse(policy.showsDividerAfterGrowthRecordCard)
+    }
+
+    func testDetailWithoutGrowthRecordKeepsOriginalTitleDivider() throws {
+        let detail = try XCTUnwrap(SameCityCommodityMockDetail.detail(for: "samecity-adopt-tricolor"))
+        let policy = SameCityCommodityDetailContentSeparatorPolicy.resolve(
+            hasGrowthRecordCard: detail.growthRecordCard != nil
+        )
+
+        XCTAssertTrue(policy.showsDividerAfterTitle)
+        XCTAssertFalse(policy.showsDividerAfterGrowthRecordCard)
+    }
+
+    func testGrowthRecordRouteUsesSameCityNavigationValue() {
+        let route = SameCityRoute.growthRecord(postID: "samecity-breeding-golden")
+
+        XCTAssertEqual(route, SameCityRoute.growthRecord(postID: "samecity-breeding-golden"))
+    }
+
+    func testGrowthRecordPreviewPlanFlattensTimelineMedia() throws {
+        let detail = try XCTUnwrap(SameCityCommodityMockDetail.detail(for: "samecity-breeding-golden"))
+        let archive = try XCTUnwrap(detail.growthRecordCard?.archive)
+        let mediaItems = SameCityCommodityGrowthRecordPreviewPlan.mediaItems(from: archive.entries)
+
+        XCTAssertEqual(mediaItems.map(\.assetName), [
+            "HomeGalleryAlbum2",
+            "HomeGalleryAlbum3",
+            "HomePetAlbum4",
+            "HomePetAlbum2",
+            "HomeGalleryAlbum2",
+            "HomeGalleryAlbum3",
+            "HomePetAlbum3"
+        ])
+        XCTAssertEqual(
+            SameCityCommodityGrowthRecordPreviewPlan.previewIndex(
+                for: "third-vaccine-photo-2",
+                in: mediaItems
+            ),
+            2
+        )
+    }
 }
