@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct PetAlbumDetailScreen: View {
     let albumID: String
     @State private var store = PetAlbumStore()
+    @State private var pendingDeleteAsset: PetAlbumAsset?
 
     var body: some View {
         let album = resolvedAlbum
@@ -21,7 +22,12 @@ struct PetAlbumDetailScreen: View {
                     onAddPhotos: {}
                 )
 
-                PetAlbumMosaicGrid(assets: assets)
+                PetAlbumMosaicGrid(
+                    assets: assets,
+                    onDeleteAsset: { asset in
+                        pendingDeleteAsset = asset
+                    }
+                )
             }
             .padding(.horizontal, MHBTheme.Spacing.s5)
             .padding(.top, MHBTheme.Spacing.s3)
@@ -29,6 +35,23 @@ struct PetAlbumDetailScreen: View {
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .mhbImagePreviewHost()
+        .confirmationDialog(
+            "删除照片",
+            isPresented: deleteAssetDialogBinding,
+            titleVisibility: .visible,
+            presenting: pendingDeleteAsset
+        ) { asset in
+            Button("删除照片", role: .destructive) {
+                store.deleteAsset(id: asset.id, in: asset.albumID)
+                pendingDeleteAsset = nil
+            }
+
+            Button("取消", role: .cancel) {
+                pendingDeleteAsset = nil
+            }
+        } message: { _ in
+            Text("将从当前相册中删除这张照片。")
+        }
         .navigationTitle(album.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -41,6 +64,17 @@ struct PetAlbumDetailScreen: View {
             }
         }
         .accessibilityIdentifier("petAlbum.detail.screen")
+    }
+
+    private var deleteAssetDialogBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeleteAsset != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    pendingDeleteAsset = nil
+                }
+            }
+        )
     }
 
     private var resolvedAlbum: PetAlbumSummary {

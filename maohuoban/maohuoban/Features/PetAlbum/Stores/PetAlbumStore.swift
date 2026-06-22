@@ -26,4 +26,38 @@ final class PetAlbumStore {
     func assets(for albumID: String) -> [PetAlbumAsset] {
         assetsByAlbumID[albumID] ?? []
     }
+
+    func deleteAlbum(id albumID: String) {
+        albums.removeAll { $0.id == albumID }
+        assetsByAlbumID[albumID] = nil
+    }
+
+    func deleteAsset(id assetID: String, in albumID: String) {
+        guard var assets = assetsByAlbumID[albumID] else {
+            return
+        }
+
+        assets.removeAll { $0.id == assetID }
+        assetsByAlbumID[albumID] = assets
+        updateAlbum(albumID: albumID) { album in
+            album.replacing(photoCount: assets.count)
+        }
+    }
+
+    func togglePinned(albumID: String) {
+        updateAlbum(albumID: albumID) { album in
+            album.replacing(isPinned: !album.isPinned)
+        }
+    }
+
+    private func updateAlbum(
+        albumID: String,
+        transform: (PetAlbumSummary) -> PetAlbumSummary
+    ) {
+        guard let index = albums.firstIndex(where: { $0.id == albumID }) else {
+            return
+        }
+
+        albums[index] = transform(albums[index])
+    }
 }

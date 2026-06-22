@@ -11,12 +11,30 @@ struct PetAlbumPhotoStackCard: View {
     let updatedText: String
     let coverImageAssetName: String
     let isPrivate: Bool
+    let isPinned: Bool
+
+    init(
+        title: String,
+        photoCountText: String,
+        updatedText: String,
+        coverImageAssetName: String,
+        isPrivate: Bool,
+        isPinned: Bool = false
+    ) {
+        self.title = title
+        self.photoCountText = photoCountText
+        self.updatedText = updatedText
+        self.coverImageAssetName = coverImageAssetName
+        self.isPrivate = isPrivate
+        self.isPinned = isPinned
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
             PetAlbumPhotoStackCover(
                 imageAssetName: coverImageAssetName,
-                isPrivate: isPrivate
+                isPrivate: isPrivate,
+                isPinned: isPinned
             )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -44,6 +62,7 @@ struct PetAlbumPhotoStackCard: View {
 private struct PetAlbumPhotoStackCover: View {
     let imageAssetName: String
     let isPrivate: Bool
+    let isPinned: Bool
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -90,6 +109,17 @@ private struct PetAlbumPhotoStackCover: View {
                     .frame(width: MHBTheme.Spacing.s6, height: MHBTheme.Spacing.s6)
                     .background(MHBTheme.ColorToken.labelPrimary.color.opacity(0.42), in: Circle())
                     .padding(MHBTheme.Spacing.s3)
+                    .accessibilityHidden(true)
+            }
+
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.cardSolid.color)
+                    .frame(width: MHBTheme.Spacing.s6, height: MHBTheme.Spacing.s6)
+                    .background(MHBTheme.ColorToken.labelPrimary.color.opacity(0.42), in: Circle())
+                    .padding(MHBTheme.Spacing.s3)
+                    .offset(x: isPrivate ? -(MHBTheme.Spacing.s6 + MHBTheme.Spacing.s2) : 0)
                     .accessibilityHidden(true)
             }
         }

@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 承载新建相册入口并通过系统导航进入相册详情
 struct PetAlbumListScreen<DetailRoute: Hashable>: View {
     @State private var store = PetAlbumStore()
+    @State private var pendingDeleteAlbum: PetAlbumSummary?
     let createRoute: DetailRoute
     let detailRoute: (PetAlbumSummary) -> DetailRoute
 
@@ -39,16 +40,42 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
                             photoCountText: album.photoCountText,
                             updatedText: album.updatedText,
                             coverImageAssetName: album.coverImageAssetName,
-                            isPrivate: album.isPrivate
+                            isPrivate: album.isPrivate,
+                            isPinned: album.isPinned
                         )
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        PetAlbumContextMenuContent(
+                            actions: PetAlbumContextMenuActionResolver.actions(isPinned: album.isPinned),
+                            onAction: { action in
+                                handleMenuAction(action, album: album)
+                            }
+                        )
+                    }
                     .accessibilityIdentifier("petAlbum.list.card.\(album.id)")
                 }
             }
             .padding(.horizontal, MHBTheme.Spacing.s5)
             .padding(.top, MHBTheme.Spacing.s4)
             .padding(.bottom, MHBTheme.Spacing.s8)
+        }
+        .confirmationDialog(
+            "删除相册",
+            isPresented: deleteAlbumDialogBinding,
+            titleVisibility: .visible,
+            presenting: pendingDeleteAlbum
+        ) { album in
+            Button("删除相册", role: .destructive) {
+                store.deleteAlbum(id: album.id)
+                pendingDeleteAlbum = nil
+            }
+
+            Button("取消", role: .cancel) {
+                pendingDeleteAlbum = nil
+            }
+        } message: { album in
+            Text("将从宠物相册中删除“\(album.title)”。")
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .navigationTitle("宠物相册")
@@ -62,6 +89,31 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
                 .accessibilityLabel("管理相册")
                 .accessibilityIdentifier("petAlbum.list.manage")
             }
+        }
+    }
+
+    private var deleteAlbumDialogBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeleteAlbum != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    pendingDeleteAlbum = nil
+                }
+            }
+        )
+    }
+
+    private func handleMenuAction(
+        _ action: PetAlbumContextMenuAction,
+        album: PetAlbumSummary
+    ) {
+        switch action {
+        case .edit, .addPhotos, .playMemory:
+            break
+        case .deleteAlbum:
+            pendingDeleteAlbum = album
+        case .togglePin:
+            store.togglePinned(albumID: album.id)
         }
     }
 }

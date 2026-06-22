@@ -14,43 +14,71 @@ struct PetWalkTrackingScreen: View {
     @State private var store = PetWalkTrackingStore()
     @State private var isTrackingSheetPresented = true
     @State private var recenterRequestID = 0
+    @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     var body: some View {
-        ZStack {
-            MHBRouteMapView(
-                coordinates: store.points.map(\.coordinate),
-                showsCurrentLocation: context.petID != nil,
-                followsUser: store.phase == .tracking,
-                petAvatarURL: resolvedPetAvatarURL,
-                petMarkerColor: context.petSex.markerUIColor,
-                recenterRequestID: recenterRequestID,
-                onUserLocationUpdated: updateReferenceLocation
-            )
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            let effectiveTopInset = max(proxy.safeAreaInsets.top, windowSafeAreaInsets.top)
+            let effectiveBottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
 
-            if context.petID == nil {
-                PetWalkUnavailablePanel()
-            } else {
-                PetWalkMapControls(
-                    isSheetPresented: isTrackingSheetPresented,
-                    onRecenter: recenterMap
+            ZStack {
+                MHBRouteMapView(
+                    coordinates: store.points.map(\.coordinate),
+                    showsCurrentLocation: context.petID != nil,
+                    followsUser: store.phase == .tracking,
+                    petAvatarURL: resolvedPetAvatarURL,
+                    petMarkerColor: context.petSex.markerUIColor,
+                    recenterRequestID: recenterRequestID,
+                    onUserLocationUpdated: updateReferenceLocation
                 )
+                .frame(
+                    width: proxy.size.width,
+                    height: proxy.size.height + effectiveBottomInset
+                )
+                .ignoresSafeArea(.container, edges: [.top, .bottom])
 
-                if isTrackingSheetPresented == false {
-                    PetWalkCollapsedSheetEntry(
-                        store: store,
-                        petName: context.petName,
-                        petAvatarURL: resolvedPetAvatarURL,
-                        petSex: context.petSex,
-                        onOpenSheet: openTrackingSheet,
-                        onStart: startTracking,
-                        onPause: store.pause,
-                        onResume: store.resume
+                if context.petID == nil {
+                    PetWalkUnavailablePanel()
+                } else {
+                    PetWalkMapControls(
+                        isSheetPresented: isTrackingSheetPresented,
+                        onRecenter: recenterMap
                     )
+
+                    if isTrackingSheetPresented == false {
+                        PetWalkCollapsedSheetEntry(
+                            store: store,
+                            petName: context.petName,
+                            petAvatarURL: resolvedPetAvatarURL,
+                            petSex: context.petSex,
+                            onOpenSheet: openTrackingSheet,
+                            onStart: startTracking,
+                            onPause: store.pause,
+                            onResume: store.resume
+                        )
+                    }
                 }
+
+                MHBWindowSafeAreaReader { insets in
+                    windowSafeAreaInsets = insets
+                    #if DEBUG
+                    print("[DEBUG:WalkGlass] window safeArea top=\(insets.top) bottom=\(insets.bottom) left=\(insets.left) right=\(insets.right)")
+                    #endif
+                }
+                .allowsHitTesting(false)
+
+                #if DEBUG
+                PetWalkRootLayoutDiagnostics(
+                    proxy: proxy,
+                    windowSafeAreaInsets: windowSafeAreaInsets,
+                    effectiveTopInset: effectiveTopInset,
+                    effectiveBottomInset: effectiveBottomInset
+                )
+                #endif
             }
         }
-        .navigationTitle("遛弯")
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
@@ -59,20 +87,15 @@ struct PetWalkTrackingScreen: View {
                     phase: store.phase,
                     gpsStatusText: store.gpsStatusText
                 )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.vertical, MHBTheme.Spacing.s2)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .accessibilityIdentifier("pet.walkTracking.navigationStatus")
             }
         }
         .background {
-            ZStack {
-                PetWalkScreenLifecycleObserver {
-                    dismissTrackingSheetBeforeNavigation()
-                }
-
-                #if DEBUG
-                PetWalkNavigationDiagnostics(
-                    isSheetPresented: isTrackingSheetPresented,
-                    phase: store.phase
-                )
-                #endif
+            PetWalkScreenLifecycleObserver {
+                dismissTrackingSheetBeforeNavigation()
             }
         }
         .sheet(isPresented: $isTrackingSheetPresented) {
@@ -181,75 +204,34 @@ private struct PetWalkScreenLifecycleObserver: UIViewControllerRepresentable {
 }
 
 #if DEBUG
-// PetWalkNavigationDiagnostics 遛弯页导航栏临时诊断
+// PetWalkRootLayoutDiagnostics 遛弯根布局临时诊断
 // 核心职责：
-// - 打印系统导航栏背景视图与 appearance 状态
-// - 协助定位地图页顶部背景来源
-private struct PetWalkNavigationDiagnostics: UIViewControllerRepresentable {
-    let isSheetPresented: Bool
-    let phase: PetWalkSessionPhase
+// - 打印根视图尺寸和安全区
+// - 协助定位地图是否延伸到导航栏区域
+private struct PetWalkRootLayoutDiagnostics: View {
+    let proxy: GeometryProxy
+    let windowSafeAreaInsets: UIEdgeInsets
+    let effectiveTopInset: CGFloat
+    let effectiveBottomInset: CGFloat
 
-    func makeUIViewController(context: Context) -> Controller {
-        Controller()
-    }
-
-    func updateUIViewController(_ controller: Controller, context: Context) {
-        controller.isSheetPresented = isSheetPresented
-        controller.phaseDescription = String(describing: phase)
-        controller.scheduleLog(reason: "update")
-    }
-
-    final class Controller: UIViewController {
-        var isSheetPresented = false
-        var phaseDescription = ""
-        private var lastSignature = ""
-
-        func scheduleLog(reason: String) {
-            DispatchQueue.main.async { [weak self] in
-                self?.log(reason: reason)
+    var body: some View {
+        Color.clear
+            .allowsHitTesting(false)
+            .onAppear {
+                print("[DEBUG:WalkGlass] root layout size=\(proxy.size.debugDescription) geometrySafeTop=\(proxy.safeAreaInsets.top) geometrySafeBottom=\(proxy.safeAreaInsets.bottom) windowSafeTop=\(windowSafeAreaInsets.top) windowSafeBottom=\(windowSafeAreaInsets.bottom) effectiveTop=\(effectiveTopInset) effectiveBottom=\(effectiveBottomInset)")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                self?.log(reason: "\(reason)+0.35s")
+            .onChange(of: proxy.safeAreaInsets.top) { _, newValue in
+                print("[DEBUG:WalkGlass] root geometrySafeTop changed=\(newValue) effectiveTop=\(effectiveTopInset) size=\(proxy.size.debugDescription)")
             }
-        }
-
-        private func log(reason: String) {
-            let navigationBar = navigationController?.navigationBar
-            let window = view.window
-            let signature = [
-                reason,
-                "\(isSheetPresented)",
-                phaseDescription,
-                "\(navigationBar?.frame.debugDescription ?? "nil")",
-                "\(window?.frame.debugDescription ?? "nil")"
-            ].joined(separator: "|")
-            guard signature != lastSignature else { return }
-            lastSignature = signature
-
-            let navSubviews = navigationBar?.subviews.enumerated().map { index, subview in
-                "navSubview#\(index):alpha=\(String(format: "%.2f", subview.alpha)),hidden=\(subview.isHidden),frame=\(subview.frame.debugDescription),bg=\(subview.backgroundColor?.description ?? "nil")"
-            }.joined(separator: " || ") ?? "nil"
-            let appearance = navigationBar.map(Self.describeAppearance) ?? "nil"
-            let windowSubviews = window?.subviews.enumerated().map { index, subview in
-                "windowSubview#\(index):frame=\(subview.frame.debugDescription),alpha=\(String(format: "%.2f", subview.alpha)),hidden=\(subview.isHidden)"
-            }.joined(separator: " || ") ?? "nil"
-
-            print("[DEBUG:WalkGlass] nav reason=\(reason) sheet=\(isSheetPresented) phase=\(phaseDescription) navFrame=\(navigationBar?.frame.debugDescription ?? "nil") navTranslucent=\(navigationBar?.isTranslucent.description ?? "nil") appearance=\(appearance) navSubviews=\(navSubviews) window=\(window?.description ?? "nil") windowSubviews=\(windowSubviews)")
-        }
-
-        private static func describeAppearance(_ navigationBar: UINavigationBar) -> String {
-            let standard = describe(navigationBar.standardAppearance)
-            let scrollEdge = navigationBar.scrollEdgeAppearance.map(describe) ?? "nil"
-            let compact = navigationBar.compactAppearance.map(describe) ?? "nil"
-            return "standard={\(standard)} scrollEdge={\(scrollEdge)} compact={\(compact)}"
-        }
-
-        private static func describe(_ appearance: UINavigationBarAppearance) -> String {
-            let backgroundColor = appearance.backgroundColor?.description ?? "nil"
-            let backgroundEffect = appearance.backgroundEffect?.description ?? "nil"
-            let shadowColor = appearance.shadowColor?.description ?? "nil"
-            return "bgColor=\(backgroundColor),bgEffect=\(backgroundEffect),shadowColor=\(shadowColor)"
-        }
+            .onChange(of: proxy.safeAreaInsets.bottom) { _, newValue in
+                print("[DEBUG:WalkGlass] root geometrySafeBottom changed=\(newValue) effectiveBottom=\(effectiveBottomInset) size=\(proxy.size.debugDescription)")
+            }
+            .onChange(of: windowSafeAreaInsets.top) { _, newValue in
+                print("[DEBUG:WalkGlass] root windowSafeTop changed=\(newValue) effectiveTop=\(effectiveTopInset) size=\(proxy.size.debugDescription)")
+            }
+            .onChange(of: windowSafeAreaInsets.bottom) { _, newValue in
+                print("[DEBUG:WalkGlass] root windowSafeBottom changed=\(newValue) effectiveBottom=\(effectiveBottomInset) size=\(proxy.size.debugDescription)")
+            }
     }
 }
 #endif

@@ -40,6 +40,7 @@ struct PetAlbumSummary: Identifiable, Equatable, Hashable {
     let photoCount: Int
     let coverImageAssetName: String
     let isPrivate: Bool
+    let isPinned: Bool
 
     init(
         id: String,
@@ -48,7 +49,8 @@ struct PetAlbumSummary: Identifiable, Equatable, Hashable {
         updatedText: String,
         photoCount: Int,
         coverImageAssetName: String,
-        isPrivate: Bool = false
+        isPrivate: Bool = false,
+        isPinned: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -57,10 +59,26 @@ struct PetAlbumSummary: Identifiable, Equatable, Hashable {
         self.photoCount = photoCount
         self.coverImageAssetName = coverImageAssetName
         self.isPrivate = isPrivate
+        self.isPinned = isPinned
     }
 
     var photoCountText: String {
         "\(photoCount) 张照片"
+    }
+}
+
+extension PetAlbumSummary {
+    func replacing(photoCount: Int? = nil, isPinned: Bool? = nil) -> PetAlbumSummary {
+        PetAlbumSummary(
+            id: id,
+            title: title,
+            petName: petName,
+            updatedText: updatedText,
+            photoCount: photoCount ?? self.photoCount,
+            coverImageAssetName: coverImageAssetName,
+            isPrivate: isPrivate,
+            isPinned: isPinned ?? self.isPinned
+        )
     }
 }
 

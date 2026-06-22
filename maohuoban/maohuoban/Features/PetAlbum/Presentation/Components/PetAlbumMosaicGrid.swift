@@ -7,6 +7,15 @@ import MaohuobanDesignSystem
 // - 使用 LazyVStack 分组渲染降低长列表首屏压力
 struct PetAlbumMosaicGrid: View {
     let assets: [PetAlbumAsset]
+    let onDeleteAsset: (PetAlbumAsset) -> Void
+
+    init(
+        assets: [PetAlbumAsset],
+        onDeleteAsset: @escaping (PetAlbumAsset) -> Void = { _ in }
+    ) {
+        self.assets = assets
+        self.onDeleteAsset = onDeleteAsset
+    }
 
     private let clusterSize = 7
     private var galleryID: String {
@@ -34,7 +43,8 @@ struct PetAlbumMosaicGrid: View {
                     assets: cluster.assets,
                     startIndex: cluster.startIndex,
                     galleryID: galleryID,
-                    previewAssets: previewAssets
+                    previewAssets: previewAssets,
+                    onDeleteAsset: onDeleteAsset
                 )
             }
         }
@@ -74,6 +84,7 @@ private struct PetAlbumMosaicCluster: View {
     let startIndex: Int
     let galleryID: String
     let previewAssets: [MHBImagePreviewAsset]
+    let onDeleteAsset: (PetAlbumAsset) -> Void
 
     var body: some View {
         GeometryReader { proxy in
@@ -92,7 +103,8 @@ private struct PetAlbumMosaicCluster: View {
                             previewIndex: startIndex + index,
                             galleryID: galleryID,
                             width: frames[index].width,
-                            height: frames[index].height
+                            height: frames[index].height,
+                            onDeleteAsset: onDeleteAsset
                         )
                         .offset(x: frames[index].minX, y: frames[index].minY)
                     }
@@ -115,6 +127,7 @@ private struct PetAlbumMosaicTile: View {
     let galleryID: String
     let width: CGFloat
     let height: CGFloat
+    let onDeleteAsset: (PetAlbumAsset) -> Void
 
     var body: some View {
         MHBPreviewableImage(
@@ -137,7 +150,22 @@ private struct PetAlbumMosaicTile: View {
                     .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
             }
             .clipped()
+            .contextMenu {
+                PetAlbumPhotoContextMenuContent(
+                    actions: PetAlbumPhotoContextMenuActionResolver.actions(),
+                    onAction: { action in
+                        handlePhotoAction(action)
+                    }
+                )
+            }
             .accessibilityLabel(asset.caption ?? sourceAccessibilityText)
+    }
+
+    private func handlePhotoAction(_ action: PetAlbumPhotoContextMenuAction) {
+        switch action {
+        case .deletePhoto:
+            onDeleteAsset(asset)
+        }
     }
 
     private var sourceAccessibilityText: String {
