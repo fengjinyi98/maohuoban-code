@@ -35,6 +35,7 @@ struct ProfileRootScreen: View {
             VStack(spacing: MHBTheme.Spacing.s3) {
                 ProfileAccountSummarySection(
                     profile: ProfileAccountSummary.mock,
+                    onOpenUserProfile: openUserProfile,
                     onOpenPosts: openPosts,
                     onOpenFollowing: openFollowing,
                     onOpenFollowers: openFollowers
@@ -89,6 +90,12 @@ struct ProfileRootScreen: View {
         }
         .navigationDestination(for: ProfileRoute.self) { route in
             switch route {
+            case .userProfile:
+                ProfileUserHomeScreen { route in
+                    tabState.appendProfileRoute(route)
+                }
+            case .editUserProfile:
+                ProfileUserEditScreen()
             case .myPets:
                 PetManagementScreen(
                     pets: PetManagementPet.mockPets,
@@ -211,6 +218,8 @@ struct ProfileRootScreen: View {
                 )
             case .publishEvent(let context):
                 PublishEventComposerScreen(context: context)
+            case .aiAssistant(let context):
+                AIAssistantScreen(context: context)
             case .settings:
                 SettingsScreen(
                     username: SettingsMockData.username,
@@ -345,6 +354,10 @@ struct ProfileRootScreen: View {
 
     private func quickEntryRoute(for item: ProfileQuickEntryItem) -> ProfileRoute? {
         ProfileQuickEntryRouteResolver.route(for: item)
+    }
+
+    private func openUserProfile() {
+        tabState.appendProfileRoute(.userProfile)
     }
 
     private func openPosts() {

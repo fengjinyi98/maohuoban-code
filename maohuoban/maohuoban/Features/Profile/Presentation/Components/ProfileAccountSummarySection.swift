@@ -7,17 +7,20 @@ import MaohuobanDesignSystem
 // - 承载动态、关注和粉丝统计卡片
 struct ProfileAccountSummarySection: View {
     let profile: ProfileAccountSummary
+    let onOpenUserProfile: (() -> Void)?
     let onOpenPosts: (() -> Void)?
     let onOpenFollowing: (() -> Void)?
     let onOpenFollowers: (() -> Void)?
 
     init(
         profile: ProfileAccountSummary,
+        onOpenUserProfile: (() -> Void)? = nil,
         onOpenPosts: (() -> Void)? = nil,
         onOpenFollowing: (() -> Void)? = nil,
         onOpenFollowers: (() -> Void)? = nil
     ) {
         self.profile = profile
+        self.onOpenUserProfile = onOpenUserProfile
         self.onOpenPosts = onOpenPosts
         self.onOpenFollowing = onOpenFollowing
         self.onOpenFollowers = onOpenFollowers
@@ -25,7 +28,10 @@ struct ProfileAccountSummarySection: View {
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {
-            ProfileAccountIdentityRow(profile: profile)
+            ProfileAccountIdentityRow(
+                profile: profile,
+                onOpenUserProfile: onOpenUserProfile
+            )
                 .padding(.horizontal, MHBTheme.Spacing.s2)
 
             ProfileAccountStatsCard(
@@ -46,8 +52,45 @@ struct ProfileAccountSummarySection: View {
 // - 提供后续进入账号详情或二维码入口的视觉边界
 private struct ProfileAccountIdentityRow: View {
     let profile: ProfileAccountSummary
+    let onOpenUserProfile: (() -> Void)?
 
     var body: some View {
+        HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
+            ProfileAccountIdentityContent(
+                profile: profile,
+                onOpenUserProfile: onOpenUserProfile
+            )
+
+            ProfileAccountEntryIcons(onOpenUserProfile: onOpenUserProfile)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// ProfileAccountIdentityContent 我的页账号身份主内容
+// 核心职责：
+// - 承载头像、昵称和等级进度
+// - 将用户主页入口限制在账号身份区域
+private struct ProfileAccountIdentityContent: View {
+    let profile: ProfileAccountSummary
+    let onOpenUserProfile: (() -> Void)?
+
+    var body: some View {
+        Group {
+            if let onOpenUserProfile {
+                Button(action: onOpenUserProfile) {
+                    content
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看个人主页")
+            } else {
+                content
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var content: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
             ProfileAccountAvatar(assetName: profile.avatarAssetName)
 
@@ -64,11 +107,7 @@ private struct ProfileAccountIdentityRow: View {
                     progress: profile.progress
                 )
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            ProfileAccountEntryIcons()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -152,6 +191,8 @@ private struct ProfileAccountProgressBar: View {
 // - 展示二维码/账号入口和进入详情提示
 // - 保持原生按钮热区与图标可访问性
 private struct ProfileAccountEntryIcons: View {
+    let onOpenUserProfile: (() -> Void)?
+
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s1) {
             Button {} label: {
@@ -163,7 +204,9 @@ private struct ProfileAccountEntryIcons: View {
             .buttonStyle(.plain)
             .accessibilityLabel("账号二维码")
 
-            Button {} label: {
+            Button {
+                onOpenUserProfile?()
+            } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
@@ -171,6 +214,7 @@ private struct ProfileAccountEntryIcons: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("查看个人资料")
+            .disabled(onOpenUserProfile == nil)
         }
     }
 }
