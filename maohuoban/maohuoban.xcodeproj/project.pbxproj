@@ -13,9 +13,19 @@
 		B9BC338B2FD8900000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 		B9BC33972FD8A20000F40E35 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33632FD7100000F40E35 /* AppIntents.framework */; };
 		B9BC33A12FD9800000F40E35 /* Proton in Frameworks */ = {isa = PBXBuildFile; productRef = B9BC33A02FD9800000F40E35 /* Proton */; };
+		B9BC33B32FDA100000F40E35 /* maohuobanWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B9BC33B02FDA100000F40E35 /* maohuobanWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B9BC33B42FDA100000F40E35 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33B12FDA100000F40E35 /* WidgetKit.framework */; };
+		B9BC33B52FDA100000F40E35 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B9BC33B22FDA100000F40E35 /* ActivityKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B9BC33B92FDA100000F40E35;
+			remoteInfo = maohuobanWidgets;
+		};
 		B9BC33892FD8800000F40E35 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B9BC33452FD6C95400F40E35 /* Project object */;
@@ -32,11 +42,28 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		B9BC33B62FDA100000F40E35 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B9BC33B32FDA100000F40E35 /* maohuobanWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		B9BC334D2FD6C95400F40E35 /* maohuoban.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = maohuoban.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BC33632FD7100000F40E35 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maohuobanUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = maohuobanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B9BC33B02FDA100000F40E35 /* maohuobanWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = maohuobanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B9BC33B12FDA100000F40E35 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B9BC33B22FDA100000F40E35 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -53,6 +80,16 @@
 		B9BC338D2FD8A00000F40E35 /* maohuobanTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = maohuobanTests;
+			sourceTree = "<group>";
+		};
+		B9BC33B72FDA100000F40E35 /* maohuobanWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = maohuobanWidgets;
+			sourceTree = "<group>";
+		};
+		B9BC33B82FDA100000F40E35 /* maohuobanShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = maohuobanShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -85,6 +122,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC33BB2FDA100000F40E35 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B9BC33B52FDA100000F40E35 /* ActivityKit.framework in Frameworks */,
+				B9BC33B42FDA100000F40E35 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -92,6 +138,8 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334F2FD6C95400F40E35 /* maohuoban */,
+				B9BC33B82FDA100000F40E35 /* maohuobanShared */,
+				B9BC33B72FDA100000F40E35 /* maohuobanWidgets */,
 				B9BC338D2FD8A00000F40E35 /* maohuobanTests */,
 				B9BC33812FD8800000F40E35 /* maohuobanUITests */,
 				B9BC33652FD7100000F40E35 /* Frameworks */,
@@ -103,6 +151,7 @@
 			isa = PBXGroup;
 			children = (
 				B9BC334D2FD6C95400F40E35 /* maohuoban.app */,
+				B9BC33B02FDA100000F40E35 /* maohuobanWidgets.appex */,
 				B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */,
 				B9BC33802FD8800000F40E35 /* maohuobanUITests.xctest */,
 			);
@@ -113,6 +162,8 @@
 			isa = PBXGroup;
 			children = (
 				B9BC33632FD7100000F40E35 /* AppIntents.framework */,
+				B9BC33B22FDA100000F40E35 /* ActivityKit.framework */,
+				B9BC33B12FDA100000F40E35 /* WidgetKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -127,13 +178,16 @@
 				B9BC33492FD6C95400F40E35 /* Sources */,
 				B9BC334A2FD6C95400F40E35 /* Frameworks */,
 				B9BC334B2FD6C95400F40E35 /* Resources */,
+				B9BC33B62FDA100000F40E35 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B9BC33C12FDA100000F40E35 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B9BC334F2FD6C95400F40E35 /* maohuoban */,
+				B9BC33B82FDA100000F40E35 /* maohuobanShared */,
 			);
 			name = maohuoban;
 			packageProductDependencies = (
@@ -191,6 +245,29 @@
 			productReference = B9BC338C2FD8A00000F40E35 /* maohuobanTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		B9BC33B92FDA100000F40E35 /* maohuobanWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B9BC33BD2FDA100000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanWidgets" */;
+			buildPhases = (
+				B9BC33BA2FDA100000F40E35 /* Sources */,
+				B9BC33BB2FDA100000F40E35 /* Frameworks */,
+				B9BC33BC2FDA100000F40E35 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B9BC33B72FDA100000F40E35 /* maohuobanWidgets */,
+				B9BC33B82FDA100000F40E35 /* maohuobanShared */,
+			);
+			name = maohuobanWidgets;
+			packageProductDependencies = (
+			);
+			productName = maohuobanWidgets;
+			productReference = B9BC33B02FDA100000F40E35 /* maohuobanWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -202,6 +279,9 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					B9BC334C2FD6C95400F40E35 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					B9BC33B92FDA100000F40E35 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 					B9BC338E2FD8A00000F40E35 = {
@@ -230,6 +310,7 @@
 			projectRoot = "";
 			targets = (
 				B9BC334C2FD6C95400F40E35 /* maohuoban */,
+				B9BC33B92FDA100000F40E35 /* maohuobanWidgets */,
 				B9BC338E2FD8A00000F40E35 /* maohuobanTests */,
 				B9BC33852FD8800000F40E35 /* maohuobanUITests */,
 			);
@@ -252,6 +333,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B9BC33912FD8A00000F40E35 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B9BC33BC2FDA100000F40E35 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -282,9 +370,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B9BC33BA2FDA100000F40E35 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		B9BC33C12FDA100000F40E35 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B9BC33B92FDA100000F40E35 /* maohuobanWidgets */;
+			targetProxy = B9BC33C02FDA100000F40E35 /* PBXContainerItemProxy */;
+		};
 		B9BC338A2FD8800000F40E35 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B9BC334C2FD6C95400F40E35 /* maohuoban */;
@@ -437,6 +537,7 @@
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，用于遛弯路线记录、首页和同城服务显示所在城市。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "毛伙伴需要访问照片，用于为宠物档案选择头像和背景。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -473,6 +574,7 @@
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "毛伙伴需要连接同一局域网内的开发后端服务，用于真机调试登录和接口联调。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "毛伙伴需要使用当前位置，用于遛弯路线记录、首页和同城服务显示所在城市。";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "毛伙伴需要访问照片，用于为宠物档案选择头像和背景。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -585,6 +687,74 @@
 			};
 			name = Release;
 		};
+		B9BC33BE2FDA100000F40E35 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
+				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴遛弯";
+				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuoban.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B9BC33BF2FDA100000F40E35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 42LNLCG255;
+				ENABLE_APP_INTENTS_METADATA_EXTRACTION = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_KEY_CFBundleDevelopmentRegion = "zh-Hans";
+				INFOPLIST_KEY_CFBundleDisplayName = "毛伙伴遛弯";
+				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				INFOPLIST_FILE = "Configs/maohuobanWidgets-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jinyi.maohuoban.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -620,6 +790,15 @@
 			buildConfigurations = (
 				B9BC33952FD8A00000F40E35 /* Debug */,
 				B9BC33962FD8A00000F40E35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B9BC33BD2FDA100000F40E35 /* Build configuration list for PBXNativeTarget "maohuobanWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B9BC33BE2FDA100000F40E35 /* Debug */,
+				B9BC33BF2FDA100000F40E35 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -178,7 +178,7 @@ struct PetWalkTrackingScreen: View {
 
     private func startTracking() {
         guard context.petID != nil, store.canStartTracking else { return }
-        store.start()
+        store.start(petName: context.petName, petAvatarURL: context.petAvatarURL)
         recenterMap()
     }
 

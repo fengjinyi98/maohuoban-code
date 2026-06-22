@@ -18,6 +18,18 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
     @ObservationIgnored
     private var referenceLocation: CLLocation?
 
+    @ObservationIgnored
+    private let liveActivityController = PetWalkLiveActivityController()
+
+    @ObservationIgnored
+    private var liveActivityPetName: String?
+
+    @ObservationIgnored
+    private var liveActivityPetAvatarURLString: String?
+
+    @ObservationIgnored
+    private var liveActivitySessionID = UUID().uuidString
+
     private(set) var recorder = PetWalkRouteRecorder()
     private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
     private(set) var errorMessage: String?
@@ -61,8 +73,10 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
         authorizationStatus = locationManager.authorizationStatus
     }
 
-    func start() {
+    func start(petName: String?, petAvatarURL: String?) {
         errorMessage = nil
+        liveActivityPetName = petName?.isEmpty == false ? petName : "毛伙伴"
+        liveActivityPetAvatarURLString = resolvedLiveActivityAvatarURLString(from: petAvatarURL)
         authorizationStatus = locationManager.authorizationStatus
 
         switch authorizationStatus {
@@ -72,6 +86,8 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
         case .authorizedAlways, .authorizedWhenInUse:
             isStartPendingAfterAuthorization = false
             recorder.start()
+            liveActivitySessionID = UUID().uuidString
+            syncLiveActivity()
             startLocationUpdates()
         case .denied, .restricted:
             isStartPendingAfterAuthorization = false
@@ -84,17 +100,20 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
 
     func pause() {
         recorder.pause()
+        syncLiveActivity()
         stopLocationUpdates()
     }
 
     func resume() {
         recorder.resume()
+        syncLiveActivity()
         startLocationUpdates()
     }
 
     func finish() {
         isStartPendingAfterAuthorization = false
         recorder.finish()
+        syncLiveActivity()
         stopLocationUpdates()
     }
 
@@ -128,6 +147,8 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
                 self.isStartPendingAfterAuthorization = false
                 if self.recorder.phase == .ready {
                     self.recorder.start()
+                    self.liveActivitySessionID = UUID().uuidString
+                    self.syncLiveActivity()
                 }
                 if self.recorder.phase == .tracking {
                     self.startLocationUpdates()
@@ -165,6 +186,7 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
                 timestamp: location.timestamp
             )
             self.recorder.append(point)
+            self.syncLiveActivity(updatedAt: location.timestamp)
         }
     }
 
@@ -176,5 +198,26 @@ final class PetWalkTrackingStore: NSObject, CLLocationManagerDelegate, @unchecke
             self.errorMessage = "获取位置失败"
             self.stopLocationUpdates()
         }
+    }
+
+    private func syncLiveActivity(updatedAt: Date = Date()) {
+        guard let liveActivityPetName else { return }
+        let snapshot = PetWalkLiveActivitySnapshot(
+            sessionID: liveActivitySessionID,
+            petName: liveActivityPetName,
+            petAvatarURLString: liveActivityPetAvatarURLString,
+            phase: recorder.phase,
+            metrics: recorder.metrics(at: updatedAt),
+            updatedAt: updatedAt
+        )
+
+        Task {
+            await liveActivityController.sync(snapshot: snapshot)
+        }
+    }
+
+    private func resolvedLiveActivityAvatarURLString(from urlString: String?) -> String? {
+        guard let urlString, urlString.isEmpty == false else { return nil }
+        return MHBBackendEndpoint.resolve(urlString)?.absoluteString ?? urlString
     }
 }
