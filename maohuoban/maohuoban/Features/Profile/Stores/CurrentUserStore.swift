@@ -32,6 +32,14 @@ final class CurrentUserStore {
     var birthday: String?
     var birthdayDisplayText: String?
     var avatarPresentation = CurrentUserAvatarPresentation.hidden
+    var accountLevelText = "Lv.0"
+    var accountCurrentExperience = 0
+    var accountTargetExperience = 0
+    var accountStats = [
+        ProfileAccountStat(id: "posts", value: "0", title: "动态"),
+        ProfileAccountStat(id: "following", value: "0", title: "关注"),
+        ProfileAccountStat(id: "followers", value: "0", title: "粉丝")
+    ]
 
     var isAuthenticated: Bool {
         userID != nil
@@ -56,10 +64,10 @@ final class CurrentUserStore {
             avatarAssetName: "HomeUserAvatarMock",
             avatarSex: avatarPresentation.sex.avatarSex,
             avatarSexVisibility: avatarPresentation.sexVisibility.avatarSexVisibility,
-            levelText: ProfileAccountSummary.mock.levelText,
-            currentExperience: ProfileAccountSummary.mock.currentExperience,
-            targetExperience: ProfileAccountSummary.mock.targetExperience,
-            stats: ProfileAccountSummary.mock.stats
+            levelText: accountLevelText,
+            currentExperience: accountCurrentExperience,
+            targetExperience: accountTargetExperience,
+            stats: accountStats
         )
     }
 
@@ -129,6 +137,14 @@ final class CurrentUserStore {
         birthday = nil
         birthdayDisplayText = nil
         avatarPresentation = .hidden
+        accountLevelText = "Lv.0"
+        accountCurrentExperience = 0
+        accountTargetExperience = 0
+        accountStats = [
+            ProfileAccountStat(id: "posts", value: "0", title: "动态"),
+            ProfileAccountStat(id: "following", value: "0", title: "关注"),
+            ProfileAccountStat(id: "followers", value: "0", title: "粉丝")
+        ]
     }
 
     private var settingsPhoneDisplayText: String {
@@ -140,4 +156,5 @@ final class CurrentUserStore {
         }
         return "未绑定手机"
     }
+
 }
