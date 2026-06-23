@@ -111,14 +111,11 @@ private struct PetWorldFeedDetailCommentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: MHBTheme.Spacing.s1) {
-            Image(comment.avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(
-                    width: PetWorldFeedDetailLayout.commentAvatarSize,
-                    height: PetWorldFeedDetailLayout.commentAvatarSize
-                )
-                .clipShape(Circle())
+            MHBAvatar(
+                subject: comment.authorAvatarSubject,
+                size: .custom(PetWorldFeedDetailLayout.commentAvatarSize),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 PetWorldFeedDetailCommentAuthorLine(

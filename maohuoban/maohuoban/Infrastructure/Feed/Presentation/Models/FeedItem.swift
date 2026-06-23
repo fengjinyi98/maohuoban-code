@@ -4,7 +4,7 @@ import Foundation
 // 核心职责：
 // - 描述用户发布内容卡片渲染所需的最小字段
 // - 为快速 UI 阶段的 mock 数据提供稳定身份
-struct FeedItem: Identifiable, Equatable {
+nonisolated struct FeedItem: Identifiable, Equatable {
     let postID: String
     let petName: String?
     let petAvatarAssetName: String?
@@ -21,5 +21,30 @@ struct FeedItem: Identifiable, Equatable {
 
     var id: String {
         postID
+    }
+
+    nonisolated var authorAvatarSubject: MHBAvatarSubject {
+        let user = MHBAvatarUser(
+            id: "\(postID)-user",
+            displayName: authorName,
+            source: .asset(authorAvatarAssetName),
+            sex: .unknown,
+            sexVisibility: .hidden
+        )
+
+        guard let petAvatarAssetName else {
+            return .user(user)
+        }
+
+        return .petWithUser(
+            pet: MHBAvatarPet(
+                id: "\(postID)-pet",
+                name: petName ?? "毛伙伴",
+                source: .asset(petAvatarAssetName),
+                species: .other,
+                sex: .unknown
+            ),
+            user: user
+        )
     }
 }

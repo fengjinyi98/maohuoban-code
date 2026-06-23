@@ -73,4 +73,28 @@ final class PetWorldFeedPageContentResolverTests: XCTestCase {
         XCTAssertNil(hiddenLocationDetail.visibleLocationName)
         XCTAssertEqual(hiddenLocationDetail.viewCount, 3420)
     }
+
+    func testMockDetailCarriesCompositeAuthorAvatarSubject() throws {
+        let detail = try XCTUnwrap(PetWorldMockFeedDetail.detail(for: "beach-walk"))
+
+        XCTAssertEqual(
+            detail.authorAvatarSubject,
+            .petWithUser(
+                pet: MHBAvatarPet(
+                    id: "beach-walk-pet",
+                    name: "奶油",
+                    source: .asset("HomePetHeroMock"),
+                    species: .other,
+                    sex: .unknown
+                ),
+                user: MHBAvatarUser(
+                    id: "beach-walk-user",
+                    displayName: "小满",
+                    source: .asset("HomeUserAvatarMock"),
+                    sex: .unknown,
+                    sexVisibility: .hidden
+                )
+            )
+        )
+    }
 }

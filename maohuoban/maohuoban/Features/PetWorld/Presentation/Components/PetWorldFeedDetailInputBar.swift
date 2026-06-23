@@ -12,7 +12,7 @@ struct PetWorldFeedDetailInputBar: View {
     let commentCount: Int
     let repostCount: Int
     let bottomSafeArea: CGFloat
-    let currentUserAvatarAssetName: String
+    let currentUserAvatarSubject: MHBAvatarSubject
     let onCommentTap: () -> Void
     let onToggleLike: () -> Void
 
@@ -21,7 +21,7 @@ struct PetWorldFeedDetailInputBar: View {
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
             PetWorldFeedDetailCommentEntryButton(
-                currentUserAvatarAssetName: currentUserAvatarAssetName,
+                currentUserAvatarSubject: currentUserAvatarSubject,
                 action: onCommentTap
             )
                 .layoutPriority(1)
@@ -85,24 +85,17 @@ struct PetWorldFeedDetailInputBar: View {
 // - 展示当前登录用户头像和评论占位文案
 // - 点击后交给屏幕级评论输入浮层处理
 private struct PetWorldFeedDetailCommentEntryButton: View {
-    let currentUserAvatarAssetName: String
+    let currentUserAvatarSubject: MHBAvatarSubject
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: MHBTheme.Spacing.s2) {
-                Image(currentUserAvatarAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(
-                        width: PetWorldFeedDetailLayout.inputAvatarSize,
-                        height: PetWorldFeedDetailLayout.inputAvatarSize
-                    )
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                    }
+                MHBAvatar(
+                    subject: currentUserAvatarSubject,
+                    size: .custom(PetWorldFeedDetailLayout.inputAvatarSize),
+                    shape: .circle
+                )
 
                 Text("评论一下")
                     .font(MHBTheme.Typography.callout)

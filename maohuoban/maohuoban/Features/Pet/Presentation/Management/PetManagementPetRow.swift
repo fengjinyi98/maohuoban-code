@@ -12,11 +12,7 @@ struct PetManagementPetRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: MHBTheme.Spacing.s3) {
-                PetManagementPetAvatar(
-                    assetName: pet.avatarAssetName,
-                    avatarURL: pet.avatarURL,
-                    species: pet.species
-                )
+                PetManagementPetAvatar(pet: pet)
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     HStack(alignment: .center) {

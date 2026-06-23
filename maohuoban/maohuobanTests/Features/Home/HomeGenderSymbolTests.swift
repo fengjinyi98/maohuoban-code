@@ -34,6 +34,63 @@ final class HomeGenderSymbolTests: XCTestCase {
     }
 
     @MainActor
+    func testHomePartnerAvatarUsesSquarePetAvatarSubject() {
+        let partner = HomeDashboardSnapshot.PartnerRecommendation(
+            petID: "partner-pet",
+            petName: "糖豆",
+            relationshipKind: .sameCity,
+            title: "今日伙伴",
+            subtitle: "同城活跃伙伴",
+            distanceText: "1.2km",
+            sex: .female
+        )
+
+        XCTAssertEqual(
+            HomePartnerAvatarPresentation.avatarSubject(for: partner),
+            .pet(
+                MHBAvatarPet(
+                    id: "partner-pet",
+                    name: "糖豆",
+                    source: .asset("HomePartnerAvatar"),
+                    species: .other,
+                    sex: .female
+                )
+            )
+        )
+        XCTAssertEqual(
+            MHBAvatarShape.squircle.cornerRadius(for: 72),
+            22.5,
+            accuracy: 0.001
+        )
+    }
+
+    @MainActor
+    func testPetManagementAvatarUsesSquarePetAvatarSubject() {
+        let pet = PetManagementPet.mockPets[0]
+
+        XCTAssertEqual(
+            PetManagementAvatarPresentation.avatarSubject(
+                for: pet,
+                source: .asset("HomePetHeroMock")
+            ),
+            .pet(
+                MHBAvatarPet(
+                    id: "pet-mochi",
+                    name: "糯米",
+                    source: .asset("HomePetHeroMock"),
+                    species: .dog,
+                    sex: .male
+                )
+            )
+        )
+        XCTAssertEqual(
+            MHBAvatarShape.squircle.cornerRadius(for: 48),
+            15,
+            accuracy: 0.001
+        )
+    }
+
+    @MainActor
     private func makePet(
         sex: HomeDashboardSnapshot.Sex
     ) -> HomeDashboardSnapshot.PetHeroSummary {

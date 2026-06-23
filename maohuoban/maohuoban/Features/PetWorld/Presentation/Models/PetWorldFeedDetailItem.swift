@@ -10,6 +10,7 @@ struct PetWorldFeedDetailItem: Identifiable, Equatable {
     let petName: String
     let petAvatarAssetName: String
     let authorName: String
+    let authorAvatarAssetName: String
     let publishedAt: Date
     let title: String
     let bodyText: String
@@ -28,5 +29,24 @@ struct PetWorldFeedDetailItem: Identifiable, Equatable {
 
     var id: String {
         postID
+    }
+
+    nonisolated var authorAvatarSubject: MHBAvatarSubject {
+        .petWithUser(
+            pet: MHBAvatarPet(
+                id: "\(postID)-pet",
+                name: petName,
+                source: .asset(petAvatarAssetName),
+                species: .other,
+                sex: .unknown
+            ),
+            user: MHBAvatarUser(
+                id: "\(postID)-user",
+                displayName: authorName,
+                source: .asset(authorAvatarAssetName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
     }
 }

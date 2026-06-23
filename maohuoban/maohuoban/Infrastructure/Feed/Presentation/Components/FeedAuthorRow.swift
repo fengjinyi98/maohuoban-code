@@ -8,21 +8,53 @@ import MaohuobanDesignSystem
 struct FeedAuthorRow: View {
     let title: String
     let subtitle: String
-    let avatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let badge: FeedAuthorBadge?
     let reservesTrailingButtonSpace: Bool
 
+    init(
+        title: String,
+        subtitle: String,
+        avatarAssetName: String,
+        badge: FeedAuthorBadge?,
+        reservesTrailingButtonSpace: Bool
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.avatarSubject = .user(
+            MHBAvatarUser(
+                id: "\(title)-user",
+                displayName: title,
+                source: .asset(avatarAssetName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
+        self.badge = badge
+        self.reservesTrailingButtonSpace = reservesTrailingButtonSpace
+    }
+
+    init(
+        title: String,
+        subtitle: String,
+        avatarSubject: MHBAvatarSubject,
+        badge: FeedAuthorBadge?,
+        reservesTrailingButtonSpace: Bool
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.avatarSubject = avatarSubject
+        self.badge = badge
+        self.reservesTrailingButtonSpace = reservesTrailingButtonSpace
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: FeedCardMetrics.avatarSize, height: FeedCardMetrics.avatarSize)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: avatarSubject,
+                size: .custom(FeedCardMetrics.avatarSize),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1 / 2) {
                 HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {

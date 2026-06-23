@@ -137,7 +137,7 @@ private struct SameCityCommodityDetailLoadedScreen: View {
                         onDismiss: handleCommentComposerDismiss
                     ) {
                         FeedDetailCommentEditorHeader(
-                            currentUserAvatarAssetName: currentUserAvatarAssetName,
+                            currentUserAvatarSubject: currentUserIdentity.avatarSubject,
                             titleText: commentComposerTitleText,
                             onDismiss: dismissCommentComposerFromShield
                         )
@@ -202,12 +202,15 @@ private struct SameCityCommodityDetailLoadedScreen: View {
         "same-city-commodity-detail-\(detail.postID)"
     }
 
-    private var currentUserAvatarAssetName: String {
-        "HomeUserAvatarMock"
-    }
-
-    private var currentUserName: String {
-        "小满"
+    private var currentUserIdentity: FeedCommentAuthorIdentity {
+        FeedCommentAuthorIdentity(
+            userID: "current-user",
+            userName: "小满",
+            userAvatarAssetName: "HomeUserAvatarMock",
+            petID: "current-user-pet",
+            petName: "奶油",
+            petAvatarAssetName: "HomePetHeroMock"
+        )
     }
 
     private var commentComposerTitleText: String {
@@ -277,17 +280,12 @@ private struct SameCityCommodityDetailLoadedScreen: View {
             return
         }
 
-        let newComment = FeedComment(
+        let newComment = currentUserIdentity.makeComment(
             id: "local-message-\(UUID().uuidString)",
-            authorName: currentUserName,
-            avatarAssetName: currentUserAvatarAssetName,
             text: trimmedText,
             publishedAt: Date(),
             isPostAuthor: false,
-            isOwnedByCurrentUser: true,
-            isLiked: false,
-            likeCount: 0,
-            replies: []
+            isOwnedByCurrentUser: true
         )
 
         interactionStore.addComment(

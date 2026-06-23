@@ -108,6 +108,7 @@ enum PetWorldMockFeedDetail {
             petName: card.petName ?? card.authorName,
             petAvatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName,
             authorName: card.authorName,
+            authorAvatarAssetName: card.authorAvatarAssetName,
             publishedAt: card.publishedAt,
             title: card.text,
             bodyText: bodyText,
@@ -164,7 +165,9 @@ enum PetWorldMockFeedDetail {
                 replies: markPostAuthorComments(
                     comment.replies,
                     postAuthorName: postAuthorName
-                )
+                ),
+                petName: comment.petName,
+                petAvatarAssetName: comment.petAvatarAssetName
             )
         }
     }

@@ -6,40 +6,82 @@ import MaohuobanDesignSystem
 // - 展示本地或远端宠物头像资源
 // - 在头像缺失时按物种提供稳定兜底视觉
 struct PetManagementPetAvatar: View {
-    let assetName: String?
-    let avatarURL: String?
-    let species: PetProfileEditProfile.Species
+    let pet: PetManagementPet
 
     private let size: CGFloat = 48
-    private let cornerRadius: CGFloat = MHBTheme.Radius.medium
  
     var body: some View {
-        ZStack {
-            if let assetName {
-                Image(assetName)
-                    .resizable()
-                    .scaledToFill()
-            } else if let avatarURL, let url = MHBBackendEndpoint.resolve(avatarURL) {
-                MHBRemoteImage(url: url, contentMode: .fill) {
-                    fallbackAvatar
-                }
-            } else {
-                fallbackAvatar
-            }
+        MHBAvatar(
+            subject: PetManagementAvatarPresentation.avatarSubject(
+                for: pet,
+                source: PetManagementAvatarPresentation.source(
+                    assetName: pet.avatarAssetName,
+                    avatarURL: pet.avatarURL
+                )
+            ),
+            size: .custom(size),
+            shape: .squircle
+        )
+    }
+}
+
+// PetManagementAvatarPresentation 我的宠物头像展示映射器
+// 核心职责：
+// - 将我的宠物列表模型映射为宠物头像主体
+// - 统一本地资源、远端资源和宠物性别描边输入
+enum PetManagementAvatarPresentation {
+    static func source(assetName: String?, avatarURL: String?) -> MHBAvatarSource {
+        if let assetName,
+           assetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            return .asset(assetName)
         }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1.5)
+
+        if let avatarURL,
+           let url = MHBBackendEndpoint.resolve(avatarURL) {
+            return .remote(url)
         }
+
+        return .empty
     }
 
-    private var fallbackAvatar: some View {
-        Image(systemName: species.systemImage)
-            .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(MHBTheme.ColorToken.primaryBackground.color)
+    static func avatarSubject(
+        for pet: PetManagementPet,
+        source: MHBAvatarSource
+    ) -> MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: pet.id,
+                name: pet.name,
+                source: source,
+                species: pet.species.avatarSpecies,
+                sex: pet.sex.avatarSex
+            )
+        )
+    }
+}
+
+private extension PetProfileEditProfile.Species {
+    nonisolated var avatarSpecies: MHBAvatarSpecies {
+        switch self {
+        case .dog:
+            .dog
+        case .cat:
+            .cat
+        case .other:
+            .other
+        }
+    }
+}
+
+private extension PetManagementPet.Sex {
+    nonisolated var avatarSex: MHBAvatarSex {
+        switch self {
+        case .male:
+            .male
+        case .female:
+            .female
+        case .unknown:
+            .unknown
+        }
     }
 }

@@ -24,7 +24,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
             case .gallery:
                 PetWorldFeedDetailGalleryArticle(
                     petName: detail.petName,
-                    petAvatarAssetName: detail.petAvatarAssetName,
+                    avatarSubject: detail.authorAvatarSubject,
                     authorName: detail.authorName,
                     publishedAt: detail.publishedAt,
                     showsFollowButton: !detail.isOwnedByCurrentUser,
@@ -43,7 +43,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
                 PetWorldFeedDetailInterleavedArticle(
                     galleryID: galleryID,
                     petName: detail.petName,
-                    petAvatarAssetName: detail.petAvatarAssetName,
+                    avatarSubject: detail.authorAvatarSubject,
                     authorName: detail.authorName,
                     publishedAt: detail.publishedAt,
                     showsFollowButton: !detail.isOwnedByCurrentUser,
@@ -79,7 +79,7 @@ struct PetWorldFeedDetailContent<TopicRouteValue: Hashable>: View {
 // - 继续作为导航作者显隐逻辑的观测入口
 private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View {
     let petName: String
-    let petAvatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let authorName: String
     let publishedAt: Date
     let showsFollowButton: Bool
@@ -98,7 +98,7 @@ private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s6) {
             PetWorldFeedDetailAuthorSection(
                 petName: petName,
-                petAvatarAssetName: petAvatarAssetName,
+                avatarSubject: avatarSubject,
                 authorName: authorName,
                 publishedAt: publishedAt,
                 showsFollowButton: showsFollowButton,
@@ -126,7 +126,7 @@ private struct PetWorldFeedDetailGalleryArticle<TopicRouteValue: Hashable>: View
 // - 根据帖子所有权控制关注入口展示
 struct PetWorldFeedDetailAuthorSection: View {
     let petName: String
-    let petAvatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let authorName: String
     let publishedAt: Date
     let showsFollowButton: Bool
@@ -134,18 +134,11 @@ struct PetWorldFeedDetailAuthorSection: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-            Image(petAvatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(
-                    width: PetWorldFeedDetailLayout.authorAvatarSize,
-                    height: PetWorldFeedDetailLayout.authorAvatarSize
-                )
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: avatarSubject,
+                size: .custom(PetWorldFeedDetailLayout.authorAvatarSize),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                 Text(petName)

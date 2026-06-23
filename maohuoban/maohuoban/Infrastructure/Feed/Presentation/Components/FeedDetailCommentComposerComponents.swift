@@ -25,24 +25,17 @@ struct FeedDetailCommentInputShield: View {
 // - 展示当前登录用户头像和输入标题
 // - 承接关闭评论或留言输入动作
 struct FeedDetailCommentEditorHeader: View {
-    let currentUserAvatarAssetName: String
+    let currentUserAvatarSubject: MHBAvatarSubject
     let titleText: String
     let onDismiss: () -> Void
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Image(currentUserAvatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(
-                    width: FeedDetailLayout.commentComposerAvatarSize,
-                    height: FeedDetailLayout.commentComposerAvatarSize
-                )
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: currentUserAvatarSubject,
+                size: .custom(FeedDetailLayout.commentComposerAvatarSize),
+                shape: .circle
+            )
 
             Text(titleText)
                 .font(MHBTheme.Typography.headline.weight(.bold))

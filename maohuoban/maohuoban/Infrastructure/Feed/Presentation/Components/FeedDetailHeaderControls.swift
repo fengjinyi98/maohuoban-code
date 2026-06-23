@@ -61,15 +61,19 @@ private struct FeedDetailNavigationIdentity: View {
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 28, height: 28)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: .user(
+                    MHBAvatarUser(
+                        id: title,
+                        displayName: title,
+                        source: .asset(avatarAssetName),
+                        sex: .unknown,
+                        sexVisibility: .hidden
+                    )
+                ),
+                size: .custom(28),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)

@@ -8,7 +8,7 @@ import MaohuobanDesignSystem
 struct PetWorldFeedDetailInterleavedArticle<TopicRouteValue: Hashable>: View {
     let galleryID: String
     let petName: String
-    let petAvatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let authorName: String
     let publishedAt: Date
     let showsFollowButton: Bool
@@ -33,7 +33,7 @@ struct PetWorldFeedDetailInterleavedArticle<TopicRouteValue: Hashable>: View {
 
             PetWorldFeedDetailAuthorSection(
                 petName: petName,
-                petAvatarAssetName: petAvatarAssetName,
+                avatarSubject: avatarSubject,
                 authorName: authorName,
                 publishedAt: publishedAt,
                 showsFollowButton: showsFollowButton,

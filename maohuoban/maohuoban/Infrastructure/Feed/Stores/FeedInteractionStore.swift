@@ -138,7 +138,9 @@ final class FeedInteractionStore {
                 isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
                 isLiked: nextIsLiked,
                 likeCount: max(0, comment.likeCount + (nextIsLiked ? 1 : -1)),
-                replies: comment.replies
+                replies: comment.replies,
+                petName: comment.petName,
+                petAvatarAssetName: comment.petAvatarAssetName
             )
         }
     }
@@ -172,7 +174,9 @@ final class FeedInteractionStore {
                 isOwnedByCurrentUser: parent.isOwnedByCurrentUser,
                 isLiked: parent.isLiked,
                 likeCount: parent.likeCount,
-                replies: parent.replies + [comment]
+                replies: parent.replies + [comment],
+                petName: parent.petName,
+                petAvatarAssetName: parent.petAvatarAssetName
             )
         }
     }
@@ -247,7 +251,9 @@ final class FeedInteractionStore {
                 isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
                 isLiked: comment.isLiked,
                 likeCount: comment.likeCount,
-                replies: updatedReplies
+                replies: updatedReplies,
+                petName: comment.petName,
+                petAvatarAssetName: comment.petAvatarAssetName
             )
         }
     }
@@ -280,7 +286,9 @@ final class FeedInteractionStore {
                 isOwnedByCurrentUser: comment.isOwnedByCurrentUser,
                 isLiked: comment.isLiked,
                 likeCount: comment.likeCount,
-                replies: updatedReplies
+                replies: updatedReplies,
+                petName: comment.petName,
+                petAvatarAssetName: comment.petAvatarAssetName
             )
         }
     }

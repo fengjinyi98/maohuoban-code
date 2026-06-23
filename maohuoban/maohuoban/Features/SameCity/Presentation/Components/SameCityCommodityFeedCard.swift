@@ -51,7 +51,7 @@ private struct SameCityCommodityFeedCard<Route: Hashable>: View {
                     FeedAuthorRow(
                         title: item.feedItem.authorName,
                         subtitle: "\(item.publishedText) · \(item.locationName)",
-                        avatarAssetName: item.feedItem.authorAvatarAssetName,
+                        avatarSubject: item.feedItem.authorAvatarSubject,
                         badge: item.identity.feedBadge,
                         reservesTrailingButtonSpace: true
                     )

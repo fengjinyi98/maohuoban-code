@@ -7,7 +7,7 @@ import MaohuobanDesignSystem
 // - 使用 Liquid Glass 与首页沉浸式头部保持一致
 struct PetWorldFeedDetailHeaderControls: View {
     let petName: String
-    let petAvatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let authorName: String
     let isAuthorVisible: Bool
     let isAuthorSubtitleVisible: Bool
@@ -37,7 +37,7 @@ struct PetWorldFeedDetailHeaderControls: View {
 
                 PetWorldFeedDetailNavigationIdentity(
                     petName: petName,
-                    petAvatarAssetName: petAvatarAssetName,
+                    avatarSubject: avatarSubject,
                     authorName: authorName,
                     isVisible: isAuthorVisible,
                     isSubtitleVisible: isAuthorSubtitleVisible
@@ -54,22 +54,18 @@ struct PetWorldFeedDetailHeaderControls: View {
 // - 用轻量动画让沉浸式头部过渡为详情身份栏
 private struct PetWorldFeedDetailNavigationIdentity: View {
     let petName: String
-    let petAvatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let authorName: String
     let isVisible: Bool
     let isSubtitleVisible: Bool
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(petAvatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 28, height: 28)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: avatarSubject,
+                size: .custom(28),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(petName)

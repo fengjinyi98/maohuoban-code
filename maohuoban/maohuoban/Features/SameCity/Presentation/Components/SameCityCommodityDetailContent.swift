@@ -305,15 +305,19 @@ private struct SameCityCommodityPublisherSection: View {
             SameCityCommoditySectionHeading(title: "发布者")
 
             HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                Image(publisher.avatarAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                    }
+                MHBAvatar(
+                    subject: .user(
+                        MHBAvatarUser(
+                            id: publisher.name,
+                            displayName: publisher.name,
+                            source: .asset(publisher.avatarAssetName),
+                            sex: .unknown,
+                            sexVisibility: .hidden
+                        )
+                    ),
+                    size: .custom(44),
+                    shape: .circle
+                )
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {

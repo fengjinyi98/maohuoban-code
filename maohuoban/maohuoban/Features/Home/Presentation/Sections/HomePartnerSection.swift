@@ -36,15 +36,11 @@ struct HomePartnerSection: View {
             HStack(alignment: .top, spacing: MHBTheme.Spacing.s4) {
                 // 1. 左侧方形头像，带右上角粉色爱心角标（镂空融合效果）
                 ZStack(alignment: .topTrailing) {
-                    Image("HomePartnerAvatar")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 72, height: 72)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        }
+                    MHBAvatar(
+                        subject: HomePartnerAvatarPresentation.avatarSubject(for: partner),
+                        size: .custom(72),
+                        shape: .squircle
+                    )
                         .mask(
                             RoundedRectangleWithCutout(cornerRadius: 16, cutoutRadius: 13)
                                 .fill(style: FillStyle(eoFill: true))
@@ -116,6 +112,37 @@ struct HomePartnerSection: View {
             return "同院宠友"
         case .sameSource:
             return "同源伙伴"
+        }
+    }
+}
+
+// HomePartnerAvatarPresentation 今日伙伴头像展示映射器
+// 核心职责：
+// - 将今日伙伴推荐数据映射为宠物头像主体
+// - 固化今日伙伴使用方形宠物头像的输入语义
+enum HomePartnerAvatarPresentation {
+    static func avatarSubject(for partner: HomeDashboardSnapshot.PartnerRecommendation) -> MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: partner.petID,
+                name: partner.petName,
+                source: .asset("HomePartnerAvatar"),
+                species: .other,
+                sex: partner.sex?.avatarSex ?? .unknown
+            )
+        )
+    }
+}
+
+private extension HomeDashboardSnapshot.Sex {
+    nonisolated var avatarSex: MHBAvatarSex {
+        switch self {
+        case .male:
+            .male
+        case .female:
+            .female
+        case .unknown:
+            .unknown
         }
     }
 }

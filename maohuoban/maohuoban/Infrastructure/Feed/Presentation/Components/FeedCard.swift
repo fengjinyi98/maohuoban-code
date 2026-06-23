@@ -63,7 +63,7 @@ private struct FeedCardNavigationContent: View {
                 showsRecommendationReason: showsRecommendationReason,
                 authorName: card.authorName,
                 publishedAt: card.publishedAt,
-                avatarAssetName: card.petAvatarAssetName ?? card.authorAvatarAssetName
+                avatarSubject: card.authorAvatarSubject
             )
 
             FeedCardText(text: card.text)
@@ -84,13 +84,13 @@ private struct FeedCardHeader: View {
     let showsRecommendationReason: Bool
     let authorName: String
     let publishedAt: Date
-    let avatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
 
     var body: some View {
         FeedAuthorRow(
             title: title,
             subtitle: "by \(authorName) · \(MHBUTCDateDisplayFormatter.localShortText(from: publishedAt))",
-            avatarAssetName: avatarAssetName,
+            avatarSubject: avatarSubject,
             badge: recommendationBadge,
             reservesTrailingButtonSpace: true
         )

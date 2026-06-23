@@ -126,14 +126,11 @@ private struct FeedDetailCommentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: MHBTheme.Spacing.s1) {
-            Image(comment.avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(
-                    width: FeedDetailLayout.commentAvatarSize,
-                    height: FeedDetailLayout.commentAvatarSize
-                )
-                .clipShape(Circle())
+            MHBAvatar(
+                subject: comment.authorAvatarSubject,
+                size: .custom(FeedDetailLayout.commentAvatarSize),
+                shape: .circle
+            )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 FeedDetailCommentAuthorLine(
