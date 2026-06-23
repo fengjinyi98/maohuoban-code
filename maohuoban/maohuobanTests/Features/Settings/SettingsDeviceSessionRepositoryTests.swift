@@ -128,9 +128,11 @@ final class SettingsDeviceSessionRepositoryTests: XCTestCase {
         SettingsDeviceSessionRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
         return DefaultSettingsDeviceSessionRepository(
-            client: MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session),
-            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
-                tokenStore: SettingsDeviceSessionRepositoryTestTokenStore()
+            client: MHBHTTPClient.authenticated(
+                baseURL: URL(string: "http://127.0.0.1:18080")!,
+                session: session,
+                tokenStore: SettingsDeviceSessionRepositoryTestTokenStore(),
+                retryPolicy: .disabled
             )
         )
     }

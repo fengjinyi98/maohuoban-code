@@ -143,9 +143,11 @@ final class SettingsPasswordRepositoryTests: XCTestCase {
         SettingsPasswordRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
         return DefaultSettingsPasswordRepository(
-            client: MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session),
-            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
-                tokenStore: SettingsPasswordRepositoryTestTokenStore()
+            client: MHBHTTPClient.authenticated(
+                baseURL: URL(string: "http://127.0.0.1:18080")!,
+                session: session,
+                tokenStore: SettingsPasswordRepositoryTestTokenStore(),
+                retryPolicy: .disabled
             )
         )
     }

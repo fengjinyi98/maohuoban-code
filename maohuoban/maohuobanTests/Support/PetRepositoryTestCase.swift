@@ -21,12 +21,7 @@ class PetRepositoryTestCase: XCTestCase {
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultPetRepository {
         let client = makeHTTPClient(handler: handler)
-        return DefaultPetRepository(
-            client: client,
-            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
-                tokenStore: PetRepositoryTestTokenStore()
-            )
-        )
+        return DefaultPetRepository(client: client)
     }
 
     func makeHTTPClient(
@@ -36,7 +31,12 @@ class PetRepositoryTestCase: XCTestCase {
         configuration.protocolClasses = [PetRepositoryURLProtocol.self]
         PetRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
-        return MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
+        return MHBHTTPClient.authenticated(
+            baseURL: URL(string: "http://127.0.0.1:18080")!,
+            session: session,
+            tokenStore: PetRepositoryTestTokenStore(),
+            retryPolicy: .disabled
+        )
     }
 
     static func jsonResponse(statusCode: Int, body: String) -> (HTTPURLResponse, Data) {

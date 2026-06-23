@@ -35,6 +35,8 @@ enum MHBAPIError: LocalizedError, Equatable {
             "auth.session_expired",
             "auth.session_revoked",
             "auth.token_invalid",
+            "auth.refresh_invalid",
+            "auth.refresh_reused",
             "auth.account_disabled"
         ].contains(code)
     }

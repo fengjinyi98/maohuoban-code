@@ -21,17 +21,73 @@ struct MHBHTTPClient {
     let session: URLSession
     let decoder: JSONDecoder
     let encoder: JSONEncoder
+    let authorizationProvider: MHBHTTPAuthorizationProvider?
+    let tokenRefreshHandler: MHBHTTPTokenRefreshHandler?
+    let retryPolicy: MHBHTTPRetryPolicy
 
     init(
         baseURL: URL = MHBBackendEndpoint.localDevelopmentBaseURL,
-        session: URLSession = .shared,
+        session: URLSession = MHBHTTPClientSessionFactory.shared,
         decoder: JSONDecoder = JSONDecoder(),
-        encoder: JSONEncoder = JSONEncoder()
+        encoder: JSONEncoder = JSONEncoder(),
+        authorizationProvider: MHBHTTPAuthorizationProvider? = nil,
+        tokenRefreshHandler: MHBHTTPTokenRefreshHandler? = nil,
+        retryPolicy: MHBHTTPRetryPolicy = .default
     ) {
         self.baseURL = baseURL
         self.session = session
         self.decoder = decoder
         self.encoder = encoder
+        self.authorizationProvider = authorizationProvider
+        self.tokenRefreshHandler = tokenRefreshHandler
+        self.retryPolicy = retryPolicy
+    }
+
+    // authenticated 构造带认证中间件的 HTTP client
+    // 核心职责：
+    // - 统一接入 Authorization 自动注入
+    // - 统一接入 401 后 token refresh 与请求重放
+    static func authenticated(
+        baseURL: URL = MHBBackendEndpoint.localDevelopmentBaseURL,
+        session: URLSession = MHBHTTPClientSessionFactory.shared,
+        decoder: JSONDecoder = JSONDecoder(),
+        encoder: JSONEncoder = JSONEncoder(),
+        tokenStore: MHBTokenStore = MHBKeychainTokenStore(),
+        refreshCoordinator: MHBTokenRefreshCoordinator = MHBTokenRefreshCoordinator(),
+        refreshService: MHBTokenRefreshService? = nil,
+        retryPolicy: MHBHTTPRetryPolicy = .default
+    ) -> MHBHTTPClient {
+        let resolvedRefreshService = refreshService ?? MHBDefaultTokenRefreshService(
+            baseURL: baseURL,
+            session: session,
+            retryPolicy: retryPolicy
+        )
+        let authorizationProvider = MHBAuthorizationHeaderProvider(
+            tokenStore: tokenStore,
+            refreshCoordinator: refreshCoordinator,
+            refreshService: resolvedRefreshService
+        )
+        return MHBHTTPClient(
+            baseURL: baseURL,
+            session: session,
+            decoder: decoder,
+            encoder: encoder,
+            authorizationProvider: authorizationProvider,
+            tokenRefreshHandler: authorizationProvider,
+            retryPolicy: retryPolicy
+        )
+    }
+
+    func withAuthorizationProvider(_ authorizationProvider: MHBHTTPAuthorizationProvider) -> MHBHTTPClient {
+        MHBHTTPClient(
+            baseURL: baseURL,
+            session: session,
+            decoder: decoder,
+            encoder: encoder,
+            authorizationProvider: authorizationProvider,
+            tokenRefreshHandler: tokenRefreshHandler,
+            retryPolicy: retryPolicy
+        )
     }
 
     func post<RequestBody: Encodable, ResponseBody: Decodable>(

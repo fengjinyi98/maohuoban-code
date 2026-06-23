@@ -9,29 +9,123 @@ extension MHBHTTPClient {
         _ request: URLRequest
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         var request = request
-        instrumentTraceHeaders(for: &request)
+        try prepareRequest(&request)
         let startedAt = Date()
+        return try await sendWithRetry(request, startedAt: startedAt)
+    }
+
+    private func sendWithRetry<ResponseBody: Decodable>(
+        _ request: URLRequest,
+        startedAt: Date,
+        allowsTokenRefresh: Bool = true
+    ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
+        var attempt = 1
+        while true {
+            do {
+                return try await sendOnce(
+                    request,
+                    startedAt: startedAt,
+                    attempt: attempt
+                )
+            } catch let retryableError as MHBHTTPRetryableError {
+                guard attempt < retryPolicy.maxAttempts else {
+                    return try await decodeResponse(
+                        data: retryableError.data,
+                        response: retryableError.response,
+                        request: request,
+                        startedAt: startedAt
+                    )
+                }
+                await recordNetworkSummary(
+                    request: request,
+                    response: retryableError.response,
+                    responseData: retryableError.data,
+                    startedAt: startedAt,
+                    error: "retryable_status_\(retryableError.response.statusCode)"
+                )
+                await sleepBeforeRetry(attempt: attempt)
+                attempt += 1
+            } catch let apiError as MHBAPIError {
+                guard allowsTokenRefresh,
+                      apiError.shouldAttemptTokenRefresh,
+                      let tokenRefreshHandler else {
+                    postAuthenticationInvalidationIfNeeded(apiError)
+                    throw apiError
+                }
+                do {
+                    var replayRequest = request
+                    let headers = try await tokenRefreshHandler.refreshAuthorizationHeaders()
+                    for (field, value) in headers {
+                        replayRequest.setValue(value, forHTTPHeaderField: field)
+                    }
+                    return try await sendWithRetry(
+                        replayRequest,
+                        startedAt: Date(),
+                        allowsTokenRefresh: false
+                    )
+                } catch {
+                    postAuthenticationInvalidationIfNeeded(error)
+                    throw error
+                }
+            } catch {
+                guard retryPolicy.shouldRetry(error: error, request: request),
+                      attempt < retryPolicy.maxAttempts else {
+                    await recordNetworkSummary(
+                        request: request,
+                        response: nil,
+                        responseData: nil,
+                        startedAt: startedAt,
+                        error: error.localizedDescription
+                    )
+                    throw .transport(error.localizedDescription)
+                }
+                await recordNetworkSummary(
+                    request: request,
+                    response: nil,
+                    responseData: nil,
+                    startedAt: startedAt,
+                    error: "retryable_transport"
+                )
+                await sleepBeforeRetry(attempt: attempt)
+                attempt += 1
+            }
+        }
+    }
+
+    private func sendOnce<ResponseBody: Decodable>(
+        _ request: URLRequest,
+        startedAt: Date,
+        attempt: Int
+    ) async throws -> MHBAPIResponse<ResponseBody> {
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
         } catch {
-            await recordNetworkSummary(
-                request: request,
-                response: nil,
-                responseData: nil,
-                startedAt: startedAt,
-                error: error.localizedDescription
-            )
-            throw .transport(error.localizedDescription)
+            throw error
+        }
+
+        if let httpResponse = response as? HTTPURLResponse,
+           retryPolicy.shouldRetry(response: httpResponse, request: request),
+           attempt < retryPolicy.maxAttempts {
+            throw MHBHTTPRetryableError(response: httpResponse, data: data)
         }
 
         return try await decodeResponse(
             data: data,
             response: response,
             request: request,
-            startedAt: startedAt
+            startedAt: startedAt,
+            postsAuthenticationInvalidation: false
         )
+    }
+
+    private func sleepBeforeRetry(attempt: Int) async {
+        let delay = retryPolicy.delayBeforeRetry(afterAttempt: attempt)
+        guard delay > 0 else {
+            return
+        }
+        try? await Task.sleep(for: .seconds(delay))
     }
 
     func decodeResponse<ResponseBody: Decodable>(
@@ -39,7 +133,8 @@ extension MHBHTTPClient {
         response: URLResponse,
         request: URLRequest,
         requestBodyBytes: Int? = nil,
-        startedAt: Date
+        startedAt: Date,
+        postsAuthenticationInvalidation: Bool = true
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         guard let httpResponse = response as? HTTPURLResponse else {
             await recordNetworkSummary(
@@ -73,7 +168,9 @@ extension MHBHTTPClient {
                 message: apiResponse.message,
                 statusCode: httpResponse.statusCode
             )
-            postAuthenticationInvalidationIfNeeded(apiError)
+            if postsAuthenticationInvalidation {
+                postAuthenticationInvalidationIfNeeded(apiError)
+            }
             throw apiError
         } catch let apiError as MHBAPIError {
             throw apiError
@@ -100,13 +197,34 @@ extension MHBHTTPClient {
         )
     }
 
+    func prepareRequest(_ request: inout URLRequest) throws(MHBAPIError) {
+        if request.value(forHTTPHeaderField: MHBHTTPHeader.authorization) == nil,
+           let authorizationProvider {
+            let headers = try authorizationProvider.authorizationHeaders()
+            for (field, value) in headers {
+                request.setValue(value, forHTTPHeaderField: field)
+            }
+        }
+        instrumentTraceHeaders(for: &request)
+        instrumentIdempotencyHeader(for: &request)
+    }
+
     func instrumentTraceHeaders(for request: inout URLRequest) {
-        if request.value(forHTTPHeaderField: "traceparent") == nil {
-            request.setValue(Self.generateTraceparent(), forHTTPHeaderField: "traceparent")
+        if request.value(forHTTPHeaderField: MHBHTTPHeader.traceparent) == nil {
+            request.setValue(Self.generateTraceparent(), forHTTPHeaderField: MHBHTTPHeader.traceparent)
         }
-        if request.value(forHTTPHeaderField: "x-request-id") == nil {
-            request.setValue(UUID().uuidString, forHTTPHeaderField: "x-request-id")
+        if request.value(forHTTPHeaderField: MHBHTTPHeader.requestID) == nil {
+            request.setValue(UUID().uuidString, forHTTPHeaderField: MHBHTTPHeader.requestID)
         }
+    }
+
+    private func instrumentIdempotencyHeader(for request: inout URLRequest) {
+        let method = request.httpMethod?.uppercased() ?? "GET"
+        guard ["POST", "PATCH", "DELETE"].contains(method),
+              request.value(forHTTPHeaderField: MHBHTTPHeader.idempotencyKey) == nil else {
+            return
+        }
+        request.setValue(UUID().uuidString, forHTTPHeaderField: MHBHTTPHeader.idempotencyKey)
     }
 
     private static func generateTraceparent() -> String {
@@ -114,4 +232,21 @@ extension MHBHTTPClient {
         let spanID = String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)).lowercased()
         return "00-\(traceID)-\(spanID)-01"
     }
+}
+
+private extension MHBAPIError {
+    var shouldAttemptTokenRefresh: Bool {
+        guard case .business(let code, _, let statusCode) = self else {
+            return false
+        }
+        return statusCode == 401 && [
+            "auth.session_expired",
+            "auth.token_invalid"
+        ].contains(code)
+    }
+}
+
+private struct MHBHTTPRetryableError: Error {
+    let response: HTTPURLResponse
+    let data: Data
 }

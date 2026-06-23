@@ -27,6 +27,7 @@ final class HomeRepositoryTests: XCTestCase {
         let request = try XCTUnwrap(requestBox.request)
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
         let components = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
         XCTAssertEqual(components.path, "/api/v1/home/dashboard")
         XCTAssertEqual(
@@ -61,7 +62,12 @@ final class HomeRepositoryTests: XCTestCase {
         configuration.protocolClasses = [HomeRepositoryURLProtocol.self]
         HomeRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
-        let client = MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
+        let client = MHBHTTPClient.authenticated(
+            baseURL: URL(string: "http://127.0.0.1:18080")!,
+            session: session,
+            tokenStore: PetRepositoryTestTokenStore(),
+            retryPolicy: .disabled
+        )
         return DefaultHomeRepository(client: client)
     }
 

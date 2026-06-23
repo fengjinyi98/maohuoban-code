@@ -9,7 +9,7 @@ extension DefaultPetRepository {
                 statusCode: 401
             )
         }
-        return try authorizationHeaderProvider.headers()
+        return ["x-maohuoban-user-id": currentUserID]
     }
 
     func multipartFile(from draft: PetMediaUploadDraft) -> MHBMultipartFile {

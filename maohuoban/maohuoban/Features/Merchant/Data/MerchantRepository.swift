@@ -37,14 +37,11 @@ protocol MerchantRepository {
 // - 在商家请求中传递当前用户上下文和业务筛选
 struct DefaultMerchantRepository: MerchantRepository {
     private let client: MHBHTTPClient
-    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func listPets(
@@ -105,6 +102,6 @@ struct DefaultMerchantRepository: MerchantRepository {
                 statusCode: 401
             )
         }
-        return try authorizationHeaderProvider.headers()
+        return ["x-maohuoban-user-id": currentUserID]
     }
 }

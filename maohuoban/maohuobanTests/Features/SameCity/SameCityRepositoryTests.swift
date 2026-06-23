@@ -53,6 +53,7 @@ final class SameCityRepositoryTests: XCTestCase {
         XCTAssertEqual(request.httpMethod, "GET")
         XCTAssertEqual(request.url?.path, "/api/v1/same-city/hospitals")
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
         let requestURL = try XCTUnwrap(request.url)
         let components = try XCTUnwrap(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
         XCTAssertEqual(components.queryItems?.first(where: { $0.name == "city" })?.value, "成都")
@@ -104,6 +105,7 @@ final class SameCityRepositoryTests: XCTestCase {
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.url?.path, "/api/v1/same-city/hospital-appointments")
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
         let body = try Self.requestBodyData(request)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         XCTAssertEqual(json["hospital_id"] as? String, "hospital-1")
@@ -124,7 +126,12 @@ final class SameCityRepositoryTests: XCTestCase {
         configuration.protocolClasses = [SameCityRepositoryURLProtocol.self]
         SameCityRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
-        let client = MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
+        let client = MHBHTTPClient.authenticated(
+            baseURL: URL(string: "http://127.0.0.1:18080")!,
+            session: session,
+            tokenStore: PetRepositoryTestTokenStore(),
+            retryPolicy: .disabled
+        )
         return DefaultSameCityRepository(client: client)
     }
 

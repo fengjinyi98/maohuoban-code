@@ -34,11 +34,11 @@ extension MHBHTTPClient {
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
         let summary = NetworkSummary(
             method: request.httpMethod ?? "GET",
-            url: request.url?.absoluteString ?? "",
+            url: request.url.map(MHBHTTPNetworkSummaryBuilder.redactedURLString(from:)) ?? "",
             statusCode: (response as? HTTPURLResponse)?.statusCode,
             durationMs: durationMs,
             error: error,
-            traceparent: request.value(forHTTPHeaderField: "traceparent"),
+            traceparent: request.value(forHTTPHeaderField: MHBHTTPHeader.traceparent),
             metadata: metadata
         )
         await Diagnostics.network(summary)
@@ -51,29 +51,16 @@ extension MHBHTTPClient {
         requestBodyBytes: Int?
     ) -> DiagnosticProperties {
         var metadata: DiagnosticProperties = [:]
-        metadata["network_capture_source"] = .string("http_client")
-        if let requestID = request.value(forHTTPHeaderField: "x-request-id") {
-            metadata["request_id"] = .string(requestID)
-        }
-        if let requestBodyBytes = requestBodyBytes ?? request.httpBody?.count {
-            metadata["request_body_bytes"] = .int(requestBodyBytes)
-        }
-        if let responseBodyBytes = responseData?.count {
-            metadata["response_body_bytes"] = .int(responseBodyBytes)
-        }
-        if let mimeType = response?.mimeType, !mimeType.isEmpty {
-            metadata["response_mime_type"] = .string(mimeType)
-        }
-        let requestHeaderKeys = (request.allHTTPHeaderFields ?? [:]).keys.sorted()
-        if !requestHeaderKeys.isEmpty {
-            metadata["request_header_keys"] = .string(requestHeaderKeys.joined(separator: ","))
-        }
-        if let httpResponse = response as? HTTPURLResponse {
-            let responseHeaderKeys = httpResponse.allHeaderFields.keys
-                .compactMap { $0 as? String }
-                .sorted()
-            if !responseHeaderKeys.isEmpty {
-                metadata["response_header_keys"] = .string(responseHeaderKeys.joined(separator: ","))
+        for (key, value) in MHBHTTPNetworkSummaryBuilder.metadata(
+            request: request,
+            response: response,
+            responseData: responseData,
+            requestBodyBytes: requestBodyBytes
+        ) {
+            if let intValue = Int(value) {
+                metadata[key] = .int(intValue)
+            } else {
+                metadata[key] = .string(value)
             }
         }
         return metadata

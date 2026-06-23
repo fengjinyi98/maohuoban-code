@@ -26,23 +26,19 @@ protocol SettingsPasswordRepository {
 // DefaultSettingsPasswordRepository 默认登录密码仓储
 // 核心职责：
 // - 使用 MHBHTTPClient 调用 Rust 账号安全接口
-// - 统一附加 Authorization Bearer 请求头
+// - 由 HTTP client 发送边界统一补齐 Authorization
 struct DefaultSettingsPasswordRepository: SettingsPasswordRepository {
     let client: MHBHTTPClient
-    let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func loadSecurity() async throws(MHBAPIError) -> MHBAPIResponse<SettingsAccountSecurityState> {
         try await client.get(
-            path: "/api/v1/account/security",
-            headers: try authorizationHeaderProvider.headers()
+            path: "/api/v1/account/security"
         )
     }
 
@@ -55,16 +51,14 @@ struct DefaultSettingsPasswordRepository: SettingsPasswordRepository {
             body: SettingsSetPasswordRequest(
                 newPassword: newPassword,
                 confirmPassword: confirmPassword
-            ),
-            headers: try authorizationHeaderProvider.headers()
+            )
         )
     }
 
     func sendPasswordChangeCode() async throws(MHBAPIError) -> MHBAPIResponse<PhoneCodeChallenge> {
         try await client.post(
             path: "/api/v1/account/password/change-code",
-            body: SettingsPasswordEmptyRequest(),
-            headers: try authorizationHeaderProvider.headers()
+            body: SettingsPasswordEmptyRequest()
         )
     }
 
@@ -83,8 +77,7 @@ struct DefaultSettingsPasswordRepository: SettingsPasswordRepository {
                 code: code,
                 newPassword: newPassword,
                 confirmPassword: confirmPassword
-            ),
-            headers: try authorizationHeaderProvider.headers()
+            )
         )
     }
 }

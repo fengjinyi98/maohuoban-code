@@ -75,13 +75,10 @@ protocol PetRepository {
 // - 在写入请求中传递当前用户上下文
 struct DefaultPetRepository: PetRepository {
     let client: MHBHTTPClient
-    let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 }

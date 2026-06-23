@@ -91,7 +91,7 @@ extension MHBHTTPClient {
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         var uploadRequest = request
         uploadRequest.httpBody = nil
-        instrumentTraceHeaders(for: &uploadRequest)
+        try prepareRequest(&uploadRequest)
 
         let delegate = MHBUploadProgressDelegate(onUploadProgress: onUploadProgress)
         let uploadSession = URLSession(
