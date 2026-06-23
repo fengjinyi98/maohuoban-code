@@ -10,18 +10,43 @@ struct ProfileUserEditScreen: View {
     let profile: ProfileUserHome
     @State private var editedAvatarImage: UIImage?
     @State private var editedCoverImage: UIImage?
+    @State private var editedDisplayName: String
+    @State private var editedGender: ProfileUserEditGenderOption?
+    @State private var isGenderVisible = true
+    @State private var editedRegionSelection: ProfileUserEditRegionSelection?
+    @State private var editedBirthday: Date?
+    @State private var editedBio: String
     @State private var isAvatarPreviewPresented = false
     @State private var isBackgroundPreviewPresented = false
+    @State private var nameEditorDraft = ""
+    @State private var isNameEditorPresented = false
+    @State private var isNameEditorChevronExpanded = false
+    @State private var isMaohuobanIDInfoPresented = false
+    @State private var isGenderEditorPresented = false
+    @State private var isGenderEditorChevronExpanded = false
+    @State private var isRegionPickerPresented = false
+    @State private var isRegionChevronExpanded = false
+    @State private var birthdayEditorDraft = Date.now
+    @State private var isBirthdayEditorPresented = false
+    @State private var isBirthdayEditorChevronExpanded = false
+    @State private var bioEditorDraft = ""
+    @State private var isBioEditorPresented = false
+    @State private var isBioEditorChevronExpanded = false
 
     init(profile: ProfileUserHome = .mock) {
         self.profile = profile
+        _editedDisplayName = State(initialValue: profile.displayName)
+        _editedGender = State(initialValue: ProfileUserEditGenderOption.fromSystemImage(profile.genderSystemImage))
+        _editedRegionSelection = State(initialValue: nil)
+        _editedBirthday = State(initialValue: nil)
+        _editedBio = State(initialValue: profile.bio)
     }
 
     var body: some View {
         MHBScreenScrollView {
             VStack(spacing: MHBTheme.Spacing.s6) {
                 ProfileUserEditAvatarHeader(
-                    displayName: profile.displayName,
+                    displayName: editedDisplayName,
                     avatarAssetName: profile.avatarAssetName,
                     localAvatarImage: editedAvatarImage,
                     action: {
@@ -43,32 +68,85 @@ struct ProfileUserEditScreen: View {
                             )
                         }
 
-                        PetProfileEditRow(title: "昵称") {
-                            PetProfileEditValueText(value: profile.displayName)
+                        PetProfileEditRow(
+                            title: "昵称",
+                            isAccessoryExpanded: isNameEditorChevronExpanded,
+                            action: {
+                                nameEditorDraft = editedDisplayName
+                                isNameEditorChevronExpanded = true
+                                isNameEditorPresented = true
+                            }
+                        ) {
+                            PetProfileEditValueText(value: editedDisplayName)
                         }
 
-                        PetProfileEditRow(title: "毛伙伴号", showsSeparator: false) {
+                        PetProfileEditRow(
+                            title: "毛伙伴号",
+                            showsSeparator: false,
+                            action: {
+                                isMaohuobanIDInfoPresented = true
+                            }
+                        ) {
                             PetProfileEditValueText(value: profile.maohuobanID)
                         }
                     }
 
                     PetProfileEditSection {
-                        PetProfileEditRow(title: "性别") {
-                            PetProfileEditValueText(value: ProfileUserEditDisplay.genderText(for: profile.genderSystemImage))
+                        PetProfileEditRow(
+                            title: "性别",
+                            isAccessoryExpanded: isGenderEditorChevronExpanded,
+                            action: {
+                                isGenderEditorChevronExpanded = true
+                                isGenderEditorPresented = true
+                            }
+                        ) {
+                            PetProfileEditValueText(
+                                value: ProfileUserEditDisplay.genderText(
+                                    for: editedGender,
+                                    isVisible: isGenderVisible
+                                )
+                            )
                         }
 
-                        PetProfileEditRow(title: "所在地") {
-                            PetProfileEditValueText(value: "未添加")
+                        PetProfileEditRow(
+                            title: "所在地",
+                            isAccessoryExpanded: isRegionChevronExpanded,
+                            action: {
+                                isRegionChevronExpanded = true
+                                isRegionPickerPresented = true
+                            }
+                        ) {
+                            PetProfileEditValueText(value: editedRegionSelection?.displayText ?? "未添加")
                         }
 
-                        PetProfileEditRow(title: "生日", showsSeparator: false) {
-                            PetProfileEditValueText(value: "未添加")
+                        PetProfileEditRow(
+                            title: "生日",
+                            showsSeparator: false,
+                            isAccessoryExpanded: isBirthdayEditorChevronExpanded,
+                            action: {
+                                birthdayEditorDraft = editedBirthday ?? Date.now
+                                isBirthdayEditorChevronExpanded = true
+                                isBirthdayEditorPresented = true
+                            }
+                        ) {
+                            PetProfileEditValueText(
+                                value: editedBirthday.map(ProfileUserEditBirthdayDateCodec.string) ?? "未添加"
+                            )
                         }
                     }
 
                     PetProfileEditSection {
-                        PetProfileEditRow(title: "个人简介", showsSeparator: false) {
-                            PetProfileEditValueText(value: profile.bio)
+                        PetProfileEditRow(
+                            title: "个人简介",
+                            showsSeparator: false,
+                            isAccessoryExpanded: isBioEditorChevronExpanded,
+                            action: {
+                                bioEditorDraft = editedBio
+                                isBioEditorChevronExpanded = true
+                                isBioEditorPresented = true
+                            }
+                        ) {
+                            PetProfileEditValueText(value: editedBio.isEmpty ? "未添加" : editedBio)
                         }
                     }
                 }
@@ -82,9 +160,83 @@ struct ProfileUserEditScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .accessibilityIdentifier("profile.userEdit.screen")
+        .navigationDestination(isPresented: $isRegionPickerPresented) {
+            ProfileUserRegionPickerScreen(selection: $editedRegionSelection)
+                .onDisappear {
+                    isRegionChevronExpanded = false
+                }
+        }
+        .alert("毛伙伴号", isPresented: $isMaohuobanIDInfoPresented) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text("毛伙伴号是毛伙伴为账号生成的平台内唯一身份编码，当前版本暂不支持修改。当前毛伙伴号：\(profile.maohuobanID)")
+        }
+        .sheet(
+            isPresented: $isNameEditorPresented,
+            onDismiss: {
+                isNameEditorChevronExpanded = false
+            }
+        ) {
+            ProfileUserNameEditorSheet(
+                name: $nameEditorDraft,
+                onWillDismiss: {
+                    isNameEditorChevronExpanded = false
+                },
+                onSave: {
+                    editedDisplayName = nameEditorDraft
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isGenderEditorPresented,
+            onDismiss: {
+                isGenderEditorChevronExpanded = false
+            }
+        ) {
+            ProfileUserGenderEditorSheet(
+                selectedGender: $editedGender,
+                isGenderVisible: $isGenderVisible,
+                onWillDismiss: {
+                    isGenderEditorChevronExpanded = false
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isBirthdayEditorPresented,
+            onDismiss: {
+                isBirthdayEditorChevronExpanded = false
+            }
+        ) {
+            PetProfileDateEditorSheet(
+                title: "生日",
+                date: $birthdayEditorDraft,
+                onWillDismiss: {
+                    isBirthdayEditorChevronExpanded = false
+                },
+                onSave: {
+                    editedBirthday = birthdayEditorDraft
+                }
+            )
+        }
+        .sheet(
+            isPresented: $isBioEditorPresented,
+            onDismiss: {
+                isBioEditorChevronExpanded = false
+            }
+        ) {
+            ProfileUserBioEditorSheet(
+                bio: $bioEditorDraft,
+                onWillDismiss: {
+                    isBioEditorChevronExpanded = false
+                },
+                onSave: {
+                    editedBio = bioEditorDraft
+                }
+            )
+        }
         .fullScreenCover(isPresented: $isAvatarPreviewPresented) {
             ProfileUserAvatarPreviewScreen(
-                displayName: profile.displayName,
+                displayName: editedDisplayName,
                 avatarAssetName: profile.avatarAssetName,
                 localAvatarImage: editedAvatarImage,
                 onAvatarUpdated: { image in
@@ -95,7 +247,7 @@ struct ProfileUserEditScreen: View {
         }
         .fullScreenCover(isPresented: $isBackgroundPreviewPresented) {
             ProfileUserBackgroundPreviewScreen(
-                displayName: profile.displayName,
+                displayName: editedDisplayName,
                 coverAssetName: profile.coverAssetName,
                 localCoverImage: editedCoverImage,
                 onCoverUpdated: { image in
@@ -200,14 +352,11 @@ private struct ProfileUserEditCoverValue: View {
 // - 将用户主页展示字段转换为编辑页右侧值
 // - 保持当前快速 UI 阶段的文案映射集中
 private enum ProfileUserEditDisplay {
-    nonisolated static func genderText(for systemImage: String) -> String {
-        switch systemImage {
-        case "person.fill":
-            return "未设置"
-        case "figure.dress.line.vertical.figure":
-            return "女"
-        default:
-            return "未设置"
-        }
+    nonisolated static func genderText(
+        for option: ProfileUserEditGenderOption?,
+        isVisible: Bool
+    ) -> String {
+        guard isVisible else { return "不展示" }
+        return option?.displayTitle ?? "未设置"
     }
 }
