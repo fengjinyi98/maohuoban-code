@@ -22,14 +22,11 @@ protocol SameCityRepository {
 // - 在请求中传递当前用户上下文
 struct DefaultSameCityRepository: SameCityRepository {
     private let client: MHBHTTPClient
-    private let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func listHospitals(
@@ -64,6 +61,6 @@ struct DefaultSameCityRepository: SameCityRepository {
                 statusCode: 401
             )
         }
-        return try authorizationHeaderProvider.headers()
+        return ["x-maohuoban-user-id": currentUserID]
     }
 }

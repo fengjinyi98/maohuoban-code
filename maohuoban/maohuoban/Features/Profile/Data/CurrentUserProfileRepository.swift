@@ -25,23 +25,19 @@ protocol CurrentUserProfileRepository {
 // DefaultCurrentUserProfileRepository 默认当前用户资料仓储
 // 核心职责：
 // - 使用 MHBHTTPClient 调用 Rust Profile 接口
-// - 统一附加 Authorization Bearer 请求头
+// - 由 HTTP client 发送边界统一补齐 Authorization
 struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
     let client: MHBHTTPClient
-    let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func loadCurrentProfile() async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         try await client.get(
-            path: "/api/v1/profile/me",
-            headers: try authorizationHeaderProvider.headers()
+            path: "/api/v1/profile/me"
         )
     }
 
@@ -50,8 +46,7 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         try await client.patch(
             path: "/api/v1/profile/me",
-            body: draft,
-            headers: try authorizationHeaderProvider.headers()
+            body: draft
         )
     }
 
@@ -91,7 +86,6 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
                 data: draft.content
             ),
             fields: ["source_client": draft.sourceClient],
-            headers: try authorizationHeaderProvider.headers(),
             onUploadProgress: onUploadProgress
         )
     }

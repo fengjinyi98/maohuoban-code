@@ -39,8 +39,6 @@ extension MHBHTTPClient {
         }
         let body = multipartBody(boundary: boundary, files: files, fields: fields)
         request.httpBody = body
-        let fileByteSizes = files.map(\.data.count)
-        print("[DEBUG:ProfileMediaUpload] multipart prepared path=\(path) fileCount=\(files.count) fileBytes=\(fileByteSizes) fieldKeys=\(fields.keys.sorted()) bodyBytes=\(body.count)")
 
         return try await sendUpload(request, body: body, onUploadProgress: onUploadProgress)
     }
@@ -89,8 +87,7 @@ extension MHBHTTPClient {
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         var uploadRequest = request
         uploadRequest.httpBody = nil
-        instrumentTraceHeaders(for: &uploadRequest)
-        print("[DEBUG:ProfileMediaUpload] uploadTask start path=\(uploadRequest.url?.path ?? "nil") bodyBytes=\(body.count) hasHTTPBody=\(uploadRequest.httpBody != nil)")
+        try prepareRequest(&uploadRequest)
 
         let delegate = MHBUploadProgressDelegate(onUploadProgress: onUploadProgress)
         let uploadSession = URLSession(

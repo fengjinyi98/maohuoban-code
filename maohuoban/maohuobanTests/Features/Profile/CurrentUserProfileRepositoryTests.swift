@@ -182,9 +182,11 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
         CurrentUserProfileRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
         return DefaultCurrentUserProfileRepository(
-            client: MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session),
-            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
-                tokenStore: CurrentUserProfileRepositoryTestTokenStore()
+            client: MHBHTTPClient.authenticated(
+                baseURL: URL(string: "http://127.0.0.1:18080")!,
+                session: session,
+                tokenStore: CurrentUserProfileRepositoryTestTokenStore(),
+                retryPolicy: .disabled
             )
         )
     }

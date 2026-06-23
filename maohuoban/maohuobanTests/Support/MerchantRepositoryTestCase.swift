@@ -20,13 +20,13 @@ class MerchantRepositoryTestCase: XCTestCase {
         configuration.protocolClasses = [MerchantRepositoryURLProtocol.self]
         MerchantRepositoryURLProtocol.handler = handler
         let session = URLSession(configuration: configuration)
-        let client = MHBHTTPClient(baseURL: URL(string: "http://127.0.0.1:18080")!, session: session)
-        return DefaultMerchantRepository(
-            client: client,
-            authorizationHeaderProvider: MHBAuthorizationHeaderProvider(
-                tokenStore: MerchantRepositoryTestTokenStore()
-            )
+        let client = MHBHTTPClient.authenticated(
+            baseURL: URL(string: "http://127.0.0.1:18080")!,
+            session: session,
+            tokenStore: MerchantRepositoryTestTokenStore(),
+            retryPolicy: .disabled
         )
+        return DefaultMerchantRepository(client: client)
     }
 
     static func assertAuthorizationHeader(_ request: URLRequest) {

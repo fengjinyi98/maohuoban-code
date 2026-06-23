@@ -3,23 +3,19 @@ import Foundation
 // DefaultSettingsDeviceSessionRepository 默认登录设备仓储
 // 核心职责：
 // - 使用 MHBHTTPClient 调用 Rust 账号设备接口
-// - 统一附加 Authorization Bearer 请求头
+// - 由 HTTP client 发送边界统一补齐 Authorization
 struct DefaultSettingsDeviceSessionRepository: SettingsDeviceSessionRepository {
     let client: MHBHTTPClient
-    let authorizationHeaderProvider: MHBAuthorizationHeaderProvider
 
     init(
-        client: MHBHTTPClient = MHBHTTPClient(),
-        authorizationHeaderProvider: MHBAuthorizationHeaderProvider = MHBAuthorizationHeaderProvider()
+        client: MHBHTTPClient = MHBHTTPClient.authenticated()
     ) {
         self.client = client
-        self.authorizationHeaderProvider = authorizationHeaderProvider
     }
 
     func fetchDevices() async throws(MHBAPIError) -> MHBAPIResponse<SettingsDeviceSessionList> {
         try await client.get(
-            path: "/api/v1/account/devices",
-            headers: try authorizationHeaderProvider.headers()
+            path: "/api/v1/account/devices"
         )
     }
 
@@ -27,16 +23,14 @@ struct DefaultSettingsDeviceSessionRepository: SettingsDeviceSessionRepository {
         sessionID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<SettingsDeviceSessionDetails> {
         try await client.get(
-            path: "/api/v1/account/devices/\(sessionID)",
-            headers: try authorizationHeaderProvider.headers()
+            path: "/api/v1/account/devices/\(sessionID)"
         )
     }
 
     func removeDevice(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<MHBEmptyResponse> {
         try await client.delete(
             path: "/api/v1/account/devices/\(sessionID)",
-            body: SettingsDeviceSessionEmptyRequest(),
-            headers: try authorizationHeaderProvider.headers()
+            body: SettingsDeviceSessionEmptyRequest()
         )
     }
 }
