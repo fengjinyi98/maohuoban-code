@@ -72,6 +72,7 @@ struct PetWalkCollapsedSheetEntry: View {
                     Button(action: onOpenSheet) {
                         HStack(spacing: MHBTheme.Spacing.s3) {
                             PetWalkAvatarImage(
+                                petName: petName,
                                 url: petAvatarURL,
                                 petSex: petSex,
                                 size: 40
@@ -329,24 +330,22 @@ private struct PetWalkMiniControlButton: View {
 // - 展示远程宠物头像或兜底爪印
 // - 沿用记录页的性别边框识别规则
 private struct PetWalkAvatarImage: View {
+    let petName: String?
     let url: URL?
     let petSex: PetRecordPetSex
     let size: CGFloat
 
     var body: some View {
-        MHBRemoteImage(url: url, contentMode: .fill) {
-            Image(systemName: "pawprint.fill")
-                .font(.system(size: size * 0.46, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(MHBTheme.ColorToken.primaryBackground.color)
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay {
-            Circle()
-                .stroke(petSex.borderColor, lineWidth: 1.5)
-        }
+        MHBAvatar(
+            subject: PetWalkAvatarPresentation.avatarSubject(
+                id: "walk-tracking-pet",
+                name: petName ?? "毛伙伴",
+                url: url,
+                sex: petSex
+            ),
+            size: .custom(size),
+            shape: .circle
+        )
     }
 }
 

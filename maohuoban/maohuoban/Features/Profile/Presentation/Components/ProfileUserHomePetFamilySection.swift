@@ -63,15 +63,11 @@ private struct ProfileUserHomePetAvatarItem: View {
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s2) {
-            Image(pet.avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 56, height: 56)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: pet.avatarSubject,
+                size: .custom(56),
+                shape: .circle
+            )
 
             Text(pet.name)
                 .font(MHBTheme.Typography.caption.weight(.bold))

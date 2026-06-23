@@ -10,7 +10,7 @@ struct MerchantManagedPetRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
-            MerchantPetSpeciesBadge(species: pet.species)
+            MerchantPetSpeciesBadge(subject: pet.avatarSubject)
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 HStack(alignment: .firstTextBaseline, spacing: MHBTheme.Spacing.s2) {
@@ -76,22 +76,13 @@ struct MerchantManagedPetRow: View {
 // - 使用统一图标表达宠物物种
 // - 为列表行提供稳定视觉锚点
 struct MerchantPetSpeciesBadge: View {
-    let species: PetSpecies
+    let subject: MHBAvatarSubject
 
     var body: some View {
-        Image(systemName: systemImage)
-            .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-            .frame(width: MHBTheme.IconSize.avatar, height: MHBTheme.IconSize.avatar)
-            .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-    }
-
-    private var systemImage: String {
-        switch species {
-        case .dog: "dog.fill"
-        case .cat: "cat.fill"
-        case .other: "pawprint.fill"
-        }
+        MHBAvatar(
+            subject: subject,
+            size: .custom(MHBTheme.IconSize.avatar),
+            shape: .squircle
+        )
     }
 }

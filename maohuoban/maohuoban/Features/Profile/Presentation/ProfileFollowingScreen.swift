@@ -218,38 +218,12 @@ private struct ProfileFollowingAvatar: View {
     let item: ProfileFollowingItem
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(avatarBackground)
-
-            Image(systemName: item.symbolName)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(avatarForeground)
-        }
-        .frame(width: 54, height: 54)
+        MHBAvatar(
+            subject: item.avatarSubject,
+            size: .custom(54),
+            shape: .circle
+        )
         .accessibilityHidden(true)
-    }
-
-    private var avatarBackground: Color {
-        switch item.kind {
-        case .pet:
-            MHBTheme.ColorToken.primaryBackground.color
-        case .user:
-            MHBTheme.ColorToken.teal.color.opacity(0.14)
-        case .mutualUser:
-            MHBTheme.ColorToken.success.color.opacity(0.14)
-        }
-    }
-
-    private var avatarForeground: Color {
-        switch item.kind {
-        case .pet:
-            MHBTheme.ColorToken.primary.color
-        case .user:
-            MHBTheme.ColorToken.teal.color
-        case .mutualUser:
-            MHBTheme.ColorToken.success.color
-        }
     }
 }
 

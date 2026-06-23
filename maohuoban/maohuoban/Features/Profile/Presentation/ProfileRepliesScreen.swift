@@ -158,8 +158,7 @@ private struct ProfileReplyRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
             ProfileReplyAvatar(
-                symbolName: item.actorSymbolName,
-                scope: item.scope
+                subject: item.avatarSubject
             )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -226,32 +225,15 @@ private struct ProfileReplyHeader: View {
 // - 为回复参与人提供统一圆形头像占位
 // - 按回复方向区分轻量色彩
 private struct ProfileReplyAvatar: View {
-    let symbolName: String
-    let scope: ProfileReplyScope
+    let subject: MHBAvatarSubject
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(backgroundColor)
-
-            Image(systemName: symbolName)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(foregroundColor)
-        }
-        .frame(width: 44, height: 44)
-        .overlay {
-            Circle()
-                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-        }
+        MHBAvatar(
+            subject: subject,
+            size: .custom(44),
+            shape: .circle
+        )
         .accessibilityHidden(true)
-    }
-
-    private var backgroundColor: Color {
-        scope == .received ? MHBTheme.ColorToken.primaryBackground.color : MHBTheme.ColorToken.warning.color.opacity(0.12)
-    }
-
-    private var foregroundColor: Color {
-        scope == .received ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.warning.color
     }
 }
 

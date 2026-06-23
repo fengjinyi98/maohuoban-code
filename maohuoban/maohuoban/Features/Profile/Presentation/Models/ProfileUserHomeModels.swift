@@ -24,6 +24,18 @@ struct ProfileUserHome: Equatable {
         )
     }
 
+    var avatarSubject: MHBAvatarSubject {
+        .user(
+            MHBAvatarUser(
+                id: "profile-user-home",
+                displayName: displayName,
+                source: .asset(avatarAssetName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
+    }
+
     static func mockPost(for postID: String) -> ProfileUserHomePost? {
         mock.tabContents
             .flatMap(\.posts)
@@ -111,6 +123,18 @@ struct ProfileUserHomePet: Identifiable, Equatable {
     let id: String
     let name: String
     let avatarAssetName: String
+
+    var avatarSubject: MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: id,
+                name: name,
+                source: .asset(avatarAssetName),
+                species: .other,
+                sex: .unknown
+            )
+        )
+    }
 }
 
 // ProfileUserHomeTabContent 个人主页内容分栏

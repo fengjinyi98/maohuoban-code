@@ -54,6 +54,31 @@ struct ProfileFollowingItem: Identifiable, Equatable {
         .compactMap(\.self)
         .joined(separator: " ")
     }
+
+    var avatarSubject: MHBAvatarSubject {
+        switch kind {
+        case .pet:
+            .pet(
+                MHBAvatarPet(
+                    id: id,
+                    name: name,
+                    source: .systemSymbol(symbolName),
+                    species: .other,
+                    sex: .unknown
+                )
+            )
+        case .user, .mutualUser:
+            .user(
+                MHBAvatarUser(
+                    id: id,
+                    displayName: name,
+                    source: .systemSymbol(symbolName),
+                    sex: .unknown,
+                    sexVisibility: .hidden
+                )
+            )
+        }
+    }
 }
 
 extension ProfileFollowingItem {

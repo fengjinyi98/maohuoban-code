@@ -92,7 +92,7 @@ private struct ProfileAccountIdentityContent: View {
 
     private var content: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
-            ProfileAccountAvatar(assetName: profile.avatarAssetName)
+            ProfileAccountAvatar(subject: profile.avatarSubject)
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 Text(profile.displayName)
@@ -116,19 +116,14 @@ private struct ProfileAccountIdentityContent: View {
 // - 展示本地 mock 用户头像
 // - 以圆形头像建立个人身份识别
 private struct ProfileAccountAvatar: View {
-    let assetName: String
+    let subject: MHBAvatarSubject
 
     var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
-            .frame(width: MHBTheme.IconSize.tabRootPlaceholder, height: MHBTheme.IconSize.tabRootPlaceholder)
-            .background(MHBTheme.ColorToken.cardSolid.color)
-            .clipShape(Circle())
-            .overlay {
-                Circle()
-                    .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-            }
+        MHBAvatar(
+            subject: subject,
+            size: .custom(MHBTheme.IconSize.tabRootPlaceholder),
+            shape: .circle
+        )
             .accessibilityHidden(true)
     }
 }

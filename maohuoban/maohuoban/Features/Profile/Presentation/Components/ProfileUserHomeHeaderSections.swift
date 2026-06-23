@@ -74,7 +74,7 @@ struct ProfileUserHomeIdentitySection: View {
     let displayName: String
     let petID: String
     let bio: String
-    let avatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let genderSystemImage: String
     let editRoute: ProfileRoute
 
@@ -82,7 +82,7 @@ struct ProfileUserHomeIdentitySection: View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
             HStack(alignment: .bottom) {
                 ProfileUserHomeAvatar(
-                    assetName: avatarAssetName,
+                    subject: avatarSubject,
                     genderSystemImage: genderSystemImage
                 )
 
@@ -179,21 +179,16 @@ struct ProfileUserHomeStatsSection: View {
 // - 展示当前用户头像和性别标记
 // - 为封面下方资料区建立身份锚点
 private struct ProfileUserHomeAvatar: View {
-    let assetName: String
+    let subject: MHBAvatarSubject
     let genderSystemImage: String
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Image(assetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 86, height: 86)
-                .background(MHBTheme.ColorToken.cardSolid.color)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.background.color, lineWidth: 4)
-                }
+            MHBAvatar(
+                subject: subject,
+                size: .custom(86),
+                shape: .circle
+            )
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
 
             Image(systemName: genderSystemImage)

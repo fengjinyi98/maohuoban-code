@@ -24,6 +24,18 @@ struct ProfileFollowerItem: Identifiable, Equatable {
         .compactMap(\.self)
         .joined(separator: " ")
     }
+
+    var avatarSubject: MHBAvatarSubject {
+        .user(
+            MHBAvatarUser(
+                id: id,
+                displayName: name,
+                source: .systemSymbol(symbolName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
+    }
 }
 
 extension ProfileFollowerItem {

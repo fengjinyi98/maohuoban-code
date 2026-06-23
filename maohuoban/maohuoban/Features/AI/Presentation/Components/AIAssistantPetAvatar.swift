@@ -11,47 +11,58 @@ struct AIAssistantPetAvatar: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(MHBTheme.ColorToken.primaryBackground.color)
-
-            if let url = resolvedURL {
-                MHBRemoteImage(url: url, contentMode: .fill) {
-                    fallbackIcon
-                }
-            } else {
-                fallbackIcon
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay {
-            Circle()
-                .stroke(MHBTheme.ColorToken.primary.color, lineWidth: 2)
-        }
+        MHBAvatar(
+            subject: AIAssistantPetAvatarPresentation.avatarSubject(
+                avatarURL: avatarURL,
+                species: species
+            ),
+            size: .custom(size),
+            shape: .circle
+        )
         .accessibilityIdentifier("ai.assistant.petAvatar")
     }
+}
 
-    private var fallbackIcon: some View {
-        Image(systemName: iconName)
-            .font(.system(size: max(size * 0.42, 13), weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-            .frame(width: size, height: size)
+// AIAssistantPetAvatarPresentation AI 宠物头像展示映射器
+// 核心职责：
+// - 将 AI 宠物上下文映射为通用宠物头像主体
+// - 收敛远端头像、物种兜底和未知性别输入
+enum AIAssistantPetAvatarPresentation {
+    static func avatarSubject(
+        avatarURL: String?,
+        species: AIAssistantPetSpecies
+    ) -> MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: "ai-assistant-pet",
+                name: "当前宠物",
+                source: avatarSource(avatarURL: avatarURL),
+                species: species.avatarSpecies,
+                sex: .unknown
+            )
+        )
     }
 
-    private var iconName: String {
-        switch species {
-        case .dog: "pawprint.fill"
-        case .cat: "cat.fill"
-        case .other: "heart.fill"
+    private static func avatarSource(avatarURL: String?) -> MHBAvatarSource {
+        guard let avatarURL,
+              avatarURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+              let url = MHBBackendEndpoint.resolve(avatarURL) else {
+            return .empty
         }
+
+        return .remote(url)
     }
+}
 
-    private var resolvedURL: URL? {
-        guard let avatarURL, avatarURL.isEmpty == false else {
-            return nil
+private extension AIAssistantPetSpecies {
+    var avatarSpecies: MHBAvatarSpecies {
+        switch self {
+        case .dog:
+            .dog
+        case .cat:
+            .cat
+        case .other:
+            .other
         }
-
-        return MHBBackendEndpoint.resolve(avatarURL)
     }
 }

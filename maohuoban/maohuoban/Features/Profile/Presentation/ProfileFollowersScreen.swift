@@ -174,9 +174,8 @@ private struct ProfileFollowerRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
             ProfileFollowerAvatar(
-                symbolName: item.symbolName,
-                isNew: item.isNew,
-                isMutual: item.isMutual
+                subject: item.avatarSubject,
+                isNew: item.isNew
             )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
@@ -214,20 +213,16 @@ private struct ProfileFollowerRow: View {
 // - 为粉丝列表提供统一圆形头像占位
 // - 标记新粉丝提醒状态
 private struct ProfileFollowerAvatar: View {
-    let symbolName: String
+    let subject: MHBAvatarSubject
     let isNew: Bool
-    let isMutual: Bool
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            ZStack {
-                Circle()
-                    .fill(backgroundColor)
-
-                Image(systemName: symbolName)
-                    .font(.system(size: 21, weight: .semibold))
-                    .foregroundStyle(foregroundColor)
-            }
+            MHBAvatar(
+                subject: subject,
+                size: .custom(54),
+                shape: .circle
+            )
 
             if isNew {
                 Circle()
@@ -241,14 +236,6 @@ private struct ProfileFollowerAvatar: View {
         }
         .frame(width: 54, height: 54)
         .accessibilityHidden(true)
-    }
-
-    private var backgroundColor: Color {
-        isMutual ? MHBTheme.ColorToken.success.color.opacity(0.14) : MHBTheme.ColorToken.primaryBackground.color
-    }
-
-    private var foregroundColor: Color {
-        isMutual ? MHBTheme.ColorToken.success.color : MHBTheme.ColorToken.primary.color
     }
 }
 

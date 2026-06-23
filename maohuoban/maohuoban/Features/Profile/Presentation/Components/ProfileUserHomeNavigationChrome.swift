@@ -7,7 +7,7 @@ import MaohuobanDesignSystem
 // - 保持沉浸式头图页面的顶部 chrome 定位逻辑
 struct ProfileUserHomeNavigationChrome: View {
     let title: String
-    let avatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let progress: CGFloat
     let aiRoute: ProfileRoute
     let onBack: () -> Void
@@ -46,7 +46,7 @@ struct ProfileUserHomeNavigationChrome: View {
 
                 ProfileUserHomeNavigationIdentity(
                     title: title,
-                    avatarAssetName: avatarAssetName,
+                    avatarSubject: avatarSubject,
                     progress: progress
                 )
             }
@@ -116,20 +116,16 @@ private struct ProfileUserHomeChromeIcon: View {
 // - 让自绘导航栏从沉浸态过渡到详情态
 private struct ProfileUserHomeNavigationIdentity: View {
     let title: String
-    let avatarAssetName: String
+    let avatarSubject: MHBAvatarSubject
     let progress: CGFloat
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 28, height: 28)
-                .clipShape(Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.cardBorder.color, lineWidth: 1)
-                }
+            MHBAvatar(
+                subject: avatarSubject,
+                size: .custom(28),
+                shape: .circle
+            )
 
             Text(title)
                 .font(MHBTheme.Typography.footnote.weight(.semibold))

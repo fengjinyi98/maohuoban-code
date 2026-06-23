@@ -36,6 +36,18 @@ struct ProfileReplyItem: Identifiable, Equatable {
         .compactMap(\.self)
         .joined(separator: " ")
     }
+
+    var avatarSubject: MHBAvatarSubject {
+        .user(
+            MHBAvatarUser(
+                id: id,
+                displayName: actorName,
+                source: .systemSymbol(actorSymbolName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
+    }
 }
 
 extension ProfileReplyItem {

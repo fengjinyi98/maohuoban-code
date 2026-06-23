@@ -22,6 +22,18 @@ struct MHBPetSwitcherItem: Equatable, Hashable, Identifiable, Sendable {
 
         return MHBBackendEndpoint.resolve(avatarURLString)
     }
+
+    var avatarSubject: MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: id,
+                name: name,
+                source: resolvedAvatarURL.map { .remote($0) } ?? .empty,
+                species: species.avatarSpecies,
+                sex: sex.avatarSex
+            )
+        )
+    }
 }
 
 // MHBPetSwitcherSpecies 宠物切换物种展示值
@@ -43,6 +55,17 @@ enum MHBPetSwitcherSpecies: String, Hashable, Sendable {
             "heart.fill"
         }
     }
+
+    var avatarSpecies: MHBAvatarSpecies {
+        switch self {
+        case .dog:
+            .dog
+        case .cat:
+            .cat
+        case .other:
+            .other
+        }
+    }
 }
 
 // MHBPetSwitcherSex 宠物切换性别展示值
@@ -62,6 +85,17 @@ enum MHBPetSwitcherSex: String, Hashable, Sendable {
             Color(red: 244 / 255, green: 63 / 255, blue: 94 / 255)
         case .unknown:
             MHBTheme.ColorToken.separator.color
+        }
+    }
+
+    var avatarSex: MHBAvatarSex {
+        switch self {
+        case .female:
+            .female
+        case .male:
+            .male
+        case .unknown:
+            .unknown
         }
     }
 }

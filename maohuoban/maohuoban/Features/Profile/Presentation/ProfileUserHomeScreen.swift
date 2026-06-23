@@ -38,7 +38,7 @@ struct ProfileUserHomeScreen: View {
                             displayName: profile.displayName,
                             petID: profile.petID,
                             bio: profile.bio,
-                            avatarAssetName: profile.avatarAssetName,
+                            avatarSubject: profile.avatarSubject,
                             genderSystemImage: profile.genderSystemImage,
                             editRoute: ProfileRoute.editUserProfile
                         )
@@ -69,7 +69,7 @@ struct ProfileUserHomeScreen: View {
 
                 ProfileUserHomeNavigationChrome(
                     title: profile.displayName,
-                    avatarAssetName: profile.avatarAssetName,
+                    avatarSubject: profile.avatarSubject,
                     progress: navigationProgress,
                     aiRoute: ProfileRoute.aiAssistant(profile.aiEntryContext),
                     onBack: {

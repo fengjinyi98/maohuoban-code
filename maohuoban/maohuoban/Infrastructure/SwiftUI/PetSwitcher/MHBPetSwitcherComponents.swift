@@ -59,29 +59,22 @@ private struct MHBPetSwitcherAvatar: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(MHBTheme.ColorToken.cardSolid.color)
-
-            if let url = item?.resolvedAvatarURL {
-                MHBRemoteImage(url: url, contentMode: .fill) {
-                    fallbackIcon
-                }
-            } else {
-                fallbackIcon
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay {
-            Circle()
-                .stroke(item?.sex.borderColor ?? MHBTheme.ColorToken.separator.color, lineWidth: 2)
-        }
+        MHBAvatar(
+            subject: item?.avatarSubject ?? fallbackSubject,
+            size: .custom(size),
+            shape: .circle
+        )
     }
 
-    private var fallbackIcon: some View {
-        Image(systemName: item?.species.fallbackSystemImage ?? "pawprint.fill")
-            .font(.system(size: max(size * 0.4, 14), weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+    private var fallbackSubject: MHBAvatarSubject {
+        .pet(
+            MHBAvatarPet(
+                id: "pet-switcher-empty",
+                name: "选择宠物",
+                source: .empty,
+                species: .other,
+                sex: .unknown
+            )
+        )
     }
 }

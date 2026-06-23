@@ -24,6 +24,18 @@ struct ProfileAccountSummary: Equatable {
         return min(max(Double(currentExperience) / Double(targetExperience), 0), 1)
     }
 
+    var avatarSubject: MHBAvatarSubject {
+        .user(
+            MHBAvatarUser(
+                id: "profile-account",
+                displayName: displayName,
+                source: .asset(avatarAssetName),
+                sex: .unknown,
+                sexVisibility: .hidden
+            )
+        )
+    }
+
     static let mock = ProfileAccountSummary(
         displayName: "橘子午后",
         avatarAssetName: "HomeUserAvatarMock",

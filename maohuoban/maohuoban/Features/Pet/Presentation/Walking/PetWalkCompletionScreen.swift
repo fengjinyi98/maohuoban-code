@@ -66,6 +66,7 @@ private struct PetWalkCompletionSuccessHeader: View {
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {
             PetWalkCompletionAvatar(
+                petName: summary.displayPetName,
                 url: summary.petAvatarURL,
                 petSex: summary.petSex
             )
@@ -90,21 +91,23 @@ private struct PetWalkCompletionSuccessHeader: View {
 // - 展示宠物头像
 // - 通过遮罩和勾选图标表达完成状态
 private struct PetWalkCompletionAvatar: View {
+    let petName: String
     let url: URL?
     let petSex: PetRecordPetSex
 
     private let size: CGFloat = 72
 
     var body: some View {
-        MHBRemoteImage(url: url, contentMode: .fill) {
-            Image(systemName: "pawprint.fill")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(MHBTheme.ColorToken.primaryBackground.color)
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
+        MHBAvatar(
+            subject: PetWalkAvatarPresentation.avatarSubject(
+                id: "walk-completion-pet",
+                name: petName,
+                url: url,
+                sex: petSex
+            ),
+            size: .custom(size),
+            shape: .circle
+        )
         .overlay {
             Circle()
                 .fill(Color.black.opacity(0.28))
@@ -113,10 +116,6 @@ private struct PetWalkCompletionAvatar: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 28, weight: .heavy))
                 .foregroundStyle(.white)
-        }
-        .overlay {
-            Circle()
-                .stroke(petSex.borderColor, lineWidth: 2)
         }
         .shadow(color: MHBTheme.ColorToken.success.color.opacity(0.24), radius: 16, x: 0, y: 6)
     }
