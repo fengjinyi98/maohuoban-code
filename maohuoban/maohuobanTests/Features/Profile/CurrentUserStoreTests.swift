@@ -81,6 +81,7 @@ final class CurrentUserStoreTests: XCTestCase {
         XCTAssertTrue(profileUserHomeSource.contains("@Bindable var currentUserStore: CurrentUserStore"))
         XCTAssertFalse(profileUserHomeSource.contains("profile: ProfileUserHome = .mock"))
         XCTAssertFalse(profileUserHomeSource.contains("let profile: ProfileUserHome"))
+        XCTAssertFalse(profileUserHomeSource.contains("content.bio"))
     }
 
     func testProfileUserEditExposesStableE2EAccessibilityIdentifiers() throws {

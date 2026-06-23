@@ -41,7 +41,7 @@ struct ProfileUserHomeScreen: View {
                             displayName: displayNameValue,
                             maohuobanID: currentUserStore.maohuobanID,
                             ipLocation: content.ipLocation,
-                            bio: bioValue,
+                            bio: currentUserStore.bio,
                             avatarSubject: currentUserStore.avatarSubject,
                             professionalBadge: content.professionalBadge,
                             editRoute: ProfileRoute.editUserProfile
@@ -103,11 +103,6 @@ struct ProfileUserHomeScreen: View {
 
     private var displayNameValue: String {
         currentUserStore.displayName
-    }
-
-    private var bioValue: String {
-        let currentBio = currentUserStore.bio.trimmingCharacters(in: .whitespacesAndNewlines)
-        return currentBio.isEmpty ? content.bio : currentUserStore.bio
     }
 
     private var aiEntryContext: AIAssistantEntryContext {
