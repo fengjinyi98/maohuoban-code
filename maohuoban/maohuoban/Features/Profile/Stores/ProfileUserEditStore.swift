@@ -83,7 +83,8 @@ final class ProfileUserEditStore {
 
     func updateDisplayName(_ displayName: String) async -> Bool {
         let normalizedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedDisplayName != currentUserStore.displayName else {
+        let targetDraft = updateDraft(displayName: normalizedDisplayName)
+        guard !isNoopUpdateDraft(targetDraft) else {
             toastMessage = nil
             return true
         }
@@ -101,7 +102,8 @@ final class ProfileUserEditStore {
 
     func updateBio(_ bio: String) async -> Bool {
         let normalizedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedBio != currentUserStore.bio.trimmingCharacters(in: .whitespacesAndNewlines) else {
+        let targetDraft = updateDraft(bio: normalizedBio)
+        guard !isNoopUpdateDraft(targetDraft) else {
             toastMessage = nil
             return true
         }
@@ -118,7 +120,8 @@ final class ProfileUserEditStore {
     }
 
     func updateGender(_ gender: String, isVisible: Bool) async -> Bool {
-        guard gender != currentUserStore.gender || isVisible != currentUserStore.isGenderVisible else {
+        let targetDraft = updateDraft(gender: gender, isGenderVisible: isVisible)
+        guard !isNoopUpdateDraft(targetDraft) else {
             toastMessage = nil
             return true
         }
@@ -135,7 +138,9 @@ final class ProfileUserEditStore {
     }
 
     func updateBirthday(_ birthday: String) async -> Bool {
-        guard birthday != currentUserStore.birthday else {
+        let normalizedBirthday = birthday.trimmingCharacters(in: .whitespacesAndNewlines)
+        let targetDraft = updateDraft(birthday: normalizedBirthday)
+        guard !isNoopUpdateDraft(targetDraft) else {
             toastMessage = nil
             return true
         }
@@ -146,7 +151,7 @@ final class ProfileUserEditStore {
                 bio: nil,
                 gender: nil,
                 isGenderVisible: nil,
-                birthday: birthday
+                birthday: normalizedBirthday
             )
         )
     }
@@ -162,6 +167,37 @@ final class ProfileUserEditStore {
     private func publish(profile: CurrentUserProfile) {
         self.profile = profile
         currentUserStore.apply(profile: profile)
+    }
+
+    private func updateDraft(
+        displayName: String? = nil,
+        bio: String? = nil,
+        gender: String? = nil,
+        isGenderVisible: Bool? = nil,
+        birthday: String? = nil
+    ) -> ProfileUserEditComparableDraft {
+        let currentDraft = currentUpdateDraft()
+        return ProfileUserEditComparableDraft(
+            displayName: displayName ?? currentDraft.displayName,
+            bio: bio ?? currentDraft.bio,
+            gender: gender ?? currentDraft.gender,
+            isGenderVisible: isGenderVisible ?? currentDraft.isGenderVisible,
+            birthday: birthday ?? currentDraft.birthday
+        )
+    }
+
+    private func currentUpdateDraft() -> ProfileUserEditComparableDraft {
+        ProfileUserEditComparableDraft(
+            displayName: currentUserStore.displayName,
+            bio: currentUserStore.bio,
+            gender: currentUserStore.gender,
+            isGenderVisible: currentUserStore.isGenderVisible,
+            birthday: currentUserStore.birthday
+        )
+    }
+
+    private func isNoopUpdateDraft(_ draft: ProfileUserEditComparableDraft) -> Bool {
+        draft.isSemanticallyEquivalent(to: currentUpdateDraft())
     }
 
     private func uploadMedia(
@@ -196,4 +232,46 @@ final class ProfileUserEditStore {
 private enum ProfileUserEditMediaUploadKind {
     case avatar
     case cover
+}
+
+// ProfileUserEditComparableDraft 用户资料编辑语义草稿
+// 核心职责：
+// - 对齐宠物编辑页的当前草稿与目标草稿比较模式
+// - 在请求前识别无变化保存，避免空 PATCH 与无意义 Toast
+private struct ProfileUserEditComparableDraft: Equatable {
+    let displayName: String
+    let bio: String
+    let gender: String
+    let isGenderVisible: Bool
+    let birthday: String?
+
+    func isSemanticallyEquivalent(to other: ProfileUserEditComparableDraft) -> Bool {
+        comparableValue == other.comparableValue
+    }
+
+    private var comparableValue: ComparableValue {
+        ComparableValue(
+            displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+            bio: bio.trimmingCharacters(in: .whitespacesAndNewlines),
+            gender: gender,
+            isGenderVisible: isGenderVisible,
+            birthday: normalizedOptionalText(birthday)
+        )
+    }
+
+    private func normalizedOptionalText(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedValue.isEmpty ? nil : trimmedValue
+    }
+
+    private struct ComparableValue: Equatable {
+        let displayName: String
+        let bio: String
+        let gender: String
+        let isGenderVisible: Bool
+        let birthday: String?
+    }
 }
