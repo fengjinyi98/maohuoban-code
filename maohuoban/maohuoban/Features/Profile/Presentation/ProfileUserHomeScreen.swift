@@ -39,7 +39,7 @@ struct ProfileUserHomeScreen: View {
                             petID: profile.petID,
                             bio: profile.bio,
                             avatarSubject: profile.avatarSubject,
-                            genderSystemImage: profile.genderSystemImage,
+                            professionalBadge: profile.professionalBadge,
                             editRoute: ProfileRoute.editUserProfile
                         )
 

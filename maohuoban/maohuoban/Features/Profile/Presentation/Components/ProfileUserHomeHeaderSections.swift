@@ -75,7 +75,7 @@ struct ProfileUserHomeIdentitySection: View {
     let petID: String
     let bio: String
     let avatarSubject: MHBAvatarSubject
-    let genderSystemImage: String
+    let professionalBadge: ProfileProfessionalIdentityBadge?
     let editRoute: ProfileRoute
 
     var body: some View {
@@ -83,7 +83,7 @@ struct ProfileUserHomeIdentitySection: View {
             HStack(alignment: .bottom) {
                 ProfileUserHomeAvatar(
                     subject: avatarSubject,
-                    genderSystemImage: genderSystemImage
+                    professionalBadge: professionalBadge
                 )
 
                 Spacer(minLength: MHBTheme.Spacing.s3)
@@ -176,11 +176,11 @@ struct ProfileUserHomeStatsSection: View {
 
 // ProfileUserHomeAvatar 用户主页头像
 // 核心职责：
-// - 展示当前用户头像和性别标记
+// - 展示当前用户头像和专业身份认证角标
 // - 为封面下方资料区建立身份锚点
 private struct ProfileUserHomeAvatar: View {
     let subject: MHBAvatarSubject
-    let genderSystemImage: String
+    let professionalBadge: ProfileProfessionalIdentityBadge?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -191,18 +191,36 @@ private struct ProfileUserHomeAvatar: View {
             )
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
 
-            Image(systemName: genderSystemImage)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(MHBTheme.ColorToken.labelPrimary.color, in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(MHBTheme.ColorToken.background.color, lineWidth: 2)
-                }
-                .padding(4)
+            if let professionalBadge {
+                ProfileUserHomeProfessionalBadgeIcon(badge: professionalBadge)
+                    .padding(4)
+            }
         }
         .accessibilityHidden(true)
+    }
+}
+
+// ProfileUserHomeProfessionalBadgeIcon 用户主页专业认证角标
+// 核心职责：
+// - 承载专业用户身份 SVG 图标
+// - 统一头像右下角角标的圆形底和描边
+private struct ProfileUserHomeProfessionalBadgeIcon: View {
+    let badge: ProfileProfessionalIdentityBadge
+
+    var body: some View {
+        Image(badge.assetName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(.white)
+            .frame(width: 15, height: 15)
+            .frame(width: 26, height: 26)
+            .background(MHBTheme.ColorToken.labelPrimary.color, in: Circle())
+            .overlay {
+                Circle()
+                    .stroke(MHBTheme.ColorToken.background.color, lineWidth: 2)
+            }
+            .accessibilityLabel(Text(badge.accessibilityLabel))
     }
 }
 

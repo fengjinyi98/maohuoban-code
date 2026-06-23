@@ -11,6 +11,7 @@ struct ProfileUserHome: Equatable {
     let coverAssetName: String
     let avatarAssetName: String
     let genderSystemImage: String
+    let professionalBadge: ProfileProfessionalIdentityBadge?
     let stats: [ProfileUserHomeStat]
     let pets: [ProfileUserHomePet]
     let tabContents: [ProfileUserHomeTabContent]
@@ -49,6 +50,7 @@ struct ProfileUserHome: Equatable {
         coverAssetName: "HomePetHeroMock",
         avatarAssetName: ProfileAccountSummary.mock.avatarAssetName,
         genderSystemImage: "person.fill",
+        professionalBadge: .cattery,
         stats: [
             ProfileUserHomeStat(id: "following", value: "128", title: "关注"),
             ProfileUserHomeStat(id: "followers", value: "4.5k", title: "粉丝"),
@@ -103,6 +105,38 @@ struct ProfileUserHome: Equatable {
             )
         ]
     )
+}
+
+// ProfileProfessionalIdentityBadge 专业用户认证角标
+// 核心职责：
+// - 区分猫舍、犬舍和宠物店三类专业身份
+// - 提供个人主页头像角标所需的资源名和无障碍文案
+enum ProfileProfessionalIdentityBadge: Equatable {
+    case cattery
+    case kennel
+    case petStore
+
+    nonisolated var assetName: String {
+        switch self {
+        case .cattery:
+            "ProfileProfessionalCatteryBadge"
+        case .kennel:
+            "ProfileProfessionalKennelBadge"
+        case .petStore:
+            "ProfileProfessionalPetStoreBadge"
+        }
+    }
+
+    nonisolated var accessibilityLabel: String {
+        switch self {
+        case .cattery:
+            "猫舍认证"
+        case .kennel:
+            "犬舍认证"
+        case .petStore:
+            "宠物店认证"
+        }
+    }
 }
 
 // ProfileUserHomeStat 个人主页社交统计项
