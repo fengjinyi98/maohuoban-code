@@ -54,7 +54,7 @@ final class ProfileUserEditStoreTests: XCTestCase {
                 success: true,
                 code: "profile.updated",
                 message: "个人资料已更新",
-                data: Self.remoteProfile(displayName: "橘子午后")
+                data: nil
             )
         )
         let store = ProfileUserEditStore(
@@ -100,6 +100,111 @@ final class ProfileUserEditStoreTests: XCTestCase {
                 )
             ]
         )
+    }
+
+    func testUnchangedFieldCommandsSkipRemoteUpdateAndToast() async {
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession(displayName: "橘子午后"))
+        currentUserStore.bio = "记录两只毛孩子的日常。"
+        currentUserStore.gender = "female"
+        currentUserStore.isGenderVisible = false
+        currentUserStore.birthday = "1999-12-31"
+        let repository = CurrentUserProfileRepositoryStub(
+            updateResponse: MHBAPIResponse(
+                success: true,
+                code: "profile.updated",
+                message: "个人资料已更新",
+                data: Self.remoteProfile(displayName: "橘子午后")
+            )
+        )
+        let store = ProfileUserEditStore(
+            repository: repository,
+            currentUserStore: currentUserStore
+        )
+
+        let nameSaved = await store.updateDisplayName(" 橘子午后 ")
+        let bioSaved = await store.updateBio("记录两只毛孩子的日常。")
+        let genderSaved = await store.updateGender("female", isVisible: false)
+        let birthdaySaved = await store.updateBirthday("1999-12-31")
+
+        XCTAssertTrue(nameSaved)
+        XCTAssertTrue(bioSaved)
+        XCTAssertTrue(genderSaved)
+        XCTAssertTrue(birthdaySaved)
+        XCTAssertTrue(repository.updateDrafts.isEmpty)
+        XCTAssertNil(store.toastMessage)
+    }
+
+    func testUploadAvatarPublishesRemoteMediaIntoCurrentUserStore() async {
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession(displayName: "旧昵称"))
+        let repository = CurrentUserProfileRepositoryStub(
+            updateResponse: MHBAPIResponse(
+                success: true,
+                code: "profile.avatar_uploaded",
+                message: "头像已保存",
+                data: Self.remoteProfile(
+                    displayName: "橘子午后",
+                    avatar: Self.remoteMedia(url: "/api/v1/profile/media/avatar.png"),
+                    cover: nil
+                )
+            )
+        )
+        let store = ProfileUserEditStore(
+            repository: repository,
+            currentUserStore: currentUserStore
+        )
+
+        let uploaded = await store.uploadAvatar(
+            draft: CurrentUserProfileMediaUploadDraft(
+                fileName: "avatar.png",
+                mimeType: "image/png",
+                content: Data([1, 2, 3]),
+                sourceClient: "ios"
+            )
+        )
+
+        XCTAssertTrue(uploaded)
+        XCTAssertEqual(repository.uploadedAvatarDrafts.count, 1)
+        XCTAssertEqual(store.toastMessage, "头像已保存")
+        XCTAssertEqual(store.profile?.avatar?.url, "/api/v1/profile/media/avatar.png")
+        XCTAssertEqual(currentUserStore.avatarURLString, "/api/v1/profile/media/avatar.png")
+    }
+
+    func testUploadCoverPublishesRemoteMediaIntoCurrentUserStore() async {
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession(displayName: "旧昵称"))
+        let repository = CurrentUserProfileRepositoryStub(
+            updateResponse: MHBAPIResponse(
+                success: true,
+                code: "profile.cover_uploaded",
+                message: "主页背景已保存",
+                data: Self.remoteProfile(
+                    displayName: "橘子午后",
+                    avatar: nil,
+                    cover: Self.remoteMedia(url: "/api/v1/profile/media/cover.png")
+                )
+            )
+        )
+        let store = ProfileUserEditStore(
+            repository: repository,
+            currentUserStore: currentUserStore
+        )
+
+        let uploaded = await store.uploadCover(
+            draft: CurrentUserProfileMediaUploadDraft(
+                fileName: "cover.png",
+                mimeType: "image/png",
+                content: Data([1, 2, 3]),
+                sourceClient: "ios"
+            )
+        )
+
+        XCTAssertTrue(uploaded)
+        XCTAssertEqual(repository.uploadedCoverDrafts.count, 1)
+        XCTAssertEqual(store.toastMessage, "主页背景已保存")
+        XCTAssertEqual(store.profile?.cover?.url, "/api/v1/profile/media/cover.png")
+        XCTAssertEqual(currentUserStore.coverURLString, "/api/v1/profile/media/cover.png")
     }
 
     func testEditPolicyTextComesFromRemoteProfile() async {
@@ -149,7 +254,11 @@ final class ProfileUserEditStoreTests: XCTestCase {
         )
     }
 
-    private static func remoteProfile(displayName: String) -> CurrentUserProfile {
+    private static func remoteProfile(
+        displayName: String,
+        avatar: CurrentUserProfileMedia? = nil,
+        cover: CurrentUserProfileMedia? = nil
+    ) -> CurrentUserProfile {
         CurrentUserProfile(
             userID: "user-1",
             maohuobanID: "8X29K4M7Q2",
@@ -160,6 +269,8 @@ final class ProfileUserEditStoreTests: XCTestCase {
             isGenderVisible: false,
             birthday: "1999-12-31",
             birthdayDisplayText: "1999-12-31",
+            avatar: avatar,
+            cover: cover,
             avatarPresentation: CurrentUserAvatarPresentation(
                 sex: .unknown,
                 sexVisibility: .hidden
@@ -178,6 +289,8 @@ final class ProfileUserEditStoreTests: XCTestCase {
             isGenderVisible: false,
             birthday: "1999-12-31",
             birthdayDisplayText: "1999-12-31",
+            avatar: nil,
+            cover: nil,
             avatarPresentation: CurrentUserAvatarPresentation(
                 sex: .unknown,
                 sexVisibility: .hidden
@@ -200,6 +313,17 @@ final class ProfileUserEditStoreTests: XCTestCase {
             )
         )
     }
+
+    private static func remoteMedia(url: String) -> CurrentUserProfileMedia {
+        CurrentUserProfileMedia(
+            assetID: "asset-1",
+            url: url,
+            width: 1,
+            height: 1,
+            mimeType: "image/png",
+            updatedAt: "2026-06-23T19:48:26Z"
+        )
+    }
 }
 
 // CurrentUserProfileRepositoryStub 当前用户资料仓储测试桩
@@ -210,6 +334,8 @@ final class ProfileUserEditStoreTests: XCTestCase {
 private final class CurrentUserProfileRepositoryStub: CurrentUserProfileRepository {
     var lastUpdateDraft: CurrentUserProfileUpdateDraft?
     var updateDrafts: [CurrentUserProfileUpdateDraft] = []
+    var uploadedAvatarDrafts: [CurrentUserProfileMediaUploadDraft] = []
+    var uploadedCoverDrafts: [CurrentUserProfileMediaUploadDraft] = []
     private let updateResponse: MHBAPIResponse<CurrentUserProfile>
 
     init(updateResponse: MHBAPIResponse<CurrentUserProfile>) {
@@ -225,6 +351,20 @@ private final class CurrentUserProfileRepositoryStub: CurrentUserProfileReposito
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         lastUpdateDraft = draft
         updateDrafts.append(draft)
+        return updateResponse
+    }
+
+    func uploadCurrentProfileAvatar(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
+        uploadedAvatarDrafts.append(draft)
+        return updateResponse
+    }
+
+    func uploadCurrentProfileCover(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
+        uploadedCoverDrafts.append(draft)
         return updateResponse
     }
 }

@@ -14,6 +14,8 @@ struct CurrentUserProfile: Decodable, Equatable, Sendable {
     let isGenderVisible: Bool
     let birthday: String?
     let birthdayDisplayText: String?
+    let avatar: CurrentUserProfileMedia?
+    let cover: CurrentUserProfileMedia?
     let avatarPresentation: CurrentUserAvatarPresentation
     let displayNameEditPolicy: CurrentUserProfileEditPolicy?
     let bioEditPolicy: CurrentUserProfileEditPolicy?
@@ -28,6 +30,8 @@ struct CurrentUserProfile: Decodable, Equatable, Sendable {
         case isGenderVisible = "is_gender_visible"
         case birthday
         case birthdayDisplayText = "birthday_display_text"
+        case avatar
+        case cover
         case avatarPresentation = "avatar_presentation"
         case displayNameEditPolicy = "display_name_edit_policy"
         case bioEditPolicy = "bio_edit_policy"
@@ -43,6 +47,8 @@ struct CurrentUserProfile: Decodable, Equatable, Sendable {
         isGenderVisible: Bool,
         birthday: String?,
         birthdayDisplayText: String?,
+        avatar: CurrentUserProfileMedia? = nil,
+        cover: CurrentUserProfileMedia? = nil,
         avatarPresentation: CurrentUserAvatarPresentation,
         displayNameEditPolicy: CurrentUserProfileEditPolicy? = nil,
         bioEditPolicy: CurrentUserProfileEditPolicy? = nil
@@ -56,6 +62,8 @@ struct CurrentUserProfile: Decodable, Equatable, Sendable {
         self.isGenderVisible = isGenderVisible
         self.birthday = birthday
         self.birthdayDisplayText = birthdayDisplayText
+        self.avatar = avatar
+        self.cover = cover
         self.avatarPresentation = avatarPresentation
         self.displayNameEditPolicy = displayNameEditPolicy
         self.bioEditPolicy = bioEditPolicy
@@ -65,9 +73,31 @@ struct CurrentUserProfile: Decodable, Equatable, Sendable {
         CurrentUserProfileSummary(
             maohuobanID: maohuobanID,
             displayName: displayName,
-            avatar: nil,
+            avatar: avatar?.url,
             avatarPresentation: avatarPresentation
         )
+    }
+}
+
+// CurrentUserProfileMedia 当前用户资料媒体
+// 核心职责：
+// - 承接用户头像和主页背景上传后的媒体摘要
+// - 为当前用户 Store 提供可展示的远端媒体地址
+struct CurrentUserProfileMedia: Decodable, Equatable, Sendable {
+    let assetID: String
+    let url: String
+    let width: Int?
+    let height: Int?
+    let mimeType: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case assetID = "asset_id"
+        case url
+        case width
+        case height
+        case mimeType = "mime_type"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -111,4 +141,15 @@ struct CurrentUserProfileUpdateDraft: Encodable, Equatable, Sendable {
         case isGenderVisible = "is_gender_visible"
         case birthday
     }
+}
+
+// CurrentUserProfileMediaUploadDraft 当前用户资料媒体上传草稿
+// 核心职责：
+// - 承载头像和主页背景上传所需的文件内容
+// - 保持 multipart 字段与业务层图片选择结果解耦
+struct CurrentUserProfileMediaUploadDraft: Equatable, Sendable {
+    let fileName: String
+    let mimeType: String
+    let content: Data
+    let sourceClient: String
 }

@@ -10,6 +10,14 @@ protocol CurrentUserProfileRepository {
     func updateCurrentProfile(
         draft: CurrentUserProfileUpdateDraft
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
+
+    func uploadCurrentProfileAvatar(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
+
+    func uploadCurrentProfileCover(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
 }
 
 // DefaultCurrentUserProfileRepository 默认当前用户资料仓储
@@ -41,6 +49,41 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
         try await client.patch(
             path: "/api/v1/profile/me",
             body: draft,
+            headers: try authorizationHeaderProvider.headers()
+        )
+    }
+
+    func uploadCurrentProfileAvatar(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
+        try await uploadCurrentProfileMedia(
+            path: "/api/v1/profile/me/avatar",
+            draft: draft
+        )
+    }
+
+    func uploadCurrentProfileCover(
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
+        try await uploadCurrentProfileMedia(
+            path: "/api/v1/profile/me/cover",
+            draft: draft
+        )
+    }
+
+    private func uploadCurrentProfileMedia(
+        path: String,
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
+        try await client.postMultipart(
+            path: path,
+            file: MHBMultipartFile(
+                fieldName: "file",
+                fileName: draft.fileName,
+                mimeType: draft.mimeType,
+                data: draft.content
+            ),
+            fields: ["source_client": draft.sourceClient],
             headers: try authorizationHeaderProvider.headers()
         )
     }

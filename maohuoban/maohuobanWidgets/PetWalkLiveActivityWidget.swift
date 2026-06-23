@@ -285,17 +285,8 @@ private struct PetWalkPetAvatarView: View {
         Group {
             if let avatarURLString,
                let url = URL(string: avatarURLString) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .empty, .failure:
-                        PetWalkPetAvatarPlaceholderView(size: size, status: status)
-                    @unknown default:
-                        PetWalkPetAvatarPlaceholderView(size: size, status: status)
-                    }
+                MHBRemoteMediaImage(url: url, contentMode: .fill) {
+                    PetWalkPetAvatarPlaceholderView(size: size, status: status)
                 }
             } else {
                 PetWalkPetAvatarPlaceholderView(size: size, status: status)

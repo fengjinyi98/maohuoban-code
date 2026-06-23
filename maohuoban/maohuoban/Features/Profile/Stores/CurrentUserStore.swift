@@ -27,6 +27,8 @@ final class CurrentUserStore {
     var displayName = "未登录"
     var defaultDisplayName = ""
     var avatarAssetName = "HomeUserAvatarMock"
+    var avatarURLString: String?
+    var coverURLString: String?
     var bio = ""
     var gender = "unknown"
     var isGenderVisible = false
@@ -51,7 +53,7 @@ final class CurrentUserStore {
             MHBAvatarUser(
                 id: userID ?? "current-user",
                 displayName: displayName,
-                source: .asset(avatarAssetName),
+                source: avatarSource,
                 sex: avatarPresentation.sex.avatarSex,
                 sexVisibility: avatarPresentation.sexVisibility.avatarSexVisibility
             )
@@ -63,6 +65,7 @@ final class CurrentUserStore {
             userID: userID ?? "current-user",
             displayName: displayName,
             avatarAssetName: avatarAssetName,
+            avatarSource: avatarSource,
             avatarSex: avatarPresentation.sex.avatarSex,
             avatarSexVisibility: avatarPresentation.sexVisibility.avatarSexVisibility,
             levelText: accountLevelText,
@@ -95,6 +98,7 @@ final class CurrentUserStore {
     func apply(profile: CurrentUserProfileSummary) {
         maohuobanID = profile.maohuobanID
         displayName = profile.displayName
+        avatarURLString = remoteURLString(from: profile.avatar)
         avatarAssetName = avatarAssetName(from: profile.avatar)
         gender = profile.avatarPresentation.sex.rawValue
         isGenderVisible = profile.avatarPresentation.sexVisibility == .visible
@@ -111,6 +115,9 @@ final class CurrentUserStore {
         isGenderVisible = profile.isGenderVisible
         birthday = profile.birthday
         birthdayDisplayText = profile.birthdayDisplayText
+        avatarURLString = profile.avatar?.url
+        coverURLString = profile.cover?.url
+        avatarAssetName = avatarAssetName(from: profile.avatar?.url)
         avatarPresentation = profile.avatarPresentation
     }
 
@@ -134,6 +141,8 @@ final class CurrentUserStore {
         displayName = "未登录"
         defaultDisplayName = ""
         avatarAssetName = "HomeUserAvatarMock"
+        avatarURLString = nil
+        coverURLString = nil
         bio = ""
         gender = "unknown"
         isGenderVisible = false
@@ -150,6 +159,15 @@ final class CurrentUserStore {
         ]
     }
 
+    private var avatarSource: MHBAvatarSource {
+        if let avatarURLString,
+           let url = MHBBackendEndpoint.resolve(avatarURLString) {
+            return .remote(url)
+        }
+
+        return .asset(avatarAssetName)
+    }
+
     private var settingsPhoneDisplayText: String {
         if let phoneMasked, phoneMasked.isEmpty == false {
             return phoneMasked.hasPrefix("+") ? phoneMasked : "+86 \(phoneMasked)"
@@ -158,6 +176,33 @@ final class CurrentUserStore {
             return "+86 \(phone.prefix(3))****\(phone.suffix(4))"
         }
         return "未绑定手机"
+    }
+
+    // remoteURLString 解析当前用户远端头像地址
+    // 核心职责：
+    // - 区分登录摘要中的本地资源名和远端媒体地址
+    // - 保留后端相对路径，交由 MHBBackendEndpoint 在展示层解析
+    private func remoteURLString(from rawValue: String?) -> String? {
+        guard let rawValue else {
+            return nil
+        }
+
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedValue.isEmpty == false else {
+            return nil
+        }
+
+        if trimmedValue.hasPrefix("/") {
+            return trimmedValue
+        }
+
+        if let url = URL(string: trimmedValue),
+           let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            return trimmedValue
+        }
+
+        return nil
     }
 
     // avatarAssetName 解析当前用户本地头像资源
@@ -172,6 +217,10 @@ final class CurrentUserStore {
 
         let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedValue.isEmpty == false else {
+            return fallbackAssetName
+        }
+
+        if trimmedValue.hasPrefix("/") {
             return fallbackAssetName
         }
 

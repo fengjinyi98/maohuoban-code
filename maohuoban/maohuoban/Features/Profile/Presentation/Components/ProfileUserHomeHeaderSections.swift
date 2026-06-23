@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 复用首页头图的下拉放大和滚动模糊体验
 struct ProfileUserHomeCoverSection: View {
     let assetName: String
+    let coverURLString: String?
     let scrollOffset: CGFloat
 
     var body: some View {
@@ -15,11 +16,7 @@ struct ProfileUserHomeCoverSection: View {
             let blurConfiguration = ProfileUserHomeCoverBlurConfiguration.make(scrollOffset: scrollOffset)
 
             ZStack(alignment: .top) {
-                Image(assetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
-                    .clipped()
+                coverImage(width: width)
 
                 MHBVariableBlurView(
                     maxBlurRadius: blurConfiguration.bottomBlurRadius,
@@ -63,6 +60,28 @@ struct ProfileUserHomeCoverSection: View {
         }
         .frame(height: ProfileUserHomeLayout.coverHeight)
         .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func coverImage(width: CGFloat) -> some View {
+        if let coverURLString,
+           let url = MHBBackendEndpoint.resolve(coverURLString) {
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                assetCover(width: width)
+            }
+            .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
+            .clipped()
+        } else {
+            assetCover(width: width)
+        }
+    }
+
+    private func assetCover(width: CGFloat) -> some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFill()
+            .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
+            .clipped()
     }
 }
 

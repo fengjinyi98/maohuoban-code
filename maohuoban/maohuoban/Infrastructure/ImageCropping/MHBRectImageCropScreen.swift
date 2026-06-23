@@ -57,7 +57,8 @@ struct MHBRectImageCropScreen: View {
             let cropFrameSize = cropSize(for: viewportSize)
             let imageDisplaySize = MHBImageCropDisplayGeometryCalculator.initialDisplaySize(
                 imagePointSize: originalImage.size,
-                viewportSize: viewportSize
+                viewportSize: viewportSize,
+                minimumCoverSize: cropFrameSize
             )
             let effectiveTopSafeArea = max(geometry.safeAreaInsets.top, windowSafeAreaInsets.top)
             let effectiveBottomSafeArea = max(geometry.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
@@ -202,6 +203,7 @@ struct MHBRectImageCropScreen: View {
                     imageDisplaySize: imageDisplaySize,
                     cropFrameSize: cropFrameSize
                 ) else {
+                    MHBToastPresenter().danger("无法完成裁剪，请调整图片位置后重试")
                     return
                 }
                 onSaveResult(result)

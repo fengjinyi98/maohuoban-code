@@ -394,7 +394,7 @@ private final class MHBPetRouteMarkerAnnotationView: MKAnnotationView {
 
         imageTask = Task { [weak self] in
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
+                let data = try await MHBRemoteMediaDataLoader.data(from: url)
                 guard !Task.isCancelled, let image = UIImage(data: data) else { return }
                 await MainActor.run {
                     self?.imageView.image = image

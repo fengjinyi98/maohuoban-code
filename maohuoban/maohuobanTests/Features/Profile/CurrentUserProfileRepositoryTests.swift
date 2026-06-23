@@ -95,6 +95,79 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.bioEditPolicy?.displayText, "7月23日前还可以修改 2 次简介。")
     }
 
+    func testUploadCurrentProfileAvatarSendsMultipartImageToAvatarEndpoint() async throws {
+        let imageData = Data([0x89, 0x50, 0x4E, 0x47])
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/profile/me/avatar")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+            XCTAssertTrue(
+                request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data; boundary=") == true
+            )
+
+            let body = try XCTUnwrap(request.bodyDataForCurrentUserProfileRepositoryTest())
+            let bodyText = String(decoding: body, as: UTF8.self)
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.png\""))
+            XCTAssertTrue(bodyText.contains("Content-Type: image/png"))
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"source_client\""))
+            XCTAssertTrue(bodyText.contains("ios"))
+
+            return Self.profileMediaJSONResponse(
+                code: "profile.avatar_uploaded",
+                message: "头像已保存",
+                avatarURL: "/api/v1/profile/media/avatar.png",
+                coverURL: nil
+            )
+        }
+
+        let response = try await repository.uploadCurrentProfileAvatar(
+            draft: CurrentUserProfileMediaUploadDraft(
+                fileName: "avatar.png",
+                mimeType: "image/png",
+                content: imageData,
+                sourceClient: "ios"
+            )
+        )
+
+        XCTAssertEqual(response.code, "profile.avatar_uploaded")
+        XCTAssertEqual(response.message, "头像已保存")
+        XCTAssertEqual(response.data?.avatar?.url, "/api/v1/profile/media/avatar.png")
+    }
+
+    func testUploadCurrentProfileCoverSendsMultipartImageToCoverEndpoint() async throws {
+        let imageData = Data([0x89, 0x50, 0x4E, 0x47])
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/profile/me/cover")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+
+            let body = try XCTUnwrap(request.bodyDataForCurrentUserProfileRepositoryTest())
+            let bodyText = String(decoding: body, as: UTF8.self)
+            XCTAssertTrue(bodyText.contains("Content-Disposition: form-data; name=\"file\"; filename=\"cover.png\""))
+            XCTAssertTrue(bodyText.contains("Content-Type: image/png"))
+
+            return Self.profileMediaJSONResponse(
+                code: "profile.cover_uploaded",
+                message: "主页背景已保存",
+                avatarURL: nil,
+                coverURL: "/api/v1/profile/media/cover.png"
+            )
+        }
+
+        let response = try await repository.uploadCurrentProfileCover(
+            draft: CurrentUserProfileMediaUploadDraft(
+                fileName: "cover.png",
+                mimeType: "image/png",
+                content: imageData,
+                sourceClient: "ios"
+            )
+        )
+
+        XCTAssertEqual(response.code, "profile.cover_uploaded")
+        XCTAssertEqual(response.message, "主页背景已保存")
+        XCTAssertEqual(response.data?.cover?.url, "/api/v1/profile/media/cover.png")
+    }
+
     private func makeRepository(
         handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Data)
     ) -> DefaultCurrentUserProfileRepository {
@@ -120,6 +193,63 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
             )!,
             Data(body.utf8)
         )
+    }
+
+    private static func profileMediaJSONResponse(
+        code: String,
+        message: String,
+        avatarURL: String?,
+        coverURL: String?
+    ) -> (HTTPURLResponse, Data) {
+        let avatarJSON = mediaJSON(url: avatarURL)
+        let coverJSON = mediaJSON(url: coverURL)
+        return jsonResponse(
+            statusCode: 201,
+            body:
+            """
+            {
+              "success": true,
+              "code": "\(code)",
+              "message": "\(message)",
+              "data": {
+                "user_id": "user-1",
+                "maohuoban_id": "8X29K4M7Q2",
+                "display_name": "橘子午后",
+                "default_display_name": "毛伙伴用户7K29Q",
+                "bio": "记录两只毛孩子的日常。",
+                "gender": "female",
+                "is_gender_visible": false,
+                "birthday": "1999-12-31",
+                "birthday_display_text": "1999-12-31",
+                "avatar": \(avatarJSON),
+                "cover": \(coverJSON),
+                "avatar_presentation": {
+                  "sex": "unknown",
+                  "sex_visibility": "hidden"
+                },
+                "display_name_edit_policy": null,
+                "bio_edit_policy": null
+              }
+            }
+            """
+        )
+    }
+
+    private static func mediaJSON(url: String?) -> String {
+        guard let url else {
+            return "null"
+        }
+        return
+            """
+            {
+              "asset_id": "asset-1",
+              "url": "\(url)",
+              "width": 1,
+              "height": 1,
+              "mime_type": "image/png",
+              "updated_at": "2026-06-23T19:48:26Z"
+            }
+            """
     }
 }
 

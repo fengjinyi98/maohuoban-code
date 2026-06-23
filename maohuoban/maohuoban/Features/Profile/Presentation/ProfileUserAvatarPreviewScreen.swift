@@ -11,6 +11,7 @@ struct ProfileUserAvatarPreviewScreen: View {
 
     let displayName: String
     let avatarAssetName: String
+    let avatarURLString: String?
     let localAvatarImage: UIImage?
     let onAvatarUpdated: (UIImage) async -> Bool
 
@@ -22,11 +23,13 @@ struct ProfileUserAvatarPreviewScreen: View {
     init(
         displayName: String,
         avatarAssetName: String,
+        avatarURLString: String?,
         localAvatarImage: UIImage?,
         onAvatarUpdated: @escaping (UIImage) async -> Bool
     ) {
         self.displayName = displayName
         self.avatarAssetName = avatarAssetName
+        self.avatarURLString = avatarURLString
         self.localAvatarImage = localAvatarImage
         self.onAvatarUpdated = onAvatarUpdated
         _previewImage = State(initialValue: localAvatarImage)
@@ -116,6 +119,13 @@ struct ProfileUserAvatarPreviewScreen: View {
                 .scaledToFill()
                 .frame(width: 320, height: 320)
                 .clipShape(Circle())
+        } else if let avatarURLString,
+                  let url = MHBBackendEndpoint.resolve(avatarURLString) {
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                fallbackAvatar
+            }
+            .frame(width: 320, height: 320)
+            .clipShape(Circle())
         } else if avatarAssetName.isEmpty == false {
             Image(avatarAssetName)
                 .resizable()

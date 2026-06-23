@@ -11,6 +11,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
 
     let displayName: String
     let coverAssetName: String
+    let coverURLString: String?
     let localCoverImage: UIImage?
     let onCoverUpdated: (UIImage) async -> Bool
 
@@ -24,11 +25,13 @@ struct ProfileUserBackgroundPreviewScreen: View {
     init(
         displayName: String,
         coverAssetName: String,
+        coverURLString: String?,
         localCoverImage: UIImage?,
         onCoverUpdated: @escaping (UIImage) async -> Bool
     ) {
         self.displayName = displayName
         self.coverAssetName = coverAssetName
+        self.coverURLString = coverURLString
         self.localCoverImage = localCoverImage
         self.onCoverUpdated = onCoverUpdated
         _previewImage = State(initialValue: localCoverImage)
@@ -117,6 +120,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
     private var backgroundPreview: some View {
         ProfileUserBackgroundPreviewContent(
             assetName: coverAssetName,
+            coverURLString: coverURLString,
             localImage: previewImage,
             fallbackColor: Color.white.opacity(0.1)
         )
@@ -210,6 +214,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
 // - 保持预览内容始终填满裁剪比例容器
 private struct ProfileUserBackgroundPreviewContent: View {
     let assetName: String
+    let coverURLString: String?
     let localImage: UIImage?
     let fallbackColor: Color
 
@@ -220,6 +225,13 @@ private struct ProfileUserBackgroundPreviewContent: View {
 
                 if let localImage {
                     imageContent(Image(uiImage: localImage), size: proxy.size)
+                } else if let coverURLString,
+                          let url = MHBBackendEndpoint.resolve(coverURLString) {
+                    MHBRemoteImage(url: url, contentMode: .fill) {
+                        imageContent(Image(assetName), size: proxy.size)
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
                 } else if assetName.isEmpty == false {
                     imageContent(Image(assetName), size: proxy.size)
                 }

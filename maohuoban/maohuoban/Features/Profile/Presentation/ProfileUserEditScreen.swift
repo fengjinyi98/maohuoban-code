@@ -54,6 +54,7 @@ struct ProfileUserEditScreen: View {
                 ProfileUserEditAvatarHeader(
                     displayName: displayNameValue,
                     avatarAssetName: currentUserStore.avatarAssetName,
+                    avatarURLString: currentUserStore.avatarURLString,
                     localAvatarImage: editedAvatarImage,
                     action: {
                         isAvatarPreviewPresented = true
@@ -71,6 +72,7 @@ struct ProfileUserEditScreen: View {
                         ) {
                             ProfileUserEditCoverValue(
                                 assetName: profile.coverAssetName,
+                                coverURLString: currentUserStore.coverURLString,
                                 localCoverImage: editedCoverImage
                             )
                         }
@@ -265,10 +267,10 @@ struct ProfileUserEditScreen: View {
             ProfileUserAvatarPreviewScreen(
                 displayName: displayNameValue,
                 avatarAssetName: currentUserStore.avatarAssetName,
+                avatarURLString: currentUserStore.avatarURLString,
                 localAvatarImage: editedAvatarImage,
                 onAvatarUpdated: { image in
-                    editedAvatarImage = image
-                    return true
+                    await uploadAvatarImage(image)
                 }
             )
         }
@@ -276,10 +278,10 @@ struct ProfileUserEditScreen: View {
             ProfileUserBackgroundPreviewScreen(
                 displayName: displayNameValue,
                 coverAssetName: profile.coverAssetName,
+                coverURLString: currentUserStore.coverURLString,
                 localCoverImage: editedCoverImage,
                 onCoverUpdated: { image in
-                    editedCoverImage = image
-                    return true
+                    await uploadCoverImage(image)
                 }
             )
         }
@@ -354,6 +356,60 @@ struct ProfileUserEditScreen: View {
             MHBToastPresenter().danger(message)
         }
     }
+
+    @MainActor
+    private func uploadAvatarImage(_ image: UIImage) async -> Bool {
+        guard let draft = mediaUploadDraft(
+            from: image,
+            fileName: "profile-avatar.png"
+        ) else {
+            editStore.toastMessage = "头像保存失败，请重试"
+            showProfileToast(success: false)
+            return false
+        }
+
+        let saved = await editStore.uploadAvatar(draft: draft)
+        if saved {
+            editedAvatarImage = image
+        }
+        showProfileToast(success: saved)
+        return saved
+    }
+
+    @MainActor
+    private func uploadCoverImage(_ image: UIImage) async -> Bool {
+        guard let draft = mediaUploadDraft(
+            from: image,
+            fileName: "profile-cover.png"
+        ) else {
+            editStore.toastMessage = "背景保存失败，请重试"
+            showProfileToast(success: false)
+            return false
+        }
+
+        let saved = await editStore.uploadCover(draft: draft)
+        if saved {
+            editedCoverImage = image
+        }
+        showProfileToast(success: saved)
+        return saved
+    }
+
+    private func mediaUploadDraft(
+        from image: UIImage,
+        fileName: String
+    ) -> CurrentUserProfileMediaUploadDraft? {
+        guard let data = image.pngData() else {
+            return nil
+        }
+
+        return CurrentUserProfileMediaUploadDraft(
+            fileName: fileName,
+            mimeType: "image/png",
+            content: data,
+            sourceClient: "ios"
+        )
+    }
 }
 
 // ProfileUserEditAvatarHeader 用户资料编辑头像头部
@@ -363,6 +419,7 @@ struct ProfileUserEditScreen: View {
 private struct ProfileUserEditAvatarHeader: View {
     let displayName: String
     let avatarAssetName: String
+    let avatarURLString: String?
     let localAvatarImage: UIImage?
     let action: () -> Void
 
@@ -411,11 +468,20 @@ private struct ProfileUserEditAvatarHeader: View {
             Image(uiImage: localAvatarImage)
                 .resizable()
                 .scaledToFill()
+        } else if let avatarURLString,
+                  let url = MHBBackendEndpoint.resolve(avatarURLString) {
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                fallbackAvatarImage
+            }
         } else {
-            Image(avatarAssetName)
-                .resizable()
-                .scaledToFill()
+            fallbackAvatarImage
         }
+    }
+
+    private var fallbackAvatarImage: some View {
+        Image(avatarAssetName)
+            .resizable()
+            .scaledToFill()
     }
 }
 
@@ -425,6 +491,7 @@ private struct ProfileUserEditAvatarHeader: View {
 // - 使用编辑档案页背景缩略图相同的比例和圆角
 private struct ProfileUserEditCoverValue: View {
     let assetName: String
+    let coverURLString: String?
     let localCoverImage: UIImage?
 
     var body: some View {
@@ -434,13 +501,29 @@ private struct ProfileUserEditCoverValue: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                Image(assetName)
-                    .resizable()
-                    .scaledToFill()
+                remoteOrAssetCover
             }
         }
         .frame(width: 54, height: 36)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var remoteOrAssetCover: some View {
+        if let coverURLString,
+           let url = MHBBackendEndpoint.resolve(coverURLString) {
+            MHBRemoteImage(url: url, contentMode: .fill) {
+                assetCover
+            }
+        } else {
+            assetCover
+        }
+    }
+
+    private var assetCover: some View {
+        Image(assetName)
+            .resizable()
+            .scaledToFill()
     }
 }
 

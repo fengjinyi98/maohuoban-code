@@ -7,13 +7,26 @@ import CoreGraphics
 enum MHBImageCropDisplayGeometryCalculator {
     static func initialDisplaySize(
         imagePointSize: CGSize,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        minimumCoverSize: CGSize? = nil
     ) -> CGSize {
         let imageWidth = max(imagePointSize.width, 1)
         let imageHeight = max(imagePointSize.height, 1)
         let viewportWidth = max(viewportSize.width, 1)
         let viewportHeight = max(viewportSize.height, 1)
-        let scale = min(1, viewportWidth / imageWidth, viewportHeight / imageHeight)
+        let fitScale = min(1, viewportWidth / imageWidth, viewportHeight / imageHeight)
+
+        let coverScale: CGFloat
+        if let minimumCoverSize {
+            coverScale = max(
+                max(minimumCoverSize.width, 1) / imageWidth,
+                max(minimumCoverSize.height, 1) / imageHeight
+            )
+        } else {
+            coverScale = 0
+        }
+
+        let scale = max(fitScale, coverScale)
 
         return CGSize(
             width: imageWidth * scale,

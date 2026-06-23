@@ -65,6 +65,7 @@ final class ProfileUserEditStore {
     func save(draft: CurrentUserProfileUpdateDraft) async -> Bool {
         guard phase == .idle else { return false }
         phase = .saving
+        toastMessage = nil
         defer { phase = .idle }
 
         do {
@@ -81,9 +82,15 @@ final class ProfileUserEditStore {
     }
 
     func updateDisplayName(_ displayName: String) async -> Bool {
-        await save(
+        let normalizedDisplayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedDisplayName != currentUserStore.displayName else {
+            toastMessage = nil
+            return true
+        }
+
+        return await save(
             draft: CurrentUserProfileUpdateDraft(
-                displayName: displayName,
+                displayName: normalizedDisplayName,
                 bio: nil,
                 gender: nil,
                 isGenderVisible: nil,
@@ -93,10 +100,16 @@ final class ProfileUserEditStore {
     }
 
     func updateBio(_ bio: String) async -> Bool {
-        await save(
+        let normalizedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedBio != currentUserStore.bio.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            toastMessage = nil
+            return true
+        }
+
+        return await save(
             draft: CurrentUserProfileUpdateDraft(
                 displayName: nil,
-                bio: bio,
+                bio: normalizedBio,
                 gender: nil,
                 isGenderVisible: nil,
                 birthday: nil
@@ -105,7 +118,12 @@ final class ProfileUserEditStore {
     }
 
     func updateGender(_ gender: String, isVisible: Bool) async -> Bool {
-        await save(
+        guard gender != currentUserStore.gender || isVisible != currentUserStore.isGenderVisible else {
+            toastMessage = nil
+            return true
+        }
+
+        return await save(
             draft: CurrentUserProfileUpdateDraft(
                 displayName: nil,
                 bio: nil,
@@ -117,7 +135,12 @@ final class ProfileUserEditStore {
     }
 
     func updateBirthday(_ birthday: String) async -> Bool {
-        await save(
+        guard birthday != currentUserStore.birthday else {
+            toastMessage = nil
+            return true
+        }
+
+        return await save(
             draft: CurrentUserProfileUpdateDraft(
                 displayName: nil,
                 bio: nil,
@@ -128,8 +151,49 @@ final class ProfileUserEditStore {
         )
     }
 
+    func uploadAvatar(draft: CurrentUserProfileMediaUploadDraft) async -> Bool {
+        await uploadMedia(kind: .avatar, draft: draft)
+    }
+
+    func uploadCover(draft: CurrentUserProfileMediaUploadDraft) async -> Bool {
+        await uploadMedia(kind: .cover, draft: draft)
+    }
+
     private func publish(profile: CurrentUserProfile) {
         self.profile = profile
         currentUserStore.apply(profile: profile)
     }
+
+    private func uploadMedia(
+        kind: ProfileUserEditMediaUploadKind,
+        draft: CurrentUserProfileMediaUploadDraft
+    ) async -> Bool {
+        guard phase == .idle else { return false }
+        phase = .saving
+        toastMessage = nil
+        defer { phase = .idle }
+
+        do {
+            let response: MHBAPIResponse<CurrentUserProfile>
+            switch kind {
+            case .avatar:
+                response = try await repository.uploadCurrentProfileAvatar(draft: draft)
+            case .cover:
+                response = try await repository.uploadCurrentProfileCover(draft: draft)
+            }
+            toastMessage = response.message
+            if let profile = response.data {
+                publish(profile: profile)
+            }
+            return true
+        } catch {
+            toastMessage = error.toastMessage
+            return false
+        }
+    }
+}
+
+private enum ProfileUserEditMediaUploadKind {
+    case avatar
+    case cover
 }

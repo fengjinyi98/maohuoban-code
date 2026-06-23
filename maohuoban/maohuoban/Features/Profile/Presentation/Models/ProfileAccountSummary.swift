@@ -8,6 +8,7 @@ struct ProfileAccountSummary: Equatable {
     let userID: String
     let displayName: String
     let avatarAssetName: String
+    let avatarSource: MHBAvatarSource
     let avatarSex: MHBAvatarSex
     let avatarSexVisibility: MHBAvatarSexVisibility
     let levelText: String
@@ -32,7 +33,7 @@ struct ProfileAccountSummary: Equatable {
             MHBAvatarUser(
                 id: userID,
                 displayName: displayName,
-                source: .asset(avatarAssetName),
+                source: avatarSource,
                 sex: avatarSex,
                 sexVisibility: avatarSexVisibility
             )
@@ -43,6 +44,7 @@ struct ProfileAccountSummary: Equatable {
         userID: "profile-account",
         displayName: "橘子午后",
         avatarAssetName: "HomeUserAvatarMock",
+        avatarSource: .asset("HomeUserAvatarMock"),
         avatarSex: .unknown,
         avatarSexVisibility: .hidden,
         levelText: "Lv.3",

@@ -34,6 +34,7 @@ struct ProfileUserHomeScreen: View {
                     LazyVStack(spacing: 0) {
                         ProfileUserHomeCoverSection(
                             assetName: content.coverAssetName,
+                            coverURLString: currentUserStore.coverURLString,
                             scrollOffset: scrollOffset
                         )
 

@@ -1,52 +1,37 @@
-import XCTest
-@testable import maohuoban
+import Foundation
+import Testing
+@testable import MaohuobanDesignSystem
 
-// MHBRemoteImageTests 远程图片组件测试
+// MHBRemoteImageLoadingTests 远程图片加载测试
 // 核心职责：
-// - 固化远程图片请求的缓存策略
-// - 防止调用点绕过统一请求构造
-@MainActor
-final class MHBRemoteImageTests: XCTestCase {
-    override func tearDown() {
-        MHBRemoteMediaURLProtocol.handler = nil
-        super.tearDown()
-    }
-
-    func testRequestUsesProtocolCachePolicyByDefault() throws {
-        let url = try XCTUnwrap(URL(string: "https://img.maohuoban.test/pet.png"))
+// - 固化 DesignSystem 远程图片请求与缓存策略
+// - 保证图片预览预加载和远程图片组件复用统一下载入口
+@Suite("MHBRemoteImage 远程加载")
+struct MHBRemoteImageLoadingTests {
+    @Test("默认请求使用协议缓存策略和统一超时")
+    func requestUsesProtocolCachePolicyByDefault() throws {
+        let url = try #require(URL(string: "https://img.maohuoban.test/pet.png"))
 
         let request = MHBRemoteMediaRequestFactory.request(url: url)
 
-        XCTAssertEqual(request.url, url)
-        XCTAssertEqual(request.cachePolicy, .useProtocolCachePolicy)
-        XCTAssertEqual(request.timeoutInterval, 30)
+        #expect(request.url == url)
+        #expect(request.cachePolicy == .useProtocolCachePolicy)
+        #expect(request.timeoutInterval == 30)
     }
 
-    func testRequestAllowsCustomCachePolicyAndTimeout() throws {
-        let url = try XCTUnwrap(URL(string: "https://img.maohuoban.test/avatar.png"))
-
-        let request = MHBRemoteMediaRequestFactory.request(
-            url: url,
-            cachePolicy: .returnCacheDataElseLoad,
-            timeoutInterval: 12
-        )
-
-        XCTAssertEqual(request.url, url)
-        XCTAssertEqual(request.cachePolicy, .returnCacheDataElseLoad)
-        XCTAssertEqual(request.timeoutInterval, 12)
-    }
-
-    func testImageSessionUsesSharedCacheConfiguration() {
+    @Test("共享 session 使用图片缓存容量")
+    func sessionUsesSharedCacheConfiguration() {
         let configuration = MHBRemoteMediaSessionFactory.configuration()
 
-        XCTAssertEqual(configuration.requestCachePolicy, .useProtocolCachePolicy)
-        XCTAssertEqual(configuration.timeoutIntervalForRequest, 30)
-        XCTAssertEqual(configuration.urlCache?.memoryCapacity, 24 * 1024 * 1024)
-        XCTAssertEqual(configuration.urlCache?.diskCapacity, 256 * 1024 * 1024)
+        #expect(configuration.requestCachePolicy == .useProtocolCachePolicy)
+        #expect(configuration.timeoutIntervalForRequest == 30)
+        #expect(configuration.urlCache?.memoryCapacity == 24 * 1024 * 1024)
+        #expect(configuration.urlCache?.diskCapacity == 256 * 1024 * 1024)
     }
 
-    func testDataLoaderUsesUnifiedRequestAndSession() async throws {
-        let url = try XCTUnwrap(URL(string: "https://img.maohuoban.test/avatar.png"))
+    @Test("下载器使用传入 session 和请求策略")
+    func dataLoaderUsesUnifiedRequestAndSession() async throws {
+        let url = try #require(URL(string: "https://img.maohuoban.test/avatar.png"))
         let expectedData = Data("image-data".utf8)
         let requestBox = MHBRemoteMediaRequestBox()
         let configuration = URLSessionConfiguration.ephemeral
@@ -72,11 +57,12 @@ final class MHBRemoteImageTests: XCTestCase {
             session: session
         )
 
-        XCTAssertEqual(data, expectedData)
-        let request = try XCTUnwrap(requestBox.request)
-        XCTAssertEqual(request.url, url)
-        XCTAssertEqual(request.cachePolicy, .returnCacheDataElseLoad)
-        XCTAssertEqual(request.timeoutInterval, 12)
+        #expect(data == expectedData)
+        let request = try #require(requestBox.request)
+        #expect(request.url == url)
+        #expect(request.cachePolicy == .returnCacheDataElseLoad)
+        #expect(request.timeoutInterval == 12)
+        MHBRemoteMediaURLProtocol.handler = nil
     }
 }
 

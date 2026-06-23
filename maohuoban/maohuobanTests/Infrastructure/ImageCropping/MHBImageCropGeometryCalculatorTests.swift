@@ -27,6 +27,17 @@ final class MHBImageCropGeometryCalculatorTests: XCTestCase {
         XCTAssertEqual(displaySize.height, 266.6667, accuracy: 0.0001)
     }
 
+    func testRectInitialDisplaySizeCoversCropFrame() {
+        let displaySize = MHBImageCropDisplayGeometryCalculator.initialDisplaySize(
+            imagePointSize: CGSize(width: 120, height: 80),
+            viewportSize: CGSize(width: 400, height: 800),
+            minimumCoverSize: CGSize(width: 400, height: 266.6667)
+        )
+
+        XCTAssertEqual(displaySize.width, 400, accuracy: 0.0001)
+        XCTAssertEqual(displaySize.height, 266.6667, accuracy: 0.0001)
+    }
+
     func testRectCropRectUsesActualInitialDisplaySize() {
         let cropRect = MHBRectImageCropGeometryCalculator.cropRect(
             imagePixelSize: CGSize(width: 100, height: 100),

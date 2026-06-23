@@ -831,7 +831,7 @@ struct MHBImagePreviewOverlay: View {
                         image = UIImage(named: name)
                     case let .remote(urlString):
                         if let url = URL(string: urlString) {
-                            image = try? UIImage(data: Data(contentsOf: url))
+                            image = try? await UIImage(data: MHBRemoteMediaDataLoader.data(from: url))
                         } else {
                             image = nil
                         }

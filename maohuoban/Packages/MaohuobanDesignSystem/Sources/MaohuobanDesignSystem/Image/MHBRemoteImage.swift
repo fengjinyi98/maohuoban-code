@@ -28,15 +28,22 @@ public struct MHBRemoteImage<Placeholder: View>: View {
                 switch MHBImageSourceKind.remoteOrAsset(from: source) {
                 case let .remote(rawValue):
                     if let url = URL(string: rawValue) {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
+                        AsyncImage(
+                            request: MHBRemoteMediaRequestFactory.request(url: url),
+                            transaction: Transaction(animation: .easeInOut(duration: 0.18))
+                        ) { phase in
+                            switch phase {
+                            case let .success(image):
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: contentMode)
-                            } else {
+                            case .empty, .failure:
+                                placeholder()
+                            @unknown default:
                                 placeholder()
                             }
                         }
+                        .asyncImageURLSession(MHBRemoteMediaSessionFactory.shared)
                     } else {
                         placeholder()
                     }

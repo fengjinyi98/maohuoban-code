@@ -148,7 +148,7 @@ private enum MHBRemoteLivePhotoLoader {
                 at: cacheDirectory(),
                 withIntermediateDirectories: true
             )
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let data = try await MHBRemoteMediaDataLoader.data(from: url)
             try data.write(to: fileURL, options: [.atomic])
             return fileURL
         } catch {
