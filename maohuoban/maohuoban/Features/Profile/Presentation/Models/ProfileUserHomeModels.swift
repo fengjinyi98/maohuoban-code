@@ -45,12 +45,12 @@ struct ProfileUserHome: Equatable {
     }
 
     static let mock = ProfileUserHome(
-        displayName: ProfileAccountSummary.mock.displayName,
+        displayName: "个人主页用户",
         maohuobanID: "88203910",
         ipLocation: "上海",
         bio: "记录两只毛孩子的日常。分享科学喂养与同城遛狗路线。",
         coverAssetName: "HomePetHeroMock",
-        avatarAssetName: ProfileAccountSummary.mock.avatarAssetName,
+        avatarAssetName: "HomeUserAvatarMock",
         genderSystemImage: "person.fill",
         professionalBadge: .cattery,
         stats: [

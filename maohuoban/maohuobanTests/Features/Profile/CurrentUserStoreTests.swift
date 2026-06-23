@@ -103,6 +103,14 @@ final class CurrentUserStoreTests: XCTestCase {
         XCTAssertFalse(profileUserHomeSource.contains("content.bio"))
     }
 
+    func testProfileUserHomeMockDoesNotDependOnAccountSummaryMockIdentity() throws {
+        let profileUserHomeModelsSource = try Self.source(
+            appRelativePath: "Features/Profile/Presentation/Models/ProfileUserHomeModels.swift"
+        )
+
+        XCTAssertFalse(profileUserHomeModelsSource.contains("ProfileAccountSummary.mock"))
+    }
+
     func testProfileUserEditExposesStableE2EAccessibilityIdentifiers() throws {
         let profileUserEditSource = try Self.source(
             appRelativePath: "Features/Profile/Presentation/ProfileUserEditScreen.swift"
