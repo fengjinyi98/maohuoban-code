@@ -29,3 +29,6 @@ references/projects/
 
 # 设计稿等参考资源（外部管理，主仓库不跟踪）
 docs/resources/
+
+# 代码量统计生成文件（每次运行脚本生成，不纳入版本管理）
+code-stats/

@@ -18,7 +18,8 @@ from pathlib import Path
 
 # 脚本位于 scripts/，上一级即项目根目录
 ROOT = Path(__file__).resolve().parent.parent
-REPORT = ROOT / "docs" / "code-stats.md"
+OUT_DIR = ROOT / "code-stats"
+REPORT = OUT_DIR / "code-stats.md"
 
 # 三端扫描配置：展示名 / 根目录 / 源码扩展名 / 需跳过的路径片段
 MODULES = [
@@ -155,8 +156,8 @@ def render_section(now: datetime, current: dict, previous: dict | None) -> str:
     return "\n".join(rows)
 
 
-JSON_REPORT = ROOT / "docs" / "code-stats.json"
-HTML_REPORT = ROOT / "docs" / "code-stats.html"
+JSON_REPORT = OUT_DIR / "code-stats.json"
+HTML_REPORT = OUT_DIR / "code-stats.html"
 
 def extract_history(text: str) -> str:
     """取 HISTORY marker 之后、LAST_STATS 之前的历史快照内容"""
@@ -221,7 +222,7 @@ def write_report(new_section: str, current: dict, now: datetime) -> None:
         parts.append("")
     parts.append(f"<!-- LAST_STATS: {blob} -->")
 
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(parts) + "\n", encoding="utf-8")
     
     # 生成 JSON 数据
