@@ -71,21 +71,11 @@ struct HomeImmersivePetHeaderSection: View {
                                 .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
                         }
 
-                        HStack(alignment: .bottom, spacing: 4) {
-                            Text(pet.name)
-                                .font(.system(size: 38, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-
-                            if let genderSymbolText = presentation.genderSymbolText {
-                                Text(verbatim: genderSymbolText)
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                                    .foregroundStyle(presentation.genderColor)
-                                    .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
-                                    .padding(.bottom, 6)
-                            }
-                        }
+                        Text(pet.name)
+                            .font(.system(size: 38, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
 
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {

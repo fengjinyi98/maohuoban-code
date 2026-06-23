@@ -16,21 +16,12 @@ struct PetManagementPetRow: View {
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     HStack(alignment: .center) {
-                        HStack(spacing: MHBTheme.Spacing.s1) {
-                            Text(pet.name)
-                                .font(MHBTheme.Typography.body)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-
-                            if let symbolText = pet.sex.symbolText {
-                                Text(verbatim: symbolText)
-                                    .font(MHBTheme.Typography.caption)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(sexIconColor)
-                            }
-                        }
+                        Text(pet.name)
+                            .font(MHBTheme.Typography.body)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
                         Spacer()
 
@@ -72,16 +63,5 @@ struct PetManagementPetRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(pet.name)，\(pet.breedText)，\(pet.ageText)")
         .accessibilityIdentifier("pet.management.row.\(pet.id)")
-    }
-
-    private var sexIconColor: Color {
-        switch pet.sex {
-        case .male:
-            MHBTheme.ColorToken.primary.color
-        case .female:
-            MHBTheme.ColorToken.danger.color.opacity(0.78)
-        case .unknown:
-            MHBTheme.ColorToken.labelTertiary.color
-        }
     }
 }

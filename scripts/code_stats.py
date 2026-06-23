@@ -41,7 +41,7 @@ MODULES = [
     },
     {
         "key": "web",
-        "name": "Web (运营端)",
+        "name": "Web (HIS系统)",
         "dir": "maohuoban-his-web",
         "suffixes": {".ts", ".tsx", ".js", ".jsx", ".vue", ".css", ".scss", ".html"},
         "exclude_parts": {"node_modules", "dist", "build", ".next"},

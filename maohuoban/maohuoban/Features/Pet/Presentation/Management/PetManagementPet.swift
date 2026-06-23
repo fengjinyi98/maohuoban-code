@@ -11,11 +11,7 @@ struct PetManagementPet: Hashable, Identifiable {
         case unknown
 
         var symbolText: String? {
-            switch self {
-            case .male: "♂"
-            case .female: "♀"
-            case .unknown: nil
-            }
+            nil
         }
     }
 

@@ -1,14 +1,13 @@
-import SwiftUI
+import Foundation
 
 // HomeImmersivePetHeaderPresentation 首页沉浸式头图展示模型
 // 核心职责：
 // - 将宠物基础字段转换为头图可直接渲染的展示文本
-// - 统一维护头图性别图标、性别颜色和日期展示规则
+// - 统一维护头图名称展示策略和日期展示规则
 struct HomeImmersivePetHeaderPresentation {
     let calendarDay: String
     let formattedDate: String
     let genderSymbolText: String?
-    let genderColor: Color
     let worldDaysText: String
     let companionshipText: String
 
@@ -20,33 +19,10 @@ struct HomeImmersivePetHeaderPresentation {
         HomeImmersivePetHeaderPresentation(
             calendarDay: currentDayString(from: date),
             formattedDate: formattedDate(from: date),
-            genderSymbolText: genderSymbolText(for: pet),
-            genderColor: genderColor(for: pet),
+            genderSymbolText: nil,
             worldDaysText: "来到世界的第 \(worldDays(for: pet, date: date)) 天",
             companionshipText: "已陪伴 \(displayName) \(pet.companionshipDays ?? 365) 天"
         )
-    }
-
-    private static func genderSymbolText(for pet: HomeDashboardSnapshot.PetHeroSummary) -> String? {
-        switch pet.sex {
-        case .male:
-            return "♂"
-        case .female:
-            return "♀"
-        case .unknown:
-            return nil
-        }
-    }
-
-    private static func genderColor(for pet: HomeDashboardSnapshot.PetHeroSummary) -> Color {
-        switch pet.sex {
-        case .male:
-            return maleColor
-        case .female:
-            return femaleColor
-        case .unknown:
-            return .white
-        }
     }
 
     private static func currentDayString(from date: Date) -> String {
@@ -79,7 +55,4 @@ struct HomeImmersivePetHeaderPresentation {
         let components = calendar.dateComponents([.day], from: birthToday, to: today)
         return components.day
     }
-
-    private static let maleColor = Color(red: 59 / 255, green: 130 / 255, blue: 246 / 255)
-    private static let femaleColor = Color(red: 244 / 255, green: 63 / 255, blue: 94 / 255)
 }
