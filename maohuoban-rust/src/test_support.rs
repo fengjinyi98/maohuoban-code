@@ -49,6 +49,8 @@ impl AuthTestApp {
                 litters,
                 pet_profiles,
                 merchant_profiles,
+                user_profile_field_changes,
+                user_profiles,
                 auth_audit_events,
                 device_sessions,
                 password_credentials,
@@ -60,6 +62,10 @@ impl AuthTestApp {
         .execute(&self.app.pool)
         .await
         .expect("reset auth tables");
+        sqlx::query("ALTER SEQUENCE users_join_sequence_seq RESTART WITH 1")
+            .execute(&self.app.pool)
+            .await
+            .expect("reset user join sequence");
 
         let mut connection = self.app.redis_connection.clone();
         redis::cmd("FLUSHDB")

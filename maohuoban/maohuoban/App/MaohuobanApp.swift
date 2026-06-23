@@ -15,7 +15,8 @@ import MaohuobanDiagnostics
 @main
 struct MaohuobanApp: App {
     @State private var isLaunchCompleted: Bool
-    @State private var authViewModel = AuthViewModel()
+    @State private var currentUserStore: CurrentUserStore
+    @State private var authViewModel: AuthViewModel
     @State private var router = MHBAppRouter()
     @State private var appAppearanceStore = AppAppearanceStore()
 
@@ -25,6 +26,9 @@ struct MaohuobanApp: App {
             try? MHBKeychainTokenStore().clearTokens()
         }
         _isLaunchCompleted = State(initialValue: arguments.contains("--skip-launch-screen"))
+        let currentUserStore = CurrentUserStore()
+        _currentUserStore = State(initialValue: currentUserStore)
+        _authViewModel = State(initialValue: AuthViewModel(currentUserStore: currentUserStore))
         let diagnosticsLaunchMode = MaohuobanDiagnosticsLaunchMode(arguments: arguments)
 
         Task {
@@ -38,6 +42,7 @@ struct MaohuobanApp: App {
                 if isLaunchCompleted {
                     AuthRootView(
                         viewModel: authViewModel,
+                        currentUserStore: currentUserStore,
                         router: router,
                         appAppearanceStore: appAppearanceStore
                     )

@@ -71,6 +71,7 @@ impl AuthService {
             .verify_login_challenge(challenge_id, code)
             .await?;
         let user = self.users.upsert_user_by_phone(&phone).await?;
+        self.profiles.ensure_default_profile(&user).await?;
         self.users.update_last_login_at(user.id).await?;
         let session = self.create_login_session(user, device).await?;
         self.record_event(

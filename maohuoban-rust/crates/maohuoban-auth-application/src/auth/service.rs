@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+mod devices;
 mod events;
 mod password;
 mod phone;
@@ -7,7 +8,7 @@ mod session;
 
 use super::{
     AuthEventRecorder, OtpChallengeStore, PasswordCredentialService, SessionRepository,
-    TokenIssuer, UserRepository,
+    TokenIssuer, UserProfileInitializer, UserRepository,
 };
 
 /// AuthServiceConfig 认证用例配置
@@ -44,27 +45,35 @@ pub struct AuthService {
     sessions: Arc<dyn SessionRepository>,
     tokens: Arc<dyn TokenIssuer>,
     events: Arc<dyn AuthEventRecorder>,
+    profiles: Arc<dyn UserProfileInitializer>,
+}
+
+/// `AuthServiceDependencies` 认证服务依赖集合
+/// 核心职责：
+/// - 聚合认证用例所需的基础设施端口
+/// - 避免服务构造函数随业务端口增长而失控
+pub struct AuthServiceDependencies {
+    pub otp_store: Arc<dyn OtpChallengeStore>,
+    pub users: Arc<dyn UserRepository>,
+    pub passwords: Arc<dyn PasswordCredentialService>,
+    pub sessions: Arc<dyn SessionRepository>,
+    pub tokens: Arc<dyn TokenIssuer>,
+    pub events: Arc<dyn AuthEventRecorder>,
+    pub profiles: Arc<dyn UserProfileInitializer>,
 }
 
 impl AuthService {
     #[must_use]
-    pub fn new(
-        config: AuthServiceConfig,
-        otp_store: Arc<dyn OtpChallengeStore>,
-        users: Arc<dyn UserRepository>,
-        passwords: Arc<dyn PasswordCredentialService>,
-        sessions: Arc<dyn SessionRepository>,
-        tokens: Arc<dyn TokenIssuer>,
-        events: Arc<dyn AuthEventRecorder>,
-    ) -> Self {
+    pub fn new(config: AuthServiceConfig, dependencies: AuthServiceDependencies) -> Self {
         Self {
             config,
-            otp_store,
-            users,
-            passwords,
-            sessions,
-            tokens,
-            events,
+            otp_store: dependencies.otp_store,
+            users: dependencies.users,
+            passwords: dependencies.passwords,
+            sessions: dependencies.sessions,
+            tokens: dependencies.tokens,
+            events: dependencies.events,
+            profiles: dependencies.profiles,
         }
     }
 }

@@ -54,6 +54,7 @@ struct SettingsScreen: View {
                     SettingsRow(title: "退出登录", showChevron: false, alignment: .center) {
                         isLogoutSheetPresented = true
                     }
+                    .accessibilityIdentifier("settings.logoutRow")
                 }
 
                 SettingsFooterLinks()
@@ -63,6 +64,7 @@ struct SettingsScreen: View {
             .padding(.vertical, MHBTheme.Spacing.s4)
         }
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .accessibilityIdentifier("settings.scrollView")
         .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -125,6 +127,7 @@ private struct SettingsLogoutSheet: View {
                     .foregroundStyle(MHBTheme.ColorToken.danger.color)
                     .frame(maxWidth: .infinity)
                     .frame(height: 58)
+                    .accessibilityIdentifier("settings.logoutConfirmButton")
             }
             .background(MHBTheme.ColorToken.cardSolid.color)
             .clipShape(.rect(cornerRadius: MHBTheme.Radius.extraExtraLarge))

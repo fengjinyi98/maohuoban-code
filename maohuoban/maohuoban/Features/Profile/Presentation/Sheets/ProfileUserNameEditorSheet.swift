@@ -9,6 +9,7 @@ struct ProfileUserNameEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var name: String
     @State private var isInputComposing = false
+    let policyText: String?
     let onWillDismiss: () -> Void
     let onSave: () -> Void
 
@@ -48,6 +49,7 @@ struct ProfileUserNameEditorSheet: View {
                         onSubmit: saveIfNeeded
                     )
                     .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24, alignment: .leading)
+                    .accessibilityIdentifier("profile.userEdit.nameEditor.input")
 
                     Text("\(nameLimitState.count)/\(nameLimitState.maxCount)")
                         .font(.system(size: 13, weight: .regular))
@@ -58,11 +60,21 @@ struct ProfileUserNameEditorSheet: View {
                 .frame(minHeight: 56)
                 .mhbStableTextInputContainer(isError: nameLimitState.isExceeded)
 
-                Text("请设置 2-24 个字符，不包含 @、<、>、/。")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(nameLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text("请设置 2-24 个字符，不包含 @、<、>、/。")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(nameLimitState.isExceeded ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelTertiary.color)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let policyText {
+                        Text(policyText)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 Spacer()
             }
@@ -91,6 +103,7 @@ struct ProfileUserNameEditorSheet: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(saveColor)
                     .disabled(!isSaveEnabled)
+                    .accessibilityIdentifier("profile.userEdit.nameEditor.saveButton")
                 }
             }
         }

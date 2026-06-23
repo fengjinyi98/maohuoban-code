@@ -5,6 +5,7 @@ use tower::ServiceExt;
 use super::{json_request, response_json};
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn account_recovery_resets_password_and_revokes_old_sessions() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

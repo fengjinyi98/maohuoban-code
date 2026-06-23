@@ -12,19 +12,22 @@ struct ProfileUserGenderEditorSheet: View {
     @State private var draftGender: ProfileUserEditGenderOption?
     @State private var draftVisibility: Bool
     let onWillDismiss: () -> Void
+    let onSave: () -> Void
 
     private let options = ProfileUserEditGenderOption.allCases
 
     init(
         selectedGender: Binding<ProfileUserEditGenderOption?>,
         isGenderVisible: Binding<Bool>,
-        onWillDismiss: @escaping () -> Void
+        onWillDismiss: @escaping () -> Void,
+        onSave: @escaping () -> Void = {}
     ) {
         self._selectedGender = selectedGender
         self._isGenderVisible = isGenderVisible
         self._draftGender = State(initialValue: selectedGender.wrappedValue)
         self._draftVisibility = State(initialValue: isGenderVisible.wrappedValue)
         self.onWillDismiss = onWillDismiss
+        self.onSave = onSave
     }
 
     var body: some View {
@@ -41,6 +44,7 @@ struct ProfileUserGenderEditorSheet: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("profile.userEdit.genderEditor.option.\(option.rawValue)")
 
                         if option != options.last {
                             Rectangle()
@@ -68,6 +72,7 @@ struct ProfileUserGenderEditorSheet: View {
                             Toggle("", isOn: $draftVisibility)
                                 .labelsHidden()
                                 .tint(MHBTheme.ColorToken.primary.color)
+                                .accessibilityIdentifier("profile.userEdit.genderEditor.visibilityToggle")
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s4)
                         .frame(minHeight: 52)
@@ -99,10 +104,12 @@ struct ProfileUserGenderEditorSheet: View {
                         selectedGender = draftGender
                         isGenderVisible = draftVisibility
                         onWillDismiss()
+                        onSave()
                         dismiss()
                     }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                    .accessibilityIdentifier("profile.userEdit.genderEditor.saveButton")
                 }
             }
         }

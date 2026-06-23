@@ -19,7 +19,6 @@ final class AuthViewModel {
     var isAgreementAccepted = true
     var isSubmitting = false
     var isAuthenticated = false
-    var currentUser: AuthUser?
     var maskedPhone: String = ""
     var hasRecoveryChallenge = false
     var resendCountdownSeconds = 0
@@ -42,15 +41,18 @@ final class AuthViewModel {
     let repository: AuthRepository
     let tokenStore: MHBTokenStore
     let toast: MHBToastPresenter
+    let currentUserStore: CurrentUserStore
 
     init(
         repository: AuthRepository = DefaultAuthRepository(),
         tokenStore: MHBTokenStore = MHBKeychainTokenStore(),
-        toast: MHBToastPresenter = MHBToastPresenter()
+        toast: MHBToastPresenter = MHBToastPresenter(),
+        currentUserStore: CurrentUserStore = CurrentUserStore()
     ) {
         self.repository = repository
         self.tokenStore = tokenStore
         self.toast = toast
+        self.currentUserStore = currentUserStore
     }
 
     func bootstrapSession() async {
@@ -59,11 +61,10 @@ final class AuthViewModel {
             let response = try await repository.refresh(refreshToken: tokens.refreshToken)
             guard let session = response.data else { return }
             try tokenStore.saveTokens(session.storedTokens)
-            currentUser = session.user
-            isAuthenticated = true
+            applyAuthenticatedSession(session)
         } catch let error as MHBAPIError {
             if shouldClearStoredTokens(afterRefreshError: error) {
-                try? tokenStore.clearTokens()
+                resetLocalSession()
             }
         } catch {
         }
@@ -117,8 +118,7 @@ final class AuthViewModel {
             let response = try await repository.passwordLogin(phone: phone, password: password)
             guard let session = response.data else { throw MHBAPIError.invalidResponse }
             try tokenStore.saveTokens(session.storedTokens)
-            currentUser = session.user
-            isAuthenticated = true
+            applyAuthenticatedSession(session)
             toast.success(response.message)
         }
     }
@@ -140,8 +140,7 @@ final class AuthViewModel {
             )
             guard let session = response.data else { throw MHBAPIError.invalidResponse }
             try tokenStore.saveTokens(session.storedTokens)
-            currentUser = session.user
-            isAuthenticated = true
+            applyAuthenticatedSession(session)
             toast.success(response.message)
         }
     }
@@ -197,8 +196,7 @@ final class AuthViewModel {
             let response = try await repository.oauth(provider: provider)
             if let session = response.data {
                 try tokenStore.saveTokens(session.storedTokens)
-                currentUser = session.user
-                isAuthenticated = true
+                applyAuthenticatedSession(session)
                 toast.success(response.message)
             }
         }

@@ -114,9 +114,9 @@ struct SettingsDeviceManagementScreen: View {
                     ContentUnavailableView("暂无登录设备", systemImage: "iphone")
                 } else {
                     SettingsSection {
-                        ForEach(Array(store.devices.enumerated()), id: \.element.deviceID) { index, device in
+                        ForEach(Array(store.devices.enumerated()), id: \.element.sessionID) { index, device in
                             SettingsDeviceRow(device: device) {
-                                onDeviceDetail(device.deviceID)
+                                onDeviceDetail(device.sessionID)
                             }
                             if index < store.devices.count - 1 {
                                 SettingsDivider()
@@ -148,17 +148,17 @@ struct SettingsDeviceManagementScreen: View {
 // - 展示单个登录设备详细信息
 // - 提供移除非当前设备的操作入口
 struct SettingsDeviceDetailScreen: View {
-    let deviceID: String
+    let sessionID: String
     let store: SettingsDeviceSessionStore
 
     private var details: SettingsDeviceSessionDetails? {
-        store.deviceDetails[deviceID]
+        store.deviceDetails[sessionID]
     }
 
     var body: some View {
         MHBScreenScrollView {
             VStack(spacing: MHBTheme.Spacing.s4) {
-                if store.loadingDetailDeviceID == deviceID {
+                if store.loadingDetailDeviceID == sessionID {
                     ProgressView("加载设备详情...")
                         .frame(maxWidth: .infinity)
                         .padding(.top, MHBTheme.Spacing.s8)
@@ -181,7 +181,7 @@ struct SettingsDeviceDetailScreen: View {
 
                     if details.summary.isCurrentDevice == false {
                         Button(role: .destructive, action: removeDevice) {
-                            Text(store.removingDeviceID == deviceID ? "移除中..." : "移除此设备")
+                            Text(store.removingDeviceID == sessionID ? "移除中..." : "移除此设备")
                                 .font(MHBTheme.Typography.headline)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -200,14 +200,24 @@ struct SettingsDeviceDetailScreen: View {
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle("设备详情")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: deviceID) {
-            await store.loadDetails(deviceID: deviceID)
+        .task(id: sessionID) {
+            await store.loadDetails(sessionID: sessionID)
         }
     }
 
     private func removeDevice() {
         Task {
-            await store.removeDevice(deviceID: deviceID)
+            await store.removeDevice(sessionID: sessionID)
+            showDeviceToast()
+        }
+    }
+
+    private func showDeviceToast() {
+        guard let message = store.toastMessage else { return }
+        if store.lastErrorMessage == nil {
+            MHBToastPresenter().success(message)
+        } else {
+            MHBToastPresenter().danger(message)
         }
     }
 }
@@ -274,6 +284,16 @@ struct SettingsSetPasswordScreen: View {
     private func submit() {
         Task {
             await store.submit()
+            showPasswordToast(success: store.didComplete)
+        }
+    }
+
+    private func showPasswordToast(success: Bool) {
+        guard let message = store.toastMessage else { return }
+        if success {
+            MHBToastPresenter().success(message)
+        } else {
+            MHBToastPresenter().danger(message)
         }
     }
 }
@@ -379,14 +399,25 @@ struct SettingsAddressListScreen: View {
 // - 展示当前账号和可切换账号列表
 // - 在后端未接入时提供添加账号与移除账号占位入口
 struct SettingsAccountManagementScreen: View {
+    let username: String
+    let phoneDisplayText: String
+
+    init(
+        username: String,
+        phoneDisplayText: String
+    ) {
+        self.username = username
+        self.phoneDisplayText = phoneDisplayText
+    }
+
     var body: some View {
         MHBScreenScrollView {
             VStack(spacing: MHBTheme.Spacing.s4) {
                 SettingsSection {
                     SettingsRow(
-                        title: SettingsMockData.username,
+                        title: username,
                         value: "当前账号",
-                        subtitle: "+86 \(SettingsMockData.phoneMasked)",
+                        subtitle: phoneDisplayText,
                         showChevron: false
                     )
                     SettingsDivider()
@@ -484,16 +515,16 @@ private struct SettingsPasswordInputCard: View {
 
     var body: some View {
         SettingsSection {
-            if store.selectedMode == .currentPassword {
+            if store.requiresCurrentPassword {
                 passwordField("当前密码", text: $store.currentPassword, isVisible: $isCurrentPasswordVisible)
                 SettingsDivider()
             }
-            if store.selectedMode == .smsCode {
+            if store.requiresSMSCode {
                 HStack {
                     TextField("短信验证码", text: $store.smsCode)
                         .keyboardType(.numberPad)
                     Button(store.sendCodeButtonTitle) {
-                        store.sendResetCode()
+                        sendResetCode()
                     }
                     .disabled(store.isSendCodeDisabled)
                     .font(MHBTheme.Typography.callout)
@@ -528,6 +559,22 @@ private struct SettingsPasswordInputCard: View {
             .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
         }
         .padding(MHBTheme.Spacing.s4)
+    }
+
+    private func sendResetCode() {
+        Task {
+            await store.sendResetCode()
+            showCodeToast()
+        }
+    }
+
+    private func showCodeToast() {
+        guard let message = store.toastMessage else { return }
+        if store.errorMessage == nil {
+            MHBToastPresenter().success(message)
+        } else {
+            MHBToastPresenter().danger(message)
+        }
     }
 }
 

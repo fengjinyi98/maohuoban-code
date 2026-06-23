@@ -52,7 +52,8 @@ xcodebuild -project maohuoban/maohuoban.xcodeproj \
 | App Debug 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
 | UI Test 编译 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build-for-testing` |
 | DesignSystem 测试 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug test` |
-| 登录 E2E | `MHB_BACKEND_BASE_URL=http://192.168.2.2:8080 xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanUITests/MaohuobanAuthUITests` |
+| 登录 E2E | `MHB_BACKEND_BASE_URL=http://127.0.0.1:18080 xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanUITests/MaohuobanAuthUITests/testAuthFlowFromPhoneCodeToPasswordRecovery` |
+| E2E 手册 | `docs/engineering/auth/05_认证与个人资料E2E运行手册.md` |
 
 ## 法务文档页面
 

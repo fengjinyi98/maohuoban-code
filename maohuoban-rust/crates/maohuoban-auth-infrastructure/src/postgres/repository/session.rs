@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
 use maohuoban_auth_application::auth::NewDeviceSession;
-use maohuoban_auth_domain::auth::{AuthError, AuthResult, RefreshSession, RefreshTokenResolution};
+use maohuoban_auth_domain::auth::{
+    AccountDeviceSession, AuthError, AuthResult, RefreshSession, RefreshTokenResolution,
+};
 use uuid::Uuid;
 
 use super::PostgresAuthRepository;
-use super::rows::RefreshSessionRow;
+use super::rows::{AccountDeviceSessionRow, RefreshSessionRow};
 use super::to_infrastructure_error;
 
 impl PostgresAuthRepository {
@@ -147,6 +149,93 @@ impl PostgresAuthRepository {
         .await
         .map_err(to_infrastructure_error)?;
         Ok(())
+    }
+
+    pub(super) async fn list_active_device_sessions_query(
+        &self,
+        user_id: Uuid,
+    ) -> AuthResult<Vec<AccountDeviceSession>> {
+        let rows = sqlx::query_as::<_, AccountDeviceSessionRow>(
+            r#"
+            SELECT id AS session_id,
+                   user_id,
+                   device_id,
+                   device_name,
+                   platform,
+                   app_version,
+                   created_at,
+                   last_seen_at,
+                   expires_at
+            FROM device_sessions
+            WHERE user_id = $1
+              AND revoked_at IS NULL
+              AND expires_at > now()
+            ORDER BY last_seen_at DESC, created_at DESC
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    pub(super) async fn find_active_device_session_query(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<Option<AccountDeviceSession>> {
+        let row = sqlx::query_as::<_, AccountDeviceSessionRow>(
+            r#"
+            SELECT id AS session_id,
+                   user_id,
+                   device_id,
+                   device_name,
+                   platform,
+                   app_version,
+                   created_at,
+                   last_seen_at,
+                   expires_at
+            FROM device_sessions
+            WHERE id = $1
+              AND user_id = $2
+              AND revoked_at IS NULL
+              AND expires_at > now()
+            "#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?
+        .map(Into::into);
+
+        Ok(row)
+    }
+
+    pub(super) async fn revoke_device_session_command(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<bool> {
+        let result = sqlx::query(
+            r#"
+            UPDATE device_sessions
+            SET revoked_at = now(), updated_at = now()
+            WHERE id = $1
+              AND user_id = $2
+              AND revoked_at IS NULL
+              AND expires_at > now()
+            "#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(result.rows_affected() == 1)
     }
 
     pub(super) async fn revoke_user_sessions_command(&self, user_id: Uuid) -> AuthResult<()> {

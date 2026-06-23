@@ -3,6 +3,7 @@ mod model;
 
 pub use error::{AuthError, AuthResult};
 pub use model::{
-    AccessTokenSubject, AuthSession, AuthUser, DeviceDescriptor, OAuthProvider, PhoneCodeChallenge,
-    RefreshSession, RefreshTokenResolution, TokenPair,
+    AccessTokenSubject, AccountDeviceSession, AuthSession, AuthUser, AuthenticatedSession,
+    DeviceDescriptor, OAuthProvider, PhoneCodeChallenge, RefreshSession, RefreshTokenResolution,
+    TokenPair,
 };

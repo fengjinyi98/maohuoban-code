@@ -18,6 +18,10 @@ members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-profile-application",
+    "maohuoban-rust/crates/maohuoban-profile-domain",
+    "maohuoban-rust/crates/maohuoban-profile-http",
+    "maohuoban-rust/crates/maohuoban-profile-infrastructure",
     "maohuoban-rust/crates/maohuoban-recommendation-application",
     "maohuoban-rust/crates/maohuoban-recommendation-domain",
     "maohuoban-rust/crates/maohuoban-recommendation-infrastructure",
@@ -47,6 +51,10 @@ default-members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-profile-application",
+    "maohuoban-rust/crates/maohuoban-profile-domain",
+    "maohuoban-rust/crates/maohuoban-profile-http",
+    "maohuoban-rust/crates/maohuoban-profile-infrastructure",
     "maohuoban-rust/crates/maohuoban-recommendation-application",
     "maohuoban-rust/crates/maohuoban-recommendation-domain",
     "maohuoban-rust/crates/maohuoban-recommendation-infrastructure",
@@ -90,6 +98,10 @@ maohuoban-pet-application = { path = "maohuoban-rust/crates/maohuoban-pet-applic
 maohuoban-pet-domain = { path = "maohuoban-rust/crates/maohuoban-pet-domain" }
 maohuoban-pet-http = { path = "maohuoban-rust/crates/maohuoban-pet-http" }
 maohuoban-pet-infrastructure = { path = "maohuoban-rust/crates/maohuoban-pet-infrastructure" }
+maohuoban-profile-application = { path = "maohuoban-rust/crates/maohuoban-profile-application" }
+maohuoban-profile-domain = { path = "maohuoban-rust/crates/maohuoban-profile-domain" }
+maohuoban-profile-http = { path = "maohuoban-rust/crates/maohuoban-profile-http" }
+maohuoban-profile-infrastructure = { path = "maohuoban-rust/crates/maohuoban-profile-infrastructure" }
 maohuoban-recommendation-application = { path = "maohuoban-rust/crates/maohuoban-recommendation-application" }
 maohuoban-recommendation-domain = { path = "maohuoban-rust/crates/maohuoban-recommendation-domain" }
 maohuoban-recommendation-infrastructure = { path = "maohuoban-rust/crates/maohuoban-recommendation-infrastructure" }

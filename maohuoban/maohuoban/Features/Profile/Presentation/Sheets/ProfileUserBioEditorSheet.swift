@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct ProfileUserBioEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var bio: String
+    let policyText: String?
     let onWillDismiss: () -> Void
     let onSave: () -> Void
 
@@ -29,6 +30,7 @@ struct ProfileUserBioEditorSheet: View {
                         .padding(.horizontal, MHBTheme.Spacing.s3)
                         .padding(.vertical, MHBTheme.Spacing.s3)
                         .focused($isFocused)
+                        .accessibilityIdentifier("profile.userEdit.bioEditor.input")
 
                     if bio.isEmpty {
                         Text("介绍你和毛伙伴的日常、照护经验或想让大家了解的信息")
@@ -48,9 +50,19 @@ struct ProfileUserBioEditorSheet: View {
                 }
                 .frame(minHeight: 220)
 
-                Text("简介会展示在个人主页资料区。")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text("简介会展示在个人主页资料区。")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+                    if let policyText {
+                        Text(policyText)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 Spacer()
             }
@@ -78,6 +90,7 @@ struct ProfileUserBioEditorSheet: View {
                     }
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                    .accessibilityIdentifier("profile.userEdit.bioEditor.saveButton")
                 }
             }
         }

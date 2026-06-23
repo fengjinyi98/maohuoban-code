@@ -1,6 +1,6 @@
 # 登录系统 Goal 进度追踪
 
-- 更新时间：2026-06-13 12:57
+- 更新时间：2026-06-23
 - Goal：完成完整登录系统前后端代码与端到端测试，包含数据库清理、Redis、观测、toast 反馈、设计文档和进度追踪。
 
 ## 1. 当前结论
@@ -109,7 +109,8 @@ users
 | DesignSystem 测试 | `cd maohuoban/Packages/MaohuobanDesignSystem && xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug ENABLE_APP_INTENTS_METADATA_EXTRACTION=NO test` 显示 `** TEST SUCCEEDED **`，9 个 Swift Testing 用例通过 | 已完成 |
 | HTTP E2E | `scripts/e2e/auth_login.sh` 输出 `auth e2e ok: audit_events=8` | 已完成 |
 | 局域网 HTTP E2E | `BASE_URL=http://192.168.2.2:8080 scripts/e2e/auth_login.sh` 输出 `auth e2e ok: audit_events=8`，`lsof` 显示 `TCP *:8080 (LISTEN)` | 已完成 |
-| iOS UI E2E | `MHB_BACKEND_BASE_URL=http://192.168.2.2:8080 xcodebuild test ... -only-testing:maohuobanUITests/MaohuobanAuthUITests/testAuthFlowFromPhoneCodeToPasswordRecovery` 显示 `** TEST SUCCEEDED **` | 已完成 |
+| iOS UI E2E | `MHB_BACKEND_BASE_URL=http://127.0.0.1:18080 xcodebuild test ... -only-testing:maohuobanUITests/MaohuobanAuthUITests/testAuthFlowFromPhoneCodeToPasswordRecovery` 显示 `** TEST SUCCEEDED **` | 已完成 |
+| E2E 运行手册 | `docs/engineering/auth/05_认证与个人资料E2E运行手册.md` 固化 `18080`、`maohuoban_test`、Redis DB 15、Toast message 断言和 UI Test 排障点 | 已完成 |
 | UI Test AppIntents 配置 | `maohuobanUITests` target 已链接 `AppIntents.framework`；最新 UI E2E 日志显示 `Extracted no relevant App Intents symbols, skipping writing output`，无缺框架 warning | 已完成 |
 | iOS 本地网络配置 | 构建产物 `Info.plist` 已验证 `NSAppTransportSecurity.NSAllowsArbitraryLoads = true` 和 `NSLocalNetworkUsageDescription` | 已完成 |
 | 模拟器运行 | `build_run_sim` 成功安装并运行 `com.jinyi.maohuoban`；截图路径 `/var/folders/tq/ystrxttj7yz5zwqyrb2n909r0000gn/T/screenshot_optimized_bd33e992-62c6-4ef4-a6e9-855e1300f7f6.jpg` | 已完成截图复核 |
@@ -150,7 +151,7 @@ users
 | `cd maohuoban/Packages/MaohuobanDesignSystem && xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug ENABLE_APP_INTENTS_METADATA_EXTRACTION=NO test` | 9 tests passed，`** TEST SUCCEEDED **` |
 | `scripts/e2e/auth_login.sh` | `auth e2e ok: audit_events=8` |
 | `BASE_URL=http://192.168.2.2:8080 scripts/e2e/auth_login.sh` | `auth e2e ok: audit_events=8` |
-| `MHB_BACKEND_BASE_URL=http://192.168.2.2:8080 xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanUITests/MaohuobanAuthUITests/testAuthFlowFromPhoneCodeToPasswordRecovery` | `** TEST SUCCEEDED **`；`auth.password.login_success` 写入 `auth_audit_events` |
+| `MHB_BACKEND_BASE_URL=http://127.0.0.1:18080 xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug -only-testing:maohuobanUITests/MaohuobanAuthUITests/testAuthFlowFromPhoneCodeToPasswordRecovery` | `** TEST SUCCEEDED **`；`auth.password.login_success` 写入 `auth_audit_events` |
 | `rg -n "warning: Metadata extraction skipped\|Extracted no relevant App Intents symbols\|TEST SUCCEEDED" /tmp/maohuoban-ui-e2e.log -S` | 无 `warning: Metadata extraction skipped`；存在 `Extracted no relevant App Intents symbols, skipping writing output` 和 `** TEST SUCCEEDED **` |
 | `PlistBuddy -c 'Print :NSAppTransportSecurity' <Debug app Info.plist>` | `NSAllowsArbitraryLoads = true` |
 | `build_run_sim` | App 已安装运行到 iPhone 17 Pro 模拟器 |

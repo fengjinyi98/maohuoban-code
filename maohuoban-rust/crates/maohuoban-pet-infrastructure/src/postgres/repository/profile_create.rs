@@ -7,6 +7,7 @@ use super::rows::PetProfileRow;
 use super::storage::{profile_number_from_uuid, to_infrastructure_error};
 
 impl PostgresPetRepository {
+    #[allow(clippy::too_many_lines)]
     pub(super) async fn create_pet_profile_command(
         &self,
         input: NewPetProfile,

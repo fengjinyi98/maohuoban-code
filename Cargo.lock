@@ -1453,8 +1453,11 @@ dependencies = [
  "axum",
  "maohuoban-auth-application",
  "maohuoban-auth-domain",
+ "maohuoban-profile-application",
+ "maohuoban-profile-domain",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -1630,6 +1633,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "maohuoban-profile-application"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-profile-domain",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-profile-domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-profile-http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "maohuoban-auth-application",
+ "maohuoban-auth-domain",
+ "maohuoban-profile-application",
+ "maohuoban-profile-domain",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "maohuoban-profile-infrastructure"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "maohuoban-profile-application",
+ "maohuoban-profile-domain",
+ "sqlx",
+ "uuid",
+]
+
+[[package]]
 name = "maohuoban-recommendation-application"
 version = "0.1.0"
 dependencies = [
@@ -1753,6 +1803,9 @@ dependencies = [
  "maohuoban-pet-domain",
  "maohuoban-pet-http",
  "maohuoban-pet-infrastructure",
+ "maohuoban-profile-application",
+ "maohuoban-profile-http",
+ "maohuoban-profile-infrastructure",
  "maohuoban-recommendation-application",
  "maohuoban-recommendation-domain",
  "maohuoban-recommendation-infrastructure",

@@ -5,8 +5,11 @@ import Foundation
 // - 为快速 UI 阶段提供个人账号、等级和统计展示数据
 // - 隔离后续真实个人中心接口接入前的 mock 数据
 struct ProfileAccountSummary: Equatable {
+    let userID: String
     let displayName: String
     let avatarAssetName: String
+    let avatarSex: MHBAvatarSex
+    let avatarSexVisibility: MHBAvatarSexVisibility
     let levelText: String
     let currentExperience: Int
     let targetExperience: Int
@@ -27,18 +30,21 @@ struct ProfileAccountSummary: Equatable {
     var avatarSubject: MHBAvatarSubject {
         .user(
             MHBAvatarUser(
-                id: "profile-account",
+                id: userID,
                 displayName: displayName,
                 source: .asset(avatarAssetName),
-                sex: .unknown,
-                sexVisibility: .hidden
+                sex: avatarSex,
+                sexVisibility: avatarSexVisibility
             )
         )
     }
 
     static let mock = ProfileAccountSummary(
+        userID: "profile-account",
         displayName: "橘子午后",
         avatarAssetName: "HomeUserAvatarMock",
+        avatarSex: .unknown,
+        avatarSexVisibility: .hidden,
         levelText: "Lv.3",
         currentExperience: 15947,
         targetExperience: 27000,

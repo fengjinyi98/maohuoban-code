@@ -5,7 +5,7 @@ import XCTest
 // - 验证验证码登录、退出登录、第三方 TODO toast
 // - 验证忘记密码重置后可使用新密码登录
 final class MaohuobanAuthUITests: XCTestCase {
-    let backendBaseURL = ProcessInfo.processInfo.environment["MHB_BACKEND_BASE_URL"] ?? "http://192.168.2.2:8080"
+    let backendBaseURL = ProcessInfo.processInfo.environment["MHB_BACKEND_BASE_URL"] ?? "http://127.0.0.1:18080"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -30,7 +30,7 @@ final class MaohuobanAuthUITests: XCTestCase {
         resetPasswordFromRecovery(app: app, phone: phone, password: newPassword)
         dismissPasswordSavePromptIfPresent(app: app)
         let passwordLoginButton = app.buttons["auth.passwordLoginButton"]
-        XCTAssertTrue(waitUntilHittable(passwordLoginButton, timeout: 5), passwordLoginButton.debugDescription)
+        XCTAssertTrue(waitUntilPasswordLoginButtonReady(app: app, timeout: 16), passwordLoginButton.debugDescription)
         passwordLoginButton.tap()
         XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 10))
         assertKeyboardDismissed(app: app)

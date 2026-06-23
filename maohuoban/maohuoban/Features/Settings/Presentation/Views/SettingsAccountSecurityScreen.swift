@@ -6,7 +6,7 @@ import MaohuobanDesignSystem
 // - 展示手机、密码、社交账号和认证状态
 // - 提供设备管理、密码设置和认证页面入口
 struct SettingsAccountSecurityScreen: View {
-    let phoneMasked: String
+    let phoneDisplayText: String
     let passwordStatusText: String
     let rememberLoginEnabled: Bool
     let onRememberLoginChange: (Bool) -> Void
@@ -19,7 +19,7 @@ struct SettingsAccountSecurityScreen: View {
     @State private var isPhoneAlertPresented = false
 
     init(
-        phoneMasked: String,
+        phoneDisplayText: String,
         passwordStatusText: String,
         rememberLoginEnabled: Bool,
         onRememberLoginChange: @escaping (Bool) -> Void,
@@ -28,7 +28,7 @@ struct SettingsAccountSecurityScreen: View {
         onOfficialVerification: @escaping () -> Void,
         onDeviceManagement: @escaping () -> Void
     ) {
-        self.phoneMasked = phoneMasked
+        self.phoneDisplayText = phoneDisplayText
         self.passwordStatusText = passwordStatusText
         self.rememberLoginEnabled = rememberLoginEnabled
         self.onRememberLoginChange = onRememberLoginChange
@@ -43,7 +43,7 @@ struct SettingsAccountSecurityScreen: View {
         MHBScreenScrollView {
             VStack(spacing: MHBTheme.Spacing.s4) {
                 SettingsSection {
-                    SettingsRow(title: "手机号", value: "+86 \(phoneMasked)") {
+                    SettingsRow(title: "手机号", value: phoneDisplayText) {
                         isPhoneAlertPresented = true
                     }
                     SettingsDivider()

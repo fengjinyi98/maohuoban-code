@@ -14,6 +14,7 @@ final class SettingsDeviceSessionStore {
     private(set) var loadingDetailDeviceID: String?
     private(set) var removingDeviceID: String?
     private(set) var lastErrorMessage: String?
+    private(set) var toastMessage: String?
 
     @ObservationIgnored private let repository: any SettingsDeviceSessionRepository
 
@@ -27,36 +28,43 @@ final class SettingsDeviceSessionStore {
         defer { isLoadingDevices = false }
 
         do {
-            devices = try await repository.fetchDevices()
+            let response = try await repository.fetchDevices()
+            devices = response.data?.devices ?? []
             lastErrorMessage = nil
         } catch {
-            lastErrorMessage = error.localizedDescription
+            lastErrorMessage = error.toastMessage
         }
     }
 
-    func loadDetails(deviceID: String) async {
-        loadingDetailDeviceID = deviceID
+    func loadDetails(sessionID: String) async {
+        loadingDetailDeviceID = sessionID
         defer { loadingDetailDeviceID = nil }
 
         do {
-            deviceDetails[deviceID] = try await repository.fetchDeviceDetails(deviceID: deviceID)
+            let response = try await repository.fetchDeviceDetails(sessionID: sessionID)
+            if let details = response.data {
+                deviceDetails[sessionID] = details
+            }
             lastErrorMessage = nil
         } catch {
-            lastErrorMessage = error.localizedDescription
+            lastErrorMessage = error.toastMessage
         }
     }
 
-    func removeDevice(deviceID: String) async {
-        removingDeviceID = deviceID
+    func removeDevice(sessionID: String) async {
+        removingDeviceID = sessionID
+        toastMessage = nil
         defer { removingDeviceID = nil }
 
         do {
-            try await repository.removeDevice(deviceID: deviceID)
-            devices.removeAll { $0.deviceID == deviceID }
-            deviceDetails.removeValue(forKey: deviceID)
+            let response = try await repository.removeDevice(sessionID: sessionID)
+            devices.removeAll { $0.sessionID == sessionID }
+            deviceDetails.removeValue(forKey: sessionID)
             lastErrorMessage = nil
+            toastMessage = response.message
         } catch {
-            lastErrorMessage = error.localizedDescription
+            lastErrorMessage = error.toastMessage
+            toastMessage = error.toastMessage
         }
     }
 }

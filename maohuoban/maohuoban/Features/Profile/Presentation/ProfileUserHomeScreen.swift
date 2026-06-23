@@ -6,19 +6,22 @@ import MaohuobanDesignSystem
 // - 组合个人主页沉浸式头图、资料区和内容区
 // - 通过 ProfileRoute 承接我的 Tab 内部系统导航
 struct ProfileUserHomeScreen: View {
-    let profile: ProfileUserHome
+    @Bindable var currentUserStore: CurrentUserStore
+    let content: ProfileUserHome
     let onOpenRoute: (ProfileRoute) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var scrollOffset: CGFloat = 0
     @State private var selectedTabID: String
 
     init(
-        profile: ProfileUserHome = .mock,
+        currentUserStore: CurrentUserStore,
+        content: ProfileUserHome = .mock,
         onOpenRoute: @escaping (ProfileRoute) -> Void = { _ in }
     ) {
-        self.profile = profile
+        self.currentUserStore = currentUserStore
+        self.content = content
         self.onOpenRoute = onOpenRoute
-        _selectedTabID = State(initialValue: profile.tabContents.first?.id ?? "")
+        _selectedTabID = State(initialValue: content.tabContents.first?.id ?? "")
     }
 
     var body: some View {
@@ -30,26 +33,26 @@ struct ProfileUserHomeScreen: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 0) {
                         ProfileUserHomeCoverSection(
-                            assetName: profile.coverAssetName,
+                            assetName: content.coverAssetName,
                             scrollOffset: scrollOffset
                         )
 
                         ProfileUserHomeIdentitySection(
-                            displayName: profile.displayName,
-                            maohuobanID: profile.maohuobanID,
-                            ipLocation: profile.ipLocation,
-                            bio: profile.bio,
-                            avatarSubject: profile.avatarSubject,
-                            professionalBadge: profile.professionalBadge,
+                            displayName: displayNameValue,
+                            maohuobanID: currentUserStore.maohuobanID,
+                            ipLocation: content.ipLocation,
+                            bio: bioValue,
+                            avatarSubject: currentUserStore.avatarSubject,
+                            professionalBadge: content.professionalBadge,
                             editRoute: ProfileRoute.editUserProfile
                         )
 
-                        ProfileUserHomeStatsSection(stats: profile.stats)
+                        ProfileUserHomeStatsSection(stats: content.stats)
 
-                        ProfileUserHomePetFamilySection(pets: profile.pets)
+                        ProfileUserHomePetFamilySection(pets: content.pets)
 
                         ProfileUserHomeTabsBar(
-                            tabs: profile.tabContents,
+                            tabs: content.tabContents,
                             selectedTabID: $selectedTabID
                         )
 
@@ -69,10 +72,10 @@ struct ProfileUserHomeScreen: View {
                 }
 
                 ProfileUserHomeNavigationChrome(
-                    title: profile.displayName,
-                    avatarSubject: profile.avatarSubject,
+                    title: displayNameValue,
+                    avatarSubject: currentUserStore.avatarSubject,
                     progress: navigationProgress,
-                    aiRoute: ProfileRoute.aiAssistant(profile.aiEntryContext),
+                    aiRoute: ProfileRoute.aiAssistant(aiEntryContext),
                     onBack: {
                         dismiss()
                     },
@@ -93,9 +96,27 @@ struct ProfileUserHomeScreen: View {
     }
 
     private var selectedTabContent: ProfileUserHomeTabContent {
-        profile.tabContents.first(where: { $0.id == selectedTabID })
-            ?? profile.tabContents.first
+        content.tabContents.first(where: { $0.id == selectedTabID })
+            ?? content.tabContents.first
             ?? ProfileUserHomeTabContent(id: "empty", title: "动态", countText: nil, posts: [])
+    }
+
+    private var displayNameValue: String {
+        currentUserStore.displayName
+    }
+
+    private var bioValue: String {
+        let currentBio = currentUserStore.bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        return currentBio.isEmpty ? content.bio : currentUserStore.bio
+    }
+
+    private var aiEntryContext: AIAssistantEntryContext {
+        AIAssistantEntryContext(
+            selectedPetID: content.pets.first?.id,
+            selectedPetName: content.pets.first?.name,
+            selectedPetSpecies: .cat,
+            ugcContextTitle: "\(displayNameValue) 的个人主页"
+        )
     }
 
     private var navigationProgress: CGFloat {

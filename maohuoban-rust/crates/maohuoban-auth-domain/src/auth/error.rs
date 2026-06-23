@@ -24,6 +24,20 @@ pub enum AuthError {
     TooManyAttempts,
     #[error("invalid credentials")]
     InvalidCredentials,
+    #[error("password already set")]
+    PasswordAlreadySet,
+    #[error("password not set")]
+    PasswordNotSet,
+    #[error("current password invalid")]
+    CurrentPasswordInvalid,
+    #[error("password weak")]
+    PasswordWeak,
+    #[error("password mismatch")]
+    PasswordMismatch,
+    #[error("device not found")]
+    DeviceNotFound,
+    #[error("current device remove forbidden")]
+    CurrentDeviceRemoveForbidden,
     #[error("user not found")]
     UserNotFound,
     #[error("access token invalid")]

@@ -8,7 +8,7 @@ import MaohuobanDesignSystem
 // - 提供退出登录入口传给"我的"Tab
 struct MHBAppShell: View {
     @Bindable var router: MHBAppRouter
-    let currentUserID: String?
+    @Bindable var currentUserStore: CurrentUserStore
     let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
     @State private var topicStore = TopicStore()
@@ -17,7 +17,7 @@ struct MHBAppShell: View {
         TabView(selection: $router.selectedTab) {
             MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
                 HomeRootScreen(
-                    currentUserID: currentUserID,
+                    currentUserID: currentUserStore.userID,
                     tabState: router.tabState
                 )
             }
@@ -41,7 +41,7 @@ struct MHBAppShell: View {
                 ProfileRootScreen(
                     topicStore: topicStore,
                     tabState: router.tabState,
-                    currentUserID: currentUserID,
+                    currentUserStore: currentUserStore,
                     appAppearanceStore: appAppearanceStore,
                     onLogout: onLogout
                 )

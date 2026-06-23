@@ -19,12 +19,13 @@ final class SettingsMockStoreTests: XCTestCase {
     func testRemovingMockDeviceUpdatesDevicesAndDetails() async {
         let store = SettingsDeviceSessionStore(repository: MockSettingsDeviceSessionRepository())
         await store.loadDevices()
-        let deviceID = try! XCTUnwrap(store.devices.first?.deviceID)
+        let sessionID = try! XCTUnwrap(store.devices.first?.sessionID)
 
-        await store.loadDetails(deviceID: deviceID)
-        await store.removeDevice(deviceID: deviceID)
+        await store.loadDetails(sessionID: sessionID)
+        await store.removeDevice(sessionID: sessionID)
 
-        XCTAssertFalse(store.devices.contains { $0.deviceID == deviceID })
-        XCTAssertNil(store.deviceDetails[deviceID])
+        XCTAssertFalse(store.devices.contains { $0.sessionID == sessionID })
+        XCTAssertNil(store.deviceDetails[sessionID])
+        XCTAssertEqual(store.toastMessage, "登录设备已移除")
     }
 }

@@ -74,33 +74,84 @@ extension MaohuobanAuthUITests {
 
     // logoutFromProfile 从"我的"Tab 触发退出登录
     // 核心职责：
-    // - 定位系统 TabBar 中的"我的"入口
-    // - 触发 Profile 页面登出按钮，验证真实登出链路
+    // - 定位系统 TabBar 中的"我的"入口和设置入口
+    // - 通过设置页确认面板验证真实登出链路
     @MainActor
     func logoutFromProfile(app: XCUIApplication) {
         let profileTab = app.tabBars.buttons["我的"]
         XCTAssertTrue(profileTab.waitForExistence(timeout: 5))
         profileTab.tap()
 
-        let logoutButton = app.buttons["profile.logoutButton"]
-        XCTAssertTrue(logoutButton.waitForExistence(timeout: 5))
-        logoutButton.tap()
+        let settingsButton = app.buttons["profile.settingsButton"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.tap()
+
+        let logoutRow = app.buttons["settings.logoutRow"]
+        XCTAssertTrue(logoutRow.waitForExistence(timeout: 5))
+        if !logoutRow.isHittable {
+            app.scrollViews["settings.scrollView"].swipeUp()
+        }
+        XCTAssertTrue(waitUntilHittable(logoutRow, timeout: 3), logoutRow.debugDescription)
+        logoutRow.tap()
+
+        let confirmButton = app.buttons["settings.logoutConfirmButton"]
+        XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
+        confirmButton.tap()
     }
 
     // dismissPasswordSavePromptIfPresent 关闭系统保存密码弹窗
     // 核心职责：
     // - 处理重置密码后 iOS 系统 Sheet 对登录按钮的遮挡
     // - 让端到端测试继续验证真实密码登录链路
+    @discardableResult
     @MainActor
-    func dismissPasswordSavePromptIfPresent(app: XCUIApplication) {
+    func dismissPasswordSavePromptIfPresent(app: XCUIApplication, timeout: TimeInterval = 2) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
         for title in ["以后", "Not Now", "稍后", "以后再说"] {
-            let button = app.buttons[title]
-            if button.waitForExistence(timeout: 2) {
-                button.tap()
-                _ = waitUntilHidden(button, timeout: 3)
-                return
+            if tapPasswordSavePromptButton(app: app, title: title) {
+                return true
             }
         }
+        while Date() < deadline {
+            for title in ["以后", "Not Now", "稍后", "以后再说"] where tapPasswordSavePromptButton(app: app, title: title) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+        return false
+    }
+
+    // waitUntilPasswordLoginButtonReady 等待密码登录按钮可点击
+    // 核心职责：
+    // - 轮询关闭可能延迟出现的系统保存密码弹窗
+    // - 返回登录按钮最终可点击状态
+    @MainActor
+    func waitUntilPasswordLoginButtonReady(app: XCUIApplication, timeout: TimeInterval) -> Bool {
+        let passwordLoginButton = app.buttons["auth.passwordLoginButton"]
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            _ = dismissPasswordSavePromptIfPresent(app: app, timeout: 0.2)
+            if passwordLoginButton.exists, passwordLoginButton.isHittable {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        }
+        return passwordLoginButton.exists && passwordLoginButton.isHittable
+    }
+
+    // tapPasswordSavePromptButton 点击系统保存密码弹窗按钮
+    // 核心职责：
+    // - 按本地化标题定位系统按钮
+    // - 等待按钮从可访问性树消失后返回
+    @MainActor
+    private func tapPasswordSavePromptButton(app: XCUIApplication, title: String) -> Bool {
+        let button = app.buttons[title]
+        guard button.exists else {
+            return false
+        }
+        button.tap()
+        _ = waitUntilHidden(button, timeout: 3)
+        return true
     }
 
     // waitUntilHittable 等待元素进入可点击状态

@@ -27,12 +27,53 @@ final class AuthViewModelTests: XCTestCase {
         repository.refreshResult = .failure(
             .business(code: "auth.refresh_invalid", message: "登录状态已失效，请重新登录", statusCode: 401)
         )
-        let viewModel = AuthViewModel(repository: repository, tokenStore: tokenStore)
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession())
+        let viewModel = AuthViewModel(
+            repository: repository,
+            tokenStore: tokenStore,
+            currentUserStore: currentUserStore
+        )
 
         await viewModel.bootstrapSession()
 
         XCTAssertNil(tokenStore.tokens)
         XCTAssertFalse(viewModel.isAuthenticated)
+        XCTAssertNil(currentUserStore.userID)
+    }
+
+    func testBootstrapSessionPublishesCurrentUserStoreOnRefreshSuccess() async {
+        let tokenStore = InMemoryAuthTokenStore(tokens: Self.storedTokens())
+        let repository = CapturingAuthRepository()
+        repository.refreshResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "auth.refresh_success",
+                message: "登录状态已刷新",
+                data: Self.authSession(displayName: "橘子午后", maohuobanID: "8X29K4M7Q2")
+            )
+        )
+        let currentUserStore = CurrentUserStore()
+        let viewModel = AuthViewModel(
+            repository: repository,
+            tokenStore: tokenStore,
+            currentUserStore: currentUserStore
+        )
+
+        await viewModel.bootstrapSession()
+
+        XCTAssertTrue(viewModel.isAuthenticated)
+        XCTAssertEqual(currentUserStore.userID, "user-1")
+        XCTAssertEqual(currentUserStore.displayName, "橘子午后")
+        XCTAssertEqual(currentUserStore.maohuobanID, "8X29K4M7Q2")
+    }
+
+    func testAuthViewModelDoesNotStoreCurrentUserCopy() throws {
+        let source = try Self.source(
+            appRelativePath: "Features/Auth/Presentation/AuthViewModel.swift"
+        )
+
+        XCTAssertFalse(source.contains("var currentUser: AuthUser?"))
     }
 
     private static func storedTokens() -> MHBStoredTokens {
@@ -43,6 +84,47 @@ final class AuthViewModelTests: XCTestCase {
             expiresInSeconds: 900,
             refreshExpiresInSeconds: 15_552_000
         )
+    }
+
+    private static func authSession(
+        displayName: String = "橘子午后",
+        maohuobanID: String = "8X29K4M7Q2"
+    ) -> AuthSession {
+        AuthSession(
+            accessToken: "new-access-token",
+            refreshToken: "new-refresh-token",
+            tokenType: "Bearer",
+            expiresInSeconds: 900,
+            refreshExpiresInSeconds: 15_552_000,
+            user: AuthUser(
+                id: "user-1",
+                phone: "13800138010",
+                phoneMasked: "138****8010",
+                hasPassword: false,
+                profile: CurrentUserProfileSummary(
+                    maohuobanID: maohuobanID,
+                    displayName: displayName,
+                    avatar: nil,
+                    avatarPresentation: CurrentUserAvatarPresentation(
+                        sex: .female,
+                        sexVisibility: .visible
+                    )
+                )
+            )
+        )
+    }
+
+    private static func source(appRelativePath: String) throws -> String {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let projectRoot = testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = projectRoot
+            .appendingPathComponent("maohuoban")
+            .appendingPathComponent(appRelativePath)
+        return try String(contentsOf: sourceURL, encoding: .utf8)
     }
 }
 

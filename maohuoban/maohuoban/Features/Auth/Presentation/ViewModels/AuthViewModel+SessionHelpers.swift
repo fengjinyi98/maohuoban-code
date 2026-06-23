@@ -1,6 +1,15 @@
 import Foundation
 
 extension AuthViewModel {
+    // applyAuthenticatedSession 应用认证成功会话
+    // 核心职责：
+    // - 同步 AuthViewModel 登录态
+    // - 将用户资料写入当前用户单一 Store
+    func applyAuthenticatedSession(_ session: AuthSession) {
+        currentUserStore.apply(session: session)
+        isAuthenticated = true
+    }
+
     // shouldClearStoredTokens 判断 refresh 失败后的本地凭证处理
     // 核心职责：
     // - 服务端明确判定 refresh 失效时清理本地凭证
@@ -37,7 +46,7 @@ extension AuthViewModel {
     // - 停止验证码倒计时并回到登录入口
     func resetLocalSession() {
         try? tokenStore.clearTokens()
-        currentUser = nil
+        currentUserStore.clear()
         isAuthenticated = false
         step = .login
         stopResendCountdown()

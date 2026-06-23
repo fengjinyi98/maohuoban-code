@@ -5,7 +5,7 @@ use maohuoban_auth_application::auth::{
     AuthAuditEvent, NewDeviceSession, PasswordCredential, SessionRepository, UserRepository,
 };
 use maohuoban_auth_domain::auth::{
-    AuthError, AuthResult, AuthUser, RefreshSession, RefreshTokenResolution,
+    AccountDeviceSession, AuthError, AuthResult, AuthUser, RefreshSession, RefreshTokenResolution,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -55,6 +55,10 @@ impl UserRepository for PostgresAuthRepository {
         phone: &str,
     ) -> AuthResult<Option<PasswordCredential>> {
         self.find_password_credential_by_phone_query(phone).await
+    }
+
+    async fn has_password_credential(&self, user_id: Uuid) -> AuthResult<bool> {
+        self.has_password_credential_query(user_id).await
     }
 
     async fn save_password_credential(&self, user_id: Uuid, password_hash: &str) -> AuthResult<()> {
@@ -108,6 +112,27 @@ impl SessionRepository for PostgresAuthRepository {
 
     async fn revoke_session(&self, session_id: Uuid) -> AuthResult<()> {
         self.revoke_session_command(session_id).await
+    }
+
+    async fn list_active_device_sessions(
+        &self,
+        user_id: Uuid,
+    ) -> AuthResult<Vec<AccountDeviceSession>> {
+        self.list_active_device_sessions_query(user_id).await
+    }
+
+    async fn find_active_device_session(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<Option<AccountDeviceSession>> {
+        self.find_active_device_session_query(user_id, session_id)
+            .await
+    }
+
+    async fn revoke_device_session(&self, user_id: Uuid, session_id: Uuid) -> AuthResult<bool> {
+        self.revoke_device_session_command(user_id, session_id)
+            .await
     }
 
     async fn revoke_user_sessions(&self, user_id: Uuid) -> AuthResult<()> {

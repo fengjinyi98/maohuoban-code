@@ -28,6 +28,10 @@ async fn response_json(response: axum::response::Response) -> Value {
     serde_json::from_slice(&bytes).expect("parse response json")
 }
 
+#[path = "auth_contract/account_devices.rs"]
+mod account_devices;
+#[path = "auth_contract/account_password.rs"]
+mod account_password;
 #[path = "auth_contract/account_recovery.rs"]
 mod account_recovery;
 #[path = "auth_contract/oauth.rs"]
@@ -36,5 +40,7 @@ mod oauth;
 mod observability;
 #[path = "auth_contract/phone.rs"]
 mod phone;
+#[path = "auth_contract/profile.rs"]
+mod profile;
 #[path = "auth_contract/session.rs"]
 mod session;

@@ -1,7 +1,7 @@
 use chrono::{Duration, Utc};
 use maohuoban_auth_domain::auth::{
-    AuthError, AuthResult, AuthSession, AuthUser, DeviceDescriptor, OAuthProvider,
-    RefreshTokenResolution, TokenPair,
+    AuthError, AuthResult, AuthSession, AuthUser, AuthenticatedSession, DeviceDescriptor,
+    OAuthProvider, RefreshTokenResolution, TokenPair,
 };
 use uuid::Uuid;
 
@@ -65,6 +65,16 @@ impl AuthService {
     }
 
     pub async fn authenticate_access_token(&self, access_token: &str) -> AuthResult<AuthUser> {
+        Ok(self
+            .authenticate_access_token_context(access_token)
+            .await?
+            .user)
+    }
+
+    pub async fn authenticate_access_token_context(
+        &self,
+        access_token: &str,
+    ) -> AuthResult<AuthenticatedSession> {
         let subject = self.tokens.verify_access_token(access_token)?;
         let session = self
             .sessions
@@ -79,7 +89,10 @@ impl AuthService {
         if user.id != session.user.id {
             return Err(AuthError::AccessInvalid);
         }
-        Ok(user)
+        Ok(AuthenticatedSession {
+            user,
+            session_id: session.session_id,
+        })
     }
 
     pub async fn logout(&self, refresh_token: &str, device_id: &str) -> AuthResult<()> {

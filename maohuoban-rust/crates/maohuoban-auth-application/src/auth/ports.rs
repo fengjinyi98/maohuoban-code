@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_auth_domain::auth::{
-    AccessTokenSubject, AuthResult, AuthUser, DeviceDescriptor, PhoneCodeChallenge, RefreshSession,
-    RefreshTokenResolution,
+    AccessTokenSubject, AccountDeviceSession, AuthResult, AuthUser, DeviceDescriptor,
+    PhoneCodeChallenge, RefreshSession, RefreshTokenResolution,
 };
 use uuid::Uuid;
 
@@ -77,9 +77,20 @@ pub trait UserRepository: Send + Sync {
         phone: &str,
     ) -> AuthResult<Option<PasswordCredential>>;
 
+    async fn has_password_credential(&self, user_id: Uuid) -> AuthResult<bool>;
+
     async fn save_password_credential(&self, user_id: Uuid, password_hash: &str) -> AuthResult<()>;
 
     async fn update_last_login_at(&self, user_id: Uuid) -> AuthResult<()>;
+}
+
+/// UserProfileInitializer 用户资料初始化端口
+/// 核心职责：
+/// - 在认证创建账号后幂等初始化默认资料
+/// - 让认证应用层不依赖资料域的持久化细节
+#[async_trait]
+pub trait UserProfileInitializer: Send + Sync {
+    async fn ensure_default_profile(&self, user: &AuthUser) -> AuthResult<()>;
 }
 
 /// PasswordCredentialService 密码安全端口
@@ -121,6 +132,19 @@ pub trait SessionRepository: Send + Sync {
     ) -> AuthResult<()>;
 
     async fn revoke_session(&self, session_id: Uuid) -> AuthResult<()>;
+
+    async fn list_active_device_sessions(
+        &self,
+        user_id: Uuid,
+    ) -> AuthResult<Vec<AccountDeviceSession>>;
+
+    async fn find_active_device_session(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+    ) -> AuthResult<Option<AccountDeviceSession>>;
+
+    async fn revoke_device_session(&self, user_id: Uuid, session_id: Uuid) -> AuthResult<bool>;
 
     async fn revoke_user_sessions(&self, user_id: Uuid) -> AuthResult<()>;
 }

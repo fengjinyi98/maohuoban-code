@@ -35,6 +35,29 @@ pub(super) struct PasswordLoginRequest {
     pub(super) device: DevicePayload,
 }
 
+/// SetAccountPasswordRequest 首次设置登录密码请求
+/// 核心职责：
+/// - 接收新密码和确认密码
+/// - 保持首次设置不依赖验证码和旧密码
+#[derive(Debug, Deserialize)]
+pub(super) struct SetAccountPasswordRequest {
+    pub(super) new_password: String,
+    pub(super) confirm_password: String,
+}
+
+/// ChangeAccountPasswordRequest 修改登录密码请求
+/// 核心职责：
+/// - 接收旧密码、新密码和短信验证码
+/// - 支持账号安全页的双验证修改流程
+#[derive(Debug, Deserialize)]
+pub(super) struct ChangeAccountPasswordRequest {
+    pub(super) current_password: String,
+    pub(super) challenge_id: String,
+    pub(super) code: String,
+    pub(super) new_password: String,
+    pub(super) confirm_password: String,
+}
+
 /// RefreshTokenRequest 刷新 token 请求
 /// 核心职责：
 /// - 接收 refresh token 和设备 id

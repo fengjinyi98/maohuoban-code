@@ -1,0 +1,19 @@
+[package]
+name = "maohuoban-profile-http"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+maohuoban-auth-application.workspace = true
+maohuoban-auth-domain.workspace = true
+maohuoban-profile-application.workspace = true
+maohuoban-profile-domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

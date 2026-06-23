@@ -14,12 +14,16 @@ pub mod test_support;
 
 use std::{env, sync::Arc};
 
+use async_trait::async_trait;
 use axum::Router;
 use diagnostics::{
     build_diagnostics_ingest_router, diagnostics_ingest_config_from_env, record_http_network,
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
-use maohuoban_auth_application::auth::{AuthService, AuthServiceConfig};
+use maohuoban_auth_application::auth::{
+    AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
+};
+use maohuoban_auth_domain::auth::{AuthResult, AuthUser};
 use maohuoban_auth_http::auth::build_auth_router;
 use maohuoban_auth_infrastructure::{
     postgres::PostgresAuthRepository,
@@ -34,6 +38,9 @@ use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
+use maohuoban_profile_application::profile::ProfileService;
+use maohuoban_profile_http::profile::build_profile_router;
+use maohuoban_profile_infrastructure::postgres::PostgresProfileRepository;
 use maohuoban_recommendation_application::recommendation::RecommendationService;
 use maohuoban_recommendation_infrastructure::postgres::PostgresRecommendationRepository;
 use maohuoban_samecity_application::samecity::SameCityService;
@@ -122,6 +129,7 @@ pub struct BackendApp {
     pub token_issuer: JwtTokenIssuer,
     pub home_provider: HybridHomeDashboardProvider,
     pub pet_repository: PostgresPetRepository,
+    pub profile_repository: PostgresProfileRepository,
     pub recommendation_repository: PostgresRecommendationRepository,
     pub samecity_repository: PostgresSameCityRepository,
 }
@@ -149,15 +157,21 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         config.access_token_ttl_seconds,
         config.refresh_token_ttl_seconds,
     );
+    let profile_repository = PostgresProfileRepository::new(pool.clone());
+    let profile_service = Arc::new(ProfileService::new(Arc::new(profile_repository.clone())));
+    let auth_profile_initializer = AuthProfileInitializer::new(profile_service.clone());
 
     let auth_service = Arc::new(AuthService::new(
         AuthServiceConfig::default(),
-        Arc::new(otp_store),
-        Arc::new(repository.clone()),
-        Arc::new(password_service.clone()),
-        Arc::new(repository.clone()),
-        Arc::new(token_issuer.clone()),
-        Arc::new(repository.clone()),
+        AuthServiceDependencies {
+            otp_store: Arc::new(otp_store),
+            users: Arc::new(repository.clone()),
+            passwords: Arc::new(password_service.clone()),
+            sessions: Arc::new(repository.clone()),
+            tokens: Arc::new(token_issuer.clone()),
+            events: Arc::new(repository.clone()),
+            profiles: Arc::new(auth_profile_initializer),
+        },
     ));
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
@@ -178,10 +192,11 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
-    let mut router = build_auth_router(auth_service.clone())
+    let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
         .merge(build_legal_router(legal_service))
         .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
+        .merge(build_profile_router(profile_service, auth_service.clone()))
         .merge(build_pet_router(pet_service, auth_service.clone()))
         .merge(build_samecity_router(samecity_service, auth_service));
     if config.diagnostics_ingest_enabled {
@@ -200,9 +215,38 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         token_issuer,
         home_provider,
         pet_repository,
+        profile_repository,
         recommendation_repository,
         samecity_repository,
     })
+}
+
+/// AuthProfileInitializer 认证资料初始化适配器
+/// 核心职责：
+/// - 将认证应用层端口转接到 ProfileService
+/// - 保持认证域不依赖资料持久化实现
+#[derive(Clone)]
+struct AuthProfileInitializer {
+    profile: Arc<ProfileService>,
+}
+
+impl AuthProfileInitializer {
+    const fn new(profile: Arc<ProfileService>) -> Self {
+        Self { profile }
+    }
+}
+
+#[async_trait]
+impl UserProfileInitializer for AuthProfileInitializer {
+    async fn ensure_default_profile(&self, user: &AuthUser) -> AuthResult<()> {
+        self.profile
+            .ensure_default_profile(user.id)
+            .await
+            .map(|_| ())
+            .map_err(|error| {
+                maohuoban_auth_domain::auth::AuthError::Infrastructure(error.to_string())
+            })
+    }
 }
 
 /// BackendError 后端启动错误

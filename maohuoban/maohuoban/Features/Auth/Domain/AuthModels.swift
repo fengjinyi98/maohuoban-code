@@ -21,11 +21,45 @@ enum AuthStep: Hashable {
 
 // AuthUser 当前登录用户
 // 核心职责：
-// - 保存后端返回的最小身份信息
-// - 作为 App 登录态判断的用户上下文
+// - 保存后端返回的账号身份、密码状态和资料摘要
+// - 作为当前用户 Store 的登录响应写入输入
 struct AuthUser: Decodable, Equatable {
     let id: String
     let phone: String
+    let phoneMasked: String?
+    let hasPassword: Bool
+    let profile: CurrentUserProfileSummary?
+
+    init(
+        id: String,
+        phone: String,
+        phoneMasked: String? = nil,
+        hasPassword: Bool = false,
+        profile: CurrentUserProfileSummary? = nil
+    ) {
+        self.id = id
+        self.phone = phone
+        self.phoneMasked = phoneMasked
+        self.hasPassword = hasPassword
+        self.profile = profile
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case phone
+        case phoneMasked = "phone_masked"
+        case hasPassword = "has_password"
+        case profile
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        phone = try container.decode(String.self, forKey: .phone)
+        phoneMasked = try container.decodeIfPresent(String.self, forKey: .phoneMasked)
+        hasPassword = try container.decodeIfPresent(Bool.self, forKey: .hasPassword) ?? false
+        profile = try container.decodeIfPresent(CurrentUserProfileSummary.self, forKey: .profile)
+    }
 }
 
 // AuthSession 登录会话
@@ -39,6 +73,22 @@ struct AuthSession: Decodable, Equatable {
     let expiresInSeconds: Int
     let refreshExpiresInSeconds: Int
     let user: AuthUser
+
+    init(
+        accessToken: String,
+        refreshToken: String,
+        tokenType: String,
+        expiresInSeconds: Int,
+        refreshExpiresInSeconds: Int,
+        user: AuthUser
+    ) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.tokenType = tokenType
+        self.expiresInSeconds = expiresInSeconds
+        self.refreshExpiresInSeconds = refreshExpiresInSeconds
+        self.user = user
+    }
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"

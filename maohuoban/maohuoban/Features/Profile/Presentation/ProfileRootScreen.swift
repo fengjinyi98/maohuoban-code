@@ -8,24 +8,24 @@ import MaohuobanDesignSystem
 struct ProfileRootScreen: View {
     let topicStore: TopicStore
     let tabState: MHBAppTabState
-    let currentUserID: String?
+    let currentUserStore: CurrentUserStore
     let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
     @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
     @State private var settingsDeviceSessionStore = SettingsDeviceSessionStore(
-        repository: MockSettingsDeviceSessionRepository()
+        repository: DefaultSettingsDeviceSessionRepository()
     )
 
     init(
         topicStore: TopicStore = TopicStore(),
         tabState: MHBAppTabState = MHBAppTabState(),
-        currentUserID: String? = nil,
+        currentUserStore: CurrentUserStore = CurrentUserStore(),
         appAppearanceStore: AppAppearanceStore = AppAppearanceStore(),
         onLogout: @escaping () -> Void
     ) {
         self.topicStore = topicStore
         self.tabState = tabState
-        self.currentUserID = currentUserID
+        self.currentUserStore = currentUserStore
         self.appAppearanceStore = appAppearanceStore
         self.onLogout = onLogout
     }
@@ -34,7 +34,7 @@ struct ProfileRootScreen: View {
         ScrollView {
             VStack(spacing: MHBTheme.Spacing.s3) {
                 ProfileAccountSummarySection(
-                    profile: ProfileAccountSummary.mock,
+                    profile: currentUserStore.accountSummary,
                     onOpenUserProfile: openUserProfile,
                     onOpenPosts: openPosts,
                     onOpenFollowing: openFollowing,
@@ -91,11 +91,14 @@ struct ProfileRootScreen: View {
         .navigationDestination(for: ProfileRoute.self) { route in
             switch route {
             case .userProfile:
-                ProfileUserHomeScreen { route in
-                    tabState.appendProfileRoute(route)
-                }
+                ProfileUserHomeScreen(
+                    currentUserStore: currentUserStore,
+                    onOpenRoute: { route in
+                        tabState.appendProfileRoute(route)
+                    }
+                )
             case .editUserProfile:
-                ProfileUserEditScreen()
+                ProfileUserEditScreen(currentUserStore: currentUserStore)
             case .myPets:
                 PetManagementScreen(
                     pets: PetManagementPet.mockPets,
@@ -115,13 +118,13 @@ struct ProfileRootScreen: View {
                 )
             case .createPet:
                 PetProfileAddScreen(
-                    currentUserID: currentUserID,
+                    currentUserID: currentUserStore.userID,
                     onCreated: { _ in }
                 )
             case .editPetProfile(let context):
                 PetProfileEditScreen(
                     context: context,
-                    currentUserID: currentUserID
+                    currentUserID: currentUserStore.userID
                 )
             case .posts:
                 ProfilePostsScreen(
@@ -222,7 +225,7 @@ struct ProfileRootScreen: View {
                 AIAssistantScreen(context: context)
             case .settings:
                 SettingsScreen(
-                    username: SettingsMockData.username,
+                    username: currentUserStore.settingsState.username,
                     onLogout: onLogout,
                     onSwitchAccount: {
                         tabState.appendProfileRoute(.accountManagement)
@@ -248,8 +251,8 @@ struct ProfileRootScreen: View {
                 )
             case .accountSecurity:
                 SettingsAccountSecurityScreen(
-                    phoneMasked: SettingsMockData.phoneMasked,
-                    passwordStatusText: "未设置",
+                    phoneDisplayText: currentUserStore.settingsState.phoneDisplayText,
+                    passwordStatusText: currentUserStore.settingsState.passwordStatusText,
                     rememberLoginEnabled: true,
                     onRememberLoginChange: { _ in },
                     onSetPassword: {
@@ -309,9 +312,17 @@ struct ProfileRootScreen: View {
             case .addressList:
                 SettingsAddressListScreen()
             case .accountManagement:
-                SettingsAccountManagementScreen()
+                SettingsAccountManagementScreen(
+                    username: currentUserStore.settingsState.username,
+                    phoneDisplayText: currentUserStore.settingsState.phoneDisplayText
+                )
             case .setPassword:
-                SettingsSetPasswordScreen(store: SettingsPasswordStore(hasPassword: false))
+                SettingsSetPasswordScreen(
+                    store: SettingsPasswordStore(
+                        hasPassword: currentUserStore.settingsState.hasPassword,
+                        currentUserStore: currentUserStore
+                    )
+                )
             case .realNameAuth:
                 SettingsRealNameAuthScreen()
             case .officialVerification:
@@ -323,9 +334,9 @@ struct ProfileRootScreen: View {
                         tabState.appendProfileRoute(.deviceDetail(deviceID: deviceID))
                     }
                 )
-            case .deviceDetail(let deviceID):
+            case .deviceDetail(let sessionID):
                 SettingsDeviceDetailScreen(
-                    deviceID: deviceID,
+                    sessionID: sessionID,
                     store: settingsDeviceSessionStore
                 )
             case .darkMode:

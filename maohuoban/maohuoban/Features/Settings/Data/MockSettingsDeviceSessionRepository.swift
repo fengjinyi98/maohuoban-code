@@ -4,36 +4,55 @@ import Foundation
 // 核心职责：
 // - 在后端接口未接入时提供稳定设备列表
 // - 支持设备详情读取与移除链路验证
-actor MockSettingsDeviceSessionRepository: SettingsDeviceSessionRepository {
+@MainActor
+final class MockSettingsDeviceSessionRepository: SettingsDeviceSessionRepository {
     private var devices: [SettingsDeviceSessionSummary]
 
     init(devices: [SettingsDeviceSessionSummary] = SettingsMockData.deviceSessions) {
         self.devices = devices
     }
 
-    func fetchDevices() async throws -> [SettingsDeviceSessionSummary] {
-        devices
-    }
-
-    func fetchDeviceDetails(deviceID: String) async throws -> SettingsDeviceSessionDetails {
-        guard let summary = devices.first(where: { $0.deviceID == deviceID }) else {
-            throw SettingsMockError.deviceNotFound
-        }
-
-        return SettingsDeviceSessionDetails(
-            summary: summary,
-            osVersion: summary.isCurrentDevice ? "iOS 27.0" : "iOS 26.5",
-            appVersion: "1.0.0 (Mock)",
-            firstLoginText: summary.isCurrentDevice ? "今天 09:12" : "6月18日 20:40",
-            ipAddress: summary.isCurrentDevice ? "192.168.2.18" : "120.245.88.16"
+    func fetchDevices() async throws(MHBAPIError) -> MHBAPIResponse<SettingsDeviceSessionList> {
+        MHBAPIResponse(
+            success: true,
+            code: "account.devices_loaded",
+            message: "登录设备已加载",
+            data: SettingsDeviceSessionList(devices: devices)
         )
     }
 
-    func removeDevice(deviceID: String) async throws {
-        guard devices.contains(where: { $0.deviceID == deviceID }) else {
-            throw SettingsMockError.deviceNotFound
+    func fetchDeviceDetails(
+        sessionID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<SettingsDeviceSessionDetails> {
+        guard let summary = devices.first(where: { $0.sessionID == sessionID }) else {
+            throw .business(code: "account.device_not_found", message: "设备不存在或已移除", statusCode: 404)
         }
-        devices.removeAll { $0.deviceID == deviceID }
+
+        return MHBAPIResponse(
+            success: true,
+            code: "account.device_loaded",
+            message: "登录设备详情已加载",
+            data: SettingsDeviceSessionDetails(
+                summary: summary,
+                osVersion: summary.isCurrentDevice ? "iOS 27.0" : "iOS 26.5",
+                appVersion: "1.0.0 (Mock)",
+                firstLoginText: summary.isCurrentDevice ? "今天 09:12" : "6月18日 20:40",
+                ipAddress: summary.isCurrentDevice ? "192.168.2.18" : "120.245.88.16"
+            )
+        )
+    }
+
+    func removeDevice(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<MHBEmptyResponse> {
+        guard devices.contains(where: { $0.sessionID == sessionID }) else {
+            throw .business(code: "account.device_not_found", message: "设备不存在或已移除", statusCode: 404)
+        }
+        devices.removeAll { $0.sessionID == sessionID }
+        return MHBAPIResponse(
+            success: true,
+            code: "account.device_revoked",
+            message: "登录设备已移除",
+            data: MHBEmptyResponse()
+        )
     }
 }
 
@@ -47,6 +66,7 @@ enum SettingsMockData {
 
     static let deviceSessions: [SettingsDeviceSessionSummary] = [
         SettingsDeviceSessionSummary(
+            sessionID: "session-current",
             deviceID: "device-current",
             deviceName: "iPhone 17 Pro",
             deviceModel: "iPhone",
@@ -56,6 +76,7 @@ enum SettingsMockData {
             isCurrentDevice: true
         ),
         SettingsDeviceSessionSummary(
+            sessionID: "session-ipad",
             deviceID: "device-ipad",
             deviceName: "iPad Pro",
             deviceModel: "iPad",
@@ -65,6 +86,7 @@ enum SettingsMockData {
             isCurrentDevice: false
         ),
         SettingsDeviceSessionSummary(
+            sessionID: "session-old",
             deviceID: "device-old",
             deviceName: "iPhone 15",
             deviceModel: "iPhone",

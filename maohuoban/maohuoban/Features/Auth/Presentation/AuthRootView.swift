@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 // - 挂载全局 Toast 容器和冷启动 refresh 流程
 struct AuthRootView: View {
     @Bindable var viewModel: AuthViewModel
+    @Bindable var currentUserStore: CurrentUserStore
     let router: MHBAppRouter
     let appAppearanceStore: AppAppearanceStore
 
@@ -16,7 +17,7 @@ struct AuthRootView: View {
             if viewModel.isAuthenticated {
                 MHBAppShell(
                     router: router,
-                    currentUserID: viewModel.currentUser?.id,
+                    currentUserStore: currentUserStore,
                     appAppearanceStore: appAppearanceStore,
                     onLogout: handleLogout
                 )

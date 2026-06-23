@@ -1,5 +1,6 @@
 use std::fmt;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -69,6 +70,16 @@ pub struct AccessTokenSubject {
     pub session_id: Uuid,
 }
 
+/// AuthenticatedSession 已认证访问上下文
+/// 核心职责：
+/// - 组合当前用户和 access token 对应设备会话
+/// - 支持账号安全接口判断当前设备边界
+#[derive(Debug, Clone)]
+pub struct AuthenticatedSession {
+    pub user: AuthUser,
+    pub session_id: Uuid,
+}
+
 /// RefreshSession 服务端 refresh 会话
 /// 核心职责：
 /// - 承载 refresh token 命中后的设备会话状态
@@ -89,6 +100,23 @@ pub enum RefreshTokenResolution {
     Active(RefreshSession),
     Reused(RefreshSession),
     Missing,
+}
+
+/// AccountDeviceSession 账号设备会话读模型
+/// 核心职责：
+/// - 承载登录设备管理列表和详情所需字段
+/// - 隐藏 refresh token hash 等敏感持久化信息
+#[derive(Debug, Clone)]
+pub struct AccountDeviceSession {
+    pub session_id: Uuid,
+    pub user_id: Uuid,
+    pub device_id: String,
+    pub device_name: String,
+    pub platform: String,
+    pub app_version: String,
+    pub created_at: DateTime<Utc>,
+    pub last_seen_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
 }
 
 /// OAuthProvider 第三方登录提供方

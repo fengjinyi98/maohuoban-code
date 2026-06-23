@@ -123,6 +123,24 @@ impl PostgresAuthRepository {
         Ok(credential)
     }
 
+    pub(super) async fn has_password_credential_query(&self, user_id: Uuid) -> AuthResult<bool> {
+        let has_password = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM password_credentials
+                WHERE user_id = $1
+            )
+            "#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(has_password)
+    }
+
     pub(super) async fn save_password_credential_command(
         &self,
         user_id: Uuid,

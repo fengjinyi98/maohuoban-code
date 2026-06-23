@@ -24,7 +24,7 @@ enum SettingsPasswordMode: String, CaseIterable, Identifiable, Equatable {
 // SettingsPasswordStore 设置密码状态源
 // 核心职责：
 // - 管理设置密码页面表单状态与基础校验
-// - 在后端未接入时提供本地 mock 提交结果
+// - 调用后端账号安全接口并写回 CurrentUserStore
 @MainActor
 @Observable
 final class SettingsPasswordStore {
@@ -34,15 +34,26 @@ final class SettingsPasswordStore {
     var newPassword = ""
     var confirmPassword = ""
     private(set) var countdownRemaining = 0
+    private(set) var isSendingCode = false
     private(set) var isSubmitting = false
     private(set) var didComplete = false
     private(set) var errorMessage: String?
+    private(set) var toastMessage: String?
+    private(set) var passwordChangeChallengeID: String?
 
-    private let hasPassword: Bool
+    private var hasPassword: Bool
+    @ObservationIgnored private let repository: any SettingsPasswordRepository
+    @ObservationIgnored private let currentUserStore: CurrentUserStore
     @ObservationIgnored private var countdownTask: Task<Void, Never>?
 
-    init(hasPassword: Bool = false) {
+    init(
+        hasPassword: Bool = false,
+        repository: any SettingsPasswordRepository = DefaultSettingsPasswordRepository(),
+        currentUserStore: CurrentUserStore = CurrentUserStore()
+    ) {
         self.hasPassword = hasPassword
+        self.repository = repository
+        self.currentUserStore = currentUserStore
         self.selectedMode = hasPassword ? .currentPassword : .firstSet
     }
 
@@ -55,15 +66,26 @@ final class SettingsPasswordStore {
     }
 
     var showsModeTabs: Bool {
-        hasPassword
+        false
     }
 
     var sendCodeButtonTitle: String {
-        countdownRemaining > 0 ? "\(countdownRemaining)s后重发" : "获取验证码"
+        if isSendingCode {
+            return "发送中..."
+        }
+        return countdownRemaining > 0 ? "\(countdownRemaining)s后重发" : "获取验证码"
     }
 
     var isSendCodeDisabled: Bool {
-        countdownRemaining > 0
+        hasPassword == false || isSendingCode || countdownRemaining > 0
+    }
+
+    var requiresCurrentPassword: Bool {
+        hasPassword
+    }
+
+    var requiresSMSCode: Bool {
+        hasPassword
     }
 
     func switchMode(to mode: SettingsPasswordMode) {
@@ -74,12 +96,69 @@ final class SettingsPasswordStore {
         newPassword = ""
         confirmPassword = ""
         errorMessage = nil
+        toastMessage = nil
+        passwordChangeChallengeID = nil
     }
 
-    func sendResetCode() {
-        guard selectedMode == .smsCode, isSendCodeDisabled == false else { return }
+    func sendResetCode() async {
+        guard isSendCodeDisabled == false else { return }
+        isSendingCode = true
+        errorMessage = nil
+        toastMessage = nil
+        passwordChangeChallengeID = nil
+        defer { isSendingCode = false }
+
+        do {
+            let response = try await repository.sendPasswordChangeCode()
+            passwordChangeChallengeID = response.data?.challengeID
+            toastMessage = response.message
+            startCountdown(seconds: response.data?.resendAfterSeconds ?? 60)
+        } catch {
+            errorMessage = error.toastMessage
+            toastMessage = error.toastMessage
+        }
+    }
+
+    func submit() async {
+        didComplete = false
+        toastMessage = nil
+        guard validate() else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+
+        do {
+            if hasPassword {
+                guard let challengeID = passwordChangeChallengeID, challengeID.isEmpty == false else {
+                    errorMessage = "请先获取并输入短信验证码"
+                    return
+                }
+                let response = try await repository.changePassword(
+                    currentPassword: currentPassword,
+                    challengeID: challengeID,
+                    code: smsCode,
+                    newPassword: newPassword,
+                    confirmPassword: confirmPassword
+                )
+                applySecurityResponse(response, fallbackHasPassword: true)
+            } else {
+                let response = try await repository.setInitialPassword(
+                    newPassword: newPassword,
+                    confirmPassword: confirmPassword
+                )
+                applySecurityResponse(response, fallbackHasPassword: true)
+            }
+
+            didComplete = true
+            errorMessage = nil
+        } catch {
+            errorMessage = error.toastMessage
+            toastMessage = error.toastMessage
+        }
+    }
+
+    private func startCountdown(seconds: Int) {
         countdownTask?.cancel()
-        countdownRemaining = 60
+        countdownRemaining = seconds
         countdownTask = Task { [weak self] in
             guard let self else { return }
             while countdownRemaining > 0 {
@@ -88,15 +167,6 @@ final class SettingsPasswordStore {
                 countdownRemaining -= 1
             }
         }
-    }
-
-    func submit() async {
-        guard validate() else { return }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        try? await Task.sleep(for: .milliseconds(180))
-        didComplete = true
-        errorMessage = nil
     }
 
     private func validate() -> Bool {
@@ -113,22 +183,31 @@ final class SettingsPasswordStore {
             return false
         }
 
-        switch selectedMode {
-        case .firstSet:
-            return true
-        case .currentPassword:
+        if hasPassword {
             guard currentPassword.isEmpty == false else {
                 errorMessage = "请输入当前登录密码"
                 return false
             }
-            return true
-        case .smsCode:
             guard smsCode.isEmpty == false else {
-                errorMessage = "请输入短信验证码"
+                errorMessage = "请先获取并输入短信验证码"
                 return false
             }
-            return true
         }
+
+        return true
+    }
+
+    private func applySecurityResponse(
+        _ response: MHBAPIResponse<SettingsAccountSecurityState>,
+        fallbackHasPassword: Bool
+    ) {
+        let securityState = response.data
+        currentUserStore.applyAccountSecurity(
+            phoneMasked: securityState?.phoneMasked,
+            hasPassword: securityState?.hasPassword ?? fallbackHasPassword
+        )
+        hasPassword = securityState?.hasPassword ?? fallbackHasPassword
+        toastMessage = response.message
     }
 
     private func isPasswordStrongEnough(_ password: String) -> Bool {
