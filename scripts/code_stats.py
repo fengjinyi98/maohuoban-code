@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+import subprocess
+from collections import defaultdict
+from datetime import datetime, date as date_type
 from pathlib import Path
 
 # 脚本位于 scripts/，上一级即项目根目录
@@ -95,6 +97,80 @@ def collect_stats() -> dict[str, dict[str, int]]:
             lines += count_lines(p)
         result[mod["key"]] = {"files": files, "lines": lines}
     return result
+
+
+# Git 短统计解析正则
+_SHORTSTAT_RE = re.compile(
+    r"(?P<files>\d+)\s+files?\s+changed"
+    r"(?:,\s+(?P<adds>\d+)\s+insertions?\(\+\))?"
+    r"(?:,\s+(?P<dels>\d+)\s+deletions?\(\-\))?"
+)
+
+
+def collect_git_history() -> dict:
+    """采集仓库 Git 提交历史，输出按日聚合的提交数与增删行数"""
+    if not (ROOT / ".git").exists():
+        return {"totalCommits": 0, "totalAdditions": 0, "totalDeletions": 0,
+                "firstCommitDate": "", "lastCommitDate": "", "daily": [], "weekly": []}
+
+    # 一次性获取格式化日志：日期行 + shortstat
+    proc = subprocess.run(
+        ["git", "log", "--all", "--format=%ad", "--date=short", "--shortstat"],
+        capture_output=True, text=True, cwd=str(ROOT),
+    )
+    daily_commits: dict[str, int] = defaultdict(int)
+    daily_adds: dict[str, int] = defaultdict(int)
+    daily_dels: dict[str, int] = defaultdict(int)
+    current_date = ""
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line[:2] == "20" and len(line) == 10:  # YYYY-MM-DD
+            current_date = line
+            daily_commits[current_date] += 1
+        elif "changed" in line and current_date:
+            m = _SHORTSTAT_RE.search(line)
+            if m:
+                daily_adds[current_date] += int(m.group("adds") or 0)
+                daily_dels[current_date] += int(m.group("dels") or 0)
+
+    if not daily_commits:
+        return {"totalCommits": 0, "totalAdditions": 0, "totalDeletions": 0,
+                "firstCommitDate": "", "lastCommitDate": "", "daily": [], "weekly": []}
+
+    sorted_dates = sorted(daily_commits.keys())
+    daily = [
+        {"date": d, "commits": daily_commits[d],
+         "additions": daily_adds[d], "deletions": daily_dels[d]}
+        for d in sorted_dates
+    ]
+    total_commits = sum(d["commits"] for d in daily)
+    total_adds = sum(d["additions"] for d in daily)
+    total_dels = sum(d["deletions"] for d in daily)
+
+    # 按周聚合
+    weekly_map: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"commits": 0, "additions": 0, "deletions": 0})
+    for d in daily:
+        iso = date_type.fromisoformat(d["date"]).isocalendar()
+        wk = f"{iso[0]}-W{iso[1]:02d}"
+        weekly_map[wk]["commits"] += d["commits"]
+        weekly_map[wk]["additions"] += d["additions"]
+        weekly_map[wk]["deletions"] += d["deletions"]
+    weekly = [
+        {"week": w, **v} for w, v in sorted(weekly_map.items())
+    ]
+
+    return {
+        "totalCommits": total_commits,
+        "totalAdditions": total_adds,
+        "totalDeletions": total_dels,
+        "firstCommitDate": sorted_dates[0],
+        "lastCommitDate": sorted_dates[-1],
+        "daily": daily,
+        "weekly": weekly,
+    }
 
 
 def load_last_stats() -> dict | None:
@@ -209,7 +285,7 @@ def parse_history_to_json(history_text: str, current: dict, now: datetime) -> li
     
     return snapshots
 
-def write_report(new_section: str, current: dict, now: datetime) -> None:
+def write_report(new_section: str, current: dict, now: datetime, git_history: dict) -> None:
     """重写报告文件：固定 header + 最新快照 + 旧历史 + LAST_STATS 注释，并输出 JSON 和注入 HTML"""
     history = ""
     if REPORT.exists():
@@ -224,34 +300,44 @@ def write_report(new_section: str, current: dict, now: datetime) -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(parts) + "\n", encoding="utf-8")
-    
-    # 生成 JSON 数据
+
+    # 生成 JSON 数据（包含快照历史与 Git 历史）
     snapshots = parse_history_to_json(history, current, now)
-    json_data = json.dumps(snapshots, ensure_ascii=False, indent=2)
-    
+    full_data = {
+        "snapshots": snapshots,
+        "gitHistory": git_history,
+    }
+    json_data = json.dumps(full_data, ensure_ascii=False, indent=2)
+    snapshots_json = json.dumps(snapshots, ensure_ascii=False, indent=2)
+    git_json = json.dumps(git_history, ensure_ascii=False, indent=2)
+
     # 写入 JSON 报告
     JSON_REPORT.write_text(json_data, encoding="utf-8")
-    
+
     # 注入 HTML 报告 (解决 file:// 协议下的跨域问题)
     if HTML_REPORT.exists():
         content = HTML_REPORT.read_text(encoding="utf-8")
-        # 使用正则匹配并替换占位符行，无论当前值是 null 还是已有数据
-        # 使用 re.DOTALL 以匹配多行 JSON 数据
-        import re
-        pattern = r"const snapshotsData = .*?; // DATA_INJECTION_PLACEHOLDER"
-        injection = f"const snapshotsData = {json_data}; // DATA_INJECTION_PLACEHOLDER"
-        if re.search(pattern, content, re.DOTALL):
-            new_content = re.sub(pattern, injection, content, flags=re.DOTALL)
-            HTML_REPORT.write_text(new_content, encoding="utf-8")
-            print(f"已更新 {HTML_REPORT.relative_to(ROOT)} (数据注入成功)")
+        # 注入代码快照数据
+        snap_pattern = r"const snapshotsData = .*?; // DATA_INJECTION_PLACEHOLDER"
+        snap_injection = f"const snapshotsData = {snapshots_json}; // DATA_INJECTION_PLACEHOLDER"
+        if re.search(snap_pattern, content, re.DOTALL):
+            content = re.sub(snap_pattern, snap_injection, content, flags=re.DOTALL)
+        # 注入 Git 历史数据
+        git_pattern = r"const gitHistoryData = .*?; // GIT_INJECTION_PLACEHOLDER"
+        git_injection = f"const gitHistoryData = {git_json}; // GIT_INJECTION_PLACEHOLDER"
+        if re.search(git_pattern, content, re.DOTALL):
+            content = re.sub(git_pattern, git_injection, content, flags=re.DOTALL)
+        HTML_REPORT.write_text(content, encoding="utf-8")
+        print(f"已更新 {HTML_REPORT.relative_to(ROOT)} (数据注入成功)")
 
 
 def main() -> None:
     current = collect_stats()
+    git_history = collect_git_history()
     previous = load_last_stats()
     now = datetime.now()
     section = render_section(now, current, previous)
-    write_report(section, current, now)
+    write_report(section, current, now, git_history)
     print(f"已更新 {REPORT.relative_to(ROOT)}\n")
     print(f"已更新 {JSON_REPORT.relative_to(ROOT)}\n")
     print(section)

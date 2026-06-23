@@ -1,13 +1,13 @@
 import XCTest
 @testable import maohuoban
 
-// HomeGenderSymbolTests 首页性别符号测试
+// HomeGenderSymbolTests 首页性别符号展示策略测试
 // 核心职责：
-// - 固化首页头图性别符号使用文本渲染字段
-// - 固化我的宠物列表性别符号不再依赖 SF Symbols 名称
+// - 固化首页头图宠物名称旁不展示性别符号
+// - 固化我的宠物列表宠物名称旁不展示性别符号
 final class HomeGenderSymbolTests: XCTestCase {
     @MainActor
-    func testHomeHeaderPresentationUsesTextGenderSymbols() {
+    func testHomeHeaderPresentationDoesNotExposeNameGenderSymbols() {
         let malePresentation = HomeImmersivePetHeaderPresentation.make(
             pet: makePet(sex: .male),
             displayName: "小林"
@@ -21,15 +21,15 @@ final class HomeGenderSymbolTests: XCTestCase {
             displayName: "小林"
         )
 
-        XCTAssertEqual(malePresentation.genderSymbolText, "♂")
-        XCTAssertEqual(femalePresentation.genderSymbolText, "♀")
+        XCTAssertNil(malePresentation.genderSymbolText)
+        XCTAssertNil(femalePresentation.genderSymbolText)
         XCTAssertNil(unknownPresentation.genderSymbolText)
     }
 
     @MainActor
-    func testPetManagementSexUsesTextGenderSymbols() {
-        XCTAssertEqual(PetManagementPet.Sex.male.symbolText, "♂")
-        XCTAssertEqual(PetManagementPet.Sex.female.symbolText, "♀")
+    func testPetManagementNameDoesNotExposeGenderSymbols() {
+        XCTAssertNil(PetManagementPet.Sex.male.symbolText)
+        XCTAssertNil(PetManagementPet.Sex.female.symbolText)
         XCTAssertNil(PetManagementPet.Sex.unknown.symbolText)
     }
 
