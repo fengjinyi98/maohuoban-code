@@ -65,7 +65,8 @@ final class PetRepositoryMediaContractTests: PetRepositoryTestCase {
                 content: Data("avatar-bytes".utf8),
                 sourceClient: "ios"
             ),
-            currentUserID: "user-1"
+            currentUserID: "user-1",
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.message, "媒体已上传")
@@ -130,7 +131,8 @@ final class PetRepositoryMediaContractTests: PetRepositoryTestCase {
                 content: Data("image-bytes".utf8),
                 sourceClient: "ios"
             ),
-            currentUserID: "user-1"
+            currentUserID: "user-1",
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.message, "媒体已上传")
@@ -170,7 +172,8 @@ final class PetRepositoryMediaContractTests: PetRepositoryTestCase {
                 content: Data("video-bytes".utf8),
                 sourceClient: "ios"
             ),
-            currentUserID: "user-1"
+            currentUserID: "user-1",
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.message, "媒体已上传")
@@ -229,7 +232,8 @@ final class PetRepositoryMediaContractTests: PetRepositoryTestCase {
                     height: 0.375
                 )
             ),
-            currentUserID: "user-1"
+            currentUserID: "user-1",
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.message, "媒体已上传")

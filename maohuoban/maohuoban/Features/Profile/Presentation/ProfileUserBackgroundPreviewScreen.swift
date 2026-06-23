@@ -157,6 +157,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
 
     private var selectBackgroundButton: some View {
         Button {
+            print("[DEBUG:ProfileMediaUpload] cover picker presented")
             isImagePickerPresented = true
         } label: {
             HStack(spacing: MHBTheme.Spacing.s3) {
@@ -183,26 +184,34 @@ struct ProfileUserBackgroundPreviewScreen: View {
     }
 
     private func handleImagePickerResult(_ result: MHBMediaPickerResult) {
+        print("[DEBUG:ProfileMediaUpload] cover picker completed images=\(result.images.count) livePhotos=\(result.livePhotos.count)")
         if let livePhoto = result.livePhotos.first,
            let previewImage = livePhoto.previewImage {
+            print("[DEBUG:ProfileMediaUpload] cover crop target set from livePhoto previewSize=\(Int(previewImage.size.width))x\(Int(previewImage.size.height)) scale=\(previewImage.scale)")
             cropTarget = MHBIdentifiableUIImage(image: previewImage)
             return
         }
 
         guard let image = result.images.first else {
+            print("[DEBUG:ProfileMediaUpload] cover picker completed without image")
             return
         }
 
+        print("[DEBUG:ProfileMediaUpload] cover crop target set imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         cropTarget = MHBIdentifiableUIImage(image: image)
     }
 
     private func handleCroppedBackground(_ image: UIImage) {
-        previewImage = image
+        print("[DEBUG:ProfileMediaUpload] cover crop saved imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         cropTarget = nil
         saveState = .saving
 
         Task { @MainActor in
             let didSave = await onCoverUpdated(image)
+            print("[DEBUG:ProfileMediaUpload] cover update completed didSave=\(didSave)")
+            if didSave {
+                previewImage = image
+            }
             saveState = didSave ? .saved : .idle
         }
     }

@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_media_storage::MediaObjectStore;
 use maohuoban_profile_application::profile::{
-    DefaultProfileInput, ProfileRepository as ProfileRepositoryPort, UpdateProfileInput,
-    UploadProfileMediaInput,
+    DefaultProfileInput, ProfileMediaUploadDiagnostics, ProfileRepository as ProfileRepositoryPort,
+    UpdateProfileInput, UploadProfileMediaInput, profile_media_content_signature,
+    record_profile_media_upload,
 };
 use maohuoban_profile_domain::profile::{
     ProfileError, ProfileFieldEditPolicy, ProfileMediaAsset, ProfileResult, UserProfile,
@@ -326,13 +327,11 @@ impl PostgresProfileRepository {
             .find_profile(input.user_id)
             .await?
             .ok_or(ProfileError::NotFound)?;
-        let image =
-            image::load_from_memory(&input.content).map_err(|_| ProfileError::MediaDecodeFailed)?;
+        let image = Self::decode_profile_media_image(&input)?;
         let width = to_i32_dimension(image.width())?;
         let height = to_i32_dimension(image.height())?;
         let asset_id = Uuid::new_v4();
-        let media_store = MediaObjectStore::from_env()
-            .map_err(|error| ProfileError::Infrastructure(error.to_string()))?;
+        let media_store = Self::profile_media_store_from_env(&input, asset_id, width, height)?;
         let bucket = media_store.default_bucket().to_owned();
         let object_key = format!(
             "users/{}/profile/{}/{}/{}",
@@ -341,10 +340,16 @@ impl PostgresProfileRepository {
             asset_id,
             sanitized_file_name(&input.file_name)
         );
-        media_store
-            .put(&bucket, &object_key, &input.content)
-            .await
-            .map_err(|error| ProfileError::Infrastructure(error.to_string()))?;
+        Self::put_profile_media_object(
+            &media_store,
+            &input,
+            asset_id,
+            width,
+            height,
+            &bucket,
+            &object_key,
+        )
+        .await?;
 
         let byte_size =
             i64::try_from(input.content.len()).map_err(|_| ProfileError::MediaTooLarge)?;
@@ -383,10 +388,112 @@ impl PostgresProfileRepository {
             .commit()
             .await
             .map_err(|error| to_profile_error(&error))?;
+        record_profile_media_upload(ProfileMediaUploadDiagnostics {
+            stage: "repository.committed",
+            user_id: input.user_id,
+            asset_id: Some(asset_id),
+            kind: input.kind,
+            declared_mime_type: &input.mime_type,
+            byte_size,
+            content_signature: Some(profile_media_content_signature(&input.content)),
+            width: Some(width),
+            height: Some(height),
+            success: true,
+            error_kind: None,
+            decoder_error_kind: None,
+        });
 
         self.find_profile(input.user_id)
             .await?
             .ok_or(ProfileError::NotFound)
+    }
+
+    fn decode_profile_media_image(
+        input: &UploadProfileMediaInput,
+    ) -> ProfileResult<image::DynamicImage> {
+        image::load_from_memory(&input.content).map_err(|error| {
+            Self::record_profile_media_repository_failure(
+                input,
+                None,
+                "repository.decode_failed",
+                None,
+                None,
+                "profile.media_decode_failed",
+                Some(image_error_kind(&error)),
+            );
+            ProfileError::MediaDecodeFailed
+        })
+    }
+
+    fn profile_media_store_from_env(
+        input: &UploadProfileMediaInput,
+        asset_id: Uuid,
+        width: i32,
+        height: i32,
+    ) -> ProfileResult<MediaObjectStore> {
+        MediaObjectStore::from_env().map_err(|error| {
+            Self::record_profile_media_repository_failure(
+                input,
+                Some(asset_id),
+                "repository.store_config",
+                Some(width),
+                Some(height),
+                "profile.infrastructure",
+                None,
+            );
+            ProfileError::Infrastructure(error.to_string())
+        })
+    }
+
+    async fn put_profile_media_object(
+        media_store: &MediaObjectStore,
+        input: &UploadProfileMediaInput,
+        asset_id: Uuid,
+        width: i32,
+        height: i32,
+        bucket: &str,
+        object_key: &str,
+    ) -> ProfileResult<()> {
+        media_store
+            .put(bucket, object_key, &input.content)
+            .await
+            .map_err(|error| {
+                Self::record_profile_media_repository_failure(
+                    input,
+                    Some(asset_id),
+                    "repository.object_put",
+                    Some(width),
+                    Some(height),
+                    "profile.infrastructure",
+                    None,
+                );
+                ProfileError::Infrastructure(error.to_string())
+            })
+    }
+
+    fn record_profile_media_repository_failure(
+        input: &UploadProfileMediaInput,
+        asset_id: Option<Uuid>,
+        stage: &'static str,
+        width: Option<i32>,
+        height: Option<i32>,
+        error_kind: &'static str,
+        decoder_error_kind: Option<&'static str>,
+    ) {
+        record_profile_media_upload(ProfileMediaUploadDiagnostics {
+            stage,
+            user_id: input.user_id,
+            asset_id,
+            kind: input.kind,
+            declared_mime_type: &input.mime_type,
+            byte_size: i64::try_from(input.content.len()).unwrap_or(i64::MAX),
+            content_signature: Some(profile_media_content_signature(&input.content)),
+            width,
+            height,
+            success: false,
+            error_kind: Some(error_kind),
+            decoder_error_kind,
+        });
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -628,4 +735,15 @@ fn to_i32_dimension(value: u32) -> ProfileResult<i32> {
         .ok()
         .filter(|value| *value > 0)
         .ok_or(ProfileError::MediaDecodeFailed)
+}
+
+fn image_error_kind(error: &image::ImageError) -> &'static str {
+    match error {
+        image::ImageError::Decoding(_) => "decoding",
+        image::ImageError::Encoding(_) => "encoding",
+        image::ImageError::Parameter(_) => "parameter",
+        image::ImageError::Limits(_) => "limits",
+        image::ImageError::Unsupported(_) => "unsupported",
+        image::ImageError::IoError(_) => "io",
+    }
 }

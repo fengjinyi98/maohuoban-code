@@ -104,6 +104,8 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
             XCTAssertTrue(
                 request.value(forHTTPHeaderField: "Content-Type")?.hasPrefix("multipart/form-data; boundary=") == true
             )
+            XCTAssertNil(request.httpBody)
+            XCTAssertNotNil(request.httpBodyStream)
 
             let body = try XCTUnwrap(request.bodyDataForCurrentUserProfileRepositoryTest())
             let bodyText = String(decoding: body, as: UTF8.self)
@@ -126,7 +128,8 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
                 mimeType: "image/png",
                 content: imageData,
                 sourceClient: "ios"
-            )
+            ),
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.code, "profile.avatar_uploaded")
@@ -140,6 +143,8 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v1/profile/me/cover")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+            XCTAssertNil(request.httpBody)
+            XCTAssertNotNil(request.httpBodyStream)
 
             let body = try XCTUnwrap(request.bodyDataForCurrentUserProfileRepositoryTest())
             let bodyText = String(decoding: body, as: UTF8.self)
@@ -160,7 +165,8 @@ final class CurrentUserProfileRepositoryTests: XCTestCase {
                 mimeType: "image/png",
                 content: imageData,
                 sourceClient: "ios"
-            )
+            ),
+            onUploadProgress: { _ in }
         )
 
         XCTAssertEqual(response.code, "profile.cover_uploaded")

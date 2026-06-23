@@ -30,25 +30,25 @@ protocol PetRepository {
     func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
     func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
     func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
     func uploadPendingBackgroundLivePhoto(
         draft: PetLivePhotoUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
     func bindUploadedMedia(

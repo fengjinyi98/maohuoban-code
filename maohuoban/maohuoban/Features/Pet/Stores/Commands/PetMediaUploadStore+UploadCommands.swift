@@ -53,7 +53,7 @@ extension PetMediaUploadStore {
         perform: (
             PetMediaUploadDraft,
             String,
-            (@MainActor (Double) -> Void)?
+            @escaping @MainActor @Sendable (Double) -> Void
         ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
     ) async -> Bool {
         guard let currentUserID, !currentUserID.isEmpty else {

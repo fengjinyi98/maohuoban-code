@@ -12,11 +12,13 @@ protocol CurrentUserProfileRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
 
     func uploadCurrentProfileAvatar(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
 
     func uploadCurrentProfileCover(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile>
 }
 
@@ -54,26 +56,31 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
     }
 
     func uploadCurrentProfileAvatar(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         try await uploadCurrentProfileMedia(
             path: "/api/v1/profile/me/avatar",
-            draft: draft
+            draft: draft,
+            onUploadProgress: onUploadProgress
         )
     }
 
     func uploadCurrentProfileCover(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         try await uploadCurrentProfileMedia(
             path: "/api/v1/profile/me/cover",
-            draft: draft
+            draft: draft,
+            onUploadProgress: onUploadProgress
         )
     }
 
     private func uploadCurrentProfileMedia(
         path: String,
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         try await client.postMultipart(
             path: path,
@@ -84,7 +91,8 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
                 data: draft.content
             ),
             fields: ["source_client": draft.sourceClient],
-            headers: try authorizationHeaderProvider.headers()
+            headers: try authorizationHeaderProvider.headers(),
+            onUploadProgress: onUploadProgress
         )
     }
 }

@@ -14,7 +14,10 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
     private var recordedTerminalEvent = false
 
     public override class func canInit(with request: URLRequest) -> Bool {
-        URLProtocol.property(forKey: handledKey, in: request) == nil
+        guard !isMultipartFormRequest(request) else {
+            return false
+        }
+        return URLProtocol.property(forKey: handledKey, in: request) == nil
     }
 
     public override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -33,6 +36,16 @@ public final class DiagnosticsURLProtocol: URLProtocol, @unchecked Sendable {
             )
         }
         return mutableRequest as URLRequest
+    }
+
+    // isMultipartFormRequest 判断 multipart 上传请求
+    // 核心职责：
+    // - 避免全局 URLProtocol 代理重发 multipart 请求时丢失文件体
+    // - 保留其他普通 JSON 请求的全局网络采集能力
+    private static func isMultipartFormRequest(_ request: URLRequest) -> Bool {
+        request.value(forHTTPHeaderField: "Content-Type")?
+            .lowercased()
+            .hasPrefix("multipart/form-data") == true
     }
 
     public override func startLoading() {

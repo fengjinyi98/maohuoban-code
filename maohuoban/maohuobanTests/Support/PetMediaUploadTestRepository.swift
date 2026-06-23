@@ -55,17 +55,15 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         callOrder.append("uploadPendingAvatar")
         receivedAvatarDraft = draft
         receivedAvatarUserID = currentUserID
-        if let onUploadProgress {
-            onUploadProgress(0.25)
-            observedProgressValues.append(0.25)
-            onUploadProgress(1.0)
-            observedProgressValues.append(1.0)
-        }
+        onUploadProgress(0.25)
+        observedProgressValues.append(0.25)
+        onUploadProgress(1.0)
+        observedProgressValues.append(1.0)
         switch uploadPendingAvatarResult {
         case .success(let response):
             return response
@@ -77,7 +75,7 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         switch uploadPendingBackgroundImageResult {
         case .success(let response):
@@ -90,7 +88,7 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         switch uploadPendingBackgroundVideoResult {
         case .success(let response):
@@ -103,17 +101,15 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     func uploadPendingBackgroundLivePhoto(
         draft: PetLivePhotoUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         callOrder.append("uploadPendingBackgroundLivePhoto")
         receivedLivePhotoDraft = draft
         receivedLivePhotoUserID = currentUserID
-        if let onUploadProgress {
-            onUploadProgress(0.5)
-            observedProgressValues.append(0.5)
-            onUploadProgress(1.0)
-            observedProgressValues.append(1.0)
-        }
+        onUploadProgress(0.5)
+        observedProgressValues.append(0.5)
+        onUploadProgress(1.0)
+        observedProgressValues.append(1.0)
         switch uploadPendingBackgroundLivePhotoResult {
         case .success(let response):
             return response

@@ -21,6 +21,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
+use super::diagnostics::{
+    ProfileMediaHttpUploadContext, record_profile_media_http_parse_failure,
+    record_profile_media_http_request, record_profile_media_http_response,
+};
+
 /// `ProfileHttpState` 用户资料 HTTP 状态
 /// 核心职责：
 /// - 持有认证服务和资料应用服务
@@ -147,15 +152,24 @@ async fn upload_current_profile_media(
 
     let request = match UploadProfileMediaRequest::from_multipart(multipart).await {
         Ok(request) => request,
-        Err(error) => return error_response(&error),
+        Err(error) => {
+            record_profile_media_http_parse_failure(user.id, kind, &error);
+            return error_response(&error);
+        }
     };
-    match state
-        .profile
-        .upload_current_profile_media(request.into_input(user.id, kind))
-        .await
-    {
-        Ok(profile) => created_response(code, message, CurrentProfileData::from(profile)),
-        Err(error) => error_response(&error),
+    let input = request.into_input(user.id, kind);
+    let context = ProfileMediaHttpUploadContext::from_input(&input);
+    record_profile_media_http_request(&context);
+    let result = state.profile.upload_current_profile_media(input).await;
+    match result {
+        Ok(profile) => {
+            record_profile_media_http_response(&context, Ok(&profile));
+            created_response(code, message, CurrentProfileData::from(profile))
+        }
+        Err(error) => {
+            record_profile_media_http_response(&context, Err(&error));
+            error_response(&error)
+        }
     }
 }
 

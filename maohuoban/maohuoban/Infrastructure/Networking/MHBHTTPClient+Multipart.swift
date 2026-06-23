@@ -10,7 +10,7 @@ extension MHBHTTPClient {
         file: MHBMultipartFile,
         fields: [String: String] = [:],
         headers: [String: String] = [:],
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         try await postMultipart(
             path: path,
@@ -26,7 +26,7 @@ extension MHBHTTPClient {
         files: [MHBMultipartFile],
         fields: [String: String] = [:],
         headers: [String: String] = [:],
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         let boundary = "maohuoban-\(UUID().uuidString)"
         let url = baseURL.appending(path: path)
@@ -39,10 +39,8 @@ extension MHBHTTPClient {
         }
         let body = multipartBody(boundary: boundary, files: files, fields: fields)
         request.httpBody = body
-
-        guard let onUploadProgress else {
-            return try await send(request)
-        }
+        let fileByteSizes = files.map(\.data.count)
+        print("[DEBUG:ProfileMediaUpload] multipart prepared path=\(path) fileCount=\(files.count) fileBytes=\(fileByteSizes) fieldKeys=\(fields.keys.sorted()) bodyBytes=\(body.count)")
 
         return try await sendUpload(request, body: body, onUploadProgress: onUploadProgress)
     }
@@ -87,11 +85,12 @@ extension MHBHTTPClient {
     func sendUpload<ResponseBody: Decodable>(
         _ request: URLRequest,
         body: Data,
-        onUploadProgress: @escaping @MainActor (Double) -> Void
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<ResponseBody> {
         var uploadRequest = request
         uploadRequest.httpBody = nil
         instrumentTraceHeaders(for: &uploadRequest)
+        print("[DEBUG:ProfileMediaUpload] uploadTask start path=\(uploadRequest.url?.path ?? "nil") bodyBytes=\(body.count) hasHTTPBody=\(uploadRequest.httpBody != nil)")
 
         let delegate = MHBUploadProgressDelegate(onUploadProgress: onUploadProgress)
         let uploadSession = URLSession(
@@ -149,9 +148,9 @@ extension MHBHTTPClient {
 // - 接收 URLSession 字节级上传回调
 // - 将上传百分比回传给调用方
 private final class MHBUploadProgressDelegate: NSObject, URLSessionTaskDelegate {
-    private let onUploadProgress: @MainActor (Double) -> Void
+    private let onUploadProgress: @MainActor @Sendable (Double) -> Void
 
-    init(onUploadProgress: @escaping @MainActor (Double) -> Void) {
+    init(onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void) {
         self.onUploadProgress = onUploadProgress
     }
 

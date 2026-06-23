@@ -166,6 +166,8 @@ final class ProfileUserEditStoreTests: XCTestCase {
 
         XCTAssertTrue(uploaded)
         XCTAssertEqual(repository.uploadedAvatarDrafts.count, 1)
+        XCTAssertEqual(repository.avatarProgressValues, [0.25, 1.0])
+        XCTAssertEqual(store.mediaUploadProgress, 1.0)
         XCTAssertEqual(store.toastMessage, "头像已保存")
         XCTAssertEqual(store.profile?.avatar?.url, "/api/v1/profile/media/avatar.png")
         XCTAssertEqual(currentUserStore.avatarURLString, "/api/v1/profile/media/avatar.png")
@@ -202,6 +204,8 @@ final class ProfileUserEditStoreTests: XCTestCase {
 
         XCTAssertTrue(uploaded)
         XCTAssertEqual(repository.uploadedCoverDrafts.count, 1)
+        XCTAssertEqual(repository.coverProgressValues, [0.25, 1.0])
+        XCTAssertEqual(store.mediaUploadProgress, 1.0)
         XCTAssertEqual(store.toastMessage, "主页背景已保存")
         XCTAssertEqual(store.profile?.cover?.url, "/api/v1/profile/media/cover.png")
         XCTAssertEqual(currentUserStore.coverURLString, "/api/v1/profile/media/cover.png")
@@ -336,6 +340,8 @@ private final class CurrentUserProfileRepositoryStub: CurrentUserProfileReposito
     var updateDrafts: [CurrentUserProfileUpdateDraft] = []
     var uploadedAvatarDrafts: [CurrentUserProfileMediaUploadDraft] = []
     var uploadedCoverDrafts: [CurrentUserProfileMediaUploadDraft] = []
+    var avatarProgressValues: [Double] = []
+    var coverProgressValues: [Double] = []
     private let updateResponse: MHBAPIResponse<CurrentUserProfile>
 
     init(updateResponse: MHBAPIResponse<CurrentUserProfile>) {
@@ -355,16 +361,26 @@ private final class CurrentUserProfileRepositoryStub: CurrentUserProfileReposito
     }
 
     func uploadCurrentProfileAvatar(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         uploadedAvatarDrafts.append(draft)
+        onUploadProgress(0.25)
+        avatarProgressValues.append(0.25)
+        onUploadProgress(1.0)
+        avatarProgressValues.append(1.0)
         return updateResponse
     }
 
     func uploadCurrentProfileCover(
-        draft: CurrentUserProfileMediaUploadDraft
+        draft: CurrentUserProfileMediaUploadDraft,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         uploadedCoverDrafts.append(draft)
+        onUploadProgress(0.25)
+        coverProgressValues.append(0.25)
+        onUploadProgress(1.0)
+        coverProgressValues.append(1.0)
         return updateResponse
     }
 }

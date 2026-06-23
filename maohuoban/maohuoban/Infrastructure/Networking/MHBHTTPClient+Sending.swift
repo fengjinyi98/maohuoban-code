@@ -73,6 +73,9 @@ extension MHBHTTPClient {
                 message: apiResponse.message,
                 statusCode: httpResponse.statusCode
             )
+            if request.url?.path.contains("/profile/me/") == true {
+                print("[DEBUG:ProfileMediaUpload] api business error path=\(request.url?.path ?? "nil") status=\(httpResponse.statusCode) code=\(apiResponse.code) message=\(apiResponse.message) requestBodyBytes=\(requestBodyBytes ?? -1) responseBytes=\(data.count)")
+            }
             postAuthenticationInvalidationIfNeeded(apiError)
             throw apiError
         } catch let apiError as MHBAPIError {

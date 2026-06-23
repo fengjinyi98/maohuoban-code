@@ -39,6 +39,20 @@ extension DiagnosticsPipelineTests {
         #expect(instrumented.value(forHTTPHeaderField: "traceparent")?.hasPrefix("00-") == true)
     }
 
+    @Test("URLProtocol 不拦截 multipart 请求体")
+    func urlProtocolSkipsMultipartRequests() throws {
+        let url = try #require(URL(string: "https://api.example.com/upload"))
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(
+            "multipart/form-data; boundary=maohuoban-test",
+            forHTTPHeaderField: "Content-Type"
+        )
+        request.httpBody = Data(repeating: 1, count: 16)
+
+        #expect(!DiagnosticsURLProtocol.canInit(with: request))
+    }
+
     @Test("URLProtocol 采集摘要会记录载荷和响应类型")
     func urlProtocolSummaryCapturesPayloadMetadata() throws {
         let url = try #require(URL(string: "https://api.example.com/upload"))

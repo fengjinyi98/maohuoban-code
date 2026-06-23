@@ -20,6 +20,7 @@ enum ProfileUserEditPhase: Equatable {
 final class ProfileUserEditStore {
     private(set) var profile: CurrentUserProfile?
     private(set) var phase: ProfileUserEditPhase = .idle
+    private(set) var mediaUploadProgress: Double?
     var toastMessage: String?
 
     @ObservationIgnored private let repository: any CurrentUserProfileRepository
@@ -204,8 +205,13 @@ final class ProfileUserEditStore {
         kind: ProfileUserEditMediaUploadKind,
         draft: CurrentUserProfileMediaUploadDraft
     ) async -> Bool {
-        guard phase == .idle else { return false }
+        guard phase == .idle else {
+            print("[DEBUG:ProfileMediaUpload] store upload rejected kind=\(kind.debugName) phase=\(phase)")
+            return false
+        }
+        print("[DEBUG:ProfileMediaUpload] store upload started kind=\(kind.debugName) fileName=\(draft.fileName) mime=\(draft.mimeType) byteSize=\(draft.content.count)")
         phase = .saving
+        mediaUploadProgress = 0
         toastMessage = nil
         defer { phase = .idle }
 
@@ -213,17 +219,33 @@ final class ProfileUserEditStore {
             let response: MHBAPIResponse<CurrentUserProfile>
             switch kind {
             case .avatar:
-                response = try await repository.uploadCurrentProfileAvatar(draft: draft)
+                response = try await repository.uploadCurrentProfileAvatar(
+                    draft: draft,
+                    onUploadProgress: { progress in
+                        print("[DEBUG:ProfileMediaUpload] store upload progress kind=avatar progress=\(progress)")
+                        self.mediaUploadProgress = progress
+                    }
+                )
             case .cover:
-                response = try await repository.uploadCurrentProfileCover(draft: draft)
+                response = try await repository.uploadCurrentProfileCover(
+                    draft: draft,
+                    onUploadProgress: { progress in
+                        print("[DEBUG:ProfileMediaUpload] store upload progress kind=cover progress=\(progress)")
+                        self.mediaUploadProgress = progress
+                    }
+                )
             }
+            mediaUploadProgress = 1
             toastMessage = response.message
+            print("[DEBUG:ProfileMediaUpload] store upload success kind=\(kind.debugName) code=\(response.code) message=\(response.message) hasData=\(response.data != nil)")
             if let profile = response.data {
                 publish(profile: profile)
             }
             return true
         } catch {
+            mediaUploadProgress = nil
             toastMessage = error.toastMessage
+            print("[DEBUG:ProfileMediaUpload] store upload failed kind=\(kind.debugName) error=\(error.debugSummary) toast=\(error.toastMessage)")
             return false
         }
     }
@@ -232,6 +254,30 @@ final class ProfileUserEditStore {
 private enum ProfileUserEditMediaUploadKind {
     case avatar
     case cover
+
+    var debugName: String {
+        switch self {
+        case .avatar:
+            "avatar"
+        case .cover:
+            "cover"
+        }
+    }
+}
+
+private extension MHBAPIError {
+    var debugSummary: String {
+        switch self {
+        case .business(let code, let message, let statusCode):
+            "business code=\(code) status=\(statusCode) message=\(message)"
+        case .invalidResponse:
+            "invalidResponse"
+        case .transport(let message):
+            "transport message=\(message)"
+        case .decoding(let message):
+            "decoding message=\(message)"
+        }
+    }
 }
 
 // ProfileUserEditComparableDraft 用户资料编辑语义草稿

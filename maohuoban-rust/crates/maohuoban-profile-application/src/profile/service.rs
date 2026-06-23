@@ -4,7 +4,11 @@ use chrono::{NaiveDate, Utc};
 use maohuoban_profile_domain::profile::{ProfileError, ProfileResult, UserProfile};
 use uuid::Uuid;
 
-use super::{DefaultProfileInput, ProfileRepository, UpdateProfileInput, UploadProfileMediaInput};
+use super::{
+    DefaultProfileInput, ProfileMediaUploadDiagnostics, ProfileRepository, UpdateProfileInput,
+    UploadProfileMediaInput, profile_error_kind, profile_media_content_signature,
+    record_profile_media_upload,
+};
 
 /// `ProfileService` 用户资料应用服务
 /// 核心职责：
@@ -58,8 +62,85 @@ impl ProfileService {
         &self,
         input: UploadProfileMediaInput,
     ) -> ProfileResult<UserProfile> {
-        Self::validate_media_upload(&input)?;
-        self.repository.upload_profile_media(input).await
+        let user_id = input.user_id;
+        let kind = input.kind;
+        let declared_mime_type = input.mime_type.clone();
+        let byte_size = i64::try_from(input.content.len()).unwrap_or(i64::MAX);
+        let content_signature = profile_media_content_signature(&input.content);
+
+        record_profile_media_upload(ProfileMediaUploadDiagnostics {
+            stage: "service.request",
+            user_id,
+            asset_id: None,
+            kind,
+            declared_mime_type: &declared_mime_type,
+            byte_size,
+            content_signature: Some(content_signature),
+            width: None,
+            height: None,
+            success: true,
+            error_kind: None,
+            decoder_error_kind: None,
+        });
+
+        if let Err(error) = Self::validate_media_upload(&input) {
+            record_profile_media_upload(ProfileMediaUploadDiagnostics {
+                stage: "service.result",
+                user_id,
+                asset_id: None,
+                kind,
+                declared_mime_type: &declared_mime_type,
+                byte_size,
+                content_signature: Some(content_signature),
+                width: None,
+                height: None,
+                success: false,
+                error_kind: Some(profile_error_kind(&error)),
+                decoder_error_kind: None,
+            });
+            return Err(error);
+        }
+
+        let result = self.repository.upload_profile_media(input).await;
+        match &result {
+            Ok(profile) => {
+                let media = match kind {
+                    super::ProfileMediaKind::Avatar => profile.avatar.as_ref(),
+                    super::ProfileMediaKind::Cover => profile.cover.as_ref(),
+                };
+                record_profile_media_upload(ProfileMediaUploadDiagnostics {
+                    stage: "service.result",
+                    user_id,
+                    asset_id: media.map(|media| media.asset_id),
+                    kind,
+                    declared_mime_type: media.map_or(declared_mime_type.as_str(), |media| {
+                        media.mime_type.as_str()
+                    }),
+                    byte_size,
+                    content_signature: Some(content_signature),
+                    width: media.and_then(|media| media.width),
+                    height: media.and_then(|media| media.height),
+                    success: true,
+                    error_kind: None,
+                    decoder_error_kind: None,
+                });
+            }
+            Err(error) => record_profile_media_upload(ProfileMediaUploadDiagnostics {
+                stage: "service.result",
+                user_id,
+                asset_id: None,
+                kind,
+                declared_mime_type: &declared_mime_type,
+                byte_size,
+                content_signature: Some(content_signature),
+                width: None,
+                height: None,
+                success: false,
+                error_kind: Some(profile_error_kind(error)),
+                decoder_error_kind: None,
+            }),
+        }
+        result
     }
 
     fn normalize_update(mut input: UpdateProfileInput) -> ProfileResult<UpdateProfileInput> {

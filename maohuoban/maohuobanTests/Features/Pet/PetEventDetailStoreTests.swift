@@ -92,7 +92,7 @@ private final class CapturingPetEventDetailRepository: PetRepository {
     func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }
@@ -100,7 +100,7 @@ private final class CapturingPetEventDetailRepository: PetRepository {
     func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }
@@ -108,7 +108,7 @@ private final class CapturingPetEventDetailRepository: PetRepository {
     func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }
@@ -116,7 +116,7 @@ private final class CapturingPetEventDetailRepository: PetRepository {
     func uploadPendingBackgroundLivePhoto(
         draft: PetLivePhotoUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         throw .invalidResponse
     }

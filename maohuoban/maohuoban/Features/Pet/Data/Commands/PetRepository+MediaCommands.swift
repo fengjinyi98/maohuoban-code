@@ -5,7 +5,7 @@ extension DefaultPetRepository {
     func uploadPendingAvatar(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         try await uploadPendingMedia(
             path: "/api/v1/pet-media/avatar",
@@ -18,7 +18,7 @@ extension DefaultPetRepository {
     func uploadPendingBackgroundImage(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         try await uploadPendingMedia(
             path: "/api/v1/pet-media/background-image",
@@ -31,7 +31,7 @@ extension DefaultPetRepository {
     func uploadPendingBackgroundVideo(
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         try await uploadPendingMedia(
             path: "/api/v1/pet-media/background-video",
@@ -44,7 +44,7 @@ extension DefaultPetRepository {
     func uploadPendingBackgroundLivePhoto(
         draft: PetLivePhotoUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)? = nil
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         await Diagnostics.track(
             "pet.media_upload_request_prepared",
@@ -133,7 +133,7 @@ extension DefaultPetRepository {
         path: String,
         draft: PetMediaUploadDraft,
         currentUserID: String,
-        onUploadProgress: (@MainActor (Double) -> Void)?
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
         await Diagnostics.track(
             "pet.media_upload_request_prepared",
