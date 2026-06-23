@@ -72,7 +72,8 @@ struct ProfileUserHomeCoverSection: View {
 // - 保持头像与封面形成设计稿中的上浮关系
 struct ProfileUserHomeIdentitySection: View {
     let displayName: String
-    let petID: String
+    let maohuobanID: String
+    let ipLocation: String
     let bio: String
     let avatarSubject: MHBAvatarSubject
     let professionalBadge: ProfileProfessionalIdentityBadge?
@@ -102,10 +103,18 @@ struct ProfileUserHomeIdentitySection: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
 
-                Text("Pet ID: \(petID)")
-                    .font(MHBTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .lineLimit(1)
+                HStack(spacing: MHBTheme.Spacing.s2) {
+                    Text("毛伙伴号: \(maohuobanID)")
+
+                    if ipLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                        Text("•")
+                        Text("IP 归属地: \(ipLocation)")
+                    }
+                }
+                .font(MHBTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
 
                 Text(bio)
                     .font(MHBTheme.Typography.callout.weight(.medium))

@@ -8,6 +8,10 @@ import UIKit
 // - 为快速 UI 阶段提供可点击的编辑资料页面壳
 struct ProfileUserEditScreen: View {
     let profile: ProfileUserHome
+    @State private var editedAvatarImage: UIImage?
+    @State private var editedCoverImage: UIImage?
+    @State private var isAvatarPreviewPresented = false
+    @State private var isBackgroundPreviewPresented = false
 
     init(profile: ProfileUserHome = .mock) {
         self.profile = profile
@@ -18,17 +22,25 @@ struct ProfileUserEditScreen: View {
             VStack(spacing: MHBTheme.Spacing.s6) {
                 ProfileUserEditAvatarHeader(
                     displayName: profile.displayName,
-                    avatarAssetName: profile.avatarAssetName
+                    avatarAssetName: profile.avatarAssetName,
+                    localAvatarImage: editedAvatarImage,
+                    action: {
+                        isAvatarPreviewPresented = true
+                    }
                 )
 
                 VStack(spacing: MHBTheme.Spacing.s4) {
                     PetProfileEditSection {
-                        PetProfileEditRow(title: "头像") {
-                            ProfileUserEditAvatarValue(assetName: profile.avatarAssetName)
-                        }
-
-                        PetProfileEditRow(title: "主页背景") {
-                            ProfileUserEditCoverValue(assetName: profile.coverAssetName)
+                        PetProfileEditRow(
+                            title: "主页背景",
+                            action: {
+                                isBackgroundPreviewPresented = true
+                            }
+                        ) {
+                            ProfileUserEditCoverValue(
+                                assetName: profile.coverAssetName,
+                                localCoverImage: editedCoverImage
+                            )
                         }
 
                         PetProfileEditRow(title: "昵称") {
@@ -36,7 +48,7 @@ struct ProfileUserEditScreen: View {
                         }
 
                         PetProfileEditRow(title: "毛伙伴号", showsSeparator: false) {
-                            PetProfileEditValueText(value: profile.petID)
+                            PetProfileEditValueText(value: profile.maohuobanID)
                         }
                     }
 
@@ -70,6 +82,28 @@ struct ProfileUserEditScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .accessibilityIdentifier("profile.userEdit.screen")
+        .fullScreenCover(isPresented: $isAvatarPreviewPresented) {
+            ProfileUserAvatarPreviewScreen(
+                displayName: profile.displayName,
+                avatarAssetName: profile.avatarAssetName,
+                localAvatarImage: editedAvatarImage,
+                onAvatarUpdated: { image in
+                    editedAvatarImage = image
+                    return true
+                }
+            )
+        }
+        .fullScreenCover(isPresented: $isBackgroundPreviewPresented) {
+            ProfileUserBackgroundPreviewScreen(
+                displayName: profile.displayName,
+                coverAssetName: profile.coverAssetName,
+                localCoverImage: editedCoverImage,
+                onCoverUpdated: { image in
+                    editedCoverImage = image
+                    return true
+                }
+            )
+        }
     }
 }
 
@@ -80,63 +114,59 @@ struct ProfileUserEditScreen: View {
 private struct ProfileUserEditAvatarHeader: View {
     let displayName: String
     let avatarAssetName: String
+    let localAvatarImage: UIImage?
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: MHBTheme.Spacing.s2) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(avatarAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 78, height: 78)
-                    .background(MHBTheme.ColorToken.cardSolid.color)
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .strokeBorder(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
-                    }
+        Button(action: action) {
+            VStack(spacing: MHBTheme.Spacing.s2) {
+                ZStack(alignment: .bottomTrailing) {
+                    avatarImage
+                        .frame(width: 78, height: 78)
+                        .background(MHBTheme.ColorToken.cardSolid.color)
+                        .clipShape(Circle())
+                        .overlay {
+                            Circle()
+                                .strokeBorder(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
+                        }
 
-                Image(systemName: "camera.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 28)
-                    .background(Color.black.opacity(0.78))
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color(uiColor: .systemGroupedBackground), lineWidth: 2)
-                    }
-                    .offset(x: 1, y: 1)
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.black.opacity(0.78))
+                        .clipShape(Circle())
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color(uiColor: .systemGroupedBackground), lineWidth: 2)
+                        }
+                        .offset(x: 1, y: 1)
+                }
+
+                Text(displayName)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .lineLimit(1)
             }
-
-            Text(displayName)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                .lineLimit(1)
+            .frame(maxWidth: .infinity)
+            .padding(.top, MHBTheme.Spacing.s3)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, MHBTheme.Spacing.s3)
+        .buttonStyle(.plain)
+        .accessibilityLabel("编辑头像")
         .accessibilityElement(children: .combine)
     }
-}
 
-// ProfileUserEditAvatarValue 用户资料头像行值
-// 核心职责：
-// - 在资料编辑行右侧展示当前头像缩略图
-// - 保持与编辑档案页媒体值的紧凑尺度一致
-private struct ProfileUserEditAvatarValue: View {
-    let assetName: String
-
-    var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
-            .frame(width: 42, height: 42)
-            .background(MHBTheme.ColorToken.cardSolid.color)
-            .clipShape(Circle())
-            .overlay {
-                Circle()
-                    .strokeBorder(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
-            }
+    @ViewBuilder
+    private var avatarImage: some View {
+        if let localAvatarImage {
+            Image(uiImage: localAvatarImage)
+                .resizable()
+                .scaledToFill()
+        } else {
+            Image(avatarAssetName)
+                .resizable()
+                .scaledToFill()
+        }
     }
 }
 
@@ -146,13 +176,22 @@ private struct ProfileUserEditAvatarValue: View {
 // - 使用编辑档案页背景缩略图相同的比例和圆角
 private struct ProfileUserEditCoverValue: View {
     let assetName: String
+    let localCoverImage: UIImage?
 
     var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
-            .frame(width: 54, height: 36)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        Group {
+            if let localCoverImage {
+                Image(uiImage: localCoverImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFill()
+            }
+        }
+        .frame(width: 54, height: 36)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 

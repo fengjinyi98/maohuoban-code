@@ -6,7 +6,8 @@ import Foundation
 // - 为快速 UI 阶段提供可替换的本地 mock 数据
 struct ProfileUserHome: Equatable {
     let displayName: String
-    let petID: String
+    let maohuobanID: String
+    let ipLocation: String
     let bio: String
     let coverAssetName: String
     let avatarAssetName: String
@@ -45,7 +46,8 @@ struct ProfileUserHome: Equatable {
 
     static let mock = ProfileUserHome(
         displayName: ProfileAccountSummary.mock.displayName,
-        petID: "88203910",
+        maohuobanID: "88203910",
+        ipLocation: "上海",
         bio: "记录两只毛孩子的日常。分享科学喂养与同城遛狗路线。",
         coverAssetName: "HomePetHeroMock",
         avatarAssetName: ProfileAccountSummary.mock.avatarAssetName,

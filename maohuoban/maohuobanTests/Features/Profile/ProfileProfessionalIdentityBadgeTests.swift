@@ -21,7 +21,8 @@ final class ProfileProfessionalIdentityBadgeTests: XCTestCase {
     func testUnauthenticatedProfileCarriesNoProfessionalBadge() {
         let profile = ProfileUserHome(
             displayName: "普通用户",
-            petID: "10086",
+            maohuobanID: "10086",
+            ipLocation: "",
             bio: "还没有认证身份",
             coverAssetName: "HomePetHeroMock",
             avatarAssetName: "MockUserAvatar",

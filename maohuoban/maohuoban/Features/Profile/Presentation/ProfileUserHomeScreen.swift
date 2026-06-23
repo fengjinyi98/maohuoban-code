@@ -36,7 +36,8 @@ struct ProfileUserHomeScreen: View {
 
                         ProfileUserHomeIdentitySection(
                             displayName: profile.displayName,
-                            petID: profile.petID,
+                            maohuobanID: profile.maohuobanID,
+                            ipLocation: profile.ipLocation,
                             bio: profile.bio,
                             avatarSubject: profile.avatarSubject,
                             professionalBadge: profile.professionalBadge,
