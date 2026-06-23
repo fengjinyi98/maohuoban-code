@@ -6,6 +6,7 @@ import MaohuobanDesignSystem
 // - 展示当前用户发布的动态 Feed 流
 // - 组合通用 Feed 卡片和互动状态能力
 struct ProfilePostsScreen: View {
+    let currentUserStore: CurrentUserStore
     let interactionStore: FeedInteractionStore
 
     var body: some View {
@@ -14,7 +15,10 @@ struct ProfilePostsScreen: View {
                 .ignoresSafeArea()
 
             FeedList(
-                cards: ProfileMockFeed.cards,
+                cards: ProfileMockFeed.cards(
+                    authorName: currentUserStore.displayName,
+                    authorAvatarAssetName: currentUserStore.avatarAssetName
+                ),
                 interactionStore: interactionStore,
                 topContentInset: MHBTheme.Spacing.s4,
                 accessibilityIdentifierPrefix: "profile.posts.feed.card",

@@ -11,7 +11,7 @@ struct ProfileRootScreen: View {
     let currentUserStore: CurrentUserStore
     let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
-    @State private var feedInteractionStore = FeedInteractionStore(cards: ProfileMockFeed.cards)
+    @State private var feedInteractionStore: FeedInteractionStore
     @State private var settingsDeviceSessionStore = SettingsDeviceSessionStore(
         repository: DefaultSettingsDeviceSessionRepository()
     )
@@ -19,7 +19,7 @@ struct ProfileRootScreen: View {
     init(
         topicStore: TopicStore = TopicStore(),
         tabState: MHBAppTabState = MHBAppTabState(),
-        currentUserStore: CurrentUserStore = CurrentUserStore(),
+        currentUserStore: CurrentUserStore,
         appAppearanceStore: AppAppearanceStore = AppAppearanceStore(),
         onLogout: @escaping () -> Void
     ) {
@@ -28,6 +28,14 @@ struct ProfileRootScreen: View {
         self.currentUserStore = currentUserStore
         self.appAppearanceStore = appAppearanceStore
         self.onLogout = onLogout
+        _feedInteractionStore = State(
+            initialValue: FeedInteractionStore(
+                cards: ProfileMockFeed.cards(
+                    authorName: currentUserStore.displayName,
+                    authorAvatarAssetName: currentUserStore.avatarAssetName
+                )
+            )
+        )
     }
 
     var body: some View {
@@ -128,6 +136,7 @@ struct ProfileRootScreen: View {
                 )
             case .posts:
                 ProfilePostsScreen(
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore
                 )
             case .following:
@@ -156,6 +165,7 @@ struct ProfileRootScreen: View {
             case .favoriteFolderContent(let folderID):
                 ProfileFavoriteFolderContentScreen(
                     folderID: folderID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore
                 )
             case .badges(let selectedBadgeID):
@@ -166,6 +176,7 @@ struct ProfileRootScreen: View {
             case .feedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     onOpenTopicRoute: { route in
                         tabState.appendProfileRoute(route)
@@ -214,6 +225,7 @@ struct ProfileRootScreen: View {
             case .topicFeedDetail(let postID):
                 ProfileFeedDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     onOpenTopicRoute: { route in
                         tabState.appendProfileRoute(route)
@@ -319,7 +331,6 @@ struct ProfileRootScreen: View {
             case .setPassword:
                 SettingsSetPasswordScreen(
                     store: SettingsPasswordStore(
-                        hasPassword: currentUserStore.settingsState.hasPassword,
                         currentUserStore: currentUserStore
                     )
                 )

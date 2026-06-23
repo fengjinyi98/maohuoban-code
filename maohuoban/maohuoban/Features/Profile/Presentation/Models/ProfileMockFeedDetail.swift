@@ -6,14 +6,31 @@ import Foundation
 // - 为我的动态详情提供与列表一致的展示数据
 // - 复用宠物世界详情页所需的详情展示模型
 enum ProfileMockFeedDetail {
-    static func detail(for postID: String) -> PetWorldFeedDetailItem? {
-        if let card = ProfileMockFeed.cards.first(where: { $0.postID == postID }) {
+    // detail 构造当前用户动态详情
+    // 核心职责：
+    // - 复用帖子详情模板
+    // - 由调用方注入当前用户作者身份
+    static func detail(
+        for postID: String,
+        authorName: String,
+        authorAvatarAssetName: String
+    ) -> PetWorldFeedDetailItem? {
+        if let card = ProfileMockFeed
+            .cards(
+                authorName: authorName,
+                authorAvatarAssetName: authorAvatarAssetName
+            )
+            .first(where: { $0.postID == postID }) {
             return makeDetail(card: card)
         }
 
         if let post = ProfileUserHome.mockPost(for: postID),
            post.canOpenDetail {
-            return makeUserHomeDetail(post: post)
+            return makeUserHomeDetail(
+                post: post,
+                authorName: authorName,
+                authorAvatarAssetName: authorAvatarAssetName
+            )
         }
 
         return nil
@@ -64,7 +81,11 @@ enum ProfileMockFeedDetail {
     // 核心职责：
     // - 为个人主页宫格内容提供可进入的详情页 mock 数据
     // - 按内容类型区分画廊详情和图文混排详情
-    private static func makeUserHomeDetail(post: ProfileUserHomePost) -> PetWorldFeedDetailItem {
+    private static func makeUserHomeDetail(
+        post: ProfileUserHomePost,
+        authorName: String,
+        authorAvatarAssetName: String
+    ) -> PetWorldFeedDetailItem {
         let profile = ProfileUserHome.mock
         let publishedAt = publishedAt(for: post.id)
         let bodyText = userHomeBodyText(for: post)
@@ -79,17 +100,17 @@ enum ProfileMockFeedDetail {
         return PetWorldFeedDetailItem(
             postID: post.id,
             displayMode: post.type == .richText ? .interleaved : .gallery,
-            petName: profile.pets.first?.name ?? profile.displayName,
-            petAvatarAssetName: profile.pets.first?.avatarAssetName ?? profile.avatarAssetName,
-            authorName: profile.displayName,
-            authorAvatarAssetName: profile.avatarAssetName,
+            petName: profile.pets.first?.name ?? authorName,
+            petAvatarAssetName: profile.pets.first?.avatarAssetName ?? authorAvatarAssetName,
+            authorName: authorName,
+            authorAvatarAssetName: authorAvatarAssetName,
             publishedAt: publishedAt,
             title: userHomeTitle(for: post),
             bodyText: bodyText,
             contentBlocks: userHomeContentBlocks(for: post, bodyText: bodyText, mediaItems: mediaItems),
             topics: userHomeTopics(for: post),
             visibleLocationName: userHomeLocationName(for: post),
-            recommendationExplanation: "来自 \(profile.displayName) 的个人主页动态。",
+            recommendationExplanation: "来自 \(authorName) 的个人主页动态。",
             mediaItems: mediaItems,
             isOwnedByCurrentUser: true,
             isLiked: userHomeIsLiked(for: post),

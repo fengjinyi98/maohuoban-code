@@ -20,7 +20,6 @@ final class SettingsPasswordStoreTests: XCTestCase {
             )
         )
         let store = SettingsPasswordStore(
-            hasPassword: false,
             repository: repository,
             currentUserStore: currentUserStore
         )
@@ -34,6 +33,25 @@ final class SettingsPasswordStoreTests: XCTestCase {
         XCTAssertEqual(repository.lastSetRequest?.newPassword, "Newpass123")
         XCTAssertTrue(currentUserStore.hasPassword)
         XCTAssertEqual(currentUserStore.settingsState.passwordStatusText, "已设置")
+    }
+
+    func testPasswordModeDerivesFromCurrentUserStoreAfterExternalSecurityUpdate() {
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession(hasPassword: false))
+        let store = SettingsPasswordStore(
+            repository: SettingsPasswordRepositoryStub(),
+            currentUserStore: currentUserStore
+        )
+
+        currentUserStore.applyAccountSecurity(
+            phoneMasked: "138****8016",
+            hasPassword: true
+        )
+
+        XCTAssertEqual(store.passwordStatusText, "已设置")
+        XCTAssertTrue(store.requiresCurrentPassword)
+        XCTAssertTrue(store.requiresSMSCode)
+        XCTAssertFalse(store.isSendCodeDisabled)
     }
 
     func testChangePasswordRequiresCodeChallengeAndUpdatesCurrentUserStore() async {
@@ -58,7 +76,6 @@ final class SettingsPasswordStoreTests: XCTestCase {
             )
         )
         let store = SettingsPasswordStore(
-            hasPassword: true,
             repository: repository,
             currentUserStore: currentUserStore
         )
@@ -82,7 +99,6 @@ final class SettingsPasswordStoreTests: XCTestCase {
         currentUserStore.apply(session: Self.authSession(hasPassword: true))
         let repository = SettingsPasswordRepositoryStub()
         let store = SettingsPasswordStore(
-            hasPassword: true,
             repository: repository,
             currentUserStore: currentUserStore
         )

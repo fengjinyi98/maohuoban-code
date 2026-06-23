@@ -17,18 +17,26 @@ struct MHBAppShell: View {
         TabView(selection: $router.selectedTab) {
             MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
                 HomeRootScreen(
-                    currentUserID: currentUserStore.userID,
+                    currentUserStore: currentUserStore,
                     tabState: router.tabState
                 )
             }
 
             MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
-                PetWorldRootScreen(topicStore: topicStore, tabState: router.tabState)
+                PetWorldRootScreen(
+                    topicStore: topicStore,
+                    tabState: router.tabState,
+                    currentUserStore: currentUserStore
+                )
             }
             .preferredColorScheme(MHBAppTab.petWorld.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 
             MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
-                SameCityRootScreen(topicStore: topicStore, tabState: router.tabState)
+                SameCityRootScreen(
+                    topicStore: topicStore,
+                    tabState: router.tabState,
+                    currentUserStore: currentUserStore
+                )
             }
             .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
 

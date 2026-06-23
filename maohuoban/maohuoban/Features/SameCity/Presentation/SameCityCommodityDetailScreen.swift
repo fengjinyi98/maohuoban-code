@@ -8,6 +8,7 @@ import UIKit
 // - 组合沉浸式头图、详情正文、留言和底部操作栏
 struct SameCityCommodityDetailScreen: View {
     let postID: String
+    let currentUserStore: CurrentUserStore
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> SameCityRoute
     let onOpenTopicRoute: (SameCityRoute) -> Void
@@ -18,6 +19,7 @@ struct SameCityCommodityDetailScreen: View {
         if let detail = SameCityCommodityMockDetail.detail(for: postID) {
             SameCityCommodityDetailLoadedScreen(
                 detail: detail,
+                currentUserIdentity: currentUserIdentity,
                 interactionStore: interactionStore,
                 topicRoute: topicRoute,
                 onOpenTopicRoute: onOpenTopicRoute,
@@ -27,6 +29,17 @@ struct SameCityCommodityDetailScreen: View {
         } else {
             SameCityCommodityDetailMissingScreen()
         }
+    }
+
+    private var currentUserIdentity: FeedCommentAuthorIdentity {
+        FeedCommentAuthorIdentity(
+            userID: currentUserStore.userID ?? "current-user",
+            userName: currentUserStore.displayName,
+            userAvatarAssetName: currentUserStore.avatarAssetName,
+            petID: nil,
+            petName: nil,
+            petAvatarAssetName: nil
+        )
     }
 }
 
@@ -38,6 +51,7 @@ private struct SameCityCommodityDetailLoadedScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let detail: SameCityCommodityDetailItem
+    let currentUserIdentity: FeedCommentAuthorIdentity
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> SameCityRoute
     let onOpenTopicRoute: (SameCityRoute) -> Void
@@ -200,17 +214,6 @@ private struct SameCityCommodityDetailLoadedScreen: View {
 
     private var imagePreviewGalleryID: String {
         "same-city-commodity-detail-\(detail.postID)"
-    }
-
-    private var currentUserIdentity: FeedCommentAuthorIdentity {
-        FeedCommentAuthorIdentity(
-            userID: "current-user",
-            userName: "小满",
-            userAvatarAssetName: "HomeUserAvatarMock",
-            petID: "current-user-pet",
-            petName: "奶油",
-            petAvatarAssetName: "HomePetHeroMock"
-        )
     }
 
     private var commentComposerTitleText: String {

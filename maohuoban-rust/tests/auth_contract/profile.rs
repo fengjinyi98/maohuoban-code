@@ -2,6 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -333,6 +334,93 @@ async fn profile_me_patch_rejects_display_name_and_bio_when_edit_policy_exhauste
     );
 }
 
+#[tokio::test]
+async fn profile_me_uploads_avatar_and_cover_media() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let challenge_id = send_phone_code(&app, "13800138015", "ios-profile-media").await;
+    let login_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/phone/verify",
+            json!({
+                "challenge_id": challenge_id,
+                "code": "123456",
+                "device": device_payload("ios-profile-media")
+            }),
+        ))
+        .await
+        .expect("verify phone code");
+    assert_eq!(login_response.status(), StatusCode::OK);
+
+    let login_body = response_json(login_response).await;
+    let access_token = login_body["data"]["access_token"]
+        .as_str()
+        .expect("access token");
+    let image_content = tiny_png();
+
+    let avatar_response = app
+        .router()
+        .oneshot(authorized_multipart_image_request(
+            "/api/v1/profile/me/avatar",
+            access_token,
+            "avatar.png",
+            "image/png",
+            &image_content,
+        ))
+        .await
+        .expect("upload avatar");
+    let avatar_status = avatar_response.status();
+    let avatar_body = response_json(avatar_response).await;
+    assert_eq!(
+        avatar_status,
+        StatusCode::CREATED,
+        "avatar upload body: {avatar_body}"
+    );
+    assert_eq!(avatar_body["success"], true);
+    assert_eq!(avatar_body["code"], "profile.avatar_uploaded");
+    assert_eq!(avatar_body["message"], "头像已保存");
+    assert_profile_media(&avatar_body["data"]["avatar"], "image/png", 1, 1);
+
+    let cover_response = app
+        .router()
+        .oneshot(authorized_multipart_image_request(
+            "/api/v1/profile/me/cover",
+            access_token,
+            "cover.png",
+            "image/png",
+            &image_content,
+        ))
+        .await
+        .expect("upload cover");
+    let cover_status = cover_response.status();
+    let cover_body = response_json(cover_response).await;
+    assert_eq!(
+        cover_status,
+        StatusCode::CREATED,
+        "cover upload body: {cover_body}"
+    );
+    assert_eq!(cover_body["success"], true);
+    assert_eq!(cover_body["code"], "profile.cover_uploaded");
+    assert_eq!(cover_body["message"], "主页背景已保存");
+    assert_profile_media(&cover_body["data"]["cover"], "image/png", 1, 1);
+
+    let profile_response = app
+        .router()
+        .oneshot(authorized_get_request("/api/v1/profile/me", access_token))
+        .await
+        .expect("get profile after media uploads");
+    assert_eq!(profile_response.status(), StatusCode::OK);
+    let profile_body = response_json(profile_response).await;
+    assert_eq!(
+        profile_body["data"]["avatar"],
+        avatar_body["data"]["avatar"]
+    );
+    assert_eq!(profile_body["data"]["cover"], cover_body["data"]["cover"]);
+}
+
 async fn send_phone_code(
     app: &maohuoban_rust::test_support::AuthTestApp,
     phone: &str,
@@ -393,6 +481,43 @@ fn authorized_json_request(
         .expect("build authorized json request")
 }
 
+fn authorized_multipart_image_request(
+    uri: &str,
+    access_token: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+) -> Request<Body> {
+    let boundary = format!("maohuoban-profile-test-{}", uuid::Uuid::new_v4());
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n\
+             Content-Type: {mime_type}\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(content);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        b"Content-Disposition: form-data; name=\"source_client\"\r\n\r\nios\r\n",
+    );
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header("authorization", format!("Bearer {access_token}"))
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .body(Body::from(body))
+        .expect("build authorized multipart image request")
+}
+
 fn assert_profile_edit_policy(
     policy: &Value,
     max_count: i64,
@@ -404,4 +529,26 @@ fn assert_profile_edit_policy(
     assert_eq!(policy["remaining_count"], remaining_count);
     assert_eq!(policy["window_days"], 30);
     assert!(policy["display_text"].as_str().is_some());
+}
+
+fn assert_profile_media(media: &Value, mime_type: &str, width: i64, height: i64) {
+    assert!(media["asset_id"].as_str().is_some());
+    assert!(
+        media["url"]
+            .as_str()
+            .expect("profile media url")
+            .starts_with("/api/v1/media/assets/")
+    );
+    assert_eq!(media["mime_type"], mime_type);
+    assert_eq!(media["width"], width);
+    assert_eq!(media["height"], height);
+    assert!(media["updated_at"].as_str().is_some());
+}
+
+fn tiny_png() -> Vec<u8> {
+    STANDARD
+        .decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+        )
+        .expect("decode tiny png")
 }

@@ -4,7 +4,7 @@ use chrono::{NaiveDate, Utc};
 use maohuoban_profile_domain::profile::{ProfileError, ProfileResult, UserProfile};
 use uuid::Uuid;
 
-use super::{DefaultProfileInput, ProfileRepository, UpdateProfileInput};
+use super::{DefaultProfileInput, ProfileRepository, UpdateProfileInput, UploadProfileMediaInput};
 
 /// `ProfileService` 用户资料应用服务
 /// 核心职责：
@@ -52,6 +52,16 @@ impl ProfileService {
         self.repository.update_profile(normalized).await
     }
 
+    /// # Errors
+    /// 当资料不存在、上传文件不合法或仓储写入失败时返回错误。
+    pub async fn upload_current_profile_media(
+        &self,
+        input: UploadProfileMediaInput,
+    ) -> ProfileResult<UserProfile> {
+        Self::validate_media_upload(&input)?;
+        self.repository.upload_profile_media(input).await
+    }
+
     fn normalize_update(mut input: UpdateProfileInput) -> ProfileResult<UpdateProfileInput> {
         if let Some(display_name) = input.display_name.take() {
             input.display_name = Some(Self::normalize_display_name(&display_name)?);
@@ -93,6 +103,22 @@ impl ProfileService {
         let earliest = NaiveDate::from_ymd_opt(1900, 1, 1).ok_or(ProfileError::BirthdayInvalid)?;
         if value < earliest || value > today {
             return Err(ProfileError::BirthdayInvalid);
+        }
+        Ok(())
+    }
+
+    fn validate_media_upload(input: &UploadProfileMediaInput) -> ProfileResult<()> {
+        if input.content.is_empty() {
+            return Err(ProfileError::MediaFileRequired);
+        }
+        if input.content.len() > input.kind.size_limit_bytes() {
+            return Err(ProfileError::MediaTooLarge);
+        }
+        if !matches!(
+            input.mime_type.as_str(),
+            "image/jpeg" | "image/png" | "image/webp"
+        ) {
+            return Err(ProfileError::MediaTypeInvalid);
         }
         Ok(())
     }

@@ -1,5 +1,5 @@
-use chrono::NaiveDate;
-use maohuoban_profile_domain::profile::{UserGender, UserProfile};
+use chrono::{DateTime, NaiveDate, Utc};
+use maohuoban_profile_domain::profile::{ProfileMediaAsset, UserGender, UserProfile};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -34,8 +34,36 @@ impl From<UserProfileRow> for UserProfile {
             birthday: row.birthday,
             avatar_asset_id: row.avatar_asset_id,
             cover_asset_id: row.cover_asset_id,
+            avatar: None,
+            cover: None,
             display_name_edit_policy: None,
             bio_edit_policy: None,
+        }
+    }
+}
+
+/// `ProfileMediaAssetRow` 用户资料媒体资产数据库行
+/// 核心职责：
+/// - 承接 `media_assets` 中用户头像和背景所需字段
+/// - 转换为前端可展示的资料媒体实体
+#[derive(Debug, FromRow)]
+pub(super) struct ProfileMediaAssetRow {
+    id: Uuid,
+    mime_type: String,
+    width: Option<i32>,
+    height: Option<i32>,
+    updated_at: DateTime<Utc>,
+}
+
+impl From<ProfileMediaAssetRow> for ProfileMediaAsset {
+    fn from(row: ProfileMediaAssetRow) -> Self {
+        Self {
+            asset_id: row.id,
+            url: format!("/api/v1/media/assets/{}/content", row.id),
+            width: row.width,
+            height: row.height,
+            mime_type: row.mime_type,
+            updated_at: row.updated_at,
         }
     }
 }

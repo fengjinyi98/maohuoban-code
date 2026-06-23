@@ -41,20 +41,17 @@ final class SettingsPasswordStore {
     private(set) var toastMessage: String?
     private(set) var passwordChangeChallengeID: String?
 
-    private var hasPassword: Bool
     @ObservationIgnored private let repository: any SettingsPasswordRepository
     @ObservationIgnored private let currentUserStore: CurrentUserStore
     @ObservationIgnored private var countdownTask: Task<Void, Never>?
 
     init(
-        hasPassword: Bool = false,
         repository: any SettingsPasswordRepository = DefaultSettingsPasswordRepository(),
-        currentUserStore: CurrentUserStore = CurrentUserStore()
+        currentUserStore: CurrentUserStore
     ) {
-        self.hasPassword = hasPassword
         self.repository = repository
         self.currentUserStore = currentUserStore
-        self.selectedMode = hasPassword ? .currentPassword : .firstSet
+        self.selectedMode = currentUserStore.hasPassword ? .currentPassword : .firstSet
     }
 
     deinit {
@@ -62,7 +59,7 @@ final class SettingsPasswordStore {
     }
 
     var passwordStatusText: String {
-        hasPassword ? "已设置" : "未设置"
+        currentHasPassword ? "已设置" : "未设置"
     }
 
     var showsModeTabs: Bool {
@@ -77,15 +74,19 @@ final class SettingsPasswordStore {
     }
 
     var isSendCodeDisabled: Bool {
-        hasPassword == false || isSendingCode || countdownRemaining > 0
+        currentHasPassword == false || isSendingCode || countdownRemaining > 0
     }
 
     var requiresCurrentPassword: Bool {
-        hasPassword
+        currentHasPassword
+    }
+
+    private var currentHasPassword: Bool {
+        currentUserStore.hasPassword
     }
 
     var requiresSMSCode: Bool {
-        hasPassword
+        currentHasPassword
     }
 
     func switchMode(to mode: SettingsPasswordMode) {
@@ -127,7 +128,7 @@ final class SettingsPasswordStore {
         defer { isSubmitting = false }
 
         do {
-            if hasPassword {
+            if currentHasPassword {
                 guard let challengeID = passwordChangeChallengeID, challengeID.isEmpty == false else {
                     errorMessage = "请先获取并输入短信验证码"
                     return
@@ -183,7 +184,7 @@ final class SettingsPasswordStore {
             return false
         }
 
-        if hasPassword {
+        if currentHasPassword {
             guard currentPassword.isEmpty == false else {
                 errorMessage = "请输入当前登录密码"
                 return false
@@ -206,7 +207,7 @@ final class SettingsPasswordStore {
             phoneMasked: securityState?.phoneMasked,
             hasPassword: securityState?.hasPassword ?? fallbackHasPassword
         )
-        hasPassword = securityState?.hasPassword ?? fallbackHasPassword
+        selectedMode = currentHasPassword ? .currentPassword : .firstSet
         toastMessage = response.message
     }
 

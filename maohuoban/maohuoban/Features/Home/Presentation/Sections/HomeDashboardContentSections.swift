@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 统一维护普通 section 的页面边距
 struct HomeDashboardContentSections: View {
     let snapshot: HomeDashboardSnapshot
+    let currentUserDisplayName: String
     let routingContext: HomeActionRoutingContext
     let onSelectPet: (String) -> Void
     let showsTopSpacing: Bool
@@ -14,7 +15,10 @@ struct HomeDashboardContentSections: View {
     var body: some View {
         LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             if snapshot.selectedPet == nil {
-                HomeIdentityHeader(identity: snapshot.identity)
+                HomeIdentityHeader(
+                    identity: snapshot.identity,
+                    currentUserDisplayName: currentUserDisplayName
+                )
 
                 if !snapshot.petSwitcher.isEmpty {
                     HomePetSwitcherSection(
@@ -86,10 +90,20 @@ struct HomeDashboardContentSections: View {
 // - 为普通用户和商家首页建立上下文
 struct HomeIdentityHeader: View {
     let identity: HomeDashboardSnapshot.Identity
+    let currentUserDisplayName: String
+
+    var displayNameText: String {
+        switch identity.kind {
+        case .newUser, .petOwner, .familyCaretaker:
+            currentUserDisplayName
+        case .certifiedMerchant, .unverifiedMerchant:
+            identity.displayName
+        }
+    }
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Text(identity.displayName)
+            Text(displayNameText)
                 .font(MHBTheme.Typography.largeTitle)
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 

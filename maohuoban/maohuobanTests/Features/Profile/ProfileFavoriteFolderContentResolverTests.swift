@@ -22,7 +22,7 @@ final class ProfileFavoriteFolderContentResolverTests: XCTestCase {
         let items = ProfileFavoriteFolderContentResolver.feedItems(
             folderID: "pet-care",
             folders: folders,
-            allItems: ProfileMockFeed.cards
+            allItems: Self.feedItems
         )
 
         XCTAssertEqual(items.map(\.postID), ["profile-health-note", "profile-morning-care"])
@@ -33,9 +33,17 @@ final class ProfileFavoriteFolderContentResolverTests: XCTestCase {
         let items = ProfileFavoriteFolderContentResolver.feedItems(
             folderID: "missing",
             folders: [],
-            allItems: ProfileMockFeed.cards
+            allItems: Self.feedItems
         )
 
         XCTAssertTrue(items.isEmpty)
+    }
+
+    @MainActor
+    private static var feedItems: [FeedItem] {
+        ProfileMockFeed.cards(
+            authorName: "测试用户",
+            authorAvatarAssetName: "HomeUserAvatarMock"
+        )
     }
 }

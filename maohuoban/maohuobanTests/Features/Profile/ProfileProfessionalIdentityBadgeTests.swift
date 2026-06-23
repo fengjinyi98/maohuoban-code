@@ -20,13 +20,8 @@ final class ProfileProfessionalIdentityBadgeTests: XCTestCase {
     @MainActor
     func testUnauthenticatedProfileCarriesNoProfessionalBadge() {
         let profile = ProfileUserHome(
-            displayName: "普通用户",
-            maohuobanID: "10086",
-            ipLocation: "",
-            bio: "还没有认证身份",
             coverAssetName: "HomePetHeroMock",
-            avatarAssetName: "MockUserAvatar",
-            genderSystemImage: "person.fill",
+            ipLocation: "",
             professionalBadge: nil,
             stats: [],
             pets: [],

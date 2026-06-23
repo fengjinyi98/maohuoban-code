@@ -7,21 +7,24 @@ import MaohuobanDesignSystem
 // - 复用我的动态 Feed 布局和互动状态
 struct ProfileFavoriteFolderContentScreen: View {
     let folderID: String
+    let currentUserStore: CurrentUserStore
     let interactionStore: FeedInteractionStore
     let folders: [ProfileFavoriteFolder]
-    let allItems: [FeedItem]
+    private let customAllItems: [FeedItem]?
     @State private var removedPostIDs: Set<String> = []
 
     init(
         folderID: String,
+        currentUserStore: CurrentUserStore,
         interactionStore: FeedInteractionStore,
         folders: [ProfileFavoriteFolder] = .profileFavoriteMockFolders,
-        allItems: [FeedItem] = ProfileMockFeed.cards
+        allItems: [FeedItem]? = nil
     ) {
         self.folderID = folderID
+        self.currentUserStore = currentUserStore
         self.interactionStore = interactionStore
         self.folders = folders
-        self.allItems = allItems
+        self.customAllItems = allItems
     }
 
     var body: some View {
@@ -62,6 +65,13 @@ struct ProfileFavoriteFolderContentScreen: View {
             folders: folders,
             allItems: allItems
         ).filter { removedPostIDs.contains($0.postID) == false }
+    }
+
+    private var allItems: [FeedItem] {
+        customAllItems ?? ProfileMockFeed.cards(
+            authorName: currentUserStore.displayName,
+            authorAvatarAssetName: currentUserStore.avatarAssetName
+        )
     }
 
     private func handleMoreAction(

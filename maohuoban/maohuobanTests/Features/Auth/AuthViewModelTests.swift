@@ -12,7 +12,11 @@ final class AuthViewModelTests: XCTestCase {
         let tokenStore = InMemoryAuthTokenStore(tokens: tokens)
         let repository = CapturingAuthRepository()
         repository.refreshResult = .failure(.transport("connection refused"))
-        let viewModel = AuthViewModel(repository: repository, tokenStore: tokenStore)
+        let viewModel = AuthViewModel(
+            repository: repository,
+            tokenStore: tokenStore,
+            currentUserStore: CurrentUserStore()
+        )
 
         await viewModel.bootstrapSession()
 
@@ -74,6 +78,20 @@ final class AuthViewModelTests: XCTestCase {
         )
 
         XCTAssertFalse(source.contains("var currentUser: AuthUser?"))
+    }
+
+    func testAuthViewModelDerivesAuthenticationStateFromCurrentUserStore() throws {
+        let authViewModelSource = try Self.source(
+            appRelativePath: "Features/Auth/Presentation/AuthViewModel.swift"
+        )
+        let sessionHelpersSource = try Self.source(
+            appRelativePath: "Features/Auth/Presentation/ViewModels/AuthViewModel+SessionHelpers.swift"
+        )
+
+        XCTAssertFalse(authViewModelSource.contains("var isAuthenticated ="))
+        XCTAssertTrue(authViewModelSource.contains("currentUserStore.isAuthenticated"))
+        XCTAssertFalse(sessionHelpersSource.contains("isAuthenticated = true"))
+        XCTAssertFalse(sessionHelpersSource.contains("isAuthenticated = false"))
     }
 
     private static func storedTokens() -> MHBStoredTokens {

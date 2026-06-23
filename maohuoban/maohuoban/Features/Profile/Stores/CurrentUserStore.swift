@@ -26,6 +26,7 @@ final class CurrentUserStore {
     var maohuobanID = ""
     var displayName = "未登录"
     var defaultDisplayName = ""
+    var avatarAssetName = "HomeUserAvatarMock"
     var bio = ""
     var gender = "unknown"
     var isGenderVisible = false
@@ -50,7 +51,7 @@ final class CurrentUserStore {
             MHBAvatarUser(
                 id: userID ?? "current-user",
                 displayName: displayName,
-                source: .asset("HomeUserAvatarMock"),
+                source: .asset(avatarAssetName),
                 sex: avatarPresentation.sex.avatarSex,
                 sexVisibility: avatarPresentation.sexVisibility.avatarSexVisibility
             )
@@ -61,7 +62,7 @@ final class CurrentUserStore {
         ProfileAccountSummary(
             userID: userID ?? "current-user",
             displayName: displayName,
-            avatarAssetName: "HomeUserAvatarMock",
+            avatarAssetName: avatarAssetName,
             avatarSex: avatarPresentation.sex.avatarSex,
             avatarSexVisibility: avatarPresentation.sexVisibility.avatarSexVisibility,
             levelText: accountLevelText,
@@ -94,6 +95,7 @@ final class CurrentUserStore {
     func apply(profile: CurrentUserProfileSummary) {
         maohuobanID = profile.maohuobanID
         displayName = profile.displayName
+        avatarAssetName = avatarAssetName(from: profile.avatar)
         gender = profile.avatarPresentation.sex.rawValue
         isGenderVisible = profile.avatarPresentation.sexVisibility == .visible
         avatarPresentation = profile.avatarPresentation
@@ -131,6 +133,7 @@ final class CurrentUserStore {
         maohuobanID = ""
         displayName = "未登录"
         defaultDisplayName = ""
+        avatarAssetName = "HomeUserAvatarMock"
         bio = ""
         gender = "unknown"
         isGenderVisible = false
@@ -155,6 +158,30 @@ final class CurrentUserStore {
             return "+86 \(phone.prefix(3))****\(phone.suffix(4))"
         }
         return "未绑定手机"
+    }
+
+    // avatarAssetName 解析当前用户本地头像资源
+    // 核心职责：
+    // - 为仍消费 asset 名称的旧展示模型提供统一头像来源
+    // - 在远端头像接入前保持本地兜底资源稳定
+    private func avatarAssetName(from rawValue: String?) -> String {
+        let fallbackAssetName = "HomeUserAvatarMock"
+        guard let rawValue else {
+            return fallbackAssetName
+        }
+
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedValue.isEmpty == false else {
+            return fallbackAssetName
+        }
+
+        if let url = URL(string: trimmedValue),
+           let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            return fallbackAssetName
+        }
+
+        return trimmedValue
     }
 
 }

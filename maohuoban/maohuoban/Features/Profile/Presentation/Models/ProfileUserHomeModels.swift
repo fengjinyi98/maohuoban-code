@@ -5,38 +5,12 @@ import Foundation
 // - 聚合个人主页各 section 所需的最小展示字段
 // - 为快速 UI 阶段提供可替换的本地 mock 数据
 struct ProfileUserHome: Equatable {
-    let displayName: String
-    let maohuobanID: String
-    let ipLocation: String
-    let bio: String
     let coverAssetName: String
-    let avatarAssetName: String
-    let genderSystemImage: String
+    let ipLocation: String
     let professionalBadge: ProfileProfessionalIdentityBadge?
     let stats: [ProfileUserHomeStat]
     let pets: [ProfileUserHomePet]
     let tabContents: [ProfileUserHomeTabContent]
-
-    var aiEntryContext: AIAssistantEntryContext {
-        AIAssistantEntryContext(
-            selectedPetID: pets.first?.id,
-            selectedPetName: pets.first?.name,
-            selectedPetSpecies: .cat,
-            ugcContextTitle: "\(displayName) 的个人主页"
-        )
-    }
-
-    var avatarSubject: MHBAvatarSubject {
-        .user(
-            MHBAvatarUser(
-                id: "profile-user-home",
-                displayName: displayName,
-                source: .asset(avatarAssetName),
-                sex: .unknown,
-                sexVisibility: .hidden
-            )
-        )
-    }
 
     static func mockPost(for postID: String) -> ProfileUserHomePost? {
         mock.tabContents
@@ -45,13 +19,8 @@ struct ProfileUserHome: Equatable {
     }
 
     static let mock = ProfileUserHome(
-        displayName: "个人主页用户",
-        maohuobanID: "88203910",
-        ipLocation: "上海",
-        bio: "记录两只毛孩子的日常。分享科学喂养与同城遛狗路线。",
         coverAssetName: "HomePetHeroMock",
-        avatarAssetName: "HomeUserAvatarMock",
-        genderSystemImage: "person.fill",
+        ipLocation: "上海",
         professionalBadge: .cattery,
         stats: [
             ProfileUserHomeStat(id: "following", value: "128", title: "关注"),

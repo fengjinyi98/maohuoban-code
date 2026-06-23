@@ -97,4 +97,17 @@ final class PetWorldFeedPageContentResolverTests: XCTestCase {
             )
         )
     }
+
+    func testMockDetailDoesNotTreatNamedMockAuthorAsCurrentUserByDefault() throws {
+        let detail = try XCTUnwrap(PetWorldMockFeedDetail.detail(for: "beach-walk"))
+
+        XCTAssertFalse(detail.isOwnedByCurrentUser)
+        XCTAssertTrue(Self.flatten(comments: detail.comments).allSatisfy { $0.isOwnedByCurrentUser == false })
+    }
+
+    private static func flatten(comments: [FeedComment]) -> [FeedComment] {
+        comments.flatMap { comment in
+            [comment] + flatten(comments: comment.replies)
+        }
+    }
 }

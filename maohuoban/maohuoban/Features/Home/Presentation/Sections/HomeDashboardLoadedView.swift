@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
+    let currentUserDisplayName: String
     let onSelectPet: (String) -> Void
     let onOpenRoute: (HomeRoute) -> Void
 
@@ -24,6 +25,10 @@ struct HomeDashboardLoadedView: View {
 
     private var isAnyFloatingMenuPresented: Bool {
         isQuickActionsPanelPresented
+    }
+
+    var petHeaderDisplayName: String {
+        currentUserDisplayName
     }
 
     private var quickActionsPanelBinding: Binding<Bool> {
@@ -49,7 +54,7 @@ struct HomeDashboardLoadedView: View {
                         if let selectedPet = snapshot.selectedPet {
                             HomeImmersivePetHeaderSection(
                                 pet: selectedPet,
-                                displayName: snapshot.identity.displayName,
+                                displayName: petHeaderDisplayName,
                                 width: heroImageWidth,
                                 fusionColor: dynamicBackgroundColor,
                                 contentColorScheme: themeStore.heroContentColorScheme,
@@ -63,6 +68,7 @@ struct HomeDashboardLoadedView: View {
 
                         HomeDashboardContentSections(
                             snapshot: snapshot,
+                            currentUserDisplayName: currentUserDisplayName,
                             routingContext: routingContext,
                             onSelectPet: onSelectPet,
                             showsTopSpacing: snapshot.selectedPet == nil

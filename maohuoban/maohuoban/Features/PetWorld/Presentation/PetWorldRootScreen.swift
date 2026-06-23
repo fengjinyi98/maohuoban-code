@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct PetWorldRootScreen: View {
     let topicStore: TopicStore
     let tabState: MHBAppTabState
+    let currentUserStore: CurrentUserStore
     @State private var selectedTab = PetWorldNavigationTab.recommended
     @State private var lastFeedScrollOffset: CGFloat = 0
     @State private var isNavigationHeaderHidden = false
@@ -15,10 +16,12 @@ struct PetWorldRootScreen: View {
 
     init(
         topicStore: TopicStore = TopicStore(),
-        tabState: MHBAppTabState = MHBAppTabState()
+        tabState: MHBAppTabState = MHBAppTabState(),
+        currentUserStore: CurrentUserStore
     ) {
         self.topicStore = topicStore
         self.tabState = tabState
+        self.currentUserStore = currentUserStore
     }
 
     var body: some View {
@@ -76,6 +79,7 @@ struct PetWorldRootScreen: View {
             case .feedDetail(let postID):
                 PetWorldFeedDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
@@ -104,6 +108,7 @@ struct PetWorldRootScreen: View {
             case .topicFeedDetail(let postID):
                 PetWorldFeedDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         PetWorldRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))

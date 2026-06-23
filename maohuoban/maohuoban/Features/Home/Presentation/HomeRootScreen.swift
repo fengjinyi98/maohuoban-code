@@ -6,18 +6,22 @@ import MaohuobanDesignSystem
 // - 作为首页 Tab NavigationStack 的根内容
 // - 后续在此注册 HomeRoute 的 navigationDestination
 struct HomeRootScreen: View {
-    let currentUserID: String?
+    let currentUserStore: CurrentUserStore
     let tabState: MHBAppTabState
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
 
     init(
-        currentUserID: String? = nil,
+        currentUserStore: CurrentUserStore,
         tabState: MHBAppTabState = MHBAppTabState()
     ) {
-        self.currentUserID = currentUserID
+        self.currentUserStore = currentUserStore
         self.tabState = tabState
+    }
+
+    private var currentUserID: String? {
+        currentUserStore.userID
     }
 
     var body: some View {
@@ -28,6 +32,7 @@ struct HomeRootScreen: View {
             case .loaded(let snapshot):
                 HomeDashboardLoadedView(
                     snapshot: snapshot,
+                    currentUserDisplayName: currentUserStore.displayName,
                     onSelectPet: { petID in
                         selectedPetID = petID
                         Task {

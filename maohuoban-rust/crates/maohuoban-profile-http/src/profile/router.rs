@@ -2,17 +2,20 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Multipart, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use chrono::NaiveDate;
 use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_domain::auth::{AuthError, AuthResult};
-use maohuoban_profile_application::profile::{ProfileService, UpdateProfileInput};
+use maohuoban_profile_application::profile::{
+    ProfileMediaKind, ProfileService, UpdateProfileInput, UploadProfileMediaInput,
+};
 use maohuoban_profile_domain::profile::{
-    AvatarPresentation, ProfileError, ProfileFieldEditPolicy, UserGender, UserProfile,
+    AvatarPresentation, ProfileError, ProfileFieldEditPolicy, ProfileMediaAsset, UserGender,
+    UserProfile,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -44,6 +47,14 @@ pub fn build_profile_router(profile: Arc<ProfileService>, auth: Arc<AuthService>
         .route(
             "/api/v1/profile/me",
             get(get_current_profile).patch(patch_current_profile),
+        )
+        .route(
+            "/api/v1/profile/me/avatar",
+            post(upload_current_profile_avatar),
+        )
+        .route(
+            "/api/v1/profile/me/cover",
+            post(upload_current_profile_cover),
         )
         .with_state(ProfileHttpState::new(profile, auth))
 }
@@ -90,6 +101,64 @@ async fn patch_current_profile(
     }
 }
 
+async fn upload_current_profile_avatar(
+    State(state): State<ProfileHttpState>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> Response {
+    upload_current_profile_media(
+        state,
+        headers,
+        multipart,
+        ProfileMediaKind::Avatar,
+        "profile.avatar_uploaded",
+        "头像已保存",
+    )
+    .await
+}
+
+async fn upload_current_profile_cover(
+    State(state): State<ProfileHttpState>,
+    headers: HeaderMap,
+    multipart: Multipart,
+) -> Response {
+    upload_current_profile_media(
+        state,
+        headers,
+        multipart,
+        ProfileMediaKind::Cover,
+        "profile.cover_uploaded",
+        "主页背景已保存",
+    )
+    .await
+}
+
+async fn upload_current_profile_media(
+    state: ProfileHttpState,
+    headers: HeaderMap,
+    multipart: Multipart,
+    kind: ProfileMediaKind,
+    code: &'static str,
+    message: &'static str,
+) -> Response {
+    let Ok(user) = current_user(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    let request = match UploadProfileMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
+        Err(error) => return error_response(&error),
+    };
+    match state
+        .profile
+        .upload_current_profile_media(request.into_input(user.id, kind))
+        .await
+    {
+        Ok(profile) => created_response(code, message, CurrentProfileData::from(profile)),
+        Err(error) => error_response(&error),
+    }
+}
+
 async fn current_user(
     auth: &AuthService,
     headers: &HeaderMap,
@@ -114,6 +183,22 @@ where
 {
     (
         StatusCode::OK,
+        Json(ApiResponse {
+            success: true,
+            code,
+            message: message.to_owned(),
+            data: Some(data),
+        }),
+    )
+        .into_response()
+}
+
+fn created_response<T>(code: &'static str, message: &'static str, data: T) -> Response
+where
+    T: Serialize,
+{
+    (
+        StatusCode::CREATED,
         Json(ApiResponse {
             success: true,
             code,
@@ -161,6 +246,26 @@ fn error_response(error: &ProfileError) -> Response {
             "profile.birthday_invalid",
             "生日日期无效".to_owned(),
         ),
+        ProfileError::MediaFileRequired => (
+            StatusCode::BAD_REQUEST,
+            "profile.media_file_required",
+            "请先选择图片".to_owned(),
+        ),
+        ProfileError::MediaTypeInvalid => (
+            StatusCode::BAD_REQUEST,
+            "profile.media_type_invalid",
+            "仅支持 JPG、PNG 或 WebP 图片".to_owned(),
+        ),
+        ProfileError::MediaTooLarge => (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "profile.media_too_large",
+            "图片过大，请重新选择".to_owned(),
+        ),
+        ProfileError::MediaDecodeFailed => (
+            StatusCode::BAD_REQUEST,
+            "profile.media_decode_failed",
+            "图片文件无法识别".to_owned(),
+        ),
         ProfileError::Infrastructure(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             "profile.internal_error",
@@ -191,6 +296,86 @@ fn unauthorized_response() -> Response {
         }),
     )
         .into_response()
+}
+
+/// `UploadProfileMediaRequest` 用户资料媒体上传请求
+/// 核心职责：
+/// - 承接 multipart 解包后的图片字段
+/// - 转换为应用层用户资料媒体上传命令
+#[derive(Debug)]
+struct UploadProfileMediaRequest {
+    file_name: String,
+    mime_type: String,
+    content: Vec<u8>,
+    source_client: Option<String>,
+}
+
+impl UploadProfileMediaRequest {
+    async fn from_multipart(mut multipart: Multipart) -> Result<Self, ProfileError> {
+        let mut file_name = None;
+        let mut mime_type = None;
+        let mut content = None;
+        let mut source_client = None;
+
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|_| ProfileError::MediaFileRequired)?
+        {
+            match field.name() {
+                Some("file") => {
+                    file_name = Some(
+                        field
+                            .file_name()
+                            .filter(|value| !value.trim().is_empty())
+                            .unwrap_or("profile-media.bin")
+                            .to_owned(),
+                    );
+                    mime_type = Some(
+                        field
+                            .content_type()
+                            .filter(|value| !value.trim().is_empty())
+                            .unwrap_or("application/octet-stream")
+                            .to_owned(),
+                    );
+                    let bytes = field
+                        .bytes()
+                        .await
+                        .map_err(|_| ProfileError::MediaFileRequired)?;
+                    content = Some(bytes.to_vec());
+                }
+                Some("source_client") => {
+                    let value = field
+                        .text()
+                        .await
+                        .map_err(|_| ProfileError::MediaFileRequired)?;
+                    let trimmed = value.trim();
+                    if !trimmed.is_empty() {
+                        source_client = Some(trimmed.to_owned());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Self {
+            file_name: file_name.unwrap_or_else(|| "profile-media.bin".to_owned()),
+            mime_type: mime_type.unwrap_or_else(|| "application/octet-stream".to_owned()),
+            content: content.ok_or(ProfileError::MediaFileRequired)?,
+            source_client,
+        })
+    }
+
+    fn into_input(self, user_id: Uuid, kind: ProfileMediaKind) -> UploadProfileMediaInput {
+        UploadProfileMediaInput {
+            user_id,
+            kind,
+            file_name: self.file_name,
+            mime_type: self.mime_type,
+            content: self.content,
+            source_client: self.source_client,
+        }
+    }
 }
 
 /// `UpdateCurrentProfileRequest` 当前用户资料更新请求
@@ -268,8 +453,8 @@ struct CurrentProfileData {
     is_gender_visible: bool,
     birthday: Option<String>,
     birthday_display_text: Option<String>,
-    avatar: Option<Value>,
-    cover: Option<Value>,
+    avatar: Option<ProfileMediaData>,
+    cover: Option<ProfileMediaData>,
     avatar_presentation: AvatarPresentation,
     display_name_edit_policy: Option<ProfileFieldEditPolicy>,
     bio_edit_policy: Option<ProfileFieldEditPolicy>,
@@ -289,11 +474,38 @@ impl From<UserProfile> for CurrentProfileData {
             is_gender_visible: profile.is_gender_visible,
             birthday: birthday.clone(),
             birthday_display_text: birthday,
-            avatar: None,
-            cover: None,
+            avatar: profile.avatar.map(ProfileMediaData::from),
+            cover: profile.cover.map(ProfileMediaData::from),
             avatar_presentation,
             display_name_edit_policy: profile.display_name_edit_policy,
             bio_edit_policy: profile.bio_edit_policy,
+        }
+    }
+}
+
+/// `ProfileMediaData` 用户资料媒体响应
+/// 核心职责：
+/// - 向前端输出可直接展示的媒资字段
+/// - 保持响应字段名和 iOS 解码模型稳定
+#[derive(Debug, Serialize)]
+struct ProfileMediaData {
+    asset_id: String,
+    url: String,
+    width: Option<i32>,
+    height: Option<i32>,
+    mime_type: String,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ProfileMediaAsset> for ProfileMediaData {
+    fn from(asset: ProfileMediaAsset) -> Self {
+        Self {
+            asset_id: asset.asset_id.to_string(),
+            url: asset.url,
+            width: asset.width,
+            height: asset.height,
+            mime_type: asset.mime_type,
+            updated_at: asset.updated_at,
         }
     }
 }

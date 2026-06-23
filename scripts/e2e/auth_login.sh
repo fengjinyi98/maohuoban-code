@@ -77,6 +77,18 @@ request_delete_authorized() {
     "$BASE_URL$path"
 }
 
+request_multipart_image_authorized() {
+  local path="$1"
+  local access_token="$2"
+  local file_path="$3"
+  curl --silent --show-error \
+    --header "authorization: Bearer $access_token" \
+    --request POST \
+    --form "file=@${file_path};type=image/png" \
+    --form "source_client=ios" \
+    "$BASE_URL$path"
+}
+
 json_get() {
   local json="$1"
   local path="$2"
@@ -236,6 +248,29 @@ expect_profile_edit_policy() {
   json_get "$json" "$policy_path.display_text" >/dev/null
 }
 
+expect_profile_media() {
+  local json="$1"
+  local media_path="$2"
+  json_get "$json" "$media_path.asset_id" >/dev/null
+  json_get "$json" "$media_path.url" >/dev/null
+  expect_field "$json" "$media_path.mime_type" "image/png"
+  expect_field "$json" "$media_path.width" "1"
+  expect_field "$json" "$media_path.height" "1"
+  json_get "$json" "$media_path.updated_at" >/dev/null
+}
+
+write_test_png() {
+  local file_path="$1"
+  node -e '
+    const fs = require("fs");
+    const content = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+      "base64"
+    );
+    fs.writeFileSync(process.argv[1], content);
+  ' "$file_path"
+}
+
 preflight() {
   require_command node
   require_command curl
@@ -256,6 +291,13 @@ preflight() {
 }
 
 preflight
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+avatar_file="$tmp_dir/profile-avatar.png"
+cover_file="$tmp_dir/profile-cover.png"
+write_test_png "$avatar_file"
+write_test_png "$cover_file"
 
 "$PSQL" -d "$DATABASE" -q -c \
   "TRUNCATE TABLE auth_audit_events, device_sessions, password_credentials, user_identities, users CASCADE;"
@@ -403,6 +445,26 @@ expect_profile_edit_policy "$profile_response" "data.display_name_edit_policy" "
 expect_profile_edit_policy "$profile_response" "data.bio_edit_policy" "3" "0" "3"
 expect_absent "$profile_response" "data.join_sequence"
 expect_absent "$profile_response" "data.badges"
+
+avatar_upload_response="$(request_multipart_image_authorized "/api/v1/profile/me/avatar" "$access_token" "$avatar_file")"
+expect_toast_message "$avatar_upload_response"
+expect_field "$avatar_upload_response" "success" "true"
+expect_field "$avatar_upload_response" "code" "profile.avatar_uploaded"
+expect_field "$avatar_upload_response" "message" "头像已保存"
+expect_profile_media "$avatar_upload_response" "data.avatar"
+
+cover_upload_response="$(request_multipart_image_authorized "/api/v1/profile/me/cover" "$access_token" "$cover_file")"
+expect_toast_message "$cover_upload_response"
+expect_field "$cover_upload_response" "success" "true"
+expect_field "$cover_upload_response" "code" "profile.cover_uploaded"
+expect_field "$cover_upload_response" "message" "主页背景已保存"
+expect_profile_media "$cover_upload_response" "data.cover"
+
+profile_after_media_response="$(request_get_authorized "/api/v1/profile/me" "$access_token")"
+expect_toast_message "$profile_after_media_response"
+expect_field "$profile_after_media_response" "success" "true"
+expect_same_field "$profile_after_media_response" "data.avatar" "$avatar_upload_response" "data.avatar"
+expect_same_field "$profile_after_media_response" "data.cover" "$cover_upload_response" "data.cover"
 
 profile_update_response="$(request_patch_authorized "/api/v1/profile/me" "$access_token" "{\"display_name\":\"橘子午后\",\"bio\":\"记录两只毛孩子的日常。\",\"gender\":\"female\",\"is_gender_visible\":false,\"birthday\":\"1999-12-31\"}")"
 expect_toast_message "$profile_update_response"

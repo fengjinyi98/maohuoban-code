@@ -11,16 +11,19 @@ import MaohuobanDesignSystem
 struct SameCityRootScreen: View {
     let topicStore: TopicStore
     let tabState: MHBAppTabState
+    let currentUserStore: CurrentUserStore
     @State private var feedInteractionStore = FeedInteractionStore(cards: SameCityCommodityMockFeed.items.map(\.feedItem))
     @State private var presentedMoreMenuPostID: String?
     @State private var moreButtonFrames: [String: CGRect] = [:]
 
     init(
         topicStore: TopicStore = TopicStore(),
-        tabState: MHBAppTabState = MHBAppTabState()
+        tabState: MHBAppTabState = MHBAppTabState(),
+        currentUserStore: CurrentUserStore
     ) {
         self.topicStore = topicStore
         self.tabState = tabState
+        self.currentUserStore = currentUserStore
     }
 
     var body: some View {
@@ -103,6 +106,7 @@ struct SameCityRootScreen: View {
             case .commodityDetail(let postID):
                 SameCityCommodityDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         SameCityRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))
@@ -145,6 +149,7 @@ struct SameCityRootScreen: View {
             case .topicFeedDetail(let postID):
                 SameCityCommodityDetailScreen(
                     postID: postID,
+                    currentUserStore: currentUserStore,
                     interactionStore: feedInteractionStore,
                     topicRoute: { topicName in
                         SameCityRoute.topicDetail(topicID: TopicIdentifier.id(for: topicName))

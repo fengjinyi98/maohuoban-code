@@ -7,6 +7,57 @@ import XCTest
 // - 固化我的宠物列表宠物名称旁不展示性别符号
 final class HomeGenderSymbolTests: XCTestCase {
     @MainActor
+    func testHomeIdentityHeaderUsesCurrentUserDisplayNameForPersonalIdentityKinds() {
+        let header = HomeIdentityHeader(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .petOwner,
+                displayName: "接口旧昵称",
+                city: nil,
+                verificationBadge: nil
+            ),
+            currentUserDisplayName: "小林"
+        )
+
+        XCTAssertEqual(header.displayNameText, "小林")
+    }
+
+    @MainActor
+    func testHomeIdentityHeaderKeepsMerchantDisplayNameFromDashboardSnapshot() {
+        let header = HomeIdentityHeader(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .certifiedMerchant,
+                displayName: "梧桐猫舍",
+                city: "成都",
+                verificationBadge: "已认证"
+            ),
+            currentUserDisplayName: "小林"
+        )
+
+        XCTAssertEqual(header.displayNameText, "梧桐猫舍")
+    }
+
+    @MainActor
+    func testHomeLoadedViewUsesCurrentUserDisplayNameForPetHeaderCompanionshipText() throws {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let view = HomeDashboardLoadedView(
+            snapshot: snapshot,
+            currentUserDisplayName: "小林",
+            onSelectPet: { _ in },
+            onOpenRoute: { _ in }
+        )
+
+        let selectedPet = try XCTUnwrap(snapshot.selectedPet)
+        let presentation = HomeImmersivePetHeaderPresentation.make(
+            pet: selectedPet,
+            displayName: view.petHeaderDisplayName,
+            date: Date(timeIntervalSince1970: 1_766_361_600)
+        )
+
+        XCTAssertEqual(view.petHeaderDisplayName, "小林")
+        XCTAssertEqual(presentation.companionshipText, "已陪伴 小林 365 天")
+    }
+
+    @MainActor
     func testHomeHeaderPresentationDoesNotExposeNameGenderSymbols() {
         let malePresentation = HomeImmersivePetHeaderPresentation.make(
             pet: makePet(sex: .male),

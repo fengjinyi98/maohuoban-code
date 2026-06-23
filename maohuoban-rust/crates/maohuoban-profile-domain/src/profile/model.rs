@@ -111,6 +111,8 @@ pub struct UserProfile {
     pub birthday: Option<NaiveDate>,
     pub avatar_asset_id: Option<Uuid>,
     pub cover_asset_id: Option<Uuid>,
+    pub avatar: Option<ProfileMediaAsset>,
+    pub cover: Option<ProfileMediaAsset>,
     pub display_name_edit_policy: Option<ProfileFieldEditPolicy>,
     pub bio_edit_policy: Option<ProfileFieldEditPolicy>,
 }
@@ -120,6 +122,20 @@ impl UserProfile {
     pub const fn avatar_presentation(&self) -> AvatarPresentation {
         AvatarPresentation::from_gender(self.gender, self.is_gender_visible)
     }
+}
+
+/// `ProfileMediaAsset` 用户资料媒体资产
+/// 核心职责：
+/// - 表达头像和主页背景的可展示媒资字段
+/// - 隐藏对象存储 bucket 和 object key 等内部细节
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProfileMediaAsset {
+    pub asset_id: Uuid,
+    pub url: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub mime_type: String,
+    pub updated_at: DateTime<Utc>,
 }
 
 /// `ProfileFieldEditPolicy` 用户资料字段编辑策略

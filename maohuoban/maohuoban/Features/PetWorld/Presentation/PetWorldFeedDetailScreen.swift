@@ -6,14 +6,19 @@ import SwiftUI
 // - 组合主图、正文、互动状态和评论树
 struct PetWorldFeedDetailScreen<TopicRouteValue: Hashable>: View {
     let postID: String
+    let currentUserStore: CurrentUserStore
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> TopicRouteValue
     let onOpenTopicRoute: (TopicRouteValue) -> Void
 
     var body: some View {
-        if let detail = PetWorldMockFeedDetail.detail(for: postID) {
+        if let detail = PetWorldMockFeedDetail.detail(
+            for: postID,
+            currentUserName: currentUserStore.displayName
+        ) {
             PetWorldFeedDetailLoadedScreen(
                 detail: detail,
+                currentUserIdentity: currentUserIdentity,
                 interactionStore: interactionStore,
                 topicRoute: topicRoute,
                 onOpenTopicRoute: onOpenTopicRoute
@@ -21,5 +26,16 @@ struct PetWorldFeedDetailScreen<TopicRouteValue: Hashable>: View {
         } else {
             PetWorldFeedDetailMissingScreen()
         }
+    }
+
+    private var currentUserIdentity: FeedCommentAuthorIdentity {
+        FeedCommentAuthorIdentity(
+            userID: currentUserStore.userID ?? "current-user",
+            userName: currentUserStore.displayName,
+            userAvatarAssetName: currentUserStore.avatarAssetName,
+            petID: nil,
+            petName: nil,
+            petAvatarAssetName: nil
+        )
     }
 }

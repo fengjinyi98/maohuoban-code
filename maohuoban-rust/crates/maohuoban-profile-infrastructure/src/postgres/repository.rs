@@ -1,17 +1,20 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
+use maohuoban_media_storage::MediaObjectStore;
 use maohuoban_profile_application::profile::{
     DefaultProfileInput, ProfileRepository as ProfileRepositoryPort, UpdateProfileInput,
+    UploadProfileMediaInput,
 };
 use maohuoban_profile_domain::profile::{
-    ProfileError, ProfileFieldEditPolicy, ProfileResult, UserProfile,
+    ProfileError, ProfileFieldEditPolicy, ProfileMediaAsset, ProfileResult, UserProfile,
 };
-use sqlx::PgPool;
+use sha2::{Digest, Sha256};
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 mod rows;
 
-use rows::UserProfileRow;
+use rows::{ProfileMediaAssetRow, UserProfileRow};
 
 const DISPLAY_NAME_EDIT_MAX_COUNT: i32 = 5;
 const BIO_EDIT_MAX_COUNT: i32 = 3;
@@ -57,9 +60,42 @@ impl PostgresProfileRepository {
         .map(Into::into);
 
         match profile {
-            Some(profile) => Ok(Some(self.attach_edit_policies(profile).await?)),
+            Some(profile) => {
+                let profile = self.attach_media_assets(profile).await?;
+                Ok(Some(self.attach_edit_policies(profile).await?))
+            }
             None => Ok(None),
         }
+    }
+
+    async fn attach_media_assets(&self, mut profile: UserProfile) -> ProfileResult<UserProfile> {
+        if let Some(asset_id) = profile.avatar_asset_id {
+            profile.avatar = self.load_profile_media_asset(asset_id).await?;
+        }
+        if let Some(asset_id) = profile.cover_asset_id {
+            profile.cover = self.load_profile_media_asset(asset_id).await?;
+        }
+        Ok(profile)
+    }
+
+    async fn load_profile_media_asset(
+        &self,
+        asset_id: Uuid,
+    ) -> ProfileResult<Option<ProfileMediaAsset>> {
+        sqlx::query_as::<_, ProfileMediaAssetRow>(
+            r"
+            SELECT id, mime_type, width, height, updated_at
+            FROM media_assets
+            WHERE id = $1
+              AND deleted_at IS NULL
+              AND status IN ('uploaded', 'bound')
+            ",
+        )
+        .bind(asset_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|error| to_profile_error(&error))
+        .map(|row| row.map(Into::into))
     }
 
     async fn attach_edit_policies(&self, mut profile: UserProfile) -> ProfileResult<UserProfile> {
@@ -281,6 +317,213 @@ impl PostgresProfileRepository {
 
         self.attach_edit_policies(profile).await
     }
+
+    async fn upload_profile_media_row(
+        &self,
+        input: UploadProfileMediaInput,
+    ) -> ProfileResult<UserProfile> {
+        let current = self
+            .find_profile(input.user_id)
+            .await?
+            .ok_or(ProfileError::NotFound)?;
+        let image =
+            image::load_from_memory(&input.content).map_err(|_| ProfileError::MediaDecodeFailed)?;
+        let width = to_i32_dimension(image.width())?;
+        let height = to_i32_dimension(image.height())?;
+        let asset_id = Uuid::new_v4();
+        let media_store = MediaObjectStore::from_env()
+            .map_err(|error| ProfileError::Infrastructure(error.to_string()))?;
+        let bucket = media_store.default_bucket().to_owned();
+        let object_key = format!(
+            "users/{}/profile/{}/{}/{}",
+            input.user_id,
+            input.kind.path_segment(),
+            asset_id,
+            sanitized_file_name(&input.file_name)
+        );
+        media_store
+            .put(&bucket, &object_key, &input.content)
+            .await
+            .map_err(|error| ProfileError::Infrastructure(error.to_string()))?;
+
+        let byte_size =
+            i64::try_from(input.content.len()).map_err(|_| ProfileError::MediaTooLarge)?;
+        let sha256_hex = sha256_hex(&input.content);
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|error| to_profile_error(&error))?;
+        Self::insert_profile_media_asset(
+            &mut transaction,
+            &input,
+            asset_id,
+            &bucket,
+            &object_key,
+            byte_size,
+            &sha256_hex,
+            width,
+            height,
+        )
+        .await?;
+        Self::update_profile_media_reference(&mut transaction, &input, asset_id).await?;
+        let old_asset_id = match input.kind {
+            maohuoban_profile_application::profile::ProfileMediaKind::Avatar => {
+                current.avatar_asset_id
+            }
+            maohuoban_profile_application::profile::ProfileMediaKind::Cover => {
+                current.cover_asset_id
+            }
+        };
+        if let Some(old_asset_id) = old_asset_id.filter(|old_asset_id| *old_asset_id != asset_id) {
+            Self::queue_profile_media_cleanup(&mut transaction, old_asset_id).await?;
+        }
+        Self::insert_profile_media_audit_event(&mut transaction, &input, asset_id).await?;
+        transaction
+            .commit()
+            .await
+            .map_err(|error| to_profile_error(&error))?;
+
+        self.find_profile(input.user_id)
+            .await?
+            .ok_or(ProfileError::NotFound)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn insert_profile_media_asset(
+        transaction: &mut Transaction<'_, Postgres>,
+        input: &UploadProfileMediaInput,
+        asset_id: Uuid,
+        bucket: &str,
+        object_key: &str,
+        byte_size: i64,
+        sha256_hex: &str,
+        width: i32,
+        height: i32,
+    ) -> ProfileResult<()> {
+        sqlx::query(
+            r"
+            INSERT INTO media_assets (
+                id,
+                uploaded_by_user_id,
+                owner_pet_id,
+                usage_kind,
+                source_client,
+                original_file_name,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                bucket,
+                object_key,
+                status,
+                width,
+                height
+            )
+            VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, 'bound', $11, $12)
+            ",
+        )
+        .bind(asset_id)
+        .bind(input.user_id)
+        .bind(input.kind.usage_kind())
+        .bind(input.source_client.as_deref())
+        .bind(&input.file_name)
+        .bind(&input.mime_type)
+        .bind(byte_size)
+        .bind(sha256_hex)
+        .bind(bucket)
+        .bind(object_key)
+        .bind(width)
+        .bind(height)
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| to_profile_error(&error))?;
+        Ok(())
+    }
+
+    async fn update_profile_media_reference(
+        transaction: &mut Transaction<'_, Postgres>,
+        input: &UploadProfileMediaInput,
+        asset_id: Uuid,
+    ) -> ProfileResult<()> {
+        let query = match input.kind {
+            maohuoban_profile_application::profile::ProfileMediaKind::Avatar => {
+                "UPDATE user_profiles SET avatar_asset_id = $2, updated_at = now() WHERE user_id = $1"
+            }
+            maohuoban_profile_application::profile::ProfileMediaKind::Cover => {
+                "UPDATE user_profiles SET cover_asset_id = $2, updated_at = now() WHERE user_id = $1"
+            }
+        };
+        sqlx::query(query)
+            .bind(input.user_id)
+            .bind(asset_id)
+            .execute(&mut **transaction)
+            .await
+            .map_err(|error| to_profile_error(&error))?;
+        Ok(())
+    }
+
+    async fn queue_profile_media_cleanup(
+        transaction: &mut Transaction<'_, Postgres>,
+        old_asset_id: Uuid,
+    ) -> ProfileResult<()> {
+        sqlx::query(
+            r"
+            UPDATE media_assets
+            SET status = 'cleanup_pending',
+                delete_after = now() + interval '7 days',
+                updated_at = now()
+            WHERE id = $1
+              AND status <> 'deleted'
+            ",
+        )
+        .bind(old_asset_id)
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| to_profile_error(&error))?;
+
+        sqlx::query(
+            r"
+            INSERT INTO media_cleanup_jobs (id, asset_id, run_after)
+            VALUES ($1, $2, now() + interval '7 days')
+            ",
+        )
+        .bind(Uuid::new_v4())
+        .bind(old_asset_id)
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| to_profile_error(&error))?;
+        Ok(())
+    }
+
+    async fn insert_profile_media_audit_event(
+        transaction: &mut Transaction<'_, Postgres>,
+        input: &UploadProfileMediaInput,
+        asset_id: Uuid,
+    ) -> ProfileResult<()> {
+        sqlx::query(
+            r"
+            INSERT INTO media_audit_events (
+                id,
+                asset_id,
+                actor_user_id,
+                event_kind,
+                event_payload
+            )
+            VALUES ($1, $2, $3, 'uploaded', $4)
+            ",
+        )
+        .bind(Uuid::new_v4())
+        .bind(asset_id)
+        .bind(input.user_id)
+        .bind(serde_json::json!({
+            "usage_kind": input.kind.usage_kind(),
+            "source_client": input.source_client
+        }))
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| to_profile_error(&error))?;
+        Ok(())
+    }
 }
 
 fn profile_field_edit_policy(
@@ -330,6 +573,13 @@ impl ProfileRepositoryPort for PostgresProfileRepository {
     async fn update_profile(&self, input: UpdateProfileInput) -> ProfileResult<UserProfile> {
         self.update_profile_row(input).await
     }
+
+    async fn upload_profile_media(
+        &self,
+        input: UploadProfileMediaInput,
+    ) -> ProfileResult<UserProfile> {
+        self.upload_profile_media_row(input).await
+    }
 }
 
 fn generate_maohuoban_id() -> String {
@@ -344,4 +594,38 @@ fn generate_maohuoban_id() -> String {
 
 fn to_profile_error(error: &sqlx::Error) -> ProfileError {
     ProfileError::Infrastructure(error.to_string())
+}
+
+fn sha256_hex(content: &[u8]) -> String {
+    let digest = Sha256::digest(content);
+    digest.iter().fold(String::new(), |mut output, byte| {
+        use std::fmt::Write as _;
+        write!(&mut output, "{byte:02x}").expect("write sha256 hex");
+        output
+    })
+}
+
+fn sanitized_file_name(file_name: &str) -> String {
+    let sanitized = file_name
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if sanitized.is_empty() {
+        Uuid::new_v4().to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn to_i32_dimension(value: u32) -> ProfileResult<i32> {
+    i32::try_from(value)
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or(ProfileError::MediaDecodeFailed)
 }

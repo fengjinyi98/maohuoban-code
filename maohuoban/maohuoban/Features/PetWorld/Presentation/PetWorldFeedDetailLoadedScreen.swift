@@ -10,6 +10,7 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
     @Environment(\.dismiss) private var dismiss
 
     let detail: PetWorldFeedDetailItem
+    let currentUserIdentity: FeedCommentAuthorIdentity
     let interactionStore: FeedInteractionStore
     let topicRoute: (String) -> TopicRouteValue
     let onOpenTopicRoute: (TopicRouteValue) -> Void
@@ -173,17 +174,6 @@ struct PetWorldFeedDetailLoadedScreen<TopicRouteValue: Hashable>: View {
         .toolbar(.hidden, for: .tabBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-    }
-
-    private var currentUserIdentity: FeedCommentAuthorIdentity {
-        FeedCommentAuthorIdentity(
-            userID: "current-user",
-            userName: "小满",
-            userAvatarAssetName: "HomeUserAvatarMock",
-            petID: "current-user-pet",
-            petName: "奶油",
-            petAvatarAssetName: "HomePetHeroMock"
-        )
     }
 
     private var imagePreviewGalleryID: String {

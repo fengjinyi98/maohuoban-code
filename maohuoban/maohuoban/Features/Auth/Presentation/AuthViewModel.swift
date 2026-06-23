@@ -18,10 +18,13 @@ final class AuthViewModel {
     var recoveryPassword: String = ""
     var isAgreementAccepted = true
     var isSubmitting = false
-    var isAuthenticated = false
     var maskedPhone: String = ""
     var hasRecoveryChallenge = false
     var resendCountdownSeconds = 0
+
+    var isAuthenticated: Bool {
+        currentUserStore.isAuthenticated
+    }
 
     var resendButtonTitle: String {
         resendCountdownSeconds > 0 ? "重新发送 \(resendCountdownSeconds)s" : "重新发送"
@@ -47,7 +50,7 @@ final class AuthViewModel {
         repository: AuthRepository = DefaultAuthRepository(),
         tokenStore: MHBTokenStore = MHBKeychainTokenStore(),
         toast: MHBToastPresenter = MHBToastPresenter(),
-        currentUserStore: CurrentUserStore = CurrentUserStore()
+        currentUserStore: CurrentUserStore
     ) {
         self.repository = repository
         self.tokenStore = tokenStore

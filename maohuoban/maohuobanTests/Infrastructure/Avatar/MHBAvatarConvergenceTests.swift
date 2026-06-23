@@ -7,7 +7,7 @@ import XCTest
 // - 防止个人中心、宠物切换、AI、遛弯和商家页面重新散写头像语义
 final class MHBAvatarConvergenceTests: XCTestCase {
     @MainActor
-    func testProfileAccountAndUserHomeUseUserAvatarSubject() {
+    func testProfileAccountAndCurrentUserStoreUseUserAvatarSubject() {
         XCTAssertEqual(
             ProfileAccountSummary.mock.avatarSubject,
             .user(
@@ -21,11 +21,21 @@ final class MHBAvatarConvergenceTests: XCTestCase {
             )
         )
 
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(
+            profile: CurrentUserProfileSummary(
+                maohuobanID: "8X29K4M7Q2",
+                displayName: "橘子午后",
+                avatar: nil,
+                avatarPresentation: .hidden
+            )
+        )
+
         XCTAssertEqual(
-            ProfileUserHome.mock.avatarSubject,
+            currentUserStore.avatarSubject,
             .user(
                 MHBAvatarUser(
-                    id: "profile-user-home",
+                    id: "current-user",
                     displayName: "橘子午后",
                     source: .asset("HomeUserAvatarMock"),
                     sex: .unknown,

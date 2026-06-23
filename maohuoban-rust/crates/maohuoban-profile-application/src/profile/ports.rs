@@ -26,6 +26,56 @@ pub struct UpdateProfileInput {
     pub birthday: Option<NaiveDate>,
 }
 
+/// `ProfileMediaKind` 用户资料媒体类型
+/// 核心职责：
+/// - 区分头像和主页背景两类资料媒体
+/// - 为仓储选择资料字段和媒资用途提供稳定输入
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileMediaKind {
+    Avatar,
+    Cover,
+}
+
+impl ProfileMediaKind {
+    #[must_use]
+    pub const fn usage_kind(self) -> &'static str {
+        match self {
+            Self::Avatar => "user.avatar",
+            Self::Cover => "user.cover.image",
+        }
+    }
+
+    #[must_use]
+    pub const fn size_limit_bytes(self) -> usize {
+        match self {
+            Self::Avatar => 5 * 1024 * 1024,
+            Self::Cover => 10 * 1024 * 1024,
+        }
+    }
+
+    #[must_use]
+    pub const fn path_segment(self) -> &'static str {
+        match self {
+            Self::Avatar => "avatar",
+            Self::Cover => "cover",
+        }
+    }
+}
+
+/// `UploadProfileMediaInput` 用户资料媒体上传输入
+/// 核心职责：
+/// - 承接 HTTP multipart 解包后的图片内容
+/// - 保持应用层上传命令与具体 HTTP 框架解耦
+#[derive(Debug, Clone)]
+pub struct UploadProfileMediaInput {
+    pub user_id: Uuid,
+    pub kind: ProfileMediaKind,
+    pub file_name: String,
+    pub mime_type: String,
+    pub content: Vec<u8>,
+    pub source_client: Option<String>,
+}
+
 /// `ProfileRepository` 用户资料仓储端口
 /// 核心职责：
 /// - 读取当前用户资料
@@ -41,4 +91,9 @@ pub trait ProfileRepository: Send + Sync {
     ) -> ProfileResult<UserProfile>;
 
     async fn update_profile(&self, input: UpdateProfileInput) -> ProfileResult<UserProfile>;
+
+    async fn upload_profile_media(
+        &self,
+        input: UploadProfileMediaInput,
+    ) -> ProfileResult<UserProfile>;
 }

@@ -34,7 +34,7 @@ struct ProfileUserEditScreen: View {
 
     init(
         profile: ProfileUserHome = .mock,
-        currentUserStore: CurrentUserStore = CurrentUserStore(),
+        currentUserStore: CurrentUserStore,
         editStore: ProfileUserEditStore? = nil
     ) {
         self.profile = profile
@@ -42,7 +42,9 @@ struct ProfileUserEditScreen: View {
         _editStore = State(
             initialValue: editStore ?? ProfileUserEditStore(currentUserStore: currentUserStore)
         )
-        _genderEditorDraft = State(initialValue: ProfileUserEditGenderOption.fromSystemImage(profile.genderSystemImage))
+        _genderEditorDraft = State(
+            initialValue: ProfileUserEditGenderOption.fromStoredValue(currentUserStore.gender)
+        )
         _editedRegionSelection = State(initialValue: nil)
     }
 
@@ -51,7 +53,7 @@ struct ProfileUserEditScreen: View {
             VStack(spacing: MHBTheme.Spacing.s6) {
                 ProfileUserEditAvatarHeader(
                     displayName: displayNameValue,
-                    avatarAssetName: profile.avatarAssetName,
+                    avatarAssetName: currentUserStore.avatarAssetName,
                     localAvatarImage: editedAvatarImage,
                     action: {
                         isAvatarPreviewPresented = true
@@ -262,7 +264,7 @@ struct ProfileUserEditScreen: View {
         .fullScreenCover(isPresented: $isAvatarPreviewPresented) {
             ProfileUserAvatarPreviewScreen(
                 displayName: displayNameValue,
-                avatarAssetName: profile.avatarAssetName,
+                avatarAssetName: currentUserStore.avatarAssetName,
                 localAvatarImage: editedAvatarImage,
                 onAvatarUpdated: { image in
                     editedAvatarImage = image
@@ -284,31 +286,31 @@ struct ProfileUserEditScreen: View {
     }
 
     private var displayNameValue: String {
-        editStore.profile?.displayName ?? currentUserStore.displayName
+        currentUserStore.displayName
     }
 
     private var maohuobanIDValue: String {
-        editStore.profile?.maohuobanID ?? currentUserStore.maohuobanID
+        currentUserStore.maohuobanID
     }
 
     private var bioValue: String {
-        editStore.profile?.bio ?? currentUserStore.bio
+        currentUserStore.bio
     }
 
     private var currentGenderOption: ProfileUserEditGenderOption? {
-        ProfileUserEditGenderOption.fromStoredValue(editStore.profile?.gender ?? currentUserStore.gender)
+        ProfileUserEditGenderOption.fromStoredValue(currentUserStore.gender)
     }
 
     private var currentGenderVisible: Bool {
-        editStore.profile?.isGenderVisible ?? currentUserStore.isGenderVisible
+        currentUserStore.isGenderVisible
     }
 
     private var birthdayTextValue: String? {
-        editStore.profile?.birthday ?? currentUserStore.birthday
+        currentUserStore.birthdayDisplayText ?? currentUserStore.birthday
     }
 
     private var birthdayDateValue: Date? {
-        ProfileUserEditBirthdayDateCodec.date(from: birthdayTextValue ?? "")
+        ProfileUserEditBirthdayDateCodec.date(from: currentUserStore.birthday ?? "")
     }
 
     private func saveDisplayName() {

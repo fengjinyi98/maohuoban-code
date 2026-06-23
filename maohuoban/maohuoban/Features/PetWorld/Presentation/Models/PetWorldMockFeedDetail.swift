@@ -7,6 +7,17 @@ import Foundation
 // - 在 mock 数据边界提前解析 UTC 时间字符串
 enum PetWorldMockFeedDetail {
     static func detail(for postID: String) -> PetWorldFeedDetailItem? {
+        detail(for: postID, currentUserName: nil)
+    }
+
+    // detail 构造宠物世界详情
+    // 核心职责：
+    // - 从列表卡片派生详情展示数据
+    // - 由调用方注入当前用户昵称完成本人标记
+    static func detail(
+        for postID: String,
+        currentUserName: String?
+    ) -> PetWorldFeedDetailItem? {
         guard let card = PetWorldMockFeed.cards.first(where: { $0.postID == postID }) else {
             return nil
         }
@@ -20,7 +31,7 @@ enum PetWorldMockFeedDetail {
                 topics: ["海边散步", "布偶日常", "宠物伙伴"],
                 visibleLocationName: "北岸海滩",
                 recommendationExplanation: "奶油和你家小雪都是布偶，年龄阶段接近。",
-                isOwnedByCurrentUser: true,
+                currentUserName: currentUserName,
                 viewCount: 2680,
                 comments: beachWalkComments
             )
@@ -58,7 +69,7 @@ enum PetWorldMockFeedDetail {
                 topics: ["猫咪晒太阳", "午睡日记"],
                 visibleLocationName: "家里阳台",
                 recommendationExplanation: "这条动态近期收藏和评论增长稳定，内容质量较高。",
-                isOwnedByCurrentUser: false,
+                currentUserName: currentUserName,
                 viewCount: 1286,
                 comments: sunnyAlbumComments
             )
@@ -70,7 +81,7 @@ enum PetWorldMockFeedDetail {
                 topics: ["公园训练", "召回练习", "狗狗成长"],
                 visibleLocationName: nil,
                 recommendationExplanation: "豆包和你家小雪都处在成长训练期，互动节奏相近。",
-                isOwnedByCurrentUser: false,
+                currentUserName: currentUserName,
                 viewCount: 3420,
                 comments: parkTrainingComments
             )
@@ -82,7 +93,7 @@ enum PetWorldMockFeedDetail {
                 topics: ["宠物日常"],
                 visibleLocationName: nil,
                 recommendationExplanation: card.recommendationReason.text,
-                isOwnedByCurrentUser: false,
+                currentUserName: currentUserName,
                 viewCount: max(card.likeCount + card.commentCount * 12, 1),
                 comments: []
             )
@@ -98,7 +109,7 @@ enum PetWorldMockFeedDetail {
         topics: [String],
         visibleLocationName: String?,
         recommendationExplanation: String,
-        isOwnedByCurrentUser: Bool,
+        currentUserName: String?,
         viewCount: Int,
         comments: [FeedComment]
     ) -> PetWorldFeedDetailItem {
@@ -119,7 +130,7 @@ enum PetWorldMockFeedDetail {
             visibleLocationName: visibleLocationName,
             recommendationExplanation: recommendationExplanation,
             mediaItems: mediaAssetNames.map { mediaItem(postID: card.postID, assetName: $0) },
-            isOwnedByCurrentUser: isOwnedByCurrentUser,
+            isOwnedByCurrentUser: card.authorName == currentUserName,
             isLiked: card.isLiked,
             likeCount: card.likeCount,
             viewCount: viewCount,
@@ -127,7 +138,8 @@ enum PetWorldMockFeedDetail {
             commentCount: card.commentCount,
             comments: markPostAuthorComments(
                 comments,
-                postAuthorName: card.authorName
+                postAuthorName: card.authorName,
+                currentUserName: currentUserName
             )
         )
     }
@@ -149,7 +161,8 @@ enum PetWorldMockFeedDetail {
 
     private static func markPostAuthorComments(
         _ comments: [FeedComment],
-        postAuthorName: String
+        postAuthorName: String,
+        currentUserName: String?
     ) -> [FeedComment] {
         comments.map { comment in
             FeedComment(
@@ -159,12 +172,13 @@ enum PetWorldMockFeedDetail {
                 text: comment.text,
                 publishedAt: comment.publishedAt,
                 isPostAuthor: comment.authorName == postAuthorName,
-                isOwnedByCurrentUser: comment.authorName == "小满",
+                isOwnedByCurrentUser: comment.authorName == currentUserName,
                 isLiked: comment.isLiked,
                 likeCount: comment.likeCount,
                 replies: markPostAuthorComments(
                     comment.replies,
-                    postAuthorName: postAuthorName
+                    postAuthorName: postAuthorName,
+                    currentUserName: currentUserName
                 ),
                 petName: comment.petName,
                 petAvatarAssetName: comment.petAvatarAssetName
@@ -332,7 +346,7 @@ enum PetWorldMockFeedDetail {
             text: text,
             publishedAt: publishedAt,
             isPostAuthor: false,
-            isOwnedByCurrentUser: authorName == "小满",
+            isOwnedByCurrentUser: false,
             isLiked: false,
             likeCount: likeCount,
             replies: replies

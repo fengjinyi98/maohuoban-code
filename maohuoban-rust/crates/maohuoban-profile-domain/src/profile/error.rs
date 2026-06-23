@@ -22,6 +22,14 @@ pub enum ProfileError {
     GenderInvalid,
     #[error("birthday invalid")]
     BirthdayInvalid,
+    #[error("media file required")]
+    MediaFileRequired,
+    #[error("media type invalid")]
+    MediaTypeInvalid,
+    #[error("media too large")]
+    MediaTooLarge,
+    #[error("media decode failed")]
+    MediaDecodeFailed,
     #[error("infrastructure error: {0}")]
     Infrastructure(String),
 }
