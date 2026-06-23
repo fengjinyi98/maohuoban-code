@@ -47,6 +47,7 @@ extension MHBRectImageCropScreen {
     // - 输出裁剪图片和归一化元数据
     func cropResult(
         viewportSize: CGSize,
+        imageDisplaySize: CGSize,
         cropFrameSize: CGSize
     ) -> MHBRectImageCropResult? {
         guard let cgImage = originalImage.cgImage else {
@@ -56,6 +57,7 @@ extension MHBRectImageCropScreen {
         let imagePixelSize = CGSize(width: cgImage.width, height: cgImage.height)
         let cropRect = MHBRectImageCropGeometryCalculator.cropRect(
             imagePixelSize: imagePixelSize,
+            imageDisplaySize: imageDisplaySize,
             viewportSize: viewportSize,
             imageScale: imageScale,
             imageOffset: imageOffset,

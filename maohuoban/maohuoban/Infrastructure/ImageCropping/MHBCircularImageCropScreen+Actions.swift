@@ -39,6 +39,7 @@ extension MHBCircularImageCropScreen {
     // - 将矩形裁剪结果输出为圆形头像图片
     func cropImage(
         viewportSize: CGSize,
+        imageDisplaySize: CGSize,
         cropRadius: CGFloat
     ) -> UIImage? {
         guard let cgImage = originalImage.cgImage else {
@@ -48,6 +49,7 @@ extension MHBCircularImageCropScreen {
         let imagePixelSize = CGSize(width: cgImage.width, height: cgImage.height)
         let cropRect = MHBCircularImageCropGeometryCalculator.cropRect(
             imagePixelSize: imagePixelSize,
+            imageDisplaySize: imageDisplaySize,
             viewportSize: viewportSize,
             imageScale: imageScale,
             imageOffset: imageOffset,

@@ -36,6 +36,10 @@ struct MHBCircularImageCropScreen: View {
         GeometryReader { geometry in
             let viewportSize = geometry.size
             let cropRadius = max(viewportSize.width, 1) / 2
+            let imageDisplaySize = MHBImageCropDisplayGeometryCalculator.initialDisplaySize(
+                imagePointSize: originalImage.size,
+                viewportSize: viewportSize
+            )
             let effectiveTopSafeArea = max(geometry.safeAreaInsets.top, windowSafeAreaInsets.top)
             let effectiveBottomSafeArea = max(geometry.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
             let topControlPadding = effectiveTopSafeArea + MHBTheme.Spacing.s1
@@ -47,18 +51,20 @@ struct MHBCircularImageCropScreen: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                Image(uiImage: originalImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: viewportSize.width, height: viewportSize.height)
-                    .clipped()
-                    .scaleEffect(imageScale * tempScale)
-                    .offset(
-                        x: imageOffset.width + tempOffset.width,
-                        y: imageOffset.height + tempOffset.height
-                    )
-                    .gesture(dragGesture)
-                    .simultaneousGesture(magnificationGesture)
+                ZStack {
+                    Image(uiImage: originalImage)
+                        .resizable()
+                        .frame(width: imageDisplaySize.width, height: imageDisplaySize.height)
+                        .scaleEffect(imageScale * tempScale)
+                        .offset(
+                            x: imageOffset.width + tempOffset.width,
+                            y: imageOffset.height + tempOffset.height
+                        )
+                }
+                .frame(width: viewportSize.width, height: viewportSize.height)
+                .contentShape(Rectangle())
+                .gesture(dragGesture)
+                .simultaneousGesture(magnificationGesture)
 
                 MHBCircularCropMaskOverlay(
                     cropRadius: cropRadius,
@@ -77,6 +83,7 @@ struct MHBCircularImageCropScreen: View {
 
                     bottomBar(
                         viewportSize: viewportSize,
+                        imageDisplaySize: imageDisplaySize,
                         cropRadius: cropRadius
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s5)
@@ -156,6 +163,7 @@ struct MHBCircularImageCropScreen: View {
 
     private func bottomBar(
         viewportSize: CGSize,
+        imageDisplaySize: CGSize,
         cropRadius: CGFloat
     ) -> some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
@@ -172,6 +180,7 @@ struct MHBCircularImageCropScreen: View {
             Button("完成") {
                 guard let croppedImage = cropImage(
                     viewportSize: viewportSize,
+                    imageDisplaySize: imageDisplaySize,
                     cropRadius: cropRadius
                 ) else {
                     return

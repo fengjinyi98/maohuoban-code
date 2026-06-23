@@ -7,25 +7,13 @@ import CoreGraphics
 enum MHBCircularImageCropGeometryCalculator {
     static func cropRect(
         imagePixelSize: CGSize,
+        imageDisplaySize: CGSize,
         viewportSize: CGSize,
         imageScale: CGFloat,
         imageOffset: CGSize,
         cropRadius: CGFloat
     ) -> CGRect {
-        let imageAspectRatio = imagePixelSize.width / imagePixelSize.height
-        let viewportAspectRatio = viewportSize.width / viewportSize.height
-
-        let baseDisplayWidth: CGFloat
-        let baseDisplayHeight: CGFloat
-        if viewportAspectRatio > imageAspectRatio {
-            baseDisplayWidth = viewportSize.width
-            baseDisplayHeight = baseDisplayWidth / imageAspectRatio
-        } else {
-            baseDisplayHeight = viewportSize.height
-            baseDisplayWidth = baseDisplayHeight * imageAspectRatio
-        }
-
-        let displayWidth = baseDisplayWidth * imageScale
+        let displayWidth = max(imageDisplaySize.width, 1) * max(imageScale, 0.0001)
         let imageCenterX = viewportSize.width / 2 + imageOffset.width
         let imageCenterY = viewportSize.height / 2 + imageOffset.height
         let screenCenterX = viewportSize.width / 2

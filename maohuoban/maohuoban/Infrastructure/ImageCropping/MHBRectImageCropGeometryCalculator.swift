@@ -7,36 +7,27 @@ import CoreGraphics
 enum MHBRectImageCropGeometryCalculator {
     static func cropRect(
         imagePixelSize: CGSize,
+        imageDisplaySize: CGSize,
         viewportSize: CGSize,
         imageScale: CGFloat,
         imageOffset: CGSize,
         cropFrameSize: CGSize
     ) -> CGRect {
-        let imageAspectRatio = imagePixelSize.width / imagePixelSize.height
-        let viewportAspectRatio = viewportSize.width / viewportSize.height
-
-        let baseDisplayWidth: CGFloat
-        let baseDisplayHeight: CGFloat
-        if viewportAspectRatio > imageAspectRatio {
-            baseDisplayWidth = viewportSize.width
-            baseDisplayHeight = baseDisplayWidth / imageAspectRatio
-        } else {
-            baseDisplayHeight = viewportSize.height
-            baseDisplayWidth = baseDisplayHeight * imageAspectRatio
-        }
-
-        let displayWidth = baseDisplayWidth * imageScale
+        let effectiveScale = max(imageScale, 0.0001)
+        let displayWidth = max(imageDisplaySize.width, 1) * effectiveScale
+        let displayHeight = max(imageDisplaySize.height, 1) * effectiveScale
         let imageCenterX = viewportSize.width / 2 + imageOffset.width
         let imageCenterY = viewportSize.height / 2 + imageOffset.height
         let screenCenterX = viewportSize.width / 2
         let screenCenterY = viewportSize.height / 2
         let deltaX = screenCenterX - imageCenterX
         let deltaY = screenCenterY - imageCenterY
-        let pixelScale = imagePixelSize.width / displayWidth
-        let cropWidth = cropFrameSize.width * pixelScale
-        let cropHeight = cropFrameSize.height * pixelScale
-        let cropCenterX = imagePixelSize.width / 2 + deltaX * pixelScale
-        let cropCenterY = imagePixelSize.height / 2 + deltaY * pixelScale
+        let pixelScaleX = imagePixelSize.width / displayWidth
+        let pixelScaleY = imagePixelSize.height / displayHeight
+        let cropWidth = cropFrameSize.width * pixelScaleX
+        let cropHeight = cropFrameSize.height * pixelScaleY
+        let cropCenterX = imagePixelSize.width / 2 + deltaX * pixelScaleX
+        let cropCenterY = imagePixelSize.height / 2 + deltaY * pixelScaleY
 
         return CGRect(
             x: cropCenterX - cropWidth / 2,
