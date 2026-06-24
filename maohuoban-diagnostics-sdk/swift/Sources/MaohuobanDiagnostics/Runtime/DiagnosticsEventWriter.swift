@@ -71,19 +71,41 @@ actor DiagnosticsEventWriter {
         let events = pending
         pending.removeAll()
         scheduledFlush = false
+        let shouldDebugProfileAvatarUpload = events.contains {
+            $0.metadata["issue_tag"] == "ProfileAvatarUpload"
+        }
+        let drainStartedAt = Date()
+        var storeElapsedMs = 0
+        var mirrorElapsedMs = 0
+        var remoteSentEventCount = 0
+        var remoteDroppedEventCount = 0
         do {
+            let storeStartedAt = Date()
             for event in events {
                 try await store.append(event)
             }
+            storeElapsedMs = Int(Date().timeIntervalSince(storeStartedAt) * 1_000)
             if let remoteMirror {
+                let mirrorStartedAt = Date()
                 let result = await remoteMirror.appendBatch(events)
+                mirrorElapsedMs = Int(Date().timeIntervalSince(mirrorStartedAt) * 1_000)
+                remoteSentEventCount = result.sentEventCount
+                remoteDroppedEventCount = result.droppedEventCount
                 await storageHealth.recordDroppedRemoteEvents(
                     count: result.droppedEventCount,
                     errorDescription: result.lastError
                 )
             }
+            if shouldDebugProfileAvatarUpload {
+                let totalElapsedMs = Int(Date().timeIntervalSince(drainStartedAt) * 1_000)
+                print("[DEBUG:ProfileAvatarUpload] diagnostics writer drained count=\(events.count) store_ms=\(storeElapsedMs) mirror_ms=\(mirrorElapsedMs) total_ms=\(totalElapsedMs) remote_sent=\(remoteSentEventCount) remote_dropped=\(remoteDroppedEventCount)")
+            }
         } catch {
             await storageHealth.recordDroppedEvent(error)
+            if shouldDebugProfileAvatarUpload {
+                let totalElapsedMs = Int(Date().timeIntervalSince(drainStartedAt) * 1_000)
+                print("[DEBUG:ProfileAvatarUpload] diagnostics writer drain failed count=\(events.count) store_ms=\(storeElapsedMs) mirror_ms=\(mirrorElapsedMs) total_ms=\(totalElapsedMs) error=\(error)")
+            }
             throw error
         }
     }

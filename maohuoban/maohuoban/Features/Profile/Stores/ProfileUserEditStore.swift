@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 import Observation
 
 // ProfileUserEditPhase 用户资料编辑请求阶段
@@ -212,6 +213,17 @@ final class ProfileUserEditStore {
         mediaUploadProgress = 0
         toastMessage = nil
         defer { phase = .idle }
+        print("[DEBUG:ProfileAvatarUpload] profile edit store media upload started kind=\(kind.debugName) bytes=\(draft.content.count) mime=\(draft.mimeType)")
+        await Diagnostics.track(
+            "profile.media_upload.store_started",
+            properties: [
+                "issue_tag": .string("ProfileAvatarUpload"),
+                "media_kind": .string(kind.debugName),
+                "encoded_bytes": .int(draft.content.count),
+                "mime_type": .string(draft.mimeType),
+                "file_name": .string(draft.fileName)
+            ]
+        )
 
         do {
             let response: MHBAPIResponse<CurrentUserProfile>
@@ -236,10 +248,30 @@ final class ProfileUserEditStore {
             if let profile = response.data {
                 publish(profile: profile)
             }
+            print("[DEBUG:ProfileAvatarUpload] profile edit store media upload succeeded kind=\(kind.debugName) code=\(response.code) message=\(response.message)")
+            await Diagnostics.track(
+                "profile.media_upload.store_succeeded",
+                properties: [
+                    "issue_tag": .string("ProfileAvatarUpload"),
+                    "media_kind": .string(kind.debugName),
+                    "response_code": .string(response.code),
+                    "toast_message": .string(response.message)
+                ]
+            )
             return true
         } catch {
             mediaUploadProgress = nil
             toastMessage = error.toastMessage
+            print("[DEBUG:ProfileAvatarUpload] profile edit store media upload failed kind=\(kind.debugName) error_kind=\(error.diagnosticsSummary) toast_message=\(error.toastMessage)")
+            await Diagnostics.track(
+                "profile.media_upload.store_failed",
+                properties: [
+                    "issue_tag": .string("ProfileAvatarUpload"),
+                    "media_kind": .string(kind.debugName),
+                    "error_kind": .string(error.diagnosticsSummary),
+                    "toast_message": .string(error.toastMessage)
+                ]
+            )
             return false
         }
     }

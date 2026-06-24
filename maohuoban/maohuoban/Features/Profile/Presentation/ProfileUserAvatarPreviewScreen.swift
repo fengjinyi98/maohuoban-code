@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import MaohuobanDiagnostics
 import UIKit
 
 // ProfileUserAvatarPreviewScreen 用户头像预览页
@@ -19,6 +20,7 @@ struct ProfileUserAvatarPreviewScreen: View {
     @State private var isMediaPickerPresented = false
     @State private var cropTarget: MHBIdentifiableUIImage?
     @State private var saveState = ProfileUserAvatarSaveState.idle
+    @State private var pickerOpenedAt: Date?
 
     init(
         displayName: String,
@@ -171,6 +173,16 @@ struct ProfileUserAvatarPreviewScreen: View {
 
     private var selectAvatarButton: some View {
         Button {
+            pickerOpenedAt = Date()
+            print("[DEBUG:ProfileAvatarUpload] picker presented")
+            Task {
+                await Diagnostics.track(
+                    "profile.avatar_upload.picker_presented",
+                    properties: [
+                        "issue_tag": .string("ProfileAvatarUpload")
+                    ]
+                )
+            }
             isMediaPickerPresented = true
         } label: {
             HStack(spacing: MHBTheme.Spacing.s3) {
@@ -197,16 +209,60 @@ struct ProfileUserAvatarPreviewScreen: View {
     }
 
     private func handleMediaPickerResult(_ result: MHBMediaPickerResult) {
+        let elapsedMs = pickerOpenedAt.map { Int(Date().timeIntervalSince($0) * 1_000) }
+        pickerOpenedAt = nil
         guard let image = result.images.first else {
+            print("[DEBUG:ProfileAvatarUpload] picker completed without image images=\(result.images.count) livePhotos=\(result.livePhotos.count) elapsed_ms=\(elapsedMs ?? -1)")
+            Task {
+                await Diagnostics.track(
+                    "profile.avatar_upload.picker_empty",
+                    properties: [
+                        "issue_tag": .string("ProfileAvatarUpload"),
+                        "image_count": .int(result.images.count),
+                        "live_photo_count": .int(result.livePhotos.count),
+                        "picker_elapsed_ms": .int(elapsedMs ?? -1)
+                    ]
+                )
+            }
             return
         }
 
+        print("[DEBUG:ProfileAvatarUpload] picker image selected width=\(Int(image.size.width * image.scale)) height=\(Int(image.size.height * image.scale)) scale=\(image.scale) has_cg_image=\(image.cgImage != nil) elapsed_ms=\(elapsedMs ?? -1)")
+        Task {
+            await Diagnostics.track(
+                "profile.avatar_upload.picker_selected",
+                properties: [
+                    "issue_tag": .string("ProfileAvatarUpload"),
+                    "image_count": .int(result.images.count),
+                    "live_photo_count": .int(result.livePhotos.count),
+                    "picker_elapsed_ms": .int(elapsedMs ?? -1),
+                    "pixel_width": .int(Int(image.size.width * image.scale)),
+                    "pixel_height": .int(Int(image.size.height * image.scale)),
+                    "scale": .double(Double(image.scale)),
+                    "has_cg_image": .bool(image.cgImage != nil)
+                ]
+            )
+        }
         cropTarget = MHBIdentifiableUIImage(image: image)
     }
 
     private func handleCroppedAvatar(_ image: UIImage) {
         cropTarget = nil
         saveState = .saving
+        let saveStartedAt = Date()
+        print("[DEBUG:ProfileAvatarUpload] cropped avatar save started width=\(Int(image.size.width * image.scale)) height=\(Int(image.size.height * image.scale)) scale=\(image.scale) has_cg_image=\(image.cgImage != nil)")
+        Task {
+            await Diagnostics.track(
+                "profile.avatar_upload.crop_saved",
+                properties: [
+                    "issue_tag": .string("ProfileAvatarUpload"),
+                    "pixel_width": .int(Int(image.size.width * image.scale)),
+                    "pixel_height": .int(Int(image.size.height * image.scale)),
+                    "scale": .double(Double(image.scale)),
+                    "has_cg_image": .bool(image.cgImage != nil)
+                ]
+            )
+        }
 
         Task { @MainActor in
             let didSave = await onAvatarUpdated(image)
@@ -214,6 +270,16 @@ struct ProfileUserAvatarPreviewScreen: View {
                 previewImage = image
             }
             saveState = didSave ? .saved : .idle
+            let elapsedMs = Int(Date().timeIntervalSince(saveStartedAt) * 1_000)
+            print("[DEBUG:ProfileAvatarUpload] cropped avatar save finished success=\(didSave) elapsed_ms=\(elapsedMs)")
+            await Diagnostics.track(
+                "profile.avatar_upload.save_finished",
+                properties: [
+                    "issue_tag": .string("ProfileAvatarUpload"),
+                    "success": .bool(didSave),
+                    "duration_ms": .int(elapsedMs)
+                ]
+            )
         }
     }
 }

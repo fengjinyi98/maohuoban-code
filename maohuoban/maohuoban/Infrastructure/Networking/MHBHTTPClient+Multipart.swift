@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 
 // MHBHTTPClient multipart 请求支持
 // 核心职责：
@@ -39,6 +40,23 @@ extension MHBHTTPClient {
         }
         let body = multipartBody(boundary: boundary, files: files, fields: fields)
         request.httpBody = body
+        let fileBytes = files.reduce(0) { $0 + $1.data.count }
+        if path.contains("/api/v1/profile/me/") {
+            print("[DEBUG:ProfileAvatarUpload] multipart body built path=\(path) file_count=\(files.count) file_bytes=\(fileBytes) body_bytes=\(body.count) field_count=\(fields.count)")
+        }
+        await Diagnostics.track(
+            "network.multipart.body_built",
+            properties: [
+                "issue_tag": .string(path.contains("/api/v1/profile/me/") ? "ProfileAvatarUpload" : ""),
+                "path": .string(path),
+                "file_count": .int(files.count),
+                "file_bytes": .int(fileBytes),
+                "body_bytes": .int(body.count),
+                "field_count": .int(fields.count),
+                "mime_types": .array(files.map { .string($0.mimeType) }),
+                "file_names": .array(files.map { .string($0.fileName) })
+            ]
+        )
 
         return try await sendUpload(request, body: body, onUploadProgress: onUploadProgress)
     }
@@ -97,6 +115,21 @@ extension MHBHTTPClient {
         )
 
         let startedAt = Date()
+        let requestPath = uploadRequest.url?.path ?? ""
+        if requestPath.contains("/api/v1/profile/me/") {
+            print("[DEBUG:ProfileAvatarUpload] upload task started path=\(requestPath) body_bytes=\(body.count) request_id=\(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.requestID) ?? "") content_type=\(uploadRequest.value(forHTTPHeaderField: "Content-Type") ?? "")")
+        }
+        await Diagnostics.track(
+            "network.multipart.upload_task_started",
+            properties: [
+                "issue_tag": .string(requestPath.contains("/api/v1/profile/me/") ? "ProfileAvatarUpload" : ""),
+                "path": .string(requestPath),
+                "body_bytes": .int(body.count),
+                "request_id": .string(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.requestID) ?? ""),
+                "has_authorization": .bool(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.authorization) != nil),
+                "content_type": .string(uploadRequest.value(forHTTPHeaderField: "Content-Type") ?? "")
+            ]
+        )
         let result: Result<(Data, URLResponse), MHBAPIError> = await withCheckedContinuation { continuation in
             let task = uploadSession.uploadTask(with: uploadRequest, from: body) { data, response, error in
                 uploadSession.finishTasksAndInvalidate()
@@ -118,7 +151,39 @@ extension MHBHTTPClient {
         switch result {
         case .success(let value):
             (data, response) = value
+            let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if requestPath.contains("/api/v1/profile/me/") {
+                print("[DEBUG:ProfileAvatarUpload] upload task completed path=\(requestPath) status=\(statusCode) body_bytes=\(body.count) response_bytes=\(data.count) elapsed_ms=\(elapsedMs)")
+            }
+            await Diagnostics.track(
+                "network.multipart.upload_task_completed",
+                properties: [
+                    "issue_tag": .string(requestPath.contains("/api/v1/profile/me/") ? "ProfileAvatarUpload" : ""),
+                    "path": .string(requestPath),
+                    "status_code": .int(statusCode),
+                    "body_bytes": .int(body.count),
+                    "response_bytes": .int(data.count),
+                    "duration_ms": .int(elapsedMs),
+                    "request_id": .string(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.requestID) ?? "")
+                ]
+            )
         case .failure(let error):
+            let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            if requestPath.contains("/api/v1/profile/me/") {
+                print("[DEBUG:ProfileAvatarUpload] upload task failed path=\(requestPath) error_kind=\(error.diagnosticsSummary) body_bytes=\(body.count) elapsed_ms=\(elapsedMs)")
+            }
+            await Diagnostics.track(
+                "network.multipart.upload_task_failed",
+                properties: [
+                    "issue_tag": .string(requestPath.contains("/api/v1/profile/me/") ? "ProfileAvatarUpload" : ""),
+                    "path": .string(requestPath),
+                    "error_kind": .string(error.diagnosticsSummary),
+                    "body_bytes": .int(body.count),
+                    "duration_ms": .int(elapsedMs),
+                    "request_id": .string(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.requestID) ?? "")
+                ]
+            )
             await recordNetworkSummary(
                 request: uploadRequest,
                 response: nil,
