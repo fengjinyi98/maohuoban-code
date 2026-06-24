@@ -8,7 +8,6 @@ import SwiftUI
 struct MHBRootTabStack<Content: View>: View {
     let tab: MHBAppTab
     let tabState: MHBAppTabState
-    let isSelected: Bool
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -17,13 +16,5 @@ struct MHBRootTabStack<Content: View>: View {
                 .background(MHBInteractivePopGestureRestorer())
         }
         .toolbar(tabState.shouldShowTabBar(for: tab) ? .visible : .hidden, for: .tabBar)
-        .tabItem {
-            Label {
-                Text(tab.title)
-            } icon: {
-                Image(systemName: tab.systemImage(isSelected: isSelected))
-            }
-        }
-        .tag(tab)
     }
 }

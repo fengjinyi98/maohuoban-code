@@ -12,7 +12,6 @@ struct HomeQuickFactActionBar: View {
     let onOpenRoute: (HomeRoute) -> Void
     let onRecorded: () -> Void
 
-    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
     @State private var store = PetWriteStore()
     @State private var submittingAction: HomeQuickFactAction?
     @State private var recordedAction: HomeQuickFactAction?
@@ -35,7 +34,6 @@ struct HomeQuickFactActionBar: View {
     var body: some View {
         HomeQuickFactActionBarContent(
             actions: actions,
-            placement: placement,
             submittingAction: submittingAction,
             recordedAction: recordedAction,
             onTapAction: handleAction
@@ -97,43 +95,30 @@ struct HomeQuickFactActionBar: View {
 
 // HomeQuickFactActionBarContent 快捷事实底部条内容
 // 核心职责：
-// - 根据系统 bottom accessory placement 选择展开或紧凑布局
+// - 渲染系统 bottom accessory 展开态快捷动作
 // - 将动作点击回传给外层命令入口
 private struct HomeQuickFactActionBarContent: View {
     let actions: [HomeQuickFactAction]
-    let placement: TabViewBottomAccessoryPlacement?
     let submittingAction: HomeQuickFactAction?
     let recordedAction: HomeQuickFactAction?
     let onTapAction: (HomeQuickFactAction) -> Void
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HomeQuickFactActionRow(
-                actions: actions,
-                showsTitle: placement != .inline,
-                submittingAction: submittingAction,
-                recordedAction: recordedAction,
-                onTapAction: onTapAction
-            )
-
-            HomeQuickFactActionRow(
-                actions: actions,
-                showsTitle: false,
-                submittingAction: submittingAction,
-                recordedAction: recordedAction,
-                onTapAction: onTapAction
-            )
-        }
+        HomeQuickFactActionRow(
+            actions: actions,
+            submittingAction: submittingAction,
+            recordedAction: recordedAction,
+            onTapAction: onTapAction
+        )
     }
 }
 
 // HomeQuickFactActionRow 快捷事实动作行
 // 核心职责：
 // - 以稳定身份渲染一组快捷事实按钮
-// - 为展开和紧凑两种布局复用同一按钮样式
+// - 统一使用文字与 SF Symbol 垂直布局
 private struct HomeQuickFactActionRow: View {
     let actions: [HomeQuickFactAction]
-    let showsTitle: Bool
     let submittingAction: HomeQuickFactAction?
     let recordedAction: HomeQuickFactAction?
     let onTapAction: (HomeQuickFactAction) -> Void
@@ -143,7 +128,6 @@ private struct HomeQuickFactActionRow: View {
             ForEach(actions) { action in
                 HomeQuickFactActionButton(
                     action: action,
-                    showsTitle: showsTitle,
                     isSubmitting: submittingAction == action,
                     isRecorded: recordedAction == action,
                     isDisabled: submittingAction != nil
@@ -161,7 +145,6 @@ private struct HomeQuickFactActionRow: View {
 // - 保持按钮尺寸稳定，避免标题变化造成底部条跳动
 private struct HomeQuickFactActionButton: View {
     let action: HomeQuickFactAction
-    let showsTitle: Bool
     let isSubmitting: Bool
     let isRecorded: Bool
     let isDisabled: Bool
@@ -169,18 +152,16 @@ private struct HomeQuickFactActionButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: showsTitle ? MHBTheme.Spacing.s1 : 0) {
+            VStack(spacing: MHBTheme.Spacing.s1) {
                 iconContent
 
-                if showsTitle {
-                    Text(action.title)
-                        .font(MHBTheme.Typography.caption.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-                }
+                Text(action.title)
+                    .font(MHBTheme.Typography.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .foregroundStyle(foregroundColor)
-            .frame(width: showsTitle ? 58 : 42, height: showsTitle ? 48 : 40)
+            .frame(width: 58, height: 48)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

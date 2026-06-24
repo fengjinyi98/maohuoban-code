@@ -23,50 +23,73 @@ struct MHBAppShell: View {
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
-                HomeRootScreen(
-                    currentUserStore: currentUserStore,
-                    tabState: router.tabState,
-                    quickFactRefreshToken: homeQuickFactRefreshToken,
-                    onQuickFactContextChanged: { context in
-                        homeQuickFactContext = context
-                    }
-                )
+            Tab(value: MHBAppTab.home) {
+                MHBRootTabStack(tab: .home, tabState: router.tabState) {
+                    HomeRootScreen(
+                        currentUserStore: currentUserStore,
+                        tabState: router.tabState,
+                        quickFactRefreshToken: homeQuickFactRefreshToken,
+                        onQuickFactContextChanged: { context in
+                            homeQuickFactContext = context
+                        }
+                    )
+                }
+            } label: {
+                tabLabel(for: .home)
             }
 
-            MHBRootTabStack(tab: .petWorld, tabState: router.tabState, isSelected: router.selectedTab == .petWorld) {
-                PetWorldRootScreen(
-                    topicStore: topicStore,
-                    tabState: router.tabState,
-                    currentUserStore: currentUserStore
-                )
+            Tab(value: MHBAppTab.petWorld) {
+                MHBRootTabStack(tab: .petWorld, tabState: router.tabState) {
+                    PetWorldRootScreen(
+                        topicStore: topicStore,
+                        tabState: router.tabState,
+                        currentUserStore: currentUserStore
+                    )
+                }
+                .preferredColorScheme(MHBAppTab.petWorld.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            } label: {
+                tabLabel(for: .petWorld)
             }
-            .preferredColorScheme(MHBAppTab.petWorld.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            .tabPlacement(.sidebarOnly)
 
-            MHBRootTabStack(tab: .sameCity, tabState: router.tabState, isSelected: router.selectedTab == .sameCity) {
-                SameCityRootScreen(
-                    topicStore: topicStore,
-                    tabState: router.tabState,
-                    currentUserStore: currentUserStore
-                )
+            Tab(value: MHBAppTab.sameCity) {
+                MHBRootTabStack(tab: .sameCity, tabState: router.tabState) {
+                    SameCityRootScreen(
+                        topicStore: topicStore,
+                        tabState: router.tabState,
+                        currentUserStore: currentUserStore
+                    )
+                }
+                .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            } label: {
+                tabLabel(for: .sameCity)
             }
-            .preferredColorScheme(MHBAppTab.sameCity.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            .tabPlacement(.sidebarOnly)
 
-            MHBRootTabStack(tab: .message, tabState: router.tabState, isSelected: router.selectedTab == .message) {
-                MessageRootScreen()
+            Tab(value: MHBAppTab.message) {
+                MHBRootTabStack(tab: .message, tabState: router.tabState) {
+                    MessageRootScreen()
+                }
+                .preferredColorScheme(MHBAppTab.message.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            } label: {
+                tabLabel(for: .message)
             }
-            .preferredColorScheme(MHBAppTab.message.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            .tabPlacement(.sidebarOnly)
 
-            MHBRootTabStack(tab: .profile, tabState: router.tabState, isSelected: router.selectedTab == .profile) {
-                ProfileRootScreen(
-                    topicStore: topicStore,
-                    tabState: router.tabState,
-                    currentUserStore: currentUserStore,
-                    appAppearanceStore: appAppearanceStore,
-                    onLogout: onLogout
-                )
+            Tab(value: MHBAppTab.profile) {
+                MHBRootTabStack(tab: .profile, tabState: router.tabState) {
+                    ProfileRootScreen(
+                        topicStore: topicStore,
+                        tabState: router.tabState,
+                        currentUserStore: currentUserStore,
+                        appAppearanceStore: appAppearanceStore,
+                        onLogout: onLogout
+                    )
+                }
+                .preferredColorScheme(MHBAppTab.profile.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+            } label: {
+                tabLabel(for: .profile)
             }
-            .preferredColorScheme(MHBAppTab.profile.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
         }
         .tabViewBottomAccessory(isEnabled: shouldShowHomeQuickFactAccessory) {
             HomeQuickFactActionBar(
@@ -80,6 +103,16 @@ struct MHBAppShell: View {
                 }
             )
         }
+        .defaultTabBarPlacement(.tabBar)
+        .tabBarMinimizeBehavior(.never)
         .tint(MHBTheme.ColorToken.primary.color)
+    }
+
+    private func tabLabel(for tab: MHBAppTab) -> some View {
+        Label {
+            Text(tab.title)
+        } icon: {
+            Image(systemName: tab.systemImage(isSelected: router.selectedTab == tab))
+        }
     }
 }

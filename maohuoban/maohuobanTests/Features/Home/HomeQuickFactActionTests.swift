@@ -64,4 +64,5 @@ final class HomeQuickFactActionTests: XCTestCase {
 
         XCTAssertNil(HomeQuickFactAction.abnormal.eventDraft(occurredAt: occurredAt))
     }
+
 }
