@@ -8,16 +8,22 @@ import MaohuobanDesignSystem
 struct HomeRootScreen: View {
     let currentUserStore: CurrentUserStore
     let tabState: MHBAppTabState
+    let quickFactRefreshToken: Int
+    let onQuickFactContextChanged: (HomeActionRoutingContext) -> Void
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
 
     init(
         currentUserStore: CurrentUserStore,
-        tabState: MHBAppTabState = MHBAppTabState()
+        tabState: MHBAppTabState = MHBAppTabState(),
+        quickFactRefreshToken: Int = 0,
+        onQuickFactContextChanged: @escaping (HomeActionRoutingContext) -> Void = { _ in }
     ) {
         self.currentUserStore = currentUserStore
         self.tabState = tabState
+        self.quickFactRefreshToken = quickFactRefreshToken
+        self.onQuickFactContextChanged = onQuickFactContextChanged
     }
 
     private var currentUserID: String? {
@@ -65,6 +71,7 @@ struct HomeRootScreen: View {
             if loadedUserID != currentUserID {
                 selectedPetID = nil
                 loadedUserID = currentUserID
+                onQuickFactContextChanged(HomeActionRoutingContext())
             }
             await store.load(
                 currentUserID: currentUserID,
@@ -94,6 +101,18 @@ struct HomeRootScreen: View {
         .onChange(of: store.phase) { _, phase in
             if case .loaded(let snapshot) = phase {
                 selectedPetID = snapshot.selectedPet?.id
+                onQuickFactContextChanged(HomeActionRoutingContext(snapshot: snapshot))
+            } else if case .failed = phase {
+                onQuickFactContextChanged(HomeActionRoutingContext())
+            }
+        }
+        .onChange(of: quickFactRefreshToken) {
+            Task {
+                await store.load(
+                    currentUserID: currentUserID,
+                    selectedPetID: selectedPetID,
+                    force: true
+                )
             }
         }
     }

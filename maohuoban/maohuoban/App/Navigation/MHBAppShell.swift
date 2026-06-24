@@ -12,13 +12,25 @@ struct MHBAppShell: View {
     let appAppearanceStore: AppAppearanceStore
     let onLogout: () -> Void
     @State private var topicStore = TopicStore()
+    @State private var homeQuickFactContext = HomeActionRoutingContext()
+    @State private var homeQuickFactRefreshToken = 0
+
+    private var shouldShowHomeQuickFactAccessory: Bool {
+        router.selectedTab == .home &&
+        router.tabState.shouldShowTabBar(for: .home) &&
+        homeQuickFactContext.selectedPetID != nil
+    }
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
             MHBRootTabStack(tab: .home, tabState: router.tabState, isSelected: router.selectedTab == .home) {
                 HomeRootScreen(
                     currentUserStore: currentUserStore,
-                    tabState: router.tabState
+                    tabState: router.tabState,
+                    quickFactRefreshToken: homeQuickFactRefreshToken,
+                    onQuickFactContextChanged: { context in
+                        homeQuickFactContext = context
+                    }
                 )
             }
 
@@ -55,6 +67,18 @@ struct MHBAppShell: View {
                 )
             }
             .preferredColorScheme(MHBAppTab.profile.appliesAppAppearancePreference ? appAppearanceStore.preferredColorScheme : nil)
+        }
+        .tabViewBottomAccessory(isEnabled: shouldShowHomeQuickFactAccessory) {
+            HomeQuickFactActionBar(
+                routingContext: homeQuickFactContext,
+                currentUserID: currentUserStore.userID,
+                onOpenRoute: { route in
+                    router.tabState.appendHomeRoute(route)
+                },
+                onRecorded: {
+                    homeQuickFactRefreshToken += 1
+                }
+            )
         }
         .tint(MHBTheme.ColorToken.primary.color)
     }
