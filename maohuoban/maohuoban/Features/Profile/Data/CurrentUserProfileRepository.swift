@@ -80,7 +80,6 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
         let mediaKind = path.hasSuffix("/avatar") ? "avatar" : "cover"
         let startedAt = Date()
-        print("[DEBUG:ProfileAvatarUpload] profile repository upload request path=\(path) kind=\(mediaKind) bytes=\(draft.content.count) mime=\(draft.mimeType) file=\(draft.fileName)")
         let requestProperties: DiagnosticProperties = [
             "issue_tag": .string("ProfileAvatarUpload"),
             "path": .string(path),
@@ -107,7 +106,6 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
                 onUploadProgress: onUploadProgress
             )
             let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-            print("[DEBUG:ProfileAvatarUpload] profile repository upload succeeded path=\(path) kind=\(mediaKind) code=\(response.code) elapsed_ms=\(elapsedMs)")
             let successProperties: DiagnosticProperties = [
                 "issue_tag": .string("ProfileAvatarUpload"),
                 "path": .string(path),
@@ -122,7 +120,6 @@ struct DefaultCurrentUserProfileRepository: CurrentUserProfileRepository {
             return response
         } catch {
             let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-            print("[DEBUG:ProfileAvatarUpload] profile repository upload failed path=\(path) kind=\(mediaKind) error_kind=\(error.diagnosticsSummary) elapsed_ms=\(elapsedMs)")
             let failureProperties: DiagnosticProperties = [
                 "issue_tag": .string("ProfileAvatarUpload"),
                 "path": .string(path),

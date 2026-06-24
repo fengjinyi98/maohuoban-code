@@ -41,9 +41,6 @@ extension MHBHTTPClient {
         let body = multipartBody(boundary: boundary, files: files, fields: fields)
         request.httpBody = body
         let fileBytes = files.reduce(0) { $0 + $1.data.count }
-        if path.contains("/api/v1/profile/me/") {
-            print("[DEBUG:ProfileAvatarUpload] multipart body built path=\(path) file_count=\(files.count) file_bytes=\(fileBytes) body_bytes=\(body.count) field_count=\(fields.count)")
-        }
         await Diagnostics.track(
             "network.multipart.body_built",
             properties: [
@@ -116,9 +113,6 @@ extension MHBHTTPClient {
 
         let startedAt = Date()
         let requestPath = uploadRequest.url?.path ?? ""
-        if requestPath.contains("/api/v1/profile/me/") {
-            print("[DEBUG:ProfileAvatarUpload] upload task started path=\(requestPath) body_bytes=\(body.count) request_id=\(uploadRequest.value(forHTTPHeaderField: MHBHTTPHeader.requestID) ?? "") content_type=\(uploadRequest.value(forHTTPHeaderField: "Content-Type") ?? "")")
-        }
         await Diagnostics.track(
             "network.multipart.upload_task_started",
             properties: [
@@ -153,9 +147,6 @@ extension MHBHTTPClient {
             (data, response) = value
             let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
             let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-            if requestPath.contains("/api/v1/profile/me/") {
-                print("[DEBUG:ProfileAvatarUpload] upload task completed path=\(requestPath) status=\(statusCode) body_bytes=\(body.count) response_bytes=\(data.count) elapsed_ms=\(elapsedMs)")
-            }
             await Diagnostics.track(
                 "network.multipart.upload_task_completed",
                 properties: [
@@ -170,9 +161,6 @@ extension MHBHTTPClient {
             )
         case .failure(let error):
             let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000)
-            if requestPath.contains("/api/v1/profile/me/") {
-                print("[DEBUG:ProfileAvatarUpload] upload task failed path=\(requestPath) error_kind=\(error.diagnosticsSummary) body_bytes=\(body.count) elapsed_ms=\(elapsedMs)")
-            }
             await Diagnostics.track(
                 "network.multipart.upload_task_failed",
                 properties: [

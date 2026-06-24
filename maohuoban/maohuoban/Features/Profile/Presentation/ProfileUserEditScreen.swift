@@ -361,7 +361,6 @@ struct ProfileUserEditScreen: View {
     @MainActor
     private func uploadAvatarImage(_ image: UIImage) async -> Bool {
         let encodeStartedAt = Date()
-        print("[DEBUG:ProfileAvatarUpload] encode started width=\(Int(image.size.width * image.scale)) height=\(Int(image.size.height * image.scale)) scale=\(image.scale) has_cg_image=\(image.cgImage != nil)")
         await Diagnostics.track(
             "profile.avatar_upload.encode_started",
             properties: [
@@ -379,7 +378,6 @@ struct ProfileUserEditScreen: View {
             fileName: "profile-avatar"
         ) else {
             let elapsedMs = Int(Date().timeIntervalSince(encodeStartedAt) * 1_000)
-            print("[DEBUG:ProfileAvatarUpload] encode failed elapsed_ms=\(elapsedMs)")
             await Diagnostics.track(
                 "profile.avatar_upload.encode_failed",
                 properties: [
@@ -393,7 +391,6 @@ struct ProfileUserEditScreen: View {
         }
 
         let encodeElapsedMs = Int(Date().timeIntervalSince(encodeStartedAt) * 1_000)
-        print("[DEBUG:ProfileAvatarUpload] encode succeeded bytes=\(encoded.data.count) mime=\(encoded.mimeType) file=\(encoded.fileName) pixel_width=\(encoded.pixelWidth) pixel_height=\(encoded.pixelHeight) elapsed_ms=\(encodeElapsedMs)")
         await Diagnostics.track(
             "profile.avatar_upload.encode_succeeded",
             properties: [
@@ -414,7 +411,6 @@ struct ProfileUserEditScreen: View {
             sourceClient: "ios"
         )
         let uploadStartedAt = Date()
-        print("[DEBUG:ProfileAvatarUpload] store upload started bytes=\(draft.content.count) mime=\(draft.mimeType) file=\(draft.fileName)")
         await Diagnostics.track(
             "profile.avatar_upload.store_started",
             properties: [
@@ -429,7 +425,6 @@ struct ProfileUserEditScreen: View {
             editedAvatarImage = image
         }
         let uploadElapsedMs = Int(Date().timeIntervalSince(uploadStartedAt) * 1_000)
-        print("[DEBUG:ProfileAvatarUpload] store upload finished success=\(saved) elapsed_ms=\(uploadElapsedMs) toast_message=\(editStore.toastMessage ?? "")")
         await Diagnostics.track(
             "profile.avatar_upload.store_finished",
             properties: [

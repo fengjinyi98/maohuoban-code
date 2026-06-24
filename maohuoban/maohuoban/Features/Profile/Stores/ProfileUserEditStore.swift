@@ -213,7 +213,6 @@ final class ProfileUserEditStore {
         mediaUploadProgress = 0
         toastMessage = nil
         defer { phase = .idle }
-        print("[DEBUG:ProfileAvatarUpload] profile edit store media upload started kind=\(kind.debugName) bytes=\(draft.content.count) mime=\(draft.mimeType)")
         await Diagnostics.track(
             "profile.media_upload.store_started",
             properties: [
@@ -248,7 +247,6 @@ final class ProfileUserEditStore {
             if let profile = response.data {
                 publish(profile: profile)
             }
-            print("[DEBUG:ProfileAvatarUpload] profile edit store media upload succeeded kind=\(kind.debugName) code=\(response.code) message=\(response.message)")
             await Diagnostics.track(
                 "profile.media_upload.store_succeeded",
                 properties: [
@@ -262,7 +260,6 @@ final class ProfileUserEditStore {
         } catch {
             mediaUploadProgress = nil
             toastMessage = error.toastMessage
-            print("[DEBUG:ProfileAvatarUpload] profile edit store media upload failed kind=\(kind.debugName) error_kind=\(error.diagnosticsSummary) toast_message=\(error.toastMessage)")
             await Diagnostics.track(
                 "profile.media_upload.store_failed",
                 properties: [
