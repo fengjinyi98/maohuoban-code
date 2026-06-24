@@ -57,7 +57,8 @@ extension HomeDashboardSnapshot {
             emptyState: emptyState,
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
             petAlbums: petAlbums?.nonEmpty ?? fallback.petAlbums,
-            galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums
+            galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums,
+            pantryItems: pantryItems?.nonEmpty ?? fallback.pantryItems
         )
     }
 
@@ -82,7 +83,8 @@ extension HomeDashboardSnapshot {
             emptyState: emptyState,
             recommendedContent: recommendedContent,
             petAlbums: petAlbums,
-            galleryAlbums: galleryAlbums
+            galleryAlbums: galleryAlbums,
+            pantryItems: pantryItems
         )
     }
 }
@@ -188,7 +190,8 @@ extension HomeDashboardSnapshot {
             emptyState: emptyState,
             recommendedContent: recommendedContent,
             petAlbums: petAlbums,
-            galleryAlbums: galleryAlbums
+            galleryAlbums: galleryAlbums,
+            pantryItems: pantryItems
         )
     }
 }

@@ -152,6 +152,32 @@ extension HomeMockDashboardFixtures {
                     dateText: "创建于 2025年",
                     coverImageAssetName: "HomeGalleryAlbum3"
                 )
+            ],
+            pantryItems: [
+                HomeDashboardSnapshot.PantryPreviewItem(
+                    id: "pantry-1",
+                    title: "原味六种鱼",
+                    subtitle: "消耗中",
+                    coverImageAssetName: "https://picsum.photos/400/500?random=11"
+                ),
+                HomeDashboardSnapshot.PantryPreviewItem(
+                    id: "pantry-2",
+                    title: "风干厚切牛肉",
+                    subtitle: "消耗中",
+                    coverImageAssetName: "https://picsum.photos/400/500?random=13"
+                ),
+                HomeDashboardSnapshot.PantryPreviewItem(
+                    id: "pantry-3",
+                    title: "高纯营养化毛膏",
+                    subtitle: "周期喂食",
+                    coverImageAssetName: "https://picsum.photos/400/500?random=14"
+                ),
+                HomeDashboardSnapshot.PantryPreviewItem(
+                    id: "pantry-4",
+                    title: "三文鱼主食罐",
+                    subtitle: "消耗中",
+                    coverImageAssetName: "https://picsum.photos/400/500?random=16"
+                )
             ]
         )
     }

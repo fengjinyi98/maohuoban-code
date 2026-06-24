@@ -18,6 +18,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let recommendedContent: [RecommendedContent]
     let petAlbums: [PetAlbumItem]?
     let galleryAlbums: [PetGalleryAlbum]?
+    let pantryItems: [PantryPreviewItem]?
 
     init(
         identity: Identity,
@@ -32,7 +33,8 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         emptyState: EmptyState?,
         recommendedContent: [RecommendedContent],
         petAlbums: [PetAlbumItem]? = nil,
-        galleryAlbums: [PetGalleryAlbum]? = nil
+        galleryAlbums: [PetGalleryAlbum]? = nil,
+        pantryItems: [PantryPreviewItem]? = nil
     ) {
         self.identity = identity
         self.selectedPet = selectedPet
@@ -47,6 +49,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.recommendedContent = recommendedContent
         self.petAlbums = petAlbums
         self.galleryAlbums = galleryAlbums
+        self.pantryItems = pantryItems
     }
 
     enum CodingKeys: String, CodingKey {
@@ -63,5 +66,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case recommendedContent = "recommended_content"
         case petAlbums = "pet_albums"
         case galleryAlbums = "gallery_albums"
+        case pantryItems = "pantry_items"
     }
 }

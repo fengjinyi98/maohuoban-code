@@ -184,4 +184,22 @@ extension HomeDashboardSnapshot {
             case coverImageAssetName = "cover_image_asset_name"
         }
     }
+
+    // PantryPreviewItem 宠物储物柜精选物品
+    // 核心职责：
+    // - 表达宠物储物柜近期入库的物品
+    // - 驱动首页储物柜横滑列表渲染
+    struct PantryPreviewItem: Decodable, Equatable, Identifiable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let coverImageAssetName: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case title
+            case subtitle
+            case coverImageAssetName = "cover_image_asset_name"
+        }
+    }
 }
