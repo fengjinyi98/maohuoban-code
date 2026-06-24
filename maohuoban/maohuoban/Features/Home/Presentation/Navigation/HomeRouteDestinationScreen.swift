@@ -147,6 +147,8 @@ struct HomeRouteDestinationScreen: View {
             PetAlbumCreateScreen(mode: .edit(context))
         case .petAlbumDetail(let albumID):
             PetAlbumDetailScreen(albumID: albumID)
+        case .petPantry(let petID, let petName):
+            PetPantryScreen(petID: petID, petName: petName)
         }
     }
 }

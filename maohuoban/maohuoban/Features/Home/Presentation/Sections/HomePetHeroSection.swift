@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 承接进入宠物档案的主入口视觉
 struct HomePetHeroSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
+    let onOpenPantry: () -> Void
 
     var body: some View {
         let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.mock
@@ -34,14 +35,19 @@ struct HomePetHeroSection: View {
 
             separator
 
-            // 3. 距疫苗
-            HomePetHeroStatColumn(
-                title: "距疫苗",
-                value: "\(stats.vaccineDaysLeft)",
-                unit: "天",
-                subtitle: stats.vaccineDate
-            )
-            .padding(.leading, MHBTheme.Spacing.s3)
+            // 3. 储物柜
+            Button {
+                onOpenPantry()
+            } label: {
+                HomePetHeroStatColumn(
+                    title: "储物柜",
+                    value: "\(stats.pantryItemCount)",
+                    unit: "件",
+                    subtitle: stats.pantryLastAddedDate
+                )
+                .padding(.leading, MHBTheme.Spacing.s3)
+            }
+            .buttonStyle(.plain)
 
             separator
 

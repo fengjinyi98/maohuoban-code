@@ -7,8 +7,8 @@ extension HomeDashboardSnapshot {
         let weightChange: String
         let recordDays: Int
         let recordStreakText: String
-        let vaccineDaysLeft: Int
-        let vaccineDate: String
+        let pantryItemCount: Int
+        let pantryLastAddedDate: String
         let dewormingDaysLeft: Int
         let dewormingDate: String
 
@@ -17,8 +17,8 @@ extension HomeDashboardSnapshot {
             case weightChange = "weight_change"
             case recordDays = "record_days"
             case recordStreakText = "record_streak_text"
-            case vaccineDaysLeft = "vaccine_days_left"
-            case vaccineDate = "vaccine_date"
+            case pantryItemCount = "pantry_item_count"
+            case pantryLastAddedDate = "pantry_last_added_date"
             case dewormingDaysLeft = "deworming_days_left"
             case dewormingDate = "deworming_date"
         }
@@ -28,8 +28,8 @@ extension HomeDashboardSnapshot {
             weightChange: "较上周 +0.2",
             recordDays: 27,
             recordStreakText: "连续记录",
-            vaccineDaysLeft: 14,
-            vaccineDate: "2026.06.08",
+            pantryItemCount: 12,
+            pantryLastAddedDate: "2026.06.24",
             dewormingDaysLeft: 3,
             dewormingDate: "2026.05.28"
         )

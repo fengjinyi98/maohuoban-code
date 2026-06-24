@@ -62,7 +62,13 @@ struct HomeDashboardLoadedView: View {
                                 editProfileRoute: editProfileRoute(
                                     for: selectedPet,
                                     pets: snapshot.petSwitcher
-                                )
+                                ),
+                                onOpenPantry: {
+                                    onOpenRoute(.petPantry(
+                                        petID: selectedPet.id,
+                                        petName: selectedPet.name
+                                    ))
+                                }
                             )
                         }
 

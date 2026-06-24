@@ -202,8 +202,8 @@ extension HomeMockDashboardFixtures {
                 weightChange: "较上周 +0.2",
                 recordDays: 27,
                 recordStreakText: "连续记录",
-                vaccineDaysLeft: 14,
-                vaccineDate: "2026.06.08",
+                pantryItemCount: 12,
+                pantryLastAddedDate: "2026.06.24",
                 dewormingDaysLeft: 3,
                 dewormingDate: "2026.05.28"
             )
