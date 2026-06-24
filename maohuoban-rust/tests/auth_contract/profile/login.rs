@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use super::super::{json_request, response_json};
 use super::{device_payload, send_phone_code};
 
-/// 验证码登录返回正确的用户资料摘要（phone、phone_masked、has_password、display_name、avatar_presentation）
+/// 验证码登录返回正确的用户资料摘要（`phone`、`phone_masked`、`has_password`、`display_name`、`avatar_presentation`）
 #[tokio::test]
 async fn phone_code_login_returns_current_user_profile_summary_without_badges() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;

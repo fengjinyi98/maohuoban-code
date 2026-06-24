@@ -8,7 +8,7 @@ use super::{
     send_phone_code,
 };
 
-/// PATCH display_name/bio/gender/is_gender_visible/birthday 后的持久化验证
+/// `PATCH` `display_name`/`bio`/`gender`/`is_gender_visible`/`birthday` 后的持久化验证
 #[tokio::test]
 async fn profile_me_patch_updates_editable_fields_from_single_profile_source() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;

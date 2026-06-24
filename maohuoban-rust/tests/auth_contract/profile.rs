@@ -22,7 +22,7 @@ mod read;
 #[path = "profile/update.rs"]
 mod update;
 
-/// `send_phone_code` 发送验证码并返回 challenge_id
+/// `send_phone_code` 发送验证码并返回 `challenge_id`
 /// 核心职责：
 /// - 复用登录测试流程
 async fn send_phone_code(

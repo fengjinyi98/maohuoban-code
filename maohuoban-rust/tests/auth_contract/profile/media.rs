@@ -8,7 +8,7 @@ use super::{
     device_payload, send_phone_code, tiny_png,
 };
 
-/// 头像/封面上传返回 CREATED，响应含 asset_id/url/mime_type/width/height；后续 GET 可读到
+/// 头像/封面上传返回 `CREATED`，响应含 `asset_id`/`url`/`mime_type`/`width`/`height`；后续 `GET` 可读到
 #[tokio::test]
 async fn profile_me_uploads_avatar_and_cover_media() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;

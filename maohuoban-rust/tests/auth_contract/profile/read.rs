@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use super::super::{json_request, response_json};
 use super::{authorized_get_request, device_payload, send_phone_code};
 
-/// `GET /api/v1/profile/me` 与登录响应中的 profile 字段一致，无 join_sequence/badges
+/// `GET /api/v1/profile/me` 与登录响应中的 `profile` 字段一致，无 `join_sequence`/`badges`
 #[tokio::test]
 async fn profile_me_returns_same_profile_created_by_login_token() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
