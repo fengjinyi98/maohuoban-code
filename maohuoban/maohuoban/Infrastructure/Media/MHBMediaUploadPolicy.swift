@@ -41,6 +41,28 @@ enum MHBMediaUploadPurpose: Equatable, Sendable {
         }
     }
 
+    /// 上传源图最长边像素上限
+    var maxLongEdgePixels: CGFloat {
+        switch self {
+        case .avatar:
+            2_048
+        case .cover, .livePhotoStill:
+            3_840
+        case .ugcImage, .commodityImage, .medicalImage:
+            8_192
+        }
+    }
+
+    /// 是否在图片带透明通道时保留 PNG
+    var preservesAlphaWhenPresent: Bool {
+        switch self {
+        case .ugcImage, .commodityImage, .medicalImage:
+            true
+        case .avatar, .cover, .livePhotoStill:
+            false
+        }
+    }
+
     /// 用途标识字符串（对齐后端 usage_kind）
     var usageKind: String {
         switch self {

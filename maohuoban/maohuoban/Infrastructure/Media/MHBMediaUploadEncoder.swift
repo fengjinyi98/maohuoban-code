@@ -24,7 +24,7 @@ struct MHBMediaUploadEncodeResult: Equatable, Sendable {
 // 核心职责：
 // - 根据用途选择 JPEG / PNG 编码策略
 // - 照片类默认 JPEG，透明图 / 贴纸保 PNG
-// - 确保 1415x1414 裁剪图不再生成 19MB PNG
+// - 按用途约束源图最长边，避免头像等照片类生成超大 PNG
 enum MHBMediaUploadEncoder {
 
     // MARK: - 公共入口
@@ -41,14 +41,19 @@ enum MHBMediaUploadEncoder {
         fileName: String? = nil
     ) -> MHBMediaUploadEncodeResult? {
         let baseName = fileName ?? defaultFileName(for: purpose)
-        let hasAlpha = imageHasAlphaChannel(image)
+        let shouldPreserveAlpha = purpose.preservesAlphaWhenPresent && imageHasAlphaChannel(image)
+        let preparedImage = preparedImageForEncoding(
+            image,
+            purpose: purpose,
+            preservingAlpha: shouldPreserveAlpha
+        )
 
-        if hasAlpha {
-            return encodePNG(image: image, fileName: baseName)
+        if shouldPreserveAlpha {
+            return encodePNG(image: preparedImage, fileName: baseName)
         }
 
         return encodeJPEG(
-            image: image,
+            image: preparedImage,
             fileName: baseName,
             quality: purpose.defaultJPEGQuality
         )
@@ -70,8 +75,8 @@ enum MHBMediaUploadEncoder {
             mimeType: "image/jpeg",
             fileName: safeFileName,
             quality: quality,
-            pixelWidth: Int(image.size.width * image.scale),
-            pixelHeight: Int(image.size.height * image.scale)
+            pixelWidth: Int(pixelSize(of: image).width),
+            pixelHeight: Int(pixelSize(of: image).height)
         )
     }
 
@@ -88,12 +93,48 @@ enum MHBMediaUploadEncoder {
             mimeType: "image/png",
             fileName: safeFileName,
             quality: 1.0,
-            pixelWidth: Int(image.size.width * image.scale),
-            pixelHeight: Int(image.size.height * image.scale)
+            pixelWidth: Int(pixelSize(of: image).width),
+            pixelHeight: Int(pixelSize(of: image).height)
         )
     }
 
     // MARK: - 辅助
+
+    /// 按用途策略准备编码前图片
+    private static func preparedImageForEncoding(
+        _ image: UIImage,
+        purpose: MHBMediaUploadPurpose,
+        preservingAlpha: Bool
+    ) -> UIImage {
+        let sourcePixelSize = pixelSize(of: image)
+        guard sourcePixelSize.width > 0, sourcePixelSize.height > 0 else {
+            return image
+        }
+
+        let longEdge = max(sourcePixelSize.width, sourcePixelSize.height)
+        let scaleFactor = min(1, purpose.maxLongEdgePixels / longEdge)
+        let targetPixelSize = CGSize(
+            width: max(1, (sourcePixelSize.width * scaleFactor).rounded()),
+            height: max(1, (sourcePixelSize.height * scaleFactor).rounded())
+        )
+        let needsOpaqueRedraw = !preservingAlpha && imageHasAlphaChannel(image)
+        let needsResize = targetPixelSize != sourcePixelSize
+
+        guard needsResize || needsOpaqueRedraw else {
+            return image
+        }
+
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = !preservingAlpha
+        return UIGraphicsImageRenderer(size: targetPixelSize, format: format).image { context in
+            if !preservingAlpha {
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: targetPixelSize))
+            }
+            image.draw(in: CGRect(origin: .zero, size: targetPixelSize))
+        }
+    }
 
     /// 检测 UIImage 是否包含 alpha 通道
     private static func imageHasAlphaChannel(_ image: UIImage) -> Bool {
@@ -102,6 +143,17 @@ enum MHBMediaUploadEncoder {
         }
         let alphaInfo = cgImage.alphaInfo
         return alphaInfo != .none && alphaInfo != .noneSkipFirst && alphaInfo != .noneSkipLast
+    }
+
+    /// 读取 UIImage 实际像素尺寸
+    private static func pixelSize(of image: UIImage) -> CGSize {
+        if let cgImage = image.cgImage {
+            return CGSize(width: cgImage.width, height: cgImage.height)
+        }
+        return CGSize(
+            width: image.size.width * image.scale,
+            height: image.size.height * image.scale
+        )
     }
 
     private static func replaceExtension(of fileName: String, with ext: String) -> String {
