@@ -215,24 +215,18 @@ private struct TopicDetailStatPill: View {
 // TopicDetailBottomAction 话题详情底部操作
 // 核心职责：
 // - 提供进入发布草稿并默认选中当前话题的入口
+// - 使用基础设施底部 CTA 组件保持统一体验
 private struct TopicDetailBottomAction<Route: Hashable>: View {
     let route: Route
     let bottomInset: CGFloat
 
     var body: some View {
-        NavigationLink(value: route) {
-            Label("参与讨论", systemImage: "square.and.pencil")
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, MHBTheme.Spacing.s5)
-                .frame(height: MHBTheme.Spacing.s8 + MHBTheme.Spacing.s4)
-                .background(MHBTheme.ColorToken.primary.color, in: Capsule())
-                .glassEffect(.regular.interactive(), in: .capsule)
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.bottom, MHBTheme.Spacing.s5 + bottomInset)
+        MHBBottomFloatingCTA(
+            title: "参与讨论",
+            systemImage: "square.and.pencil",
+            route: route,
+            bottomInset: bottomInset
+        )
     }
 }
 

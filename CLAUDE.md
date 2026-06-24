@@ -8,11 +8,49 @@
 3. 默认保留系统返回行为，必须支持系统手势侧滑返回。
 4. 仅允许做系统导航栏样式定制（标题、背景、按钮样式），不破坏系统交互。
 
+### 1.2 自定义头部与 Liquid Glass 规则
+1. 需要在系统导航栏位置承载业务头部控件时，优先使用自定义 SwiftUI 控件承载按钮和状态展示，并保持页面仍处于系统 `NavigationStack` 中。
+2. 自定义控件只要需要 Liquid Glass 效果，统一使用 SwiftUI 官方 `glassEffect(_:in:)` API，不使用自绘毛玻璃、半透明背景或 UIKit blur 替代。
+3. 自定义头部按钮默认使用 `.glassEffect(.regular.interactive(), in: .capsule)`；轻量或低强调按钮可使用 `.glassEffect(.clear.interactive(), in: .capsule)`，并确保内容对比度充足。
+4. 大尺寸自定义组件使用与形态匹配的 shape，例如 `.glassEffect(.regular, in: .rect(cornerRadius: <token>))`；胶囊按钮使用 `.capsule`。
+5. 多个 Liquid Glass 自定义控件同时出现时，使用 `GlassEffectContainer` 管理组合与性能；需要形态融合或转场时再配合 `glassEffectID` / `glassEffectTransition`。
+6. `glassEffect(_:in:)` 应放在影响控件外观和尺寸的 modifier 之后，例如 `frame`、`padding`、`font`、`foregroundStyle` 之后。
+
+### 1.3 自定义导航栏定位记录
+1. 自定义导航栏控件必须放在滚动内容外层的顶层 overlay 中，滚动头图只负责图片和正文展示，避免下拉缩放时带动导航按钮。
+2. 当 overlay 容器已经从系统 safe area 顶部开始布局时，顶部定位只追加视觉间距；禁止再次叠加 `safeAreaInsets.top`。
+3. iPhone 17 Pro / iOS 27 调试参考值：窗口 `safeArea.top` 约 59pt，状态栏 frame 高约 54pt；自定义头部按钮使用 `padding(.top, MHBTheme.Spacing.s1)` 可贴近系统 top bar 内容区。
+4. 沉浸式头图页面顶部若需要图片直达屏幕顶部，优先让头图自身扩展到 safe area；不要用全屏 UIKit blur 或额外材质背景垫在状态栏区域。
+5. `scrollEdgeEffectStyle(.soft, for: .top)` 会生成顶部 `ScrollEdgeEffectView`，可能造成状态栏区域泛白；沉浸式头图首屏默认不使用该效果。
+
+### 1.4 全屏覆盖页面使用边界
+1. 普通功能页面、编辑流程、设置流程和层级推进页面默认使用系统 `NavigationStack` / `navigationDestination`。
+2. `fullScreenCover` 只用于强上下文、临时覆盖、关闭后回到原流程的场景，例如首页预览、媒体预览、临时沉浸式查看。
+3. 需要保持当前页面状态、避免打断当前编辑流程、并让用户快速退出回到原位置时，才考虑使用 `fullScreenCover`。
+4. 高风险确认、长表单、需要形成独立流程或后续可能接入异步提交的页面，应优先判断是否属于普通导航或 sheet；不得因为“全屏”视觉需求默认使用 `fullScreenCover`。
+5. 自定义 full cover 仅在系统 `fullScreenCover` 出现真实限制时使用，例如闪屏、预热内容、特殊转场、安全区控制或宿主层级控制；自定义方案必须封装为基础设施。
+
+### 1.5 Tab 路径归属与二级推进规则
+1. 每个 Tab 的 `NavigationPath` 归属对应 Tab 根容器或统一 Tab 状态对象管理，例如 `MHBAppTabState`；业务子页面不得自行创建新的 `NavigationStack` 承载同一层级推进。
+2. `navigationDestination(for:)` 必须优先声明在 Tab 根视图或根导航容器上，子页面通过 route 值和回调把推进意图交回根容器。
+3. 从详情页内部继续进入话题、作者、相册、帖子详情等二级页面时，使用 `Button` / 显式事件回调触发当前 Tab 的 path append；避免在详情页正文、Feed 卡片内部直接嵌套会抢占手势仲裁的 `NavigationLink(value:)`。
+4. 跨 Feature 复用页面必须通过泛型 Route 或闭包接收路由构造与打开动作，例如详情页只负责产出 `topicRoute(topicName)` 并调用 `onOpenTopicRoute(route)`。
+5. 同一导航链路只能有一个 path 写入口；不得同时混用 `NavigationLink(value:)`、本地 `@State selectedItem`、`sheet/fullScreenCover` 和外部 path append 表达同一推进行为。
+6. 路由 mutation 必须发生在明确用户事件边界，例如按钮点击、列表项点击、工具栏操作；不得在 `body`、同步布局读取、`GeometryReader` 同步闭包或纯展示 formatter 中写 path。
+
+### 1.6 导航手势与交互冲突规则
+1. 新增页面级手势前必须评估系统侧滑返回、ScrollView 滚动、Button 点击、Feed 卡片点击和输入控件焦点的冲突风险。
+2. 详情页正文、Feed 流、评论区等可点击密集区域不得添加全屏高优先级 Tap / Double Tap 手势；确需添加时必须先封装为基础设施，并验证不会延迟 Button / NavigationLink 的单击响应。
+3. 行级 UI 需要多个动作时，优先使用明确按钮承载动作，例如评论回复使用“回复”按钮；整行点击只用于唯一主动作。
+4. 系统侧滑返回失效时，优先排查当前页面是否隐藏或替换了系统导航栏、是否新建了嵌套 `NavigationStack`、是否使用 `fullScreenCover` 承载普通页面、是否添加了高优先级手势。
+5. 真机出现“返回手势后触发点击 / 点击后返回失效 / push 响应延迟”时，必须先加临时日志定位 path mutation、命中测试、手势开始结束、页面 `onAppear/onDisappear` 时序；用户确认修复后删除临时日志并扫描残留。
+6. 所有导航修复完成后必须保留系统返回按钮与系统侧滑返回能力，禁止用自定义返回逻辑掩盖根因。
+
 ## 2. 项目定位
 
 毛伙伴以宠物为主体。
 
-所有产品、数据、UI、推荐和交易设计都围绕宠物档案、宠物事件、宠物关系、同城服务、医疗记录、交易履约和保险协同展开。
+所有产品、数据、UI、推荐 and 交易设计都围绕宠物档案、宠物事件、宠物关系、同城服务、医疗记录、交易履约和保险协同展开。
 
 ## 3. 技术基线
 
@@ -50,7 +88,7 @@
 4. ViewModel / Store 负责状态、派生展示数据和命令式操作入口。
 5. Domain 只放业务模型、业务规则和协议。
 6. Data 只放仓储、DTO、Mapper 和远端 / 本地数据实现。
-7. DesignSystem 只放跨 Feature 复用的主题、组件和基础视觉能力。
+7. DesignSystem 只放跨 Feature 复用的主题、组件 and 基础视觉能力。
 8. Feature 之间通过稳定模型、协议或路由交互。
 9. 禁止 Feature 之间形成循环依赖。
 
@@ -64,15 +102,19 @@
 6. 不使用计算属性或 `@ViewBuilder` 方法拆大型 `body`。
 7. 副作用只能在用户事件、`task`、`onAppear`、ViewModel / Store 命令式入口触发。
 8. SwiftUI 渲染路径禁止写 `UserDefaults`、磁盘、数据库、缓存、全局状态或发网络请求。
+9. 普通页面纵向滚动容器统一使用 `Infrastructure/SwiftUI/MHBScreenScrollView`，避免业务页面直接散写原生 `ScrollView`；横向分页、嵌套局部滚动、特殊沉浸式首屏和 UIKit 桥接滚动场景需说明边界后再使用专门容器。
 
 ## 7. UIKit 使用规则
 
 1. UIKit 只在主线程使用。
-2. 导航、手势、输入、底部栏、模态、宿主控制器等基础设施可使用 UIKit.
-3. UIKit 能力必须封装成基础设施或 DesignSystem 组件。
-4. 业务页面不得直接散写 UIKit 桥接代码。
-5. SwiftUI 与 UIKit 桥接必须有清晰边界和可测试入口。
-6. SwiftUI 与 UIKit 混编时，若需在 NavigationStack 中嵌入 UIKit 滚动组件（如 UITextView/WKWebView），应剥离其滚动职责（isScrollEnabled = false），通过外层 SwiftUI ScrollView 包裹以支持系统导航栏透明与滚动效果，并实现 sizeThatFits 提供高度反馈。
+2. 导航、手势、输入、底部栏、模态、宿主控制器等基础设施可使用 UIKit。
+3. 用户未明确要求使用 UIKit 时，禁止为解决 SwiftUI 布局、样式、菜单、材质或普通交互问题自行引入 UIKit / `UIViewRepresentable` / `UIViewControllerRepresentable` / UIKit 宿主控件。
+4. 若判断必须使用 UIKit 才能解决问题，必须先向用户说明：SwiftUI 方案为何不足、拟使用的 UIKit 能力、可能的布局/生命周期风险和可回退方案；得到明确确认后再实施。
+5. UIKit 能力必须封装成基础设施或 DesignSystem 组件。
+6. 业务页面不得直接散写 UIKit 桥接代码。
+7. SwiftUI 与 UIKit 桥接必须有清晰边界和可测试入口。
+8. SwiftUI 与 UIKit 混编时，若需在 NavigationStack 中嵌入 UIKit 滚动组件（如 UITextView/WKWebView），应剥离其滚动职责（isScrollEnabled = false），通过外层 SwiftUI ScrollView 包裹以支持系统导航栏透明与滚动效果，并实现 sizeThatFits 提供高度反馈。
+9. 沉浸式全屏页面或 UIKit 宿主页面使用 `.ignoresSafeArea()` / `fullScreenCover` / 自定义 presenter 时，不能只依赖 SwiftUI `GeometryProxy.safeAreaInsets` 判断顶部和底部安全区；该值可能为 0。需要把按钮、工具栏、底部操作区放入安全区时，应通过封装好的 UIKit window safe area 读取能力获取 `window.safeAreaInsets`，并在生命周期回调中回写到 SwiftUI 状态后再参与布局。
 
 ## 8. 主题与 UI Token
 
@@ -139,6 +181,39 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 新增代码禁止引入新增警告。
 
+### 12.1 iOS 测试执行与 XCTestDevices 控制
+
+1. 日常 iOS App 代码验证默认执行 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build`。
+2. `xcodebuild test`、`build-for-testing`、UI Test 仅用于测试覆盖、业务规则回归、端到端交互验证或用户明确要求测试的场景。
+3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
+4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
+5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
+
+### 12.2 iOS 真机交互复测分工
+
+1. 当用户明确说明由用户进行真机验证时，Codex 不需要额外执行模拟器点击、截图、UI 层级快照或录屏复测。
+2. 真机相关的触感反馈、点击命中、滚动手感、Liquid Glass 实机渲染和设备差异，由用户在真机上完成最终复测。
+3. Codex 仍必须完成代码修改、必要的临时日志定位、临时日志清理，以及当前仓库真实 iOS Debug 构建验证。
+4. 模拟器因登录态、SDK 私有框架、设备状态或工具限制无法复现真机问题时，不作为交付阻塞；应说明已完成的代码验证和需要用户真机观察的日志过滤词。
+
+### 12.2.1 真机调试闭环与临时日志纪律
+
+1. 用户负责真机复测的问题，临时日志只能在用户明确确认问题解决后清理；禁止仅凭一次日志推断或模拟器构建通过就删除临时日志。
+2. 同一问题连续两轮反馈未解决，或同一假设经过两次修改仍未解决时，必须暂停继续补丁，重新梳理问题边界并追加能区分假设的最小诊断日志。
+3. 临时日志必须服务根因定位，优先覆盖状态写入、系统回调时序、视图 frame、opacity、window 层级、safe area、命中区域和环境值变化等能解释现象的证据。
+4. UI 视觉问题不能只依赖状态日志判断；状态机正常时，应继续验证布局、材质、动画、窗口层级和系统安全区是否发生尾帧或重合成问题。
+5. 用户给出“某个提交正常”或“某版本无回归”时，优先对比该提交与当前实现的差异，再决定修复层级。
+6. 修复归属必须先判断清楚：键盘、导航、输入等系统协同问题优先查基础设施；页面 overlay、业务状态、材质闪烁等问题优先查业务页面组合层。
+7. 交付时必须说明临时日志状态：已保留等待真机复测，或已在用户确认后清理并完成残留扫描。
+
+### 12.3 快速 UI 实现模式
+
+1. 当用户明确说明处于“快速 UI 实现 / UI 原型 / 先看效果”阶段时，可以暂时跳过 TDD。
+2. 快速 UI 实现模式只适用于前端展示层、静态 mock 数据、视觉布局和交互壳验证；不得用于后端接口、持久化、权限、安全、推荐算法和跨模块业务规则。
+3. 快速 UI 实现完成后必须执行当前仓库真实 iOS Debug 构建，结果必须为 `** BUILD SUCCEEDED **`。
+4. 快速 UI 实现不得引入新增编译警告、临时 debug 打印、隐藏副作用或破坏既有 UI/UX。
+5. 当快速 UI 进入产品化、接入真实数据、抽象基础设施或调整业务逻辑时，需要恢复 TDD 节奏并补齐测试。
+
 ## 13. 工程判断原则
 
 1. 每次实现前先判断能力归属：基础设施、DesignSystem、Domain、Feature、Data、服务端。
@@ -146,3 +221,4 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 3. 抽象必须服务真实复用、复杂度隔离或边界清晰。
 4. 不为了短期通过而引入难维护补丁。
 5. 大型功能先拆文档、边界、数据流和测试，再实现。
+s
