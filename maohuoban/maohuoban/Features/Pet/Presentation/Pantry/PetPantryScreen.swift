@@ -1,17 +1,25 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
+// PetPantryRoute 储物柜路由
+// 核心职责：
+// - 定义储物柜内部导航目标
+enum PetPantryRoute: Hashable {
+    case addItem
+}
+
 // PetPantryScreen 宠物储物柜页面
 // 核心职责：
 // - 展示宠物食品物资的画廊式双列网格
 // - 支持分类筛选
 // - 提供搜索和添加入口
-struct PetPantryScreen: View {
+struct PetPantryScreen<Route: Hashable>: View {
     let petID: String
     let petName: String
+    let onNavigate: (PetPantryRoute) -> Route
 
     @State private var selectedCategory: PantryCategory = .all
-    @State private var items: [PantryItem] = PetPantryScreen.mockItems
+    @State private var items: [PantryItem] = PetPantryMockData.items
 
     var filteredItems: [PantryItem] {
         if selectedCategory == .all {
@@ -21,37 +29,44 @@ struct PetPantryScreen: View {
     }
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(spacing: 0) {
-                filterBar
-                    .padding(.horizontal, MHBTheme.Spacing.s6)
-                    .padding(.top, MHBTheme.Spacing.s2)
-                    .padding(.bottom, MHBTheme.Spacing.s4)
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
 
-                galleryGrid
-                    .padding(.horizontal, MHBTheme.Spacing.s5)
+            ZStack(alignment: .bottom) {
+                MHBScreenScrollView {
+                    VStack(spacing: 0) {
+                        filterBar
+                            .padding(.horizontal, MHBTheme.Spacing.s6)
+                            .padding(.top, MHBTheme.Spacing.s2)
+                            .padding(.bottom, MHBTheme.Spacing.s4)
+
+                        galleryGrid
+                            .padding(.horizontal, MHBTheme.Spacing.s5)
+                            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                    }
+                }
+
+                MHBBottomFloatingCTA(
+                    title: "添加物品",
+                    systemImage: "plus",
+                    route: onNavigate(.addItem),
+                    bottomInset: bottomInset
+                )
+                .zIndex(2)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
+        .ignoresSafeArea(.container, edges: .bottom)
         .navigationTitle("\(petName)的储物柜")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: MHBTheme.Spacing.s5) {
-                    Button {
-                        // TODO: 搜索功能
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    }
-
-                    Button {
-                        // TODO: 添加物品功能
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    }
+                Button {
+                    // TODO: 搜索功能
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 }
             }
         }
@@ -137,28 +152,47 @@ private struct PantryItemCard: View {
     }
 
     private var coverArea: some View {
-        ZStack {
-            coverGradient
+        ZStack(alignment: .bottomLeading) {
+            ZStack {
+                coverGradient
 
-            if let imageURL = item.imageURL {
-                AsyncImage(url: URL(string: imageURL)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    case .failure, .empty:
-                        placeholderIcon
-                    @unknown default:
-                        placeholderIcon
+                if let imageURL = item.imageURL {
+                    AsyncImage(url: URL(string: imageURL)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        case .failure, .empty:
+                            placeholderIcon
+                        @unknown default:
+                            placeholderIcon
+                        }
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(MHBTheme.Spacing.s4)
+                } else {
+                    placeholderIcon
                 }
-                .frame(maxWidth: .infinity)
-                .padding(MHBTheme.Spacing.s4)
-            } else {
-                placeholderIcon
             }
+
+            Text(item.statusLabel)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(
+                    item.status.isGrayTag
+                        ? Color(hex: "888888")
+                        : Color(hex: "6B9A7A")
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s2)
+                .padding(.vertical, MHBTheme.Spacing.s1)
+                .background(
+                    item.status.isGrayTag
+                        ? Color(hex: "F5F5F5")
+                        : Color(hex: "F0F5F2")
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .padding(MHBTheme.Spacing.s2)
         }
         .aspectRatio(4/5, contentMode: .fill)
         .frame(maxWidth: .infinity)
@@ -203,37 +237,23 @@ private struct PantryItemCard: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .lineLimit(1)
 
-            Spacer(minLength: MHBTheme.Spacing.s3)
+            Spacer(minLength: MHBTheme.Spacing.s1)
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+            HStack(alignment: .center) {
                 Text("\(item.statusDate) · \(statusAction(for: item.status))")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
 
-                HStack {
-                    Text(item.statusLabel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(
-                            item.status.isGrayTag
-                                ? Color(hex: "888888")
-                                : Color(hex: "6B9A7A")
-                        )
-                        .padding(.horizontal, MHBTheme.Spacing.s2)
-                        .padding(.vertical, MHBTheme.Spacing.s1)
-                        .background(
-                            item.status.isGrayTag
-                                ? Color(hex: "F5F5F5")
-                                : Color(hex: "F0F5F2")
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                Spacer()
 
-                    Spacer()
-
+                Button {
+                    // TODO: 更多操作
+                } label: {
                     Text("•••")
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(Color(hex: "D8D8D8"))
-                        .padding(.bottom, 2)
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(MHBTheme.Spacing.s4)
@@ -248,9 +268,11 @@ private struct PantryItemCard: View {
     }
 }
 
-// Mock 数据
-extension PetPantryScreen {
-    static let mockItems: [PantryItem] = [
+// PetPantryMockData 储物柜 Mock 数据
+// 核心职责：
+// - 提供测试和演示用的物品数据
+enum PetPantryMockData {
+    static let items: [PantryItem] = [
         .init(
             id: "1",
             name: "原味六种鱼",

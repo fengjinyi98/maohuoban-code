@@ -148,7 +148,18 @@ struct HomeRouteDestinationScreen: View {
         case .petAlbumDetail(let albumID):
             PetAlbumDetailScreen(albumID: albumID)
         case .petPantry(let petID, let petName):
-            PetPantryScreen(petID: petID, petName: petName)
+            PetPantryScreen(
+                petID: petID,
+                petName: petName,
+                onNavigate: { route -> HomeRoute in
+                    switch route {
+                    case .addItem:
+                        return HomeRoute.addPantryItem(petID: petID)
+                    }
+                }
+            )
+        case .addPantryItem:
+            AddPantryItemScreen()
         }
     }
 }

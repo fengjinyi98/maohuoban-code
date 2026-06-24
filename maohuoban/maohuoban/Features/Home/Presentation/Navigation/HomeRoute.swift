@@ -26,6 +26,7 @@ enum HomeRoute: Hashable {
     case editPetAlbum(PetAlbumEditContext)
     case petAlbumDetail(albumID: String)
     case petPantry(petID: String, petName: String)
+    case addPantryItem(petID: String)
 }
 
 extension HomeRoute {
@@ -51,6 +52,7 @@ extension HomeRoute {
         case .editPetAlbum: "pencil"
         case .petAlbumDetail: "photo"
         case .petPantry: "archivebox.fill"
+        case .addPantryItem: "plus.circle.fill"
         }
     }
 
@@ -76,6 +78,7 @@ extension HomeRoute {
         case .editPetAlbum: "编辑相册"
         case .petAlbumDetail: "相册详情"
         case .petPantry: "储物柜"
+        case .addPantryItem: "添加物品"
         }
     }
 
@@ -101,6 +104,7 @@ extension HomeRoute {
         case .editPetAlbum: "编辑相册标题和封面"
         case .petAlbumDetail: "查看单个相册中的照片"
         case .petPantry: "管理宠物食品物资"
+        case .addPantryItem: "新物品入库"
         }
     }
 }
