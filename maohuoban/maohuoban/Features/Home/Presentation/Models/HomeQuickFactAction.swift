@@ -85,17 +85,7 @@ enum HomeQuickFactActionRouteResolver {
         context: HomeActionRoutingContext
     ) -> HomeRoute? {
         switch action {
-        case .abnormal:
-            let healthAction = HomeDashboardSnapshot.Action(
-                kind: .healthRecord,
-                title: "健康记录",
-                subtitle: nil
-            )
-            return HomeActionRouteResolver.route(
-                for: healthAction,
-                context: context
-            )
-        case .fed, .poopNormal, .energyNormal, .appetiteNormal:
+        case .fed, .poopNormal, .energyNormal, .appetiteNormal, .abnormal:
             return nil
         }
     }

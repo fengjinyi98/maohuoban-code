@@ -14,6 +14,9 @@ struct MHBAppShell: View {
     @State private var topicStore = TopicStore()
     @State private var homeQuickFactContext = HomeActionRoutingContext()
     @State private var homeQuickFactRefreshToken = 0
+    @State private var activeHomeQuickFactSheet: HomeQuickFactSheet?
+    @State private var homeQuickFactSheetStore = PetWriteStore()
+    @State private var homeQuickFactSheetSubmittingAction: HomeQuickFactAction?
 
     private var shouldShowHomeQuickFactAccessory: Bool {
         router.selectedTab == .home &&
@@ -98,6 +101,7 @@ struct MHBAppShell: View {
                 onOpenRoute: { route in
                     router.tabState.appendHomeRoute(route)
                 },
+                onOpenSheet: openQuickFactSheet,
                 onRecorded: {
                     homeQuickFactRefreshToken += 1
                 }
@@ -106,6 +110,78 @@ struct MHBAppShell: View {
         .defaultTabBarPlacement(.tabBar)
         .tabBarMinimizeBehavior(.never)
         .tint(MHBTheme.ColorToken.primary.color)
+        .petWriteToastBridge(
+            phase: homeQuickFactSheetStore.phase,
+            successMessage: homeQuickFactSheetStore.successMessage
+        )
+        .sheet(item: $activeHomeQuickFactSheet) { sheet in
+            switch sheet {
+            case .feeding:
+                HomeQuickFactFeedingSheet(
+                    context: homeQuickFactContext,
+                    isSubmitting: homeQuickFactSheetSubmittingAction == .fed,
+                    onSubmit: submitQuickFactFeeding,
+                    onCancel: {
+                        activeHomeQuickFactSheet = nil
+                    }
+                )
+            case .abnormal:
+                HomeQuickFactAbnormalSheet(
+                    context: homeQuickFactContext,
+                    isSubmitting: homeQuickFactSheetSubmittingAction == .abnormal,
+                    onSubmit: submitQuickFactAbnormal,
+                    onCancel: {
+                        activeHomeQuickFactSheet = nil
+                    }
+                )
+            }
+        }
+    }
+
+    private func openQuickFactSheet(_ sheet: HomeQuickFactSheet) {
+        homeQuickFactSheetStore.reset()
+        homeQuickFactSheetSubmittingAction = nil
+        activeHomeQuickFactSheet = sheet
+    }
+
+    private func submitQuickFactFeeding(_ input: HomeQuickFactFeedingInput) {
+        submitQuickFactSheetEvent(
+            action: .fed,
+            petID: input.petID,
+            draft: input.eventDraft(occurredAt: Date())
+        )
+    }
+
+    private func submitQuickFactAbnormal(_ input: HomeQuickFactAbnormalInput) {
+        submitQuickFactSheetEvent(
+            action: .abnormal,
+            petID: input.petID,
+            draft: input.eventDraft(occurredAt: Date())
+        )
+    }
+
+    private func submitQuickFactSheetEvent(
+        action: HomeQuickFactAction,
+        petID: String?,
+        draft: PetEventDraft
+    ) {
+        guard homeQuickFactSheetSubmittingAction == nil else { return }
+
+        homeQuickFactSheetSubmittingAction = action
+        Task {
+            await homeQuickFactSheetStore.createEvent(
+                petID: petID,
+                draft: draft,
+                currentUserID: currentUserStore.userID
+            )
+
+            homeQuickFactSheetSubmittingAction = nil
+
+            if case .recordedEvent = homeQuickFactSheetStore.phase {
+                activeHomeQuickFactSheet = nil
+                homeQuickFactRefreshToken += 1
+            }
+        }
     }
 
     private func tabLabel(for tab: MHBAppTab) -> some View {

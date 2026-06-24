@@ -10,6 +10,7 @@ struct HomeQuickFactActionBar: View {
     let routingContext: HomeActionRoutingContext
     let currentUserID: String?
     let onOpenRoute: (HomeRoute) -> Void
+    let onOpenSheet: (HomeQuickFactSheet) -> Void
     let onRecorded: () -> Void
 
     @State private var store = PetWriteStore()
@@ -22,12 +23,14 @@ struct HomeQuickFactActionBar: View {
         routingContext: HomeActionRoutingContext,
         currentUserID: String?,
         onOpenRoute: @escaping (HomeRoute) -> Void,
+        onOpenSheet: @escaping (HomeQuickFactSheet) -> Void,
         onRecorded: @escaping () -> Void
     ) {
         self.actions = actions
         self.routingContext = routingContext
         self.currentUserID = currentUserID
         self.onOpenRoute = onOpenRoute
+        self.onOpenSheet = onOpenSheet
         self.onRecorded = onRecorded
     }
 
@@ -52,6 +55,17 @@ struct HomeQuickFactActionBar: View {
     }
 
     private func handleAction(_ action: HomeQuickFactAction) {
+        switch action {
+        case .fed:
+            onOpenSheet(.feeding)
+            return
+        case .abnormal:
+            onOpenSheet(.abnormal)
+            return
+        case .poopNormal, .energyNormal, .appetiteNormal:
+            break
+        }
+
         if let route = HomeQuickFactActionRouteResolver.route(
             for: action,
             context: routingContext
