@@ -155,6 +155,23 @@ struct HomeRouteDestinationScreen: View {
                     switch route {
                     case .addItem:
                         return HomeRoute.addPantryItem(petID: petID)
+                    case .categoryDetail(let category):
+                        return HomeRoute.pantryCategoryDetail(petID: petID, petName: petName, category: category)
+                    }
+                }
+            )
+        case .pantryCategoryDetail(let petID, let petName, let category):
+            PetPantryCategoryScreen(
+                petID: petID,
+                petName: petName,
+                category: category,
+                onNavigate: { route -> HomeRoute in
+                    switch route {
+                    case .addItem:
+                        return HomeRoute.addPantryItem(petID: petID)
+                    case .categoryDetail:
+                        // Shouldn't happen from here, or loop back
+                        return HomeRoute.pantryCategoryDetail(petID: petID, petName: petName, category: category)
                     }
                 }
             )

@@ -6,26 +6,37 @@ import MaohuobanDesignSystem
 // - 定义储物柜内部导航目标
 enum PetPantryRoute: Hashable {
     case addItem
+    case categoryDetail(PantryCategory)
 }
 
 // PetPantryScreen 宠物储物柜页面
 // 核心职责：
-// - 展示宠物食品物资的画廊式双列网格
-// - 支持分类筛选
+// - 展示宠物食品物资的分类卡片
 // - 提供搜索和添加入口
+struct PetPantryLockerCustomization: Equatable {
+    var title: String?
+    var coverImageURL: String?
+    var isPinned: Bool = false
+}
+
 struct PetPantryScreen<Route: Hashable>: View {
     let petID: String
     let petName: String
     let onNavigate: (PetPantryRoute) -> Route
 
-    @State private var selectedCategory: PantryCategory = .all
     @State private var items: [PantryItem] = PetPantryMockData.items
-
-    var filteredItems: [PantryItem] {
-        if selectedCategory == .all {
-            return items
+    @State private var customizations: [PantryCategory: PetPantryLockerCustomization] = [:]
+    
+    var categoryGroups: [(category: PantryCategory, count: Int, coverImageURL: String?)] {
+        var groups: [(PantryCategory, Int, String?)] = []
+        for category in PantryCategory.allCases where category != .all {
+            let categoryItems = items.filter { $0.category == category }
+            if !categoryItems.isEmpty {
+                let coverImageURL = categoryItems.first { $0.imageURL != nil }?.imageURL
+                groups.append((category, categoryItems.count, coverImageURL))
+            }
         }
-        return items.filter { $0.category == selectedCategory }
+        return groups
     }
 
     var body: some View {
@@ -35,13 +46,9 @@ struct PetPantryScreen<Route: Hashable>: View {
             ZStack(alignment: .bottom) {
                 MHBScreenScrollView {
                     VStack(spacing: 0) {
-                        filterBar
-                            .padding(.horizontal, MHBTheme.Spacing.s6)
-                            .padding(.top, MHBTheme.Spacing.s2)
-                            .padding(.bottom, MHBTheme.Spacing.s4)
-
-                        galleryGrid
+                        categoriesGrid
                             .padding(.horizontal, MHBTheme.Spacing.s5)
+                            .padding(.top, MHBTheme.Spacing.s4)
                             .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
                 }
@@ -72,64 +79,189 @@ struct PetPantryScreen<Route: Hashable>: View {
         }
     }
 
-    private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: MHBTheme.Spacing.s6) {
-                ForEach(PantryCategory.allCases, id: \.self) { category in
-                    FilterButton(
-                        title: category.displayName,
-                        isSelected: selectedCategory == category
-                    ) {
-                        selectedCategory = category
-                    }
-                }
-            }
-        }
-    }
-
-    private var galleryGrid: some View {
+    private var categoriesGrid: some View {
         LazyVGrid(
             columns: [
                 GridItem(.flexible(), spacing: MHBTheme.Spacing.s4),
                 GridItem(.flexible(), spacing: MHBTheme.Spacing.s4)
             ],
-            spacing: MHBTheme.Spacing.s4
+            spacing: MHBTheme.Spacing.s5
         ) {
-            ForEach(filteredItems) { item in
-                PantryItemCard(item: item)
+            ForEach(categoryGroups, id: \.category) { group in
+                let customization = customizations[group.category]
+                let isPinned = customization?.isPinned ?? false
+                let hasTitle = customization?.title != nil
+
+                NavigationLink(value: onNavigate(.categoryDetail(group.category))) {
+                    PantryCategoryCard(
+                        category: group.category,
+                        count: group.count,
+                        coverImageURL: customization?.coverImageURL ?? group.coverImageURL,
+                        customTitle: customization?.title,
+                        isPinned: isPinned
+                    )
+                }
+                .buttonStyle(.plain)
+                .contextMenu {
+                    Button {
+                        // TODO: 实际应弹出编辑页面，此处为 Mock 演示交互
+                        if hasTitle {
+                            customizations[group.category]?.title = nil
+                        } else {
+                            var cust = customizations[group.category] ?? PetPantryLockerCustomization()
+                            cust.title = "自定: " + group.category.displayName
+                            customizations[group.category] = cust
+                        }
+                    } label: {
+                        Label(hasTitle ? "编辑标题和封面" : "添加标题和封面", systemImage: "pencil")
+                    }
+                    
+                    Button {
+                        var cust = customizations[group.category] ?? PetPantryLockerCustomization()
+                        cust.isPinned.toggle()
+                        customizations[group.category] = cust
+                    } label: {
+                        Label(isPinned ? "取消固定" : "固定", systemImage: isPinned ? "pin.slash" : "pin")
+                    }
+                    
+                    Button(role: .destructive) {
+                        // TODO: 删除储物柜逻辑
+                    } label: {
+                        Label("删除储物柜", systemImage: "trash")
+                    }
+                }
             }
         }
     }
 }
 
-// FilterButton 分类筛选按钮
+// PantryCategoryCard 储物柜分类卡片
 // 核心职责：
-// - 展示分类选项
-// - 提供选中态视觉反馈
-private struct FilterButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
+// - 展示分类封面、名称和物品数量
+// - 复刻相册叠放视觉效果
+struct PantryCategoryCard: View {
+    let category: PantryCategory
+    let count: Int
+    let coverImageURL: String?
+    let customTitle: String?
+    let isPinned: Bool
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: MHBTheme.Spacing.s1) {
-                Text(title)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(
-                        isSelected
-                            ? MHBTheme.ColorToken.labelPrimary.color
-                            : MHBTheme.ColorToken.labelSecondary.color
-                    )
-                    .padding(.bottom, MHBTheme.Spacing.s2)
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+            PantryCategoryCover(imageURL: coverImageURL, isPinned: isPinned)
 
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(MHBTheme.ColorToken.labelPrimary.color)
-                        .frame(width: 12, height: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                if let customTitle = customTitle {
+                    Text(customTitle)
+                        .font(MHBTheme.Typography.body.weight(.semibold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+                    
+                    Text("\(category.displayName) · \(count) 件物品")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .lineLimit(1)
+                } else {
+                    Text(category.displayName)
+                        .font(MHBTheme.Typography.body.weight(.semibold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+
+                    Text("\(count) 件物品")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .lineLimit(1)
                 }
             }
         }
+        .contentShape(Rectangle())
+    }
+}
+
+// PantryCategoryCover 分类叠放封面
+// 核心职责：
+// - 绘制相册纸张叠放效果
+// - 展示分类首图
+private struct PantryCategoryCover: View {
+    let imageURL: String?
+    let isPinned: Bool
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .top) {
+                // 底部第三层纸张
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                    .fill(MHBTheme.ColorToken.labelQuaternary.color.opacity(0.6))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                    }
+                    .frame(height: MHBTheme.Spacing.s5)
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .offset(y: -MHBTheme.Spacing.s3)
+
+                // 底部第二层纸张
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                    .fill(MHBTheme.ColorToken.labelQuaternary.color)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                            .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                    }
+                    .frame(height: MHBTheme.Spacing.s5)
+                    .padding(.horizontal, MHBTheme.Spacing.s3)
+                    .offset(y: -MHBTheme.Spacing.s3 / 2)
+
+                // 主封面图片
+                Group {
+                    if let imageURL = imageURL, let url = URL(string: imageURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            case .failure, .empty:
+                                placeholderIcon
+                            @unknown default:
+                                placeholderIcon
+                            }
+                        }
+                    } else {
+                        placeholderIcon
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(MHBTheme.ColorToken.labelQuaternary.color)
+                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                        .strokeBorder(MHBTheme.ColorToken.labelPrimary.color.opacity(0.12), lineWidth: 3)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                        .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+                }
+            }
+            
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.cardSolid.color)
+                    .frame(width: MHBTheme.Spacing.s6, height: MHBTheme.Spacing.s6)
+                    .background(MHBTheme.ColorToken.labelPrimary.color.opacity(0.42), in: Circle())
+                    .padding(MHBTheme.Spacing.s3)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .padding(.top, MHBTheme.Spacing.s3)
+        .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.06), radius: 10, y: 6)
+    }
+
+    private var placeholderIcon: some View {
+        Image(systemName: "archivebox")
+            .font(.system(size: 40, weight: .light))
+            .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -137,7 +269,7 @@ private struct FilterButton: View {
 // 核心职责：
 // - 展示单个物品的封面、名称、品牌和状态
 // - 复刻设计稿的画廊级视觉效果
-private struct PantryItemCard: View {
+struct PantryItemCard: View {
     let item: PantryItem
 
     var body: some View {
@@ -152,47 +284,62 @@ private struct PantryItemCard: View {
     }
 
     private var coverArea: some View {
-        ZStack(alignment: .bottomLeading) {
-            ZStack {
-                coverGradient
+        ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .bottomLeading) {
+                ZStack {
+                    coverGradient
 
-                if let imageURL = item.imageURL {
-                    AsyncImage(url: URL(string: imageURL)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        case .failure, .empty:
-                            placeholderIcon
-                        @unknown default:
-                            placeholderIcon
+                    if let imageURL = item.imageURL {
+                        AsyncImage(url: URL(string: imageURL)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            case .failure, .empty:
+                                placeholderIcon
+                            @unknown default:
+                                placeholderIcon
+                            }
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(MHBTheme.Spacing.s4)
+                    } else {
+                        placeholderIcon
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(MHBTheme.Spacing.s4)
-                } else {
-                    placeholderIcon
                 }
-            }
 
-            Text(item.statusLabel)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(
-                    item.status.isGrayTag
-                        ? Color(hex: "888888")
-                        : Color(hex: "6B9A7A")
-                )
-                .padding(.horizontal, MHBTheme.Spacing.s2)
-                .padding(.vertical, MHBTheme.Spacing.s1)
-                .background(
-                    item.status.isGrayTag
-                        ? Color(hex: "F5F5F5")
-                        : Color(hex: "F0F5F2")
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .padding(MHBTheme.Spacing.s2)
+                Text(item.statusLabel)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(
+                        item.status.isGrayTag
+                            ? Color(hex: "888888")
+                            : Color(hex: "6B9A7A")
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s2)
+                    .padding(.vertical, MHBTheme.Spacing.s1)
+                    .background(
+                        item.status.isGrayTag
+                            ? Color(hex: "F5F5F5")
+                            : Color(hex: "F0F5F2")
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .padding(MHBTheme.Spacing.s2)
+            }
+            
+            // 数量角标
+            if item.quantity > 1 {
+                Text("x\(item.quantity)")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
+                    .clipShape(Capsule())
+                    .padding(8)
+            }
         }
         .aspectRatio(4/5, contentMode: .fill)
         .frame(maxWidth: .infinity)
@@ -243,17 +390,7 @@ private struct PantryItemCard: View {
                 Text("\(item.statusDate) · \(statusAction(for: item.status))")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-
                 Spacer()
-
-                Button {
-                    // TODO: 更多操作
-                } label: {
-                    Text("•••")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundStyle(Color(hex: "D8D8D8"))
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(MHBTheme.Spacing.s4)
@@ -281,7 +418,11 @@ enum PetPantryMockData {
             category: .mainFood,
             status: .inUse,
             statusDate: "2026/06/21",
-            statusLabel: "# 消耗中"
+            statusLabel: "# 消耗中",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "2",
@@ -291,7 +432,11 @@ enum PetPantryMockData {
             category: .wetFood,
             status: .sealed,
             statusDate: "2026/06/15",
-            statusLabel: "# 未拆封囤货"
+            statusLabel: "# 未拆封囤货",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "3",
@@ -301,7 +446,11 @@ enum PetPantryMockData {
             category: .treats,
             status: .inUse,
             statusDate: "2026/05/10",
-            statusLabel: "# 消耗中"
+            statusLabel: "# 消耗中",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "4",
@@ -311,7 +460,11 @@ enum PetPantryMockData {
             category: .supplements,
             status: .periodic,
             statusDate: "2026/06/24",
-            statusLabel: "# 周期喂食"
+            statusLabel: "# 周期喂食",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "5",
@@ -321,7 +474,11 @@ enum PetPantryMockData {
             category: .treats,
             status: .sealed,
             statusDate: "2026/06/20",
-            statusLabel: "# 未拆封囤货"
+            statusLabel: "# 未拆封囤货",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "6",
@@ -331,7 +488,11 @@ enum PetPantryMockData {
             category: .wetFood,
             status: .inUse,
             statusDate: "2026/06/18",
-            statusLabel: "# 消耗中"
+            statusLabel: "# 消耗中",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "7",
@@ -341,7 +502,11 @@ enum PetPantryMockData {
             category: .supplements,
             status: .periodic,
             statusDate: "2026/06/10",
-            statusLabel: "# 周期喂食"
+            statusLabel: "# 周期喂食",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "8",
@@ -351,7 +516,11 @@ enum PetPantryMockData {
             category: .mainFood,
             status: .sealed,
             statusDate: "2026/06/22",
-            statusLabel: "# 未拆封囤货"
+            statusLabel: "# 未拆封囤货",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "9",
@@ -361,7 +530,11 @@ enum PetPantryMockData {
             category: .treats,
             status: .inUse,
             statusDate: "2026/06/12",
-            statusLabel: "# 消耗中"
+            statusLabel: "# 消耗中",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "10",
@@ -371,7 +544,11 @@ enum PetPantryMockData {
             category: .wetFood,
             status: .sealed,
             statusDate: "2026/06/19",
-            statusLabel: "# 未拆封囤货"
+            statusLabel: "# 未拆封囤货",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "11",
@@ -381,7 +558,11 @@ enum PetPantryMockData {
             category: .supplements,
             status: .periodic,
             statusDate: "2026/06/05",
-            statusLabel: "# 周期喂食"
+            statusLabel: "# 周期喂食",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         ),
         .init(
             id: "12",
@@ -391,7 +572,11 @@ enum PetPantryMockData {
             category: .mainFood,
             status: .inUse,
             statusDate: "2026/06/16",
-            statusLabel: "# 消耗中"
+            statusLabel: "# 消耗中",
+            quantity: 1,
+            unit: "袋",
+            spec: "5.4kg",
+            expiryDate: "2027/05"
         )
     ]
 }

@@ -7,35 +7,43 @@ import MaohuobanDesignSystem
 // - 支持封面上传、基本信息、分类和库存管理
 struct AddPantryItemScreen: View {
     @State private var draft = PantryItemDraft()
+    @State private var expiryDate = Date()
     @State private var showImagePicker = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         MHBScreenScrollView {
-            VStack(spacing: MHBTheme.Spacing.s5) {
+            VStack(spacing: 0) {
+                smartScanCard
+                    .padding(.top, 24)
+                    .padding(.horizontal, 24)
+                
+                dividerRow
+                    .padding(.horizontal, 24)
+                
                 coverUploadSection
-
-                basicInfoGroup
-
-                categoryGroup
-
-                stockInfoGroup
+                
+                VStack(spacing: 24) {
+                    basicInfoGroup
+                    categoryGroup
+                    stockInfoGroup
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s6)
-            .padding(.top, MHBTheme.Spacing.s5)
-            .padding(.bottom, MHBTheme.Spacing.s8)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("新物品入库")
+        .background(Color(hex: "F7F8FA"))
+        .navigationTitle("新资产入库")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("完成") {
                     saveDraft()
                 }
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(
                     draft.isValid
-                        ? MHBTheme.ColorToken.primary.color
+                        ? Color(hex: "0093DD")
                         : MHBTheme.ColorToken.labelTertiary.color
                 )
                 .disabled(!draft.isValid)
@@ -43,152 +51,184 @@ struct AddPantryItemScreen: View {
         }
     }
 
+    private var smartScanCard: some View {
+        Button {
+            // TODO: 扫码录入
+        } label: {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(hex: "E6F4FA"))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "barcode.viewfinder")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color(hex: "0093DD"))
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("扫描条形码智能录入")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "2A2A2A"))
+                        .kerning(0.5)
+                    Text("自动解析品牌、品名与保质期")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(Color(hex: "888888"))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(hex: "CCCCCC"))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Color.black.opacity(0.03), radius: 16, x: 0, y: 4)
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+
+    private var dividerRow: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(Color.black.opacity(0.04))
+                .frame(height: 1)
+            Text("或者手动建立档案")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(hex: "CCCCCC"))
+                .kerning(1)
+            Rectangle()
+                .fill(Color.black.opacity(0.04))
+                .frame(height: 1)
+        }
+        .padding(.vertical, 28)
+    }
+
     private var coverUploadSection: some View {
         Button {
             showImagePicker = true
         } label: {
-            ZStack(alignment: .bottom) {
+            VStack(spacing: 12) {
+                Image(systemName: "camera")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(Color(hex: "7F8C8D"))
+                
+                Text("添加画廊封面")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(hex: "7F8C8D"))
+                    .kerning(0.5)
+            }
+            .frame(width: 140, height: 175)
+            .background(
                 LinearGradient(
                     colors: [Color(hex: "EDF1F6"), Color(hex: "D7DFEA")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-
-                VStack(spacing: MHBTheme.Spacing.s3) {
-                    Image(systemName: "camera")
-                        .font(.system(size: 24, weight: .regular))
-                        .foregroundStyle(Color(hex: "7F8C8D"))
-
-                    Text("点击拍摄封面")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(hex: "7F8C8D"))
-                        .kerning(0.5)
-                }
-
-                HStack(spacing: MHBTheme.Spacing.s1) {
-                    Image(systemName: "barcode")
-                        .font(.system(size: 11, weight: .semibold))
-
-                    Text("扫条形码识别")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .padding(.horizontal, MHBTheme.Spacing.s2 + MHBTheme.Spacing.s1)
-                .padding(.vertical, MHBTheme.Spacing.s1)
-                .background(
-                    Color.white.opacity(0.85),
-                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                )
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-                .padding(.bottom, MHBTheme.Spacing.s3)
-            }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(color: Color.black.opacity(0.04), radius: 24, x: 0, y: 8)
+            .padding(.bottom, 32)
         }
-        .frame(width: 160, height: 200)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
-        .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 8)
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
     }
 
     private var basicInfoGroup: some View {
         VStack(spacing: 0) {
             FormRowView(label: "物品名称", placeholder: "例如：原味六种鱼全期粮", text: $draft.name)
             Divider()
-                .padding(.leading, 96)
             FormRowView(label: "品牌名称", placeholder: "例如：ORIJEN 渴望", text: $draft.brand)
             Divider()
-                .padding(.leading, 96)
             FormRowView(label: "单品规格", placeholder: "例如：5.4kg 或 170g", text: $draft.specification)
         }
-        .background(MHBTheme.ColorToken.cardSolid.color)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.02), radius: 16, x: 0, y: 4)
     }
 
     private var categoryGroup: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                Text("资产分类")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-
-                FlowLayout(spacing: MHBTheme.Spacing.s2) {
-                    ForEach([PantryCategory.mainFood, .wetFood, .treats, .supplements], id: \.self) { category in
-                        Button {
+            tagSelectorRow(title: "资产分类") {
+                FlowLayout(spacing: 8) {
+                    ForEach(PantryCategory.allCases.filter { $0 != .all }, id: \.self) { category in
+                        InteractiveTag(
+                            title: category.displayName,
+                            isActive: draft.category == category,
+                            style: .green
+                        ) {
                             draft.category = category
-                        } label: {
-                            Text(category.displayName)
-                                .font(.system(size: 12, weight: draft.category == category ? .semibold : .medium))
-                                .foregroundStyle(
-                                    draft.category == category
-                                        ? Color(hex: "6B9A7A")
-                                        : MHBTheme.ColorToken.labelSecondary.color
-                                )
-                                .padding(.horizontal, MHBTheme.Spacing.s3)
-                                .padding(.vertical, MHBTheme.Spacing.s1 + MHBTheme.Spacing.s1 / 2)
-                                .background(
-                                    draft.category == category
-                                        ? Color(hex: "F0F5F2")
-                                        : Color(hex: "F5F5F5"),
-                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                )
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
-            .padding(MHBTheme.Spacing.s3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
+            
             Divider()
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                Text("初始状态")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-
-                FlowLayout(spacing: MHBTheme.Spacing.s2) {
+            
+            tagSelectorRow(title: "初始状态") {
+                FlowLayout(spacing: 8) {
                     ForEach(PantryItemInitialStatus.allCases, id: \.self) { status in
-                        Button {
+                        InteractiveTag(
+                            title: status.displayName,
+                            isActive: draft.initialStatus == status,
+                            style: .blue
+                        ) {
                             draft.initialStatus = status
-                        } label: {
-                            Text(status.displayName)
-                                .font(.system(size: 12, weight: draft.initialStatus == status ? .semibold : .medium))
-                                .foregroundStyle(
-                                    draft.initialStatus == status
-                                        ? MHBTheme.ColorToken.primary.color
-                                        : MHBTheme.ColorToken.labelSecondary.color
-                                )
-                                .padding(.horizontal, MHBTheme.Spacing.s3)
-                                .padding(.vertical, MHBTheme.Spacing.s1 + MHBTheme.Spacing.s1 / 2)
-                                .background(
-                                    draft.initialStatus == status
-                                        ? Color(hex: "E6F4FA")
-                                        : Color(hex: "F5F5F5"),
-                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                )
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
-            .padding(MHBTheme.Spacing.s3)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(MHBTheme.ColorToken.cardSolid.color)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.02), radius: 16, x: 0, y: 4)
     }
 
     private var stockInfoGroup: some View {
         VStack(spacing: 0) {
-            FormRowView(label: "初始库存", placeholder: "例如：1 袋 或 6 罐", text: $draft.initialStock)
+            FormRowView(label: "初始库存", placeholder: "输入入库数量 (如: 1)", text: $draft.initialStock)
             Divider()
-                .padding(.leading, 96)
-            FormRowView(label: "保质期限", placeholder: "例如：18 个月 或 填到期日", text: $draft.expiryInfo)
+            HStack(alignment: .center, spacing: 0) {
+                Text("保质期限")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(hex: "888888"))
+                    .frame(width: 80, alignment: .leading)
+
+                DatePicker("", selection: $expiryDate, displayedComponents: .date)
+                    .labelsHidden()
+                    .onChange(of: expiryDate) { oldValue, newValue in
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "yyyy-MM-dd"
+                        draft.expiryInfo = formatter.string(from: newValue)
+                    }
+                
+                Spacer()
+            }
+            .padding(.vertical, 16)
         }
-        .background(MHBTheme.ColorToken.cardSolid.color)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.02), radius: 16, x: 0, y: 4)
+    }
+
+    private func tagSelectorRow<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color(hex: "888888"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            content()
+        }
+        .padding(.vertical, 12)
     }
 
     private func saveDraft() {
@@ -198,27 +238,71 @@ struct AddPantryItemScreen: View {
     }
 }
 
-// FormRowView 表单行视图
-// 核心职责：
-// - 提供统一的标签+输入框行布局
 private struct FormRowView: View {
     let label: String
     let placeholder: String
     @Binding var text: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: MHBTheme.Spacing.s4) {
+        HStack(alignment: .center, spacing: 0) {
             Text(label)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .foregroundStyle(Color(hex: "888888"))
                 .frame(width: 80, alignment: .leading)
 
-            TextField(placeholder, text: $text)
+            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Color(hex: "CCCCCC")))
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .foregroundStyle(Color(hex: "2A2A2A"))
         }
-        .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.vertical, MHBTheme.Spacing.s4)
+        .padding(.vertical, 16)
+    }
+}
+
+private enum TagStyle {
+    case green, blue
+}
+
+private struct InteractiveTag: View {
+    let title: String
+    let isActive: Bool
+    let style: TagStyle
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: isActive ? .semibold : .medium))
+                .foregroundStyle(textColor)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(bgColor)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var textColor: Color {
+        if !isActive { return Color(hex: "888888") }
+        switch style {
+        case .green: return Color(hex: "6B9A7A")
+        case .blue: return Color(hex: "0093DD")
+        }
+    }
+    
+    private var bgColor: Color {
+        if !isActive { return Color(hex: "F5F5F5") }
+        switch style {
+        case .green: return Color(hex: "F0F5F2")
+        case .blue: return Color(hex: "E6F4FA")
+        }
+    }
+}
+
+private struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: configuration.isPressed)
     }
 }
 

@@ -32,6 +32,10 @@ struct PantryItem: Identifiable, Decodable, Equatable {
     let status: PantryStatus
     let statusDate: String
     let statusLabel: String
+    let quantity: Int
+    let unit: String?
+    let spec: String?
+    let expiryDate: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -42,6 +46,10 @@ struct PantryItem: Identifiable, Decodable, Equatable {
         case status
         case statusDate = "status_date"
         case statusLabel = "status_label"
+        case quantity
+        case unit
+        case spec
+        case expiryDate = "expiry_date"
     }
 }
 
@@ -55,6 +63,8 @@ enum PantryCategory: String, Decodable, Equatable, CaseIterable {
     case wetFood = "wet_food"
     case treats = "treats"
     case supplements = "supplements"
+    case catLitter = "cat_litter"
+    case medicine = "medicine"
 
     var displayName: String {
         switch self {
@@ -63,6 +73,8 @@ enum PantryCategory: String, Decodable, Equatable, CaseIterable {
         case .wetFood: "湿粮/罐头"
         case .treats: "零食奖励"
         case .supplements: "营养保健"
+        case .catLitter: "猫砂"
+        case .medicine: "药品"
         }
     }
 }
