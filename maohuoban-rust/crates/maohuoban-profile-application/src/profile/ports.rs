@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
 use maohuoban_profile_domain::profile::{ProfileResult, UserGender, UserProfile};
 use uuid::Uuid;
 
@@ -48,8 +49,8 @@ impl ProfileMediaKind {
     #[must_use]
     pub const fn size_limit_bytes(self) -> usize {
         match self {
-            Self::Avatar => 5 * 1024 * 1024,
-            Self::Cover => 10 * 1024 * 1024,
+            Self::Avatar => MediaUploadPolicy::avatar().file_limit_bytes,
+            Self::Cover => MediaUploadPolicy::cover().file_limit_bytes,
         }
     }
 

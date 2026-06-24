@@ -1,5 +1,7 @@
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
+pub mod media_upload_policy;
+
 use std::{env, fs, io, path::PathBuf};
 
 use object_store::{

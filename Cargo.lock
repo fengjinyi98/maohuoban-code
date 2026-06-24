@@ -1594,6 +1594,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "maohuoban-media-storage",
  "maohuoban-pet-domain",
  "maohuoban_diagnostics",
  "serde_json",
@@ -1620,6 +1621,7 @@ dependencies = [
  "chrono",
  "maohuoban-auth-application",
  "maohuoban-auth-domain",
+ "maohuoban-media-storage",
  "maohuoban-pet-application",
  "maohuoban-pet-domain",
  "serde",
@@ -1649,6 +1651,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "maohuoban-media-storage",
  "maohuoban-profile-domain",
  "maohuoban_diagnostics",
  "serde_json",
@@ -1674,6 +1677,7 @@ dependencies = [
  "chrono",
  "maohuoban-auth-application",
  "maohuoban-auth-domain",
+ "maohuoban-media-storage",
  "maohuoban-profile-application",
  "maohuoban-profile-domain",
  "serde",

@@ -8,6 +8,7 @@ rust-version.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 maohuoban_diagnostics.workspace = true
+maohuoban-media-storage.workspace = true
 maohuoban-profile-domain.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

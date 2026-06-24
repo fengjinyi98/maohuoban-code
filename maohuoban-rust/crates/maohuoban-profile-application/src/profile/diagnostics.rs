@@ -97,6 +97,8 @@ pub const fn profile_error_kind(error: &ProfileError) -> &'static str {
         ProfileError::GenderInvalid => "profile.gender_invalid",
         ProfileError::BirthdayInvalid => "profile.birthday_invalid",
         ProfileError::MediaFileRequired => "profile.media_file_required",
+        ProfileError::MediaBodyTooLarge => "profile.media_body_too_large",
+        ProfileError::MediaMultipartInvalid => "profile.media_multipart_invalid",
         ProfileError::MediaTypeInvalid => "profile.media_type_invalid",
         ProfileError::MediaTooLarge => "profile.media_too_large",
         ProfileError::MediaDecodeFailed => "profile.media_decode_failed",

@@ -12,9 +12,9 @@ use axum::{
     routing::{get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
+use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
 use maohuoban_pet_application::pet::PetService;
 
-const PET_IMAGE_UPLOAD_LIMIT_BYTES: usize = 16 * 1024 * 1024;
 const PET_VIDEO_UPLOAD_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 
 /// PetHttpState 宠物 HTTP 状态
@@ -56,13 +56,15 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
         )
         .route(
             "/api/v1/pet-media/avatar",
-            post(media::upload_pending_pet_avatar)
-                .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
+            post(media::upload_pending_pet_avatar).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::avatar().body_limit_bytes,
+            )),
         )
         .route(
             "/api/v1/pet-media/background-image",
-            post(media::upload_pending_pet_background_image)
-                .layer(DefaultBodyLimit::max(PET_IMAGE_UPLOAD_LIMIT_BYTES)),
+            post(media::upload_pending_pet_background_image).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::cover().body_limit_bytes,
+            )),
         )
         .route(
             "/api/v1/pet-media/background-video",
@@ -72,7 +74,7 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
         .route(
             "/api/v1/pet-media/background-live-photo",
             post(media::upload_pending_pet_background_live_photo).layer(DefaultBodyLimit::max(
-                PET_IMAGE_UPLOAD_LIMIT_BYTES + PET_VIDEO_UPLOAD_LIMIT_BYTES,
+                MediaUploadPolicy::cover().body_limit_bytes + PET_VIDEO_UPLOAD_LIMIT_BYTES,
             )),
         )
         .route(

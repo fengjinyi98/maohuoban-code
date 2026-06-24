@@ -3,18 +3,34 @@ import UIKit
 
 extension PetProfileEditScreen {
     func avatarUploadDraft(from image: UIImage, profileID: String) -> PetMediaUploadDraft? {
-        mediaUploadDraft(
-            data: image.jpegData(compressionQuality: 0.88),
-            fileName: "pet-\(profileID)-avatar.jpg",
-            mimeType: "image/jpeg"
+        guard let encoded = MHBMediaUploadEncoder.encode(
+            image: image,
+            purpose: .avatar,
+            fileName: "pet-\(profileID)-avatar"
+        ) else {
+            return nil
+        }
+        return PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
         )
     }
 
     func backgroundImageUploadDraft(from image: UIImage, profileID: String) -> PetMediaUploadDraft? {
-        mediaUploadDraft(
-            data: image.jpegData(compressionQuality: 0.9),
-            fileName: "pet-\(profileID)-background.jpg",
-            mimeType: "image/jpeg"
+        guard let encoded = MHBMediaUploadEncoder.encode(
+            image: image,
+            purpose: .cover,
+            fileName: "pet-\(profileID)-background"
+        ) else {
+            return nil
+        }
+        return PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
         )
     }
 

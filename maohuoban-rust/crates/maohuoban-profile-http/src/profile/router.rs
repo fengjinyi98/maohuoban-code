@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Multipart, State},
+    extract::{DefaultBodyLimit, Multipart, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -10,6 +10,7 @@ use axum::{
 use chrono::NaiveDate;
 use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_domain::auth::{AuthError, AuthResult};
+use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
 use maohuoban_profile_application::profile::{
     ProfileMediaKind, ProfileService, UpdateProfileInput, UploadProfileMediaInput,
 };
@@ -55,11 +56,15 @@ pub fn build_profile_router(profile: Arc<ProfileService>, auth: Arc<AuthService>
         )
         .route(
             "/api/v1/profile/me/avatar",
-            post(upload_current_profile_avatar),
+            post(upload_current_profile_avatar).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::avatar().body_limit_bytes,
+            )),
         )
         .route(
             "/api/v1/profile/me/cover",
-            post(upload_current_profile_cover),
+            post(upload_current_profile_cover).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::cover().body_limit_bytes,
+            )),
         )
         .with_state(ProfileHttpState::new(profile, auth))
 }
@@ -265,8 +270,18 @@ fn error_response(error: &ProfileError) -> Response {
             "profile.media_file_required",
             "请先选择图片".to_owned(),
         ),
-        ProfileError::MediaTypeInvalid => (
+        ProfileError::MediaBodyTooLarge => (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "profile.media_body_too_large",
+            "图片太大，请选择较小的图片".to_owned(),
+        ),
+        ProfileError::MediaMultipartInvalid => (
             StatusCode::BAD_REQUEST,
+            "profile.media_multipart_invalid",
+            "图片上传数据无效，请重试".to_owned(),
+        ),
+        ProfileError::MediaTypeInvalid => (
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "profile.media_type_invalid",
             "仅支持 JPG、PNG 或 WebP 图片".to_owned(),
         ),
@@ -276,7 +291,7 @@ fn error_response(error: &ProfileError) -> Response {
             "图片过大，请重新选择".to_owned(),
         ),
         ProfileError::MediaDecodeFailed => (
-            StatusCode::BAD_REQUEST,
+            StatusCode::UNPROCESSABLE_ENTITY,
             "profile.media_decode_failed",
             "图片文件无法识别".to_owned(),
         ),
@@ -334,7 +349,7 @@ impl UploadProfileMediaRequest {
         while let Some(field) = multipart
             .next_field()
             .await
-            .map_err(|_| ProfileError::MediaFileRequired)?
+            .map_err(|_| ProfileError::MediaMultipartInvalid)?
         {
             match field.name() {
                 Some("file") => {
@@ -355,14 +370,14 @@ impl UploadProfileMediaRequest {
                     let bytes = field
                         .bytes()
                         .await
-                        .map_err(|_| ProfileError::MediaFileRequired)?;
+                        .map_err(|_| ProfileError::MediaMultipartInvalid)?;
                     content = Some(bytes.to_vec());
                 }
                 Some("source_client") => {
                     let value = field
                         .text()
                         .await
-                        .map_err(|_| ProfileError::MediaFileRequired)?;
+                        .map_err(|_| ProfileError::MediaMultipartInvalid)?;
                     let trimmed = value.trim();
                     if !trimmed.is_empty() {
                         source_client = Some(trimmed.to_owned());

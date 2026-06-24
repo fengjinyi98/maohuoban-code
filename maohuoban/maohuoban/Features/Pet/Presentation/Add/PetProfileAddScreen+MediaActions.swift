@@ -45,13 +45,19 @@ extension PetProfileAddScreen {
     }
 
     func uploadLocalAvatar(_ image: UIImage) {
-        guard let draft = mediaUploadDraft(
-            data: image.jpegData(compressionQuality: 0.88),
-            fileName: "pet-avatar.jpg",
-            mimeType: "image/jpeg"
+        guard let encoded = MHBMediaUploadEncoder.encode(
+            image: image,
+            purpose: .avatar,
+            fileName: "pet-avatar"
         ) else {
             return
         }
+        let draft = PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
+        )
 
         Task {
             _ = await mediaUploadStore.uploadAvatar(
@@ -62,13 +68,19 @@ extension PetProfileAddScreen {
     }
 
     func uploadLocalBackgroundImage(_ image: UIImage) {
-        guard let draft = mediaUploadDraft(
-            data: image.jpegData(compressionQuality: 0.9),
-            fileName: "pet-background.jpg",
-            mimeType: "image/jpeg"
+        guard let encoded = MHBMediaUploadEncoder.encode(
+            image: image,
+            purpose: .cover,
+            fileName: "pet-background"
         ) else {
             return
         }
+        let draft = PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
+        )
 
         Task {
             _ = await mediaUploadStore.uploadBackgroundImage(
@@ -101,22 +113,38 @@ extension PetProfileAddScreen {
     }
 
     func addPetAvatarUploadDraft() -> PetMediaUploadDraft? {
-        mediaUploadDraft(
-            data: localAvatarImage?.jpegData(compressionQuality: 0.88),
-            fileName: "pet-avatar.jpg",
-            mimeType: "image/jpeg"
+        guard let image = localAvatarImage,
+              let encoded = MHBMediaUploadEncoder.encode(
+                  image: image,
+                  purpose: .avatar,
+                  fileName: "pet-avatar"
+              )
+        else {
+            return nil
+        }
+        return PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
         )
     }
 
     func addPetBackgroundImageUploadDraft() -> PetMediaUploadDraft? {
-        guard case .image(let image) = localHeroMedia else {
+        guard case .image(let image) = localHeroMedia,
+              let encoded = MHBMediaUploadEncoder.encode(
+                  image: image,
+                  purpose: .cover,
+                  fileName: "pet-background"
+              )
+        else {
             return nil
         }
-
-        return mediaUploadDraft(
-            data: image.jpegData(compressionQuality: 0.9),
-            fileName: "pet-background.jpg",
-            mimeType: "image/jpeg"
+        return PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
         )
     }
 

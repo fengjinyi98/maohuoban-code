@@ -9,6 +9,7 @@ axum = { workspace = true, features = ["multipart"] }
 chrono.workspace = true
 maohuoban-auth-application.workspace = true
 maohuoban-auth-domain.workspace = true
+maohuoban-media-storage.workspace = true
 maohuoban-profile-application.workspace = true
 maohuoban-profile-domain.workspace = true
 serde.workspace = true

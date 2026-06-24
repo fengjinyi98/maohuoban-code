@@ -24,6 +24,10 @@ pub enum ProfileError {
     BirthdayInvalid,
     #[error("media file required")]
     MediaFileRequired,
+    #[error("media body too large")]
+    MediaBodyTooLarge,
+    #[error("media multipart invalid")]
+    MediaMultipartInvalid,
     #[error("media type invalid")]
     MediaTypeInvalid,
     #[error("media too large")]
