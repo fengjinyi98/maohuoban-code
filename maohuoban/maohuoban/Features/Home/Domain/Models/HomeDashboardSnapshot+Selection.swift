@@ -45,7 +45,6 @@ extension HomeDashboardSnapshot {
             identity: identity,
             selectedPet: selectedPet,
             petSwitcher: petSwitcher,
-            careSummary: careSummary ?? fallback.careSummary,
             reminders: reminders.isEmpty ? fallback.reminders : reminders,
             quickActions: quickActions.resolvedQuickActions(
                 for: identity.kind,
@@ -71,7 +70,6 @@ extension HomeDashboardSnapshot {
             identity: identity,
             selectedPet: selectedPet,
             petSwitcher: petSwitcher,
-            careSummary: careSummary,
             reminders: reminders,
             quickActions: quickActions.resolvedQuickActions(
                 for: identity.kind,
@@ -181,7 +179,6 @@ extension HomeDashboardSnapshot {
             identity: identity,
             selectedPet: optimisticPet,
             petSwitcher: updatedPetSwitcher,
-            careSummary: careSummary,
             reminders: reminders,
             quickActions: quickActions,
             partnerRecommendation: partnerRecommendation,

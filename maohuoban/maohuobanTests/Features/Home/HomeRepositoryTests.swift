@@ -91,7 +91,6 @@ final class HomeRepositoryTests: XCTestCase {
                 },
                 "selected_pet": null,
                 "pet_switcher": [],
-                "care_summary": null,
                 "reminders": [],
                 "quick_actions": [],
                 "partner_recommendation": null,

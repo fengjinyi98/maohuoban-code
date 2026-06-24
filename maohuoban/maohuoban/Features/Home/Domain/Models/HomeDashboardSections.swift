@@ -1,41 +1,6 @@
 import Foundation
 
 extension HomeDashboardSnapshot {
-    // CareSummary 今日照护摘要
-    // 核心职责：
-    // - 承载首页健康与照护指标
-    // - 为照护 section 提供稳定展示数据
-    struct CareSummary: Decodable, Equatable {
-        let title: String
-        let metrics: [CareMetric]
-    }
-
-    // CareMetric 今日照护指标
-    // 核心职责：
-    // - 表达单个照护指标的展示值
-    // - 支持客户端按类型选择图标
-    struct CareMetric: Decodable, Equatable, Identifiable {
-        var id: Kind { kind }
-        let kind: Kind
-        let title: String
-        let valueText: String
-        let statusText: String
-
-        enum CodingKeys: String, CodingKey {
-            case kind
-            case title
-            case valueText = "value_text"
-            case statusText = "status_text"
-        }
-
-        enum Kind: String, Decodable, Equatable {
-            case appetite
-            case mood
-            case excretion
-            case weight
-        }
-    }
-
     // Reminder 首页提醒摘要
     // 核心职责：
     // - 承载近期待处理提醒

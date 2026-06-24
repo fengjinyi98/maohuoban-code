@@ -50,23 +50,6 @@ final class HomeDashboardDecodingTests: XCTestCase {
                     "is_selected": true
                   }
                 ],
-                "care_summary": {
-                  "title": "今日照护",
-                  "metrics": [
-                    {
-                      "kind": "appetite",
-                      "title": "食欲",
-                      "value_text": "旺盛",
-                      "status_text": "早餐和晚餐已记录"
-                    },
-                    {
-                      "kind": "weight",
-                      "title": "体重",
-                      "value_text": "6.4kg",
-                      "status_text": "已同步"
-                    }
-                  ]
-                },
                 "reminders": [
                   {
                     "id": "event-3",
@@ -118,10 +101,9 @@ final class HomeDashboardDecodingTests: XCTestCase {
         } else {
             XCTFail("selected pet should use remote hero image")
         }
-        XCTAssertEqual(dashboard.careSummary?.metrics.first?.kind, .appetite)
-        XCTAssertEqual(dashboard.careSummary?.metrics.first?.valueText, "旺盛")
-        XCTAssertEqual(dashboard.careSummary?.metrics.last?.kind, .weight)
-        XCTAssertEqual(dashboard.careSummary?.metrics.last?.valueText, "6.4kg")
+        XCTAssertFalse(
+            Mirror(reflecting: dashboard).children.contains { $0.label == "careSummary" }
+        )
         XCTAssertEqual(dashboard.reminders.first?.kind, .deworming)
         XCTAssertEqual(dashboard.reminders.first?.title, "内外驱虫")
         XCTAssertEqual(dashboard.recentTimeline.first?.eventKind, .deworming)

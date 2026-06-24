@@ -8,7 +8,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let identity: Identity
     let selectedPet: PetHeroSummary?
     let petSwitcher: [PetSwitchItem]
-    let careSummary: CareSummary?
     let reminders: [Reminder]
     let quickActions: [Action]
     let partnerRecommendation: PartnerRecommendation?
@@ -24,7 +23,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         identity: Identity,
         selectedPet: PetHeroSummary?,
         petSwitcher: [PetSwitchItem],
-        careSummary: CareSummary?,
         reminders: [Reminder],
         quickActions: [Action],
         partnerRecommendation: PartnerRecommendation? = nil,
@@ -39,7 +37,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.identity = identity
         self.selectedPet = selectedPet
         self.petSwitcher = petSwitcher
-        self.careSummary = careSummary
         self.reminders = reminders
         self.quickActions = quickActions
         self.partnerRecommendation = partnerRecommendation
@@ -56,7 +53,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case identity
         case selectedPet = "selected_pet"
         case petSwitcher = "pet_switcher"
-        case careSummary = "care_summary"
         case reminders
         case quickActions = "quick_actions"
         case partnerRecommendation = "partner_recommendation"

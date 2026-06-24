@@ -6,9 +6,9 @@ mod merchant;
 mod pet;
 
 pub use activity::{
-    CareMetric, CareMetricKind, CareSummary, HomeAction, HomeActionKind, HomeEmptyState,
-    HomeEmptyStateKind, HomeReminder, HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind,
-    PartnerRecommendation, PartnerRelationshipKind, RecommendedContent, RecommendedContentKind,
+    HomeAction, HomeActionKind, HomeEmptyState, HomeEmptyStateKind, HomeReminder, HomeReminderKind,
+    HomeTimelineEvent, HomeTimelineEventKind, PartnerRecommendation, PartnerRelationshipKind,
+    RecommendedContent, RecommendedContentKind,
 };
 pub use identity::{HomeIdentity, HomeIdentityKind};
 pub use merchant::{
@@ -28,7 +28,6 @@ pub struct HomeDashboardSnapshot {
     pub identity: HomeIdentity,
     pub selected_pet: Option<PetHeroSummary>,
     pub pet_switcher: Vec<PetSwitchItem>,
-    pub care_summary: Option<CareSummary>,
     pub reminders: Vec<HomeReminder>,
     pub quick_actions: Vec<HomeAction>,
     pub partner_recommendation: Option<PartnerRecommendation>,

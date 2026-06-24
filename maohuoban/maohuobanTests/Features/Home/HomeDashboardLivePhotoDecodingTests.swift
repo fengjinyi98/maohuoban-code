@@ -52,7 +52,6 @@ final class HomeDashboardLivePhotoDecodingTests: XCTestCase {
                   "hero_content_color_scheme": "light"
                 },
                 "pet_switcher": [],
-                "care_summary": null,
                 "reminders": [],
                 "quick_actions": [],
                 "partner_recommendation": null,

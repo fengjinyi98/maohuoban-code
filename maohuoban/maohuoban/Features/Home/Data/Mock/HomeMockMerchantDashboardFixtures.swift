@@ -12,7 +12,6 @@ extension HomeMockDashboardFixtures {
             ),
             selectedPet: nil,
             petSwitcher: [],
-            careSummary: nil,
             reminders: [],
             quickActions: [
                 HomeDashboardSnapshot.Action(

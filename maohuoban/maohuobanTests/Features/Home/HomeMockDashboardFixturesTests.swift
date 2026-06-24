@@ -19,17 +19,15 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertNil(snapshot.selectedPet?.heroVideoResourceName)
     }
 
-    func testPetOwnerMockCareWeightUsesSinglePetValue() throws {
+    func testPetOwnerMockDoesNotExposeCareSummary() {
         let snapshot = HomeMockDashboardFixtures.snapshot(
             scenario: .petOwner,
             selectedPetID: nil
         )
 
-        let careSummary = try XCTUnwrap(snapshot.careSummary)
-        let weightMetric = try XCTUnwrap(
-            careSummary.metrics.first { $0.kind == .weight }
+        XCTAssertFalse(
+            Mirror(reflecting: snapshot).children.contains { $0.label == "careSummary" }
         )
-        XCTAssertEqual(weightMetric.valueText, "4.8kg")
     }
 
     func testBackendPetSnapshotCanUseMockSectionsWithoutReplacingPetData() throws {
@@ -84,7 +82,6 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                     isSelected: true
                 )
             ],
-            careSummary: nil,
             reminders: [],
             quickActions: [],
             partnerRecommendation: nil,
@@ -142,7 +139,6 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
             ),
             selectedPet: nil,
             petSwitcher: [],
-            careSummary: nil,
             reminders: [],
             quickActions: [],
             partnerRecommendation: nil,
@@ -185,7 +181,6 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
             ),
             selectedPet: nil,
             petSwitcher: [],
-            careSummary: nil,
             reminders: [],
             quickActions: [
                 HomeDashboardSnapshot.Action(

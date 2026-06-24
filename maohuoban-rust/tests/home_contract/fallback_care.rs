@@ -21,7 +21,7 @@ async fn home_dashboard_falls_back_when_selected_pet_belongs_to_another_user() {
 }
 
 #[tokio::test]
-async fn home_dashboard_derives_care_summary_and_reminders_from_pet_events() {
+async fn home_dashboard_derives_reminders_without_care_summary_from_pet_events() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138222").await;
@@ -68,26 +68,7 @@ async fn home_dashboard_derives_care_summary_and_reminders_from_pet_events() {
 
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
 
-    assert_eq!(
-        dashboard_body["data"]["care_summary"]["metrics"][0]["kind"],
-        "appetite"
-    );
-    assert_eq!(
-        dashboard_body["data"]["care_summary"]["metrics"][0]["value_text"],
-        "旺盛"
-    );
-    assert_eq!(
-        dashboard_body["data"]["care_summary"]["metrics"][0]["status_text"],
-        "早餐和晚餐已记录"
-    );
-    assert_eq!(
-        dashboard_body["data"]["care_summary"]["metrics"][3]["kind"],
-        "weight"
-    );
-    assert_eq!(
-        dashboard_body["data"]["care_summary"]["metrics"][3]["value_text"],
-        "6.4kg"
-    );
+    assert!(dashboard_body["data"].get("care_summary").is_none());
     assert_eq!(dashboard_body["data"]["reminders"][0]["kind"], "deworming");
     assert_eq!(dashboard_body["data"]["reminders"][0]["title"], "内外驱虫");
     assert_eq!(

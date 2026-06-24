@@ -14,9 +14,7 @@ use crate::home_dashboard::{
     pet_summary::{media_asset_ids, pet_hero_summary, pet_switch_item, selected_pet},
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
-use crate::home_event_projection::{
-    care_summary_from_events, reminders_from_events, timeline_event_summary,
-};
+use crate::home_event_projection::{reminders_from_events, timeline_event_summary};
 use maohuoban_home_application::home::{
     HomeDashboardContext, HomeDashboardProvider, HomeError, HomeResult, new_user_home_snapshot,
     pet_owner_home_template,
@@ -177,7 +175,6 @@ impl HybridHomeDashboardProvider {
             .take(3)
             .map(timeline_event_summary)
             .collect();
-        snapshot.care_summary = Some(care_summary_from_events(&timeline.events));
         snapshot.reminders = reminders_from_events(&timeline.events);
         snapshot.partner_recommendation = self
             .recommendation_service

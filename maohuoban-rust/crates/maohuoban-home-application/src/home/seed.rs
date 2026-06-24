@@ -1,11 +1,11 @@
 #![allow(clippy::too_many_lines)]
 
 use maohuoban_home_domain::home::{
-    CareMetric, CareMetricKind, CareSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot,
-    HomeEmptyState, HomeEmptyStateKind, HomeIdentity, HomeIdentityKind, HomeReminder,
-    HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind, MerchantDashboardSummary,
-    MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount, PartnerRecommendation,
-    PartnerRelationshipKind, RecommendedContent, RecommendedContentKind,
+    HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeEmptyState, HomeEmptyStateKind,
+    HomeIdentity, HomeIdentityKind, HomeReminder, HomeReminderKind, HomeTimelineEvent,
+    HomeTimelineEventKind, MerchantDashboardSummary, MerchantLitterSummary, MerchantPetStatus,
+    MerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind, RecommendedContent,
+    RecommendedContentKind,
 };
 use uuid::Uuid;
 
@@ -28,35 +28,6 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
-        care_summary: Some(CareSummary {
-            title: "今日照护".to_owned(),
-            metrics: vec![
-                CareMetric {
-                    kind: CareMetricKind::Appetite,
-                    title: "食欲".to_owned(),
-                    value_text: "正常".to_owned(),
-                    status_text: "已记录早餐".to_owned(),
-                },
-                CareMetric {
-                    kind: CareMetricKind::Mood,
-                    title: "精神".to_owned(),
-                    value_text: "很好".to_owned(),
-                    status_text: "活跃".to_owned(),
-                },
-                CareMetric {
-                    kind: CareMetricKind::Excretion,
-                    title: "排泄".to_owned(),
-                    value_text: "正常".to_owned(),
-                    status_text: "上午已记录".to_owned(),
-                },
-                CareMetric {
-                    kind: CareMetricKind::Weight,
-                    title: "体重".to_owned(),
-                    value_text: "5.2kg".to_owned(),
-                    status_text: "稳定".to_owned(),
-                },
-            ],
-        }),
         reminders: vec![HomeReminder {
             id: seed_uuid("63878ee3-76c0-47c9-8a3e-97d2048b9f1e"),
             kind: HomeReminderKind::Deworming,
@@ -101,7 +72,6 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
-        care_summary: None,
         reminders: Vec::new(),
         quick_actions: vec![HomeAction {
             kind: HomeActionKind::CreatePet,
@@ -145,7 +115,6 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
-        care_summary: None,
         reminders: Vec::new(),
         quick_actions: vec![
             HomeAction {

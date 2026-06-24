@@ -1,41 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// CareSummary 今日照护摘要
-/// 核心职责：
-/// - 聚合今日健康与照护指标
-/// - 为首页指标卡提供已计算展示数据
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CareSummary {
-    pub title: String,
-    pub metrics: Vec<CareMetric>,
-}
-
-/// CareMetric 今日照护指标
-/// 核心职责：
-/// - 表达首页照护指标的名称和值
-/// - 保留趋势和状态文案扩展位
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CareMetric {
-    pub kind: CareMetricKind,
-    pub title: String,
-    pub value_text: String,
-    pub status_text: String,
-}
-
-/// CareMetricKind 照护指标类型
-/// 核心职责：
-/// - 固定首页常用照护指标
-/// - 让客户端可以按类型选择图标和颜色 token
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum CareMetricKind {
-    Appetite,
-    Mood,
-    Excretion,
-    Weight,
-}
-
 /// HomeReminder 首页提醒摘要
 /// 核心职责：
 /// - 承载近期待处理提醒

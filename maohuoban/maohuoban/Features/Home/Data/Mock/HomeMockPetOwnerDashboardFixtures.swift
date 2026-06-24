@@ -15,29 +15,6 @@ extension HomeMockDashboardFixtures {
             ),
             selectedPet: heroSummary(for: selectedPet.id),
             petSwitcher: pets,
-            careSummary: HomeDashboardSnapshot.CareSummary(
-                title: "今日照护",
-                metrics: [
-                    HomeDashboardSnapshot.CareMetric(
-                        kind: .appetite,
-                        title: "食欲",
-                        valueText: "旺盛",
-                        statusText: "早餐和晚餐已记录"
-                    ),
-                    HomeDashboardSnapshot.CareMetric(
-                        kind: .mood,
-                        title: "情绪",
-                        valueText: "稳定",
-                        statusText: "外出散步 28 分钟"
-                    ),
-                    HomeDashboardSnapshot.CareMetric(
-                        kind: .weight,
-                        title: "体重",
-                        valueText: "4.8kg",
-                        statusText: "较上次记录稳定"
-                    )
-                ]
-            ),
             reminders: [
                 HomeDashboardSnapshot.Reminder(
                     id: "reminder-vaccine",

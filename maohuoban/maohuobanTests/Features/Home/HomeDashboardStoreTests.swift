@@ -230,7 +230,6 @@ extension HomeDashboardSnapshot {
                 )
             },
             petSwitcher: [],
-            careSummary: nil,
             reminders: [],
             quickActions: [],
             partnerRecommendation: nil,

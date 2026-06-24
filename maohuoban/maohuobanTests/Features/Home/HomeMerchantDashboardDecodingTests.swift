@@ -23,7 +23,6 @@ final class HomeMerchantDashboardDecodingTests: XCTestCase {
                 },
                 "selected_pet": null,
                 "pet_switcher": [],
-                "care_summary": null,
                 "reminders": [],
                 "quick_actions": [
                   {
