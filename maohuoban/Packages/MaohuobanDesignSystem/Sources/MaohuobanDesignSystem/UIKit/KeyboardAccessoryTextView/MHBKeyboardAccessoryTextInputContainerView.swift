@@ -174,38 +174,6 @@ final class MHBKeyboardAccessoryTextInputContainerView: UIView, UITextViewDelega
         ])
     }
 
-    private static func makeFusionGlassView() -> UIView & UIContentView {
-        let configuration = UIHostingConfiguration {
-            Color.clear
-                .glassEffect(.regular, in: .rect(cornerRadius: 0))
-        }
-        .margins(.all, 0)
-        let view = configuration.makeContentView()
-        view.backgroundColor = .clear
-        return view
-    }
-
-    private static func makePanelGlassView() -> UIView & UIContentView {
-        let configuration = UIHostingConfiguration {
-            Color.clear
-                .glassEffect(
-                    .regular,
-                    in: UnevenRoundedRectangle(
-                        cornerRadii: .init(
-                            topLeading: 28,
-                            bottomLeading: 0,
-                            bottomTrailing: 0,
-                            topTrailing: 28
-                        )
-                    )
-                )
-        }
-        .margins(.all, 0)
-        let view = configuration.makeContentView()
-        view.backgroundColor = .clear
-        return view
-    }
-
     private func configureStackView() {
         stackView.axis = .vertical
         stackView.alignment = .fill

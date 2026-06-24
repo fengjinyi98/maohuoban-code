@@ -14,14 +14,15 @@ use uuid::Uuid;
 
 use super::AuthHttpState;
 use super::dto::{
+    AccountDeviceDetailData, AccountDevicesData, AccountSecurityData, EmptyData, LoginData,
+    PhoneCodeChallengeData,
+};
+use super::dto::{
     ChangeAccountPasswordRequest, LogoutRequest, PasswordLoginRequest, RefreshTokenRequest,
     ResetPasswordRequest, SendPhoneCodeRequest, SendRecoveryCodeRequest, SetAccountPasswordRequest,
     VerifyPhoneCodeRequest,
 };
-use super::responses::{
-    AccountDeviceDetailData, AccountDevicesData, AccountSecurityData, EmptyData, LoginData,
-    PhoneCodeChallengeData, error_response, ok_response,
-};
+use super::responses::{error_response, ok_response};
 
 pub(super) async fn send_phone_code(
     State(state): State<AuthHttpState>,

@@ -8,6 +8,7 @@ use maohuoban_auth_application::auth::AuthService;
 use maohuoban_profile_application::profile::ProfileService;
 
 mod dto;
+mod errors;
 mod handlers;
 mod responses;
 

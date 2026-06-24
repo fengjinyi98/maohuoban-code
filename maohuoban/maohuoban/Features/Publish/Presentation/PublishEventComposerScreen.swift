@@ -11,28 +11,22 @@ struct PublishEventComposerScreen: View {
     let context: PublishEntryContext
     let onPrepared: () -> Void
 
-    @State private var store: PublishDraftStore
-    @State private var selectedImages: [PublishSelectedImage] = []
-    @State private var articleBlocks: [PublishArticleBlock] = []
-    @State private var composerMode: PublishComposerMode = .gallery
-    @State private var selectedAlbumTitle: String? = "日常相册"
-    @State private var isMediaPickerPresented = false
-    @State private var activeSheet: PublishComposerSheet?
-    @State private var pendingInsertedArticleMediaIDs: [UUID] = []
-    @State private var replacingArticleBlockID: UUID?
-    @State private var pendingTopicInsertionNonce = 0
-    @State private var pendingMentionInsertionNonce = 0
-    @State private var pendingMentionInsertionText: String?
+    @State var store: PublishDraftStore
+    @State var selectedImages: [PublishSelectedImage] = []
+    @State var articleBlocks: [PublishArticleBlock] = []
+    @State var composerMode: PublishComposerMode = .gallery
+    @State var selectedAlbumTitle: String? = "日常相册"
+    @State var isMediaPickerPresented = false
+    @State var activeSheet: PublishComposerSheet?
+    @State var pendingInsertedArticleMediaIDs: [UUID] = []
+    @State var replacingArticleBlockID: UUID?
+    @State var pendingTopicInsertionNonce = 0
+    @State var pendingMentionInsertionNonce = 0
+    @State var pendingMentionInsertionText: String?
 
-    // 环境 dismissal 用于支持点击“存草稿”时直接关闭发布页面
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) var dismiss
 
-    // 话题候选策略 发布页话题预选数据
-    // 核心职责：
-    // - 当前前端阶段使用冷启动占位话题，展示基础宠物日常话题
-    // - 后端接入后仅在有活动时展示活动推荐话题，否则优先展示用户上次输入过的话题
-    // - 用户数据积累后由后端替换为基于正文输入和历史行为的智能推荐
-    private let suggestedTags = ["#萌宠日常", "#猫咪日常", "#新手养猫", "#宠物同城", "#铲屎官日常"]
+    let suggestedTags = ["#萌宠日常", "#猫咪日常", "#新手养猫", "#宠物同城", "#铲屎官日常"]
 
     init(
         context: PublishEntryContext,
@@ -249,7 +243,7 @@ struct PublishEventComposerScreen: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
-    private var resolvedLocationTitle: String? {
+    var resolvedLocationTitle: String? {
         if let locationName = store.draft.location?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
            !locationName.isEmpty {
             return locationName
@@ -263,7 +257,7 @@ struct PublishEventComposerScreen: View {
         return nil
     }
 
-    private var mediaPickerMaxSelectionCount: Int {
+    var mediaPickerMaxSelectionCount: Int {
         if replacingArticleBlockID != nil {
             return 1
         }
@@ -271,7 +265,7 @@ struct PublishEventComposerScreen: View {
     }
 
     @ViewBuilder
-    private func optionSheet(for sheet: PublishComposerSheet) -> some View {
+    func optionSheet(for sheet: PublishComposerSheet) -> some View {
         switch sheet {
         case .pet:
             PublishPetSelectionSheet(
@@ -318,327 +312,4 @@ struct PublishEventComposerScreen: View {
         }
     }
 
-    private func openMediaPicker() {
-        replacingArticleBlockID = nil
-        guard selectedImages.count < PublishComposerLimits.maxImageCount else {
-            return
-        }
-        isMediaPickerPresented = true
-    }
-
-    private func handleMediaPickerResult(_ result: MHBMediaPickerResult) {
-        isMediaPickerPresented = false
-        if let replacingArticleBlockID {
-            handleArticleImageReplacement(
-                blockID: replacingArticleBlockID,
-                image: result.images.first
-            )
-            return
-        }
-
-        let remainingCount = max(0, PublishComposerLimits.maxImageCount - selectedImages.count)
-        let newImages = result.images
-            .prefix(remainingCount)
-            .map { PublishSelectedImage(image: $0) }
-        selectedImages.append(contentsOf: newImages)
-        if composerMode == .richText {
-            pendingInsertedArticleMediaIDs.append(contentsOf: newImages.map(\.id))
-        }
-        store.updateMediaCount(selectedImages.count)
-    }
-
-    private func removeImage(_ id: UUID) {
-        selectedImages.removeAll { $0.id == id }
-        articleBlocks.removeAll { $0.mediaID == id }
-        pendingInsertedArticleMediaIDs.removeAll { $0 == id }
-        store.updateMediaCount(selectedImages.count)
-    }
-
-    private func removeArticleImageBlock(_ blockID: UUID) {
-        guard let block = articleBlocks.first(where: { $0.id == blockID }) else { return }
-        articleBlocks.removeAll { $0.id == blockID }
-        if let mediaID = block.mediaID {
-            selectedImages.removeAll { $0.id == mediaID }
-            pendingInsertedArticleMediaIDs.removeAll { $0 == mediaID }
-        }
-        store.updateMediaCount(selectedImages.count)
-    }
-
-    private func replaceArticleImageBlock(_ blockID: UUID) {
-        replacingArticleBlockID = blockID
-        isMediaPickerPresented = true
-    }
-
-    private func handleArticleImageReplacement(blockID: UUID, image: UIImage?) {
-        defer {
-            replacingArticleBlockID = nil
-            store.updateMediaCount(selectedImages.count)
-        }
-        guard let image,
-              let blockIndex = articleBlocks.firstIndex(where: { $0.id == blockID })
-        else {
-            return
-        }
-
-        let previousMediaID = articleBlocks[blockIndex].mediaID
-        let replacement = PublishSelectedImage(image: image)
-        if let previousMediaID,
-           let imageIndex = selectedImages.firstIndex(where: { $0.id == previousMediaID }) {
-            selectedImages[imageIndex] = replacement
-        } else {
-            selectedImages.append(replacement)
-        }
-        articleBlocks[blockIndex].mediaID = replacement.id
-    }
-
-    private func prepareDraft() {
-        store.prepareDraft()
-        if store.phase == .prepared {
-            onPrepared()
-        }
-    }
-
-    private func insertTopic() {
-        pendingTopicInsertionNonce += 1
-    }
-
-    private func openMentionUserPicker() {
-        activeSheet = .mentionUser
-    }
-
-    private func dismissKeyboard() {
-        MHBKeyboardDismissal.dismissActiveKeyboard()
-    }
-
-    private func insertMentions(_ users: [PublishMentionUserOption]) {
-        let insertionText = users
-            .map { "@\($0.name) " }
-            .joined()
-        guard insertionText.isEmpty == false else { return }
-        pendingMentionInsertionText = insertionText
-        pendingMentionInsertionNonce += 1
-    }
-
-    private func handlePendingArticleMediaInsertionHandled(_ mediaIDs: [UUID]) {
-        pendingInsertedArticleMediaIDs.removeAll { mediaIDs.contains($0) }
-    }
-
-    private func handlePendingTopicInsertionHandled() {}
-
-    private func handlePendingMentionInsertionHandled() {
-        pendingMentionInsertionText = nil
-    }
-
-    private func handleTopicsChange(_ topicNames: [String]) {
-        store.updateTopics(topicNames)
-    }
-
-    private func appendTag(_ tag: String) {
-        guard composerMode == .gallery else {
-            appendTagToArticleBlocks(tag)
-            store.addTopic(named: tag)
-            return
-        }
-
-        let currentText = store.draft.bodyText
-        if currentText.isEmpty {
-            store.updateBodyText(tag + " ")
-        } else if currentText.hasSuffix(" ") {
-            store.updateBodyText(currentText + tag + " ")
-        } else {
-            store.updateBodyText(currentText + " " + tag + " ")
-        }
-        store.addTopic(named: tag)
-    }
-
-    private func appendTagToArticleBlocks(_ tag: String) {
-        if let index = articleBlocks.lastIndex(where: { $0.kind == .text }) {
-            let currentText = articleBlocks[index].text
-            if currentText.isEmpty {
-                articleBlocks[index].text = tag + " "
-            } else if currentText.hasSuffix(" ") || currentText.hasSuffix("\n") {
-                articleBlocks[index].text = currentText + tag + " "
-            } else {
-                articleBlocks[index].text = currentText + " " + tag + " "
-            }
-        } else {
-            articleBlocks.append(PublishArticleBlock(kind: .text, text: tag + " "))
-        }
-    }
-
-    private func seedArticleBlocksFromDraftIfNeeded() {
-        guard articleBlocks.isEmpty else { return }
-
-        var nextBlocks: [PublishArticleBlock] = []
-        let bodyText = store.draft.bodyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if bodyText.isEmpty == false {
-            nextBlocks.append(PublishArticleBlock(kind: .text, text: bodyText))
-        }
-
-        for selectedImage in selectedImages {
-            nextBlocks.append(
-                PublishArticleBlock(
-                    kind: .image,
-                    mediaID: selectedImage.id
-                )
-            )
-        }
-
-        articleBlocks = nextBlocks
-    }
-
-    private func syncDraftBodyTextFromArticleBlocksIfNeeded() {
-        guard composerMode == .richText else { return }
-        let nextBodyText = articleBlocksPlainText()
-        guard store.draft.bodyText != nextBodyText else { return }
-        store.updateBodyText(nextBodyText)
-    }
-
-    private func articleBlocksPlainText() -> String {
-        articleBlocks.compactMap { block in
-            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return text.isEmpty ? nil : text
-        }
-        .joined(separator: "\n")
-    }
-}
-
-// PublishConfigurationIcon 发布配置行图标来源
-// 核心职责：
-// - 区分系统 SF Symbol 和项目资产图标
-// - 为发布配置行提供统一的图标渲染入口
-private enum PublishConfigurationIcon {
-    case system(String)
-    case asset(String)
-}
-
-// PublishConfigurationRow 小红书风格配置行
-// 核心职责：
-// - 渲染发布页配置入口的图标、标题和值
-// - 承载点击后打开对应配置弹层的入口
-private struct PublishConfigurationRow: View {
-    let icon: PublishConfigurationIcon
-    let iconColor: Color
-    let title: String
-    let value: String?
-    let action: () -> Void
-
-    init(
-        iconName: String,
-        iconColor: Color,
-        title: String,
-        value: String?,
-        action: @escaping () -> Void
-    ) {
-        self.icon = .system(iconName)
-        self.iconColor = iconColor
-        self.title = title
-        self.value = value
-        self.action = action
-    }
-
-    init(
-        assetIconName: String,
-        iconColor: Color,
-        title: String,
-        value: String?,
-        action: @escaping () -> Void
-    ) {
-        self.icon = .asset(assetIconName)
-        self.iconColor = iconColor
-        self.title = title
-        self.value = value
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                PublishConfigurationIconView(icon: icon, color: iconColor)
-
-                Text(title)
-                    .font(MHBTheme.Typography.body.weight(.medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                Spacer()
-
-                if let value {
-                    Text(value)
-                        .font(MHBTheme.Typography.callout)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-            }
-            .frame(height: 48)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// PublishConfigurationIconView 发布配置行图标视图
-// 核心职责：
-// - 根据图标来源渲染统一尺寸的行内图标
-// - 保持资产图标和系统图标的主题色一致
-private struct PublishConfigurationIconView: View {
-    let icon: PublishConfigurationIcon
-    let color: Color
-
-    var body: some View {
-        ZStack {
-            switch icon {
-            case .system(let name):
-                Image(systemName: name)
-                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                    .foregroundStyle(color)
-            case .asset(let name):
-                Image(name)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundStyle(color)
-                    .frame(width: MHBTheme.IconSize.small, height: MHBTheme.IconSize.small)
-            }
-        }
-        .frame(width: 24, height: 24)
-    }
-}
-
-// PublishComposerSheet 发布页配置弹层类型
-private enum PublishComposerSheet: String, Identifiable {
-    case pet
-    case location
-    case visibility
-    case album
-    case mentionUser
-
-    var id: String { rawValue }
-
-    var presentationDetents: Set<PresentationDetent> {
-        switch self {
-        case .location, .mentionUser:
-            [.large]
-        case .pet, .visibility, .album:
-            [.medium]
-        }
-    }
-}
-
-// PublishSelectedImage 发布页本地图片预览模型
-struct PublishSelectedImage: Identifiable {
-    let id: UUID
-    let image: UIImage
-
-    init(id: UUID = UUID(), image: UIImage) {
-        self.id = id
-        self.image = image
-    }
-}
-
-// PublishComposerLimits 发布页本地限制
-private enum PublishComposerLimits {
-    static let maxImageCount = 9
 }

@@ -174,7 +174,6 @@ struct ProfileUserAvatarPreviewScreen: View {
     private var selectAvatarButton: some View {
         Button {
             pickerOpenedAt = Date()
-            print("[DEBUG:ProfileAvatarUpload] picker presented")
             Task {
                 await Diagnostics.track(
                     "profile.avatar_upload.picker_presented",
@@ -212,7 +211,6 @@ struct ProfileUserAvatarPreviewScreen: View {
         let elapsedMs = pickerOpenedAt.map { Int(Date().timeIntervalSince($0) * 1_000) }
         pickerOpenedAt = nil
         guard let image = result.images.first else {
-            print("[DEBUG:ProfileAvatarUpload] picker completed without image images=\(result.images.count) livePhotos=\(result.livePhotos.count) elapsed_ms=\(elapsedMs ?? -1)")
             Task {
                 await Diagnostics.track(
                     "profile.avatar_upload.picker_empty",
@@ -227,7 +225,6 @@ struct ProfileUserAvatarPreviewScreen: View {
             return
         }
 
-        print("[DEBUG:ProfileAvatarUpload] picker image selected width=\(Int(image.size.width * image.scale)) height=\(Int(image.size.height * image.scale)) scale=\(image.scale) has_cg_image=\(image.cgImage != nil) elapsed_ms=\(elapsedMs ?? -1)")
         Task {
             await Diagnostics.track(
                 "profile.avatar_upload.picker_selected",
@@ -250,7 +247,6 @@ struct ProfileUserAvatarPreviewScreen: View {
         cropTarget = nil
         saveState = .saving
         let saveStartedAt = Date()
-        print("[DEBUG:ProfileAvatarUpload] cropped avatar save started width=\(Int(image.size.width * image.scale)) height=\(Int(image.size.height * image.scale)) scale=\(image.scale) has_cg_image=\(image.cgImage != nil)")
         Task {
             await Diagnostics.track(
                 "profile.avatar_upload.crop_saved",
@@ -271,7 +267,6 @@ struct ProfileUserAvatarPreviewScreen: View {
             }
             saveState = didSave ? .saved : .idle
             let elapsedMs = Int(Date().timeIntervalSince(saveStartedAt) * 1_000)
-            print("[DEBUG:ProfileAvatarUpload] cropped avatar save finished success=\(didSave) elapsed_ms=\(elapsedMs)")
             await Diagnostics.track(
                 "profile.avatar_upload.save_finished",
                 properties: [
