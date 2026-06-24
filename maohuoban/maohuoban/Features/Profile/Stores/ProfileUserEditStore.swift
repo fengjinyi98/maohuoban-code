@@ -206,10 +206,8 @@ final class ProfileUserEditStore {
         draft: CurrentUserProfileMediaUploadDraft
     ) async -> Bool {
         guard phase == .idle else {
-            print("[DEBUG:ProfileMediaUpload] store upload rejected kind=\(kind.debugName) phase=\(phase)")
             return false
         }
-        print("[DEBUG:ProfileMediaUpload] store upload started kind=\(kind.debugName) fileName=\(draft.fileName) mime=\(draft.mimeType) byteSize=\(draft.content.count)")
         phase = .saving
         mediaUploadProgress = 0
         toastMessage = nil
@@ -222,7 +220,6 @@ final class ProfileUserEditStore {
                 response = try await repository.uploadCurrentProfileAvatar(
                     draft: draft,
                     onUploadProgress: { progress in
-                        print("[DEBUG:ProfileMediaUpload] store upload progress kind=avatar progress=\(progress)")
                         self.mediaUploadProgress = progress
                     }
                 )
@@ -230,14 +227,12 @@ final class ProfileUserEditStore {
                 response = try await repository.uploadCurrentProfileCover(
                     draft: draft,
                     onUploadProgress: { progress in
-                        print("[DEBUG:ProfileMediaUpload] store upload progress kind=cover progress=\(progress)")
                         self.mediaUploadProgress = progress
                     }
                 )
             }
             mediaUploadProgress = 1
             toastMessage = response.message
-            print("[DEBUG:ProfileMediaUpload] store upload success kind=\(kind.debugName) code=\(response.code) message=\(response.message) hasData=\(response.data != nil)")
             if let profile = response.data {
                 publish(profile: profile)
             }
@@ -245,7 +240,6 @@ final class ProfileUserEditStore {
         } catch {
             mediaUploadProgress = nil
             toastMessage = error.toastMessage
-            print("[DEBUG:ProfileMediaUpload] store upload failed kind=\(kind.debugName) error=\(error.debugSummary) toast=\(error.toastMessage)")
             return false
         }
     }
@@ -261,21 +255,6 @@ private enum ProfileUserEditMediaUploadKind {
             "avatar"
         case .cover:
             "cover"
-        }
-    }
-}
-
-private extension MHBAPIError {
-    var debugSummary: String {
-        switch self {
-        case .business(let code, let message, let statusCode):
-            "business code=\(code) status=\(statusCode) message=\(message)"
-        case .invalidResponse:
-            "invalidResponse"
-        case .transport(let message):
-            "transport message=\(message)"
-        case .decoding(let message):
-            "decoding message=\(message)"
         }
     }
 }

@@ -171,7 +171,6 @@ struct ProfileUserAvatarPreviewScreen: View {
 
     private var selectAvatarButton: some View {
         Button {
-            print("[DEBUG:ProfileMediaUpload] avatar picker presented")
             isMediaPickerPresented = true
         } label: {
             HStack(spacing: MHBTheme.Spacing.s3) {
@@ -198,24 +197,19 @@ struct ProfileUserAvatarPreviewScreen: View {
     }
 
     private func handleMediaPickerResult(_ result: MHBMediaPickerResult) {
-        print("[DEBUG:ProfileMediaUpload] avatar picker completed images=\(result.images.count) livePhotos=\(result.livePhotos.count)")
         guard let image = result.images.first else {
-            print("[DEBUG:ProfileMediaUpload] avatar picker completed without image")
             return
         }
 
-        print("[DEBUG:ProfileMediaUpload] avatar crop target set imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         cropTarget = MHBIdentifiableUIImage(image: image)
     }
 
     private func handleCroppedAvatar(_ image: UIImage) {
-        print("[DEBUG:ProfileMediaUpload] avatar crop saved imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         cropTarget = nil
         saveState = .saving
 
         Task { @MainActor in
             let didSave = await onAvatarUpdated(image)
-            print("[DEBUG:ProfileMediaUpload] avatar update completed didSave=\(didSave)")
             if didSave {
                 previewImage = image
             }

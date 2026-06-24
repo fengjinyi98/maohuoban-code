@@ -359,19 +359,16 @@ struct ProfileUserEditScreen: View {
 
     @MainActor
     private func uploadAvatarImage(_ image: UIImage) async -> Bool {
-        print("[DEBUG:ProfileMediaUpload] uploadAvatarImage entered imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         guard let encoded = MHBMediaUploadEncoder.encode(
             image: image,
             purpose: .avatar,
             fileName: "profile-avatar"
         ) else {
-            print("[DEBUG:ProfileMediaUpload] uploadAvatarImage encode nil")
             editStore.toastMessage = "头像保存失败，请重试"
             showProfileToast(success: false)
             return false
         }
 
-        print("[DEBUG:ProfileMediaUpload] uploadAvatarImage encoded fileName=\(encoded.fileName) mime=\(encoded.mimeType) byteSize=\(encoded.data.count) quality=\(encoded.quality)")
         let draft = CurrentUserProfileMediaUploadDraft(
             fileName: encoded.fileName,
             mimeType: encoded.mimeType,
@@ -379,7 +376,6 @@ struct ProfileUserEditScreen: View {
             sourceClient: "ios"
         )
         let saved = await editStore.uploadAvatar(draft: draft)
-        print("[DEBUG:ProfileMediaUpload] uploadAvatarImage store returned saved=\(saved) toast=\(editStore.toastMessage ?? "nil")")
         if saved {
             editedAvatarImage = image
         }
@@ -389,19 +385,16 @@ struct ProfileUserEditScreen: View {
 
     @MainActor
     private func uploadCoverImage(_ image: UIImage) async -> Bool {
-        print("[DEBUG:ProfileMediaUpload] uploadCoverImage entered imageSize=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)")
         guard let encoded = MHBMediaUploadEncoder.encode(
             image: image,
             purpose: .cover,
             fileName: "profile-cover"
         ) else {
-            print("[DEBUG:ProfileMediaUpload] uploadCoverImage encode nil")
             editStore.toastMessage = "背景保存失败，请重试"
             showProfileToast(success: false)
             return false
         }
 
-        print("[DEBUG:ProfileMediaUpload] uploadCoverImage encoded fileName=\(encoded.fileName) mime=\(encoded.mimeType) byteSize=\(encoded.data.count) quality=\(encoded.quality)")
         let draft = CurrentUserProfileMediaUploadDraft(
             fileName: encoded.fileName,
             mimeType: encoded.mimeType,
@@ -409,7 +402,6 @@ struct ProfileUserEditScreen: View {
             sourceClient: "ios"
         )
         let saved = await editStore.uploadCover(draft: draft)
-        print("[DEBUG:ProfileMediaUpload] uploadCoverImage store returned saved=\(saved) toast=\(editStore.toastMessage ?? "nil")")
         if saved {
             editedCoverImage = image
         }
