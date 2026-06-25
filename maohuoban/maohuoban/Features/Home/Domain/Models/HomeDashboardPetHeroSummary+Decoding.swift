@@ -26,6 +26,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         case heroVideoResourceName = "hero_video_resource_name"
         case profileNumber = "profile_number"
         case microchipNumber = "microchip_number"
+        case externalIdentifiers = "external_identifiers"
         case birthday
         case arrivalDate = "arrival_date"
         case weightGrams = "weight_grams"
@@ -70,6 +71,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         heroVideoResourceName = try container.decodeIfPresent(String.self, forKey: .heroVideoResourceName)
         profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
         microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
+        externalIdentifiers = try container.decodeIfPresent([PetExternalIdentifierSummary].self, forKey: .externalIdentifiers) ?? []
         birthday = try container.decodeIfPresent(String.self, forKey: .birthday)
         arrivalDate = try container.decodeIfPresent(String.self, forKey: .arrivalDate)
         weightGrams = try container.decodeIfPresent(Int.self, forKey: .weightGrams)

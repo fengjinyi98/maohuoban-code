@@ -57,6 +57,7 @@ impl TryFrom<MerchantManagedPetRow> for PetProfile {
             birthday: row.birthday,
             profile_number: row.profile_number,
             microchip_number: row.microchip_number,
+            external_identifiers: vec![],
             arrival_date: row.arrival_date,
             weight_grams: row.weight_grams,
             neuter_status: PetNeuterStatus::try_from(row.neuter_status.as_str()).map_err(|_| {

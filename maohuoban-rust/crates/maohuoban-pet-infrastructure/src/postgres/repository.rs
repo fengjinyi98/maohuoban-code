@@ -7,8 +7,9 @@ use maohuoban_pet_application::pet::{
     TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
-    LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
-    PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile, PetResult, PetTimeline,
+    IdentifierStatus, LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian,
+    PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile,
+    PetResult, PetTimeline,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -54,6 +55,17 @@ impl PostgresPetRepository {
         if let Some(active_microchip) = self.load_active_microchip_projection(pet.id).await? {
             pet.microchip_number = Some(active_microchip);
         }
+        pet.external_identifiers = self
+            .list_external_identifiers_query(pet.id)
+            .await?
+            .into_iter()
+            .filter(|identifier| {
+                matches!(
+                    identifier.status,
+                    IdentifierStatus::Active | IdentifierStatus::Disputed
+                )
+            })
+            .collect();
         pet.name_edit_policy = Some(self.load_name_edit_policy(pet.id).await?);
         Ok(pet)
     }

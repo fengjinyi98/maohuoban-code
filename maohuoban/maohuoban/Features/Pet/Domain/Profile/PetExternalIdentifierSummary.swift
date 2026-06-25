@@ -4,7 +4,7 @@ import Foundation
 // 核心职责：
 // - 承载芯片号等外部标识的展示数据
 // - 标明验证状态和争议状态，供前端差异化展示
-struct PetExternalIdentifierSummary: Decodable, Equatable, Identifiable {
+nonisolated struct PetExternalIdentifierSummary: Decodable, Equatable, Hashable, Identifiable {
     let id: String
     let petID: String
     let identifierType: String

@@ -19,6 +19,7 @@ enum HomePetProfileEditMapper {
             heroContentColorScheme: editHeroContentColorScheme(for: pet.heroContentColorScheme),
             profileCode: pet.profileNumber ?? "平台生成",
             chipNumber: pet.microchipNumber ?? "",
+            chipIdentifier: microchipIdentifier(from: pet.externalIdentifiers),
             sexText: sexText(for: pet.sex),
             birthDateText: pet.birthday ?? "暂未设置",
             arrivalDateText: pet.arrivalDate ?? "暂未设置",
@@ -51,6 +52,7 @@ enum HomePetProfileEditMapper {
             heroContentColorScheme: nil,
             profileCode: item.profileNumber ?? "平台生成",
             chipNumber: item.microchipNumber ?? "",
+            chipIdentifier: nil,
             sexText: "未知",
             birthDateText: item.birthday ?? "暂未设置",
             arrivalDateText: item.arrivalDate ?? "暂未设置",
@@ -145,6 +147,15 @@ enum HomePetProfileEditMapper {
         case .neutered: "已绝育"
         case .intact: "未绝育"
         case .unknown, nil: "未知"
+        }
+    }
+
+    private static func microchipIdentifier(
+        from identifiers: [PetExternalIdentifierSummary]
+    ) -> PetExternalIdentifierSummary? {
+        identifiers.first { identifier in
+            identifier.identifierType == "microchip"
+                && (identifier.status == "active" || identifier.status == "disputed")
         }
     }
 }

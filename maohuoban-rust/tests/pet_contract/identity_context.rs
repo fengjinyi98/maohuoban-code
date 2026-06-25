@@ -103,6 +103,70 @@ async fn pet_profile_create_marks_shared_microchip_as_disputed() {
     );
 }
 
+#[tokio::test]
+async fn pet_profile_detail_returns_external_identifier_summary_for_disputed_microchip() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let first_user_id = login_user_id(&app, "13800138246").await;
+    let second_user_id = login_user_id(&app, "13800138247").await;
+
+    let first_pet_id =
+        create_pet_with_microchip(&app, &first_user_id, "团子", "156000000000046").await;
+    let second_create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "米糕",
+                "species": "dog",
+                "sex": "female",
+                "microchip_number": "156000000000046"
+            }),
+            Some(&second_user_id),
+        ))
+        .await
+        .expect("create second pet with shared microchip");
+    assert_eq!(second_create_response.status(), StatusCode::CREATED);
+    let second_create_body = response_json(second_create_response).await;
+    assert_eq!(
+        second_create_body["data"]["external_identifiers"][0]["identifier_type"],
+        "microchip"
+    );
+    assert_eq!(
+        second_create_body["data"]["external_identifiers"][0]["identifier_value"],
+        "156000000000046"
+    );
+    assert_eq!(
+        second_create_body["data"]["external_identifiers"][0]["verified_status"],
+        "self_reported"
+    );
+    assert_eq!(
+        second_create_body["data"]["external_identifiers"][0]["status"],
+        "disputed"
+    );
+
+    let first_detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{first_pet_id}"),
+            Some(&first_user_id),
+        ))
+        .await
+        .expect("load first pet profile detail");
+    assert_eq!(first_detail_response.status(), StatusCode::OK);
+    let first_detail_body = response_json(first_detail_response).await;
+    assert_eq!(
+        first_detail_body["data"]["external_identifiers"][0]["identifier_value"],
+        "156000000000046"
+    );
+    assert_eq!(
+        first_detail_body["data"]["external_identifiers"][0]["status"],
+        "disputed"
+    );
+}
+
 async fn create_pet_with_microchip(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,

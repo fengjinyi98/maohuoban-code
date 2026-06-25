@@ -148,6 +148,44 @@ final class PetProfileEditScreenTests: XCTestCase {
         XCTAssertTrue(screen.isNoopUpdateDraft(draft, for: profile))
     }
 
+    func testProfileDisplaysDisputedMicrochipStatusFromExternalIdentifierSummary() {
+        let profile = PetProfileEditProfile(
+            id: "pet-1",
+            name: "糯米",
+            species: .cat,
+            breed: "布偶",
+            avatarURL: nil,
+            heroMedia: .image(assetName: "HomePetHeroMock"),
+            heroThemeColorHex: nil,
+            heroContentColorScheme: nil,
+            profileCode: "0000000000000001",
+            chipNumber: "901156260000001",
+            chipIdentifier: PetExternalIdentifierSummary(
+                id: "identifier-1",
+                petID: "pet-1",
+                identifierType: "microchip",
+                identifierValue: "901156260000001",
+                issuer: nil,
+                issuedAt: nil,
+                verifiedStatus: "self_reported",
+                status: "disputed"
+            ),
+            sexText: "母",
+            birthDateText: "2024-01-01",
+            arrivalDateText: "2024-05-01",
+            weightText: "4.2 kg",
+            neuterStatusText: "已绝育",
+            personalityTags: ["亲人"],
+            note: "喜欢晒太阳",
+            nameEditPolicy: nil
+        )
+        let screen = PetProfileEditScreen(
+            context: PetProfileEditContext(selectedProfile: profile, profiles: [profile])
+        )
+
+        XCTAssertEqual(screen.displayChipStatusLabel(for: profile), "争议中")
+    }
+
     private static func encodedJSONObject<T: Encodable>(_ value: T) throws -> [String: Any] {
         let data = try JSONEncoder().encode(value)
         return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

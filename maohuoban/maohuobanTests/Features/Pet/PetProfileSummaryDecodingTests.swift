@@ -101,6 +101,37 @@ final class PetProfileSummaryDecodingTests: XCTestCase {
         XCTAssertEqual(profile.microchipNumber, "156000000000001")
     }
 
+    func testExternalIdentifiersDecodeFromProfileJSON() throws {
+        let json = """
+        {
+          "id": "pet-1",
+          "owner_user_id": "user-1",
+          "name": "糯米",
+          "species": "dog",
+          "sex": "female",
+          "microchip_number": "156000000000046",
+          "external_identifiers": [
+            {
+              "id": "identifier-1",
+              "pet_id": "pet-1",
+              "identifier_type": "microchip",
+              "identifier_value": "156000000000046",
+              "verified_status": "self_reported",
+              "status": "disputed"
+            }
+          ]
+        }
+        """
+        let data = Data(json.utf8)
+        let profile = try JSONDecoder().decode(PetProfileSummary.self, from: data)
+
+        XCTAssertEqual(profile.externalIdentifiers.count, 1)
+        XCTAssertEqual(profile.externalIdentifiers[0].identifierType, "microchip")
+        XCTAssertEqual(profile.externalIdentifiers[0].identifierValue, "156000000000046")
+        XCTAssertEqual(profile.externalIdentifiers[0].verifiedStatus, "self_reported")
+        XCTAssertTrue(profile.externalIdentifiers[0].isDisputed)
+    }
+
     // ── lifeStatus 展示保护逻辑 ──
 
     func testAliveAllowsWrite() throws {

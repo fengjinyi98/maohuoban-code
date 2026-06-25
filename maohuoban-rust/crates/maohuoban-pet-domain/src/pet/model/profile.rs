@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::PetErrorKind;
+use super::{PetErrorKind, PetExternalIdentifier};
 
 /// PetProfile 宠物档案
 /// 核心职责：
@@ -20,6 +20,7 @@ pub struct PetProfile {
     pub birthday: Option<NaiveDate>,
     pub profile_number: String,
     pub microchip_number: Option<String>,
+    pub external_identifiers: Vec<PetExternalIdentifier>,
     pub arrival_date: Option<NaiveDate>,
     pub weight_grams: Option<i32>,
     pub neuter_status: PetNeuterStatus,
@@ -495,6 +496,7 @@ mod tests {
             birthday: None,
             profile_number: "0000000000000001".into(),
             microchip_number: None,
+            external_identifiers: vec![],
             arrival_date: None,
             weight_grams: Some(15000),
             neuter_status: PetNeuterStatus::Unknown,

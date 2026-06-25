@@ -38,6 +38,20 @@ extension PetProfileEditScreen {
         return trimmedChipNumber
     }
 
+    func displayChipStatusLabel(for profile: PetProfileEditProfile) -> String? {
+        guard editedChipNumbers[profile.id] == nil,
+              let chipIdentifier = profile.chipIdentifier,
+              !displayChipNumber(for: profile).isEmpty else {
+            return nil
+        }
+
+        if chipIdentifier.isDisputed {
+            return "争议中"
+        }
+
+        return chipIdentifier.verificationLabel
+    }
+
     func displaySexText(for profile: PetProfileEditProfile) -> String {
         let sexText = editedSexTexts[profile.id] ?? profile.sexText
 

@@ -19,6 +19,28 @@ struct PetProfileEditValueText: View {
     }
 }
 
+// PetProfileEditChipValueText 芯片号展示文本
+// 核心职责：
+// - 展示芯片号资料字段
+// - 展示验证状态或争议状态标签
+struct PetProfileEditChipValueText: View {
+    let value: String
+    let statusLabel: String?
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            PetProfileEditValueText(value: value)
+
+            if let statusLabel {
+                Text(statusLabel)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(statusLabel == "争议中" ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.labelSecondary.color)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
 // PetProfileEditAvatarImage 宠物头像图片
 // 核心职责：
 // - 优先展示远端头像

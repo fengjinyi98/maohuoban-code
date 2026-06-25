@@ -10,6 +10,7 @@ extension PetProfileEditScreen {
         let breedText = displayBreed(for: profile)
         let profileCode = formattedProfileCode(profile.profileCode)
         let chipNumber = displayChipNumber(for: profile)
+        let chipStatusLabel = displayChipStatusLabel(for: profile)
         let sexText = displaySexText(for: profile)
         let neuterStatusText = displayNeuterStatusText(for: profile)
         let birthDateText = displayBirthDateText(for: profile)
@@ -101,7 +102,10 @@ extension PetProfileEditScreen {
                                         isChipEditorPresented = true
                                     }
                                 ) {
-                                    PetProfileEditValueText(value: chipNumber.isEmpty ? "未添加" : chipNumber)
+                                    PetProfileEditChipValueText(
+                                        value: chipNumber.isEmpty ? "未添加" : chipNumber,
+                                        statusLabel: chipStatusLabel
+                                    )
                                 }
 
                                 PetProfileEditRow(

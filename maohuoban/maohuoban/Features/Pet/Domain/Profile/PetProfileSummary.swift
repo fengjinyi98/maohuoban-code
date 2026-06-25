@@ -15,6 +15,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let birthday: String?
     let profileNumber: String?
     let microchipNumber: String?
+    let externalIdentifiers: [PetExternalIdentifierSummary]
     let arrivalDate: String?
     let weightGrams: Int?
     let neuterStatus: PetNeuterStatus?
@@ -41,6 +42,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         case birthday
         case profileNumber = "profile_number"
         case microchipNumber = "microchip_number"
+        case externalIdentifiers = "external_identifiers"
         case arrivalDate = "arrival_date"
         case weightGrams = "weight_grams"
         case neuterStatus = "neuter_status"
@@ -68,6 +70,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         birthday: String?,
         profileNumber: String? = nil,
         microchipNumber: String? = nil,
+        externalIdentifiers: [PetExternalIdentifierSummary] = [],
         arrivalDate: String? = nil,
         weightGrams: Int? = nil,
         neuterStatus: PetNeuterStatus? = nil,
@@ -93,6 +96,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         self.birthday = birthday
         self.profileNumber = profileNumber
         self.microchipNumber = microchipNumber
+        self.externalIdentifiers = externalIdentifiers
         self.arrivalDate = arrivalDate
         self.weightGrams = weightGrams
         self.neuterStatus = neuterStatus
@@ -120,6 +124,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         birthday: String?,
         profileNumber: String? = nil,
         microchipNumber: String? = nil,
+        externalIdentifiers: [PetExternalIdentifierSummary] = [],
         arrivalDate: String? = nil,
         weightGrams: Int? = nil,
         neuterStatus: PetNeuterStatus? = nil,
@@ -140,6 +145,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
             birthday: birthday,
             profileNumber: profileNumber,
             microchipNumber: microchipNumber,
+            externalIdentifiers: externalIdentifiers,
             arrivalDate: arrivalDate,
             weightGrams: weightGrams,
             neuterStatus: neuterStatus,
@@ -169,6 +175,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         birthday = try container.decodeIfPresent(String.self, forKey: .birthday)
         profileNumber = try container.decodeIfPresent(String.self, forKey: .profileNumber)
         microchipNumber = try container.decodeIfPresent(String.self, forKey: .microchipNumber)
+        externalIdentifiers = try container.decodeIfPresent([PetExternalIdentifierSummary].self, forKey: .externalIdentifiers) ?? []
         arrivalDate = try container.decodeIfPresent(String.self, forKey: .arrivalDate)
         weightGrams = try container.decodeIfPresent(Int.self, forKey: .weightGrams)
         neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)

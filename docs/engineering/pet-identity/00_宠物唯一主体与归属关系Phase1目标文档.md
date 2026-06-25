@@ -287,3 +287,11 @@ Agent 工具约束：
 | Agent 上下文过宽 | `pet_identity_context` 只输出可解释摘要，不直接暴露全部原始事件 |
 | 去世与删除仍被混用 | `life_status`、`deleted_at`、`managed_status` 在 domain 层拆成不同枚举和不同用例 |
 | 商家代码提前侵入家庭主路径 | 商家只作为 guardian 类型和 origin 类型存在，完整经营 UI/API 后续再推进 |
+
+## 13. Phase 1 收尾记录
+
+| 项 | 归属 | 状态 |
+|---|---|---|
+| 资料页展示 disputed 芯片 | Phase 1 宠物身份 / 外部标识资料展示 | 已纳入 Profile DTO external identifier summary 与 iOS 资料页展示链路 |
+| Profile DTO 返回 external identifier summary | Phase 1 身份契约输出 | 已纳入资料详情、创建 / 更新返回的宠物档案读模型 |
+| Profile 列表读取 microchip / name policy / external identifiers 的 N+1 投影 | 技术债 | Phase 2 不阻塞；等多宠列表规模或明确性能场景出现后再做批量投影优化 |

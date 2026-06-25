@@ -30,6 +30,7 @@ extension HomeDashboardSnapshot {
         let heroVideoResourceName: String?
         let profileNumber: String?
         let microchipNumber: String?
+        let externalIdentifiers: [PetExternalIdentifierSummary]
         let birthday: String?
         let arrivalDate: String?
         let weightGrams: Int?
@@ -99,6 +100,7 @@ extension HomeDashboardSnapshot {
             heroVideoResourceName: String? = nil,
             profileNumber: String? = nil,
             microchipNumber: String? = nil,
+            externalIdentifiers: [PetExternalIdentifierSummary] = [],
             birthday: String? = nil,
             arrivalDate: String? = nil,
             weightGrams: Int? = nil,
@@ -134,6 +136,7 @@ extension HomeDashboardSnapshot {
             self.heroVideoResourceName = heroVideoResourceName
             self.profileNumber = profileNumber
             self.microchipNumber = microchipNumber
+            self.externalIdentifiers = externalIdentifiers
             self.birthday = birthday
             self.arrivalDate = arrivalDate
             self.weightGrams = weightGrams
@@ -170,6 +173,7 @@ extension HomeDashboardSnapshot {
             heroVideoResourceName: String? = nil,
             profileNumber: String? = nil,
             microchipNumber: String? = nil,
+            externalIdentifiers: [PetExternalIdentifierSummary] = [],
             birthday: String? = nil,
             arrivalDate: String? = nil,
             weightGrams: Int? = nil,
@@ -203,6 +207,7 @@ extension HomeDashboardSnapshot {
                 heroVideoResourceName: heroVideoResourceName,
                 profileNumber: profileNumber,
                 microchipNumber: microchipNumber,
+                externalIdentifiers: externalIdentifiers,
                 birthday: birthday,
                 arrivalDate: arrivalDate,
                 weightGrams: weightGrams,

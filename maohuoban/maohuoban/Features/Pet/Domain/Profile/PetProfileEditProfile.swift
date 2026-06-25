@@ -47,6 +47,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
     let heroContentColorScheme: HeroContentColorScheme?
     let profileCode: String
     let chipNumber: String
+    let chipIdentifier: PetExternalIdentifierSummary?
     let sexText: String
     let birthDateText: String
     let arrivalDateText: String
@@ -68,6 +69,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         heroContentColorScheme: HeroContentColorScheme?,
         profileCode: String,
         chipNumber: String,
+        chipIdentifier: PetExternalIdentifierSummary? = nil,
         sexText: String,
         birthDateText: String,
         arrivalDateText: String,
@@ -88,6 +90,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         self.heroContentColorScheme = heroContentColorScheme
         self.profileCode = profileCode
         self.chipNumber = chipNumber
+        self.chipIdentifier = chipIdentifier
         self.sexText = sexText
         self.birthDateText = birthDateText
         self.arrivalDateText = arrivalDateText
@@ -109,6 +112,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         heroContentColorScheme: HeroContentColorScheme?,
         profileCode: String,
         chipNumber: String,
+        chipIdentifier: PetExternalIdentifierSummary? = nil,
         sexText: String,
         birthDateText: String,
         arrivalDateText: String,
@@ -128,6 +132,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
             heroContentColorScheme: heroContentColorScheme,
             profileCode: profileCode,
             chipNumber: chipNumber,
+            chipIdentifier: chipIdentifier,
             sexText: sexText,
             birthDateText: birthDateText,
             arrivalDateText: arrivalDateText,
