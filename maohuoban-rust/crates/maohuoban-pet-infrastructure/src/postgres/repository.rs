@@ -1,23 +1,29 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent,
-    NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput, DeletePetProfile,
+    MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput,
+    PendingPetMediaUploadInput, PetRepository, ReplacePetExternalIdentifier, RestorePetProfile,
+    TradePetImport, TradePetImportInput, UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
-    PetEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile, PetResult, PetTimeline,
+    LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
+    PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile, PetResult, PetTimeline,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
 
 mod event_queries;
 mod event_rows;
+mod identity_context_query;
+mod lifecycle_event_repo;
 mod media_commands;
 mod media_metadata;
+mod pet_guardian_repo;
 mod profile_commands;
 mod profile_create;
 mod profile_crud;
+mod profile_external_ids;
 mod profile_queries;
 mod profile_update;
 mod rows;
@@ -210,5 +216,61 @@ impl PetRepository for PostgresPetRepository {
     ) -> PetResult<Option<PetEvent>> {
         self.load_pet_event_detail_query(owner_user_id, event_id)
             .await
+    }
+
+    async fn add_external_identifier(
+        &self,
+        input: AddPetExternalIdentifier,
+    ) -> PetResult<PetExternalIdentifier> {
+        self.add_external_identifier_command(input).await
+    }
+
+    async fn replace_external_identifier(
+        &self,
+        input: ReplacePetExternalIdentifier,
+    ) -> PetResult<PetExternalIdentifier> {
+        self.replace_external_identifier_command(input).await
+    }
+
+    async fn list_external_identifiers(
+        &self,
+        pet_id: Uuid,
+    ) -> PetResult<Vec<PetExternalIdentifier>> {
+        self.list_external_identifiers_query(pet_id).await
+    }
+
+    async fn add_guardian(&self, input: AddPetGuardian) -> PetResult<PetGuardian> {
+        self.add_guardian_command(input).await
+    }
+
+    async fn list_guardians(&self, pet_id: Uuid) -> PetResult<Vec<PetGuardian>> {
+        self.list_guardians_query(pet_id).await
+    }
+
+    async fn authorize_pet_access(
+        &self,
+        pet_id: Uuid,
+        user_id: Uuid,
+    ) -> PetResult<Option<PetProfile>> {
+        self.authorize_pet_access_query(pet_id, user_id).await
+    }
+
+    async fn append_lifecycle_event(
+        &self,
+        pet_id: Uuid,
+        event_kind: LifecycleEventKind,
+        actor_user_id: Option<Uuid>,
+        note: Option<String>,
+    ) -> PetResult<PetLifecycleEvent> {
+        self.append_lifecycle_event_command(pet_id, event_kind, actor_user_id, note)
+            .await
+    }
+
+    async fn list_lifecycle_events(&self, pet_id: Uuid) -> PetResult<Vec<PetLifecycleEvent>> {
+        self.list_lifecycle_events_query(pet_id).await
+    }
+
+    async fn load_identity_context(&self, pet_id: Uuid) -> PetResult<PetIdentityContext> {
+        self.load_identity_context_query(pet_id).await
     }
 }

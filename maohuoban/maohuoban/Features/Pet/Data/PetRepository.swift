@@ -67,6 +67,13 @@ protocol PetRepository {
         eventID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail>
+
+    /// 加载 Agent 身份上下文（聚合身份、关系、标识、生命周期）
+    /// Phase 1 占位：后端 endpoint 就绪后接入真实数据
+    func loadIdentityContext(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetIdentityContext>
 }
 
 // DefaultPetRepository 默认宠物写入仓库

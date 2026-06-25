@@ -45,6 +45,8 @@ pub(super) async fn load_merchant_pet_by_id(
             delete_reason,
             managed_status,
             source_kind,
+            life_status,
+            origin_kind,
             created_at,
             updated_at
         FROM pet_profiles
@@ -92,6 +94,8 @@ pub(super) async fn list_litter_children(
             p.delete_reason,
             p.managed_status,
             p.source_kind,
+            p.life_status,
+            p.origin_kind,
             p.created_at,
             p.updated_at
         FROM pet_relationships rel

@@ -13,9 +13,10 @@ pub use merchant::{
     MerchantLitterSummary, MerchantRepository, NewMerchantPetProfile, PublishAvailableStatusInput,
 };
 pub use ports::{
-    BindUploadedPetMediaInput, DeletePetProfile, MediaAssetDisplayMetadata, MediaCropMetadata,
-    NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput,
-    PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
-    UpdatePetProfileResult,
+    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput, DeletePetProfile,
+    MediaAssetDisplayMetadata, MediaCropMetadata, NewPetEvent, NewPetProfile,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
+    ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
+    UpdatePetProfile, UpdatePetProfileResult,
 };
 pub use service::PetService;

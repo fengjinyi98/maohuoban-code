@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
-    EventKind, EventVisibility, MediaUsageKind, PetEvent, PetMediaUploadResult, PetNeuterStatus,
-    PetProfile, PetResult, PetSex, PetSourceKind, PetSpecies, PetTimeline,
+    EventKind, EventVisibility, GuardianRole, GuardianType, IdentifierType, LifecycleEventKind,
+    MediaUsageKind, OriginKind, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
+    PetLifecycleEvent, PetMediaUploadResult, PetNeuterStatus, PetProfile, PetResult, PetSex,
+    PetSourceKind, PetSpecies, PetTimeline,
 };
 use serde_json::Value;
 use uuid::Uuid;
@@ -48,6 +50,7 @@ pub struct NewPetProfile {
     pub avatar_asset_id: Option<Uuid>,
     pub background_asset_id: Option<Uuid>,
     pub source_kind: PetSourceKind,
+    pub origin_kind: OriginKind,
 }
 
 /// UpdatePetProfile 宠物档案更新输入
@@ -201,6 +204,47 @@ pub struct TradePetImport {
     pub event: PetEvent,
 }
 
+/// AddPetExternalIdentifier 新增宠物外部标识输入
+/// 核心职责：
+/// - 为宠物绑定芯片号等外部标识
+/// - 默认 self_reported 验证状态
+#[derive(Debug, Clone)]
+pub struct AddPetExternalIdentifier {
+    pub pet_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub identifier_type: IdentifierType,
+    pub identifier_value: String,
+    pub issuer: Option<String>,
+    pub issued_at: Option<DateTime<Utc>>,
+}
+
+/// ReplacePetExternalIdentifier 替换宠物外部标识输入
+/// 核心职责：
+/// - 标记旧标识为 replaced
+/// - 新增一条 active 标识记录
+#[derive(Debug, Clone)]
+pub struct ReplacePetExternalIdentifier {
+    pub old_identifier_id: Uuid,
+    pub pet_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub new_identifier_value: String,
+    pub issuer: Option<String>,
+    pub issued_at: Option<DateTime<Utc>>,
+}
+
+/// AddPetGuardian 添加宠物归属关系输入
+/// 核心职责：
+/// - 创建宠物时同步写入初始 owner/merchant 关系
+#[derive(Debug, Clone)]
+pub struct AddPetGuardian {
+    pub pet_id: Uuid,
+    pub guardian_type: GuardianType,
+    pub guardian_user_id: Option<Uuid>,
+    pub guardian_merchant_id: Option<Uuid>,
+    pub role: GuardianRole,
+    pub granted_by_user_id: Option<Uuid>,
+}
+
 /// PetRepository 宠物仓储端口
 /// 核心职责：
 /// - 持久化宠物档案和宠物事件
@@ -262,4 +306,43 @@ pub trait PetRepository: Send + Sync {
         owner_user_id: Uuid,
         event_id: Uuid,
     ) -> PetResult<Option<PetEvent>>;
+
+    async fn add_external_identifier(
+        &self,
+        input: AddPetExternalIdentifier,
+    ) -> PetResult<PetExternalIdentifier>;
+
+    async fn replace_external_identifier(
+        &self,
+        input: ReplacePetExternalIdentifier,
+    ) -> PetResult<PetExternalIdentifier>;
+
+    async fn list_external_identifiers(
+        &self,
+        pet_id: Uuid,
+    ) -> PetResult<Vec<PetExternalIdentifier>>;
+
+    async fn add_guardian(&self, input: AddPetGuardian) -> PetResult<PetGuardian>;
+
+    async fn list_guardians(&self, pet_id: Uuid) -> PetResult<Vec<PetGuardian>>;
+
+    /// 基于关系判断用户是否有权访问宠物（替代 find_pet_for_owner）
+    async fn authorize_pet_access(
+        &self,
+        pet_id: Uuid,
+        user_id: Uuid,
+    ) -> PetResult<Option<PetProfile>>;
+
+    async fn append_lifecycle_event(
+        &self,
+        pet_id: Uuid,
+        event_kind: LifecycleEventKind,
+        actor_user_id: Option<Uuid>,
+        note: Option<String>,
+    ) -> PetResult<PetLifecycleEvent>;
+
+    async fn list_lifecycle_events(&self, pet_id: Uuid) -> PetResult<Vec<PetLifecycleEvent>>;
+
+    /// 获取 Agent 身份上下文（聚合身份、关系、标识、生命周期）
+    async fn load_identity_context(&self, pet_id: Uuid) -> PetResult<PetIdentityContext>;
 }

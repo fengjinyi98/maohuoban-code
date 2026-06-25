@@ -37,6 +37,8 @@ pub(super) async fn load_pet_profile_for_update(
             delete_reason,
             managed_status,
             source_kind,
+            life_status,
+            origin_kind,
             created_at,
             updated_at
         FROM pet_profiles

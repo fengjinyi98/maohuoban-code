@@ -150,4 +150,12 @@ private final class CapturingPetEventDetailRepository: PetRepository {
             throw error
         }
     }
+
+    func loadIdentityContext(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetIdentityContext> {
+        throw MHBAPIError.transport("Phase 1 placeholder")
+    }
+
 }

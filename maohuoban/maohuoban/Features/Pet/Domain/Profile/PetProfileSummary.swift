@@ -4,9 +4,10 @@ import Foundation
 // 核心职责：
 // - 承接后端创建宠物后的稳定字段
 // - 为首页刷新和后续记录提供宠物 ID
+// - ownerUserID 改为 Optional，支持商家管理/共管等无 owner 场景
 nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let id: String
-    let ownerUserID: String
+    let ownerUserID: String?
     let name: String
     let species: PetSpecies
     let breed: String?
@@ -22,6 +23,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
     let avatarAssetID: String?
     let backgroundAssetID: String?
     let backgroundMediaKind: PetBackgroundMediaKind?
+    let lifeStatus: String?
+    let originKind: String?
     let deletedAt: String?
     let deleteRequestedByUserID: String?
     let recoverableUntil: String?
@@ -46,6 +49,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         case avatarAssetID = "avatar_asset_id"
         case backgroundAssetID = "background_asset_id"
         case backgroundMediaKind = "background_media_kind"
+        case lifeStatus = "life_status"
+        case originKind = "origin_kind"
         case deletedAt = "deleted_at"
         case deleteRequestedByUserID = "delete_requested_by_user_id"
         case recoverableUntil = "recoverable_until"
@@ -55,7 +60,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
 
     init(
         id: String,
-        ownerUserID: String,
+        ownerUserID: String?,
         name: String,
         species: PetSpecies,
         breed: String?,
@@ -71,6 +76,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         avatarAssetID: String? = nil,
         backgroundAssetID: String? = nil,
         backgroundMediaKind: PetBackgroundMediaKind? = nil,
+        lifeStatus: String? = nil,
+        originKind: String? = nil,
         deletedAt: String? = nil,
         deleteRequestedByUserID: String? = nil,
         recoverableUntil: String? = nil,
@@ -94,6 +101,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         self.avatarAssetID = avatarAssetID
         self.backgroundAssetID = backgroundAssetID
         self.backgroundMediaKind = backgroundMediaKind
+        self.lifeStatus = lifeStatus
+        self.originKind = originKind
         self.deletedAt = deletedAt
         self.deleteRequestedByUserID = deleteRequestedByUserID
         self.recoverableUntil = recoverableUntil
@@ -103,7 +112,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
 
     init(
         id: String,
-        ownerUserID: String,
+        ownerUserID: String?,
         name: String,
         species: PetSpecies,
         breed: String?,
@@ -139,6 +148,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
             avatarAssetID: nil,
             backgroundAssetID: nil,
             backgroundMediaKind: nil,
+            lifeStatus: nil,
+            originKind: nil,
             deletedAt: deletedAt,
             deleteRequestedByUserID: deleteRequestedByUserID,
             recoverableUntil: recoverableUntil,
@@ -150,7 +161,7 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
-        ownerUserID = try container.decodeIfPresent(String.self, forKey: .ownerUserID) ?? ""
+        ownerUserID = try container.decodeIfPresent(String.self, forKey: .ownerUserID)
         name = try container.decode(String.self, forKey: .name)
         species = try container.decode(PetSpecies.self, forKey: .species)
         breed = try container.decodeIfPresent(String.self, forKey: .breed)
@@ -166,6 +177,8 @@ nonisolated struct PetProfileSummary: Decodable, Equatable, Identifiable {
         avatarAssetID = try container.decodeIfPresent(String.self, forKey: .avatarAssetID)
         backgroundAssetID = try container.decodeIfPresent(String.self, forKey: .backgroundAssetID)
         backgroundMediaKind = try container.decodeIfPresent(PetBackgroundMediaKind.self, forKey: .backgroundMediaKind)
+        lifeStatus = try container.decodeIfPresent(String.self, forKey: .lifeStatus)
+        originKind = try container.decodeIfPresent(String.self, forKey: .originKind)
         deletedAt = try container.decodeIfPresent(String.self, forKey: .deletedAt)
         deleteRequestedByUserID = try container.decodeIfPresent(String.self, forKey: .deleteRequestedByUserID)
         recoverableUntil = try container.decodeIfPresent(String.self, forKey: .recoverableUntil)

@@ -42,9 +42,11 @@ impl PostgresPetRepository {
                 personality_tags,
                 note,
                 managed_status,
-                source_kind
+                source_kind,
+                life_status,
+                origin_kind
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'family', $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'family', $15, 'alive', $16)
             RETURNING
                 id,
                 owner_user_id,
@@ -70,6 +72,8 @@ impl PostgresPetRepository {
                 delete_reason,
                 managed_status,
                 source_kind,
+                life_status,
+                origin_kind,
                 created_at,
                 updated_at
             "#,
@@ -89,6 +93,7 @@ impl PostgresPetRepository {
         .bind(serde_json::json!(input.personality_tags))
         .bind(input.note)
         .bind(input.source_kind.as_str())
+        .bind(input.origin_kind.as_str())
         .fetch_one(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;

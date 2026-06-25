@@ -56,6 +56,8 @@ pub(super) async fn insert_trade_import_pet(
             delete_reason,
             managed_status,
             source_kind,
+            life_status,
+            origin_kind,
             created_at,
             updated_at
         "#,

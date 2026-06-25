@@ -135,4 +135,15 @@ extension DefaultPetRepository {
             headers: try userHeaders(currentUserID: currentUserID)
         )
     }
+
+    // Phase 1 占位：后端 endpoint 就绪后接入 GET /api/v1/pets/{pet_id}/identity-context
+    func loadIdentityContext(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetIdentityContext> {
+        try await client.get(
+            path: "/api/v1/pets/\(petID)/identity-context",
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+    }
 }

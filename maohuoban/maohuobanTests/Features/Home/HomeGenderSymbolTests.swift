@@ -43,7 +43,8 @@ final class HomeGenderSymbolTests: XCTestCase {
             snapshot: snapshot,
             currentUserDisplayName: "小林",
             onSelectPet: { _ in },
-            onOpenRoute: { _ in }
+            onOpenRoute: { _ in },
+            onOpenAddReminder: {}
         )
 
         let selectedPet = try XCTUnwrap(snapshot.selectedPet)

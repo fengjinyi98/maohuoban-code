@@ -149,4 +149,12 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         throw .invalidResponse
     }
+
+    func loadIdentityContext(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetIdentityContext> {
+        throw MHBAPIError.transport("Phase 1 placeholder")
+    }
+
 }

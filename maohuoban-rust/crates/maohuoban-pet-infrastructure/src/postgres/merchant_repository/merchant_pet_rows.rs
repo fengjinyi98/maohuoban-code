@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
-    ManagedPetStatus, PetBackgroundMediaKind, PetError, PetNeuterStatus, PetProfile, PetSex,
-    PetSourceKind, PetSpecies,
+    LifeStatus, ManagedPetStatus, OriginKind, PetBackgroundMediaKind, PetError, PetNeuterStatus,
+    PetProfile, PetSex, PetSourceKind, PetSpecies,
 };
 use serde_json::Value;
 use sqlx::FromRow;
@@ -33,6 +33,8 @@ pub(super) struct MerchantManagedPetRow {
     delete_reason: Option<String>,
     managed_status: String,
     source_kind: String,
+    life_status: String,
+    origin_kind: String,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -86,6 +88,12 @@ impl TryFrom<MerchantManagedPetRow> for PetProfile {
             )?,
             source_kind: PetSourceKind::try_from(row.source_kind.as_str()).map_err(|_| {
                 PetError::Infrastructure("unknown source kind from database".to_owned())
+            })?,
+            life_status: LifeStatus::try_from(row.life_status.as_str()).map_err(|_| {
+                PetError::Infrastructure("unknown life status from database".to_owned())
+            })?,
+            origin_kind: OriginKind::try_from(row.origin_kind.as_str()).map_err(|_| {
+                PetError::Infrastructure("unknown origin kind from database".to_owned())
             })?,
             created_at: row.created_at,
             updated_at: row.updated_at,

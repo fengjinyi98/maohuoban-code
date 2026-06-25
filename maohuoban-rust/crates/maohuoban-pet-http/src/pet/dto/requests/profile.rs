@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 use maohuoban_pet_application::pet::{DeletePetProfile, NewPetProfile, UpdatePetProfile};
-use maohuoban_pet_domain::pet::{PetNeuterStatus, PetSex, PetSourceKind, PetSpecies};
+use maohuoban_pet_domain::pet::{OriginKind, PetNeuterStatus, PetSex, PetSourceKind, PetSpecies};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -43,6 +43,7 @@ impl CreatePetProfileRequest {
             avatar_asset_id: self.avatar_asset_id,
             background_asset_id: self.background_asset_id,
             source_kind: PetSourceKind::UserCreated,
+            origin_kind: OriginKind::UserCreated,
         }
     }
 }

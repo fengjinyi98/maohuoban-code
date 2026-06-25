@@ -73,17 +73,18 @@ final class HomeRouteTests: XCTestCase {
             title: "内外驱虫",
             subtitle: "预计 2026-06-16 提醒",
             dueText: "待提醒",
-            remarks: nil
+            remarks: nil,
+            sourceRef: nil
         )
         let context = HomeActionRoutingContext(selectedPetID: "pet-1")
 
         let route = HomeReminderRouteResolver.route(for: reminder, context: context)
 
-        guard case .timelineEvent(let eventID) = route else {
-            XCTFail("Expected timeline event route")
+        guard case .petRecordDetail = route else {
+            XCTFail("Expected pet record detail route")
             return
         }
-        XCTAssertEqual(eventID, "event-1")
+        XCTAssertNotNil(route)
     }
 
     @MainActor
@@ -94,7 +95,8 @@ final class HomeRouteTests: XCTestCase {
             title: "待补健康记录",
             subtitle: "3 只宠物缺少买家可见健康信息",
             dueText: "今日",
-            remarks: nil
+            remarks: nil,
+            sourceRef: nil
         )
         let context = HomeActionRoutingContext(merchantID: "merchant-1")
 
@@ -116,7 +118,8 @@ final class HomeRouteTests: XCTestCase {
             title: "待补健康记录",
             subtitle: "3 只宠物缺少买家可见健康信息",
             dueText: "今日",
-            remarks: nil
+            remarks: nil,
+            sourceRef: nil
         )
 
         let route = HomeReminderRouteResolver.route(

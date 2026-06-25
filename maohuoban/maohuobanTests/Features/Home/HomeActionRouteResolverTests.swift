@@ -62,22 +62,8 @@ final class HomeActionRouteResolverTests: XCTestCase {
             context: HomeActionRoutingContext(snapshot: snapshot)
         )
 
-        XCTAssertEqual(
-            route,
-            .recordDaily(
-                PetDailyRecordEntryContext(
-                    recordContext: PetRecordEntryContext(
-                        petID: "pet-1",
-                        petSex: .female
-                    ),
-                    publishContext: PublishEntryContext(
-                        source: .home,
-                        selectedPetID: "pet-1",
-                        selectedPetName: "糯米"
-                    )
-                )
-            )
-        )
+        // dailyRecord action 已退役，返回 nil
+        XCTAssertNil(route)
     }
 
     @MainActor
