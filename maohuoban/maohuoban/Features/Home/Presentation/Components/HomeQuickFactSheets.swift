@@ -41,22 +41,12 @@ struct HomeQuickFactFeedingSheet: View {
             GeometryReader { proxy in
                 let bottomInset = proxy.safeAreaInsets.bottom
 
-                ZStack(alignment: .bottom) {
+                ZStack(alignment: .topLeading) {
+                    MHBTheme.ColorToken.background.color
+                        .ignoresSafeArea()
+
                     ScrollView {
                         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                            HStack {
-                                Spacer(minLength: MHBTheme.Spacing.s3)
-
-                                HomeQuickFactPetSwitcherMenu(
-                                    selectedItem: selectedSwitcherItem,
-                                    items: petSwitcherItems,
-                                    isDisabled: petSwitcherItems.isEmpty,
-                                    onSelectPet: { petID in
-                                        selectedPetID = petID
-                                    }
-                                )
-                            }
-
                             HomeQuickFactFeedingFoodSection(
                                 selectedKind: $selectedFoodKind,
                                 expandedKind: $expandedFoodKind,
@@ -89,26 +79,38 @@ struct HomeQuickFactFeedingSheet: View {
                             )
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s5)
-                        .padding(.top, MHBTheme.Spacing.s4)
-                        .padding(.bottom, bottomInset + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                        .padding(.top, topContentPadding)
+                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
                     }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
 
                     MHBBottomFloatingActionCTA(
                         title: isSubmitting ? "保存中" : "保存记录",
                         systemImage: "checkmark",
-                        bottomInset: 0,
+                        bottomInset: bottomInset,
                         action: submit
                     )
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
+                    .zIndex(2)
+
+                    HomeQuickFactFeedingTopChrome(
+                        selectedItem: selectedSwitcherItem,
+                        items: petSwitcherItems,
+                        isDisabled: petSwitcherItems.isEmpty,
+                        onSelectPet: { petID in
+                            selectedPetID = petID
+                        }
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .padding(.top, MHBTheme.Spacing.s4)
+                    .zIndex(3)
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
             }
-            .background(MHBTheme.ColorToken.background.color)
-            .navigationTitle("喂食")
+            .ignoresSafeArea(.container, edges: .bottom)
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消", action: onCancel)
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -166,6 +168,42 @@ struct HomeQuickFactFeedingSheet: View {
 
     private func selectedFoodItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
         selectedFoodItemIDs[kind] ?? HomeQuickFactFeedingFoodSource.defaultItemID(for: kind)
+    }
+
+    private var topContentPadding: CGFloat {
+        MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
+    }
+}
+
+// HomeQuickFactFeedingTopChrome 喂食弹层顶部控件
+// 核心职责：
+// - 在弹层顶部展示喂食标题
+// - 将宠物切换固定在右上角而不是进入内容流
+private struct HomeQuickFactFeedingTopChrome: View {
+    let selectedItem: MHBPetSwitcherItem?
+    let items: [MHBPetSwitcherItem]
+    let isDisabled: Bool
+    let onSelectPet: (String) -> Void
+
+    var body: some View {
+        ZStack {
+            Text("喂食")
+                .font(MHBTheme.Typography.headline.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(maxWidth: .infinity)
+
+            HStack {
+                Spacer()
+
+                HomeQuickFactPetSwitcherMenu(
+                    selectedItem: selectedItem,
+                    items: items,
+                    isDisabled: isDisabled,
+                    onSelectPet: onSelectPet
+                )
+            }
+        }
+        .frame(height: 48)
     }
 }
 

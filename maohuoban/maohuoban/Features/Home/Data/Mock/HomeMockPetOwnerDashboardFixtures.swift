@@ -53,6 +53,14 @@ extension HomeMockDashboardFixtures {
             ),
             recentTimeline: [
                 HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-abnormal",
+                    eventKind: .health,
+                    title: "异常记录",
+                    subtitle: "食欲、精神 · 明显，待跟进",
+                    occurredText: "22:15",
+                    occurredAt: nil
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
                     id: "event-feeding",
                     eventKind: .daily,
                     title: "已喂食",
@@ -74,14 +82,6 @@ extension HomeMockDashboardFixtures {
                     title: "精神不错",
                     subtitle: "精神与活力：正常平稳",
                     occurredText: "12:20",
-                    occurredAt: nil
-                ),
-                HomeDashboardSnapshot.TimelineEvent(
-                    id: "event-abnormal",
-                    eventKind: .health,
-                    title: "异常记录",
-                    subtitle: "食欲、精神 · 明显",
-                    occurredText: "20:15",
                     occurredAt: nil
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
