@@ -5,6 +5,7 @@ extension HomeDashboardSnapshot {
     // 核心职责：
     // - 承载近期待处理提醒
     // - 连接完整提醒模块入口
+    // - 通过 sourceRef 关联业务记录，提醒系统保持通用能力
     struct Reminder: Decodable, Equatable, Identifiable {
         let id: String
         let kind: Kind
@@ -12,6 +13,7 @@ extension HomeDashboardSnapshot {
         let subtitle: String
         let dueText: String
         let remarks: String?
+        let sourceRef: SourceRef?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -20,6 +22,7 @@ extension HomeDashboardSnapshot {
             case subtitle
             case dueText = "due_text"
             case remarks
+            case sourceRef = "source_ref"
         }
 
         enum Kind: String, Decodable, Equatable {
@@ -28,6 +31,36 @@ extension HomeDashboardSnapshot {
             case followUp = "follow_up"
             case merchantTask = "merchant_task"
             case completeHealthRecord = "complete_health_record"
+            case custom
+        }
+
+        // SourceRef 提醒关联业务来源
+        // 核心职责：
+        // - 表达一条提醒由哪个业务记录创建或维护
+        // - 支撑首页提醒点击进入疫苗、驱虫、复诊等对应详情
+        struct SourceRef: Decodable, Equatable, Hashable {
+            let domain: Domain
+            let type: SourceType
+            let recordID: String
+
+            enum CodingKeys: String, CodingKey {
+                case domain
+                case type
+                case recordID = "record_id"
+            }
+
+            enum Domain: String, Decodable, Equatable, Hashable {
+                case preventiveCare = "preventive_care"
+                case clinicVisit = "clinic_visit"
+                case custom
+            }
+
+            enum SourceType: String, Decodable, Equatable, Hashable {
+                case vaccine
+                case deworming
+                case followUp = "follow_up"
+                case custom
+            }
         }
     }
 

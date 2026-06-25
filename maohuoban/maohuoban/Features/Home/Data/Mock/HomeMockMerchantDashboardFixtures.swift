@@ -70,7 +70,8 @@ extension HomeMockDashboardFixtures {
                         title: "补齐健康记录",
                         subtitle: "3 只宠物待补疫苗或体检记录",
                         dueText: "今天",
-                        remarks: nil
+                        remarks: nil,
+                        sourceRef: nil
                     )
                 ],
                 recentEvents: [

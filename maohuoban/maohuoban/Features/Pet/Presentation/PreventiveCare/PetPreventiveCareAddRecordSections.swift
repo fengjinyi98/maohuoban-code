@@ -139,8 +139,8 @@ private struct PetPreventiveCareExecutionMethodButton: View {
 
 // PetPreventiveCareReminderSection 疫苗驱虫提醒设置区
 // 核心职责：
-// - 控制是否为记录生成下次提醒
-// - 收集下次提醒日期
+// - 收集用户是否需要把下次到期写入通用提醒系统
+// - 只表达预防护理记录的提醒意图，提醒投递和状态归属提醒系统
 struct PetPreventiveCareReminderSection: View {
     @Binding var isEnabled: Bool
     @Binding var reminderAt: Date

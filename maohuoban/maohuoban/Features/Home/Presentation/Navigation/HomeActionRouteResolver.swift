@@ -132,20 +132,48 @@ enum HomeActionRouteResolver {
 // HomeReminderRouteResolver 首页提醒路由解析器
 // 核心职责：
 // - 将首页提醒摘要映射为本地导航目标
-// - 复用事件详情和商家待办入口，避免首页承载深层提醒规则
+// - 优先根据提醒 sourceRef 进入关联业务详情
+// - 保持提醒系统作为通用能力，疫苗驱虫等业务记录只负责创建和维护关联提醒
 enum HomeReminderRouteResolver {
     static func route(
         for reminder: HomeDashboardSnapshot.Reminder,
         context: HomeActionRoutingContext
     ) -> HomeRoute? {
+        if let sourceRoute = route(for: reminder.sourceRef) {
+            return sourceRoute
+        }
+
         switch reminder.kind {
         case .merchantTask:
             guard let merchantID = context.merchantID, !merchantID.isEmpty else {
                 return nil
             }
             return .merchantTask(merchantID: merchantID, reminderID: reminder.id)
-        case .vaccine, .deworming, .followUp, .completeHealthRecord:
-            return .petRecordDetail(PetRecordDetailRoute.mockRoute(for: reminder.id))
+        case .vaccine:
+            return .petRecordDetail(.vaccine(recordID: reminder.id))
+        case .deworming:
+            return .petRecordDetail(.deworming(recordID: reminder.id))
+        case .followUp:
+            return .petRecordDetail(.clinicVisit(recordID: reminder.id))
+        case .completeHealthRecord:
+            return .petRecordDetail(.unsupported(recordID: reminder.id))
+        case .custom:
+            return .petRecordDetail(.unsupported(recordID: reminder.id))
+        }
+    }
+
+    private static func route(for sourceRef: HomeDashboardSnapshot.Reminder.SourceRef?) -> HomeRoute? {
+        guard let sourceRef else { return nil }
+
+        switch (sourceRef.domain, sourceRef.type) {
+        case (.preventiveCare, .vaccine):
+            return .petRecordDetail(.vaccine(recordID: sourceRef.recordID))
+        case (.preventiveCare, .deworming):
+            return .petRecordDetail(.deworming(recordID: sourceRef.recordID))
+        case (.clinicVisit, .followUp):
+            return .petRecordDetail(.clinicVisit(recordID: sourceRef.recordID))
+        case (.custom, _), (_, .custom), (.preventiveCare, .followUp), (.clinicVisit, .vaccine), (.clinicVisit, .deworming):
+            return nil
         }
     }
 }
