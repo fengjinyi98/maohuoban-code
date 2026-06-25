@@ -4,6 +4,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 const ERROR_CODE: &str = "CODEX_PROJECT_STRUCTURE_HOOK";
+const BLOCKING_EXIT_CODE: i32 = 2;
 const SWIFT_GUIDELINE_LIMIT: usize = 250;
 const SWIFT_HARD_LIMIT: usize = 400;
 const RUST_GUIDELINE_LIMIT: usize = 300;
@@ -72,20 +73,20 @@ fn main() {
         return;
     }
 
-    println!("[{ERROR_CODE}] 项目目录与文件规则检查失败");
-    println!("原因：本次 Codex 触碰的代码文件存在 {} 个阻断项。", violations.len());
-    println!("依据：AGENTS.md 第 4 节目录与文件规则。");
-    println!("修复方式：拆分文件职责、移动到明确职责目录，或在代码中给出明确拆分理由。");
+    eprintln!("[{ERROR_CODE}] 项目目录与文件规则检查失败");
+    eprintln!("原因：本次 Codex 触碰的代码文件存在 {} 个阻断项。", violations.len());
+    eprintln!("依据：AGENTS.md 第 4 节目录与文件规则。");
+    eprintln!("修复方式：拆分文件职责、移动到明确职责目录，或在代码中给出明确拆分理由。");
     for violation in violations.iter().take(8) {
-        println!(
+        eprintln!(
             "- path={} rule={} reason={}",
             violation.path, violation.rule, violation.message
         );
     }
     if violations.len() > 8 {
-        println!("- 其余 {} 个阻断项已省略。", violations.len() - 8);
+        eprintln!("- 其余 {} 个阻断项已省略。", violations.len() - 8);
     }
-    std::process::exit(1);
+    std::process::exit(BLOCKING_EXIT_CODE);
 }
 
 /// extract_touched_paths 提取本次工具触碰路径
