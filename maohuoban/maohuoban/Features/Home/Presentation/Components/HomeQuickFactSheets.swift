@@ -44,6 +44,19 @@ struct HomeQuickFactFeedingSheet: View {
                 ZStack(alignment: .bottom) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                            HStack {
+                                Spacer(minLength: MHBTheme.Spacing.s3)
+
+                                HomeQuickFactPetSwitcherMenu(
+                                    selectedItem: selectedSwitcherItem,
+                                    items: petSwitcherItems,
+                                    isDisabled: petSwitcherItems.isEmpty,
+                                    onSelectPet: { petID in
+                                        selectedPetID = petID
+                                    }
+                                )
+                            }
+
                             HomeQuickFactFeedingFoodSection(
                                 selectedKind: $selectedFoodKind,
                                 expandedKind: $expandedFoodKind,
@@ -81,9 +94,9 @@ struct HomeQuickFactFeedingSheet: View {
                     }
 
                     MHBBottomFloatingActionCTA(
-                        title: isSubmitting ? "记录中" : "记录",
+                        title: isSubmitting ? "保存中" : "保存记录",
                         systemImage: "checkmark",
-                        bottomInset: bottomInset,
+                        bottomInset: 0,
                         action: submit
                     )
                 }
@@ -94,16 +107,6 @@ struct HomeQuickFactFeedingSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", action: onCancel)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    HomeQuickFactPetSwitcherMenu(
-                        selectedItem: selectedSwitcherItem,
-                        items: petSwitcherItems,
-                        isDisabled: petSwitcherItems.isEmpty,
-                        onSelectPet: { petID in
-                            selectedPetID = petID
-                        }
-                    )
                 }
             }
         }
