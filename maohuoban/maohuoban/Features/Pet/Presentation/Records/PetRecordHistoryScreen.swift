@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // PetRecordHistoryScreen 宠物记录历史页
@@ -12,11 +13,19 @@ struct PetRecordHistoryScreen: View {
 
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var detailRoute: PetRecordDetailRoute?
+    @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     private let records = PetRecordHistoryItem.mockItems
 
+    init(context: PetRecordEntryContext) {
+        self.context = context
+        self._selectedPet = State(initialValue: context.selectedSwitchPet)
+    }
+
     var body: some View {
         GeometryReader { proxy in
+            let topInset = effectiveTopInset(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+
             ZStack(alignment: .topLeading) {
                 MHBTheme.ColorToken.background.color
                     .ignoresSafeArea()
@@ -54,9 +63,14 @@ struct PetRecordHistoryScreen: View {
                 .listSectionSpacing(MHBTheme.Spacing.s1)
                 .scrollContentBackground(.hidden)
                 .background(MHBTheme.ColorToken.background.color)
-                .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                .padding(.top, topContentPadding(topInset: topInset))
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
+
+                MHBWindowSafeAreaReader { insets in
+                    windowSafeAreaInsets = insets
+                }
+                .allowsHitTesting(false)
 
                 PetRecordHistoryTopChrome(
                     selectedItem: currentPetSwitcherItem,
@@ -66,7 +80,8 @@ struct PetRecordHistoryScreen: View {
                     onSelect: selectPet
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
-                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .padding(.top, topInset)
+                .frame(maxWidth: .infinity, alignment: .top)
                 .zIndex(2)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
@@ -79,9 +94,6 @@ struct PetRecordHistoryScreen: View {
         .navigationDestination(item: $detailRoute) { route in
             PetRecordDetailDestinationScreen(route: route)
         }
-        .onAppear {
-            selectedPet = selectedPet ?? context.selectedSwitchPet
-        }
         .accessibilityIdentifier("pet.recordHistory")
     }
 
@@ -89,10 +101,12 @@ struct PetRecordHistoryScreen: View {
         48
     }
 
-    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
-        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
-            + topChromeHeight
-            + MHBTheme.Spacing.s5
+    private func effectiveTopInset(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        max(geometrySafeAreaTop, windowSafeAreaInsets.top)
+    }
+
+    private func topContentPadding(topInset: CGFloat) -> CGFloat {
+        topInset + topChromeHeight + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String? {

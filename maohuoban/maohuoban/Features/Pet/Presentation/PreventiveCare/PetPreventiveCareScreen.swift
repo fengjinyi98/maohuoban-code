@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // PetPreventiveCareScreen 疫苗驱虫管理页
@@ -13,11 +14,18 @@ struct PetPreventiveCareScreen: View {
     @State private var selectedKind: PetPreventiveCareKind = .all
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var isAddRecordSheetPresented = false
+    @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     private let records = PetPreventiveCareRecord.mockRecords
 
+    init(context: PetPreventiveCareContext) {
+        self.context = context
+        self._selectedPet = State(initialValue: context.recordContext.selectedSwitchPet)
+    }
+
     var body: some View {
         GeometryReader { proxy in
+            let topInset = effectiveTopInset(geometrySafeAreaTop: proxy.safeAreaInsets.top)
             let bottomInset = proxy.safeAreaInsets.bottom
 
             ZStack(alignment: .topLeading) {
@@ -32,9 +40,8 @@ struct PetPreventiveCareScreen: View {
                             dewormingRecord: latestRecord(kind: .deworming)
                         )
 
-                        PetPreventiveCareFilterControl(selectedKind: $selectedKind)
-
                         PetPreventiveCareHistorySection(
+                            selectedKind: $selectedKind,
                             groups: groupedRecords,
                             onOpenRecord: { _ in
                                 // TODO: 疫苗/驱虫记录详情 UI 确认后接入详情路由。
@@ -43,10 +50,15 @@ struct PetPreventiveCareScreen: View {
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
-                    .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                    .padding(.top, topContentPadding(topInset: topInset))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
+
+                MHBWindowSafeAreaReader { insets in
+                    windowSafeAreaInsets = insets
+                }
+                .allowsHitTesting(false)
 
                 MHBBottomFloatingActionCTA(
                     title: "新增记录",
@@ -67,7 +79,8 @@ struct PetPreventiveCareScreen: View {
                     onSelect: selectPet
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
-                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .padding(.top, topInset)
+                .frame(maxWidth: .infinity, alignment: .top)
                 .zIndex(3)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
@@ -78,10 +91,7 @@ struct PetPreventiveCareScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .sheet(isPresented: $isAddRecordSheetPresented) {
-            PetPreventiveCareAddRecordPlaceholderSheet()
-        }
-        .onAppear {
-            selectedPet = selectedPet ?? context.recordContext.selectedSwitchPet
+            PetPreventiveCareAddRecordSheet()
         }
         .accessibilityIdentifier("pet.preventiveCare")
     }
@@ -90,10 +100,12 @@ struct PetPreventiveCareScreen: View {
         48
     }
 
-    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
-        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
-            + topChromeHeight
-            + MHBTheme.Spacing.s5
+    private func effectiveTopInset(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        max(geometrySafeAreaTop, windowSafeAreaInsets.top)
+    }
+
+    private func topContentPadding(topInset: CGFloat) -> CGFloat {
+        topInset + topChromeHeight + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String? {

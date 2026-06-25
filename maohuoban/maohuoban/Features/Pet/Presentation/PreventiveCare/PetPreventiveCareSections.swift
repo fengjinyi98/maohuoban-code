@@ -146,29 +146,12 @@ private struct PetPreventiveCarePlanCard: View {
     }
 }
 
-// PetPreventiveCareFilterControl 疫苗驱虫筛选控件
-// 核心职责：
-// - 在全部、疫苗和驱虫之间切换记录列表
-// - 使用系统 segmented 控件保持低学习成本
-struct PetPreventiveCareFilterControl: View {
-    @Binding var selectedKind: PetPreventiveCareKind
-
-    var body: some View {
-        Picker("记录类型", selection: $selectedKind) {
-            ForEach(PetPreventiveCareKind.allCases) { kind in
-                Text(kind.title).tag(kind)
-            }
-        }
-        .pickerStyle(.segmented)
-        .accessibilityIdentifier("pet.preventiveCare.filter")
-    }
-}
-
 // PetPreventiveCareHistorySection 疫苗驱虫历史记录区
 // 核心职责：
 // - 按月份展示疫苗和驱虫历史记录
-// - 为后续记录详情推进保留点击入口
+// - 在标题下方提供轻量筛选标签并保留详情推进入口
 struct PetPreventiveCareHistorySection: View {
+    @Binding var selectedKind: PetPreventiveCareKind
     let groups: [PetPreventiveCareHistoryGroup]
     let onOpenRecord: (PetPreventiveCareRecord) -> Void
 
@@ -177,6 +160,8 @@ struct PetPreventiveCareHistorySection: View {
             Text("历史记录")
                 .font(MHBTheme.Typography.headline.weight(.semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+
+            PetPreventiveCareFilterTagStrip(selectedKind: $selectedKind)
 
             if groups.isEmpty {
                 PetPreventiveCareEmptyHistory()
@@ -191,6 +176,68 @@ struct PetPreventiveCareHistorySection: View {
                 }
             }
         }
+    }
+}
+
+// PetPreventiveCareFilterTagStrip 疫苗驱虫筛选标签组
+// 核心职责：
+// - 在历史记录标题下方切换全部、疫苗和驱虫记录
+// - 使用标签按钮替代 tabs，保持筛选能力靠近列表上下文
+private struct PetPreventiveCareFilterTagStrip: View {
+    @Binding var selectedKind: PetPreventiveCareKind
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s2) {
+            ForEach(PetPreventiveCareKind.allCases) { kind in
+                PetPreventiveCareFilterTag(
+                    kind: kind,
+                    isSelected: selectedKind == kind
+                ) {
+                    selectedKind = kind
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("pet.preventiveCare.filterTags")
+    }
+}
+
+// PetPreventiveCareFilterTag 疫苗驱虫筛选标签
+// 核心职责：
+// - 展示单个筛选项的图标和文字
+// - 通过选中态颜色反馈当前历史记录过滤条件
+private struct PetPreventiveCareFilterTag: View {
+    let kind: PetPreventiveCareKind
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(kind.title, systemImage: kind.systemImage)
+                .font(MHBTheme.Typography.callout.weight(.semibold))
+                .foregroundStyle(isSelected ? selectedForegroundColor : MHBTheme.ColorToken.labelSecondary.color)
+                .frame(maxWidth: .infinity)
+                .frame(height: 42)
+                .background(
+                    backgroundColor,
+                    in: RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(kind.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var selectedForegroundColor: Color {
+        kind == .all ? MHBTheme.ColorToken.primary.color : kind.tint
+    }
+
+    private var backgroundColor: Color {
+        if isSelected {
+            return selectedForegroundColor.opacity(0.14)
+        }
+
+        return MHBTheme.ColorToken.labelQuaternary.color.opacity(0.24)
     }
 }
 

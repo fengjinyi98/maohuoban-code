@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // PetWeightDetailContext 体重详情入口上下文
@@ -37,12 +38,19 @@ struct PetWeightDetailScreen: View {
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var isAddRecordSheetPresented = false
     @State private var pathRoute: PetWeightDetailRoute?
+    @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     private let records = PetWeightRecord.mockRecords
 
+    init(context: PetWeightDetailContext) {
+        self.context = context
+        self._selectedPet = State(initialValue: context.recordContext.selectedSwitchPet)
+    }
+
     var body: some View {
         GeometryReader { proxy in
-            let bottomInset = proxy.safeAreaInsets.bottom
+            let topInset = effectiveTopInset(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+            let bottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
 
             ZStack(alignment: .topLeading) {
                 MHBTheme.ColorToken.background.color
@@ -72,10 +80,15 @@ struct PetWeightDetailScreen: View {
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
-                    .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                    .padding(.top, topContentPadding(topInset: topInset))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
+
+                MHBWindowSafeAreaReader { insets in
+                    windowSafeAreaInsets = insets
+                }
+                .allowsHitTesting(false)
 
                 MHBBottomFloatingActionCTA(
                     title: "新增记录",
@@ -96,7 +109,8 @@ struct PetWeightDetailScreen: View {
                     onSelect: selectPet
                 )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
-                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .padding(.top, topInset)
+                .frame(maxWidth: .infinity, alignment: .top)
                 .zIndex(3)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
@@ -124,9 +138,6 @@ struct PetWeightDetailScreen: View {
                 initialWeightText: context.currentWeightText
             )
         }
-        .onAppear {
-            selectedPet = selectedPet ?? context.recordContext.selectedSwitchPet
-        }
         .accessibilityIdentifier("pet.weightDetail")
     }
 
@@ -134,10 +145,12 @@ struct PetWeightDetailScreen: View {
         48
     }
 
-    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
-        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
-            + topChromeHeight
-            + MHBTheme.Spacing.s5
+    private func effectiveTopInset(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        max(geometrySafeAreaTop, windowSafeAreaInsets.top)
+    }
+
+    private func topContentPadding(topInset: CGFloat) -> CGFloat {
+        topInset + topChromeHeight + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String {
