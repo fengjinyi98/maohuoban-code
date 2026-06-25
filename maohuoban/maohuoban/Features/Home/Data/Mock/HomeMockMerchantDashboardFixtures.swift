@@ -79,7 +79,8 @@ extension HomeMockDashboardFixtures {
                         eventKind: .merchant,
                         title: "A 窝出生记录",
                         subtitle: "3 只幼猫出生，母猫状态稳定",
-                        occurredText: "03-18"
+                        occurredText: "03-18",
+                        occurredAt: nil
                     )
                 ]
             ),

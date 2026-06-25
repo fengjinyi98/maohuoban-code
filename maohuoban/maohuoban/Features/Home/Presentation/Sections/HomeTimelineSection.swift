@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import MaohuobanDesignSystem
 
@@ -8,30 +9,19 @@ import MaohuobanDesignSystem
 struct HomeTimelineSection: View {
     let events: [HomeDashboardSnapshot.TimelineEvent]
 
+    private var displayedEvents: [HomeDashboardSnapshot.TimelineEvent] {
+        Array(events.prefix(4))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            // 自定义精致头部 (对齐截图)
-            HStack {
-                Text("今天")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                HStack(spacing: 4) {
-                    Text("查看全部")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
-            }
+            HomeTimelineHeader()
 
             // 时间轴垂直列表
             VStack(spacing: 0) {
-                ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                ForEach(Array(displayedEvents.enumerated()), id: \.element.id) { index, event in
                     let isFirst = index == 0
-                    let isLast = index == events.count - 1
+                    let isLast = index == displayedEvents.count - 1
 
                     NavigationLink(value: HomeRoute.timelineEvent(eventID: event.id)) {
                         HomeTimelineRow(
@@ -50,6 +40,42 @@ struct HomeTimelineSection: View {
     }
 }
 
+// HomeTimelineHeader 首页时间线头部
+// 核心职责：
+// - 展示今天标题和年份角标
+// - 保持查看全部入口与标题区分层
+private struct HomeTimelineHeader: View {
+    private var currentYearText: String {
+        let year = Calendar.current.component(.year, from: Date())
+        return "\(year)年"
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s3) {
+            HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s1) {
+                Text("今天")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text(currentYearText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .padding(.bottom, 1)
+            }
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                Text("查看全部")
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(.white.opacity(0.6))
+        }
+    }
+}
+
 // HomeTimelineRow 时间线事件行
 private struct HomeTimelineRow: View {
     let event: HomeDashboardSnapshot.TimelineEvent
@@ -59,7 +85,7 @@ private struct HomeTimelineRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
             // 1. 左侧时间文字 (固定宽度对齐)
-            Text(event.occurredText)
+            Text(occurredTimeText)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.9))
                 .frame(width: 44, alignment: .trailing)
@@ -91,6 +117,14 @@ private struct HomeTimelineRow: View {
         }
         .padding(.top, isFirst ? 0 : MHBTheme.Spacing.s3)
         .padding(.bottom, MHBTheme.Spacing.s3)
+    }
+
+    private var occurredTimeText: String {
+        if let occurredAt = event.occurredAt?.homeTimelineDate {
+            return occurredAt.homeTimelineHourMinuteText
+        }
+
+        return event.occurredText.clockTimeText ?? event.occurredText
     }
 
     private var iconView: some View {
@@ -158,6 +192,43 @@ private struct HomeTimelineRow: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(0.3))
         }
+    }
+}
+
+private extension String {
+    var homeTimelineDate: Date? {
+        let fractionalSecondsFormatter = ISO8601DateFormatter()
+        fractionalSecondsFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractionalSecondsFormatter.date(from: self) {
+            return date
+        }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: self)
+    }
+
+    var clockTimeText: String? {
+        guard let regex = try? NSRegularExpression(pattern: #"\b\d{1,2}:\d{2}\b"#) else {
+            return nil
+        }
+
+        let range = NSRange(startIndex..<endIndex, in: self)
+        guard let match = regex.firstMatch(in: self, range: range),
+              let swiftRange = Range(match.range, in: self) else {
+            return nil
+        }
+
+        return String(self[swiftRange])
+    }
+}
+
+private extension Date {
+    var homeTimelineHourMinuteText: String {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: self)
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        return String(format: "%02d:%02d", hour, minute)
     }
 }
 

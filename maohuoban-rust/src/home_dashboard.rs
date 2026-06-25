@@ -172,7 +172,7 @@ impl HybridHomeDashboardProvider {
         snapshot.recent_timeline = timeline
             .events
             .iter()
-            .take(3)
+            .take(4)
             .map(timeline_event_summary)
             .collect();
         snapshot.reminders = reminders_from_events(&timeline.events);

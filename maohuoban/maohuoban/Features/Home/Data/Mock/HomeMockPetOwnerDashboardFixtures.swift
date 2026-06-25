@@ -57,28 +57,32 @@ extension HomeMockDashboardFixtures {
                     eventKind: .daily,
                     title: "记录了早餐",
                     subtitle: "鸡肉 + 南瓜 + 狗粮",
-                    occurredText: "08:30"
+                    occurredText: "08:30",
+                    occurredAt: nil
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
                     id: "event-weight",
                     eventKind: .weight,
                     title: "体重更新",
                     subtitle: "3.6 kg",
-                    occurredText: "09:15"
+                    occurredText: "09:15",
+                    occurredAt: nil
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
                     id: "event-deworming",
                     eventKind: .deworming,
                     title: "完成驱虫",
                     subtitle: "大宠爱体外驱虫滴剂",
-                    occurredText: "11:30"
+                    occurredText: "11:30",
+                    occurredAt: nil
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
                     id: "event-walk",
                     eventKind: .daily,
                     title: "夜间散步",
                     subtitle: "32 分钟 · 2.3 km",
-                    occurredText: "20:20"
+                    occurredText: "20:20",
+                    occurredAt: nil
                 )
             ],
             merchantDashboard: nil,

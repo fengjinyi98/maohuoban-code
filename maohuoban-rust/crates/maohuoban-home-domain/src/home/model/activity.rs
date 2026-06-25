@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -94,6 +95,8 @@ pub struct HomeTimelineEvent {
     pub title: String,
     pub subtitle: String,
     pub occurred_text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occurred_at: Option<DateTime<Utc>>,
 }
 
 /// HomeTimelineEventKind 首页事件类型

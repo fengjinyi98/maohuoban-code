@@ -57,6 +57,10 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
         dashboard_body["data"]["recent_timeline"][0]["title"],
         "体重记录"
     );
+    assert_eq!(
+        dashboard_body["data"]["recent_timeline"][0]["occurred_at"],
+        "2026-06-13T09:20:00Z"
+    );
     assert!(dashboard_body["data"]["empty_state"].is_null());
 }
 

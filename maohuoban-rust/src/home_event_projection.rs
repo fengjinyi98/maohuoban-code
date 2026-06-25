@@ -17,6 +17,7 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
             .clone()
             .unwrap_or_else(|| "已记录到可信档案".to_owned()),
         occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
+        occurred_at: Some(event.occurred_at),
     }
 }
 

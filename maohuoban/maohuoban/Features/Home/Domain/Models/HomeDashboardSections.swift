@@ -95,6 +95,7 @@ extension HomeDashboardSnapshot {
         let title: String
         let subtitle: String
         let occurredText: String
+        let occurredAt: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -102,6 +103,7 @@ extension HomeDashboardSnapshot {
             case title
             case subtitle
             case occurredText = "occurred_text"
+            case occurredAt = "occurred_at"
         }
 
         enum Kind: String, Decodable, Equatable {
