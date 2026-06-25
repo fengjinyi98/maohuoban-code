@@ -3,30 +3,20 @@ import MaohuobanDesignSystem
 
 // PetEventRecordScreen 宠物事件记录页面
 // 核心职责：
-// - 收集当前宠物的一条日常或健康记录
+// - 收集当前宠物的一条健康记录
 // - 通过 PetWriteStore 调用宠物事件追加接口
 struct PetEventRecordScreen: View {
     let petID: String?
     let petSex: PetRecordPetSex
     let currentUserID: String?
     let mode: PetEventRecordMode
-    let onRecordAndPublish: () -> Void
     let onRecorded: () -> Void
 
     @State private var store = PetWriteStore()
     @State private var title: String
     @State private var summary = ""
     @State private var occurredAt = Date()
-    @State private var dailyEnergy = PetDailyRecordEnergy.steady
-    @State private var dailyDidFeed = false
-    @State private var dailyFoodText = ""
-    @State private var dailyDidCleanPoop = false
-    @State private var dailyPoopStatus = PetDailyRecordPoopStatus.healthy
-    @State private var dailyDidAddWater = false
-    @State private var dailyDidBath = false
-    @State private var dailyNote = ""
     @State private var selectedHealthType = PetHealthRecordType.vaccine
-    @State private var healthWeightText = ""
     @State private var healthVaccineBrand = ""
     @State private var healthVaccineDose = ""
     @State private var healthVisitReason = ""
@@ -39,14 +29,12 @@ struct PetEventRecordScreen: View {
         petSex: PetRecordPetSex = .unknown,
         currentUserID: String?,
         mode: PetEventRecordMode,
-        onRecordAndPublish: @escaping () -> Void = {},
         onRecorded: @escaping () -> Void
     ) {
         self.petID = petID
         self.petSex = petSex
         self.currentUserID = currentUserID
         self.mode = mode
-        self.onRecordAndPublish = onRecordAndPublish
         self.onRecorded = onRecorded
         self._title = State(initialValue: mode.defaultTitle)
     }
@@ -72,27 +60,11 @@ struct PetEventRecordScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                switch mode {
-                case .daily:
-                    Menu {
-                        Button("仅保存记录") {
-                            Task { await submit(thenPublish: false) }
-                        }
-                        Button("记录并去发布动态") {
-                            Task { await submit(thenPublish: true) }
-                        }
-                    } label: {
-                        Text(mode.submitTitle)
-                            .font(MHBTheme.Typography.headline)
-                    }
-                    .disabled(store.isSubmitting || petID == nil)
-                case .health:
-                    Button(mode.submitTitle) {
-                        Task { await submit(thenPublish: false) }
-                    }
-                    .font(MHBTheme.Typography.headline)
-                    .disabled(store.isSubmitting || petID == nil)
+                Button(mode.submitTitle) {
+                    Task { await submit() }
                 }
+                .font(MHBTheme.Typography.headline)
+                .disabled(store.isSubmitting || petID == nil)
             }
         }
         .petWriteToastBridge(
@@ -105,27 +77,12 @@ struct PetEventRecordScreen: View {
     @ViewBuilder
     private var recordFields: some View {
         switch mode {
-        case .daily:
-            PetDailyRecordContent(
-                petID: petID,
-                petSex: petSex,
-                occurredAt: $occurredAt,
-                energy: $dailyEnergy,
-                didFeed: $dailyDidFeed,
-                foodText: $dailyFoodText,
-                didCleanPoop: $dailyDidCleanPoop,
-                poopStatus: $dailyPoopStatus,
-                didAddWater: $dailyDidAddWater,
-                didBath: $dailyDidBath,
-                note: $dailyNote
-            )
         case .health:
             PetHealthRecordContent(
                 petID: petID,
                 petSex: petSex,
                 selectedType: $selectedHealthType,
                 occurredAt: $occurredAt,
-                weightText: $healthWeightText,
                 vaccineBrand: $healthVaccineBrand,
                 vaccineDose: $healthVaccineDose,
                 visitReason: $healthVisitReason,
@@ -140,7 +97,7 @@ struct PetEventRecordScreen: View {
     // 核心职责：
     // - 将表单状态转换为事件草稿
     // - 成功后通知首页刷新聚合快照
-    private func submit(thenPublish: Bool) async {
+    private func submit() async {
         let eventDraft = makeEventDraft()
         await store.createEvent(
             petID: petID,
@@ -149,37 +106,15 @@ struct PetEventRecordScreen: View {
         )
         if case .recordedEvent = store.phase {
             onRecorded()
-            if thenPublish {
-                onRecordAndPublish()
-            }
         }
     }
 
     private func makeEventDraft() -> PetEventDraft {
         switch mode {
-        case .daily:
-            let dailyDraft = PetDailyRecordFormDraft(
-                energy: dailyEnergy,
-                didFeed: dailyDidFeed,
-                foodText: dailyFoodText,
-                didCleanPoop: dailyDidCleanPoop,
-                poopStatus: dailyPoopStatus,
-                didAddWater: dailyDidAddWater,
-                didBath: dailyDidBath,
-                note: dailyNote
-            )
-            return PetEventDraft(
-                kind: mode.eventKind,
-                subkind: mode.subkind,
-                title: dailyDraft.eventTitle,
-                summary: dailyDraft.eventSummary,
-                visibility: .private,
-                occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
-            )
         case .health:
             let healthDraft = PetHealthRecordFormDraft(
                 type: selectedHealthType,
-                weightText: healthWeightText,
+                weightText: "",
                 vaccineBrand: healthVaccineBrand,
                 vaccineDose: healthVaccineDose,
                 visitReason: healthVisitReason,
@@ -212,43 +147,38 @@ struct PetEventRecordScreen: View {
 
 // PetEventRecordMode 宠物事件记录模式
 // 核心职责：
-// - 区分首页日常记录和健康记录入口
+// - 承载首页健康记录入口的事件底座映射
+// - 日常记录入口已由底部快捷记录和专项 sheet 接管
 // - 将入口语义映射到事件底座字段
 enum PetEventRecordMode: Equatable {
-    case daily
     case health
 
     var eventKind: PetEventKind {
         switch self {
-        case .daily: .daily
         case .health: .health
         }
     }
 
     var subkind: String {
         switch self {
-        case .daily: "daily"
         case .health: "health"
         }
     }
 
     var defaultTitle: String {
         switch self {
-        case .daily: "日常记录"
         case .health: "健康记录"
         }
     }
 
     var navigationTitle: LocalizedStringResource {
         switch self {
-        case .daily: "记录日常"
         case .health: "健康记录"
         }
     }
 
     var submitTitle: LocalizedStringResource {
         switch self {
-        case .daily: "保存"
         case .health: "保存"
         }
     }

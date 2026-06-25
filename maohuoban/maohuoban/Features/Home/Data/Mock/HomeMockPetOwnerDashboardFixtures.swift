@@ -236,11 +236,6 @@ extension HomeMockDashboardFixtures {
     static func petOwnerActions() -> [HomeDashboardSnapshot.Action] {
         [
             HomeDashboardSnapshot.Action(
-                kind: .dailyRecord,
-                title: "记录日常",
-                subtitle: "饮食、情绪、排便"
-            ),
-            HomeDashboardSnapshot.Action(
                 kind: .walk,
                 title: "遛弯",
                 subtitle: "户外活动记录"

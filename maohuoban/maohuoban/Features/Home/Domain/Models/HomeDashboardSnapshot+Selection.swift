@@ -16,7 +16,7 @@ private extension Array where Element == HomeDashboardSnapshot.Action {
             return appendingServerOnlyActions(after: clientActions)
         }
 
-        return isEmpty ? fallback : self
+        return isEmpty ? fallback.removingRetiredQuickActions() : removingRetiredQuickActions()
     }
 
     func appendingServerOnlyActions(
@@ -28,10 +28,20 @@ private extension Array where Element == HomeDashboardSnapshot.Action {
 
         let clientKinds = clientActions.map(\.kind)
         let serverOnlyActions = filter { action in
-            !clientKinds.contains(action.kind)
+            !clientKinds.contains(action.kind) && action.kind != .dailyRecord
         }
 
         return clientActions + serverOnlyActions
+    }
+
+    // removingRetiredQuickActions 过滤已退役首页快捷入口
+    // 核心职责：
+    // - 保留后端解码兼容
+    // - 避免旧 quick_actions 再次把已移除入口展示到首页
+    func removingRetiredQuickActions() -> [HomeDashboardSnapshot.Action] {
+        filter { action in
+            action.kind != .dailyRecord
+        }
     }
 }
 
@@ -129,11 +139,6 @@ private extension HomeDashboardSnapshot.Action {
         switch identityKind {
         case .petOwner:
             [
-                HomeDashboardSnapshot.Action(
-                    kind: .dailyRecord,
-                    title: "记录日常",
-                    subtitle: "饮食、情绪、排便"
-                ),
                 HomeDashboardSnapshot.Action(
                     kind: .walk,
                     title: "遛弯",

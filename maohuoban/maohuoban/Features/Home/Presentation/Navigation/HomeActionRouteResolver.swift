@@ -91,22 +91,7 @@ enum HomeActionRouteResolver {
         case .createPet:
             return .createPet
         case .dailyRecord:
-            return .recordDaily(
-                PetDailyRecordEntryContext(
-                    recordContext: PetRecordEntryContext(
-                        petID: context.selectedPetID,
-                        petName: context.selectedPetName,
-                        petAvatarURL: context.selectedPetAvatarURL,
-                        petSex: context.selectedPetSex
-                    ),
-                    publishContext: PublishEntryContext(
-                        source: .home,
-                        selectedPetID: context.selectedPetID,
-                        selectedPetName: context.selectedPetName,
-                        city: context.city
-                    )
-                )
-            )
+            return nil
         case .healthRecord:
             return .recordHealth(
                 PetRecordEntryContext(

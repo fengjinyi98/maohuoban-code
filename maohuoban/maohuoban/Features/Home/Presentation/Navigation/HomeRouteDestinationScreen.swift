@@ -36,19 +36,6 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
-        case .recordDaily(let context):
-            PetEventRecordScreen(
-                petID: context.recordContext.petID,
-                petSex: context.recordContext.petSex,
-                currentUserID: currentUserID,
-                mode: .daily,
-                onRecordAndPublish: {
-                    onRouteRequested(.publishEvent(context.publishContext))
-                },
-                onRecorded: {
-                    onHomeMutationCompleted(nil)
-                }
-            )
         case .recordHealth(let context):
             PetEventRecordScreen(
                 petID: context.petID,

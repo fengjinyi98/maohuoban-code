@@ -122,23 +122,19 @@ private struct PetAbnormalRecordProgressRow: View {
     let isLast: Bool
 
     var body: some View {
-        HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
+        HStack(alignment: .top, spacing: 0) {
             Text(record.timeText)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                .frame(width: 74, alignment: .trailing)
+                .frame(width: 56, alignment: .trailing)
+                .padding(.top, 18)
 
-            PetAbnormalRecordProgressLine(
+            PetAbnormalRecordTimelineNode(
                 tint: record.kind.tint,
+                systemImage: record.kind.systemImage,
                 isFirst: isFirst,
                 isLast: isLast
             )
-
-            Image(systemName: record.kind.systemImage)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(record.kind.tint)
-                .frame(width: 36, height: 36)
-                .background(record.kind.tint.opacity(0.10), in: Circle())
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                 HStack(spacing: MHBTheme.Spacing.s2) {
@@ -152,7 +148,7 @@ private struct PetAbnormalRecordProgressRow: View {
                             .foregroundStyle(record.kind.tint)
                             .padding(.horizontal, MHBTheme.Spacing.s2)
                             .padding(.vertical, MHBTheme.Spacing.s1 / 2)
-                            .background(record.kind.tint.opacity(0.10), in: Capsule())
+                            .background(record.kind.tint.opacity(0.12), in: Capsule())
                     }
                 }
 
@@ -161,49 +157,57 @@ private struct PetAbnormalRecordProgressRow: View {
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.top, 16)
+            .padding(.bottom, MHBTheme.Spacing.s5)
 
             Spacer(minLength: MHBTheme.Spacing.s2)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .padding(.top, 20)
+                .padding(.trailing, MHBTheme.Spacing.s2)
         }
-        .padding(.vertical, MHBTheme.Spacing.s3)
         .contentShape(Rectangle())
     }
 }
 
-// PetAbnormalRecordProgressLine 异常事件时间线连接线
+// PetAbnormalRecordTimelineNode 异常事件时间线节点
 // 核心职责：
-// - 绘制进展时间线的节点和上下连接
-// - 保持首尾节点与列表边界对齐
-private struct PetAbnormalRecordProgressLine: View {
+// - 绘制进展时间线的图标和上下连接线
+// - 保持线在图标背后，首尾节点与列表边界对齐
+private struct PetAbnormalRecordTimelineNode: View {
     let tint: Color
+    let systemImage: String
     let isFirst: Bool
     let isLast: Bool
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             VStack(spacing: 0) {
-                if isFirst {
+                if isFirst && isLast {
                     Color.clear
-                } else {
+                } else if isFirst {
+                    Color.clear.frame(height: 26)
                     Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color)
-                }
-
-                if isLast {
+                } else if isLast {
+                    Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color).frame(height: 26)
                     Color.clear
                 } else {
                     Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color)
                 }
             }
-            .frame(width: 1)
+            .frame(width: 2)
 
-            Circle()
-                .fill(tint)
-                .frame(width: 7, height: 7)
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 32, height: 32)
+                .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
+                .background(tint.opacity(0.12), in: Circle())
+                .padding(.top, 10)
         }
-        .frame(width: 12)
+        .frame(width: 48)
     }
 }
 

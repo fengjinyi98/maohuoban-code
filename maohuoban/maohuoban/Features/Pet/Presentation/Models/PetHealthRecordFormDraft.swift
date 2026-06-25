@@ -12,6 +12,14 @@ enum PetHealthRecordType: String, CaseIterable, Equatable, Identifiable {
 
     var id: String { rawValue }
 
+    // healthEntryTypes 健康记录入口类型
+    // 核心职责：
+    // - 让健康记录页面只承载疫苗、驱虫和就诊
+    // - 保留 weight 枚举用于历史数据兼容，体重新增走独立体重记录页面
+    static var healthEntryTypes: [PetHealthRecordType] {
+        [.vaccine, .deworming, .visit]
+    }
+
     var displayName: String {
         switch self {
         case .vaccine: "疫苗"

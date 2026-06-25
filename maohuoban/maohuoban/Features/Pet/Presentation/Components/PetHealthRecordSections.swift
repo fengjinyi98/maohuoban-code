@@ -10,7 +10,6 @@ struct PetHealthRecordContent: View {
     let petSex: PetRecordPetSex
     @Binding var selectedType: PetHealthRecordType
     @Binding var occurredAt: Date
-    @Binding var weightText: String
     @Binding var vaccineBrand: String
     @Binding var vaccineDose: String
     @Binding var visitReason: String
@@ -27,9 +26,7 @@ struct PetHealthRecordContent: View {
             )
             PetHealthTypeGrid(selectedType: $selectedType)
             PetHealthCoreFormSection(
-                selectedType: selectedType,
-                occurredAt: $occurredAt,
-                weightText: $weightText
+                occurredAt: $occurredAt
             )
             PetHealthDetailFormSection(
                 selectedType: selectedType,
@@ -49,19 +46,19 @@ struct PetHealthRecordContent: View {
 
 // PetHealthTypeGrid 健康类型选择宫格
 // 核心职责：
-// - 展示疫苗、驱虫、就诊和体重四类健康记录入口
+// - 展示疫苗、驱虫和就诊三类健康记录入口
 // - 通过明确按钮状态表达当前选中类型
 private struct PetHealthTypeGrid: View {
     @Binding var selectedType: PetHealthRecordType
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: MHBTheme.Spacing.s3),
-        count: 4
+        count: 3
     )
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: MHBTheme.Spacing.s3) {
-            ForEach(PetHealthRecordType.allCases) { type in
+            ForEach(PetHealthRecordType.healthEntryTypes) { type in
                 PetHealthTypeButton(
                     type: type,
                     isSelected: selectedType == type
@@ -120,11 +117,9 @@ private struct PetHealthTypeButton: View {
 // PetHealthCoreFormSection 健康基础信息区
 // 核心职责：
 // - 收集健康事件发生时间
-// - 支持在任意健康类型中顺带记录体重
+// - 体重记录由独立体重页面承载，避免健康记录入口混杂体重流程
 private struct PetHealthCoreFormSection: View {
-    let selectedType: PetHealthRecordType
     @Binding var occurredAt: Date
-    @Binding var weightText: String
 
     var body: some View {
         PetHealthFormCard {
@@ -135,16 +130,6 @@ private struct PetHealthCoreFormSection: View {
             )
             .font(MHBTheme.Typography.callout)
             .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-            PetHealthDivider()
-
-            PetHealthTextInputRow(
-                title: selectedType == .weight ? "当前体重" : "顺便记体重",
-                systemImage: "scalemass",
-                text: $weightText,
-                prompt: "输入当前体重 kg",
-                keyboardType: .decimalPad
-            )
         }
     }
 }
