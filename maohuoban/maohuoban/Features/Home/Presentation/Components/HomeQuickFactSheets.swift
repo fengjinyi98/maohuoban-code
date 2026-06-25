@@ -12,8 +12,11 @@ struct HomeQuickFactFeedingSheet: View {
     let onCancel: () -> Void
 
     @State private var selectedPetID: String?
-    @State private var foodKind: HomeQuickFactFeedingFoodKind = .mainFood
+    @State private var selectedFoodKind: HomeQuickFactFeedingFoodKind = .mainFood
+    @State private var expandedFoodKind: HomeQuickFactFeedingFoodKind?
+    @State private var selectedFoodItemIDs: [HomeQuickFactFeedingFoodKind: String?] = [:]
     @State private var amount: HomeQuickFactFeedingAmount = .normal
+    @State private var occurredAt = Date()
     @State private var note = ""
 
     init(
@@ -27,6 +30,9 @@ struct HomeQuickFactFeedingSheet: View {
         self.onSubmit = onSubmit
         self.onCancel = onCancel
         self._selectedPetID = State(initialValue: context.selectedPetID ?? context.availablePets.first?.id)
+        self._selectedFoodItemIDs = State(initialValue: [
+            .mainFood: HomeQuickFactFeedingFoodSource.defaultItemID(for: .mainFood)
+        ])
     }
 
     var body: some View {
@@ -38,16 +44,11 @@ struct HomeQuickFactFeedingSheet: View {
                         selectedPetID: $selectedPetID
                     )
 
-                    HomeQuickFactSingleChoiceSection(
-                        title: "喂了什么",
-                        options: HomeQuickFactFeedingFoodKind.allCases,
-                        selection: $foodKind
-                    ) { option in
-                        HomeQuickFactOptionLabel(
-                            title: option.title,
-                            systemImage: option.systemImage
-                        )
-                    }
+                    HomeQuickFactFeedingFoodSection(
+                        selectedKind: $selectedFoodKind,
+                        expandedKind: $expandedFoodKind,
+                        selectedItemIDs: $selectedFoodItemIDs
+                    )
 
                     HomeQuickFactSingleChoiceSection(
                         title: "份量",
@@ -57,6 +58,11 @@ struct HomeQuickFactFeedingSheet: View {
                         Text(option.title)
                             .font(MHBTheme.Typography.callout.weight(.semibold))
                     }
+
+                    HomeQuickFactDateSection(
+                        title: "时间",
+                        date: $occurredAt
+                    )
 
                     HomeQuickFactNoteSection(
                         title: "备注",
@@ -80,8 +86,13 @@ struct HomeQuickFactFeedingSheet: View {
                         onSubmit(
                             HomeQuickFactFeedingInput(
                                 petID: selectedPetID,
-                                foodKind: foodKind,
+                                foodKind: selectedFoodKind,
+                                foodName: HomeQuickFactFeedingFoodSource.itemName(
+                                    for: selectedFoodItemID(for: selectedFoodKind),
+                                    in: selectedFoodKind
+                                ),
                                 amount: amount,
+                                occurredAt: occurredAt,
                                 note: note
                             )
                         )
@@ -90,7 +101,12 @@ struct HomeQuickFactFeedingSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func selectedFoodItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
+        selectedFoodItemIDs[kind] ?? HomeQuickFactFeedingFoodSource.defaultItemID(for: kind)
     }
 }
 
@@ -107,6 +123,7 @@ struct HomeQuickFactAbnormalSheet: View {
     @State private var selectedPetID: String?
     @State private var selectedSymptoms: Set<HomeQuickFactAbnormalSymptom> = []
     @State private var severity: HomeQuickFactAbnormalSeverity = .mild
+    @State private var occurredAt = Date()
     @State private var note = ""
 
     init(
@@ -151,6 +168,11 @@ struct HomeQuickFactAbnormalSheet: View {
                             .font(MHBTheme.Typography.callout.weight(.semibold))
                     }
 
+                    HomeQuickFactDateSection(
+                        title: "发生时间",
+                        date: $occurredAt
+                    )
+
                     HomeQuickFactNoteSection(
                         title: "备注",
                         prompt: "例如 持续多久、是否吃了新东西",
@@ -177,6 +199,7 @@ struct HomeQuickFactAbnormalSheet: View {
                                 petID: selectedPetID,
                                 symptoms: HomeQuickFactAbnormalSymptom.allCases.filter { selectedSymptoms.contains($0) },
                                 severity: severity,
+                                occurredAt: occurredAt,
                                 note: note
                             )
                         )
@@ -185,7 +208,8 @@ struct HomeQuickFactAbnormalSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -218,30 +242,407 @@ private struct HomeQuickFactPetSelectionSection: View {
 
     var body: some View {
         HomeQuickFactSheetSection(title: "宠物") {
-            if pets.count <= 1 {
-                HomeQuickFactSelectedPetCard(
-                    name: pets.first?.name ?? context.selectedPetName ?? "当前宠物"
-                )
-            } else {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 96), spacing: MHBTheme.Spacing.s2)],
-                    alignment: .leading,
-                    spacing: MHBTheme.Spacing.s2
-                ) {
-                    ForEach(pets) { pet in
-                        HomeQuickFactSelectableChip(
-                            isSelected: selectedPetID == pet.id,
-                            action: {
-                                selectedPetID = pet.id
-                            }
-                        ) {
-                            Text(pet.name ?? "未命名")
-                                .font(MHBTheme.Typography.callout.weight(.semibold))
-                                .lineLimit(1)
-                        }
+            HomeQuickFactPetSwitcherMenu(
+                selectedItem: selectedSwitcherItem,
+                items: petSwitcherItems,
+                isDisabled: petSwitcherItems.count <= 1,
+                onSelectPet: { petID in
+                    selectedPetID = petID
+                }
+            )
+        }
+    }
+
+    private var selectedSwitcherItem: MHBPetSwitcherItem? {
+        let selectedPet = pets.first { $0.id == selectedPetID } ?? pets.first
+        return selectedPet.map { pet in
+            MHBPetSwitcherItem(recordSwitchPet: pet, isSelected: true)
+        }
+    }
+
+    private var petSwitcherItems: [MHBPetSwitcherItem] {
+        pets.map { pet in
+            MHBPetSwitcherItem(recordSwitchPet: pet, isSelected: pet.id == selectedPetID)
+        }
+    }
+}
+
+// HomeQuickFactPetSwitcherMenu 快捷事实宠物切换菜单
+// 核心职责：
+// - 复用通用宠物头像胶囊展示当前宠物
+// - 在多宠场景使用系统 Menu 完成宠物切换
+private struct HomeQuickFactPetSwitcherMenu: View {
+    let selectedItem: MHBPetSwitcherItem?
+    let items: [MHBPetSwitcherItem]
+    let isDisabled: Bool
+    let onSelectPet: (String) -> Void
+
+    var body: some View {
+        if isDisabled {
+            MHBPetSwitcherCapsule(item: selectedItem)
+                .accessibilityIdentifier("home.quickFact.petSwitcherButton")
+        } else {
+            Menu {
+                ForEach(items) { item in
+                    Button {
+                        guard item.isSelected == false else { return }
+                        onSelectPet(item.id)
+                    } label: {
+                        Label(
+                            item.name,
+                            systemImage: item.isSelected ? "checkmark" : item.species.fallbackSystemImage
+                        )
                     }
                 }
+            } label: {
+                MHBPetSwitcherCapsule(item: selectedItem)
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.quickFact.petSwitcherButton")
+        }
+    }
+}
+
+// HomeQuickFactFeedingFoodSection 喂食品类选择区
+// 核心职责：
+// - 以互斥展开方式组织喂食分类
+// - 展示当前分类下的储物柜物品并支持切换
+private struct HomeQuickFactFeedingFoodSection: View {
+    @Binding var selectedKind: HomeQuickFactFeedingFoodKind
+    @Binding var expandedKind: HomeQuickFactFeedingFoodKind?
+    @Binding var selectedItemIDs: [HomeQuickFactFeedingFoodKind: String?]
+
+    var body: some View {
+        HomeQuickFactSheetSection(title: "喂了什么") {
+            VStack(spacing: MHBTheme.Spacing.s3) {
+                ForEach(HomeQuickFactFeedingFoodKind.allCases) { kind in
+                    VStack(spacing: MHBTheme.Spacing.s2) {
+                        HomeQuickFactFeedingCategoryRow(
+                            kind: kind,
+                            selectedItemName: selectedItemName(for: kind),
+                            isExpanded: expandedKind == kind,
+                            action: {
+                                expand(kind)
+                            }
+                        )
+
+                        if expandedKind == kind {
+                            HomeQuickFactFeedingPantryList(
+                                kind: kind,
+                                selectedItemID: selectedItemID(for: kind),
+                                onSelectItem: { item in
+                                    setSelectedItemID(item.id, for: kind)
+                                }
+                            )
+                            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                            .clipped()
+                        }
+                    }
+                    .animation(.snappy(duration: 0.24), value: expandedKind)
+                    .animation(.snappy(duration: 0.18), value: selectedItemID(for: kind))
+                }
+            }
+        }
+    }
+
+    private func expand(_ kind: HomeQuickFactFeedingFoodKind) {
+        let nextExpanded = expandedKind == kind ? nil : kind
+        selectedKind = kind
+        expandedKind = nextExpanded
+        if selectedItemID(for: kind) == nil {
+            setSelectedItemID(HomeQuickFactFeedingFoodSource.defaultItemID(for: kind), for: kind)
+        }
+    }
+
+    private func selectedItemName(for kind: HomeQuickFactFeedingFoodKind) -> String {
+        HomeQuickFactFeedingFoodSource.itemName(for: selectedItemID(for: kind), in: kind)
+            ?? HomeQuickFactFeedingFoodSource.defaultItemName(for: kind)
+            ?? kind.emptySelectionTitle
+    }
+
+    private func selectedItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
+        selectedItemIDs[kind] ?? HomeQuickFactFeedingFoodSource.defaultItemID(for: kind)
+    }
+
+    private func setSelectedItemID(_ itemID: String?, for kind: HomeQuickFactFeedingFoodKind) {
+        selectedKind = kind
+        selectedItemIDs[kind] = itemID
+    }
+}
+
+// HomeQuickFactFeedingCategoryRow 喂食分类展开行
+// 核心职责：
+// - 展示喂食分类和当前选中物品
+// - 承载互斥展开入口
+private struct HomeQuickFactFeedingCategoryRow: View {
+    let kind: HomeQuickFactFeedingFoodKind
+    let selectedItemName: String
+    let isExpanded: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
+                Image(systemName: kind.systemImage)
+                    .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
+                    .foregroundStyle(isExpanded ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.labelSecondary.color)
+                    .frame(width: 28, height: 28)
+
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text(kind.title)
+                        .font(MHBTheme.Typography.callout.weight(.bold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+
+                    Text(selectedItemName)
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: MHBTheme.Spacing.s2)
+
+                MHBAnimatedDisclosureChevron(
+                    isExpanded: isExpanded,
+                    size: 12,
+                    weight: .bold,
+                    color: MHBTheme.ColorToken.labelTertiary.color,
+                    systemImage: "chevron.down",
+                    expandedRotation: 180
+                )
+            }
+            .padding(MHBTheme.Spacing.s4)
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(isExpanded ? MHBTheme.ColorToken.primaryBackgroundSoft.color : MHBTheme.ColorToken.cardSolid.color)
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                    .stroke(isExpanded ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separator.color, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// HomeQuickFactFeedingPantryList 喂食储物柜物品列表
+// 核心职责：
+// - 展示当前展开分类下的储物柜物品
+// - 让用户在同一分类内切换具体喂食内容
+private struct HomeQuickFactFeedingPantryList: View {
+    let kind: HomeQuickFactFeedingFoodKind
+    let selectedItemID: String?
+    let onSelectItem: (PantryItem) -> Void
+
+    private var items: [PantryItem] {
+        HomeQuickFactFeedingFoodSource.items(for: kind)
+    }
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s2) {
+            if items.isEmpty {
+                HomeQuickFactFeedingManualItemRow(kind: kind)
+            } else {
+                ForEach(items) { item in
+                    HomeQuickFactFeedingPantryItemRow(
+                        item: item,
+                        isSelected: selectedItemID == item.id,
+                        action: {
+                            onSelectItem(item)
+                        }
+                    )
+                }
+            }
+        }
+        .padding(.leading, MHBTheme.Spacing.s4)
+    }
+}
+
+// HomeQuickFactFeedingPantryItemRow 喂食储物柜物品行
+// 核心职责：
+// - 展示储物柜物品名称、品牌和状态
+// - 提供具体喂食物品选中态
+private struct HomeQuickFactFeedingPantryItemRow: View {
+    let item: PantryItem
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: MHBTheme.Spacing.s3) {
+                HomeQuickFactFeedingPantryThumbnail(item: item)
+
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text(item.name)
+                        .font(MHBTheme.Typography.callout.weight(.semibold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+
+                    Text("\(item.brand) · \(item.statusLabel)")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: MHBTheme.Spacing.s2)
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    .foregroundStyle(isSelected ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separator.color)
+            }
+            .padding(MHBTheme.Spacing.s3)
+            .background(isSelected ? MHBTheme.ColorToken.primaryBackgroundSoft.color : MHBTheme.ColorToken.cardSolid.color)
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                    .stroke(isSelected ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separator.color, lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// HomeQuickFactFeedingPantryThumbnail 喂食储物柜缩略图
+// 核心职责：
+// - 展示储物柜物品图片
+// - 在图片不可用时提供分类图标兜底
+private struct HomeQuickFactFeedingPantryThumbnail: View {
+    let item: PantryItem
+
+    var body: some View {
+        ZStack {
+            MHBTheme.ColorToken.primaryBackgroundSoft.color
+
+            if let imageURL = item.imageURL.flatMap(URL.init(string:)) {
+                AsyncImage(url: imageURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure, .empty:
+                        fallbackIcon
+                    @unknown default:
+                        fallbackIcon
+                    }
+                }
+            } else {
+                fallbackIcon
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+    }
+
+    private var fallbackIcon: some View {
+        Image(systemName: item.category.feedingSystemImage)
+            .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+    }
+}
+
+// HomeQuickFactFeedingManualItemRow 手动喂食占位行
+// 核心职责：
+// - 为非储物柜物品保留输入位置
+// - 引导用户通过备注补充具体内容
+private struct HomeQuickFactFeedingManualItemRow: View {
+    let kind: HomeQuickFactFeedingFoodKind
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s3) {
+            Image(systemName: kind.systemImage)
+                .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            Text(kind.emptySelectionTitle)
+                .font(MHBTheme.Typography.callout.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            Spacer()
+        }
+        .padding(MHBTheme.Spacing.s3)
+        .background(MHBTheme.ColorToken.cardSolid.color)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+        }
+    }
+}
+
+// HomeQuickFactFeedingFoodSource 喂食储物柜数据源
+// 核心职责：
+// - 将储物柜分类映射到快捷喂食分类
+// - 提供默认物品和选中物品名称解析
+private enum HomeQuickFactFeedingFoodSource {
+    static func items(for kind: HomeQuickFactFeedingFoodKind) -> [PantryItem] {
+        PetPantryMockData.items.filter { item in
+            guard let feedingKind = item.category.feedingKind else { return false }
+            return feedingKind == kind
+        }
+    }
+
+    static func defaultItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
+        defaultItem(for: kind)?.id
+    }
+
+    static func defaultItemName(for kind: HomeQuickFactFeedingFoodKind) -> String? {
+        defaultItem(for: kind)?.name
+    }
+
+    static func itemName(for itemID: String?, in kind: HomeQuickFactFeedingFoodKind) -> String? {
+        guard let itemID else { return nil }
+        return items(for: kind).first { $0.id == itemID }?.name
+    }
+
+    private static func defaultItem(for kind: HomeQuickFactFeedingFoodKind) -> PantryItem? {
+        let items = items(for: kind)
+        return items.first { $0.status == .inUse } ?? items.first
+    }
+}
+
+private extension HomeQuickFactFeedingFoodKind {
+    var emptySelectionTitle: String {
+        switch self {
+        case .mainFood:
+            "选择主粮"
+        case .snack:
+            "选择零食"
+        case .supplement:
+            "选择营养品"
+        case .other:
+            "在备注中补充"
+        }
+    }
+}
+
+private extension PantryCategory {
+    var feedingKind: HomeQuickFactFeedingFoodKind? {
+        switch self {
+        case .mainFood, .wetFood:
+            .mainFood
+        case .treats:
+            .snack
+        case .supplements:
+            .supplement
+        case .all, .catLitter, .medicine:
+            nil
+        }
+    }
+
+    var feedingSystemImage: String {
+        switch self {
+        case .mainFood, .wetFood:
+            HomeQuickFactFeedingFoodKind.mainFood.systemImage
+        case .treats:
+            HomeQuickFactFeedingFoodKind.snack.systemImage
+        case .supplements:
+            HomeQuickFactFeedingFoodKind.supplement.systemImage
+        case .all:
+            "tray.full.fill"
+        case .catLitter:
+            "drop.fill"
+        case .medicine:
+            "pills.fill"
         }
     }
 }
@@ -343,6 +744,34 @@ private struct HomeQuickFactChoiceGrid<Option: Identifiable, Content: View>: Vie
     }
 }
 
+// HomeQuickFactDateSection 快捷事实时间选择区
+// 核心职责：
+// - 收集快捷记录的真实发生时间
+// - 统一喂食和异常 sheet 的时间输入样式
+private struct HomeQuickFactDateSection: View {
+    let title: LocalizedStringResource
+    @Binding var date: Date
+
+    var body: some View {
+        HomeQuickFactSheetSection(title: title) {
+            DatePicker(
+                "发生时间",
+                selection: $date,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .font(MHBTheme.Typography.callout)
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+            .padding(MHBTheme.Spacing.s4)
+            .background(MHBTheme.ColorToken.cardSolid.color)
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                    .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
+            }
+        }
+    }
+}
+
 // HomeQuickFactSelectableChip 快捷事实可选标签
 // 核心职责：
 // - 统一 sheet 内单选和多选按钮视觉
@@ -386,35 +815,6 @@ private struct HomeQuickFactOptionLabel: View {
     }
 }
 
-// HomeQuickFactSelectedPetCard 当前宠物展示卡片
-// 核心职责：
-// - 在无需切换宠物时展示事实归属
-// - 避免单宠场景增加额外选择负担
-private struct HomeQuickFactSelectedPetCard: View {
-    let name: String
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Image(systemName: "pawprint.circle.fill")
-                .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-
-            Text(name)
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-            Spacer()
-        }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                .stroke(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-        }
-    }
-}
-
 // HomeQuickFactNoteSection 快捷事实备注区
 // 核心职责：
 // - 承载可选补充描述
@@ -455,9 +855,8 @@ private struct HomeQuickFactPhotoPlaceholderSection: View {
                     Text("添加照片")
                         .font(MHBTheme.Typography.callout.weight(.semibold))
                     Spacer()
-                    Text("稍后接入")
-                        .font(MHBTheme.Typography.caption)
-                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                    Image(systemName: "plus")
+                        .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
                 }
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .padding(MHBTheme.Spacing.s4)
@@ -470,6 +869,46 @@ private struct HomeQuickFactPhotoPlaceholderSection: View {
             }
             .buttonStyle(.plain)
             .disabled(true)
+        }
+    }
+}
+
+private extension MHBPetSwitcherItem {
+    init(recordSwitchPet pet: PetRecordSwitchPet, isSelected: Bool) {
+        self.init(
+            id: pet.id,
+            name: pet.name ?? "未命名宠物",
+            subtitle: pet.breed,
+            avatarURLString: pet.avatarURL,
+            species: MHBPetSwitcherSpecies(recordSpecies: pet.species),
+            sex: MHBPetSwitcherSex(recordSex: pet.sex),
+            isSelected: isSelected
+        )
+    }
+}
+
+private extension MHBPetSwitcherSpecies {
+    init(recordSpecies: PetRecordPetSpecies) {
+        switch recordSpecies {
+        case .dog:
+            self = .dog
+        case .cat:
+            self = .cat
+        case .other:
+            self = .other
+        }
+    }
+}
+
+private extension MHBPetSwitcherSex {
+    init(recordSex: PetRecordPetSex) {
+        switch recordSex {
+        case .female:
+            self = .female
+        case .male:
+            self = .male
+        case .unknown:
+            self = .unknown
         }
     }
 }

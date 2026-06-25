@@ -148,7 +148,7 @@ struct MHBAppShell: View {
         submitQuickFactSheetEvent(
             action: .fed,
             petID: input.petID,
-            draft: input.eventDraft(occurredAt: Date())
+            draft: input.eventDraft()
         )
     }
 
@@ -156,7 +156,7 @@ struct MHBAppShell: View {
         submitQuickFactSheetEvent(
             action: .abnormal,
             petID: input.petID,
-            draft: input.eventDraft(occurredAt: Date())
+            draft: input.eventDraft()
         )
     }
 

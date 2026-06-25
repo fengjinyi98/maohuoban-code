@@ -27,7 +27,7 @@ enum HomeQuickFactFeedingFoodKind: String, CaseIterable, Identifiable {
         switch self {
         case .mainFood: "主粮"
         case .snack: "零食"
-        case .supplement: "补剂"
+        case .supplement: "营养品"
         case .other: "其他"
         }
     }
@@ -69,17 +69,20 @@ enum HomeQuickFactFeedingAmount: String, CaseIterable, Identifiable {
 struct HomeQuickFactFeedingInput: Equatable {
     let petID: String?
     let foodKind: HomeQuickFactFeedingFoodKind
+    let foodName: String?
     let amount: HomeQuickFactFeedingAmount
+    let occurredAt: Date
     let note: String
 
-    func eventDraft(occurredAt: Date) -> PetEventDraft {
+    func eventDraft() -> PetEventDraft {
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         let noteText = trimmedNote.isEmpty ? "" : "，备注：\(trimmedNote)"
+        let foodText = foodName?.isEmpty == false ? "\(foodKind.title)：\(foodName ?? "")" : foodKind.title
         return PetEventDraft(
             kind: .daily,
             subkind: "feeding",
             title: "已喂",
-            summary: "喂食：\(foodKind.title)，份量：\(amount.title)\(noteText)",
+            summary: "喂食：\(foodText)，份量：\(amount.title)\(noteText)",
             visibility: .private,
             occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
         )
@@ -157,9 +160,10 @@ struct HomeQuickFactAbnormalInput: Equatable {
     let petID: String?
     let symptoms: [HomeQuickFactAbnormalSymptom]
     let severity: HomeQuickFactAbnormalSeverity
+    let occurredAt: Date
     let note: String
 
-    func eventDraft(occurredAt: Date) -> PetEventDraft {
+    func eventDraft() -> PetEventDraft {
         let symptomsText = symptoms.map(\.title).joined(separator: "、")
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         let noteText = trimmedNote.isEmpty ? "" : "，备注：\(trimmedNote)"
