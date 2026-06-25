@@ -67,6 +67,7 @@ struct HomeQuickFactActionBar: View {
                         petName: routingContext.selectedPetName,
                         petAvatarURL: routingContext.selectedPetAvatarURL,
                         petSex: routingContext.selectedPetSex,
+                        lifeStatus: routingContext.selectedPetLifeStatus,
                         availablePets: routingContext.availablePets
                     )
                 )
@@ -94,7 +95,8 @@ struct HomeQuickFactActionBar: View {
             await store.createEvent(
                 petID: routingContext.selectedPetID,
                 draft: draft,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                lifeStatus: routingContext.selectedPetLifeStatus
             )
 
             submittingAction = nil

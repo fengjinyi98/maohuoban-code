@@ -38,6 +38,7 @@ extension HomeDashboardSnapshot {
         let note: String?
         let companionshipDays: Int?
         let nameEditPolicy: PetNameEditPolicy?
+        let lifeStatus: String?
         let stats: PetHeroStats?
 
         var heroMedia: HeroMedia {
@@ -106,6 +107,7 @@ extension HomeDashboardSnapshot {
             note: String? = nil,
             companionshipDays: Int? = nil,
             nameEditPolicy: PetNameEditPolicy? = nil,
+            lifeStatus: String? = nil,
             stats: PetHeroStats? = nil
         ) {
             self.id = id
@@ -140,6 +142,7 @@ extension HomeDashboardSnapshot {
             self.note = note
             self.companionshipDays = companionshipDays
             self.nameEditPolicy = nameEditPolicy
+            self.lifeStatus = lifeStatus
             self.stats = stats
         }
 
@@ -208,6 +211,7 @@ extension HomeDashboardSnapshot {
                 note: note,
                 companionshipDays: companionshipDays,
                 nameEditPolicy: nil,
+                lifeStatus: nil,
                 stats: stats
             )
         }

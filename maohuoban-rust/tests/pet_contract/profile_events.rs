@@ -264,3 +264,76 @@ async fn pet_event_detail_returns_current_user_event() {
     assert_eq!(body["data"]["event_kind"], "health");
     assert_eq!(body["data"]["record_revision"], 1);
 }
+
+#[tokio::test]
+async fn pet_event_detail_allows_active_co_caretaker_relation() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let owner_user_id = login_user_id(&app, "13800138241").await;
+    let co_caretaker_user_id = login_user_id(&app, "13800138242").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&owner_user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    app.seed_active_pet_co_caretaker(&pet_id, &co_caretaker_user_id)
+        .await;
+
+    let create_event_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "title": "体重记录",
+                "summary": "5.2kg",
+                "occurred_at": "2026-06-13T09:20:00Z",
+                "event_payload": {
+                    "weight_kg": 5.2
+                }
+            }),
+            Some(&owner_user_id),
+        ))
+        .await
+        .expect("create pet event");
+    assert_eq!(create_event_response.status(), StatusCode::CREATED);
+    let create_event_body = response_json(create_event_response).await;
+    let event_id = create_event_body["data"]["id"]
+        .as_str()
+        .expect("event id")
+        .to_owned();
+
+    let detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&co_caretaker_user_id),
+        ))
+        .await
+        .expect("co caretaker load event detail");
+
+    assert_eq!(detail_response.status(), StatusCode::OK);
+    let body = response_json(detail_response).await;
+    assert_eq!(body["code"], "pet.event_loaded");
+    assert_eq!(body["data"]["id"], event_id);
+    assert_eq!(body["data"]["pet_id"], pet_id);
+}

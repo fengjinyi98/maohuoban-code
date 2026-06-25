@@ -50,9 +50,30 @@ impl PostgresPetRepository {
         Self { pool }
     }
 
-    async fn attach_name_edit_policy(&self, mut pet: PetProfile) -> PetResult<PetProfile> {
+    async fn attach_profile_read_models(&self, mut pet: PetProfile) -> PetResult<PetProfile> {
+        if let Some(active_microchip) = self.load_active_microchip_projection(pet.id).await? {
+            pet.microchip_number = Some(active_microchip);
+        }
         pet.name_edit_policy = Some(self.load_name_edit_policy(pet.id).await?);
         Ok(pet)
+    }
+
+    async fn load_active_microchip_projection(&self, pet_id: Uuid) -> PetResult<Option<String>> {
+        sqlx::query_scalar::<_, String>(
+            r#"
+            SELECT identifier_value
+            FROM pet_external_identifiers
+            WHERE pet_id = $1
+              AND identifier_type = 'microchip'
+              AND status = 'active'
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(pet_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)
     }
 
     async fn load_name_edit_policy(&self, pet_id: Uuid) -> PetResult<PetNameEditPolicy> {
@@ -270,7 +291,11 @@ impl PetRepository for PostgresPetRepository {
         self.list_lifecycle_events_query(pet_id).await
     }
 
-    async fn load_identity_context(&self, pet_id: Uuid) -> PetResult<PetIdentityContext> {
-        self.load_identity_context_query(pet_id).await
+    async fn load_identity_context(
+        &self,
+        pet_id: Uuid,
+        user_id: Uuid,
+    ) -> PetResult<PetIdentityContext> {
+        self.load_identity_context_query(pet_id, user_id).await
     }
 }

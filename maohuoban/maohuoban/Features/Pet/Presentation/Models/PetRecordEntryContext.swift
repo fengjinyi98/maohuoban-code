@@ -10,6 +10,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
     let petName: String?
     let petAvatarURL: String?
     let petSex: PetRecordPetSex
+    let lifeStatus: String?
     let availablePets: [PetRecordSwitchPet]
 
     init(
@@ -17,12 +18,14 @@ struct PetRecordEntryContext: Hashable, Sendable {
         petName: String? = nil,
         petAvatarURL: String? = nil,
         petSex: PetRecordPetSex = .unknown,
+        lifeStatus: String? = nil,
         availablePets: [PetRecordSwitchPet] = []
     ) {
         self.petID = petID
         self.petName = petName
         self.petAvatarURL = petAvatarURL
         self.petSex = petSex
+        self.lifeStatus = lifeStatus
         self.availablePets = availablePets
     }
 
@@ -40,6 +43,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
             breed: "",
             avatarURL: petAvatarURL,
             sex: petSex,
+            lifeStatus: lifeStatus,
             isSelected: true
         )
     }
@@ -56,6 +60,7 @@ struct PetRecordSwitchPet: Hashable, Identifiable, Sendable {
     let breed: String
     let avatarURL: String?
     let sex: PetRecordPetSex
+    let lifeStatus: String?
     let isSelected: Bool
 
     init(
@@ -65,6 +70,7 @@ struct PetRecordSwitchPet: Hashable, Identifiable, Sendable {
         breed: String = "",
         avatarURL: String? = nil,
         sex: PetRecordPetSex = .unknown,
+        lifeStatus: String? = nil,
         isSelected: Bool
     ) {
         self.id = id
@@ -73,6 +79,7 @@ struct PetRecordSwitchPet: Hashable, Identifiable, Sendable {
         self.breed = breed
         self.avatarURL = avatarURL
         self.sex = sex
+        self.lifeStatus = lifeStatus
         self.isSelected = isSelected
     }
 }

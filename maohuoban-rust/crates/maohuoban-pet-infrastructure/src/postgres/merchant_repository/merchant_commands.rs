@@ -16,6 +16,7 @@ impl PostgresPetRepository {
         input: NewMerchantPetProfile,
     ) -> PetResult<PetProfile> {
         let pet_id = Uuid::new_v4();
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
         let row = sqlx::query_as::<_, MerchantManagedPetRow>(
             r#"
             INSERT INTO pet_profiles (
@@ -72,9 +73,42 @@ impl PostgresPetRepository {
         .bind(profile_number_from_uuid(pet_id))
         .bind(input.managed_status.as_str())
         .bind(input.source_kind.as_str())
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;
+
+        // Phase 1: 同步写入 guardian + lifecycle
+        sqlx::query(
+            r#"
+            INSERT INTO pet_guardians (id, pet_id, guardian_type, guardian_merchant_id, role, status, started_at)
+            VALUES ($1, $2, 'merchant', $3, 'merchant_manager', 'active', now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(input.merchant_id)
+        .execute(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO pet_lifecycle_events (id, pet_id, event_kind, actor_user_id, note, occurred_at)
+            VALUES ($1, $2, 'created', $3, $4, now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind::<Option<Uuid>>(None)
+        .bind::<Option<String>>(None)
+        .execute(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
 
         row.try_into()
     }

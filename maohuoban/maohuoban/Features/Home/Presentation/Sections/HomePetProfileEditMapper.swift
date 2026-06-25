@@ -26,7 +26,8 @@ enum HomePetProfileEditMapper {
             neuterStatusText: neuterStatusText(for: pet.neuterStatus),
             personalityTags: pet.personalityTags,
             note: pet.note ?? pet.statusText,
-            nameEditPolicy: pet.nameEditPolicy
+            nameEditPolicy: pet.nameEditPolicy,
+            lifeStatus: pet.lifeStatus
         )
     }
 
@@ -57,7 +58,8 @@ enum HomePetProfileEditMapper {
             neuterStatusText: neuterStatusText(for: item.neuterStatus),
             personalityTags: item.personalityTags,
             note: item.note ?? "暂未设置",
-            nameEditPolicy: item.nameEditPolicy
+            nameEditPolicy: item.nameEditPolicy,
+            lifeStatus: item.lifeStatus
         )
     }
 

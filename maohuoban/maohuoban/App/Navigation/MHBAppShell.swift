@@ -146,14 +146,16 @@ struct MHBAppShell: View {
         submitQuickFactSheetEvent(
             action: .fed,
             petID: input.petID,
-            draft: input.eventDraft()
+            draft: input.eventDraft(),
+            lifeStatus: input.lifeStatus
         )
     }
 
     private func submitQuickFactSheetEvent(
         action: HomeQuickFactAction,
         petID: String?,
-        draft: PetEventDraft
+        draft: PetEventDraft,
+        lifeStatus: String? = nil
     ) {
         guard homeQuickFactSheetSubmittingAction == nil else { return }
 
@@ -162,7 +164,8 @@ struct MHBAppShell: View {
             await homeQuickFactSheetStore.createEvent(
                 petID: petID,
                 draft: draft,
-                currentUserID: currentUserStore.userID
+                currentUserID: currentUserStore.userID,
+                lifeStatus: lifeStatus
             )
 
             homeQuickFactSheetSubmittingAction = nil

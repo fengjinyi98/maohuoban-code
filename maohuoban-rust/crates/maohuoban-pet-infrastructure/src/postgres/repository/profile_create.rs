@@ -1,8 +1,9 @@
 use maohuoban_pet_application::pet::{NewPetProfile, PetProfileDiagnostics, record_pet_profile};
-use maohuoban_pet_domain::pet::{PetError, PetProfile, PetResult};
+use maohuoban_pet_domain::pet::{LifecycleEventKind, PetError, PetProfile, PetResult};
 use uuid::Uuid;
 
 use super::PostgresPetRepository;
+use super::profile_external_ids::insert_microchip_identifier_in_transaction;
 use super::rows::PetProfileRow;
 use super::storage::{profile_number_from_uuid, to_infrastructure_error};
 
@@ -15,6 +16,7 @@ impl PostgresPetRepository {
         let pet_id = Uuid::new_v4();
         let owner_user_id = input.owner_user_id;
         let breed = input.breed.clone();
+        let microchip_for_external_id = input.microchip_number.clone();
         record_pet_profile(PetProfileDiagnostics {
             stage: "repository.insert_start",
             action: "create",
@@ -35,7 +37,6 @@ impl PostgresPetRepository {
                 sex,
                 birthday,
                 profile_number,
-                microchip_number,
                 arrival_date,
                 weight_grams,
                 neuter_status,
@@ -46,7 +47,7 @@ impl PostgresPetRepository {
                 life_status,
                 origin_kind
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'family', $15, 'alive', $16)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'family', $14, 'alive', $15)
             RETURNING
                 id,
                 owner_user_id,
@@ -86,7 +87,6 @@ impl PostgresPetRepository {
         .bind(input.sex.as_str())
         .bind(input.birthday)
         .bind(profile_number_from_uuid(pet_id))
-        .bind(input.microchip_number)
         .bind(input.arrival_date)
         .bind(input.weight_grams)
         .bind(input.neuter_status.as_str())
@@ -97,6 +97,21 @@ impl PostgresPetRepository {
         .fetch_one(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;
+
+        // Phase 1: 在同一事务中写入 guardian + lifecycle + external_identifier
+        Self::insert_owner_guardian_in_transaction(&mut transaction, pet_id, owner_user_id).await?;
+        Self::insert_lifecycle_event_in_transaction(
+            &mut transaction,
+            pet_id,
+            LifecycleEventKind::Created,
+            Some(owner_user_id),
+            None,
+        )
+        .await?;
+        if let Some(ref chip) = microchip_for_external_id {
+            insert_microchip_identifier_in_transaction(&mut transaction, pet_id, chip, None, None)
+                .await?;
+        }
 
         let has_media_assets =
             input.avatar_asset_id.is_some() || input.background_asset_id.is_some();
@@ -133,7 +148,7 @@ impl PostgresPetRepository {
             pet
         };
 
-        let pet = self.attach_name_edit_policy(pet).await?;
+        let pet = self.attach_profile_read_models(pet).await?;
         record_pet_profile(PetProfileDiagnostics {
             stage: "repository.inserted",
             action: "create",
@@ -143,5 +158,55 @@ impl PostgresPetRepository {
             success: true,
         });
         Ok(pet)
+    }
+
+    /// insert_owner_guardian_in_transaction 在事务中写入 owner 归属关系
+    async fn insert_owner_guardian_in_transaction(
+        transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        pet_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO pet_guardians (
+                id, pet_id, guardian_type, guardian_user_id, role, status, started_at
+            )
+            VALUES ($1, $2, 'user', $3, 'owner', 'active', now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(owner_user_id)
+        .execute(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+        Ok(())
+    }
+
+    /// insert_lifecycle_event_in_transaction 在事务中写入生命周期事件
+    async fn insert_lifecycle_event_in_transaction(
+        transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        pet_id: Uuid,
+        event_kind: LifecycleEventKind,
+        actor_user_id: Option<Uuid>,
+        note: Option<&str>,
+    ) -> PetResult<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO pet_lifecycle_events (
+                id, pet_id, event_kind, actor_user_id, note, occurred_at
+            )
+            VALUES ($1, $2, $3, $4, $5, now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(event_kind.as_str())
+        .bind(actor_user_id)
+        .bind(note)
+        .execute(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+        Ok(())
     }
 }

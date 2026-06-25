@@ -9,6 +9,7 @@ struct HomeActionRoutingContext: Equatable {
     let selectedPetName: String?
     let selectedPetAvatarURL: String?
     let selectedPetSex: PetRecordPetSex
+    let selectedPetLifeStatus: String?
     let availablePets: [PetRecordSwitchPet]
     let merchantID: String?
     let city: String?
@@ -18,6 +19,7 @@ struct HomeActionRoutingContext: Equatable {
         selectedPetName: String? = nil,
         selectedPetAvatarURL: String? = nil,
         selectedPetSex: PetRecordPetSex = .unknown,
+        selectedPetLifeStatus: String? = nil,
         availablePets: [PetRecordSwitchPet] = [],
         merchantID: String? = nil,
         city: String? = nil
@@ -26,6 +28,7 @@ struct HomeActionRoutingContext: Equatable {
         self.selectedPetName = selectedPetName
         self.selectedPetAvatarURL = selectedPetAvatarURL
         self.selectedPetSex = selectedPetSex
+        self.selectedPetLifeStatus = selectedPetLifeStatus
         self.availablePets = availablePets
         self.merchantID = merchantID
         self.city = city
@@ -36,6 +39,7 @@ struct HomeActionRoutingContext: Equatable {
         self.selectedPetName = snapshot.selectedPet?.name
         self.selectedPetAvatarURL = snapshot.selectedPet?.avatarURL
         self.selectedPetSex = PetRecordPetSex(homeDashboardSex: snapshot.selectedPet?.sex)
+        self.selectedPetLifeStatus = snapshot.selectedPet?.lifeStatus
         self.availablePets = snapshot.petSwitcher.map { item in
             PetRecordSwitchPet(
                 id: item.id,
@@ -44,6 +48,7 @@ struct HomeActionRoutingContext: Equatable {
                 breed: item.breed,
                 avatarURL: item.avatarURL,
                 sex: PetRecordPetSex(homeDashboardSex: item.sex ?? (item.id == snapshot.selectedPet?.id ? snapshot.selectedPet?.sex : nil)),
+                lifeStatus: item.lifeStatus ?? (item.id == snapshot.selectedPet?.id ? snapshot.selectedPet?.lifeStatus : nil),
                 isSelected: item.id == snapshot.selectedPet?.id
             )
         }
@@ -98,7 +103,8 @@ enum HomeActionRouteResolver {
                     petID: context.selectedPetID,
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
-                    petSex: context.selectedPetSex
+                    petSex: context.selectedPetSex,
+                    lifeStatus: context.selectedPetLifeStatus
                 )
             )
         case .preventiveCare:
@@ -109,6 +115,7 @@ enum HomeActionRouteResolver {
                         petName: context.selectedPetName,
                         petAvatarURL: context.selectedPetAvatarURL,
                         petSex: context.selectedPetSex,
+                        lifeStatus: context.selectedPetLifeStatus,
                         availablePets: context.availablePets
                     ),
                     fallbackPetName: context.selectedPetName ?? "当前宠物"
@@ -124,6 +131,7 @@ enum HomeActionRouteResolver {
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
                     petSex: context.selectedPetSex,
+                    lifeStatus: context.selectedPetLifeStatus,
                     availablePets: context.availablePets
                 )
             )

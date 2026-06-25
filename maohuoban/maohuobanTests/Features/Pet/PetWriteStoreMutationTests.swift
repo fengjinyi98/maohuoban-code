@@ -68,6 +68,33 @@ final class PetWriteStoreMutationTests: XCTestCase {
         XCTAssertEqual(repository.receivedUpdateDraft?.weightGrams, 4800)
     }
 
+    func testUpdatePetBlocksTerminalLifeStatusWithoutCallingRepository() async {
+        let repository = CapturingPetRepository()
+        let store = PetWriteStore(repository: repository)
+
+        await store.updatePet(
+            petID: "pet-1",
+            draft: PetProfileUpdateDraft(
+                name: "糯米",
+                species: .dog,
+                breed: "",
+                sex: .female,
+                birthday: "2024-04-01",
+                microchipNumber: "",
+                arrivalDate: "2024-06-16",
+                weightGrams: 4800,
+                neuterStatus: .neutered,
+                personalityTags: ["亲人"],
+                note: "喜欢晒太阳"
+            ),
+            currentUserID: "user-1",
+            lifeStatus: "deceased"
+        )
+
+        XCTAssertEqual(store.phase, .failed("当前生命状态不支持写入"))
+        XCTAssertNil(repository.receivedUpdatePetID)
+    }
+
     func testDeletePetTransitionsToDeletedAndPassesUserContext() async {
         let repository = CapturingPetRepository()
         repository.deletePetResult = .success(

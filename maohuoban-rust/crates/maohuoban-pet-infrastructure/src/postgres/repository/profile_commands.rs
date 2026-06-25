@@ -99,7 +99,7 @@ impl PostgresPetRepository {
             .await
             .map_err(to_infrastructure_error)?;
 
-        row.try_into()
+        self.attach_profile_read_models(row.try_into()?).await
     }
 
     pub(super) async fn restore_pet_profile_command(
@@ -168,7 +168,7 @@ impl PostgresPetRepository {
             .await
             .map_err(to_infrastructure_error)?;
 
-        row.try_into()
+        self.attach_profile_read_models(row.try_into()?).await
     }
 }
 

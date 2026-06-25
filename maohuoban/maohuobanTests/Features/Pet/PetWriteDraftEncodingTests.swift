@@ -55,4 +55,35 @@ final class PetWriteDraftEncodingTests: PetRepositoryTestCase {
         XCTAssertEqual(tradeJSON["name"] as? String, "奶盖宝宝兔兔")
         XCTAssertEqual(tradeJSON["breed"] as? String, "布偶猫长毛系")
     }
+
+    func testProfileDraftsSubmitMicrochipAsEditableProfileField() throws {
+        let createJSON = try Self.encodedJSONObject(
+            PetProfileDraft(
+                name: "奶盖",
+                species: .cat,
+                breed: "布偶",
+                sex: .female,
+                birthday: "2024-04-01",
+                microchipNumber: "156000000000101"
+            )
+        )
+        XCTAssertEqual(createJSON["microchip_number"] as? String, "156000000000101")
+
+        let updateJSON = try Self.encodedJSONObject(
+            PetProfileUpdateDraft(
+                name: "奶盖",
+                species: .cat,
+                breed: "布偶",
+                sex: .female,
+                birthday: "2024-04-01",
+                microchipNumber: "156000000000101",
+                arrivalDate: "",
+                weightGrams: nil,
+                neuterStatus: .unknown,
+                personalityTags: [],
+                note: ""
+            )
+        )
+        XCTAssertEqual(updateJSON["microchip_number"] as? String, "156000000000101")
+    }
 }

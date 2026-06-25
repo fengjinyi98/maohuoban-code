@@ -40,6 +40,7 @@ struct HomeRouteDestinationScreen: View {
             PetEventRecordScreen(
                 petID: context.petID,
                 petSex: context.petSex,
+                lifeStatus: context.lifeStatus,
                 currentUserID: currentUserID,
                 mode: .health,
                 onRecorded: {

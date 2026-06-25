@@ -130,6 +130,7 @@ struct HomeQuickFactFeedingSheet: View {
                 breed: "",
                 avatarURL: context.selectedPetAvatarURL,
                 sex: context.selectedPetSex,
+                lifeStatus: context.selectedPetLifeStatus,
                 isSelected: true
             )
         ]
@@ -153,6 +154,7 @@ struct HomeQuickFactFeedingSheet: View {
         onSubmit(
             HomeQuickFactFeedingInput(
                 petID: selectedPetID,
+                lifeStatus: pets.first(where: { $0.id == selectedPetID })?.lifeStatus,
                 foodKind: selectedFoodKind,
                 foodName: HomeQuickFactFeedingFoodSource.itemName(
                     for: selectedFoodItemID(for: selectedFoodKind),

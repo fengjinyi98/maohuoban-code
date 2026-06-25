@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct PetEventRecordScreen: View {
     let petID: String?
     let petSex: PetRecordPetSex
+    let lifeStatus: String?
     let currentUserID: String?
     let mode: PetEventRecordMode
     let onRecorded: () -> Void
@@ -27,12 +28,14 @@ struct PetEventRecordScreen: View {
     init(
         petID: String?,
         petSex: PetRecordPetSex = .unknown,
+        lifeStatus: String? = nil,
         currentUserID: String?,
         mode: PetEventRecordMode,
         onRecorded: @escaping () -> Void
     ) {
         self.petID = petID
         self.petSex = petSex
+        self.lifeStatus = lifeStatus
         self.currentUserID = currentUserID
         self.mode = mode
         self.onRecorded = onRecorded
@@ -102,7 +105,8 @@ struct PetEventRecordScreen: View {
         await store.createEvent(
             petID: petID,
             draft: eventDraft,
-            currentUserID: currentUserID
+            currentUserID: currentUserID,
+            lifeStatus: lifeStatus
         )
         if case .recordedEvent = store.phase {
             onRecorded()

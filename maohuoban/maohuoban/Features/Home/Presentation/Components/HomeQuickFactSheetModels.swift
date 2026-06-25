@@ -67,6 +67,7 @@ enum HomeQuickFactFeedingAmount: String, CaseIterable, Identifiable {
 // - 转换为现有宠物事件草稿
 struct HomeQuickFactFeedingInput: Equatable {
     let petID: String?
+    let lifeStatus: String?
     let foodKind: HomeQuickFactFeedingFoodKind
     let foodName: String?
     let amount: HomeQuickFactFeedingAmount

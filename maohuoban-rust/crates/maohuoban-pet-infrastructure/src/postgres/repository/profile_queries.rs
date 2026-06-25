@@ -42,7 +42,18 @@ pub(super) async fn load_pet_profile_for_update(
             created_at,
             updated_at
         FROM pet_profiles
-        WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
+        WHERE id = $1
+          AND deleted_at IS NULL
+          AND (
+              EXISTS (
+                  SELECT 1
+                  FROM pet_guardians g
+                  WHERE g.pet_id = pet_profiles.id
+                    AND g.guardian_user_id = $2
+                    AND g.status = 'active'
+              )
+              OR owner_user_id = $2
+          )
         "#,
     )
     .bind(pet_id)

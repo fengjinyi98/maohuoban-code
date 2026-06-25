@@ -98,6 +98,10 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
             get(events::load_pet_timeline),
         )
         .route(
+            "/api/v1/pets/{pet_id}/identity-context",
+            get(profile::load_identity_context),
+        )
+        .route(
             "/api/v1/merchants/{merchant_id}/pets",
             get(merchant::list_merchant_pets).post(merchant::create_merchant_pet),
         )

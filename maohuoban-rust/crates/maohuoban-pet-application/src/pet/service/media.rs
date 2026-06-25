@@ -135,7 +135,7 @@ impl PetService {
     ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
         if self
             .repository
-            .find_pet_for_owner(input.pet_id, input.owner_user_id)
+            .authorize_pet_access(input.pet_id, input.owner_user_id)
             .await?
             .is_none()
         {

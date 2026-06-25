@@ -52,7 +52,7 @@ impl PostgresPetRepository {
     pub(super) async fn update_pet_media_reference_by_usage(
         transaction: &mut Transaction<'_, Postgres>,
         pet_id: Uuid,
-        owner_user_id: Uuid,
+        _owner_user_id: Uuid,
         asset_id: Uuid,
         usage_kind: MediaUsageKind,
     ) -> PetResult<()> {
@@ -78,15 +78,14 @@ impl PostgresPetRepository {
             r#"
             UPDATE pet_profiles
             SET
-                avatar_asset_id = COALESCE($3, avatar_asset_id),
-                background_asset_id = COALESCE($4, background_asset_id),
-                background_media_kind = COALESCE($5, background_media_kind),
+                avatar_asset_id = COALESCE($2, avatar_asset_id),
+                background_asset_id = COALESCE($3, background_asset_id),
+                background_media_kind = COALESCE($4, background_media_kind),
                 updated_at = now()
-            WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL
+            WHERE id = $1 AND deleted_at IS NULL
             "#,
         )
         .bind(pet_id)
-        .bind(owner_user_id)
         .bind(avatar_asset_id)
         .bind(background_asset_id)
         .bind(background_media_kind)

@@ -344,5 +344,10 @@ pub trait PetRepository: Send + Sync {
     async fn list_lifecycle_events(&self, pet_id: Uuid) -> PetResult<Vec<PetLifecycleEvent>>;
 
     /// 获取 Agent 身份上下文（聚合身份、关系、标识、生命周期）
-    async fn load_identity_context(&self, pet_id: Uuid) -> PetResult<PetIdentityContext>;
+    /// user_id 用于授权校验，非 owner/guardian 不可读取
+    async fn load_identity_context(
+        &self,
+        pet_id: Uuid,
+        user_id: Uuid,
+    ) -> PetResult<PetIdentityContext>;
 }

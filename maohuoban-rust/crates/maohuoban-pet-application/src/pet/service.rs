@@ -4,7 +4,9 @@ mod validation;
 
 use std::sync::Arc;
 
-use maohuoban_pet_domain::pet::{PetError, PetEvent, PetProfile, PetResult, PetTimeline};
+use maohuoban_pet_domain::pet::{
+    PetError, PetEvent, PetIdentityContext, PetProfile, PetResult, PetTimeline,
+};
 use uuid::Uuid;
 
 use self::validation::{
@@ -89,7 +91,7 @@ impl PetService {
         validate_optional_weight(input.weight_grams)?;
         if self
             .repository
-            .find_pet_for_owner(input.pet_id, input.owner_user_id)
+            .authorize_pet_access(input.pet_id, input.owner_user_id)
             .await?
             .is_none()
         {
@@ -148,7 +150,7 @@ impl PetService {
         validate_text("事件标题", &input.title)?;
         if self
             .repository
-            .find_pet_for_owner(input.pet_id, input.actor_user_id)
+            .authorize_pet_access(input.pet_id, input.actor_user_id)
             .await?
             .is_none()
         {
@@ -180,7 +182,7 @@ impl PetService {
         pet_id: Uuid,
     ) -> PetResult<PetProfile> {
         self.repository
-            .find_pet_for_owner(pet_id, owner_user_id)
+            .authorize_pet_access(pet_id, owner_user_id)
             .await?
             .ok_or(PetError::PetNotFound)
     }
@@ -192,7 +194,7 @@ impl PetService {
     ) -> PetResult<PetTimeline> {
         if self
             .repository
-            .find_pet_for_owner(pet_id, owner_user_id)
+            .authorize_pet_access(pet_id, owner_user_id)
             .await?
             .is_none()
         {
@@ -212,5 +214,14 @@ impl PetService {
             .load_pet_event_detail(owner_user_id, event_id)
             .await?
             .ok_or(PetError::PetNotFound)
+    }
+
+    /// 加载 Agent 身份上下文（含授权校验）
+    pub async fn load_identity_context(
+        &self,
+        user_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<PetIdentityContext> {
+        self.repository.load_identity_context(pet_id, user_id).await
     }
 }

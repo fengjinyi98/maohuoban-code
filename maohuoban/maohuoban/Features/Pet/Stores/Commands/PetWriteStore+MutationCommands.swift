@@ -9,7 +9,8 @@ extension PetWriteStore {
     func updatePet(
         petID: String?,
         draft: PetProfileUpdateDraft,
-        currentUserID: String?
+        currentUserID: String?,
+        lifeStatus: String? = nil
     ) async {
         guard let currentUserID, !currentUserID.isEmpty else {
             phase = .failed("请先登录")
@@ -21,6 +22,10 @@ extension PetWriteStore {
         }
         guard !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             phase = .failed("请输入宠物名字")
+            return
+        }
+        guard PetLifeStatus.guardWriteAccess(lifeStatus: lifeStatus) else {
+            phase = .failed("当前生命状态不支持写入")
             return
         }
         guard phase != .submitting else { return }

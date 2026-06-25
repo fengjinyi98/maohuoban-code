@@ -1,6 +1,68 @@
 use super::*;
 
 #[tokio::test]
+async fn active_co_caretaker_can_bind_uploaded_pet_media() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let owner_user_id = login_user_id(&app, "13800138234").await;
+    let co_caretaker_user_id = login_user_id(&app, "13800138235").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "可可",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&owner_user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    app.seed_active_pet_co_caretaker(pet_id, &co_caretaker_user_id)
+        .await;
+    let upload_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "caretaker-avatar.txt",
+        "text/plain",
+        b"caretaker-avatar-bytes",
+        &co_caretaker_user_id,
+    )
+    .await;
+    let asset_id = upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("asset id");
+
+    let bind_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/media-bindings"),
+            json!({ "asset_id": asset_id }),
+            Some(&co_caretaker_user_id),
+        ))
+        .await
+        .expect("co caretaker bind uploaded media");
+
+    assert_eq!(bind_response.status(), StatusCode::CREATED);
+    let bind_body = response_json(bind_response).await;
+    assert_eq!(bind_body["code"], "pet.media_bound");
+    assert_eq!(bind_body["data"]["binding"]["pet_id"], pet_id);
+    assert_eq!(
+        bind_body["data"]["asset"]["uploaded_by_user_id"],
+        co_caretaker_user_id
+    );
+    assert_eq!(bind_body["data"]["asset"]["owner_pet_id"], pet_id);
+}
+
+#[tokio::test]
 async fn pet_avatar_upload_creates_traceable_media_binding() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

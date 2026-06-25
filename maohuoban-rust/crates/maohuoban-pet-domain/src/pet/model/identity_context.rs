@@ -62,6 +62,7 @@ pub struct ExternalIdentifierSummary {
 /// LifecycleSummary 生命周期事件摘要
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LifecycleSummary {
+    pub id: Uuid,
     pub event_kind: String,
     pub occurred_at: DateTime<Utc>,
     pub note: Option<String>,
@@ -131,13 +132,14 @@ mod tests {
             external_identifiers: vec![ExternalIdentifierSummary {
                 identifier_type: "microchip".into(),
                 identifier_value: "900000000000001".into(),
-                verified_status: "disputed".into(),
-                status: "active".into(),
+                verified_status: "self_reported".into(),
+                status: "disputed".into(),
             }],
             ..sample_context()
         };
         assert_eq!(ctx.external_identifiers.len(), 1);
-        assert_eq!(ctx.external_identifiers[0].verified_status, "disputed");
+        assert_eq!(ctx.external_identifiers[0].verified_status, "self_reported");
+        assert_eq!(ctx.external_identifiers[0].status, "disputed");
     }
 
     #[test]
@@ -145,11 +147,13 @@ mod tests {
         let ctx = PetIdentityContext {
             lifecycle: vec![
                 LifecycleSummary {
+                    id: Uuid::new_v4(),
                     event_kind: "created".into(),
                     occurred_at: Utc::now(),
                     note: None,
                 },
                 LifecycleSummary {
+                    id: Uuid::new_v4(),
                     event_kind: "marked_deceased".into(),
                     occurred_at: Utc::now(),
                     note: Some("自然死亡".into()),

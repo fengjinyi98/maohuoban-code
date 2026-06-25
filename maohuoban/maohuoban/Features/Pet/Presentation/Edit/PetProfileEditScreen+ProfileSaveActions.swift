@@ -231,7 +231,8 @@ extension PetProfileEditScreen {
         await store.updatePet(
             petID: petID,
             draft: draft,
-            currentUserID: currentUserID
+            currentUserID: currentUserID,
+            lifeStatus: profile(for: petID)?.lifeStatus
         )
 
         if case .updatedPet = store.phase {

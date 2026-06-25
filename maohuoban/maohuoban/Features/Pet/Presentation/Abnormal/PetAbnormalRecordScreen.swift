@@ -149,7 +149,8 @@ struct PetAbnormalRecordScreen: View {
             await store.createEvent(
                 petID: currentPetID,
                 draft: eventDraft(),
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                lifeStatus: context.lifeStatus
             )
             isSubmitting = false
 

@@ -56,7 +56,7 @@ impl PostgresPetRepository {
             return Ok(None);
         };
         let pet = row.try_into()?;
-        Ok(Some(self.attach_name_edit_policy(pet).await?))
+        Ok(Some(self.attach_profile_read_models(pet).await?))
     }
 
     pub(super) async fn list_pet_profiles_for_owner_query(
@@ -106,7 +106,7 @@ impl PostgresPetRepository {
 
         let mut pets = Vec::with_capacity(rows.len());
         for row in rows {
-            pets.push(self.attach_name_edit_policy(row.try_into()?).await?);
+            pets.push(self.attach_profile_read_models(row.try_into()?).await?);
         }
         Ok(pets)
     }

@@ -12,6 +12,17 @@ enum PetLifeStatus: String, Decodable, Equatable {
 }
 
 extension PetLifeStatus {
+    /// 从可选字符串安全解析
+    static func from(_ rawValue: String?) -> PetLifeStatus {
+        rawValue.flatMap(PetLifeStatus.init(rawValue:)) ?? .alive
+    }
+
+    /// 写入保护守卫：传入 lifeStatus 字符串，返回是否允许写入
+    /// 各写入入口 (创建事件、编辑档案、记录日常等) 调用此方法判断
+    static func guardWriteAccess(lifeStatus: String?) -> Bool {
+        Self.from(lifeStatus).allowsWriteOperations
+    }
+
     /// 是否允许写入操作（记录日常、健康、体重等）
     var allowsWriteOperations: Bool {
         switch self {

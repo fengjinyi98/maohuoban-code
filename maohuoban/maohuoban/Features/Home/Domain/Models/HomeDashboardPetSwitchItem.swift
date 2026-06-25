@@ -23,6 +23,7 @@ extension HomeDashboardSnapshot {
         let personalityTags: [String]
         let note: String?
         let nameEditPolicy: PetNameEditPolicy?
+        let lifeStatus: String?
         let isSelected: Bool
 
         enum CodingKeys: String, CodingKey {
@@ -43,6 +44,7 @@ extension HomeDashboardSnapshot {
             case personalityTags = "personality_tags"
             case note
             case nameEditPolicy = "name_edit_policy"
+            case lifeStatus = "life_status"
             case isSelected = "is_selected"
         }
 
@@ -64,6 +66,7 @@ extension HomeDashboardSnapshot {
             personalityTags: [String] = [],
             note: String? = nil,
             nameEditPolicy: PetNameEditPolicy? = nil,
+            lifeStatus: String? = nil,
             isSelected: Bool
         ) {
             self.id = id
@@ -83,6 +86,7 @@ extension HomeDashboardSnapshot {
             self.personalityTags = personalityTags
             self.note = note
             self.nameEditPolicy = nameEditPolicy
+            self.lifeStatus = lifeStatus
             self.isSelected = isSelected
         }
 
@@ -122,6 +126,7 @@ extension HomeDashboardSnapshot {
                 personalityTags: personalityTags,
                 note: note,
                 nameEditPolicy: nil,
+                lifeStatus: nil,
                 isSelected: isSelected
             )
         }
@@ -145,6 +150,7 @@ extension HomeDashboardSnapshot {
             personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []
             note = try container.decodeIfPresent(String.self, forKey: .note)
             nameEditPolicy = try container.decodeIfPresent(PetNameEditPolicy.self, forKey: .nameEditPolicy)
+            lifeStatus = try container.decodeIfPresent(String.self, forKey: .lifeStatus)
             isSelected = try container.decode(Bool.self, forKey: .isSelected)
         }
     }

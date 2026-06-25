@@ -15,7 +15,7 @@ use super::storage::to_infrastructure_error;
 use crate::postgres::PostgresPetRepository;
 
 #[derive(Debug, FromRow)]
-struct PetExternalIdentifierRow {
+pub(super) struct PetExternalIdentifierRow {
     id: Uuid,
     pet_id: Uuid,
     identifier_type: String,
@@ -27,6 +27,201 @@ struct PetExternalIdentifierRow {
     evidence_asset_id: Option<Uuid>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
+}
+
+/// insert_microchip_identifier_in_transaction 写入芯片外部标识
+/// 核心职责：
+/// - 使用事务级 advisory lock 串行化同一芯片值写入
+/// - 发现跨宠物冲突时将相关非移除标识收敛为 disputed
+pub(super) async fn insert_microchip_identifier_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pet_id: Uuid,
+    microchip_number: &str,
+    issuer: Option<&str>,
+    issued_at: Option<DateTime<Utc>>,
+) -> PetResult<PetExternalIdentifierRow> {
+    lock_identifier_value(transaction, "microchip", microchip_number).await?;
+
+    if let Some(row) = load_same_pet_identifier(transaction, pet_id, microchip_number).await? {
+        return Ok(row);
+    }
+
+    let has_conflict = has_other_pet_identifier(transaction, pet_id, microchip_number).await?;
+    let status = if has_conflict { "disputed" } else { "active" };
+    if has_conflict {
+        mark_conflicting_microchips_disputed(transaction, pet_id, microchip_number).await?;
+    } else {
+        ensure_no_active_microchip_for_pet(transaction, pet_id).await?;
+    }
+
+    let row = sqlx::query_as::<_, PetExternalIdentifierRow>(
+        r#"
+        INSERT INTO pet_external_identifiers (
+            id,
+            pet_id,
+            identifier_type,
+            identifier_value,
+            issuer,
+            issued_at,
+            verified_status,
+            status
+        )
+        VALUES ($1, $2, 'microchip', $3, $4, $5, 'self_reported', $6)
+        RETURNING
+            id,
+            pet_id,
+            identifier_type,
+            identifier_value,
+            issuer,
+            issued_at,
+            verified_status,
+            status,
+            evidence_asset_id,
+            created_at,
+            updated_at
+        "#,
+    )
+    .bind(Uuid::new_v4())
+    .bind(pet_id)
+    .bind(microchip_number)
+    .bind(issuer)
+    .bind(issued_at)
+    .bind(status)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+
+    Ok(row)
+}
+
+async fn lock_identifier_value(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    identifier_type: &str,
+    identifier_value: &str,
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
+        "#,
+    )
+    .bind(format!(
+        "pet_external_identifier:{identifier_type}:{identifier_value}"
+    ))
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn load_same_pet_identifier(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pet_id: Uuid,
+    microchip_number: &str,
+) -> PetResult<Option<PetExternalIdentifierRow>> {
+    sqlx::query_as::<_, PetExternalIdentifierRow>(
+        r#"
+        SELECT
+            id,
+            pet_id,
+            identifier_type,
+            identifier_value,
+            issuer,
+            issued_at,
+            verified_status,
+            status,
+            evidence_asset_id,
+            created_at,
+            updated_at
+        FROM pet_external_identifiers
+        WHERE pet_id = $1
+          AND identifier_type = 'microchip'
+          AND identifier_value = $2
+          AND status <> 'removed'
+        ORDER BY created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(pet_id)
+    .bind(microchip_number)
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)
+}
+
+async fn has_other_pet_identifier(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pet_id: Uuid,
+    microchip_number: &str,
+) -> PetResult<bool> {
+    sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM pet_external_identifiers
+            WHERE pet_id <> $1
+              AND identifier_type = 'microchip'
+              AND identifier_value = $2
+              AND status IN ('active', 'disputed')
+        )
+        "#,
+    )
+    .bind(pet_id)
+    .bind(microchip_number)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)
+}
+
+async fn mark_conflicting_microchips_disputed(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pet_id: Uuid,
+    microchip_number: &str,
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        UPDATE pet_external_identifiers
+        SET status = 'disputed', updated_at = now()
+        WHERE pet_id <> $1
+          AND identifier_type = 'microchip'
+          AND identifier_value = $2
+          AND status = 'active'
+        "#,
+    )
+    .bind(pet_id)
+    .bind(microchip_number)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn ensure_no_active_microchip_for_pet(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    pet_id: Uuid,
+) -> PetResult<()> {
+    let has_active = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM pet_external_identifiers
+            WHERE pet_id = $1
+              AND identifier_type = 'microchip'
+              AND status = 'active'
+        )
+        "#,
+    )
+    .bind(pet_id)
+    .fetch_one(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+
+    if has_active {
+        return Err(PetError::InvalidInput(
+            "芯片号已锁定，如需变更请通过申诉渠道处理".to_owned(),
+        ));
+    }
+
+    Ok(())
 }
 
 impl TryFrom<PetExternalIdentifierRow> for PetExternalIdentifier {
@@ -64,42 +259,23 @@ impl PostgresPetRepository {
         &self,
         input: AddPetExternalIdentifier,
     ) -> PetResult<PetExternalIdentifier> {
-        let row = sqlx::query_as::<_, PetExternalIdentifierRow>(
-            r#"
-            INSERT INTO pet_external_identifiers (
-                id,
-                pet_id,
-                identifier_type,
-                identifier_value,
-                issuer,
-                issued_at,
-                verified_status,
-                status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, 'self_reported', 'active')
-            RETURNING
-                id,
-                pet_id,
-                identifier_type,
-                identifier_value,
-                issuer,
-                issued_at,
-                verified_status,
-                status,
-                evidence_asset_id,
-                created_at,
-                updated_at
-            "#,
-        )
-        .bind(Uuid::new_v4())
-        .bind(input.pet_id)
-        .bind(input.identifier_type.as_str())
-        .bind(&input.identifier_value)
-        .bind(&input.issuer)
-        .bind(input.issued_at)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(to_infrastructure_error)?;
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        let row = match input.identifier_type {
+            IdentifierType::Microchip => {
+                insert_microchip_identifier_in_transaction(
+                    &mut transaction,
+                    input.pet_id,
+                    &input.identifier_value,
+                    input.issuer.as_deref(),
+                    input.issued_at,
+                )
+                .await?
+            }
+        };
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
 
         row.try_into()
     }
@@ -114,8 +290,8 @@ impl PostgresPetRepository {
     ) -> PetResult<PetExternalIdentifier> {
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
 
-        // 将旧标识标记为 replaced
-        sqlx::query(
+        // 将旧标识标记为 replaced，校验实际更新行数
+        let update_result = sqlx::query(
             r#"
             UPDATE pet_external_identifiers
             SET status = 'replaced', updated_at = now()
@@ -128,47 +304,21 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
+        if update_result.rows_affected() == 0 {
+            return Err(PetError::InvalidInput(
+                "未找到活跃的外部标识或标识不属于该宠物".into(),
+            ));
+        }
+
         // 新增替换标识
-        let row = sqlx::query_as::<_, PetExternalIdentifierRow>(
-            r#"
-            INSERT INTO pet_external_identifiers (
-                id,
-                pet_id,
-                identifier_type,
-                identifier_value,
-                issuer,
-                issued_at,
-                verified_status,
-                status
-            )
-            SELECT
-                $1, $2, identifier_type, $3, $4, $5, 'self_reported', 'active'
-            FROM pet_external_identifiers
-            WHERE id = $6 AND pet_id = $7
-            RETURNING
-                id,
-                pet_id,
-                identifier_type,
-                identifier_value,
-                issuer,
-                issued_at,
-                verified_status,
-                status,
-                evidence_asset_id,
-                created_at,
-                updated_at
-            "#,
+        let row = insert_microchip_identifier_in_transaction(
+            &mut transaction,
+            input.pet_id,
+            &input.new_identifier_value,
+            input.issuer.as_deref(),
+            input.issued_at,
         )
-        .bind(Uuid::new_v4())
-        .bind(input.pet_id)
-        .bind(&input.new_identifier_value)
-        .bind(&input.issuer)
-        .bind(input.issued_at)
-        .bind(input.old_identifier_id)
-        .bind(input.pet_id)
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(to_infrastructure_error)?;
+        .await?;
 
         transaction
             .commit()

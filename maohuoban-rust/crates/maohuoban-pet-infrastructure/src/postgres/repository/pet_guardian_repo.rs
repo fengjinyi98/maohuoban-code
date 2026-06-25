@@ -204,7 +204,11 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        row.map(TryInto::try_into).transpose()
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let pet = row.try_into()?;
+        Ok(Some(self.attach_profile_read_models(pet).await?))
     }
 }
 

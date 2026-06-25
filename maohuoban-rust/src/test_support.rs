@@ -135,6 +135,106 @@ impl AuthTestApp {
             .expect("count auth audit events")
     }
 
+    /// seed_active_pet_co_caretaker 写入活跃共管关系
+    /// 核心职责：
+    /// - 为宠物关系授权契约测试准备 co_caretaker 关系
+    /// - 避免测试绕过真实 HTTP 鉴权链路
+    pub async fn seed_active_pet_co_caretaker(&self, pet_id: &str, user_id: &str) {
+        let pet_id = Uuid::parse_str(pet_id).expect("pet id");
+        let user_id = Uuid::parse_str(user_id).expect("user id");
+        sqlx::query(
+            r#"
+            INSERT INTO pet_guardians (
+                id,
+                pet_id,
+                guardian_type,
+                guardian_user_id,
+                role,
+                status,
+                started_at
+            )
+            VALUES ($1, $2, 'user', $3, 'co_caretaker', 'active', now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(user_id)
+        .execute(&self.app.pool)
+        .await
+        .expect("seed active pet co caretaker");
+    }
+
+    /// active_microchip_identifier_count 统计活跃芯片标识
+    /// 核心职责：
+    /// - 验证芯片写入是否进入外部标识表
+    /// - 区分重复提交与新写入行为
+    pub async fn active_microchip_identifier_count(&self, pet_id: &str, microchip: &str) -> i64 {
+        let pet_id = Uuid::parse_str(pet_id).expect("pet id");
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM pet_external_identifiers
+            WHERE pet_id = $1
+              AND identifier_type = 'microchip'
+              AND identifier_value = $2
+              AND status = 'active'
+            "#,
+        )
+        .bind(pet_id)
+        .bind(microchip)
+        .fetch_one(&self.app.pool)
+        .await
+        .expect("count active microchip identifiers")
+    }
+
+    /// microchip_identifier_status_count 统计指定状态芯片标识
+    /// 核心职责：
+    /// - 验证冲突芯片是否进入 disputed 生命周期
+    /// - 支持 identity context 契约测试读取状态准备
+    pub async fn microchip_identifier_status_count(
+        &self,
+        pet_id: &str,
+        microchip: &str,
+        status: &str,
+    ) -> i64 {
+        let pet_id = Uuid::parse_str(pet_id).expect("pet id");
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT COUNT(*)
+            FROM pet_external_identifiers
+            WHERE pet_id = $1
+              AND identifier_type = 'microchip'
+              AND identifier_value = $2
+              AND status = $3
+            "#,
+        )
+        .bind(pet_id)
+        .bind(microchip)
+        .bind(status)
+        .fetch_one(&self.app.pool)
+        .await
+        .expect("count microchip identifiers by status")
+    }
+
+    /// pet_profile_microchip_projection 读取主表芯片兼容投影
+    /// 核心职责：
+    /// - 验证新写入路径停止依赖 pet_profiles.microchip_number
+    /// - 保持测试只读取 Phase 1 兼容字段
+    pub async fn pet_profile_microchip_projection(&self, pet_id: &str) -> Option<String> {
+        let pet_id = Uuid::parse_str(pet_id).expect("pet id");
+        sqlx::query_scalar::<_, Option<String>>(
+            r#"
+            SELECT microchip_number
+            FROM pet_profiles
+            WHERE id = $1
+            "#,
+        )
+        .bind(pet_id)
+        .fetch_one(&self.app.pool)
+        .await
+        .expect("read profile microchip projection")
+    }
+
     /// seed_new_user_home 设置新用户首页快照
     /// 核心职责：
     /// - 为首页契约测试提供无宠物空态

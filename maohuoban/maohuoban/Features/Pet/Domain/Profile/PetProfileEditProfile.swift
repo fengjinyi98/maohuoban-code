@@ -55,6 +55,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
     let personalityTags: [String]
     let note: String
     let nameEditPolicy: PetNameEditPolicy?
+    let lifeStatus: String?
 
     init(
         id: String,
@@ -74,7 +75,8 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         neuterStatusText: String,
         personalityTags: [String],
         note: String,
-        nameEditPolicy: PetNameEditPolicy?
+        nameEditPolicy: PetNameEditPolicy?,
+        lifeStatus: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -94,6 +96,7 @@ struct PetProfileEditProfile: Hashable, Identifiable {
         self.personalityTags = personalityTags
         self.note = note
         self.nameEditPolicy = nameEditPolicy
+        self.lifeStatus = lifeStatus
     }
 
     init(
@@ -132,7 +135,8 @@ struct PetProfileEditProfile: Hashable, Identifiable {
             neuterStatusText: neuterStatusText,
             personalityTags: personalityTags,
             note: note,
-            nameEditPolicy: nil
+            nameEditPolicy: nil,
+            lifeStatus: nil
         )
     }
 }

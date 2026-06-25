@@ -540,6 +540,27 @@ mod tests {
     }
 
     #[test]
+    fn pet_profile_microchip_is_read_only_compat_field() {
+        // Phase 1: microchip_number 保留为兼容只读字段
+        // 新增写入只走 pet_external_identifiers
+        let profile = sample_profile();
+        assert!(
+            profile.microchip_number.is_none(),
+            "新创建的 profile 不应通过主表写入 microchip，只走外部标识"
+        );
+    }
+
+    #[test]
+    fn pet_profile_microchip_can_still_be_read_for_compat() {
+        // 兼容期：从数据库读取已有的 microchip_number 仍然支持
+        let profile = PetProfile {
+            microchip_number: Some("900000000000001".into()),
+            ..sample_profile()
+        };
+        assert_eq!(profile.microchip_number.as_deref(), Some("900000000000001"));
+    }
+
+    #[test]
     fn pet_profile_immutable_profile_number_contract() {
         // profile_number 创建后不可变
         let profile = sample_profile();

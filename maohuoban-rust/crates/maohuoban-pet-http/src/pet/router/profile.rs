@@ -186,3 +186,20 @@ pub(super) async fn import_trade_pet(
         Err(error) => error_response(&error),
     }
 }
+
+/// GET /api/v1/pets/{pet_id}/identity-context
+/// Phase 1: 返回 Agent 身份聚合事实包
+pub(super) async fn load_identity_context(
+    State(state): State<PetHttpState>,
+    Path(pet_id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    let Ok(user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    match state.pet.load_identity_context(user_id, pet_id).await {
+        Ok(context) => ok_response("pet.identity_context_loaded", "身份上下文已加载", context),
+        Err(error) => error_response(&error),
+    }
+}

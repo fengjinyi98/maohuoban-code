@@ -70,6 +70,34 @@ impl PostgresPetRepository {
         let pet_row = insert_trade_import_pet(&mut transaction, pet_id, &input).await?;
         let event_row = insert_trade_import_event(&mut transaction, pet_id, &input).await?;
 
+        // Phase 1: 同步写入 guardian + lifecycle
+        sqlx::query(
+            r#"
+            INSERT INTO pet_guardians (id, pet_id, guardian_type, guardian_user_id, role, status, started_at)
+            VALUES ($1, $2, 'user', $3, 'owner', 'active', now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(input.owner_user_id)
+        .execute(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO pet_lifecycle_events (id, pet_id, event_kind, actor_user_id, note, occurred_at)
+            VALUES ($1, $2, 'imported', $3, $4, now())
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(pet_id)
+        .bind(input.owner_user_id)
+        .bind::<Option<String>>(None)
+        .execute(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
         transaction
             .commit()
             .await
@@ -107,7 +135,13 @@ impl PostgresPetRepository {
                 e.updated_at
             FROM pet_events e
             INNER JOIN pet_profiles p ON p.id = e.pet_id
-            WHERE e.pet_id = $1 AND p.owner_user_id = $2
+            WHERE e.pet_id = $1 AND (
+                p.owner_user_id = $2
+                OR EXISTS (
+                    SELECT 1 FROM pet_guardians g
+                    WHERE g.pet_id = p.id AND g.guardian_user_id = $2 AND g.status = 'active'
+                )
+            )
             ORDER BY e.occurred_at DESC, e.created_at DESC
             LIMIT $3
             "#,
@@ -158,6 +192,12 @@ impl PostgresPetRepository {
                 AND (
                     p.owner_user_id = $2
                     OR e.actor_user_id = $2
+                    OR EXISTS (
+                        SELECT 1 FROM pet_guardians g
+                        WHERE g.pet_id = p.id
+                          AND g.guardian_user_id = $2
+                          AND g.status = 'active'
+                    )
                     OR (
                         merchant.owner_user_id = $2
                         AND merchant.verification_status = 'verified'

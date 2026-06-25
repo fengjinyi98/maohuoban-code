@@ -7,6 +7,8 @@ use support::*;
 
 #[path = "pet_contract/auth_trade.rs"]
 mod auth_trade;
+#[path = "pet_contract/identity_context.rs"]
+mod identity_context;
 #[path = "pet_contract/media_background.rs"]
 mod media_background;
 #[path = "pet_contract/media_basic.rs"]

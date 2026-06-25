@@ -34,6 +34,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         case note
         case companionshipDays = "companionship_days"
         case nameEditPolicy = "name_edit_policy"
+        case lifeStatus = "life_status"
         case stats
     }
 
@@ -77,6 +78,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         note = try container.decodeIfPresent(String.self, forKey: .note)
         companionshipDays = try container.decodeIfPresent(Int.self, forKey: .companionshipDays)
         nameEditPolicy = try container.decodeIfPresent(PetNameEditPolicy.self, forKey: .nameEditPolicy)
+        lifeStatus = try container.decodeIfPresent(String.self, forKey: .lifeStatus)
         stats = try container.decodeIfPresent(HomeDashboardSnapshot.PetHeroStats.self, forKey: .stats)
     }
 }
