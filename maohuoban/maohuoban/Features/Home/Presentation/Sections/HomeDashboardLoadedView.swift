@@ -63,6 +63,15 @@ struct HomeDashboardLoadedView: View {
                                     for: selectedPet,
                                     pets: snapshot.petSwitcher
                                 ),
+                                onOpenWeight: {
+                                    onOpenRoute(weightDetailRoute(
+                                        for: selectedPet,
+                                        routingContext: routingContext
+                                    ))
+                                },
+                                onOpenRecordHistory: {
+                                    onOpenRoute(recordHistoryRoute(routingContext: routingContext))
+                                },
                                 onOpenPantry: {
                                     onOpenRoute(.petPantry(
                                         petID: selectedPet.id,
@@ -76,6 +85,7 @@ struct HomeDashboardLoadedView: View {
                             snapshot: snapshot,
                             currentUserDisplayName: currentUserDisplayName,
                             routingContext: routingContext,
+                            recordHistoryRoute: recordHistoryRoute(routingContext: routingContext),
                             onSelectPet: onSelectPet,
                             showsTopSpacing: snapshot.selectedPet == nil
                         )
@@ -214,6 +224,40 @@ struct HomeDashboardLoadedView: View {
             PetProfileEditContext(
                 selectedProfile: selectedProfile,
                 profiles: profiles
+            )
+        )
+    }
+
+    private func weightDetailRoute(
+        for pet: HomeDashboardSnapshot.PetHeroSummary,
+        routingContext: HomeActionRoutingContext
+    ) -> HomeRoute {
+        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.mock
+        return .petWeightDetail(
+            PetWeightDetailContext(
+                petID: pet.id,
+                petName: pet.name,
+                currentWeightText: stats.weightVal,
+                weightChangeText: stats.weightChange,
+                recordContext: PetRecordEntryContext(
+                    petID: routingContext.selectedPetID,
+                    petName: routingContext.selectedPetName,
+                    petAvatarURL: routingContext.selectedPetAvatarURL,
+                    petSex: routingContext.selectedPetSex,
+                    availablePets: routingContext.availablePets
+                )
+            )
+        )
+    }
+
+    private func recordHistoryRoute(routingContext: HomeActionRoutingContext) -> HomeRoute {
+        .petRecordHistory(
+            PetRecordEntryContext(
+                petID: routingContext.selectedPetID,
+                petName: routingContext.selectedPetName,
+                petAvatarURL: routingContext.selectedPetAvatarURL,
+                petSex: routingContext.selectedPetSex,
+                availablePets: routingContext.availablePets
             )
         )
     }

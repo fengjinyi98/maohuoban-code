@@ -30,6 +30,8 @@ struct HomeImmersivePetHeaderSection: View {
     let contentColorScheme: ColorScheme
     let scrollOffset: CGFloat
     let editProfileRoute: HomeRoute?
+    let onOpenWeight: () -> Void
+    let onOpenRecordHistory: () -> Void
     let onOpenPantry: () -> Void
     var showsEditProfileButton = true
 
@@ -135,7 +137,12 @@ struct HomeImmersivePetHeaderSection: View {
             }
             .frame(width: imageWidth, height: backgroundImageHeight)
 
-            HomePetHeroSection(pet: pet, onOpenPantry: onOpenPantry)
+            HomePetHeroSection(
+                pet: pet,
+                onOpenWeight: onOpenWeight,
+                onOpenRecordHistory: onOpenRecordHistory,
+                onOpenPantry: onOpenPantry
+            )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .frame(width: imageWidth, height: HomeImmersivePetHeaderLayout.petStatsCardHeight)
         }

@@ -9,6 +9,7 @@ struct HomeDashboardContentSections: View {
     let snapshot: HomeDashboardSnapshot
     let currentUserDisplayName: String
     let routingContext: HomeActionRoutingContext
+    let recordHistoryRoute: HomeRoute
     let onSelectPet: (String) -> Void
     let showsTopSpacing: Bool
 
@@ -29,7 +30,10 @@ struct HomeDashboardContentSections: View {
             } else {
                 // 当有选中宠物时，时间线显示在第一个卡片的下方
                 if !snapshot.recentTimeline.isEmpty {
-                    HomeTimelineSection(events: snapshot.recentTimeline)
+                    HomeTimelineSection(
+                        events: snapshot.recentTimeline,
+                        historyRoute: recordHistoryRoute
+                    )
                 }
             }
 
@@ -43,7 +47,10 @@ struct HomeDashboardContentSections: View {
 
             // 当没有选中宠物时，时间线显示在原位置（底部）
             if snapshot.selectedPet == nil && !snapshot.recentTimeline.isEmpty {
-                HomeTimelineSection(events: snapshot.recentTimeline)
+                HomeTimelineSection(
+                    events: snapshot.recentTimeline,
+                    historyRoute: recordHistoryRoute
+                )
             }
 
             if let partner = snapshot.partnerRecommendation {

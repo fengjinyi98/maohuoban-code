@@ -7,6 +7,8 @@ import MaohuobanDesignSystem
 // - 承接进入宠物档案的主入口视觉
 struct HomePetHeroSection: View {
     let pet: HomeDashboardSnapshot.PetHeroSummary
+    let onOpenWeight: () -> Void
+    let onOpenRecordHistory: () -> Void
     let onOpenPantry: () -> Void
 
     var body: some View {
@@ -14,24 +16,36 @@ struct HomePetHeroSection: View {
 
         HStack(alignment: .center, spacing: 0) {
             // 1. 体重
-            HomePetHeroStatColumn(
-                title: "体重",
-                value: stats.weightVal,
-                unit: "kg",
-                subtitle: stats.weightChange
-            )
-            .padding(.leading, MHBTheme.Spacing.s1)
+            Button {
+                onOpenWeight()
+            } label: {
+                HomePetHeroStatColumn(
+                    title: "体重",
+                    value: stats.weightVal,
+                    unit: "kg",
+                    subtitle: stats.weightChange
+                )
+                .padding(.leading, MHBTheme.Spacing.s1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.petHero.weight")
 
             separator
 
             // 2. 已记录
-            HomePetHeroStatColumn(
-                title: "已记录",
-                value: "\(stats.recordDays)",
-                unit: "天",
-                subtitle: stats.recordStreakText
-            )
-            .padding(.leading, MHBTheme.Spacing.s3)
+            Button {
+                onOpenRecordHistory()
+            } label: {
+                HomePetHeroStatColumn(
+                    title: "已记录",
+                    value: "\(stats.recordDays)",
+                    unit: "天",
+                    subtitle: stats.recordStreakText
+                )
+                .padding(.leading, MHBTheme.Spacing.s3)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.petHero.recordHistory")
 
             separator
 

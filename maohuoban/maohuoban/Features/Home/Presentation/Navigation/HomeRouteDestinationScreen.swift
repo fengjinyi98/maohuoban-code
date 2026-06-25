@@ -66,6 +66,10 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
+        case .petWeightDetail(let context):
+            PetWeightDetailScreen(context: context)
+        case .petRecordHistory(let context):
+            PetRecordHistoryScreen(context: context)
         case .merchantPets(let merchantID, let status):
             if let status = MerchantPetStatus(rawValue: status) {
                 MerchantPetsScreen(

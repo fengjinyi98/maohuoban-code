@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 // - 呈现高对比度、呼吸感强的磨砂玻璃时间轴卡片
 struct HomeTimelineSection: View {
     let events: [HomeDashboardSnapshot.TimelineEvent]
+    let historyRoute: HomeRoute
 
     private var displayedEvents: [HomeDashboardSnapshot.TimelineEvent] {
         Array(events.prefix(4))
@@ -15,7 +16,7 @@ struct HomeTimelineSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            HomeTimelineHeader()
+            HomeTimelineHeader(historyRoute: historyRoute)
 
             // 时间轴垂直列表
             VStack(spacing: 0) {
@@ -45,6 +46,8 @@ struct HomeTimelineSection: View {
 // - 展示今天标题和年份角标
 // - 保持查看全部入口与标题区分层
 private struct HomeTimelineHeader: View {
+    let historyRoute: HomeRoute
+
     private var currentYearText: String {
         let year = Calendar.current.component(.year, from: Date())
         return "\(year)年"
@@ -65,13 +68,16 @@ private struct HomeTimelineHeader: View {
 
             Spacer()
 
-            HStack(spacing: 4) {
-                Text("查看全部")
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+            NavigationLink(value: historyRoute) {
+                HStack(spacing: 4) {
+                    Text("查看全部")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
             }
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.white.opacity(0.6))
+            .buttonStyle(.plain)
         }
     }
 }

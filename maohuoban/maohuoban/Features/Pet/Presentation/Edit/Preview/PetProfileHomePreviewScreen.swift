@@ -54,6 +54,8 @@ struct PetProfileHomePreviewScreen: View {
                             contentColorScheme: themeStore.heroContentColorScheme,
                             scrollOffset: scrollOffset,
                             editProfileRoute: nil,
+                            onOpenWeight: {},
+                            onOpenRecordHistory: {},
                             onOpenPantry: {},
                             showsEditProfileButton: false
                         )
