@@ -54,8 +54,10 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
             .weight(recordID: recordID)
         case "event-abnormal", "record-2026-06-abnormal":
             .abnormal(recordID: recordID)
-        case "event-deworming", "record-2026-06-deworming":
+        case "event-deworming", "record-2026-06-deworming", "deworming-2026-06", "deworming-2026-04":
             .deworming(recordID: recordID)
+        case "event-vaccine", "record-2026-06-vaccine", "vaccine-rabies-2026-06", "vaccine-triple-2026-05":
+            .vaccine(recordID: recordID)
         case "event-walk", "record-2026-05-walk":
             .walk(recordID: recordID)
         case "record-2026-04-hospital":
@@ -83,19 +85,15 @@ struct PetRecordDetailDestinationScreen: View {
             PetAbnormalRecordDetailScreen(recordID: recordID)
         case .weight(let recordID):
             PetWeightRecordDetailScreen(recordID: recordID)
-        case .deworming:
-            PetRecordDetailPlaceholderScreen(
-                systemImage: "checkmark.seal.fill",
-                title: "驱虫记录详情",
-                subtitle: "驱虫记录会独立展示驱虫类型、用品、剂量和下次提醒。",
-                accessibilityIdentifier: "pet.recordDetail.deworming.placeholder"
+        case .deworming(let recordID):
+            PetPreventiveCareRecordDetailScreen(
+                recordID: recordID,
+                fallbackKind: .deworming
             )
-        case .vaccine:
-            PetRecordDetailPlaceholderScreen(
-                systemImage: "syringe.fill",
-                title: "疫苗记录详情",
-                subtitle: "疫苗记录会独立展示疫苗名称、接种机构和下次提醒。",
-                accessibilityIdentifier: "pet.recordDetail.vaccine.placeholder"
+        case .vaccine(let recordID):
+            PetPreventiveCareRecordDetailScreen(
+                recordID: recordID,
+                fallbackKind: .vaccine
             )
         case .clinicVisit:
             PetRecordDetailPlaceholderScreen(

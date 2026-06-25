@@ -14,6 +14,7 @@ struct PetPreventiveCareScreen: View {
     @State private var selectedKind: PetPreventiveCareKind = .all
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var isAddRecordSheetPresented = false
+    @State private var detailRoute: PetRecordDetailRoute?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     private let records = PetPreventiveCareRecord.mockRecords
@@ -43,8 +44,8 @@ struct PetPreventiveCareScreen: View {
                         PetPreventiveCareHistorySection(
                             selectedKind: $selectedKind,
                             groups: groupedRecords,
-                            onOpenRecord: { _ in
-                                // TODO: 疫苗/驱虫记录详情 UI 确认后接入详情路由。
+                            onOpenRecord: { record in
+                                detailRoute = detailRoute(for: record)
                             }
                         )
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
@@ -90,6 +91,9 @@ struct PetPreventiveCareScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(item: $detailRoute) { route in
+            PetRecordDetailDestinationScreen(route: route)
+        }
         .sheet(isPresented: $isAddRecordSheetPresented) {
             PetPreventiveCareAddRecordSheet()
         }
@@ -178,6 +182,17 @@ struct PetPreventiveCareScreen: View {
 
     private func latestRecord(kind: PetPreventiveCareKind) -> PetPreventiveCareRecord? {
         records.first(where: { $0.kind == kind })
+    }
+
+    private func detailRoute(for record: PetPreventiveCareRecord) -> PetRecordDetailRoute {
+        switch record.kind {
+        case .vaccine:
+            .vaccine(recordID: record.id)
+        case .deworming:
+            .deworming(recordID: record.id)
+        case .all:
+            .unsupported(recordID: record.id)
+        }
     }
 
     private func selectPet(_ petID: String) {
