@@ -10,6 +10,7 @@ struct HomeRootScreen: View {
     let tabState: MHBAppTabState
     let quickFactRefreshToken: Int
     let onQuickFactContextChanged: (HomeActionRoutingContext) -> Void
+    let onOpenAddReminder: () -> Void
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
@@ -18,12 +19,14 @@ struct HomeRootScreen: View {
         currentUserStore: CurrentUserStore,
         tabState: MHBAppTabState = MHBAppTabState(),
         quickFactRefreshToken: Int = 0,
-        onQuickFactContextChanged: @escaping (HomeActionRoutingContext) -> Void = { _ in }
+        onQuickFactContextChanged: @escaping (HomeActionRoutingContext) -> Void = { _ in },
+        onOpenAddReminder: @escaping () -> Void = {}
     ) {
         self.currentUserStore = currentUserStore
         self.tabState = tabState
         self.quickFactRefreshToken = quickFactRefreshToken
         self.onQuickFactContextChanged = onQuickFactContextChanged
+        self.onOpenAddReminder = onOpenAddReminder
     }
 
     private var currentUserID: String? {
@@ -50,7 +53,8 @@ struct HomeRootScreen: View {
                     },
                     onOpenRoute: { route in
                         tabState.appendHomeRoute(route)
-                    }
+                    },
+                    onOpenAddReminder: onOpenAddReminder
                 )
             case .failed(let message):
                 HomeDashboardErrorView(message: message) {

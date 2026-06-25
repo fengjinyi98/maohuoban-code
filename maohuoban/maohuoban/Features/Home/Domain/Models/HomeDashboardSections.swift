@@ -79,6 +79,8 @@ extension HomeDashboardSnapshot {
             case dailyRecord = "daily_record"
             case walk
             case healthRecord = "health_record"
+            case preventiveCare = "preventive_care"
+            case addReminder = "add_reminder"
             case bookHospital = "book_hospital"
             case importTradePet = "import_trade_pet"
             case addMerchantPet = "add_merchant_pet"

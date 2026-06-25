@@ -15,6 +15,7 @@ struct MHBAppShell: View {
     @State private var homeQuickFactContext = HomeActionRoutingContext()
     @State private var homeQuickFactRefreshToken = 0
     @State private var activeHomeQuickFactSheet: HomeQuickFactSheet?
+    @State private var isHomeAddReminderSheetPresented = false
     @State private var homeQuickFactSheetStore = PetWriteStore()
     @State private var homeQuickFactSheetSubmittingAction: HomeQuickFactAction?
 
@@ -34,6 +35,9 @@ struct MHBAppShell: View {
                         quickFactRefreshToken: homeQuickFactRefreshToken,
                         onQuickFactContextChanged: { context in
                             homeQuickFactContext = context
+                        },
+                        onOpenAddReminder: {
+                            isHomeAddReminderSheetPresented = true
                         }
                     )
                 }
@@ -126,6 +130,9 @@ struct MHBAppShell: View {
                     }
                 )
             }
+        }
+        .sheet(isPresented: $isHomeAddReminderSheetPresented) {
+            HomeAddReminderSheet(context: homeQuickFactContext)
         }
     }
 

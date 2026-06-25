@@ -101,6 +101,22 @@ enum HomeActionRouteResolver {
                     petSex: context.selectedPetSex
                 )
             )
+        case .preventiveCare:
+            return .petPreventiveCare(
+                PetPreventiveCareContext(
+                    recordContext: PetRecordEntryContext(
+                        petID: context.selectedPetID,
+                        petName: context.selectedPetName,
+                        petAvatarURL: context.selectedPetAvatarURL,
+                        petSex: context.selectedPetSex,
+                        availablePets: context.availablePets
+                    ),
+                    fallbackPetName: context.selectedPetName ?? "当前宠物"
+                )
+            )
+        case .addReminder:
+            // TODO: 通用提醒新增流程定稿后，在这里接入提醒系统新增入口。
+            return nil
         case .walk:
             return .recordWalk(
                 PetRecordEntryContext(

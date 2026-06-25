@@ -10,6 +10,7 @@ struct HomeDashboardLoadedView: View {
     let currentUserDisplayName: String
     let onSelectPet: (String) -> Void
     let onOpenRoute: (HomeRoute) -> Void
+    let onOpenAddReminder: () -> Void
 
     @State private var scrollOffset: CGFloat = 0
     @State private var isQuickActionsPanelPresented = false
@@ -134,7 +135,10 @@ struct HomeDashboardLoadedView: View {
                     HomeQuickActionsFloatingMenu(
                         actions: snapshot.quickActions,
                         routingContext: routingContext,
-                        isPresented: quickActionsPanelBinding
+                        isPresented: quickActionsPanelBinding,
+                        onAddReminder: {
+                            onOpenAddReminder()
+                        }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, MHBTheme.Spacing.s4)

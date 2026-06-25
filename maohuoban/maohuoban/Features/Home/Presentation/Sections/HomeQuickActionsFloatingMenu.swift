@@ -9,6 +9,7 @@ struct HomeQuickActionsFloatingMenu: View {
     let actions: [HomeDashboardSnapshot.Action]
     let routingContext: HomeActionRoutingContext
     @Binding var isPresented: Bool
+    let onAddReminder: () -> Void
 
     var body: some View {
         GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
@@ -21,7 +22,8 @@ struct HomeQuickActionsFloatingMenu: View {
                     HomeQuickActionsFloatingPanel(
                         actions: actions,
                         routingContext: routingContext,
-                        isPresented: $isPresented
+                        isPresented: $isPresented,
+                        onAddReminder: onAddReminder
                     )
                 }
 
@@ -64,11 +66,21 @@ private struct HomeQuickActionsFloatingPanel: View {
     let actions: [HomeDashboardSnapshot.Action]
     let routingContext: HomeActionRoutingContext
     @Binding var isPresented: Bool
+    let onAddReminder: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
             ForEach(actions) { action in
-                if let route = HomeActionRouteResolver.route(
+                if action.kind == .addReminder {
+                    Button {
+                        isPresented = false
+                        onAddReminder()
+                    } label: {
+                        HomeQuickActionsFloatingRow(action: action, isEnabled: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.quickActions.panel.\(action.kind.rawValue)")
+                } else if let route = HomeActionRouteResolver.route(
                     for: action,
                     context: routingContext
                 ) {
@@ -137,6 +149,8 @@ private enum HomeQuickActionIcon {
         case .dailyRecord: "square.and.pencil"
         case .walk: "figure.walk"
         case .healthRecord: "cross.case.fill"
+        case .preventiveCare: "syringe"
+        case .addReminder: "bell.badge.fill"
         case .bookHospital: "stethoscope"
         case .importTradePet: "tray.and.arrow.down.fill"
         case .addMerchantPet: "pawprint.circle.fill"

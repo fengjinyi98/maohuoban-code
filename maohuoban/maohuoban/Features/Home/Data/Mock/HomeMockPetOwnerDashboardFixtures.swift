@@ -262,6 +262,16 @@ extension HomeMockDashboardFixtures {
                 subtitle: "疫苗、驱虫、体检"
             ),
             HomeDashboardSnapshot.Action(
+                kind: .preventiveCare,
+                title: "疫苗/驱虫",
+                subtitle: "查看提醒与历史"
+            ),
+            HomeDashboardSnapshot.Action(
+                kind: .addReminder,
+                title: "添加提醒",
+                subtitle: "待定稿"
+            ),
+            HomeDashboardSnapshot.Action(
                 kind: .bookHospital,
                 title: "预约医院",
                 subtitle: "同城服务协同"
