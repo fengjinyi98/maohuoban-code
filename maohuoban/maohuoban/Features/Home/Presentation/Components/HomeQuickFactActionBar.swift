@@ -60,7 +60,17 @@ struct HomeQuickFactActionBar: View {
             onOpenSheet(.feeding)
             return
         case .abnormal:
-            onOpenSheet(.abnormal)
+            onOpenRoute(
+                .recordAbnormal(
+                    PetRecordEntryContext(
+                        petID: routingContext.selectedPetID,
+                        petName: routingContext.selectedPetName,
+                        petAvatarURL: routingContext.selectedPetAvatarURL,
+                        petSex: routingContext.selectedPetSex,
+                        availablePets: routingContext.availablePets
+                    )
+                )
+            )
             return
         case .poopNormal, .energyNormal, .appetiteNormal:
             break

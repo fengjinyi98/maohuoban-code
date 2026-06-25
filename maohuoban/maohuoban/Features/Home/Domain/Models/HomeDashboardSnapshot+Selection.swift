@@ -51,7 +51,7 @@ extension HomeDashboardSnapshot {
                 fallback: fallback.quickActions
             ),
             partnerRecommendation: partnerRecommendation ?? fallback.partnerRecommendation,
-            recentTimeline: recentTimeline.isEmpty ? fallback.recentTimeline : recentTimeline,
+            recentTimeline: recentTimeline.toppingUpHomeTimeline(from: fallback.recentTimeline, minimumCount: 4),
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
@@ -84,6 +84,41 @@ extension HomeDashboardSnapshot {
             galleryAlbums: galleryAlbums,
             pantryItems: pantryItems
         )
+    }
+}
+
+private extension Array where Element == HomeDashboardSnapshot.TimelineEvent {
+    func toppingUpHomeTimeline(
+        from fallback: [HomeDashboardSnapshot.TimelineEvent],
+        minimumCount: Int
+    ) -> [HomeDashboardSnapshot.TimelineEvent] {
+        guard count < minimumCount else {
+            return self
+        }
+
+        var result = self
+        var existingIDs = Set(map(\.id))
+        var existingFingerprints = Set(map(\.homeTimelineSupplementFingerprint))
+
+        for event in fallback
+        where !existingIDs.contains(event.id)
+            && !existingFingerprints.contains(event.homeTimelineSupplementFingerprint) {
+            result.append(event)
+            existingIDs.insert(event.id)
+            existingFingerprints.insert(event.homeTimelineSupplementFingerprint)
+
+            if result.count >= minimumCount {
+                break
+            }
+        }
+
+        return result.isEmpty ? fallback : result
+    }
+}
+
+private extension HomeDashboardSnapshot.TimelineEvent {
+    var homeTimelineSupplementFingerprint: String {
+        "\(eventKind.rawValue)|\(title)|\(subtitle)"
     }
 }
 

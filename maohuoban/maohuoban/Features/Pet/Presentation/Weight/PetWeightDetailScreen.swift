@@ -19,6 +19,7 @@ struct PetWeightDetailContext: Hashable, Sendable {
 // - 定义体重详情页内的二级推进目标
 private enum PetWeightDetailRoute: Hashable, Identifiable {
     case history
+    case recordDetail(String)
 
     var id: Self { self }
 }
@@ -61,6 +62,9 @@ struct PetWeightDetailScreen: View {
 
                         PetWeightHistorySection(
                             records: Array(records.prefix(6)),
+                            onOpenRecord: { record in
+                                pathRoute = .recordDetail(record.id)
+                            },
                             onOpenHistory: {
                                 pathRoute = .history
                             }
@@ -110,6 +114,8 @@ struct PetWeightDetailScreen: View {
                     fallbackPetName: currentPetName,
                     records: records
                 )
+            case .recordDetail(let recordID):
+                PetWeightRecordDetailScreen(recordID: recordID)
             }
         }
         .sheet(isPresented: $isAddRecordSheetPresented) {
@@ -600,6 +606,7 @@ private struct PetWeightAreaShape: Shape {
 // - 提供完整历史入口占位
 private struct PetWeightHistorySection: View {
     let records: [PetWeightRecord]
+    let onOpenRecord: (PetWeightRecord) -> Void
     let onOpenHistory: () -> Void
 
     var body: some View {
@@ -610,7 +617,13 @@ private struct PetWeightHistorySection: View {
 
             VStack(spacing: 0) {
                 ForEach(records) { record in
-                    PetWeightHistoryRow(record: record)
+                    Button {
+                        onOpenRecord(record)
+                    } label: {
+                        PetWeightHistoryRow(record: record)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("pet.weightDetail.recentRecord.\(record.id)")
 
                     if record.id != records.last?.id {
                         Rectangle()
@@ -671,8 +684,13 @@ private struct PetWeightHistoryRow: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(record.deltaKind.color)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
         }
         .padding(.vertical, MHBTheme.Spacing.s4)
+        .contentShape(Rectangle())
     }
 }
 

@@ -86,7 +86,7 @@ struct HomeMerchantDashboardSection: View {
                 HomeSectionTitle("店内宠物动态")
 
                 ForEach(summary.recentEvents) { event in
-                    NavigationLink(value: HomeRoute.timelineEvent(eventID: event.id)) {
+                    NavigationLink(value: HomeRoute.petRecordDetail(PetRecordDetailRoute.mockRoute(for: event.id))) {
                         HomeMerchantEventRow(event: event)
                     }
                     .buttonStyle(.plain)

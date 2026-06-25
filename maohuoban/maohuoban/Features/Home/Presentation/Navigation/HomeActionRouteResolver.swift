@@ -160,7 +160,7 @@ enum HomeReminderRouteResolver {
             }
             return .merchantTask(merchantID: merchantID, reminderID: reminder.id)
         case .vaccine, .deworming, .followUp, .completeHealthRecord:
-            return .timelineEvent(eventID: reminder.id)
+            return .petRecordDetail(PetRecordDetailRoute.mockRoute(for: reminder.id))
         }
     }
 }

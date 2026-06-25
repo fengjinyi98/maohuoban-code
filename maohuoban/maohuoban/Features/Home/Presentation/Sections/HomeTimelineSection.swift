@@ -24,7 +24,7 @@ struct HomeTimelineSection: View {
                     let isFirst = index == 0
                     let isLast = index == displayedEvents.count - 1
 
-                    NavigationLink(value: HomeRoute.timelineEvent(eventID: event.id)) {
+                    NavigationLink(value: HomeRoute.petRecordDetail(event.recordDetailRoute)) {
                         HomeTimelineRow(
                             event: event,
                             isFirst: isFirst,
@@ -140,31 +140,53 @@ private struct HomeTimelineRow: View {
     }
 
     private var iconName: String {
-        switch event.id {
-        case "event-breakfast":
+        switch event.timelineSemantic {
+        case .feeding:
             return "fork.knife"
-        case "event-weight":
+        case .poopNormal:
+            return "checkmark.seal.fill"
+        case .energyNormal:
+            return "face.smiling"
+        case .appetiteNormal:
+            return "takeoutbag.and.cup.and.straw.fill"
+        case .weight:
             return "scalemass.fill"
-        case "event-deworming":
+        case .deworming:
             return "checkmark"
-        case "event-walk":
+        case .walk:
             return "figure.walk"
-        default:
+        case .vaccine:
+            return "syringe.fill"
+        case .abnormal:
+            return "cross.case.fill"
+        case .clinicVisit:
+            return "stethoscope"
+        case .unsupported:
             return "sparkles"
         }
     }
 
     private var iconFgColor: Color {
-        switch event.id {
-        case "event-breakfast":
-            return Color(mhbHex: "E5A93C") // 暖金/黄色
-        case "event-weight":
-            return Color(mhbHex: "B794F4") // 紫色
-        case "event-deworming":
-            return Color(mhbHex: "63B3ED") // 蓝色
-        case "event-walk":
-            return Color(mhbHex: "F6AD55") // 橙色
-        default:
+        switch event.timelineSemantic {
+        case .feeding:
+            return Color(mhbHex: "0093DD")
+        case .poopNormal:
+            return MHBTheme.ColorToken.teal.color
+        case .energyNormal:
+            return MHBTheme.ColorToken.primary.color
+        case .appetiteNormal:
+            return MHBTheme.ColorToken.warning.color
+        case .weight:
+            return Color(mhbHex: "B794F4")
+        case .deworming, .vaccine:
+            return Color(mhbHex: "63B3ED")
+        case .walk:
+            return Color(mhbHex: "F6AD55")
+        case .abnormal:
+            return MHBTheme.ColorToken.danger.color
+        case .clinicVisit:
+            return MHBTheme.ColorToken.primary.color
+        case .unsupported:
             return .white
         }
     }
@@ -175,15 +197,14 @@ private struct HomeTimelineRow: View {
 
     @ViewBuilder
     private var rightDecorationView: some View {
-        if event.id == "event-breakfast" {
-            // 显示早餐食物图片
+        switch event.timelineSemantic {
+        case .feeding:
             Image("HomePetFoodBowl")
                 .resizable()
                 .scaledToFill()
                 .frame(width: 72, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        } else if event.id == "event-weight" {
-            // 显示 +0.2 kg 变化值胶囊 (深绿背景 + 浅绿字体)
+        case .weight:
             MHBTagView(
                 "+0.2 kg",
                 style: .custom(
@@ -192,13 +213,30 @@ private struct HomeTimelineRow: View {
                 ),
                 size: .medium
             )
-        } else {
-            // 显示灰色 chevron 箭头
+        default:
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(0.3))
         }
     }
+}
+
+// HomeTimelineRecordSemantic 首页时间线记录语义
+// 核心职责：
+// - 将 mock ID、真实记录标题和摘要收敛为稳定详情路由
+// - 避免后端生成记录 ID 后快速事实误入未接入占位页
+private enum HomeTimelineRecordSemantic {
+    case feeding
+    case poopNormal
+    case energyNormal
+    case appetiteNormal
+    case weight
+    case deworming
+    case walk
+    case vaccine
+    case abnormal
+    case clinicVisit
+    case unsupported
 }
 
 private extension String {
@@ -226,6 +264,97 @@ private extension String {
         }
 
         return String(self[swiftRange])
+    }
+}
+
+private extension HomeDashboardSnapshot.TimelineEvent {
+    var recordDetailRoute: PetRecordDetailRoute {
+        switch timelineSemantic {
+        case .feeding:
+            return .feeding(recordID: id)
+        case .poopNormal:
+            return .quickFact(.poopNormal)
+        case .energyNormal:
+            return .quickFact(.energyNormal)
+        case .appetiteNormal:
+            return .quickFact(.appetiteNormal)
+        case .weight:
+            return .weight(recordID: id)
+        case .deworming:
+            return .deworming(recordID: id)
+        case .walk:
+            return .walk(recordID: id)
+        case .vaccine:
+            return .vaccine(recordID: id)
+        case .abnormal:
+            return .abnormal(recordID: id)
+        case .clinicVisit:
+            return .clinicVisit(recordID: id)
+        case .unsupported:
+            return .unsupported(recordID: id)
+        }
+    }
+
+    var timelineSemantic: HomeTimelineRecordSemantic {
+        switch id {
+        case "event-feeding", "record-2026-06-feeding":
+            return .feeding
+        case "event-quick-poop-normal", "record-2026-06-poop-normal":
+            return .poopNormal
+        case "event-quick-energy-normal", "record-2026-06-energy-normal":
+            return .energyNormal
+        case "event-quick-appetite-normal", "record-2026-05-appetite":
+            return .appetiteNormal
+        case "event-weight", "record-2026-06-weight":
+            return .weight
+        case "event-deworming", "record-2026-06-deworming":
+            return .deworming
+        case "event-walk", "record-2026-05-walk":
+            return .walk
+        case "event-abnormal", "record-2026-06-abnormal":
+            return .abnormal
+        case "record-2026-04-hospital":
+            return .clinicVisit
+        default:
+            return inferredTimelineSemantic
+        }
+    }
+
+    private var inferredTimelineSemantic: HomeTimelineRecordSemantic {
+        let combinedText = "\(title) \(subtitle)"
+
+        if title.contains("喂") || subtitle.contains("喂食") {
+            return .feeding
+        }
+
+        if combinedText.contains("便便") || combinedText.contains("粪便") || combinedText.contains("排便") {
+            return .poopNormal
+        }
+
+        if combinedText.contains("精神") || combinedText.contains("活力") {
+            return .energyNormal
+        }
+
+        if combinedText.contains("食欲") {
+            return .appetiteNormal
+        }
+
+        switch eventKind {
+        case .weight:
+            return .weight
+        case .deworming:
+            return .deworming
+        case .vaccine:
+            return .vaccine
+        case .health where combinedText.contains("异常"):
+            return .abnormal
+        case .health where combinedText.contains("就诊") || combinedText.contains("医院"):
+            return .clinicVisit
+        case .daily where combinedText.contains("散步") || combinedText.contains("遛弯"):
+            return .walk
+        case .daily, .health, .merchant:
+            return .unsupported
+        }
     }
 }
 

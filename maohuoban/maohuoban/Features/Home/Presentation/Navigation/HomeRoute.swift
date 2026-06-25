@@ -13,6 +13,7 @@ enum HomeRoute: Hashable {
     case recordDaily(PetDailyRecordEntryContext)
     case recordWalk(PetRecordEntryContext)
     case recordHealth(PetRecordEntryContext)
+    case recordAbnormal(PetRecordEntryContext)
     case petWeightDetail(PetWeightDetailContext)
     case petRecordHistory(PetRecordEntryContext)
     case bookHospital(petID: String?, city: String?)
@@ -22,7 +23,7 @@ enum HomeRoute: Hashable {
     case merchantPets(merchantID: String, status: String)
     case merchantLitter(merchantID: String, litterID: String)
     case merchantTask(merchantID: String, reminderID: String)
-    case timelineEvent(eventID: String)
+    case petRecordDetail(PetRecordDetailRoute)
     case petAlbumList
     case createPetAlbum
     case editPetAlbum(PetAlbumEditContext)
@@ -42,6 +43,7 @@ extension HomeRoute {
         case .recordDaily: "square.and.pencil"
         case .recordWalk: "figure.walk"
         case .recordHealth: "cross.case.fill"
+        case .recordAbnormal: "exclamationmark.triangle.fill"
         case .petWeightDetail: "scalemass.fill"
         case .petRecordHistory: "list.bullet.rectangle"
         case .bookHospital: "stethoscope"
@@ -51,7 +53,7 @@ extension HomeRoute {
         case .merchantPets: "pawprint"
         case .merchantLitter: "point.3.connected.trianglepath.dotted"
         case .merchantTask: "checklist"
-        case .timelineEvent: "clock.arrow.circlepath"
+        case .petRecordDetail: "clock.arrow.circlepath"
         case .petAlbumList: "photo.on.rectangle.angled"
         case .createPetAlbum: "plus.square.on.square"
         case .editPetAlbum: "pencil"
@@ -71,6 +73,7 @@ extension HomeRoute {
         case .recordDaily: "记录日常"
         case .recordWalk: "遛弯"
         case .recordHealth: "健康记录"
+        case .recordAbnormal: "记录异常"
         case .petWeightDetail: "体重详情"
         case .petRecordHistory: "记录列表"
         case .bookHospital: "预约医院"
@@ -80,7 +83,7 @@ extension HomeRoute {
         case .merchantPets: "商家宠物筛选"
         case .merchantLitter: "窝次详情"
         case .merchantTask: "待处理任务"
-        case .timelineEvent: "事件详情"
+        case .petRecordDetail: "记录详情"
         case .petAlbumList: "宠物相册"
         case .createPetAlbum: "新建相册"
         case .editPetAlbum: "编辑相册"
@@ -100,6 +103,7 @@ extension HomeRoute {
         case .recordDaily: "为当前宠物补充一条日常事件"
         case .recordWalk: "记录当前宠物的一次户外遛弯"
         case .recordHealth: "记录体重、疫苗、驱虫或就诊信息"
+        case .recordAbnormal: "记录当前宠物的异常线索"
         case .petWeightDetail: "查看体重趋势和近期记录"
         case .petRecordHistory: "查看当前宠物的完整记录列表"
         case .bookHospital: "进入同城医院预约协作"
@@ -109,7 +113,7 @@ extension HomeRoute {
         case .merchantPets: "查看指定状态下的在管宠物"
         case .merchantLitter: "查看出生批次、父母和同窝关系"
         case .merchantTask: "处理商家工作台待办"
-        case .timelineEvent: "查看宠物事件账本记录"
+        case .petRecordDetail: "查看宠物记录详情"
         case .petAlbumList: "查看宠物照片相册"
         case .createPetAlbum: "新建宠物照片相册"
         case .editPetAlbum: "编辑相册标题和封面"

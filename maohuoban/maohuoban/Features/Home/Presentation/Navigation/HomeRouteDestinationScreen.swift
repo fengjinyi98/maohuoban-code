@@ -59,6 +59,14 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
+        case .recordAbnormal(let context):
+            PetAbnormalRecordScreen(
+                context: context,
+                currentUserID: currentUserID,
+                onRecorded: {
+                    onHomeMutationCompleted(nil)
+                }
+            )
         case .recordWalk(let context):
             PetWalkTrackingScreen(
                 context: context,
@@ -99,11 +107,8 @@ struct HomeRouteDestinationScreen: View {
                 litterID: litterID,
                 currentUserID: currentUserID
             )
-        case .timelineEvent(let eventID):
-            PetEventDetailScreen(
-                eventID: eventID,
-                currentUserID: currentUserID
-            )
+        case .petRecordDetail(let route):
+            PetRecordDetailDestinationScreen(route: route)
         case .publishAvailableStatus(let merchantID):
             MerchantAvailableStatusScreen(
                 merchantID: merchantID,

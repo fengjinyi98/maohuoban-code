@@ -53,35 +53,51 @@ extension HomeMockDashboardFixtures {
             ),
             recentTimeline: [
                 HomeDashboardSnapshot.TimelineEvent(
-                    id: "event-breakfast",
+                    id: "event-feeding",
                     eventKind: .daily,
-                    title: "记录了早餐",
-                    subtitle: "鸡肉 + 南瓜 + 狗粮",
+                    title: "已喂食",
+                    subtitle: "主粮 · 正常",
                     occurredText: "08:30",
+                    occurredAt: nil
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-quick-poop-normal",
+                    eventKind: .daily,
+                    title: "便便正常",
+                    subtitle: "粪便状态：健康成型",
+                    occurredText: "09:10",
+                    occurredAt: nil
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-quick-energy-normal",
+                    eventKind: .daily,
+                    title: "精神不错",
+                    subtitle: "精神与活力：正常平稳",
+                    occurredText: "12:20",
+                    occurredAt: nil
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-abnormal",
+                    eventKind: .health,
+                    title: "异常记录",
+                    subtitle: "食欲、精神 · 明显",
+                    occurredText: "20:15",
+                    occurredAt: nil
+                ),
+                HomeDashboardSnapshot.TimelineEvent(
+                    id: "event-quick-appetite-normal",
+                    eventKind: .daily,
+                    title: "食欲正常",
+                    subtitle: "晚餐吃完，状态稳定",
+                    occurredText: "18:40",
                     occurredAt: nil
                 ),
                 HomeDashboardSnapshot.TimelineEvent(
                     id: "event-weight",
                     eventKind: .weight,
                     title: "体重更新",
-                    subtitle: "3.6 kg",
-                    occurredText: "09:15",
-                    occurredAt: nil
-                ),
-                HomeDashboardSnapshot.TimelineEvent(
-                    id: "event-deworming",
-                    eventKind: .deworming,
-                    title: "完成驱虫",
-                    subtitle: "大宠爱体外驱虫滴剂",
-                    occurredText: "11:30",
-                    occurredAt: nil
-                ),
-                HomeDashboardSnapshot.TimelineEvent(
-                    id: "event-walk",
-                    eventKind: .daily,
-                    title: "夜间散步",
-                    subtitle: "32 分钟 · 2.3 km",
-                    occurredText: "20:20",
+                    subtitle: "4.20 kg，较上次 -0.15 kg",
+                    occurredText: "21:05",
                     occurredAt: nil
                 )
             ],

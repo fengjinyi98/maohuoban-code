@@ -125,15 +125,6 @@ struct MHBAppShell: View {
                         activeHomeQuickFactSheet = nil
                     }
                 )
-            case .abnormal:
-                HomeQuickFactAbnormalSheet(
-                    context: homeQuickFactContext,
-                    isSubmitting: homeQuickFactSheetSubmittingAction == .abnormal,
-                    onSubmit: submitQuickFactAbnormal,
-                    onCancel: {
-                        activeHomeQuickFactSheet = nil
-                    }
-                )
             }
         }
     }
@@ -147,14 +138,6 @@ struct MHBAppShell: View {
     private func submitQuickFactFeeding(_ input: HomeQuickFactFeedingInput) {
         submitQuickFactSheetEvent(
             action: .fed,
-            petID: input.petID,
-            draft: input.eventDraft()
-        )
-    }
-
-    private func submitQuickFactAbnormal(_ input: HomeQuickFactAbnormalInput) {
-        submitQuickFactSheetEvent(
-            action: .abnormal,
             petID: input.petID,
             draft: input.eventDraft()
         )

@@ -18,6 +18,7 @@ struct HomeQuickFactFeedingSheet: View {
     @State private var amount: HomeQuickFactFeedingAmount = .normal
     @State private var occurredAt = Date()
     @State private var note = ""
+    @State private var photoAssetNames: [String] = []
 
     init(
         context: HomeActionRoutingContext,
@@ -37,189 +38,78 @@ struct HomeQuickFactFeedingSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                    HomeQuickFactPetSelectionSection(
-                        context: context,
-                        selectedPetID: $selectedPetID
-                    )
+            GeometryReader { proxy in
+                let bottomInset = proxy.safeAreaInsets.bottom
 
-                    HomeQuickFactFeedingFoodSection(
-                        selectedKind: $selectedFoodKind,
-                        expandedKind: $expandedFoodKind,
-                        selectedItemIDs: $selectedFoodItemIDs
-                    )
+                ZStack(alignment: .bottom) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                            HomeQuickFactFeedingFoodSection(
+                                selectedKind: $selectedFoodKind,
+                                expandedKind: $expandedFoodKind,
+                                selectedItemIDs: $selectedFoodItemIDs
+                            )
 
-                    HomeQuickFactSingleChoiceSection(
-                        title: "份量",
-                        options: HomeQuickFactFeedingAmount.allCases,
-                        selection: $amount
-                    ) { option in
-                        Text(option.title)
-                            .font(MHBTheme.Typography.callout.weight(.semibold))
+                            HomeQuickFactSingleChoiceSection(
+                                title: "份量",
+                                options: HomeQuickFactFeedingAmount.allCases,
+                                selection: $amount
+                            ) { option in
+                                Text(option.title)
+                                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                            }
+
+                            HomeQuickFactDateSection(
+                                title: "时间",
+                                date: $occurredAt
+                            )
+
+                            HomeQuickFactNoteSection(
+                                title: "备注",
+                                prompt: "例如 换了新粮、加了罐头",
+                                note: $note
+                            )
+
+                            HomeQuickFactOptionalPhotoSection(
+                                title: "照片（可选）",
+                                photoAssetNames: $photoAssetNames
+                            )
+                        }
+                        .padding(.horizontal, MHBTheme.Spacing.s5)
+                        .padding(.top, MHBTheme.Spacing.s4)
+                        .padding(.bottom, bottomInset + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
 
-                    HomeQuickFactDateSection(
-                        title: "时间",
-                        date: $occurredAt
-                    )
-
-                    HomeQuickFactNoteSection(
-                        title: "备注",
-                        prompt: "例如 换了新粮、加了罐头",
-                        note: $note
+                    MHBBottomFloatingActionCTA(
+                        title: isSubmitting ? "记录中" : "记录",
+                        systemImage: "checkmark",
+                        bottomInset: bottomInset,
+                        action: submit
                     )
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s5)
-                .padding(.top, MHBTheme.Spacing.s4)
-                .padding(.bottom, MHBTheme.Spacing.s6)
             }
             .background(MHBTheme.ColorToken.background.color)
-            .navigationTitle("记录喂食")
+            .navigationTitle("喂食")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消", action: onCancel)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(isSubmitting ? "记录中" : "记录") {
-                        onSubmit(
-                            HomeQuickFactFeedingInput(
-                                petID: selectedPetID,
-                                foodKind: selectedFoodKind,
-                                foodName: HomeQuickFactFeedingFoodSource.itemName(
-                                    for: selectedFoodItemID(for: selectedFoodKind),
-                                    in: selectedFoodKind
-                                ),
-                                amount: amount,
-                                occurredAt: occurredAt,
-                                note: note
-                            )
-                        )
-                    }
-                    .disabled(isSubmitting || selectedPetID == nil)
+                    HomeQuickFactPetSwitcherMenu(
+                        selectedItem: selectedSwitcherItem,
+                        items: petSwitcherItems,
+                        isDisabled: petSwitcherItems.isEmpty,
+                        onSelectPet: { petID in
+                            selectedPetID = petID
+                        }
+                    )
                 }
             }
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
-
-    private func selectedFoodItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
-        selectedFoodItemIDs[kind] ?? HomeQuickFactFeedingFoodSource.defaultItemID(for: kind)
-    }
-}
-
-// HomeQuickFactAbnormalSheet 异常快捷记录弹层
-// 核心职责：
-// - 收集宠物异常的症状、多选标签和严重程度
-// - 将异常入口从笼统健康记录中独立出来
-struct HomeQuickFactAbnormalSheet: View {
-    let context: HomeActionRoutingContext
-    let isSubmitting: Bool
-    let onSubmit: (HomeQuickFactAbnormalInput) -> Void
-    let onCancel: () -> Void
-
-    @State private var selectedPetID: String?
-    @State private var selectedSymptoms: Set<HomeQuickFactAbnormalSymptom> = []
-    @State private var severity: HomeQuickFactAbnormalSeverity = .mild
-    @State private var occurredAt = Date()
-    @State private var note = ""
-
-    init(
-        context: HomeActionRoutingContext,
-        isSubmitting: Bool,
-        onSubmit: @escaping (HomeQuickFactAbnormalInput) -> Void,
-        onCancel: @escaping () -> Void
-    ) {
-        self.context = context
-        self.isSubmitting = isSubmitting
-        self.onSubmit = onSubmit
-        self.onCancel = onCancel
-        self._selectedPetID = State(initialValue: context.selectedPetID ?? context.availablePets.first?.id)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                    HomeQuickFactPetSelectionSection(
-                        context: context,
-                        selectedPetID: $selectedPetID
-                    )
-
-                    HomeQuickFactMultiChoiceSection(
-                        title: "哪里异常",
-                        options: HomeQuickFactAbnormalSymptom.allCases,
-                        selection: $selectedSymptoms
-                    ) { option in
-                        HomeQuickFactOptionLabel(
-                            title: option.title,
-                            systemImage: option.systemImage
-                        )
-                    }
-
-                    HomeQuickFactSingleChoiceSection(
-                        title: "程度",
-                        options: HomeQuickFactAbnormalSeverity.allCases,
-                        selection: $severity
-                    ) { option in
-                        Text(option.title)
-                            .font(MHBTheme.Typography.callout.weight(.semibold))
-                    }
-
-                    HomeQuickFactDateSection(
-                        title: "发生时间",
-                        date: $occurredAt
-                    )
-
-                    HomeQuickFactNoteSection(
-                        title: "备注",
-                        prompt: "例如 持续多久、是否吃了新东西",
-                        note: $note
-                    )
-
-                    HomeQuickFactPhotoPlaceholderSection()
-                }
-                .padding(.horizontal, MHBTheme.Spacing.s5)
-                .padding(.top, MHBTheme.Spacing.s4)
-                .padding(.bottom, MHBTheme.Spacing.s6)
-            }
-            .background(MHBTheme.ColorToken.background.color)
-            .navigationTitle("记录异常")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消", action: onCancel)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isSubmitting ? "记录中" : "记录") {
-                        onSubmit(
-                            HomeQuickFactAbnormalInput(
-                                petID: selectedPetID,
-                                symptoms: HomeQuickFactAbnormalSymptom.allCases.filter { selectedSymptoms.contains($0) },
-                                severity: severity,
-                                occurredAt: occurredAt,
-                                note: note
-                            )
-                        )
-                    }
-                    .disabled(isSubmitting || selectedPetID == nil || selectedSymptoms.isEmpty)
-                }
-            }
-        }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-    }
-}
-
-// HomeQuickFactPetSelectionSection 快捷事实宠物选择区
-// 核心职责：
-// - 在单宠时展示当前宠物
-// - 在多宠时提供明确的宠物归属选择
-private struct HomeQuickFactPetSelectionSection: View {
-    let context: HomeActionRoutingContext
-    @Binding var selectedPetID: String?
 
     private var pets: [PetRecordSwitchPet] {
         if !context.availablePets.isEmpty {
@@ -240,19 +130,6 @@ private struct HomeQuickFactPetSelectionSection: View {
         ]
     }
 
-    var body: some View {
-        HomeQuickFactSheetSection(title: "宠物") {
-            HomeQuickFactPetSwitcherMenu(
-                selectedItem: selectedSwitcherItem,
-                items: petSwitcherItems,
-                isDisabled: petSwitcherItems.count <= 1,
-                onSelectPet: { petID in
-                    selectedPetID = petID
-                }
-            )
-        }
-    }
-
     private var selectedSwitcherItem: MHBPetSwitcherItem? {
         let selectedPet = pets.first { $0.id == selectedPetID } ?? pets.first
         return selectedPet.map { pet in
@@ -264,6 +141,28 @@ private struct HomeQuickFactPetSelectionSection: View {
         pets.map { pet in
             MHBPetSwitcherItem(recordSwitchPet: pet, isSelected: pet.id == selectedPetID)
         }
+    }
+
+    private func submit() {
+        guard !isSubmitting, selectedPetID != nil else { return }
+        onSubmit(
+            HomeQuickFactFeedingInput(
+                petID: selectedPetID,
+                foodKind: selectedFoodKind,
+                foodName: HomeQuickFactFeedingFoodSource.itemName(
+                    for: selectedFoodItemID(for: selectedFoodKind),
+                    in: selectedFoodKind
+                ),
+                amount: amount,
+                occurredAt: occurredAt,
+                note: note,
+                photoAssetNames: photoAssetNames
+            )
+        )
+    }
+
+    private func selectedFoodItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
+        selectedFoodItemIDs[kind] ?? HomeQuickFactFeedingFoodSource.defaultItemID(for: kind)
     }
 }
 
@@ -693,36 +592,6 @@ private struct HomeQuickFactSingleChoiceSection<Option: Identifiable & Equatable
     }
 }
 
-// HomeQuickFactMultiChoiceSection 快捷事实多选分组
-// 核心职责：
-// - 承载 sheet 内多选标签集合
-// - 支持症状等可并发事实输入
-private struct HomeQuickFactMultiChoiceSection<Option: Identifiable & Hashable, Label: View>: View {
-    let title: LocalizedStringResource
-    let options: [Option]
-    @Binding var selection: Set<Option>
-    @ViewBuilder let label: (Option) -> Label
-
-    var body: some View {
-        HomeQuickFactSheetSection(title: title) {
-            HomeQuickFactChoiceGrid(options: options) { option in
-                HomeQuickFactSelectableChip(
-                    isSelected: selection.contains(option),
-                    action: {
-                        if selection.contains(option) {
-                            selection.remove(option)
-                        } else {
-                            selection.insert(option)
-                        }
-                    }
-                ) {
-                    label(option)
-                }
-            }
-        }
-    }
-}
-
 // HomeQuickFactChoiceGrid 快捷事实选项网格
 // 核心职责：
 // - 统一 sheet 内标签网格布局
@@ -841,34 +710,63 @@ private struct HomeQuickFactNoteSection: View {
     }
 }
 
-// HomeQuickFactPhotoPlaceholderSection 异常照片占位区
+// HomeQuickFactOptionalPhotoSection 快捷记录可选照片区
 // 核心职责：
-// - 表达异常记录未来可附加照片的入口位置
-// - 在媒体上传接入前保持禁用状态
-private struct HomeQuickFactPhotoPlaceholderSection: View {
+// - 为喂食等记录提供可选照片入口
+// - 在快速 UI 阶段使用本地 mock 图片表达添加状态
+private struct HomeQuickFactOptionalPhotoSection: View {
+    let title: LocalizedStringResource
+    @Binding var photoAssetNames: [String]
+
+    private let mockAssetName = "HomePetFoodBowl"
+
     var body: some View {
-        HomeQuickFactSheetSection(title: "照片") {
-            Button(action: {}) {
-                HStack(spacing: MHBTheme.Spacing.s3) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-                    Text("添加照片")
-                        .font(MHBTheme.Typography.callout.weight(.semibold))
-                    Spacer()
-                    Image(systemName: "plus")
-                        .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+        HomeQuickFactSheetSection(title: title) {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+                if photoAssetNames.isEmpty == false {
+                    HStack(spacing: MHBTheme.Spacing.s2) {
+                        ForEach(photoAssetNames, id: \.self) { assetName in
+                            Image(assetName)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 78, height: 78)
+                                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+                        }
+                    }
                 }
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                .padding(MHBTheme.Spacing.s4)
-                .background(MHBTheme.ColorToken.cardSolid.color)
-                .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
-                        .stroke(MHBTheme.ColorToken.separator.color, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+
+                Button(action: toggleMockPhoto) {
+                    HStack(spacing: MHBTheme.Spacing.s3) {
+                        Image(systemName: photoAssetNames.isEmpty ? "camera.fill" : "xmark.circle.fill")
+                            .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
+
+                        Text(photoAssetNames.isEmpty ? "添加照片" : "移除照片")
+                            .font(MHBTheme.Typography.callout.weight(.semibold))
+
+                        Spacer()
+
+                        Image(systemName: photoAssetNames.isEmpty ? "plus" : "minus")
+                            .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
+                    }
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .padding(MHBTheme.Spacing.s4)
+                    .background(MHBTheme.ColorToken.cardSolid.color)
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous)
+                            .stroke(MHBTheme.ColorToken.separator.color, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                    }
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .disabled(true)
+        }
+    }
+
+    private func toggleMockPhoto() {
+        if photoAssetNames.isEmpty {
+            photoAssetNames = [mockAssetName]
+        } else {
+            photoAssetNames = []
         }
     }
 }

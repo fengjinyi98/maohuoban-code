@@ -13,6 +13,7 @@ struct PetWeightHistoryScreen: View {
     let records: [PetWeightRecord]
 
     @State private var selectedPet: PetRecordSwitchPet?
+    @State private var detailRoute: PetRecordDetailRoute?
 
     var body: some View {
         GeometryReader { proxy in
@@ -24,17 +25,22 @@ struct PetWeightHistoryScreen: View {
                     ForEach(groupedRecords, id: \.id) { group in
                         Section {
                             ForEach(group.records) { record in
-                                PetWeightHistoryListRow(record: record)
-                                    .listRowInsets(
-                                        EdgeInsets(
-                                            top: MHBTheme.Spacing.s2,
-                                            leading: MHBTheme.Spacing.s5,
-                                            bottom: MHBTheme.Spacing.s2,
-                                            trailing: MHBTheme.Spacing.s5
-                                        )
+                                Button {
+                                    detailRoute = .weight(recordID: record.id)
+                                } label: {
+                                    PetWeightHistoryListRow(record: record)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowInsets(
+                                    EdgeInsets(
+                                        top: MHBTheme.Spacing.s2,
+                                        leading: MHBTheme.Spacing.s5,
+                                        bottom: MHBTheme.Spacing.s2,
+                                        trailing: MHBTheme.Spacing.s5
                                     )
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(MHBTheme.ColorToken.background.color)
+                                )
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(MHBTheme.ColorToken.background.color)
                             }
                         } header: {
                             PetWeightHistoryMonthHeader(
@@ -70,6 +76,9 @@ struct PetWeightHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(item: $detailRoute) { route in
+            PetRecordDetailDestinationScreen(route: route)
+        }
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
         }
@@ -204,11 +213,16 @@ private struct PetWeightHistoryListRow: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(record.deltaKind.color)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
         }
         .padding(MHBTheme.Spacing.s4)
         .background(MHBTheme.ColorToken.cardSolid.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
         .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.03), radius: 14, y: 3)
+        .contentShape(Rectangle())
     }
 }
 

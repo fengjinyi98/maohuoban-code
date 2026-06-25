@@ -18,7 +18,7 @@ struct HomePartnerSection: View {
 
                 Spacer()
 
-                NavigationLink(value: HomeRoute.timelineEvent(eventID: "mock-partner")) {
+                NavigationLink(value: HomeRoute.petRecordDetail(PetRecordDetailRoute.mockRoute(for: "mock-partner"))) {
                     HStack(spacing: 4) {
                         Text("查看主页")
                         Image(systemName: "chevron.right")

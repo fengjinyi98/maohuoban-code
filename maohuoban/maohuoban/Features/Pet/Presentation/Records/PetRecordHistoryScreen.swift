@@ -11,6 +11,7 @@ struct PetRecordHistoryScreen: View {
     let context: PetRecordEntryContext
 
     @State private var selectedPet: PetRecordSwitchPet?
+    @State private var detailRoute: PetRecordDetailRoute?
 
     private let records = PetRecordHistoryItem.mockItems
 
@@ -25,7 +26,7 @@ struct PetRecordHistoryScreen: View {
                         Section {
                             ForEach(group.records) { record in
                                 Button {
-                                    // TODO: 接入记录详情页路由。
+                                    detailRoute = record.detailRoute
                                 } label: {
                                     PetRecordHistoryRow(record: record)
                                 }
@@ -75,6 +76,9 @@ struct PetRecordHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
+        .navigationDestination(item: $detailRoute) { route in
+            PetRecordDetailDestinationScreen(route: route)
+        }
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
         }
@@ -164,18 +168,22 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
     let systemImage: String
     let tint: Color
 
+    var detailRoute: PetRecordDetailRoute {
+        PetRecordDetailRoute.mockRoute(for: id)
+    }
+
     static let mockItems: [PetRecordHistoryItem] = [
         PetRecordHistoryItem(
-            id: "record-2026-06-breakfast",
+            id: "record-2026-06-feeding",
             yearText: "2026年",
             monthText: "6月",
             dateText: "6月24日",
             timeText: "08:30",
-            title: "记录了早餐",
-            subtitle: "鸡肉 + 南瓜 + 主粮",
-            kindText: "日常",
+            title: "已喂食",
+            subtitle: "主粮 · 正常",
+            kindText: "喂食",
             systemImage: "fork.knife",
-            tint: Color(mhbHex: "E5A93C")
+            tint: Color(mhbHex: "0093DD")
         ),
         PetRecordHistoryItem(
             id: "record-2026-06-weight",
@@ -188,6 +196,18 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
             kindText: "体重",
             systemImage: "scalemass.fill",
             tint: Color(mhbHex: "7C3AED")
+        ),
+        PetRecordHistoryItem(
+            id: "record-2026-06-abnormal",
+            yearText: "2026年",
+            monthText: "6月",
+            dateText: "6月24日",
+            timeText: "20:15",
+            title: "异常记录",
+            subtitle: "食欲、精神 · 明显",
+            kindText: "异常",
+            systemImage: "cross.case.fill",
+            tint: MHBTheme.ColorToken.danger.color
         ),
         PetRecordHistoryItem(
             id: "record-2026-06-deworming",
