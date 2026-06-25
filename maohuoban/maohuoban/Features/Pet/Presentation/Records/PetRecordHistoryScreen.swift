@@ -6,6 +6,8 @@ import MaohuobanDesignSystem
 // - 按月份分组展示宠物完整记录列表
 // - 支持通过右上角宠物切换查看不同宠物记录
 struct PetRecordHistoryScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let context: PetRecordEntryContext
 
     @State private var selectedPet: PetRecordSwitchPet?
@@ -13,55 +15,80 @@ struct PetRecordHistoryScreen: View {
     private let records = PetRecordHistoryItem.mockItems
 
     var body: some View {
-        List {
-            ForEach(groupedRecords, id: \.month) { group in
-                Section {
-                    ForEach(group.records) { record in
-                        Button {
-                            // TODO: 接入记录详情页路由。
-                        } label: {
-                            PetRecordHistoryRow(record: record)
-                        }
-                        .buttonStyle(.plain)
-                        .listRowInsets(
-                            EdgeInsets(
-                                top: MHBTheme.Spacing.s2,
-                                leading: MHBTheme.Spacing.s4,
-                                bottom: MHBTheme.Spacing.s2,
-                                trailing: MHBTheme.Spacing.s4
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                MHBTheme.ColorToken.background.color
+                    .ignoresSafeArea()
+
+                List {
+                    ForEach(groupedRecords, id: \.id) { group in
+                        Section {
+                            ForEach(group.records) { record in
+                                Button {
+                                    // TODO: 接入记录详情页路由。
+                                } label: {
+                                    PetRecordHistoryRow(record: record)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowInsets(
+                                    EdgeInsets(
+                                        top: MHBTheme.Spacing.s2,
+                                        leading: MHBTheme.Spacing.s4,
+                                        bottom: MHBTheme.Spacing.s2,
+                                        trailing: MHBTheme.Spacing.s4
+                                    )
+                                )
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(MHBTheme.ColorToken.background.color)
+                            }
+                        } header: {
+                            PetRecordHistoryMonthHeader(
+                                month: group.month,
+                                year: group.year
                             )
-                        )
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(MHBTheme.ColorToken.background.color)
+                        }
                     }
-                } header: {
-                    Text(group.month)
-                        .font(MHBTheme.Typography.caption.weight(.semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        .textCase(nil)
-                        .padding(.top, MHBTheme.Spacing.s2)
                 }
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(MHBTheme.ColorToken.background.color)
-        .navigationTitle("记录")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                PetRecordHistoryPetSwitcherMenu(
+                .listStyle(.plain)
+                .listSectionSpacing(MHBTheme.Spacing.s1)
+                .scrollContentBackground(.hidden)
+                .background(MHBTheme.ColorToken.background.color)
+                .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(0)
+
+                PetRecordHistoryTopChrome(
                     selectedItem: currentPetSwitcherItem,
                     items: petSwitcherItems,
                     isDisabled: petSwitcherItems.count <= 1,
+                    onBack: { dismiss() },
                     onSelect: selectPet
                 )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .zIndex(2)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
+        .ignoresSafeArea(.container, edges: [.top])
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
         }
         .accessibilityIdentifier("pet.recordHistory")
+    }
+
+    private var topChromeHeight: CGFloat {
+        48
+    }
+
+    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
+            + topChromeHeight
+            + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String? {
@@ -86,14 +113,20 @@ struct PetRecordHistoryScreen: View {
         }
     }
 
-    private var groupedRecords: [(month: String, records: [PetRecordHistoryItem])] {
-        var groups: [(month: String, records: [PetRecordHistoryItem])] = []
+    private var groupedRecords: [(id: String, year: String, month: String, records: [PetRecordHistoryItem])] {
+        var groups: [(id: String, year: String, month: String, records: [PetRecordHistoryItem])] = []
 
         for record in records {
-            if let index = groups.firstIndex(where: { $0.month == record.monthText }) {
+            let groupID = "\(record.yearText)-\(record.monthText)"
+            if let index = groups.firstIndex(where: { $0.id == groupID }) {
                 groups[index].records.append(record)
             } else {
-                groups.append((month: record.monthText, records: [record]))
+                groups.append((
+                    id: groupID,
+                    year: record.yearText,
+                    month: record.monthText,
+                    records: [record]
+                ))
             }
         }
 
@@ -112,6 +145,7 @@ struct PetRecordHistoryScreen: View {
             isSelected: true
         )
     }
+
 }
 
 // PetRecordHistoryItem 宠物记录历史展示模型
@@ -120,6 +154,7 @@ struct PetRecordHistoryScreen: View {
 // - 为列表分组和行展示提供稳定输入
 private struct PetRecordHistoryItem: Identifiable, Hashable {
     let id: String
+    let yearText: String
     let monthText: String
     let dateText: String
     let timeText: String
@@ -132,6 +167,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
     static let mockItems: [PetRecordHistoryItem] = [
         PetRecordHistoryItem(
             id: "record-2026-06-breakfast",
+            yearText: "2026年",
             monthText: "6月",
             dateText: "6月24日",
             timeText: "08:30",
@@ -143,6 +179,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
         ),
         PetRecordHistoryItem(
             id: "record-2026-06-weight",
+            yearText: "2026年",
             monthText: "6月",
             dateText: "6月24日",
             timeText: "09:15",
@@ -154,6 +191,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
         ),
         PetRecordHistoryItem(
             id: "record-2026-06-deworming",
+            yearText: "2026年",
             monthText: "6月",
             dateText: "6月22日",
             timeText: "11:30",
@@ -165,6 +203,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
         ),
         PetRecordHistoryItem(
             id: "record-2026-05-walk",
+            yearText: "2026年",
             monthText: "5月",
             dateText: "5月20日",
             timeText: "20:20",
@@ -176,6 +215,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
         ),
         PetRecordHistoryItem(
             id: "record-2026-05-appetite",
+            yearText: "2026年",
             monthText: "5月",
             dateText: "5月18日",
             timeText: "19:10",
@@ -187,6 +227,7 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
         ),
         PetRecordHistoryItem(
             id: "record-2026-04-hospital",
+            yearText: "2026年",
             monthText: "4月",
             dateText: "4月15日",
             timeText: "10:40",
@@ -197,6 +238,31 @@ private struct PetRecordHistoryItem: Identifiable, Hashable {
             tint: Color(mhbHex: "2563EB")
         )
     ]
+}
+
+// PetRecordHistoryMonthHeader 记录历史月份标题
+// 核心职责：
+// - 在列表分组标题中展示月份和年份
+// - 保持跨年记录浏览时的时间上下文
+private struct PetRecordHistoryMonthHeader: View {
+    let month: String
+    let year: String
+
+    var body: some View {
+        HStack(alignment: .bottom) {
+            Text(month)
+                .font(MHBTheme.Typography.caption.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            Spacer()
+
+            Text(year)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+        }
+        .textCase(nil)
+        .padding(.top, MHBTheme.Spacing.s1)
+    }
 }
 
 // PetRecordHistoryRow 宠物记录历史列表行
@@ -259,9 +325,67 @@ private struct PetRecordHistoryRow: View {
     }
 }
 
+// PetRecordHistoryTopChrome 全部记录顶部导航控件
+// 核心职责：
+// - 在系统导航栏视觉位置展示返回和宠物切换
+// - 使用自绘 chrome 承载带 Liquid Glass 的宠物切换基础设施
+private struct PetRecordHistoryTopChrome: View {
+    let selectedItem: MHBPetSwitcherItem?
+    let items: [MHBPetSwitcherItem]
+    let isDisabled: Bool
+    let onBack: () -> Void
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            ZStack {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    PetRecordHistoryBackButton(onBack: onBack)
+
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+                }
+
+                HStack {
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+
+                    PetRecordHistoryPetSwitcherMenu(
+                        selectedItem: selectedItem,
+                        items: items,
+                        isDisabled: isDisabled,
+                        onSelect: onSelect
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// PetRecordHistoryBackButton 全部记录返回按钮
+// 核心职责：
+// - 承载顶部左侧返回动作
+// - 保持自绘顶部栏 Liquid Glass 圆形反馈
+private struct PetRecordHistoryBackButton: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        Button(action: onBack) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel("返回")
+        .accessibilityIdentifier("pet.recordHistory.backButton")
+    }
+}
+
 // PetRecordHistoryPetSwitcherMenu 记录历史宠物切换菜单
 // 核心职责：
-// - 在系统导航栏右侧展示当前宠物
+// - 在自绘顶部栏右侧展示当前宠物
 // - 使用原生 Menu 承载宠物切换动作
 private struct PetRecordHistoryPetSwitcherMenu: View {
     let selectedItem: MHBPetSwitcherItem?
@@ -281,10 +405,10 @@ private struct PetRecordHistoryPetSwitcherMenu: View {
         } label: {
             MHBPetSwitcherCapsule(
                 item: selectedItem,
-                isDisabled: isDisabled
+                isDisabled: false
             )
         }
-        .disabled(isDisabled)
+        .disabled(items.isEmpty)
         .accessibilityIdentifier("pet.recordHistory.petSwitcherButton")
     }
 }

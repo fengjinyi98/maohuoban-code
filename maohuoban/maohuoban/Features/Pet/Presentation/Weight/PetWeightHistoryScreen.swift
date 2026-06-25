@@ -3,9 +3,11 @@ import MaohuobanDesignSystem
 
 // PetWeightHistoryScreen 体重历史记录页
 // 核心职责：
-// - 使用项目统一滚动容器展示完整体重记录
-// - 支持通过右上角宠物切换查看不同宠物记录
+// - 使用 List 按月份展示完整体重记录
+// - 通过自绘顶部导航区域承载宠物切换
 struct PetWeightHistoryScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let context: PetRecordEntryContext
     let fallbackPetName: String
     let records: [PetWeightRecord]
@@ -13,36 +15,75 @@ struct PetWeightHistoryScreen: View {
     @State private var selectedPet: PetRecordSwitchPet?
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                ForEach(groupedRecords, id: \.month) { group in
-                    PetWeightHistoryMonthSection(
-                        month: group.month,
-                        records: group.records
-                    )
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                MHBTheme.ColorToken.background.color
+                    .ignoresSafeArea()
+
+                List {
+                    ForEach(groupedRecords, id: \.id) { group in
+                        Section {
+                            ForEach(group.records) { record in
+                                PetWeightHistoryListRow(record: record)
+                                    .listRowInsets(
+                                        EdgeInsets(
+                                            top: MHBTheme.Spacing.s2,
+                                            leading: MHBTheme.Spacing.s5,
+                                            bottom: MHBTheme.Spacing.s2,
+                                            trailing: MHBTheme.Spacing.s5
+                                        )
+                                    )
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(MHBTheme.ColorToken.background.color)
+                            }
+                        } header: {
+                            PetWeightHistoryMonthHeader(
+                                month: group.month,
+                                year: group.year
+                            )
+                        }
+                    }
                 }
-            }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s4)
-            .padding(.bottom, MHBTheme.Spacing.s8)
-        }
-        .background(MHBTheme.ColorToken.background.color)
-        .navigationTitle("历史记录")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                PetWeightHistoryPetSwitcherMenu(
+                .listStyle(.plain)
+                .listSectionSpacing(MHBTheme.Spacing.s1)
+                .scrollContentBackground(.hidden)
+                .background(MHBTheme.ColorToken.background.color)
+                .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(0)
+
+                PetWeightHistoryTopChrome(
                     selectedItem: currentPetSwitcherItem,
                     items: petSwitcherItems,
                     isDisabled: petSwitcherItems.count <= 1,
+                    onBack: { dismiss() },
                     onSelect: selectPet
                 )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .zIndex(2)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
+        .ignoresSafeArea(.container, edges: [.top])
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
         }
         .accessibilityIdentifier("pet.weightHistory")
+    }
+
+    private var topChromeHeight: CGFloat {
+        48
+    }
+
+    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
+            + topChromeHeight
+            + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String? {
@@ -73,14 +114,20 @@ struct PetWeightHistoryScreen: View {
         }
     }
 
-    private var groupedRecords: [(month: String, records: [PetWeightRecord])] {
-        var groups: [(month: String, records: [PetWeightRecord])] = []
+    private var groupedRecords: [(id: String, year: String, month: String, records: [PetWeightRecord])] {
+        var groups: [(id: String, year: String, month: String, records: [PetWeightRecord])] = []
 
         for record in records {
-            if let index = groups.firstIndex(where: { $0.month == record.monthText }) {
+            let groupID = "\(record.yearText)-\(record.monthText)"
+            if let index = groups.firstIndex(where: { $0.id == groupID }) {
                 groups[index].records.append(record)
             } else {
-                groups.append((month: record.monthText, records: [record]))
+                groups.append((
+                    id: groupID,
+                    year: record.yearText,
+                    month: record.monthText,
+                    records: [record]
+                ))
             }
         }
 
@@ -99,29 +146,31 @@ struct PetWeightHistoryScreen: View {
             isSelected: true
         )
     }
+
 }
 
-// PetWeightHistoryMonthSection 体重历史月份分组
+// PetWeightHistoryMonthHeader 体重历史月份标题
 // 核心职责：
-// - 展示月份标题和该月体重记录
-// - 保持滚动时月份信息清晰可见
-private struct PetWeightHistoryMonthSection: View {
+// - 在列表分组标题中展示月份和年份
+// - 保持跨年记录浏览时的时间上下文
+private struct PetWeightHistoryMonthHeader: View {
     let month: String
-    let records: [PetWeightRecord]
+    let year: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+        HStack(alignment: .bottom) {
             Text(month)
                 .font(MHBTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                .padding(.horizontal, MHBTheme.Spacing.s1)
 
-            VStack(spacing: MHBTheme.Spacing.s3) {
-                ForEach(records) { record in
-                    PetWeightHistoryListRow(record: record)
-                }
-            }
+            Spacer()
+
+            Text(year)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
         }
+        .textCase(nil)
+        .padding(.top, MHBTheme.Spacing.s1)
     }
 }
 
@@ -163,9 +212,67 @@ private struct PetWeightHistoryListRow: View {
     }
 }
 
+// PetWeightHistoryTopChrome 体重历史顶部导航控件
+// 核心职责：
+// - 在系统导航栏视觉位置展示返回和宠物切换
+// - 使用自绘 chrome 承载带 Liquid Glass 的宠物切换基础设施
+private struct PetWeightHistoryTopChrome: View {
+    let selectedItem: MHBPetSwitcherItem?
+    let items: [MHBPetSwitcherItem]
+    let isDisabled: Bool
+    let onBack: () -> Void
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            ZStack {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    PetWeightHistoryBackButton(onBack: onBack)
+
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+                }
+
+                HStack {
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+
+                    PetWeightHistoryPetSwitcherMenu(
+                        selectedItem: selectedItem,
+                        items: items,
+                        isDisabled: isDisabled,
+                        onSelect: onSelect
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// PetWeightHistoryBackButton 体重历史返回按钮
+// 核心职责：
+// - 承载顶部左侧返回动作
+// - 保持自绘顶部栏 Liquid Glass 圆形反馈
+private struct PetWeightHistoryBackButton: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        Button(action: onBack) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel("返回")
+        .accessibilityIdentifier("pet.weightHistory.backButton")
+    }
+}
+
 // PetWeightHistoryPetSwitcherMenu 体重历史宠物切换菜单
 // 核心职责：
-// - 在系统导航栏右侧展示当前宠物
+// - 在自绘顶部栏右侧展示当前宠物
 // - 使用原生 Menu 承载宠物切换动作
 private struct PetWeightHistoryPetSwitcherMenu: View {
     let selectedItem: MHBPetSwitcherItem?
@@ -185,10 +292,11 @@ private struct PetWeightHistoryPetSwitcherMenu: View {
         } label: {
             MHBPetSwitcherCapsule(
                 item: selectedItem,
-                isDisabled: isDisabled
+                isDisabled: false
             )
         }
-        .disabled(isDisabled)
+        .disabled(items.isEmpty)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("pet.weightHistory.petSwitcherButton")
     }
 }

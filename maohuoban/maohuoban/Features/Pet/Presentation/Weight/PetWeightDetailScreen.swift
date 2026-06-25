@@ -28,6 +28,8 @@ private enum PetWeightDetailRoute: Hashable, Identifiable {
 // - 展示当前体重、趋势图和近期记录
 // - 通过底部悬浮 CTA 进入新增体重记录流程
 struct PetWeightDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let context: PetWeightDetailContext
 
     @State private var selectedRange: PetWeightRange = .sixMonths
@@ -41,14 +43,16 @@ struct PetWeightDetailScreen: View {
         GeometryReader { proxy in
             let bottomInset = proxy.safeAreaInsets.bottom
 
-            ZStack(alignment: .bottom) {
+            ZStack(alignment: .topLeading) {
+                MHBTheme.ColorToken.background.color
+                    .ignoresSafeArea()
+
                 MHBScreenScrollView {
                     VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
                         PetWeightHeroCard(
                             currentWeightText: context.currentWeightText,
                             changeText: context.weightChangeText
                         )
-                        .padding(.top, MHBTheme.Spacing.s4)
 
                         PetWeightChartCard(
                             selectedRange: $selectedRange,
@@ -64,7 +68,10 @@ struct PetWeightDetailScreen: View {
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(0)
 
                 MHBBottomFloatingActionCTA(
                     title: "新增记录",
@@ -74,14 +81,27 @@ struct PetWeightDetailScreen: View {
                         isAddRecordSheetPresented = true
                     }
                 )
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
                 .zIndex(2)
+
+                PetWeightDetailTopChrome(
+                    selectedItem: currentPetSwitcherItem,
+                    items: petSwitcherItems,
+                    isDisabled: petSwitcherItems.count <= 1,
+                    onBack: { dismiss() },
+                    onSelect: selectPet
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
+                .zIndex(3)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .ignoresSafeArea(.container, edges: .bottom)
-        .background(MHBTheme.ColorToken.background.color)
-        .navigationTitle("体重")
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .navigationDestination(item: $pathRoute) { route in
             switch route {
             case .history:
@@ -89,16 +109,6 @@ struct PetWeightDetailScreen: View {
                     context: context.recordContext,
                     fallbackPetName: currentPetName,
                     records: records
-                )
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                PetWeightDetailPetSwitcherMenu(
-                    selectedItem: currentPetSwitcherItem,
-                    items: petSwitcherItems,
-                    isDisabled: petSwitcherItems.count <= 1,
-                    onSelect: selectPet
                 )
             }
         }
@@ -112,6 +122,16 @@ struct PetWeightDetailScreen: View {
             selectedPet = selectedPet ?? context.recordContext.selectedSwitchPet
         }
         .accessibilityIdentifier("pet.weightDetail")
+    }
+
+    private var topChromeHeight: CGFloat {
+        48
+    }
+
+    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
+        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
+            + topChromeHeight
+            + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String {
@@ -152,6 +172,7 @@ struct PetWeightDetailScreen: View {
             isSelected: true
         )
     }
+
 }
 
 // PetWeightRange 体重趋势周期
@@ -180,6 +201,7 @@ private enum PetWeightRange: String, CaseIterable, Hashable {
 // - 为趋势图和近期记录列表提供统一输入
 struct PetWeightRecord: Identifiable, Hashable {
     let id: String
+    let yearText: String
     let dateText: String
     let monthText: String
     let note: String
@@ -207,6 +229,7 @@ struct PetWeightRecord: Identifiable, Hashable {
     static let mockRecords: [PetWeightRecord] = [
         PetWeightRecord(
             id: "weight-2026-06",
+            yearText: "2026年",
             dateText: "6月24日",
             monthText: "6月",
             note: "例行称重",
@@ -216,6 +239,7 @@ struct PetWeightRecord: Identifiable, Hashable {
         ),
         PetWeightRecord(
             id: "weight-2026-05",
+            yearText: "2026年",
             dateText: "5月20日",
             monthText: "5月",
             note: "驱虫前记录",
@@ -225,6 +249,7 @@ struct PetWeightRecord: Identifiable, Hashable {
         ),
         PetWeightRecord(
             id: "weight-2026-04",
+            yearText: "2026年",
             dateText: "4月15日",
             monthText: "4月",
             note: "医院体检",
@@ -234,6 +259,7 @@ struct PetWeightRecord: Identifiable, Hashable {
         ),
         PetWeightRecord(
             id: "weight-2026-03",
+            yearText: "2026年",
             dateText: "3月18日",
             monthText: "3月",
             note: "晨间称重",
@@ -243,6 +269,7 @@ struct PetWeightRecord: Identifiable, Hashable {
         ),
         PetWeightRecord(
             id: "weight-2026-02",
+            yearText: "2026年",
             dateText: "2月16日",
             monthText: "2月",
             note: "饮食调整后",
@@ -252,6 +279,7 @@ struct PetWeightRecord: Identifiable, Hashable {
         ),
         PetWeightRecord(
             id: "weight-2026-01",
+            yearText: "2026年",
             dateText: "1月12日",
             monthText: "1月",
             note: "月度记录",
@@ -648,9 +676,73 @@ private struct PetWeightHistoryRow: View {
     }
 }
 
+// PetWeightDetailTopChrome 体重详情顶部导航控件
+// 核心职责：
+// - 在系统导航栏视觉位置展示返回、标题和宠物切换
+// - 使用自绘 chrome 承载带 Liquid Glass 的宠物切换基础设施
+private struct PetWeightDetailTopChrome: View {
+    let selectedItem: MHBPetSwitcherItem?
+    let items: [MHBPetSwitcherItem]
+    let isDisabled: Bool
+    let onBack: () -> Void
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        GlassEffectContainer(spacing: MHBTheme.Spacing.s3) {
+            ZStack {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    PetWeightDetailBackButton(onBack: onBack)
+
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+                }
+
+                Text("体重")
+                    .font(MHBTheme.Typography.headline.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .frame(height: 48)
+                    .accessibilityAddTraits(.isHeader)
+
+                HStack {
+                    Spacer(minLength: MHBTheme.Spacing.s3)
+
+                    PetWeightDetailPetSwitcherMenu(
+                        selectedItem: selectedItem,
+                        items: items,
+                        isDisabled: isDisabled,
+                        onSelect: onSelect
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// PetWeightDetailBackButton 体重详情返回按钮
+// 核心职责：
+// - 承载顶部左侧返回动作
+// - 保持自绘顶部栏 Liquid Glass 圆形反馈
+private struct PetWeightDetailBackButton: View {
+    let onBack: () -> Void
+
+    var body: some View {
+        Button(action: onBack) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(width: 48, height: 48)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .circle)
+        .accessibilityLabel("返回")
+        .accessibilityIdentifier("pet.weightDetail.backButton")
+    }
+}
+
 // PetWeightDetailPetSwitcherMenu 体重详情宠物切换菜单
 // 核心职责：
-// - 在系统导航栏右侧展示当前宠物胶囊
+// - 在自绘顶部栏右侧展示当前宠物胶囊
 // - 使用原生 Menu 承载多宠切换动作
 private struct PetWeightDetailPetSwitcherMenu: View {
     let selectedItem: MHBPetSwitcherItem?
@@ -670,10 +762,10 @@ private struct PetWeightDetailPetSwitcherMenu: View {
         } label: {
             MHBPetSwitcherCapsule(
                 item: selectedItem,
-                isDisabled: isDisabled
+                isDisabled: false
             )
         }
-        .disabled(isDisabled)
+        .disabled(items.isEmpty)
         .accessibilityIdentifier("pet.weightDetail.petSwitcherButton")
     }
 }

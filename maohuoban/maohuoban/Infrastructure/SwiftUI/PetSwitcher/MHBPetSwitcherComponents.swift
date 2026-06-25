@@ -5,6 +5,8 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 展示当前宠物头像、名称和菜单箭头
 // - 作为业务页面原生 Menu 的统一 label
+// - 自绘导航栏 / 自定义头部区域使用，自带 Liquid Glass 容器
+// - 系统导航栏 toolbar 自带 Liquid Glass 容器时不得直接使用，需改为自绘 chrome 承载
 struct MHBPetSwitcherCapsule: View {
     let item: MHBPetSwitcherItem?
     let isExpanded: Bool
