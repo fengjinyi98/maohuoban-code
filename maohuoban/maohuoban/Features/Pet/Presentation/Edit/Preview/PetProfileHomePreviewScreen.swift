@@ -57,6 +57,7 @@ struct PetProfileHomePreviewScreen: View {
                             onOpenWeight: {},
                             onOpenRecordHistory: {},
                             onOpenPantry: {},
+                            onOpenPreventiveCare: {},
                             showsEditProfileButton: false
                         )
 

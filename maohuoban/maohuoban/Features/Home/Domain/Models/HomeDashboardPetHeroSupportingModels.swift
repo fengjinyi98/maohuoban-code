@@ -11,6 +11,7 @@ extension HomeDashboardSnapshot {
         let pantryLastAddedDate: String
         let dewormingDaysLeft: Int
         let dewormingDate: String
+        let preventiveCare: PreventiveCareSummary?
 
         enum CodingKeys: String, CodingKey {
             case weightVal = "weight_val"
@@ -21,6 +22,63 @@ extension HomeDashboardSnapshot {
             case pantryLastAddedDate = "pantry_last_added_date"
             case dewormingDaysLeft = "deworming_days_left"
             case dewormingDate = "deworming_date"
+            case preventiveCare = "preventive_care"
+        }
+
+        init(
+            weightVal: String,
+            weightChange: String,
+            recordDays: Int,
+            recordStreakText: String,
+            pantryItemCount: Int,
+            pantryLastAddedDate: String,
+            dewormingDaysLeft: Int,
+            dewormingDate: String,
+            preventiveCare: PreventiveCareSummary? = nil
+        ) {
+            self.weightVal = weightVal
+            self.weightChange = weightChange
+            self.recordDays = recordDays
+            self.recordStreakText = recordStreakText
+            self.pantryItemCount = pantryItemCount
+            self.pantryLastAddedDate = pantryLastAddedDate
+            self.dewormingDaysLeft = dewormingDaysLeft
+            self.dewormingDate = dewormingDate
+            self.preventiveCare = preventiveCare
+        }
+
+        // PreventiveCareSummary 预防护理最近到期摘要
+        // 核心职责：
+        // - 承载首页 state 卡片里疫苗/驱虫入口的最近到期展示
+        // - 由后端聚合疫苗和驱虫事件后返回最近到期项
+        struct PreventiveCareSummary: Decodable, Equatable {
+            let kind: Kind
+            let daysDelta: Int?
+            let dueDateText: String?
+
+            enum CodingKeys: String, CodingKey {
+                case kind
+                case daysDelta = "days_delta"
+                case dueDateText = "due_date_text"
+            }
+
+            // Kind 预防护理类型
+            // 核心职责：
+            // - 标识最近到期项来自疫苗、驱虫或同日到期
+            // - 为首页展示文案提供稳定语义
+            enum Kind: String, Decodable, Equatable {
+                case vaccine
+                case deworming
+                case both
+
+                var displayName: String {
+                    switch self {
+                    case .vaccine: "疫苗"
+                    case .deworming: "驱虫"
+                    case .both: "疫苗/驱虫"
+                    }
+                }
+            }
         }
 
         static let mock = PetHeroStats(
@@ -31,7 +89,12 @@ extension HomeDashboardSnapshot {
             pantryItemCount: 12,
             pantryLastAddedDate: "2026.06.24",
             dewormingDaysLeft: 3,
-            dewormingDate: "2026.05.28"
+            dewormingDate: "2026.05.28",
+            preventiveCare: PreventiveCareSummary(
+                kind: .vaccine,
+                daysDelta: 3,
+                dueDateText: "2026.06.28"
+            )
         )
     }
 

@@ -33,6 +33,7 @@ struct HomeImmersivePetHeaderSection: View {
     let onOpenWeight: () -> Void
     let onOpenRecordHistory: () -> Void
     let onOpenPantry: () -> Void
+    let onOpenPreventiveCare: () -> Void
     var showsEditProfileButton = true
 
     private let imageHeight: CGFloat = HomeImmersivePetHeaderLayout.imageHeight
@@ -141,7 +142,8 @@ struct HomeImmersivePetHeaderSection: View {
                 pet: pet,
                 onOpenWeight: onOpenWeight,
                 onOpenRecordHistory: onOpenRecordHistory,
-                onOpenPantry: onOpenPantry
+                onOpenPantry: onOpenPantry,
+                onOpenPreventiveCare: onOpenPreventiveCare
             )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .frame(width: imageWidth, height: HomeImmersivePetHeaderLayout.petStatsCardHeight)

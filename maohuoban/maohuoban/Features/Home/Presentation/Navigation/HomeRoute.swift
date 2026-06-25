@@ -14,6 +14,7 @@ enum HomeRoute: Hashable {
     case recordHealth(PetRecordEntryContext)
     case recordAbnormal(PetRecordEntryContext)
     case petWeightDetail(PetWeightDetailContext)
+    case petPreventiveCare(PetPreventiveCareContext)
     case petRecordHistory(PetRecordEntryContext)
     case bookHospital(petID: String?, city: String?)
     case importTradePet
@@ -43,6 +44,7 @@ extension HomeRoute {
         case .recordHealth: "cross.case.fill"
         case .recordAbnormal: "exclamationmark.triangle.fill"
         case .petWeightDetail: "scalemass.fill"
+        case .petPreventiveCare: "syringe"
         case .petRecordHistory: "list.bullet.rectangle"
         case .bookHospital: "stethoscope"
         case .importTradePet: "tray.and.arrow.down.fill"
@@ -72,6 +74,7 @@ extension HomeRoute {
         case .recordHealth: "健康记录"
         case .recordAbnormal: "记录异常"
         case .petWeightDetail: "体重详情"
+        case .petPreventiveCare: "疫苗/驱虫"
         case .petRecordHistory: "记录列表"
         case .bookHospital: "预约医院"
         case .importTradePet: "导入交易宠物"
@@ -101,6 +104,7 @@ extension HomeRoute {
         case .recordHealth: "记录疫苗、驱虫或就诊信息"
         case .recordAbnormal: "记录当前宠物的异常线索"
         case .petWeightDetail: "查看体重趋势和近期记录"
+        case .petPreventiveCare: "查看疫苗和驱虫提醒与历史记录"
         case .petRecordHistory: "查看当前宠物的完整记录列表"
         case .bookHospital: "进入同城医院预约协作"
         case .importTradePet: "把交易履约宠物导入档案"

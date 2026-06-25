@@ -228,7 +228,12 @@ extension HomeMockDashboardFixtures {
                 pantryItemCount: 12,
                 pantryLastAddedDate: "2026.06.24",
                 dewormingDaysLeft: 3,
-                dewormingDate: "2026.05.28"
+                dewormingDate: "2026.05.28",
+                preventiveCare: HomeDashboardSnapshot.PetHeroStats.PreventiveCareSummary(
+                    kind: .vaccine,
+                    daysDelta: 3,
+                    dueDateText: "2026.06.28"
+                )
             )
         )
     }

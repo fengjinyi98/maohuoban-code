@@ -77,6 +77,12 @@ struct HomeDashboardLoadedView: View {
                                         petID: selectedPet.id,
                                         petName: selectedPet.name
                                     ))
+                                },
+                                onOpenPreventiveCare: {
+                                    onOpenRoute(preventiveCareRoute(
+                                        for: selectedPet,
+                                        routingContext: routingContext
+                                    ))
                                 }
                             )
                         }
@@ -258,6 +264,24 @@ struct HomeDashboardLoadedView: View {
                 petAvatarURL: routingContext.selectedPetAvatarURL,
                 petSex: routingContext.selectedPetSex,
                 availablePets: routingContext.availablePets
+            )
+        )
+    }
+
+    private func preventiveCareRoute(
+        for pet: HomeDashboardSnapshot.PetHeroSummary,
+        routingContext: HomeActionRoutingContext
+    ) -> HomeRoute {
+        .petPreventiveCare(
+            PetPreventiveCareContext(
+                recordContext: PetRecordEntryContext(
+                    petID: routingContext.selectedPetID,
+                    petName: routingContext.selectedPetName,
+                    petAvatarURL: routingContext.selectedPetAvatarURL,
+                    petSex: routingContext.selectedPetSex,
+                    availablePets: routingContext.availablePets
+                ),
+                fallbackPetName: pet.name
             )
         )
     }

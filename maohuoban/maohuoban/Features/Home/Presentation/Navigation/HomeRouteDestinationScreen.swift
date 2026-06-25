@@ -63,6 +63,8 @@ struct HomeRouteDestinationScreen: View {
             )
         case .petWeightDetail(let context):
             PetWeightDetailScreen(context: context)
+        case .petPreventiveCare(let context):
+            PetPreventiveCareScreen(context: context)
         case .petRecordHistory(let context):
             PetRecordHistoryScreen(context: context)
         case .merchantPets(let merchantID, let status):
