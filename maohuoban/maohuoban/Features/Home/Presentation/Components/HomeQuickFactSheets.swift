@@ -274,7 +274,9 @@ private struct HomeQuickFactFeedingFoodSection: View {
                                     setSelectedItemID(item.id, for: kind)
                                 }
                             )
-                            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                            .transition(
+                                .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
+                            )
                             .clipped()
                         }
                     }
@@ -286,11 +288,29 @@ private struct HomeQuickFactFeedingFoodSection: View {
     }
 
     private func expand(_ kind: HomeQuickFactFeedingFoodKind) {
+        let previousExpanded = expandedKind
         let nextExpanded = expandedKind == kind ? nil : kind
         selectedKind = kind
-        expandedKind = nextExpanded
         if selectedItemID(for: kind) == nil {
             setSelectedItemID(HomeQuickFactFeedingFoodSource.defaultItemID(for: kind), for: kind)
+        }
+
+        if let previousExpanded, previousExpanded != kind {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                expandedKind = nil
+            }
+            DispatchQueue.main.async {
+                withAnimation(.snappy(duration: 0.24)) {
+                    expandedKind = kind
+                }
+            }
+            return
+        }
+
+        withAnimation(.snappy(duration: 0.24)) {
+            expandedKind = nextExpanded
         }
     }
 
@@ -598,9 +618,8 @@ private struct HomeQuickFactSheetSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
             Text(title)
-                .font(MHBTheme.Typography.section)
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                .textCase(.uppercase)
+                .font(MHBTheme.Typography.callout.weight(.semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
             content()
         }
