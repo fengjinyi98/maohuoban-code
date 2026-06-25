@@ -74,7 +74,10 @@ fn main() {
     }
 
     eprintln!("[{ERROR_CODE}] 项目目录与文件规则检查失败");
-    eprintln!("原因：本次 Codex 触碰的代码文件存在 {} 个阻断项。", violations.len());
+    eprintln!(
+        "原因：本次 Codex 触碰的代码文件存在 {} 个阻断项。",
+        violations.len()
+    );
     eprintln!("依据：AGENTS.md 第 4 节目录与文件规则。");
     eprintln!("修复方式：拆分文件职责、移动到明确职责目录，或在代码中给出明确拆分理由。");
     for violation in violations.iter().take(8) {
@@ -147,6 +150,10 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
         }
     };
 
+    if has_structure_exemption_reason(&content) {
+        return Vec::new();
+    }
+
     let mut findings = Vec::new();
     let line_count = content.lines().count();
     match extension {
@@ -199,6 +206,18 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
     }
 
     findings
+}
+
+/// has_structure_exemption_reason 判断是否存在明确结构豁免理由
+/// 核心职责：
+/// - 支持 AGENTS 中“给出明确理由”的例外路径
+/// - 要求理由文本非空，避免空标记绕过门禁
+fn has_structure_exemption_reason(content: &str) -> bool {
+    content
+        .lines()
+        .take(12)
+        .filter_map(|line| line.split_once("MHB_STRUCTURE_EXEMPTION:"))
+        .any(|(_, reason)| !reason.trim().is_empty())
 }
 
 /// add_line_limit_findings 添加行数检查结果
@@ -294,7 +313,14 @@ fn primary_declarations(extension: &str, content: &str) -> Vec<String> {
 fn swift_declaration_name(line: &str) -> Option<String> {
     declaration_name_after_keywords(
         line,
-        &["public", "open", "internal", "private", "fileprivate", "final"],
+        &[
+            "public",
+            "open",
+            "internal",
+            "private",
+            "fileprivate",
+            "final",
+        ],
         &["struct", "class", "enum", "actor", "protocol"],
     )
 }
@@ -364,7 +390,11 @@ fn values_after_json_key(input: &str, key: &str) -> Vec<String> {
             break;
         };
         let mut cursor = start + colon + 1;
-        while input.as_bytes().get(cursor).is_some_and(u8::is_ascii_whitespace) {
+        while input
+            .as_bytes()
+            .get(cursor)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
             cursor += 1;
         }
         if input.as_bytes().get(cursor) == Some(&b'"') {

@@ -7,10 +7,43 @@ import MaohuobanDesignSystem
 // - 提供状态流转、编辑和删除等操作入口
 struct PantryItemActionSheet: View {
     let item: PantryItem
+    let onMarkSealed: (String) -> Void
+    let onEdit: (PantryItem) -> Void
+    let onArchive: (String) -> Void
+    let onRestock: (String, Int) -> Void
+    let onSetCurrentStaple: (String) -> Void
+    let onSetTrying: (String) -> Void
+    let onSetUsualTreat: (String) -> Void
+    let onSetUsualNutrition: (String) -> Void
+    let onSetNotSuitable: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showDeleteConfirmation = false
     @State private var isRestocking = false
     @State private var restockAmount = 1
+
+    init(
+        item: PantryItem,
+        onMarkSealed: @escaping (String) -> Void = { _ in },
+        onEdit: @escaping (PantryItem) -> Void = { _ in },
+        onArchive: @escaping (String) -> Void = { _ in },
+        onRestock: @escaping (String, Int) -> Void = { _, _ in },
+        onSetCurrentStaple: @escaping (String) -> Void = { _ in },
+        onSetTrying: @escaping (String) -> Void = { _ in },
+        onSetUsualTreat: @escaping (String) -> Void = { _ in },
+        onSetUsualNutrition: @escaping (String) -> Void = { _ in },
+        onSetNotSuitable: @escaping (String) -> Void = { _ in }
+    ) {
+        self.item = item
+        self.onMarkSealed = onMarkSealed
+        self.onEdit = onEdit
+        self.onArchive = onArchive
+        self.onRestock = onRestock
+        self.onSetCurrentStaple = onSetCurrentStaple
+        self.onSetTrying = onSetTrying
+        self.onSetUsualTreat = onSetUsualTreat
+        self.onSetUsualNutrition = onSetUsualNutrition
+        self.onSetNotSuitable = onSetNotSuitable
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +65,7 @@ struct PantryItemActionSheet: View {
         .alert("移出储物柜", isPresented: $showDeleteConfirmation) {
             Button("取消", role: .cancel) { }
             Button("移出", role: .destructive) {
-                // TODO: 执行移出逻辑
+                onArchive(item.id)
                 dismiss()
             }
         } message: {
@@ -101,8 +134,11 @@ struct PantryItemActionSheet: View {
                 icon: "shippingbox",
                 title: "标记为全新未拆封"
             ) {
+                onMarkSealed(item.id)
                 dismiss()
             }
+
+            dietAssignmentActions
             
             actionButton(
                 icon: "plus.circle",
@@ -125,6 +161,7 @@ struct PantryItemActionSheet: View {
                 title: "编辑物品档案",
                 showArrow: true
             ) {
+                onEdit(item)
                 dismiss()
             }
             
@@ -134,6 +171,61 @@ struct PantryItemActionSheet: View {
                 isDestructive: true
             ) {
                 showDeleteConfirmation = true
+            }
+        }
+    }
+
+    private var dietAssignmentActions: some View {
+        Group {
+            switch item.category {
+            case .mainFood, .wetFood:
+                actionButton(
+                    icon: "takeoutbag.and.cup.and.straw.fill",
+                    title: "设为当前主粮"
+                ) {
+                    onSetCurrentStaple(item.id)
+                    dismiss()
+                }
+                actionButton(
+                    icon: "sparkles",
+                    title: "标记为尝试中"
+                ) {
+                    onSetTrying(item.id)
+                    dismiss()
+                }
+            case .treats:
+                actionButton(
+                    icon: "birthday.cake.fill",
+                    title: "设为常用零食"
+                ) {
+                    onSetUsualTreat(item.id)
+                    dismiss()
+                }
+            case .supplements:
+                actionButton(
+                    icon: "pills.fill",
+                    title: "设为常用营养品"
+                ) {
+                    onSetUsualNutrition(item.id)
+                    dismiss()
+                }
+            case .other:
+                actionButton(
+                    icon: "sparkles",
+                    title: "标记为尝试中"
+                ) {
+                    onSetTrying(item.id)
+                    dismiss()
+                }
+            case .all, .catLitter, .medicine:
+                EmptyView()
+            }
+            actionButton(
+                icon: "xmark.octagon.fill",
+                title: "设为不适合"
+            ) {
+                onSetNotSuitable(item.id)
+                dismiss()
             }
         }
     }
@@ -168,7 +260,7 @@ struct PantryItemActionSheet: View {
                 .buttonStyle(.plain)
                 
                 Button("确认") {
-                    // TODO: 执行库存补充
+                    onRestock(item.id, restockAmount)
                     dismiss()
                 }
                 .font(.system(size: 14, weight: .medium))

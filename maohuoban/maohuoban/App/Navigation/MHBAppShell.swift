@@ -17,6 +17,7 @@ struct MHBAppShell: View {
     @State private var activeHomeQuickFactSheet: HomeQuickFactSheet?
     @State private var isHomeAddReminderSheetPresented = false
     @State private var homeQuickFactSheetStore = PetWriteStore()
+    @State private var homeFoodInventoryStore = PetFoodInventoryStore()
     @State private var homeQuickFactSheetSubmittingAction: HomeQuickFactAction?
 
     private var shouldShowHomeQuickFactAccessory: Bool {
@@ -124,6 +125,8 @@ struct MHBAppShell: View {
                 HomeQuickFactFeedingSheet(
                     context: homeQuickFactContext,
                     isSubmitting: homeQuickFactSheetSubmittingAction == .fed,
+                    foodOptions: homeFoodInventoryStore.feedingOptions,
+                    onPetChanged: loadHomeFoodInventory,
                     onSubmit: submitQuickFactFeeding,
                     onCancel: {
                         activeHomeQuickFactSheet = nil
@@ -140,6 +143,19 @@ struct MHBAppShell: View {
         homeQuickFactSheetStore.reset()
         homeQuickFactSheetSubmittingAction = nil
         activeHomeQuickFactSheet = sheet
+        if sheet == .feeding {
+            loadHomeFoodInventory(petID: homeQuickFactContext.selectedPetID)
+        }
+    }
+
+    private func loadHomeFoodInventory(petID: String?) {
+        guard let userID = currentUserStore.userID else { return }
+        Task {
+            await homeFoodInventoryStore.loadItems(
+                currentUserID: userID,
+                petID: petID
+            )
+        }
     }
 
     private func submitQuickFactFeeding(_ input: HomeQuickFactFeedingInput) {

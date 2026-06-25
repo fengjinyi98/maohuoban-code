@@ -8,12 +8,15 @@ pub use merchant::{
     MerchantVerificationStatus, PetRelationship, PetRelationshipKind, PetRelationshipSourceKind,
 };
 pub use model::{
-    EventKind, EventVisibility, ExternalIdentifierSummary, GuardianRole, GuardianStatus,
+    AgentConfirmedFactPayload, DietAssignmentRole, DietAssignmentStatus, DietChangePayload,
+    EventKind, EventVisibility, ExternalIdentifierSummary, FeedingCorrectionPayload,
+    FeedingPayload, FoodInventoryAddedPayload, FoodInventoryCategory, FoodInventoryItem,
+    FoodInventoryStatus, FoodScopeType, FoodSnapshot, FoodSourceKind, GuardianRole, GuardianStatus,
     GuardianSummary, GuardianType, IdentifierStatus, IdentifierType, IdentitySummary, LifeStatus,
     LifecycleEventKind, LifecycleSummary, ManagedPetStatus, MediaAsset, MediaAssetComponent,
     MediaAssetComponentKind, MediaAssetStatus, MediaBinding, MediaBindingStatus, MediaDerivative,
     MediaDerivativeKind, MediaUsageKind, OriginKind, OriginSummary, PetBackgroundMediaKind,
-    PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext, PetLifecycleEvent,
-    PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile, PetSex, PetSourceKind,
-    PetSpecies, PetTimeline, VerifiedStatus,
+    PetDietAssignment, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
+    PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
+    PetSex, PetSourceKind, PetSpecies, PetTimeline, VerifiedStatus,
 };

@@ -6,10 +6,19 @@ import MaohuobanDesignSystem
 // - 提供新物品入库表单
 // - 支持封面上传、基本信息、分类和库存管理
 struct AddPantryItemScreen: View {
+    let currentUserID: String?
+    let onCreated: () -> Void
+
     @State private var draft = PantryItemDraft()
+    @State private var store = PetFoodInventoryStore()
     @State private var expiryDate = Date()
     @State private var showImagePicker = false
     @Environment(\.dismiss) private var dismiss
+
+    init(currentUserID: String? = nil, onCreated: @escaping () -> Void = {}) {
+        self.currentUserID = currentUserID
+        self.onCreated = onCreated
+    }
 
     var body: some View {
         MHBScreenScrollView {
@@ -232,9 +241,16 @@ struct AddPantryItemScreen: View {
     }
 
     private func saveDraft() {
-        guard draft.isValid else { return }
-        // TODO: 保存物品到储物柜
-        dismiss()
+        guard draft.isValid, let currentUserID else { return }
+        Task {
+            let created = await store.createItem(
+                draft: FoodInventoryDraft(pantryDraft: draft),
+                currentUserID: currentUserID
+            )
+            guard created != nil else { return }
+            onCreated()
+            dismiss()
+        }
     }
 }
 

@@ -13,10 +13,14 @@ pub use merchant::{
     MerchantLitterSummary, MerchantRepository, NewMerchantPetProfile, PublishAvailableStatusInput,
 };
 pub use ports::{
-    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput, DeletePetProfile,
-    MediaAssetDisplayMetadata, MediaCropMetadata, NewPetEvent, NewPetProfile,
-    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
-    ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile, UpdatePetProfileResult,
+    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput,
+    ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetProfile, DietContextItem,
+    DietRepository, FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,
+    MediaAssetDisplayMetadata, MediaCropMetadata, NewFoodInventoryItem, NewPetEvent, NewPetProfile,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetCurrentDietContext,
+    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetRepository,
+    RecentDietChangeFact, RecentFeedingFact, ReplacePetExternalIdentifier, RestorePetProfile,
+    SetPetCurrentStapleInput, SetPetDietAssignmentInput, TradePetImport, TradePetImportInput,
+    UpdateFoodInventoryItem, UpdatePetProfile, UpdatePetProfileResult,
 };
 pub use service::PetService;

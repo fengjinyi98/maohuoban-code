@@ -151,3 +151,116 @@ async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
         "奶油早餐记录"
     );
 }
+
+#[tokio::test]
+async fn home_dashboard_returns_recent_food_inventory_preview() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138233").await;
+    create_home_test_pet(&app, &user_id).await;
+
+    let first_item_id =
+        create_home_food_inventory_item(&app, &user_id, "渴望六种鱼", "main_food").await;
+    let second_item_id =
+        create_home_food_inventory_item(&app, &user_id, "巅峰牛肉罐头", "wet_food").await;
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    let pantry_items = dashboard_body["data"]["pantry_items"]
+        .as_array()
+        .expect("pantry preview items");
+
+    assert_eq!(pantry_items.len(), 2);
+    assert_eq!(pantry_items[0]["id"], second_item_id);
+    assert_eq!(pantry_items[0]["title"], "巅峰牛肉罐头");
+    assert_eq!(pantry_items[0]["subtitle"], "湿粮/罐头");
+    assert_eq!(
+        pantry_items[0]["cover_image_asset_name"],
+        "home-pantry-wet-food"
+    );
+    assert_eq!(pantry_items[1]["id"], first_item_id);
+    assert_eq!(pantry_items[1]["title"], "渴望六种鱼");
+    assert_eq!(pantry_items[1]["subtitle"], "主粮");
+    assert_eq!(
+        pantry_items[1]["cover_image_asset_name"],
+        "home-pantry-main-food"
+    );
+}
+
+#[tokio::test]
+async fn home_dashboard_marks_current_staple_in_food_inventory_preview() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138234").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+
+    let staple_item_id =
+        create_home_food_inventory_item(&app, &user_id, "渴望六种鱼", "main_food").await;
+    let wet_food_item_id =
+        create_home_food_inventory_item(&app, &user_id, "巅峰牛肉罐头", "wet_food").await;
+    set_home_pet_current_staple(&app, &user_id, &pet_id, &staple_item_id).await;
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let pantry_items = dashboard_body["data"]["pantry_items"]
+        .as_array()
+        .expect("pantry preview items");
+    let staple_item = pantry_items
+        .iter()
+        .find(|item| item["id"] == staple_item_id)
+        .expect("current staple pantry item");
+    let wet_food_item = pantry_items
+        .iter()
+        .find(|item| item["id"] == wet_food_item_id)
+        .expect("plain pantry item");
+
+    assert_eq!(staple_item["diet_role_label"], "当前主粮");
+    assert!(wet_food_item["diet_role_label"].is_null());
+}
+
+async fn create_home_food_inventory_item(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    name: &str,
+    category: &str,
+) -> String {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/food-inventory/items",
+            json!({
+                "name": name,
+                "brand": "测试品牌",
+                "category": category,
+                "inventory_status": "sealed",
+                "quantity": 1
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create home food inventory item");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    body["data"]["id"].as_str().expect("item id").to_owned()
+}
+
+async fn set_home_pet_current_staple(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+    food_item_id: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/diet/staple"),
+            json!({
+                "food_item_id": food_item_id,
+                "reason": "首页预览标注测试"
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("set current staple for home pantry preview");
+    assert_eq!(response.status(), StatusCode::CREATED);
+}

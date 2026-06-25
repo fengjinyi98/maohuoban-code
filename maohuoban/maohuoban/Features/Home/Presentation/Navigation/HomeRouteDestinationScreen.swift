@@ -150,6 +150,7 @@ struct HomeRouteDestinationScreen: View {
             PetPantryScreen(
                 petID: petID,
                 petName: petName,
+                currentUserID: currentUserID,
                 onNavigate: { route -> HomeRoute in
                     switch route {
                     case .addItem:
@@ -164,6 +165,7 @@ struct HomeRouteDestinationScreen: View {
                 petID: petID,
                 petName: petName,
                 category: category,
+                currentUserID: currentUserID,
                 onNavigate: { route -> HomeRoute in
                     switch route {
                     case .addItem:
@@ -175,7 +177,12 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .addPantryItem:
-            AddPantryItemScreen()
+            AddPantryItemScreen(
+                currentUserID: currentUserID,
+                onCreated: {
+                    onHomeMutationCompleted(nil)
+                }
+            )
         }
     }
 }

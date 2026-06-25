@@ -111,3 +111,24 @@ fn blocks_new_file_without_responsibility_directory() {
             && finding.rule == "missing_responsibility_directory"
     }));
 }
+
+#[test]
+fn allows_file_with_explicit_structure_exemption_reason() {
+    let root = temp_repo();
+    let path =
+        root.join("maohuoban-rust/crates/maohuoban-pet-http/src/pet/router/diet_assignment.rs");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut content = String::from(
+        "// MHB_STRUCTURE_EXEMPTION: Phase2 既有路由模块处于后续拆分范围；本次只补契约校验。\n",
+    );
+    for index in 0..501 {
+        content.push_str(&format!("pub fn handler_{index}() {{}}\n"));
+    }
+    fs::write(&path, content).unwrap();
+
+    let findings = evaluate_file(&root, &path);
+
+    assert!(findings
+        .iter()
+        .all(|finding| finding.severity != Severity::Violation));
+}

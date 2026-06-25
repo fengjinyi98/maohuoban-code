@@ -5,6 +5,10 @@ import SwiftUI
 // - 为业务视图提供统一的十六进制颜色初始化入口
 // - 消除各 Feature 内部重复的颜色解析逻辑
 extension Color {
+    init(hex hexValue: String) {
+        self.init(mhbHex: hexValue)
+    }
+
     init(mhbHex hexValue: String) {
         let hex = hexValue.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

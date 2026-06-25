@@ -22,4 +22,10 @@ pub enum PetErrorKind {
     LifecycleEventKind,
     EventKind,
     Visibility,
+    FoodScopeType,
+    FoodInventoryCategory,
+    FoodInventoryStatus,
+    FoodSourceKind,
+    DietAssignmentRole,
+    DietAssignmentStatus,
 }

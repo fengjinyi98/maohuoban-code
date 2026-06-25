@@ -1,5 +1,8 @@
+mod agent_diet;
 mod auth;
+mod diet_assignment;
 mod events;
+mod food_inventory;
 mod media;
 mod merchant;
 mod profile;
@@ -9,7 +12,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
 use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
@@ -38,6 +41,7 @@ impl PetHttpState {
 /// 核心职责：
 /// - 注册宠物档案、事件追加和时间线接口
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
+#[allow(clippy::too_many_lines)]
 pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router {
     Router::new()
         .route(
@@ -53,6 +57,58 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
         .route(
             "/api/v1/pets/{pet_id}/restore",
             post(profile::restore_pet_profile),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet-context",
+            get(agent_diet::get_pet_current_diet_context),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet-confirmation-candidates",
+            get(agent_diet::get_pet_diet_confirmation_candidates),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet-confirmations",
+            post(agent_diet::confirm_pet_diet_candidate),
+        )
+        .route(
+            "/api/v1/food-inventory/change-hints",
+            get(agent_diet::get_food_inventory_change_hints),
+        )
+        .route(
+            "/api/v1/food-inventory/items",
+            get(food_inventory::list_food_inventory_items)
+                .post(food_inventory::create_food_inventory_item),
+        )
+        .route(
+            "/api/v1/food-inventory/items/{item_id}",
+            get(food_inventory::get_food_inventory_item)
+                .patch(food_inventory::update_food_inventory_item)
+                .delete(food_inventory::archive_food_inventory_item),
+        )
+        .route(
+            "/api/v1/food-inventory/items/{item_id}/archive",
+            post(food_inventory::archive_food_inventory_item),
+        )
+        .route(
+            "/api/v1/food-inventory/items/{item_id}/restore",
+            post(food_inventory::restore_food_inventory_item),
+        )
+        .route(
+            "/api/v1/food-inventory/items/{item_id}/restock",
+            post(food_inventory::restock_food_inventory_item),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet/staple",
+            post(diet_assignment::set_pet_current_staple),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet/assignments",
+            get(diet_assignment::list_active_diet_assignments)
+                .post(diet_assignment::set_pet_diet_assignment),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/diet/assignments/{assignment_id}",
+            delete(diet_assignment::end_diet_assignment),
         )
         .route(
             "/api/v1/pet-media/avatar",

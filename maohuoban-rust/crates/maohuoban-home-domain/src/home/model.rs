@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 mod activity;
 mod identity;
 mod merchant;
+mod pantry;
 mod pet;
 
 pub use activity::{
@@ -14,6 +15,7 @@ pub use identity::{HomeIdentity, HomeIdentityKind};
 pub use merchant::{
     MerchantDashboardSummary, MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount,
 };
+pub use pantry::HomePantryPreviewItem;
 pub use pet::{
     HeroLivePhotoCrop, HeroLivePhotoSummary, PetHeroSummary, PetNameEditPolicy, PetNeuterStatus,
     PetSex, PetSpecies, PetSwitchItem,
@@ -35,4 +37,5 @@ pub struct HomeDashboardSnapshot {
     pub merchant_dashboard: Option<MerchantDashboardSummary>,
     pub empty_state: Option<HomeEmptyState>,
     pub recommended_content: Vec<RecommendedContent>,
+    pub pantry_items: Vec<HomePantryPreviewItem>,
 }

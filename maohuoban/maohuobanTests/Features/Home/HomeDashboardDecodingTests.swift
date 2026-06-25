@@ -189,4 +189,5 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(context.pet.heroThemeColorHex, "#AABBCC")
         XCTAssertEqual(context.pet.heroContentColorScheme, .light)
     }
+
 }

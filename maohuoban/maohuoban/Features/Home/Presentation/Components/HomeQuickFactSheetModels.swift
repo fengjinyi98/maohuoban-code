@@ -70,6 +70,11 @@ struct HomeQuickFactFeedingInput: Equatable {
     let lifeStatus: String?
     let foodKind: HomeQuickFactFeedingFoodKind
     let foodName: String?
+    /// 引用的储物柜食品资产 ID（nil 表示手动输入）
+    let foodItemID: String?
+    /// 喂食时的食品快照 JSON 字符串（对抗后续编辑）
+    let foodSnapshotJSON: String?
+    let isDefaultFood: Bool
     let amount: HomeQuickFactFeedingAmount
     let occurredAt: Date
     let note: String
@@ -85,7 +90,64 @@ struct HomeQuickFactFeedingInput: Equatable {
             title: "已喂",
             summary: "喂食：\(foodText)，份量：\(amount.title)\(noteText)",
             visibility: .private,
-            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
+            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt),
+            eventPayload: feedingEventPayload(trimmedNote: trimmedNote)
         )
+    }
+
+    private func feedingEventPayload(trimmedNote: String) -> [String: PetEventPayloadValue] {
+        [
+            "food_item_id": foodItemID.map(PetEventPayloadValue.string) ?? .null,
+            "food_role": .string(foodKind.payloadRole),
+            "amount_text": .string(amount.title),
+            "food_snapshot": foodSnapshotPayload(),
+            "is_default_food": .bool(isDefaultFood),
+            "note": trimmedNote.isEmpty ? .null : .string(trimmedNote),
+            "attachment_asset_ids": .stringArray(photoAssetNames)
+        ]
+    }
+
+    private func foodSnapshotPayload() -> PetEventPayloadValue {
+        guard let foodSnapshotJSON,
+              let data = foodSnapshotJSON.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return .null
+        }
+        return .object(object.compactMapValues(PetEventPayloadValue.init(jsonValue:)))
+    }
+}
+
+private extension HomeQuickFactFeedingFoodKind {
+    var payloadRole: String {
+        switch self {
+        case .mainFood:
+            "main_food"
+        case .snack:
+            "treats"
+        case .supplement:
+            "nutrition"
+        case .other:
+            "other"
+        }
+    }
+}
+
+private extension PetEventPayloadValue {
+    init?(jsonValue: Any) {
+        switch jsonValue {
+        case let value as String:
+            self = .string(value)
+        case let value as Bool:
+            self = .bool(value)
+        case let value as [String]:
+            self = .stringArray(value)
+        case let value as [String: Any]:
+            self = .object(value.compactMapValues(PetEventPayloadValue.init(jsonValue:)))
+        case _ as NSNull:
+            self = .null
+        default:
+            return nil
+        }
     }
 }

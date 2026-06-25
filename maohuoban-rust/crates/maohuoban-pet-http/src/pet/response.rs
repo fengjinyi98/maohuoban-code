@@ -48,6 +48,21 @@ pub(super) fn error_response(error: &PetError) -> Response {
             "pet.not_found",
             "宠物档案不存在".to_owned(),
         ),
+        PetError::FoodInventoryNotFound => (
+            StatusCode::NOT_FOUND,
+            "pet.food_inventory_not_found",
+            "商品不存在".to_owned(),
+        ),
+        PetError::DietAssignmentConflict(message) => (
+            StatusCode::CONFLICT,
+            "pet.diet_assignment_conflict",
+            message.clone(),
+        ),
+        PetError::DietAssignmentNotFound => (
+            StatusCode::NOT_FOUND,
+            "pet.diet_assignment_not_found",
+            "饮食配置不存在".to_owned(),
+        ),
         PetError::Forbidden => (
             StatusCode::FORBIDDEN,
             "pet.forbidden",

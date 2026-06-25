@@ -55,6 +55,7 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
         merchant_dashboard: None,
         empty_state: None,
         recommended_content: Vec::new(),
+        pantry_items: Vec::new(),
     }
 }
 
@@ -98,6 +99,7 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
             title: "幼宠到家第一周怎么记录".to_owned(),
             source_text: "毛伙伴指南".to_owned(),
         }],
+        pantry_items: Vec::new(),
     }
 }
 
@@ -176,5 +178,6 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         }),
         empty_state: None,
         recommended_content: Vec::new(),
+        pantry_items: Vec::new(),
     }
 }

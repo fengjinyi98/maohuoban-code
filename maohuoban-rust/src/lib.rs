@@ -37,7 +37,9 @@ use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
-use maohuoban_pet_infrastructure::postgres::PostgresPetRepository;
+use maohuoban_pet_infrastructure::postgres::{
+    PostgresDietRepository, PostgresFoodInventoryRepository, PostgresPetRepository,
+};
 use maohuoban_profile_application::profile::ProfileService;
 use maohuoban_profile_http::profile::build_profile_router;
 use maohuoban_profile_infrastructure::postgres::PostgresProfileRepository;
@@ -176,9 +178,13 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
     let pet_repository = PostgresPetRepository::new(pool.clone());
+    let food_inventory_repository = PostgresFoodInventoryRepository::new(pool.clone());
+    let diet_repository = PostgresDietRepository::new(pool.clone());
     let pet_service = Arc::new(PetService::new(
         Arc::new(pet_repository.clone()),
         Arc::new(pet_repository.clone()),
+        Arc::new(food_inventory_repository),
+        Arc::new(diet_repository),
     ));
     let recommendation_repository = PostgresRecommendationRepository::new(pool.clone());
     let recommendation_service = Arc::new(RecommendationService::new(Arc::new(

@@ -19,9 +19,13 @@ use maohuoban_home_application::home::{
     HomeDashboardContext, HomeDashboardProvider, HomeError, HomeResult, new_user_home_snapshot,
     pet_owner_home_template,
 };
-use maohuoban_home_domain::home::{HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind};
+use maohuoban_home_domain::home::{
+    HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind, HomePantryPreviewItem,
+};
 use maohuoban_pet_application::pet::PetService;
-use maohuoban_pet_domain::pet::PetError;
+use maohuoban_pet_domain::pet::{
+    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError,
+};
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
 };
@@ -118,20 +122,7 @@ impl HybridHomeDashboardProvider {
             .map_err(|error| to_home_error(&error))?;
         record_home_pet_list(user_id, selected_pet_id, pets.len());
         let Some(selected_pet) = selected_pet(&pets, selected_pet_id) else {
-            let mut snapshot = new_user_home_snapshot();
-            let contents = self
-                .recommendation_service
-                .list_empty_state_content(snapshot.identity.city.as_deref(), 3)
-                .await
-                .unwrap_or_default();
-            if !contents.is_empty() {
-                snapshot.recommended_content = contents
-                    .into_iter()
-                    .map(recommended_content_summary)
-                    .collect();
-            }
-            record_home_empty_state(user_id);
-            return Ok(snapshot);
+            return Ok(self.empty_state_snapshot(user_id).await);
         };
         let media_metadata = self
             .pet_service
@@ -186,10 +177,46 @@ impl HybridHomeDashboardProvider {
             .await
             .unwrap_or_default()
             .map(partner_recommendation_summary);
+        let diet_role_labels = self
+            .pet_service
+            .load_pet_current_diet_context(user_id, selected_pet.id)
+            .await
+            .map(diet_role_labels)
+            .map_err(|error| to_home_error(&error))?;
+        snapshot.pantry_items = self
+            .pet_service
+            .list_food_inventory_items(FoodScopeType::User, user_id, None, None)
+            .await
+            .map_err(|error| to_home_error(&error))?
+            .into_iter()
+            .take(4)
+            .map(|item| pantry_preview_item(item, &diet_role_labels))
+            .collect();
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
         Ok(snapshot)
+    }
+
+    /// empty_state_snapshot 生成首页空态快照
+    /// 核心职责：
+    /// - 复用新用户首页模板和空态推荐内容
+    /// - 记录用户无宠物档案时的首页诊断事件
+    async fn empty_state_snapshot(&self, user_id: Uuid) -> HomeDashboardSnapshot {
+        let mut snapshot = new_user_home_snapshot();
+        let contents = self
+            .recommendation_service
+            .list_empty_state_content(snapshot.identity.city.as_deref(), 3)
+            .await
+            .unwrap_or_default();
+        if !contents.is_empty() {
+            snapshot.recommended_content = contents
+                .into_iter()
+                .map(recommended_content_summary)
+                .collect();
+        }
+        record_home_empty_state(user_id);
+        snapshot
     }
 }
 
@@ -210,4 +237,61 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
 
 fn to_home_error(error: &PetError) -> HomeError {
     HomeError::Infrastructure(error.to_string())
+}
+
+fn pantry_preview_item(
+    item: FoodInventoryItem,
+    diet_role_labels: &HashMap<Uuid, String>,
+) -> HomePantryPreviewItem {
+    let diet_role_label = diet_role_labels.get(&item.id).cloned();
+    HomePantryPreviewItem {
+        id: item.id.to_string(),
+        title: item.name,
+        subtitle: pantry_category_title(item.category).to_owned(),
+        cover_image_asset_name: pantry_category_cover_asset_name(item.category).to_owned(),
+        diet_role_label,
+    }
+}
+
+fn diet_role_labels(
+    context: maohuoban_pet_application::pet::PetCurrentDietContext,
+) -> HashMap<Uuid, String> {
+    let mut labels = HashMap::new();
+    if let Some(current_staple) = context.current_staple {
+        labels.insert(current_staple.food_item_id, "当前主粮".to_owned());
+    }
+    for item in context.trying_foods {
+        labels.insert(item.food_item_id, "尝试中".to_owned());
+    }
+    for item in context.usual_treats {
+        labels.insert(item.food_item_id, "常用零食".to_owned());
+    }
+    for item in context.usual_nutritions {
+        labels.insert(item.food_item_id, "常用营养品".to_owned());
+    }
+    labels
+}
+
+fn pantry_category_title(category: FoodInventoryCategory) -> &'static str {
+    match category {
+        FoodInventoryCategory::MainFood => "主粮",
+        FoodInventoryCategory::WetFood => "湿粮/罐头",
+        FoodInventoryCategory::Treats => "零食",
+        FoodInventoryCategory::Nutrition => "营养品",
+        FoodInventoryCategory::Other => "其他",
+        FoodInventoryCategory::CatLitter => "猫砂",
+        FoodInventoryCategory::Medicine => "药品",
+    }
+}
+
+fn pantry_category_cover_asset_name(category: FoodInventoryCategory) -> &'static str {
+    match category {
+        FoodInventoryCategory::MainFood => "home-pantry-main-food",
+        FoodInventoryCategory::WetFood => "home-pantry-wet-food",
+        FoodInventoryCategory::Treats => "home-pantry-treats",
+        FoodInventoryCategory::Nutrition => "home-pantry-nutrition",
+        FoodInventoryCategory::Other => "home-pantry-other",
+        FoodInventoryCategory::CatLitter => "home-pantry-cat-litter",
+        FoodInventoryCategory::Medicine => "home-pantry-medicine",
+    }
 }

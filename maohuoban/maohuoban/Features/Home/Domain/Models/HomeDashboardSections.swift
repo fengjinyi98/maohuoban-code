@@ -196,12 +196,28 @@ extension HomeDashboardSnapshot {
         let title: String
         let subtitle: String
         let coverImageAssetName: String
+        let dietRoleLabel: String?
+
+        init(
+            id: String,
+            title: String,
+            subtitle: String,
+            coverImageAssetName: String,
+            dietRoleLabel: String? = nil
+        ) {
+            self.id = id
+            self.title = title
+            self.subtitle = subtitle
+            self.coverImageAssetName = coverImageAssetName
+            self.dietRoleLabel = dietRoleLabel
+        }
 
         enum CodingKeys: String, CodingKey {
             case id
             case title
             case subtitle
             case coverImageAssetName = "cover_image_asset_name"
+            case dietRoleLabel = "diet_role_label"
         }
     }
 }

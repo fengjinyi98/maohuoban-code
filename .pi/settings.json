@@ -1,0 +1,21 @@
+{
+  "enableSkillCommands": true,
+  "defaultProvider": "deepseek",
+  "defaultModel": "deepseek-v4-pro",
+  "defaultThinkingLevel": "high",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 32768,
+    "keepRecentTokens": 80000
+  },
+  "skills": [
+    "~/.codex/skills",
+    "~/.agents/skills"
+  ],
+  "extensions": [
+    "extensions/maohuoban-workflow.ts"
+  ],
+  "prompts": [
+    "prompts"
+  ]
+}
