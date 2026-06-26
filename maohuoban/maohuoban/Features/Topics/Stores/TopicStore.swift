@@ -188,7 +188,7 @@ private extension TopicStore {
             TopicPostPreview(
                 id: "\(topic.id)-post-1",
                 authorName: "阿白和狗子",
-                avatarAssetName: "HomeUserAvatarMock",
+                avatarAssetName: "HomePartnerAvatar",
                 publishedText: topic.todayPostCount > 0 ? "10 分钟前发布" : "昨天发布",
                 mediaAssetName: topic.thumbnailAssetName,
                 caption: "加入 \(topic.displayName) 后，终于把这次记录整理出来了，给正在做功课的伙伴一个真实参考。",

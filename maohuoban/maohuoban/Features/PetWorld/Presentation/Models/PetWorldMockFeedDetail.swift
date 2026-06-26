@@ -220,7 +220,7 @@ enum PetWorldMockFeedDetail {
                     comment(
                         id: "beach-walk-reply-xiaoman",
                         authorName: "小满",
-                        avatarAssetName: "HomeUserAvatarMock",
+                        avatarAssetName: "HomePartnerAvatar",
                         text: "它看到浪花以后就开始兴奋，回家路上还不想上车。",
                         utcString: "2026-06-18T21:08:00Z",
                         likeCount: 5
@@ -246,7 +246,7 @@ enum PetWorldMockFeedDetail {
                     comment(
                         id: "beach-walk-reply-xiaoman-gear",
                         authorName: "小满",
-                        avatarAssetName: "HomeUserAvatarMock",
+                        avatarAssetName: "HomePartnerAvatar",
                         text: "是轻量款，沙滩上不会拖得太重。",
                         utcString: "2026-06-18T21:40:00Z",
                         likeCount: 2
@@ -292,7 +292,7 @@ enum PetWorldMockFeedDetail {
             comment(
                 id: "park-comment-xiaoman",
                 authorName: "小满",
-                avatarAssetName: "HomeUserAvatarMock",
+                avatarAssetName: "HomePartnerAvatar",
                 text: "豆包今天进步很明显，召回反应比上周快多了。",
                 utcString: "2026-06-17T12:34:00Z",
                 likeCount: 15,

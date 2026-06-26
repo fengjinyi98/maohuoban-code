@@ -11,7 +11,7 @@ final class FeedCommentAuthorIdentityTests: XCTestCase {
         let identity = FeedCommentAuthorIdentity(
             userID: "user-1",
             userName: "小满",
-            userAvatarSource: .asset("HomeUserAvatarMock"),
+            userAvatarSource: .asset("HomePartnerAvatar"),
             petID: "pet-1",
             petName: "奶油",
             petAvatarAssetName: "HomePetHeroMock"
@@ -40,7 +40,7 @@ final class FeedCommentAuthorIdentityTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "小满",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -52,7 +52,7 @@ final class FeedCommentAuthorIdentityTests: XCTestCase {
         let identity = FeedCommentAuthorIdentity(
             userID: "user-1",
             userName: "游客",
-            userAvatarSource: .asset("HomeUserAvatarMock"),
+            userAvatarSource: .asset("HomePartnerAvatar"),
             petID: nil,
             petName: nil,
             petAvatarAssetName: nil
@@ -74,7 +74,7 @@ final class FeedCommentAuthorIdentityTests: XCTestCase {
                 MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "游客",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )

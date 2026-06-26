@@ -12,7 +12,7 @@ enum PetWorldMockFeed {
             petAvatarAssetName: "HomePetHeroMock",
             recommendationReason: .lightRelationship("同品种布偶"),
             text: "海边散步，和 2 位伙伴一起",
-            authorAvatarAssetName: "HomeUserAvatarMock",
+            authorAvatarAssetName: "HomePartnerAvatar",
             authorName: "小满",
             publishedAtUTCString: "2026-06-18T20:31:00Z",
             mediaAssetName: "HomePetHeroMock",

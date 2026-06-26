@@ -90,7 +90,7 @@ final class PetWorldFeedPageContentResolverTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "beach-walk-user",
                     displayName: "小满",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )

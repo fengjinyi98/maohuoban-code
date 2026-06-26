@@ -236,17 +236,19 @@ final class ProfileUserEditStoreTests: XCTestCase {
     func testLoadPublishesAvatarAndCoverURLIntoCurrentUserStore() async {
         let currentUserStore = CurrentUserStore()
         currentUserStore.apply(session: Self.authSession(displayName: "橘子午后"))
-        let repository = CurrentUserProfileRepositoryStub(
-            loadResponse: MHBAPIResponse(
-                success: true,
-                code: "profile.loaded",
-                message: "个人资料已加载",
-                data: Self.remoteProfile(
-                    displayName: "橘子午后",
-                    avatar: Self.remoteMedia(url: "/api/v1/media/assets/avatar-uuid/content"),
-                    cover: Self.remoteMedia(url: "/api/v1/media/assets/cover-uuid/content")
-                )
+        let loadResponse = MHBAPIResponse(
+            success: true,
+            code: "profile.loaded",
+            message: "个人资料已加载",
+            data: Self.remoteProfile(
+                displayName: "橘子午后",
+                avatar: Self.remoteMedia(url: "/api/v1/media/assets/avatar-uuid/content"),
+                cover: Self.remoteMedia(url: "/api/v1/media/assets/cover-uuid/content")
             )
+        )
+        let repository = CurrentUserProfileRepositoryStub(
+            loadResponse: loadResponse,
+            updateResponse: loadResponse
         )
         let store = ProfileUserEditStore(
             repository: repository,

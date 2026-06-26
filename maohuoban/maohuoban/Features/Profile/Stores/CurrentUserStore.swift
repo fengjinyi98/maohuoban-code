@@ -26,7 +26,7 @@ final class CurrentUserStore {
     var maohuobanID = ""
     var displayName = "未登录"
     var defaultDisplayName = ""
-    var avatarAssetName = "HomeUserAvatarMock"
+    var avatarAssetName = ""
     var avatarURLString: String?
     var coverURLString: String?
     var bio = ""
@@ -140,7 +140,7 @@ final class CurrentUserStore {
         maohuobanID = ""
         displayName = "未登录"
         defaultDisplayName = ""
-        avatarAssetName = "HomeUserAvatarMock"
+        avatarAssetName = ""
         avatarURLString = nil
         coverURLString = nil
         bio = ""
@@ -165,7 +165,11 @@ final class CurrentUserStore {
             return .remote(url)
         }
 
-        return .asset(avatarAssetName)
+        if avatarAssetName.isEmpty == false {
+            return .asset(avatarAssetName)
+        }
+
+        return .empty
     }
 
     private var settingsPhoneDisplayText: String {
@@ -208,26 +212,25 @@ final class CurrentUserStore {
     // avatarAssetName 解析当前用户本地头像资源
     // 核心职责：
     // - 为仍消费 asset 名称的旧展示模型提供统一头像来源
-    // - 在远端头像接入前保持本地兜底资源稳定
+    // - 远端 URL 或空值时返回空字符串，由 avatarSource 回退到 .empty 空态图标
     private func avatarAssetName(from rawValue: String?) -> String {
-        let fallbackAssetName = "HomeUserAvatarMock"
         guard let rawValue else {
-            return fallbackAssetName
+            return ""
         }
 
         let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedValue.isEmpty == false else {
-            return fallbackAssetName
+            return ""
         }
 
         if trimmedValue.hasPrefix("/") {
-            return fallbackAssetName
+            return ""
         }
 
         if let url = URL(string: trimmedValue),
            let scheme = url.scheme?.lowercased(),
            scheme == "http" || scheme == "https" {
-            return fallbackAssetName
+            return ""
         }
 
         return trimmedValue

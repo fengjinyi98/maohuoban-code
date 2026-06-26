@@ -43,7 +43,7 @@ final class ProfileFavoriteFolderContentResolverTests: XCTestCase {
     private static var feedItems: [FeedItem] {
         ProfileMockFeed.cards(
             authorName: "测试用户",
-            authorAvatarAssetName: "HomeUserAvatarMock"
+            authorAvatarAssetName: "HomePartnerAvatar"
         )
     }
 }

@@ -33,7 +33,7 @@ final class FeedInteractionStoreAvatarTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "林一",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -79,7 +79,7 @@ final class FeedInteractionStoreAvatarTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "林一",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -95,7 +95,7 @@ final class FeedInteractionStoreAvatarTests: XCTestCase {
         FeedComment(
             id: id,
             authorName: "林一",
-            avatarAssetName: "HomeUserAvatarMock",
+            avatarAssetName: "HomePartnerAvatar",
             text: "好可爱",
             publishedAt: Date(timeIntervalSince1970: 0),
             isPostAuthor: false,

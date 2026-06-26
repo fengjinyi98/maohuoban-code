@@ -87,7 +87,7 @@ enum SameCityCommodityMockDetail {
             ],
             publisher: SameCityCommodityDetailPublisher(
                 name: "阿May的流浪小屋",
-                avatarAssetName: "HomeUserAvatarMock",
+                avatarAssetName: "HomePartnerAvatar",
                 badgeTitle: "实名志愿者",
                 subtitle: "已成功送养 12 只毛孩子"
             ),
@@ -113,7 +113,7 @@ enum SameCityCommodityMockDetail {
                         makeComment(
                             id: "adopt-comment-1-reply",
                             authorName: "阿May的流浪小屋",
-                            avatarAssetName: "HomeUserAvatarMock",
+                            avatarAssetName: "HomePartnerAvatar",
                             text: "可以私聊沟通，最好先发一下家里环境和原住民情况。",
                             publishedAtUTCString: "2026-06-21T07:22:00Z",
                             isPostAuthor: true,
@@ -185,7 +185,7 @@ enum SameCityCommodityMockDetail {
                 makeComment(
                     id: "breed-comment-1",
                     authorName: "七七",
-                    avatarAssetName: "HomeUserAvatarMock",
+                    avatarAssetName: "HomePartnerAvatar",
                     text: "可以在 IM 里看父母证书和疫苗本吗？",
                     publishedAtUTCString: "2026-06-21T04:00:00Z",
                     likeCount: 5,

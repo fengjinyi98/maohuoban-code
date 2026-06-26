@@ -110,7 +110,7 @@ final class MHBAvatarDisplayResolverTests: XCTestCase {
         MHBAvatarUser(
             id: "user-1",
             displayName: "林一",
-            source: .asset("HomeUserAvatarMock"),
+            source: .asset("HomePartnerAvatar"),
             sex: .female,
             sexVisibility: .visible
         )

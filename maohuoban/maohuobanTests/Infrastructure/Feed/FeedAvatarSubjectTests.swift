@@ -10,7 +10,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
         let item = makeFeedItem(
             petName: "糯米",
             petAvatarAssetName: "HomePetAlbum1",
-            authorAvatarAssetName: "HomeUserAvatarMock"
+            authorAvatarAssetName: "HomePartnerAvatar"
         )
 
         XCTAssertEqual(
@@ -26,7 +26,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "feed-post-1-user",
                     displayName: "林一",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -38,7 +38,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
         let item = makeFeedItem(
             petName: nil,
             petAvatarAssetName: nil,
-            authorAvatarAssetName: "HomeUserAvatarMock"
+            authorAvatarAssetName: "HomePartnerAvatar"
         )
 
         XCTAssertEqual(
@@ -47,7 +47,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
                 MHBAvatarUser(
                     id: "feed-post-1-user",
                     displayName: "林一",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -59,7 +59,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
         let comment = FeedComment(
             id: "comment-1",
             authorName: "小满妈妈",
-            avatarAssetName: "HomeUserAvatarMock",
+            avatarAssetName: "HomePartnerAvatar",
             text: "太可爱了",
             publishedAt: Date(timeIntervalSince1970: 0),
             isPostAuthor: false,
@@ -84,7 +84,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
                 user: MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "小满妈妈",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -96,7 +96,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
         let comment = FeedComment(
             id: "comment-1",
             authorName: "路人甲",
-            avatarAssetName: "HomeUserAvatarMock",
+            avatarAssetName: "HomePartnerAvatar",
             text: "太可爱了",
             publishedAt: Date(timeIntervalSince1970: 0),
             isPostAuthor: false,
@@ -112,7 +112,7 @@ final class FeedAvatarSubjectTests: XCTestCase {
                 MHBAvatarUser(
                     id: "comment-1-user",
                     displayName: "路人甲",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )

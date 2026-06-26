@@ -104,7 +104,7 @@ enum SameCityCommodityMockFeed {
         makeItem(
             postID: "samecity-adopt-tricolor",
             kind: .adoption,
-            authorAvatarAssetName: "HomeUserAvatarMock",
+            authorAvatarAssetName: "HomePartnerAvatar",
             authorName: "阿May的流浪小屋",
             publishedAtUTCString: "2026-06-21T06:30:00Z",
             publishedText: "2小时前",

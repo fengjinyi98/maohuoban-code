@@ -43,8 +43,8 @@ struct ProfileAccountSummary: Equatable {
     static let mock = ProfileAccountSummary(
         userID: "profile-account",
         displayName: "橘子午后",
-        avatarAssetName: "HomeUserAvatarMock",
-        avatarSource: .asset("HomeUserAvatarMock"),
+        avatarAssetName: "HomePartnerAvatar",
+        avatarSource: .asset("HomePartnerAvatar"),
         avatarSex: .unknown,
         avatarSexVisibility: .hidden,
         levelText: "Lv.3",

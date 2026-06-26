@@ -14,7 +14,7 @@ final class MHBAvatarConvergenceTests: XCTestCase {
                 MHBAvatarUser(
                     id: "profile-account",
                     displayName: "橘子午后",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .asset("HomePartnerAvatar"),
                     sex: .unknown,
                     sexVisibility: .hidden
                 )
@@ -37,7 +37,7 @@ final class MHBAvatarConvergenceTests: XCTestCase {
                 MHBAvatarUser(
                     id: "current-user",
                     displayName: "橘子午后",
-                    source: .asset("HomeUserAvatarMock"),
+                    source: .empty,
                     sex: .unknown,
                     sexVisibility: .hidden
                 )

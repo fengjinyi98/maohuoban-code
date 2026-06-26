@@ -18,7 +18,7 @@
     {
       "id": "task-3",
       "text": "Task 3：Rust P1 拆分",
-      "status": "pending",
+      "status": "in_progress",
       "evidence": []
     },
     {
@@ -208,10 +208,34 @@
       "text": "PetQuickFactDetailScreen.swift 459 行，超出 400 行红线。提取目标尚不存在。",
       "slice": "Task 2.8：拆分 PetQuickFactDetailScreen.swift (459 行) — 降至 ≤400",
       "timestamp": "2026-06-26T10:00:22.064Z"
+    },
+    {
+      "kind": "green-test",
+      "text": "PetQuickFactDetailScreen.swift 从 459 行降至 268 行 ✅。提取 PetRecordDetailRoute.swift 和 PetRecordDetailPlaceholderScreen.swift。iOS Debug 构建通过。Swift P1 扫描当前仅剩 HomeTimelineSection.swift (409 行)。",
+      "slice": "Task 2.8：拆分 PetQuickFactDetailScreen.swift (459 行) — 降至 ≤400",
+      "timestamp": "2026-06-26T10:03:24.029Z"
+    },
+    {
+      "kind": "failing-test",
+      "text": "HomeTimelineSection.swift 409 行，超出 400 行红线 9 行。提取目标不存在。",
+      "slice": "Task 2.9：拆分 HomeTimelineSection.swift (409 行) — 降至 ≤400",
+      "timestamp": "2026-06-26T10:03:30.775Z"
+    },
+    {
+      "kind": "green-test",
+      "text": "Swift P1 验收扫描通过：`git ls-files '*.swift' | xargs wc -l | awk '$2 != \"total\" && $1 > 400 {print $1, $2}'` 输出为空 ✅。所有 5 个 Swift P1 文件已降至 400 行红线以下：PetWeightDetailScreen 842→325、PetAbnormalRecordDetailTimelineSections 533→224、PetRecordHistoryScreen 488→386、PetQuickFactDetailScreen 459→268、HomeTimelineSection 409→368。",
+      "slice": "Task 2.9：拆分 HomeTimelineSection.swift (409 行) — 降至 ≤400",
+      "timestamp": "2026-06-26T10:06:07.164Z"
+    },
+    {
+      "kind": "failing-test",
+      "text": "pet/service.rs 743 行。service/ 目录缺少 mod.rs 导致无法按用例域拆分。需要将 service.rs 转为 service/mod.rs 并提取首个子模块。",
+      "slice": "Task 3.1：拆分 pet/service.rs (743 行) — 按用例域拆出首个子模块",
+      "timestamp": "2026-06-26T10:07:41.801Z"
     }
   ],
   "createdAt": "2026-06-26T09:08:45.124Z",
-  "updatedAt": "2026-06-26T10:00:22.064Z",
+  "updatedAt": "2026-06-26T10:07:41.801Z",
   "todoWikiPath": "/Users/fengjinyi/Desktop/maohuoban-code/docs/engineering/_goal-wiki/01-目录与文件规则回归收敛目标文档-3b1c32cc.md",
-  "currentSlice": "Task 2.8：拆分 PetQuickFactDetailScreen.swift (459 行) — 降至 ≤400"
+  "currentSlice": "Task 3.1：拆分 pet/service.rs (743 行) — 按用例域拆出首个子模块"
 }
