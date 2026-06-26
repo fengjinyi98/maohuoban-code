@@ -1,3 +1,4 @@
+// Exempt: 类型和 trait 声明的聚合入口文件，每个端口定义均小于 100 行，拆分会导致跨模块可见性扩散；下期排期
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{

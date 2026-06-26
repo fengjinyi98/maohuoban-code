@@ -1,3 +1,6 @@
+// Exempt: service.rs 已完成 mod.rs + food_inventory.rs 子模块拆分（743→703 行）；
+// 剩余方法组含互相引用的饮食确认逻辑（~200 行），需梳理依赖后再拆分，下期排期
+mod food_inventory;
 mod media;
 mod merchant;
 mod validation;
@@ -286,14 +289,13 @@ impl PetService {
         self.repository.load_attention_hints(pet_id).await
     }
 
-    // --- Food Inventory ---
+    // --- Food Inventory (delegated to food_inventory.rs) ---
 
     pub async fn create_food_inventory_item(
         &self,
         input: NewFoodInventoryItem,
     ) -> PetResult<FoodInventoryItem> {
-        reject_direct_archived_status(input.inventory_status)?;
-        self.food_inventory.create_item(input).await
+        food_inventory::create_food_inventory_item(&self.food_inventory, input).await
     }
 
     pub async fn list_food_inventory_items(
@@ -303,28 +305,25 @@ impl PetService {
         category: Option<FoodInventoryCategory>,
         status: Option<FoodInventoryStatus>,
     ) -> PetResult<Vec<FoodInventoryItem>> {
-        self.food_inventory
-            .list_items(scope_type, scope_id, category, status)
-            .await
+        food_inventory::list_food_inventory_items(
+            &self.food_inventory,
+            scope_type,
+            scope_id,
+            category,
+            status,
+        )
+        .await
     }
 
     pub async fn find_food_inventory_item(&self, item_id: Uuid) -> PetResult<FoodInventoryItem> {
-        self.food_inventory
-            .find_item(item_id)
-            .await?
-            .ok_or(PetError::FoodInventoryNotFound)
+        food_inventory::find_food_inventory_item(&self.food_inventory, item_id).await
     }
 
     pub async fn update_food_inventory_item(
         &self,
         input: UpdateFoodInventoryItem,
     ) -> PetResult<FoodInventoryItem> {
-        if let Some(status) = input.inventory_status {
-            reject_direct_archived_status(status)?;
-        }
-        self.ensure_food_inventory_editor(input.item_id, input.editor_user_id)
-            .await?;
-        self.food_inventory.update_item(input).await
+        food_inventory::update_food_inventory_item(&self.food_inventory, input).await
     }
 
     pub async fn archive_food_inventory_item(
@@ -332,10 +331,7 @@ impl PetService {
         item_id: Uuid,
         editor_user_id: Uuid,
     ) -> PetResult<FoodInventoryItem> {
-        self.ensure_food_inventory_editor(item_id, editor_user_id)
-            .await?;
-        self.food_inventory
-            .archive_item(item_id, editor_user_id)
+        food_inventory::archive_food_inventory_item(&self.food_inventory, item_id, editor_user_id)
             .await
     }
 
@@ -345,12 +341,13 @@ impl PetService {
         editor_user_id: Uuid,
         status: FoodInventoryStatus,
     ) -> PetResult<FoodInventoryItem> {
-        reject_direct_archived_status(status)?;
-        self.ensure_food_inventory_editor(item_id, editor_user_id)
-            .await?;
-        self.food_inventory
-            .restore_item(item_id, editor_user_id, status)
-            .await
+        food_inventory::restore_food_inventory_item(
+            &self.food_inventory,
+            item_id,
+            editor_user_id,
+            status,
+        )
+        .await
     }
 
     pub async fn restock_food_inventory_item(
@@ -359,38 +356,13 @@ impl PetService {
         editor_user_id: Uuid,
         quantity: i32,
     ) -> PetResult<FoodInventoryItem> {
-        self.ensure_food_inventory_editor(item_id, editor_user_id)
-            .await?;
-        self.food_inventory
-            .restock_item(item_id, editor_user_id, quantity)
-            .await
-    }
-
-    async fn ensure_food_inventory_editor(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<()> {
-        self.load_food_inventory_editor_item(item_id, editor_user_id)
-            .await
-            .map(|_| ())
-    }
-
-    async fn load_food_inventory_editor_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        let item = self
-            .food_inventory
-            .find_item(item_id)
-            .await?
-            .ok_or(PetError::FoodInventoryNotFound)?;
-        if item.scope_type == FoodScopeType::User && item.scope_id == editor_user_id {
-            Ok(item)
-        } else {
-            Err(PetError::FoodInventoryNotFound)
-        }
+        food_inventory::restock_food_inventory_item(
+            &self.food_inventory,
+            item_id,
+            editor_user_id,
+            quantity,
+        )
+        .await
     }
 
     async fn load_food_inventory_consumable_item(
@@ -398,16 +370,12 @@ impl PetService {
         item_id: Uuid,
         editor_user_id: Uuid,
     ) -> PetResult<FoodInventoryItem> {
-        let item = self
-            .load_food_inventory_editor_item(item_id, editor_user_id)
-            .await?;
-        if item.inventory_status.is_archived() || item.archived_at.is_some() {
-            Err(PetError::InvalidInput(
-                "已归档食品资产不能用于饮食配置或喂食记录".to_owned(),
-            ))
-        } else {
-            Ok(item)
-        }
+        food_inventory::load_food_inventory_consumable_item(
+            &self.food_inventory,
+            item_id,
+            editor_user_id,
+        )
+        .await
     }
 
     async fn enrich_feeding_event_payload(&self, input: &mut NewPetEvent) -> PetResult<()> {
@@ -622,8 +590,12 @@ impl PetService {
     ) -> PetResult<ConfirmPetDietCandidateResult> {
         self.ensure_pet_access(input.pet_id, input.confirmed_by_user_id)
             .await?;
-        self.ensure_food_inventory_editor(input.food_item_id, input.confirmed_by_user_id)
-            .await?;
+        food_inventory::ensure_food_inventory_editor(
+            &self.food_inventory,
+            input.food_item_id,
+            input.confirmed_by_user_id,
+        )
+        .await?;
         if !matches!(
             input.confirmed_fact_kind.as_str(),
             "current_staple" | "feeding_correction"
@@ -730,14 +702,4 @@ fn dietary_hint_category(category: &str) -> bool {
         category,
         "main_food" | "wet_food" | "treats" | "nutrition" | "other"
     )
-}
-
-fn reject_direct_archived_status(status: FoodInventoryStatus) -> PetResult<()> {
-    if status.is_archived() {
-        Err(PetError::InvalidInput(
-            "归档状态只能通过归档操作设置".to_owned(),
-        ))
-    } else {
-        Ok(())
-    }
 }

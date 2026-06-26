@@ -1,3 +1,4 @@
+// Exempt: 宠物档案模型聚合文件，类型间互引紧密（profile/episode/weight 等），下期按模型域拆分子模块
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
