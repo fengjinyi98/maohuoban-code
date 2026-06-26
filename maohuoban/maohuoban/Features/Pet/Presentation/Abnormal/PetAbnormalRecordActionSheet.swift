@@ -98,7 +98,7 @@ struct PetAbnormalRecordActionSheet: View {
 
     private var submitButtonColor: Color {
         if store.isSubmitting {
-            MHBTheme.ColorToken.labelTertiary.color
+            return MHBTheme.ColorToken.labelTertiary.color
         }
         return action.tint
     }

@@ -78,14 +78,15 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
-            if let pantryItems = snapshot.pantryItems, !pantryItems.isEmpty {
+            if let pantryItems = snapshot.pantryItems {
                 HomePantrySection(
                     items: pantryItems,
                     petName: snapshot.selectedPet?.name,
                     route: .petPantry(
                         petID: snapshot.selectedPet?.id ?? "",
                         petName: snapshot.selectedPet?.name ?? ""
-                    )
+                    ),
+                    addRoute: .addPantryItem(petID: snapshot.selectedPet?.id ?? "")
                 )
             }
 

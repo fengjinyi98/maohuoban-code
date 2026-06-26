@@ -12,7 +12,7 @@ struct AIAssistantMessageBubble: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s2) {
             if message.role == .user {
-                Spacer(minLength: UIScreen.main.bounds.width * 0.15)
+                Spacer(minLength: 60)
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -50,7 +50,7 @@ struct AIAssistantMessageBubble: View {
     }
 
     private var streamingText: Text {
-        Text(message.text) + Text(message.isStreaming ? "|" : "")
+        Text("\(message.text)\(message.isStreaming ? " ▎" : "")")
     }
 
     private var backgroundColor: Color {

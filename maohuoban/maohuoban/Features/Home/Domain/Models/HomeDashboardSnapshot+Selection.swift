@@ -67,7 +67,7 @@ extension HomeDashboardSnapshot {
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
             petAlbums: petAlbums?.nonEmpty ?? fallback.petAlbums,
             galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums,
-            pantryItems: pantryItems?.nonEmpty ?? fallback.pantryItems,
+            pantryItems: pantryItems,
             attentionHints: attentionHints
         )
     }
