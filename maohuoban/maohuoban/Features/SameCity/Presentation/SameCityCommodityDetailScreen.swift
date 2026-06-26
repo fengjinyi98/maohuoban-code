@@ -35,7 +35,7 @@ struct SameCityCommodityDetailScreen: View {
         FeedCommentAuthorIdentity(
             userID: currentUserStore.userID ?? "current-user",
             userName: currentUserStore.displayName,
-            userAvatarAssetName: currentUserStore.avatarAssetName,
+            userAvatarSource: currentUserStore.avatarSource,
             petID: nil,
             petName: nil,
             petAvatarAssetName: nil

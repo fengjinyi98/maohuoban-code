@@ -233,6 +233,39 @@ final class ProfileUserEditStoreTests: XCTestCase {
         XCTAssertEqual(store.bioEditPolicyText, "7月23日前还可以修改 2 次简介。")
     }
 
+    func testLoadPublishesAvatarAndCoverURLIntoCurrentUserStore() async {
+        let currentUserStore = CurrentUserStore()
+        currentUserStore.apply(session: Self.authSession(displayName: "橘子午后"))
+        let repository = CurrentUserProfileRepositoryStub(
+            loadResponse: MHBAPIResponse(
+                success: true,
+                code: "profile.loaded",
+                message: "个人资料已加载",
+                data: Self.remoteProfile(
+                    displayName: "橘子午后",
+                    avatar: Self.remoteMedia(url: "/api/v1/media/assets/avatar-uuid/content"),
+                    cover: Self.remoteMedia(url: "/api/v1/media/assets/cover-uuid/content")
+                )
+            )
+        )
+        let store = ProfileUserEditStore(
+            repository: repository,
+            currentUserStore: currentUserStore
+        )
+
+        let loaded = await store.load()
+
+        XCTAssertTrue(loaded)
+        XCTAssertEqual(
+            currentUserStore.avatarURLString,
+            "/api/v1/media/assets/avatar-uuid/content"
+        )
+        XCTAssertEqual(
+            currentUserStore.coverURLString,
+            "/api/v1/media/assets/cover-uuid/content"
+        )
+    }
+
     private static func authSession(displayName: String) -> AuthSession {
         AuthSession(
             accessToken: "access-token",
@@ -342,14 +375,19 @@ private final class CurrentUserProfileRepositoryStub: CurrentUserProfileReposito
     var uploadedCoverDrafts: [CurrentUserProfileMediaUploadDraft] = []
     var avatarProgressValues: [Double] = []
     var coverProgressValues: [Double] = []
+    private let loadResponse: MHBAPIResponse<CurrentUserProfile>
     private let updateResponse: MHBAPIResponse<CurrentUserProfile>
 
-    init(updateResponse: MHBAPIResponse<CurrentUserProfile>) {
+    init(
+        loadResponse: MHBAPIResponse<CurrentUserProfile>? = nil,
+        updateResponse: MHBAPIResponse<CurrentUserProfile>
+    ) {
+        self.loadResponse = loadResponse ?? updateResponse
         self.updateResponse = updateResponse
     }
 
     func loadCurrentProfile() async throws(MHBAPIError) -> MHBAPIResponse<CurrentUserProfile> {
-        updateResponse
+        loadResponse
     }
 
     func updateCurrentProfile(

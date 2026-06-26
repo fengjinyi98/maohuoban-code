@@ -72,6 +72,36 @@ final class AuthViewModelTests: XCTestCase {
         XCTAssertEqual(currentUserStore.maohuobanID, "8X29K4M7Q2")
     }
 
+    func testBootstrapSessionPublishesAvatarURLFromRefreshResponse() async {
+        let tokenStore = InMemoryAuthTokenStore(tokens: Self.storedTokens())
+        let repository = CapturingAuthRepository()
+        repository.refreshResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "auth.refresh_success",
+                message: "登录状态已刷新",
+                data: Self.authSession(
+                    displayName: "橘子午后",
+                    maohuobanID: "8X29K4M7Q2",
+                    avatarURL: "/api/v1/media/assets/avatar-uuid/content"
+                )
+            )
+        )
+        let currentUserStore = CurrentUserStore()
+        let viewModel = AuthViewModel(
+            repository: repository,
+            tokenStore: tokenStore,
+            currentUserStore: currentUserStore
+        )
+
+        await viewModel.bootstrapSession()
+
+        XCTAssertEqual(
+            currentUserStore.avatarURLString,
+            "/api/v1/media/assets/avatar-uuid/content"
+        )
+    }
+
     func testAuthViewModelDoesNotStoreCurrentUserCopy() throws {
         let source = try Self.source(
             appRelativePath: "Features/Auth/Presentation/AuthViewModel.swift"
@@ -106,7 +136,8 @@ final class AuthViewModelTests: XCTestCase {
 
     private static func authSession(
         displayName: String = "橘子午后",
-        maohuobanID: String = "8X29K4M7Q2"
+        maohuobanID: String = "8X29K4M7Q2",
+        avatarURL: String? = nil
     ) -> AuthSession {
         AuthSession(
             accessToken: "new-access-token",
@@ -122,7 +153,7 @@ final class AuthViewModelTests: XCTestCase {
                 profile: CurrentUserProfileSummary(
                     maohuobanID: maohuobanID,
                     displayName: displayName,
-                    avatar: nil,
+                    avatar: avatarURL,
                     avatarPresentation: CurrentUserAvatarPresentation(
                         sex: .female,
                         sexVisibility: .visible

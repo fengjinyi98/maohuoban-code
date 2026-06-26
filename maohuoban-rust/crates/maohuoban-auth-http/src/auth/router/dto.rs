@@ -369,10 +369,14 @@ struct UserProfileSummaryData {
 impl From<UserProfile> for UserProfileSummaryData {
     fn from(profile: UserProfile) -> Self {
         let avatar_presentation = profile.avatar_presentation();
+        let avatar = profile
+            .avatar
+            .as_ref()
+            .map(|media| Value::String(media.url.clone()));
         Self {
             maohuoban_id: profile.maohuoban_id,
             display_name: profile.display_name,
-            avatar: None,
+            avatar,
             avatar_presentation,
         }
     }

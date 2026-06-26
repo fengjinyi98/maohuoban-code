@@ -187,7 +187,7 @@ extension CurrentUserStoreTests {
         XCTAssertTrue(petWorldDetailSource.contains("let currentUserStore: CurrentUserStore"))
         XCTAssertTrue(petWorldDetailSource.contains("currentUserName: currentUserStore.displayName"))
         XCTAssertTrue(petWorldDetailSource.contains("userName: currentUserStore.displayName"))
-        XCTAssertTrue(petWorldDetailSource.contains("userAvatarAssetName: currentUserStore.avatarAssetName"))
+        XCTAssertTrue(petWorldDetailSource.contains("userAvatarSource: currentUserStore.avatarSource"))
         XCTAssertTrue(petWorldLoadedSource.contains("let currentUserIdentity: FeedCommentAuthorIdentity"))
         XCTAssertFalse(petWorldLoadedSource.contains("userName: \"小满\""))
     }
@@ -214,7 +214,7 @@ extension CurrentUserStoreTests {
         )
         XCTAssertTrue(sameCityDetailSource.contains("let currentUserStore: CurrentUserStore"))
         XCTAssertTrue(sameCityDetailSource.contains("userName: currentUserStore.displayName"))
-        XCTAssertTrue(sameCityDetailSource.contains("userAvatarAssetName: currentUserStore.avatarAssetName"))
+        XCTAssertTrue(sameCityDetailSource.contains("userAvatarSource: currentUserStore.avatarSource"))
         XCTAssertTrue(sameCityDetailSource.contains("let currentUserIdentity: FeedCommentAuthorIdentity"))
         XCTAssertFalse(sameCityDetailSource.contains("userName: \"小满\""))
     }

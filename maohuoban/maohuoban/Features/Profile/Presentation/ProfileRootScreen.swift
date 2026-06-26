@@ -15,6 +15,7 @@ struct ProfileRootScreen: View {
     @State private var settingsDeviceSessionStore = SettingsDeviceSessionStore(
         repository: DefaultSettingsDeviceSessionRepository()
     )
+    @State private var profileLoader: CurrentUserProfileLoader?
 
     init(
         topicStore: TopicStore = TopicStore(),
@@ -75,6 +76,12 @@ struct ProfileRootScreen: View {
             .padding(.bottom, MHBTheme.Spacing.s6)
         }
         .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
+        .task {
+            if profileLoader == nil {
+                profileLoader = CurrentUserProfileLoader(currentUserStore: currentUserStore)
+            }
+            await profileLoader?.loadProfile()
+        }
         .accessibilityIdentifier("profile.scrollView")
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)

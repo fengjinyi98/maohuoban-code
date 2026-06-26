@@ -95,3 +95,88 @@ async fn profile_me_uploads_avatar_and_cover_media() {
     );
     assert_eq!(profile_body["data"]["cover"], cover_body["data"]["cover"]);
 }
+
+/// 上传头像后 refresh 响应的 `profile.avatar` 包含真实远端 URL，不是 null
+#[tokio::test]
+async fn refresh_after_avatar_upload_returns_real_avatar_url_in_profile_summary() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let challenge_id = send_phone_code(&app, "13800138016", "ios-profile-refresh-avatar").await;
+    let login_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/phone/verify",
+            json!({
+                "challenge_id": challenge_id,
+                "code": "123456",
+                "device": device_payload("ios-profile-refresh-avatar")
+            }),
+        ))
+        .await
+        .expect("verify phone code");
+    assert_eq!(login_response.status(), StatusCode::OK);
+
+    let login_body = response_json(login_response).await;
+    let access_token = login_body["data"]["access_token"]
+        .as_str()
+        .expect("access token");
+    let refresh_token = login_body["data"]["refresh_token"]
+        .as_str()
+        .expect("refresh token");
+
+    // 上传头像前，登录响应的 profile.avatar 应为 null
+    assert!(
+        login_body["data"]["user"]["profile"]["avatar"].is_null(),
+        "avatar should be null before upload"
+    );
+
+    // 上传头像
+    let avatar_response = app
+        .router()
+        .oneshot(authorized_multipart_image_request(
+            "/api/v1/profile/me/avatar",
+            access_token,
+            "avatar.png",
+            "image/png",
+            &tiny_png(),
+        ))
+        .await
+        .expect("upload avatar");
+    assert_eq!(avatar_response.status(), StatusCode::CREATED);
+    let avatar_body = response_json(avatar_response).await;
+    let avatar_url = avatar_body["data"]["avatar"]["url"]
+        .as_str()
+        .expect("avatar url");
+
+    // refresh 后响应的 profile.avatar 应包含真实远端 URL
+    let refresh_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/auth/refresh",
+            json!({
+                "refresh_token": refresh_token,
+                "device_id": "ios-profile-refresh-avatar"
+            }),
+        ))
+        .await
+        .expect("refresh token");
+    assert_eq!(refresh_response.status(), StatusCode::OK);
+
+    let refresh_body = response_json(refresh_response).await;
+    assert_eq!(refresh_body["success"], true);
+    assert_eq!(refresh_body["code"], "auth.refresh_success");
+
+    let refresh_profile_avatar = &refresh_body["data"]["user"]["profile"]["avatar"];
+    assert!(
+        refresh_profile_avatar.is_string(),
+        "refresh response profile.avatar should be a URL string, got: {refresh_profile_avatar}"
+    );
+    assert_eq!(
+        refresh_profile_avatar.as_str().unwrap(),
+        avatar_url,
+        "refresh response profile.avatar should match uploaded avatar URL"
+    );
+}

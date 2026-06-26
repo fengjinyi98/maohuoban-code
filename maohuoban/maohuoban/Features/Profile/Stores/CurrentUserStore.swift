@@ -159,7 +159,7 @@ final class CurrentUserStore {
         ]
     }
 
-    private var avatarSource: MHBAvatarSource {
+    var avatarSource: MHBAvatarSource {
         if let avatarURLString,
            let url = MHBBackendEndpoint.resolve(avatarURLString) {
             return .remote(url)

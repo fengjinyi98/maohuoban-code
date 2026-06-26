@@ -8,6 +8,7 @@ nonisolated struct FeedComment: Identifiable, Equatable {
     let id: String
     let authorName: String
     let avatarAssetName: String
+    let avatarSource: MHBAvatarSource?
     let text: String
     let publishedAt: Date
     let isPostAuthor: Bool
@@ -15,14 +16,44 @@ nonisolated struct FeedComment: Identifiable, Equatable {
     let isLiked: Bool
     let likeCount: Int
     let replies: [FeedComment]
-    var petName: String? = nil
-    var petAvatarAssetName: String? = nil
+    var petName: String?
+    var petAvatarAssetName: String?
+
+    nonisolated init(
+        id: String,
+        authorName: String,
+        avatarAssetName: String,
+        avatarSource: MHBAvatarSource? = nil,
+        text: String,
+        publishedAt: Date,
+        isPostAuthor: Bool,
+        isOwnedByCurrentUser: Bool,
+        isLiked: Bool,
+        likeCount: Int,
+        replies: [FeedComment],
+        petName: String? = nil,
+        petAvatarAssetName: String? = nil
+    ) {
+        self.id = id
+        self.authorName = authorName
+        self.avatarAssetName = avatarAssetName
+        self.avatarSource = avatarSource
+        self.text = text
+        self.publishedAt = publishedAt
+        self.isPostAuthor = isPostAuthor
+        self.isOwnedByCurrentUser = isOwnedByCurrentUser
+        self.isLiked = isLiked
+        self.likeCount = likeCount
+        self.replies = replies
+        self.petName = petName
+        self.petAvatarAssetName = petAvatarAssetName
+    }
 
     nonisolated var authorAvatarSubject: MHBAvatarSubject {
         let user = MHBAvatarUser(
             id: "\(id)-user",
             displayName: authorName,
-            source: .asset(avatarAssetName),
+            source: avatarSource ?? .asset(avatarAssetName),
             sex: .unknown,
             sexVisibility: .hidden
         )
