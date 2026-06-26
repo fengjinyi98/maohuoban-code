@@ -162,6 +162,9 @@ struct PetAbnormalRecordScreen: View {
     }
 
     private func eventDraft() -> PetEventDraft {
+        let symptomKinds = PetAbnormalSymptom.allCases
+            .filter { selectedSymptoms.contains($0) }
+            .map(\.rawValue)
         let symptomText = PetAbnormalSymptom.allCases
             .filter { selectedSymptoms.contains($0) }
             .map(\.title)
@@ -171,13 +174,27 @@ struct PetAbnormalRecordScreen: View {
         let detailSummary = detailText.isEmpty ? "" : "，表现：\(detailText)"
         let noteSummary = trimmedNote.isEmpty ? "" : "，备注：\(trimmedNote)"
 
+        var payload: [String: PetEventPayloadValue] = [
+            "symptom_kinds": .stringArray(symptomKinds),
+            "severity": .string(severity.rawValue)
+        ]
+
+        if !detailText.isEmpty {
+            payload["symptom_details"] = .stringArray(selectedDetails.sorted())
+        }
+
+        if !trimmedNote.isEmpty {
+            payload["note"] = .string(trimmedNote)
+        }
+
         return PetEventDraft(
             kind: .health,
-            subkind: "quick_abnormal",
+            subkind: "abnormal_symptom",
             title: "异常记录",
             summary: "异常：\(symptomText)，程度：\(severity.title)\(detailSummary)\(noteSummary)",
             visibility: .private,
-            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
+            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt),
+            eventPayload: payload
         )
     }
 }

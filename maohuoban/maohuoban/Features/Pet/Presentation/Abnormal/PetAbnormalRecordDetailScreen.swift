@@ -3,123 +3,240 @@ import MaohuobanDesignSystem
 
 // PetAbnormalRecordDetailScreen 异常记录详情页
 // 核心职责：
-// - 展示单条异常记录的宠物、异常项、程度、备注和照片
-// - 聚合异常事件下的后续用户记录和关联记录
+// - 展示单条异常记录的宠物、异常项、程度、备注
+// - 通过 PetAbnormalDetailStore 从后端加载真实事件详情
+// - 提供追加观察和标记恢复的命令式入口
 // - 不展示 AI/LLM 建议，避免主动记录详情与智能建议混淆
 struct PetAbnormalRecordDetailScreen: View {
     let recordID: String
+    let currentUserID: String?
 
+    @State private var store = PetAbnormalDetailStore()
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
-
-    private var presentation: PetAbnormalRecordDetailPresentation {
-        PetAbnormalRecordDetailPresentation.mock(recordID: recordID)
-    }
+    @State private var observationNote = ""
+    @State private var recoveryNote = ""
 
     var body: some View {
         MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetAbnormalRecordDetailHeader(presentation: presentation)
-                PetAbnormalRecordSymptomSection(presentation: presentation)
-                PetAbnormalRecordObservationSection(observations: presentation.observations)
-                PetAbnormalRecordEvidenceSection(
-                    note: presentation.note,
-                    photoAssetNames: presentation.photoAssetNames
-                )
-                PetAbnormalRecordProgressSection(
-                    records: presentation.relatedRecords,
-                    onOpenRecord: { record in
-                        presentedSheet = .relatedRecord(record)
-                    }
-                )
-                PetAbnormalRecordEpisodeActions(
+            switch store.phase {
+            case .idle, .loading:
+                PetAbnormalDetailLoadingView()
+            case .failed(let message):
+                PetAbnormalDetailErrorView(message: message)
+            case .loaded(let event):
+                PetAbnormalDetailContentView(
+                    event: event,
+                    store: store,
                     onSelectAction: { action in
                         presentedSheet = .action(action)
                     }
                 )
-                PetAbnormalRecordDetailActions()
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .frame(maxWidth: .infinity)
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("异常详情")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await store.load(eventID: recordID, currentUserID: currentUserID)
+        }
         .sheet(item: $presentedSheet) { sheet in
             switch sheet {
             case .action(let action):
-                PetAbnormalRecordActionSheet(action: action)
+                PetAbnormalRecordActionSheet(
+                    action: action,
+                    store: store,
+                    observationNote: $observationNote,
+                    recoveryNote: $recoveryNote,
+                    petID: currentPetID,
+                    currentUserID: currentUserID
+                )
             case .relatedRecord(let record):
                 PetAbnormalRecordRelatedRecordSheet(record: record)
             }
         }
+        .onChange(of: store.actionPhase) { _, newValue in
+            if case .succeeded = newValue {
+                presentedSheet = nil
+                observationNote = ""
+                recoveryNote = ""
+                Task {
+                    await store.load(eventID: recordID, currentUserID: currentUserID)
+                }
+            }
+        }
         .accessibilityIdentifier("pet.abnormalRecordDetail.screen")
+    }
+
+    private var currentPetID: String? {
+        guard case .loaded(let event) = store.phase else { return nil }
+        return event.petID
+    }
+}
+
+// PetAbnormalDetailLoadingView 异常详情加载态
+private struct PetAbnormalDetailLoadingView: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            ProgressView()
+            Text("正在加载异常详情")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetAbnormalDetailErrorView 异常详情错误态
+private struct PetAbnormalDetailErrorView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+            Text(message)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetAbnormalDetailContentView 异常详情内容
+// 核心职责：
+// - 将 PetEventDetail 映射为展示模型
+// - 组合头部、症状、备注和操作入口
+private struct PetAbnormalDetailContentView: View {
+    let event: PetEventDetail
+    let store: PetAbnormalDetailStore
+    let onSelectAction: (PetAbnormalRecordDetailAction) -> Void
+
+    private var payload: PetEventDetailPayload? {
+        event.eventPayload
+    }
+
+    private var severity: PetAbnormalSeverity? {
+        guard let raw = payload?.severity else { return nil }
+        return PetAbnormalSeverity(rawValue: raw)
+    }
+
+    private var symptoms: [PetAbnormalSymptom] {
+        guard let kinds = payload?.symptomKinds else { return [] }
+        return kinds.compactMap { PetAbnormalSymptom(rawValue: $0) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+            PetAbnormalRecordDetailHeader(
+                title: event.title,
+                timeText: event.occurredAt,
+                severity: severity
+            )
+
+            if !symptoms.isEmpty {
+                PetAbnormalRecordSymptomSection(
+                    symptoms: symptoms,
+                    tint: tint
+                )
+            }
+
+            if let details = payload?.symptomDetails, !details.isEmpty {
+                PetAbnormalRecordObservationSection(details: details)
+            }
+
+            if let note = payload?.note, !note.isEmpty {
+                PetAbnormalRecordEvidenceSection(note: note)
+            }
+
+            if let summary = event.summary, !summary.isEmpty {
+                PetAbnormalRecordDetailSection(title: "摘要") {
+                    Text(summary)
+                        .font(MHBTheme.Typography.callout)
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            PetAbnormalRecordEpisodeActions(
+                onSelectAction: onSelectAction
+            )
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s5)
+        .padding(.top, MHBTheme.Spacing.s6)
+        .padding(.bottom, MHBTheme.Spacing.s8)
+    }
+
+    private var tint: Color {
+        severity?.tint ?? MHBTheme.ColorToken.warning.color
     }
 }
 
 // PetAbnormalRecordDetailHeader 异常详情头部
 // 核心职责：
-// - 展示异常记录标题、宠物头像名称和发生时间
-// - 突出异常程度，便于用户快速回看风险等级
+// - 展示异常记录标题、发生时间和严重程度
 private struct PetAbnormalRecordDetailHeader: View {
-    let presentation: PetAbnormalRecordDetailPresentation
+    let title: String
+    let timeText: String
+    let severity: PetAbnormalSeverity?
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             HStack(spacing: MHBTheme.Spacing.s4) {
                 Image(systemName: "cross.case.fill")
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(presentation.tint)
+                    .foregroundStyle(tint)
                     .frame(width: 56, height: 56)
-                    .background(presentation.tint.opacity(0.10))
+                    .background(tint.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                    Text(presentation.title)
+                    Text(title)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    HStack(spacing: MHBTheme.Spacing.s2) {
-                        MHBAvatar(
-                            subject: .pet(presentation.pet.avatarPet),
-                            size: .custom(24),
-                            shape: .circle
-                        )
-
-                        Text("\(presentation.pet.name) · \(presentation.timeText)")
-                            .font(MHBTheme.Typography.caption)
-                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                            .lineLimit(1)
-                    }
+                    Text(timeText)
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .lineLimit(1)
                 }
 
                 Spacer(minLength: MHBTheme.Spacing.s2)
             }
 
-            HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-                Text(presentation.severityText)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(presentation.tint)
-                    .padding(.horizontal, MHBTheme.Spacing.s3)
-                    .padding(.vertical, MHBTheme.Spacing.s2)
-                    .background(presentation.tint.opacity(0.12), in: Capsule())
+            if let severity {
+                HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
+                    Text(severity.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .padding(.horizontal, MHBTheme.Spacing.s3)
+                        .padding(.vertical, MHBTheme.Spacing.s2)
+                        .background(tint.opacity(0.12), in: Capsule())
 
-                Text(presentation.severityDescription)
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    Text(severity.subtitle)
+                        .font(MHBTheme.Typography.callout)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                }
             }
         }
         .padding(.vertical, MHBTheme.Spacing.s4)
+    }
+
+    private var tint: Color {
+        severity?.tint ?? MHBTheme.ColorToken.warning.color
     }
 }
 
 // PetAbnormalRecordSymptomSection 异常项分组
 // 核心职责：
 // - 展示本次记录涉及的异常类型
-// - 使用图标标签帮助用户快速识别异常范围
 private struct PetAbnormalRecordSymptomSection: View {
-    let presentation: PetAbnormalRecordDetailPresentation
+    let symptoms: [PetAbnormalSymptom]
+    let tint: Color
 
     var body: some View {
         PetAbnormalRecordDetailSection(title: "异常项") {
@@ -127,13 +244,13 @@ private struct PetAbnormalRecordSymptomSection: View {
                 horizontalSpacing: MHBTheme.Spacing.s2,
                 verticalSpacing: MHBTheme.Spacing.s2
             ) {
-                ForEach(presentation.symptoms) { symptom in
+                ForEach(symptoms) { symptom in
                     Label(symptom.title, systemImage: symptom.systemImage)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(presentation.tint)
+                        .foregroundStyle(tint)
                         .padding(.horizontal, MHBTheme.Spacing.s3)
                         .padding(.vertical, MHBTheme.Spacing.s2)
-                        .background(presentation.tint.opacity(0.10), in: Capsule())
+                        .background(tint.opacity(0.10), in: Capsule())
                 }
             }
         }
@@ -143,20 +260,19 @@ private struct PetAbnormalRecordSymptomSection: View {
 // PetAbnormalRecordObservationSection 具体表现分组
 // 核心职责：
 // - 展示异常记录里的细分表现
-// - 保持键值信息可扫描
 private struct PetAbnormalRecordObservationSection: View {
-    let observations: [PetAbnormalRecordDetailPresentation.Observation]
+    let details: [String]
 
     var body: some View {
         PetAbnormalRecordDetailSection(title: "具体表现") {
             VStack(spacing: 0) {
-                ForEach(observations) { observation in
+                ForEach(Array(details.enumerated()), id: \.offset) { _, detail in
                     PetAbnormalRecordInfoRow(
-                        title: observation.title,
-                        value: observation.value
+                        title: "表现",
+                        value: detail
                     )
 
-                    if observation.id != observations.last?.id {
+                    if detail != details.last {
                         Rectangle()
                             .fill(MHBTheme.ColorToken.separatorSoft.color)
                             .frame(height: 1)
@@ -167,32 +283,18 @@ private struct PetAbnormalRecordObservationSection: View {
     }
 }
 
-// PetAbnormalRecordEvidenceSection 异常备注与照片分组
+// PetAbnormalRecordEvidenceSection 异常备注分组
 // 核心职责：
 // - 展示用户补充描述
-// - 展示异常记录关联照片
 private struct PetAbnormalRecordEvidenceSection: View {
     let note: String
-    let photoAssetNames: [String]
 
     var body: some View {
-        PetAbnormalRecordDetailSection(title: "备注与照片") {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                Text(note)
-                    .font(MHBTheme.Typography.callout)
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: MHBTheme.Spacing.s2) {
-                    ForEach(photoAssetNames, id: \.self) { assetName in
-                        Image(assetName)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 86, height: 86)
-                            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
-                    }
-                }
-            }
+        PetAbnormalRecordDetailSection(title: "备注") {
+            Text(note)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -225,9 +327,6 @@ struct PetAbnormalRecordDetailSection<Content: View>: View {
 }
 
 // PetAbnormalRecordInfoRow 异常详情信息行
-// 核心职责：
-// - 展示单项异常表现
-// - 支持长文本右侧换行展示
 private struct PetAbnormalRecordInfoRow: View {
     let title: String
     let value: String
@@ -250,30 +349,16 @@ private struct PetAbnormalRecordInfoRow: View {
     }
 }
 
-// PetAbnormalRecordDetailActions 异常详情底部操作
-// 核心职责：
-// - 保留后续编辑和删除入口
-// - 与其他记录详情底部操作保持一致
-private struct PetAbnormalRecordDetailActions: View {
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("修改记录信息") {}
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-
-            Button(role: .destructive) {} label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.danger.color)
-                    .frame(width: 48, height: 48)
-                    .background(MHBTheme.ColorToken.danger.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
+// PetAbnormalSeverity tint 扩展
+private extension PetAbnormalSeverity {
+    var tint: Color {
+        switch self {
+        case .mild:
+            MHBTheme.ColorToken.primary.color
+        case .obvious:
+            MHBTheme.ColorToken.warning.color
+        case .severe:
+            MHBTheme.ColorToken.danger.color
         }
-        .accessibilityIdentifier("pet.abnormalRecordDetail.actions")
     }
 }

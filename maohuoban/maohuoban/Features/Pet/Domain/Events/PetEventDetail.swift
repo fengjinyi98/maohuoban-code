@@ -15,6 +15,7 @@ struct PetEventDetail: Decodable, Equatable, Identifiable {
     let visibility: PetEventVisibility
     let occurredAt: String
     let recordRevision: Int
+    let eventPayload: PetEventDetailPayload?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -27,5 +28,6 @@ struct PetEventDetail: Decodable, Equatable, Identifiable {
         case visibility
         case occurredAt = "occurred_at"
         case recordRevision = "record_revision"
+        case eventPayload = "event_payload"
     }
 }

@@ -5,7 +5,7 @@
 // - 避免跨 crate 依赖（不引用 home-domain）
 
 use chrono::{DateTime, Utc};
-use maohuoban_pet_application::pet::NewPetEvent;
+use maohuoban_pet_application::pet::{AbnormalSymptomEventInput, NewPetEvent};
 use maohuoban_pet_domain::pet::{PetEvent, PetResult};
 use uuid::Uuid;
 
@@ -21,14 +21,17 @@ impl PostgresPetRepository {
     /// - 返回 episode_id 供调用方填充 event_payload
     pub(super) async fn handle_abnormal_symptom_event_command(
         &self,
-        pet_id: Uuid,
-        actor_user_id: Uuid,
-        event_id: Uuid,
-        symptom_kinds_serde: &str,
-        primary_symptom_serde: &str,
-        severity_serde: &str,
-        started_at: DateTime<Utc>,
+        input: AbnormalSymptomEventInput,
     ) -> maohuoban_pet_domain::pet::PetResult<Uuid> {
+        let AbnormalSymptomEventInput {
+            pet_id,
+            actor_user_id,
+            event_id,
+            symptom_kinds_json: symptom_kinds_serde,
+            primary_symptom: primary_symptom_serde,
+            severity: severity_serde,
+            started_at,
+        } = input;
         let mut tx = self.pool.begin().await.map_err(to_infrastructure_error)?;
 
         let episode_id = Uuid::new_v4();

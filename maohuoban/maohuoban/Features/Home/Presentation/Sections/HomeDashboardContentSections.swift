@@ -29,15 +29,14 @@ struct HomeDashboardContentSections: View {
                 }
             } else {
                 // 当有选中宠物时，时间线显示在第一个卡片的下方
-                if !snapshot.recentTimeline.isEmpty {
-                    if let abnormalEvent = snapshot.homeLatestOpenAbnormalHintEvent {
-                        HomeOpenAbnormalEpisodeHintSection(
-                            petName: snapshot.selectedPet?.name,
-                            event: abnormalEvent,
-                            openCount: snapshot.homeOpenAbnormalHintEvents.count
-                        )
-                    }
+                if !snapshot.attentionHints.isEmpty {
+                    HomeAttentionHintSection(
+                        hints: snapshot.attentionHints,
+                        petName: snapshot.selectedPet?.name
+                    )
+                }
 
+                if !snapshot.recentTimeline.isEmpty {
                     HomeTimelineSection(
                         events: snapshot.recentTimeline,
                         historyRoute: recordHistoryRoute
@@ -55,11 +54,10 @@ struct HomeDashboardContentSections: View {
 
             // 当没有选中宠物时，时间线显示在原位置（底部）
             if snapshot.selectedPet == nil && !snapshot.recentTimeline.isEmpty {
-                if let abnormalEvent = snapshot.homeLatestOpenAbnormalHintEvent {
-                    HomeOpenAbnormalEpisodeHintSection(
-                        petName: snapshot.selectedPet?.name,
-                        event: abnormalEvent,
-                        openCount: snapshot.homeOpenAbnormalHintEvents.count
+                if !snapshot.attentionHints.isEmpty {
+                    HomeAttentionHintSection(
+                        hints: snapshot.attentionHints,
+                        petName: snapshot.selectedPet?.name
                     )
                 }
 

@@ -29,11 +29,11 @@ impl PostgresAgentConfirmationTaskRepository {
 #[async_trait]
 impl AgentConfirmationTaskRepository for PostgresAgentConfirmationTaskRepository {
     async fn create(&self, task: AgentConfirmationTask) -> PetResult<AgentConfirmationTask> {
-        let task_kind_str = serde_json::to_value(&task.task_kind)
+        let task_kind_str = serde_json::to_value(task.task_kind)
             .ok()
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
-        let status_str = serde_json::to_value(&task.status)
+        let status_str = serde_json::to_value(task.status)
             .ok()
             .and_then(|v| v.as_str().map(String::from))
             .unwrap_or_default();
@@ -87,7 +87,9 @@ impl AgentConfirmationTaskRepository for PostgresAgentConfirmationTaskRepository
         .await
         .map_err(to_infrastructure_error)?;
 
-        rows.into_iter().map(|r| r.try_into()).collect()
+        rows.into_iter()
+            .map(std::convert::TryInto::try_into)
+            .collect()
     }
 
     async fn get_by_id(&self, id: Uuid) -> PetResult<AgentConfirmationTask> {

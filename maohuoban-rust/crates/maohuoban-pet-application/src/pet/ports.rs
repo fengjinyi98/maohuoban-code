@@ -528,6 +528,21 @@ pub trait FoodInventoryRepository: Send + Sync {
     ) -> PetResult<FoodInventoryItem>;
 }
 
+/// AbnormalSymptomEventInput 异常症状事件创建输入
+/// 核心职责：
+/// - 承载 handle_abnormal_symptom_event 所需的全部参数
+/// - 避免函数签名超过 clippy too_many_arguments 阈值
+#[derive(Debug, Clone)]
+pub struct AbnormalSymptomEventInput {
+    pub pet_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub event_id: Uuid,
+    pub symptom_kinds_json: String,
+    pub primary_symptom: String,
+    pub severity: String,
+    pub started_at: DateTime<Utc>,
+}
+
 /// PetRepository 宠物仓储端口
 /// 核心职责：
 /// - 持久化宠物档案和宠物事件
@@ -578,13 +593,7 @@ pub trait PetRepository: Send + Sync {
     /// 参数使用字符串而非领域枚举，避免跨 crate 序列化依赖
     async fn handle_abnormal_symptom_event(
         &self,
-        pet_id: Uuid,
-        actor_user_id: Uuid,
-        event_id: Uuid,
-        symptom_kinds_json: &str,
-        primary_symptom: &str,
-        severity: &str,
-        started_at: chrono::DateTime<Utc>,
+        input: AbnormalSymptomEventInput,
     ) -> PetResult<Uuid>;
 
     /// create_abnormal_symptom_event 事务级异常事件创建

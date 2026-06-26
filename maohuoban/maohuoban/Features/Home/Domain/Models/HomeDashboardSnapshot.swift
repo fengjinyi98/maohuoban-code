@@ -18,6 +18,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let petAlbums: [PetAlbumItem]?
     let galleryAlbums: [PetGalleryAlbum]?
     let pantryItems: [PantryPreviewItem]?
+    let attentionHints: [AttentionHint]
 
     init(
         identity: Identity,
@@ -32,7 +33,8 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         recommendedContent: [RecommendedContent],
         petAlbums: [PetAlbumItem]? = nil,
         galleryAlbums: [PetGalleryAlbum]? = nil,
-        pantryItems: [PantryPreviewItem]? = nil
+        pantryItems: [PantryPreviewItem]? = nil,
+        attentionHints: [AttentionHint] = []
     ) {
         self.identity = identity
         self.selectedPet = selectedPet
@@ -47,6 +49,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.petAlbums = petAlbums
         self.galleryAlbums = galleryAlbums
         self.pantryItems = pantryItems
+        self.attentionHints = attentionHints
     }
 
     enum CodingKeys: String, CodingKey {
@@ -63,5 +66,6 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case petAlbums = "pet_albums"
         case galleryAlbums = "gallery_albums"
         case pantryItems = "pantry_items"
+        case attentionHints = "attention_hints"
     }
 }

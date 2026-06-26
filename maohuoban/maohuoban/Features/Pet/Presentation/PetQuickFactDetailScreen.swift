@@ -74,6 +74,7 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 // - 在快速 UI 阶段为尚未实现的业务详情提供明确占位
 struct PetRecordDetailDestinationScreen: View {
     let route: PetRecordDetailRoute
+    var currentUserID: String? = nil
 
     var body: some View {
         switch route {
@@ -82,7 +83,10 @@ struct PetRecordDetailDestinationScreen: View {
         case .feeding(let recordID):
             PetFeedingDetailScreen(recordID: recordID)
         case .abnormal(let recordID):
-            PetAbnormalRecordDetailScreen(recordID: recordID)
+            PetAbnormalRecordDetailScreen(
+                recordID: recordID,
+                currentUserID: currentUserID
+            )
         case .weight(let recordID):
             PetWeightRecordDetailScreen(recordID: recordID)
         case .deworming(let recordID):

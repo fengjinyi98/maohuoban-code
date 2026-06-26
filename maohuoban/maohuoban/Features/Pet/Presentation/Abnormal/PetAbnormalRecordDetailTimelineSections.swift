@@ -296,54 +296,184 @@ private struct PetAbnormalRecordEpisodeActionRow: View {
     }
 }
 
-// PetAbnormalRecordActionSheet 异常事件动作占位弹层
+// PetAbnormalRecordActionSheet 异常事件动作表单
 // 核心职责：
-// - 在快速 UI 阶段展示追加记录动作的流程边界
-// - 后续接入真实表单或路由时替换为对应业务流程
+// - 承载追加观察和标记恢复的表单输入
+// - 通过 PetAbnormalDetailStore 提交真实事件
 struct PetAbnormalRecordActionSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let action: PetAbnormalRecordDetailAction
+    let store: PetAbnormalDetailStore
+    @Binding var observationNote: String
+    @Binding var recoveryNote: String
+    let petID: String?
+    let currentUserID: String?
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                Image(systemName: action.systemImage)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(action.tint)
-                    .frame(width: 64, height: 64)
-                    .background(action.tint.opacity(0.10), in: Circle())
+                HStack(spacing: MHBTheme.Spacing.s4) {
+                    Image(systemName: action.systemImage)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(action.tint)
+                        .frame(width: 56, height: 56)
+                        .background(action.tint.opacity(0.10), in: Circle())
 
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                    Text(action.title)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                        Text(action.title)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        Text(action.subtitle)
+                            .font(MHBTheme.Typography.caption)
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    }
+                }
 
-                    Text(action.flowDescription)
-                        .font(MHBTheme.Typography.callout)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        .fixedSize(horizontal: false, vertical: true)
+                PetAbnormalActionFormField(
+                    action: action,
+                    observationNote: $observationNote,
+                    recoveryNote: $recoveryNote
+                )
+
+                if let message = actionMessage {
+                    Text(message)
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(
+                            store.actionPhase == .failed(message) ? MHBTheme.ColorToken.danger.color : MHBTheme.ColorToken.success.color
+                        )
                 }
 
                 Spacer()
 
-                Button("知道了") {
-                    dismiss()
+                Button {
+                    Task { await submit() }
+                } label: {
+                    HStack {
+                        if store.isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        }
+                        Text(store.isSubmitting ? "提交中" : submitTitle)
+                    }
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(submitButtonColor, in: Capsule())
                 }
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(MHBTheme.ColorToken.primary.color, in: Capsule())
                 .buttonStyle(.plain)
+                .disabled(store.isSubmitting || petID == nil)
             }
             .padding(MHBTheme.Spacing.s5)
             .background(MHBTheme.ColorToken.background.color)
             .navigationTitle(action.title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("取消") { dismiss() }
+                        .font(MHBTheme.Typography.callout)
+                }
+            }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .interactiveDismissDisabled(store.isSubmitting)
+    }
+
+    private var submitTitle: String {
+        switch action {
+        case .addObservation: "追加观察"
+        case .linkClinicVisit: "关联就诊"
+        case .markRecovered: "标记恢复"
+        }
+    }
+
+    private var submitButtonColor: Color {
+        if store.isSubmitting {
+            MHBTheme.ColorToken.labelTertiary.color
+        }
+        return action.tint
+    }
+
+    private var actionMessage: String? {
+        switch store.actionPhase {
+        case .succeeded(let msg): msg
+        case .failed(let msg): msg
+        default: nil
+        }
+    }
+
+    private func submit() async {
+        guard let petID else { return }
+        switch action {
+        case .addObservation:
+            await store.addObservation(
+                petID: petID,
+                note: observationNote,
+                currentUserID: currentUserID,
+                lifeStatus: nil
+            )
+        case .markRecovered:
+            await store.markRecovered(
+                petID: petID,
+                note: recoveryNote,
+                currentUserID: currentUserID,
+                lifeStatus: nil
+            )
+        case .linkClinicVisit:
+            break
+        }
+    }
+}
+
+// PetAbnormalActionFormField 动作表单输入
+// 核心职责：
+// - 根据动作类型展示不同的表单字段
+private struct PetAbnormalActionFormField: View {
+    let action: PetAbnormalRecordDetailAction
+    @Binding var observationNote: String
+    @Binding var recoveryNote: String
+
+    var body: some View {
+        switch action {
+        case .addObservation:
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+                Text("观察内容")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                TextEditor(text: $observationNote)
+                    .font(MHBTheme.Typography.callout)
+                    .frame(minHeight: 80)
+                    .padding(MHBTheme.Spacing.s2)
+                    .background(MHBTheme.ColorToken.cardSolid.color)
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
+                            .stroke(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
+                    )
+            }
+        case .markRecovered:
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+                Text("恢复表现")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                TextEditor(text: $recoveryNote)
+                    .font(MHBTheme.Typography.callout)
+                    .frame(minHeight: 80)
+                    .padding(MHBTheme.Spacing.s2)
+                    .background(MHBTheme.ColorToken.cardSolid.color)
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
+                            .stroke(MHBTheme.ColorToken.separatorSoft.color, lineWidth: 1)
+                    )
+            }
+        case .linkClinicVisit:
+            Text("关联就诊功能将在后续版本接入")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
     }
 }
 

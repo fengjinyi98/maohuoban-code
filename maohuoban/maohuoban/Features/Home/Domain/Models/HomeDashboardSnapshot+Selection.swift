@@ -67,7 +67,8 @@ extension HomeDashboardSnapshot {
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
             petAlbums: petAlbums?.nonEmpty ?? fallback.petAlbums,
             galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums,
-            pantryItems: pantryItems?.nonEmpty ?? fallback.pantryItems
+            pantryItems: pantryItems?.nonEmpty ?? fallback.pantryItems,
+            attentionHints: attentionHints
         )
     }
 
@@ -92,7 +93,8 @@ extension HomeDashboardSnapshot {
             recommendedContent: recommendedContent,
             petAlbums: petAlbums,
             galleryAlbums: galleryAlbums,
-            pantryItems: pantryItems
+            pantryItems: pantryItems,
+            attentionHints: attentionHints
         )
     }
 }
@@ -238,7 +240,8 @@ extension HomeDashboardSnapshot {
             recommendedContent: recommendedContent,
             petAlbums: petAlbums,
             galleryAlbums: galleryAlbums,
-            pantryItems: pantryItems
+            pantryItems: pantryItems,
+            attentionHints: attentionHints
         )
     }
 }

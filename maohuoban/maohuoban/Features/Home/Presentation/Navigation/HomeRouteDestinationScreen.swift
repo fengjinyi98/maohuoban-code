@@ -98,7 +98,10 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID
             )
         case .petRecordDetail(let route):
-            PetRecordDetailDestinationScreen(route: route)
+            PetRecordDetailDestinationScreen(
+                route: route,
+                currentUserID: currentUserID
+            )
         case .publishAvailableStatus(let merchantID):
             MerchantAvailableStatusScreen(
                 merchantID: merchantID,

@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput, DeletePetProfile,
-    MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, PendingPetLivePhotoUploadInput,
-    PendingPetMediaUploadInput, PetRepository, ReplacePetExternalIdentifier, RestorePetProfile,
-    TradePetImport, TradePetImportInput, UpdatePetProfile,
+    AbnormalSymptomEventInput, AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput,
+    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
+    ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
+    UpdatePetProfile,
 };
 use maohuoban_pet_domain::pet::{
     IdentifierStatus, LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian,
@@ -227,24 +228,9 @@ impl PetRepository for PostgresPetRepository {
 
     async fn handle_abnormal_symptom_event(
         &self,
-        pet_id: Uuid,
-        actor_user_id: Uuid,
-        event_id: Uuid,
-        symptom_kinds_json: &str,
-        primary_symptom: &str,
-        severity: &str,
-        started_at: chrono::DateTime<Utc>,
+        input: AbnormalSymptomEventInput,
     ) -> PetResult<Uuid> {
-        self.handle_abnormal_symptom_event_command(
-            pet_id,
-            actor_user_id,
-            event_id,
-            symptom_kinds_json,
-            primary_symptom,
-            severity,
-            started_at,
-        )
-        .await
+        self.handle_abnormal_symptom_event_command(input).await
     }
 
     async fn create_abnormal_symptom_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
