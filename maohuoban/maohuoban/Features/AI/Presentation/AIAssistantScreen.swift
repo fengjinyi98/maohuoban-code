@@ -84,8 +84,7 @@ struct AIAssistantScreen: View {
                 prompts: store.shouldShowSuggestedPrompts ? store.suggestedPrompts : [],
                 selectedAttachment: store.selectedAttachment,
                 selectedAttachmentImage: store.selectedAttachmentImage,
-                draftText: $store.draftText,
-                canSend: store.canSendDraft,
+                store: store,
                 onSelectPrompt: { prompt in
                     store.sendSuggestedPrompt(prompt)
                 },
