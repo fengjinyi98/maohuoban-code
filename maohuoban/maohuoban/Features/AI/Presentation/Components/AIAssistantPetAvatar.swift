@@ -9,6 +9,7 @@ struct AIAssistantPetAvatar: View {
     let avatarURL: String?
     let species: AIAssistantPetSpecies
     let size: CGFloat
+    var shape: MHBAvatarShape = .circle
 
     var body: some View {
         MHBAvatar(
@@ -17,7 +18,7 @@ struct AIAssistantPetAvatar: View {
                 species: species
             ),
             size: .custom(size),
-            shape: .circle
+            shape: shape
         )
         .accessibilityIdentifier("ai.assistant.petAvatar")
     }

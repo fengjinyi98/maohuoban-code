@@ -9,4 +9,7 @@ struct AIAssistantConversationHistory: Identifiable, Hashable {
     let title: String
     let subtitle: String
     let messages: [AIAssistantMessage]
+    let petAvatarURL: String?
+    let petName: String
+    let petSpecies: AIAssistantPetSpecies
 }

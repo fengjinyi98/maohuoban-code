@@ -33,7 +33,10 @@ final class AIAssistantStore {
                     text: "按当前档案的 mock 数据看，年度疫苗建议在 2026-08-20 前后完成；体内外驱虫建议按最近一次记录向后推 30 天，并在前一周提醒。",
                     referenceChips: ["疫苗记录", "驱虫周期", "提醒计划"]
                 )
-            ]
+            ],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
         ),
         AIAssistantConversationHistory(
             id: "health-triage",
@@ -53,7 +56,10 @@ final class AIAssistantStore {
                     role: .assistant,
                     text: "我已把这次 mock 分诊保留在对话记录中，后端接入后会关联宠物健康时间线。"
                 )
-            ]
+            ],
+            petAvatarURL: nil,
+            petName: "大黄",
+            petSpecies: .dog
         ),
         AIAssistantConversationHistory(
             id: "food-review",
@@ -69,7 +75,10 @@ final class AIAssistantStore {
                     text: "需要结合年龄、体重、绝育状态、过敏史和当前粮食过渡情况判断。当前 mock 结论是：若没有谷物或鸡肉过敏，可先少量过渡，并观察软便和抓挠情况。",
                     referenceChips: ["UGC 上下文", "过敏史", "换粮观察"]
                 )
-            ]
+            ],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
         )
     ]
 
@@ -169,6 +178,15 @@ final class AIAssistantStore {
         pendingAction = nil
         clearAttachment()
         messages = history.messages
+    }
+
+    func startNewConversation() {
+        selectedConversationHistoryID = nil
+        currentConversationTitle = nil
+        draftText = ""
+        pendingAction = nil
+        clearAttachment()
+        messages = []
     }
 
     func confirmPendingAction() {

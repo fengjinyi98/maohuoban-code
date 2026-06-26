@@ -103,8 +103,6 @@ struct AIAssistantScreen: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 AIAssistantTopBarActions(
-                    avatarURL: store.context.selectedPetAvatarURL,
-                    species: store.context.selectedPetSpecies,
                     onOpenHistory: {
                         isHistoryScreenPresented = true
                     }
@@ -118,6 +116,9 @@ struct AIAssistantScreen: View {
                 selectedHistoryID: store.selectedConversationHistoryID,
                 onSelect: { history in
                     store.selectConversationHistory(history)
+                },
+                onNewChat: {
+                    store.startNewConversation()
                 }
             )
         }
@@ -230,18 +231,10 @@ private struct AIAssistantNavigationTitle: View {
 // - 展示当前宠物头像作为上下文提示
 // - 将对话记录入口命中区域限制在更多按钮自身
 private struct AIAssistantTopBarActions: View {
-    let avatarURL: String?
-    let species: AIAssistantPetSpecies
     let onOpenHistory: () -> Void
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            AIAssistantPetAvatar(
-                avatarURL: avatarURL,
-                species: species,
-                size: 32
-            )
-            .allowsHitTesting(false)
 
             Button(action: onOpenHistory) {
                 Image("IconMore")

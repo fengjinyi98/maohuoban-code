@@ -12,34 +12,60 @@ struct AIAssistantHistoryScreen: View {
     let histories: [AIAssistantConversationHistory]
     let selectedHistoryID: String?
     let onSelect: (AIAssistantConversationHistory) -> Void
+    let onNewChat: () -> Void
 
     var body: some View {
-        ZStack {
-            MHBTheme.ColorToken.background.color
-                .ignoresSafeArea()
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
 
-            if histories.isEmpty {
-                AIAssistantHistoryEmptyState()
-            } else {
-                MHBScreenScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: MHBTheme.Spacing.s3) {
-                        ForEach(histories) { history in
-                            AIAssistantHistoryRow(
-                                history: history,
-                                isSelected: history.id == selectedHistoryID,
-                                onSelect: {
-                                    onSelect(history)
-                                    dismiss()
+            ZStack(alignment: .topLeading) {
+                MHBTheme.ColorToken.background.color
+                    .ignoresSafeArea()
+
+                if histories.isEmpty {
+                    AIAssistantHistoryEmptyState()
+                } else {
+                    MHBScreenScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 0) {
+                            ForEach(histories) { history in
+                                AIAssistantHistoryRow(
+                                    history: history,
+                                    isSelected: history.id == selectedHistoryID,
+                                    onSelect: {
+                                        onSelect(history)
+                                        dismiss()
+                                    }
+                                )
+
+                                if history.id != histories.last?.id {
+                                    Divider()
+                                        .padding(.leading, 40 + MHBTheme.Spacing.s3 + MHBTheme.Spacing.s4)
                                 }
-                            )
+                            }
                         }
+                        .padding(.top, MHBTheme.Spacing.s2)
+                        // s8 + s8 + s6 is the standard CTA bottom padding used elsewhere
+                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6 + bottomInset)
                     }
-                    .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .padding(.top, MHBTheme.Spacing.s4)
-                    .padding(.bottom, MHBTheme.Spacing.s8)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .zIndex(0)
                 }
+
+                MHBBottomFloatingActionCTA(
+                    title: "聊天",
+                    systemImage: "bubble.left.and.bubble.right.fill",
+                    bottomInset: bottomInset,
+                    action: {
+                        onNewChat()
+                        dismiss()
+                    }
+                )
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
+                .zIndex(2)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
+        .ignoresSafeArea(.container, edges: [.bottom])
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ai.assistant.historyScreen")
@@ -58,19 +84,28 @@ private struct AIAssistantHistoryRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
-                Image(systemName: isSelected ? "checkmark.message.fill" : "message.fill")
-                    .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-                    .foregroundStyle(isSelected ? .white : MHBTheme.ColorToken.primary.color)
-                    .frame(width: 40, height: 40)
-                    .background(isSelected ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.primaryBackground.color)
-                    .clipShape(Circle())
+                ZStack(alignment: .bottomTrailing) {
+                    AIAssistantPetAvatar(
+                        avatarURL: history.petAvatarURL,
+                        species: history.petSpecies,
+                        size: 48,
+                        shape: .squircle
+                    )
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                            .background(Circle().fill(.white))
+                            .offset(x: 2, y: 2)
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                     HStack(spacing: MHBTheme.Spacing.s2) {
-                        Text(history.title)
-                            .font(MHBTheme.Typography.callout.weight(.semibold))
+                        Text(history.petName)
+                            .font(MHBTheme.Typography.callout.weight(.medium))
                             .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                            .lineLimit(1)
 
                         Spacer(minLength: MHBTheme.Spacing.s2)
 
@@ -80,6 +115,11 @@ private struct AIAssistantHistoryRow: View {
                             .lineLimit(1)
                     }
 
+                    Text(history.title)
+                        .font(MHBTheme.Typography.callout.weight(.semibold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .lineLimit(1)
+
                     Text(history.messages.last?.text ?? "暂无消息")
                         .font(MHBTheme.Typography.footnote)
                         .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
@@ -87,17 +127,10 @@ private struct AIAssistantHistoryRow: View {
                         .multilineTextAlignment(.leading)
                 }
             }
-            .padding(MHBTheme.Spacing.s4)
+            .padding(.vertical, MHBTheme.Spacing.s3)
+            .padding(.horizontal, MHBTheme.Spacing.s4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isSelected ? MHBTheme.ColorToken.primaryBackgroundSoft.color : MHBTheme.ColorToken.cardSolid.color)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                    .stroke(
-                        isSelected ? MHBTheme.ColorToken.primary.color : MHBTheme.ColorToken.separator.color,
-                        lineWidth: 1
-                    )
-            }
+            .background(isSelected ? MHBTheme.ColorToken.primaryBackgroundSoft.color : MHBTheme.ColorToken.background.color)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(history.title)
