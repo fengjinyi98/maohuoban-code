@@ -1,0 +1,24 @@
+{
+  "name": "@maohuoban/pi-workflow",
+  "version": "0.1.0",
+  "description": "Maohuoban project gates for Pi: goal evidence, TDD slices, and structure checks.",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "maohuoban",
+    "goal",
+    "tdd"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

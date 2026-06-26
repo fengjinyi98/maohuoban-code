@@ -1,7 +1,7 @@
 {
   "enableSkillCommands": true,
-  "defaultProvider": "deepseek",
-  "defaultModel": "deepseek-v4-pro",
+  "defaultProvider": "commandcode-local",
+  "defaultModel": "deepseek/deepseek-v4-pro",
   "defaultThinkingLevel": "high",
   "compaction": {
     "enabled": true,
@@ -12,10 +12,10 @@
     "~/.codex/skills",
     "~/.agents/skills"
   ],
-  "extensions": [
-    "extensions/maohuoban-workflow.ts"
-  ],
   "prompts": [
     "prompts"
+  ],
+  "packages": [
+    "packages/maohuoban-workflow"
   ]
 }
