@@ -10,6 +10,7 @@ mod lifecycle_event;
 mod media;
 mod pet_guardian;
 mod profile;
+mod profile_enums;
 mod value_objects;
 
 pub use abnormal_episode::{AbnormalEpisode, AbnormalEpisodeStatus, Severity, SymptomKind};
@@ -38,8 +39,9 @@ pub use media::{
     MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetMediaUploadResult,
 };
 pub use pet_guardian::{GuardianRole, GuardianStatus, GuardianType, PetGuardian};
-pub use profile::{
-    LifeStatus, ManagedPetStatus, OriginKind, PetBackgroundMediaKind, PetNameEditPolicy,
-    PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies,
+pub use profile::{PetNameEditPolicy, PetProfile};
+pub use profile_enums::{
+    LifeStatus, ManagedPetStatus, OriginKind, PetBackgroundMediaKind, PetNeuterStatus, PetSex,
+    PetSourceKind, PetSpecies,
 };
 pub use value_objects::PetErrorKind;

@@ -6,7 +6,7 @@ use maohuoban_pet_domain::pet::{
 };
 use uuid::Uuid;
 
-use super::{FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem};
+use super::super::{FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem};
 
 /// PetService food inventory 方法组
 pub(super) async fn create_food_inventory_item(

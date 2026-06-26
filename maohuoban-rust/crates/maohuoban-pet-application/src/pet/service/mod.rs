@@ -1,18 +1,14 @@
-// Exempt: service.rs 已完成 mod.rs + food_inventory.rs 子模块拆分（743→703 行）；
-// 剩余方法组含互相引用的饮食确认逻辑（~200 行），需梳理依赖后再拆分，下期排期
+mod diet;
 mod food_inventory;
+mod food_inventory_delegation;
 mod media;
 mod merchant;
 mod validation;
 
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
-use chrono::{Duration, Utc};
 use maohuoban_pet_domain::pet::{
-    AgentConfirmedFactPayload, DietAssignmentRole, DietChangePayload, EventKind, EventVisibility,
-    FeedingCorrectionPayload, FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus,
-    FoodScopeType, PetDietAssignment, PetError, PetEvent, PetIdentityContext, PetProfile,
-    PetResult, PetTimeline,
+    EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
 };
 use uuid::Uuid;
 
@@ -22,12 +18,15 @@ use self::validation::{
 };
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetProfile,
-    FoodInventoryRepository, NewFoodInventoryItem, NewPetEvent, NewPetProfile,
-    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetProfileDiagnostics,
-    PetRepository, RestorePetProfile, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
-    TradePetImport, TradePetImportInput, UpdateFoodInventoryItem, UpdatePetProfile,
-    UpdatePetProfileResult, record_pet_profile,
+    FoodInventoryRepository, NewPetEvent, NewPetProfile, PetDietConfirmationCandidates,
+    PetProfileDiagnostics, PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput,
+    UpdatePetProfile, UpdatePetProfileResult, record_pet_profile,
 };
+use super::{
+    FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
+    SetPetDietAssignmentInput,
+};
+use maohuoban_pet_domain::pet::{FoodScopeType, PetDietAssignment, PetIdentityContext};
 
 /// PetService 宠物应用服务
 /// 核心职责：
@@ -174,18 +173,14 @@ impl PetService {
         }
         self.enrich_feeding_event_payload(&mut input).await?;
 
-        // abnormal_symptom 事件：使用统一事务写入 pet_events + abnormal_episodes + attention_hints
-        // 自动回填 episode_id 到 event_payload
         if input.event_subkind.as_deref() == Some("abnormal_symptom")
             && input.event_kind == EventKind::Health
         {
             return self.repository.create_abnormal_symptom_event(input).await;
         }
 
-        // 先写 pet_events 行
         let event = self.repository.create_pet_event(input).await?;
 
-        // abnormal_recovery 事件：关闭 episode + resolve hints
         if event.event_subkind.as_deref() == Some("abnormal_recovery")
             && event.event_kind == EventKind::Health
         {
@@ -205,7 +200,6 @@ impl PetService {
                 .await?;
         }
 
-        // symptom_followup 事件：更新 episode 观察时间线
         if event.event_subkind.as_deref() == Some("symptom_followup")
             && event.event_kind == EventKind::Health
         {
@@ -289,193 +283,20 @@ impl PetService {
         self.repository.load_attention_hints(pet_id).await
     }
 
-    // --- Food Inventory (delegated to food_inventory.rs) ---
-
-    pub async fn create_food_inventory_item(
-        &self,
-        input: NewFoodInventoryItem,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::create_food_inventory_item(&self.food_inventory, input).await
-    }
-
-    pub async fn list_food_inventory_items(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-        category: Option<FoodInventoryCategory>,
-        status: Option<FoodInventoryStatus>,
-    ) -> PetResult<Vec<FoodInventoryItem>> {
-        food_inventory::list_food_inventory_items(
-            &self.food_inventory,
-            scope_type,
-            scope_id,
-            category,
-            status,
-        )
-        .await
-    }
-
-    pub async fn find_food_inventory_item(&self, item_id: Uuid) -> PetResult<FoodInventoryItem> {
-        food_inventory::find_food_inventory_item(&self.food_inventory, item_id).await
-    }
-
-    pub async fn update_food_inventory_item(
-        &self,
-        input: UpdateFoodInventoryItem,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::update_food_inventory_item(&self.food_inventory, input).await
-    }
-
-    pub async fn archive_food_inventory_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::archive_food_inventory_item(&self.food_inventory, item_id, editor_user_id)
-            .await
-    }
-
-    pub async fn restore_food_inventory_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-        status: FoodInventoryStatus,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::restore_food_inventory_item(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-            status,
-        )
-        .await
-    }
-
-    pub async fn restock_food_inventory_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-        quantity: i32,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::restock_food_inventory_item(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-            quantity,
-        )
-        .await
-    }
-
-    async fn load_food_inventory_consumable_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::load_food_inventory_consumable_item(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-        )
-        .await
-    }
-
-    async fn enrich_feeding_event_payload(&self, input: &mut NewPetEvent) -> PetResult<()> {
-        if input.event_subkind.as_deref() != Some("feeding") {
-            return Ok(());
-        }
-        let Some(food_item_id_value) = input.event_payload.get("food_item_id") else {
-            return Ok(());
-        };
-        if food_item_id_value.is_null() {
-            return Ok(());
-        }
-        let food_item_id = food_item_id_value
-            .as_str()
-            .and_then(|value| Uuid::parse_str(value).ok())
-            .ok_or_else(|| PetError::InvalidInput("食品资产 ID 格式不正确".to_owned()))?;
-        let food_item = self
-            .load_food_inventory_consumable_item(food_item_id, input.actor_user_id)
-            .await?;
-        let payload = input
-            .event_payload
-            .as_object_mut()
-            .ok_or_else(|| PetError::InvalidInput("喂食事件载荷格式不正确".to_owned()))?;
-        payload.insert(
-            "food_snapshot".to_owned(),
-            serde_json::json!({
-                "name": food_item.name,
-                "brand": food_item.brand,
-                "category": food_item.category.as_str(),
-                "spec": food_item.spec
-            }),
-        );
-        Ok(())
-    }
-
-    async fn ensure_pet_access(&self, pet_id: Uuid, user_id: Uuid) -> PetResult<()> {
-        self.repository
-            .authorize_pet_access(pet_id, user_id)
-            .await?
-            .map(|_| ())
-            .ok_or(PetError::PetNotFound)
-    }
-
-    // --- Diet Assignments ---
+    // --- Diet Assignments (delegated to diet.rs) ---
 
     pub async fn set_current_staple(
         &self,
         input: SetPetCurrentStapleInput,
     ) -> PetResult<PetDietAssignment> {
-        self.ensure_pet_access(input.pet_id, input.created_by_user_id)
-            .await?;
-        self.load_food_inventory_consumable_item(input.food_item_id, input.created_by_user_id)
-            .await?;
-        let previous = self.diet.find_current_staple(input.pet_id).await?;
-        let pet_id = input.pet_id;
-        let food_item_id = input.food_item_id;
-        let created_by_user_id = input.created_by_user_id;
-        let reason = input.reason.clone();
-        let assignment = self.diet.set_current_staple(input).await?;
-        let payload = DietChangePayload {
-            from_food_item_id: previous.map(|assignment| assignment.food_item_id),
-            to_food_item_id: food_item_id,
-            assignment_id: assignment.id,
-            transition_state: "started".to_owned(),
-            started_at: assignment.started_at,
-            confirmed_by_user_id: created_by_user_id,
-        };
-        let event_payload = serde_json::to_value(payload).map_err(|error| {
-            PetError::Infrastructure(format!("failed to serialize diet change payload: {error}"))
-        })?;
-        self.repository
-            .create_pet_event(NewPetEvent {
-                pet_id,
-                actor_user_id: created_by_user_id,
-                event_kind: EventKind::Daily,
-                event_subkind: Some("diet_change".to_owned()),
-                title: "当前主粮已更新".to_owned(),
-                summary: reason,
-                visibility: EventVisibility::Private,
-                event_payload,
-                occurred_at: assignment.started_at,
-            })
-            .await?;
-        Ok(assignment)
+        diet::set_current_staple(&self.repository, &self.diet, &self.food_inventory, input).await
     }
 
     pub async fn set_diet_assignment(
         &self,
         input: SetPetDietAssignmentInput,
     ) -> PetResult<PetDietAssignment> {
-        if matches!(input.role, DietAssignmentRole::CurrentStaple) {
-            return Err(PetError::InvalidInput(
-                "当前主粮必须通过当前主粮专用接口设置".to_owned(),
-            ));
-        }
-        self.ensure_pet_access(input.pet_id, input.created_by_user_id)
-            .await?;
-        self.load_food_inventory_consumable_item(input.food_item_id, input.created_by_user_id)
-            .await?;
-        self.diet.set_assignment(input).await
+        diet::set_diet_assignment(&self.repository, &self.diet, &self.food_inventory, input).await
     }
 
     pub async fn end_diet_assignment(
@@ -484,10 +305,14 @@ impl PetService {
         assignment_id: Uuid,
         ended_by_user_id: Uuid,
     ) -> PetResult<PetDietAssignment> {
-        self.ensure_pet_access(pet_id, ended_by_user_id).await?;
-        self.diet
-            .end_assignment(pet_id, assignment_id, ended_by_user_id)
-            .await
+        diet::end_diet_assignment(
+            &self.repository,
+            &self.diet,
+            pet_id,
+            assignment_id,
+            ended_by_user_id,
+        )
+        .await
     }
 
     pub async fn list_active_diet_assignments(
@@ -495,12 +320,12 @@ impl PetService {
         pet_id: Uuid,
         actor_user_id: Uuid,
     ) -> PetResult<Vec<PetDietAssignment>> {
-        self.ensure_pet_access(pet_id, actor_user_id).await?;
-        self.diet.list_active_assignments(pet_id).await
+        diet::list_active_diet_assignments(&self.repository, &self.diet, pet_id, actor_user_id)
+            .await
     }
 
     pub async fn find_current_staple(&self, pet_id: Uuid) -> PetResult<Option<PetDietAssignment>> {
-        self.diet.find_current_staple(pet_id).await
+        diet::find_current_staple(&self.diet, pet_id).await
     }
 
     /// 加载 Agent 饮食上下文（强事实）
@@ -508,9 +333,9 @@ impl PetService {
         &self,
         owner_user_id: Uuid,
         pet_id: Uuid,
-    ) -> PetResult<super::PetCurrentDietContext> {
-        self.ensure_pet_access(pet_id, owner_user_id).await?;
-        self.diet.load_pet_current_diet_context(pet_id).await
+    ) -> PetResult<PetCurrentDietContext> {
+        diet::load_pet_current_diet_context(&self.repository, &self.diet, owner_user_id, pet_id)
+            .await
     }
 
     /// 加载储物柜变化线索（弱线索）
@@ -519,10 +344,8 @@ impl PetService {
         scope_type: FoodScopeType,
         scope_id: Uuid,
         since: chrono::DateTime<chrono::Utc>,
-    ) -> PetResult<super::FoodInventoryChangeHints> {
-        self.diet
-            .load_food_inventory_change_hints(scope_type, scope_id, since)
-            .await
+    ) -> PetResult<FoodInventoryChangeHints> {
+        diet::load_food_inventory_change_hints(&self.diet, scope_type, scope_id, since).await
     }
 
     /// 加载宠物饮食待确认候选
@@ -531,56 +354,13 @@ impl PetService {
         owner_user_id: Uuid,
         pet_id: Uuid,
     ) -> PetResult<PetDietConfirmationCandidates> {
-        self.ensure_pet_access(pet_id, owner_user_id).await?;
-        let identity = self.load_identity_context(owner_user_id, pet_id).await?;
-        let context = self.diet.load_pet_current_diet_context(pet_id).await?;
-        let hints = self
-            .diet
-            .load_food_inventory_change_hints(
-                FoodScopeType::User,
-                owner_user_id,
-                Utc::now() - Duration::days(30),
-            )
-            .await?;
-
-        let mut known_food_item_ids = HashSet::new();
-        if let Some(current_staple) = context.current_staple {
-            known_food_item_ids.insert(current_staple.food_item_id);
-        }
-        for item in context
-            .trying_foods
-            .into_iter()
-            .chain(context.usual_treats)
-            .chain(context.usual_nutritions)
-        {
-            known_food_item_ids.insert(item.food_item_id);
-        }
-        for feeding in context.recent_feeding_events {
-            if let Some(food_item_id) = feeding.food_item_id {
-                known_food_item_ids.insert(food_item_id);
-            }
-        }
-
-        let candidates = hints
-            .hints
-            .into_iter()
-            .filter(|hint| dietary_hint_category(&hint.category))
-            .filter(|hint| !known_food_item_ids.contains(&hint.item_id))
-            .map(|hint| PetDietConfirmationCandidate {
-                food_item_id: hint.item_id,
-                food_name: hint.name.clone(),
-                category: hint.category,
-                candidate_kind: "possible_diet_change".to_owned(),
-                fact_strength: "pending_confirmation".to_owned(),
-                source_change_kind: hint.change_kind,
-                source_question: format!(
-                    "最近新增的「{}」，{}有吃过或正在换这款吗？",
-                    hint.name, identity.identity.name
-                ),
-            })
-            .collect();
-
-        Ok(PetDietConfirmationCandidates { candidates })
+        diet::load_pet_diet_confirmation_candidates(
+            &self.repository,
+            &self.diet,
+            owner_user_id,
+            pet_id,
+        )
+        .await
     }
 
     /// 确认宠物饮食候选并写入事实
@@ -588,103 +368,8 @@ impl PetService {
         &self,
         input: ConfirmPetDietCandidateInput,
     ) -> PetResult<ConfirmPetDietCandidateResult> {
-        self.ensure_pet_access(input.pet_id, input.confirmed_by_user_id)
-            .await?;
-        food_inventory::ensure_food_inventory_editor(
-            &self.food_inventory,
-            input.food_item_id,
-            input.confirmed_by_user_id,
-        )
-        .await?;
-        if !matches!(
-            input.confirmed_fact_kind.as_str(),
-            "current_staple" | "feeding_correction"
-        ) {
-            return Err(PetError::InvalidInput("暂不支持的饮食确认类型".to_owned()));
-        }
-        self.load_food_inventory_consumable_item(input.food_item_id, input.confirmed_by_user_id)
-            .await?;
-
-        let payload = AgentConfirmedFactPayload {
-            confirmed_fact_kind: input.confirmed_fact_kind.clone(),
-            linked_food_item_id: Some(input.food_item_id),
-            linked_pet_id: Some(input.pet_id),
-            confidence: "user_confirmed".to_owned(),
-            source_question: input.source_question.clone(),
-        };
-        let event_payload = serde_json::to_value(payload).map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to serialize agent confirmed fact payload: {error}"
-            ))
-        })?;
-        let confirmed_event = self
-            .repository
-            .create_pet_event(NewPetEvent {
-                pet_id: input.pet_id,
-                actor_user_id: input.confirmed_by_user_id,
-                event_kind: EventKind::Daily,
-                event_subkind: Some("agent_confirmed_fact".to_owned()),
-                title: "饮食事实已确认".to_owned(),
-                summary: Some(input.source_question.clone()),
-                visibility: EventVisibility::Private,
-                event_payload,
-                occurred_at: Utc::now(),
-            })
-            .await?;
-
-        let assignment_id = if input.derive_diet_change {
-            Some(
-                self.set_current_staple(SetPetCurrentStapleInput {
-                    pet_id: input.pet_id,
-                    food_item_id: input.food_item_id,
-                    created_by_user_id: input.confirmed_by_user_id,
-                    reason: Some("Agent 追问后用户确认".to_owned()),
-                })
-                .await?
-                .id,
-            )
-        } else {
-            None
-        };
-
-        let correction_event_id = if input.derive_feeding_correction {
-            let payload = FeedingCorrectionPayload {
-                food_item_id: input.food_item_id,
-                linked_pet_id: input.pet_id,
-                confirmed_event_id: confirmed_event.id,
-                source_question: input.source_question.clone(),
-                corrected_by_user_id: input.confirmed_by_user_id,
-            };
-            let event_payload = serde_json::to_value(payload).map_err(|error| {
-                PetError::Infrastructure(format!(
-                    "failed to serialize feeding correction payload: {error}"
-                ))
-            })?;
-            Some(
-                self.repository
-                    .create_pet_event(NewPetEvent {
-                        pet_id: input.pet_id,
-                        actor_user_id: input.confirmed_by_user_id,
-                        event_kind: EventKind::Daily,
-                        event_subkind: Some("feeding_correction".to_owned()),
-                        title: "喂食记录已修正".to_owned(),
-                        summary: Some(input.source_question.clone()),
-                        visibility: EventVisibility::Private,
-                        event_payload,
-                        occurred_at: Utc::now(),
-                    })
-                    .await?
-                    .id,
-            )
-        } else {
-            None
-        };
-
-        Ok(ConfirmPetDietCandidateResult {
-            confirmed_event_id: confirmed_event.id,
-            assignment_id,
-            correction_event_id,
-        })
+        diet::confirm_pet_diet_candidate(&self.repository, &self.diet, &self.food_inventory, input)
+            .await
     }
 
     /// 加载 Agent 身份上下文（含授权校验）
@@ -693,13 +378,6 @@ impl PetService {
         user_id: Uuid,
         pet_id: Uuid,
     ) -> PetResult<PetIdentityContext> {
-        self.repository.load_identity_context(pet_id, user_id).await
+        diet::load_identity_context(&self.repository, user_id, pet_id).await
     }
-}
-
-fn dietary_hint_category(category: &str) -> bool {
-    matches!(
-        category,
-        "main_food" | "wet_food" | "treats" | "nutrition" | "other"
-    )
 }

@@ -189,9 +189,3 @@ private struct PetQuickFactDetailActions: View {
         .accessibilityIdentifier("pet.quickFactDetail.actions")
     }
 }
-
-// PetRecordDetailPlaceholderScreen 记录详情占位页
-// 核心职责：
-// - 为尚未产品化的记录详情类型提供明确目标页
-// - 在快速 UI 阶段防止非快速事实误入快速事实详情
-
