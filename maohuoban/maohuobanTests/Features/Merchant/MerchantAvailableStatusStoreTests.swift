@@ -45,7 +45,8 @@ final class MerchantAvailableStatusStoreTests: XCTestCase {
                 summary: "已完成基础健康记录，可预约到店看猫。",
                 visibility: .buyerVisible,
                 occurredAt: "2026-06-14T10:00:00Z",
-                recordRevision: 1
+                recordRevision: 1,
+                eventPayload: nil
             )
         )
         repository.publishResult = .success(

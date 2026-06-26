@@ -67,12 +67,14 @@ struct ProfileUserHomeCoverSection: View {
         if let coverURLString,
            let url = MHBBackendEndpoint.resolve(coverURLString) {
             MHBRemoteImage(url: url, contentMode: .fill) {
-                assetCover(width: width)
+                emptyCover(width: width)
             }
             .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
             .clipped()
-        } else {
+        } else if assetName.isEmpty == false {
             assetCover(width: width)
+        } else {
+            emptyCover(width: width)
         }
     }
 
@@ -82,6 +84,22 @@ struct ProfileUserHomeCoverSection: View {
             .scaledToFill()
             .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
             .clipped()
+    }
+
+    // emptyCover 封面空态背景
+    // 核心职责：
+    // - 在无远端封面和本地资源时提供视觉占位
+    // - 对齐头像 .empty 空态的回退行为
+    private func emptyCover(width: CGFloat) -> some View {
+        LinearGradient(
+            colors: [
+                MHBTheme.ColorToken.cardSolid.color,
+                MHBTheme.ColorToken.background.color
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(width: width, height: ProfileUserHomeLayout.coverHeight)
     }
 }
 

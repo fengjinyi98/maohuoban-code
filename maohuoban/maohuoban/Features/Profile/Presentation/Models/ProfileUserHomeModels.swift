@@ -19,7 +19,7 @@ struct ProfileUserHome: Equatable {
     }
 
     static let mock = ProfileUserHome(
-        coverAssetName: "HomePetHeroMock",
+        coverAssetName: "",
         ipLocation: "上海",
         professionalBadge: .cattery,
         stats: [

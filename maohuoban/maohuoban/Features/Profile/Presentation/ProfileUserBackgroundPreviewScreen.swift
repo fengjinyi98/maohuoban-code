@@ -229,7 +229,9 @@ private struct ProfileUserBackgroundPreviewContent: View {
                 } else if let coverURLString,
                           let url = MHBBackendEndpoint.resolve(coverURLString) {
                     MHBRemoteImage(url: url, contentMode: .fill) {
-                        imageContent(Image(assetName), size: proxy.size)
+                        if assetName.isEmpty == false {
+                            imageContent(Image(assetName), size: proxy.size)
+                        }
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .clipped()

@@ -172,6 +172,27 @@ final class CurrentUserStore {
         return .empty
     }
 
+    // coverSource 当前用户主页封面来源
+    // 核心职责：
+    // - 从 coverURLString 解析远端封面地址
+    // - 无远端地址时回退到 .empty 空态，对齐 avatarSource 行为
+    var coverSource: ProfileCoverSource {
+        guard let coverURLString else {
+            return .empty
+        }
+
+        let trimmedValue = coverURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedValue.isEmpty == false else {
+            return .empty
+        }
+
+        if let url = MHBBackendEndpoint.resolve(trimmedValue) {
+            return .remote(url)
+        }
+
+        return .empty
+    }
+
     private var settingsPhoneDisplayText: String {
         if let phoneMasked, phoneMasked.isEmpty == false {
             return phoneMasked.hasPrefix("+") ? phoneMasked : "+86 \(phoneMasked)"

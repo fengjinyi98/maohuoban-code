@@ -19,7 +19,8 @@ final class PetEventDetailStoreTests: XCTestCase {
             summary: "5.2kg，较上次稳定",
             visibility: .private,
             occurredAt: "2026-06-13T09:20:00Z",
-            recordRevision: 1
+            recordRevision: 1,
+            eventPayload: nil
         )
         repository.eventResult = .success(
             MHBAPIResponse(

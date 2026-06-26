@@ -103,10 +103,12 @@ struct ProfileUserEditCoverValue: View {
         if let coverURLString,
            let url = MHBBackendEndpoint.resolve(coverURLString) {
             MHBRemoteImage(url: url, contentMode: .fill) {
-                assetCover
+                emptyCover
             }
-        } else {
+        } else if assetName.isEmpty == false {
             assetCover
+        } else {
+            emptyCover
         }
     }
 
@@ -114,5 +116,13 @@ struct ProfileUserEditCoverValue: View {
         Image(assetName)
             .resizable()
             .scaledToFill()
+    }
+
+    // emptyCover 背景缩略图空态
+    // 核心职责：
+    // - 在无远端封面和本地资源时提供视觉占位
+    // - 对齐封面 .empty 空态的回退行为
+    private var emptyCover: some View {
+        MHBTheme.ColorToken.cardSolid.color
     }
 }
