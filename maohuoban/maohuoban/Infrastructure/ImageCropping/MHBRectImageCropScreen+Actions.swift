@@ -65,8 +65,11 @@ extension MHBRectImageCropScreen {
         ).integral
 
         let imageBounds = CGRect(origin: .zero, size: imagePixelSize)
-        guard imageBounds.contains(cropRect),
-              let croppedCGImage = cgImage.cropping(to: cropRect) else {
+        let boundedRect = cropRect.intersection(imageBounds)
+        guard !boundedRect.isNull,
+              boundedRect.width > 1,
+              boundedRect.height > 1,
+              let croppedCGImage = cgImage.cropping(to: boundedRect) else {
             return nil
         }
 
@@ -78,7 +81,7 @@ extension MHBRectImageCropScreen {
         return MHBRectImageCropResult(
             image: croppedImage,
             metadata: MHBImageCropMetadata.normalized(
-                cropRect: cropRect,
+                cropRect: boundedRect,
                 imagePixelSize: imagePixelSize
             )
         )
