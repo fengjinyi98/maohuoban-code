@@ -5,6 +5,7 @@ import UIKit
 // 核心职责：
 // - 管理前端对话消息、输入草稿和待确认动作
 // - 管理系统相机、相册入口和本地附件摘要
+// - 通过流式引擎驱动 assistant 回复的增量渲染
 @MainActor
 @Observable
 final class AIAssistantStore {
@@ -17,6 +18,15 @@ final class AIAssistantStore {
     var selectedAttachmentImage: UIImage?
     var selectedConversationHistoryID: String?
     var currentConversationTitle: String?
+    private(set) var streamingEngine = AIAssistantStreamingEngine()
+    private var streamingTask: Task<Void, Never>?
+
+    var isStreaming: Bool {
+        streamingEngine.isStreaming
+    }
+
+    /// 流式内容版本号，用于驱动视图层滚动
+    private(set) var streamingRevision: Int = 0
 
     let conversationHistories: [AIAssistantConversationHistory] = [
         AIAssistantConversationHistory(
@@ -109,10 +119,11 @@ final class AIAssistantStore {
     init(context: AIAssistantEntryContext) {
         self.context = context
         self.messages = []
+        configureStreamingEngine()
     }
 
     var canSendDraft: Bool {
-        sanitizedDraft.isEmpty == false
+        isStreaming == false && sanitizedDraft.isEmpty == false
     }
 
     var navigationTitle: String {
@@ -143,6 +154,14 @@ final class AIAssistantStore {
 
     func sendSuggestedPrompt(_ prompt: AIAssistantSuggestedPrompt) {
         send(prompt.prompt)
+    }
+
+    func triggerMockStreamingResponse() {
+        startStreamingResponse(
+            fullText: AIAssistantMockContent.longStreamingText,
+            referenceChips: ["意图识别", "受控工具", "来源校验"],
+            action: nil
+        )
     }
 
     func requestAttachmentSource(_ source: AIAssistantAttachmentSource) {
@@ -220,8 +239,24 @@ final class AIAssistantStore {
         )
     }
 
+    // MARK: - Private
+
     private var sanitizedDraft: String {
         draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func configureStreamingEngine() {
+        streamingEngine.onFlush = { [weak self] messageID, text, isStreaming in
+            self?.applyStreamingFlush(messageID: messageID, text: text, isStreaming: isStreaming)
+        }
+    }
+
+    private func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+
+        messages[index].text = text
+        messages[index].isStreaming = isStreaming
+        streamingRevision += 1
     }
 
     private func send(_ text: String) {
@@ -237,9 +272,70 @@ final class AIAssistantStore {
         )
         clearAttachment()
 
-        let response = responseMessage(for: text)
-        messages.append(response.message)
-        pendingAction = response.action
+        let response = responseContent(for: text)
+        startStreamingResponse(
+            fullText: response.text,
+            referenceChips: response.chips,
+            action: response.action
+        )
+    }
+
+    private func startStreamingResponse(
+        fullText: String,
+        referenceChips: [String],
+        action: AIAssistantProposedAction?
+    ) {
+        streamingTask?.cancel()
+
+        let placeholder = AIAssistantMessage(
+            role: .assistant,
+            text: "",
+            isStreaming: true
+        )
+        messages.append(placeholder)
+
+        streamingEngine.begin(messageID: placeholder.id)
+
+        let messageID = placeholder.id
+        let chunks = splitIntoChunks(fullText)
+
+        streamingTask = Task { [weak self] in
+            guard let self else { return }
+            for chunk in chunks {
+                if Task.isCancelled { return }
+                self.streamingEngine.appendDelta(chunk)
+                self.streamingEngine.flush()
+                try? await Task.sleep(nanoseconds: 30_000_000)
+            }
+
+            // 完成
+            self.streamingEngine.complete(finalText: fullText)
+
+            // 设置引用标签和 pendingAction
+            if let index = self.messages.firstIndex(where: { $0.id == messageID }) {
+                self.messages[index].referenceChips = referenceChips
+            }
+            self.pendingAction = action
+            self.streamingRevision += 1
+        }
+    }
+
+    private func splitIntoChunks(_ text: String) -> [String] {
+        let chunkSize = 8
+        var chunks: [String] = []
+        var accumulated = ""
+
+        for char in text {
+            accumulated.append(char)
+            if accumulated.count >= chunkSize {
+                chunks.append(accumulated)
+                accumulated = ""
+            }
+        }
+        if !accumulated.isEmpty {
+            chunks.append(accumulated)
+        }
+        return chunks
     }
 
     private func makeConversationTitle(from text: String) -> String {
@@ -251,7 +347,7 @@ final class AIAssistantStore {
         return "\(title.prefix(18))..."
     }
 
-    private func responseMessage(for text: String) -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {
+    private func responseContent(for text: String) -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
         if text.contains("疫苗") {
             return vaccineResponse()
         }
@@ -267,14 +363,11 @@ final class AIAssistantStore {
         return generalResponse()
     }
 
-    private func vaccineResponse() -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {
+    private func vaccineResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
         let petName = context.displayPetName
         return (
-            AIAssistantMessage(
-                role: .assistant,
-                text: "\(petName) 的疫苗问题需要读取未来提醒和最近疫苗事件。当前前端先展示结果形态：若最近狂犬疫苗记录为 2025-08-20，下一次可推算到 2026-08-20，并提示用户确认添加提醒。",
-                referenceChips: ["疫苗记录", "提醒查询", "年度加强推算"]
-            ),
+            "\(petName) 的疫苗问题需要读取未来提醒和最近疫苗事件。当前前端先展示结果形态：若最近狂犬疫苗记录为 2025-08-20，下一次可推算到 2026-08-20，并提示用户确认添加提醒。",
+            ["疫苗记录", "提醒查询", "年度加强推算"],
             AIAssistantProposedAction(
                 id: "add-vaccine-reminder",
                 title: "添加疫苗提醒",
@@ -286,14 +379,11 @@ final class AIAssistantStore {
         )
     }
 
-    private func healthTriageResponse() -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {
+    private func healthTriageResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
         let petName = context.displayPetName
         return (
-            AIAssistantMessage(
-                role: .assistant,
-                text: "\(petName) 腹泻需要结合精神状态、便血、呕吐、饮水、年龄和持续时间判断。若出现便血、频繁呕吐、精神沉郁、脱水或幼宠状态，应尽快就医；症状轻微且少于 24 小时，可先记录症状并观察变化。",
-                referenceChips: ["健康分级", "红旗症状", "时间线记录"]
-            ),
+            "\(petName) 腹泻需要结合精神状态、便血、呕吐、饮水、年龄和持续时间判断。若出现便血、频繁呕吐、精神沉郁、脱水或幼宠状态，应尽快就医；症状轻微且少于 24 小时，可先记录症状并观察变化。",
+            ["健康分级", "红旗症状", "时间线记录"],
             AIAssistantProposedAction(
                 id: "record-symptom",
                 title: "记录症状",
@@ -305,25 +395,19 @@ final class AIAssistantStore {
         )
     }
 
-    private func ugcHandoffResponse() -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {
+    private func ugcHandoffResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
         let title = context.ugcContextTitle ?? "这篇内容"
         return (
-            AIAssistantMessage(
-                role: .assistant,
-                text: "个体适配需要进入私域宠物助手后结合 \(context.displayPetName) 的档案、过敏史和喂养记录判断。当前已展示前端交接形态：顶部会带入“\(title)”，后端接入后将通过 ugc_id 重新读取可见内容。",
-                referenceChips: ["UGC 上下文", "私域宠物判断"]
-            ),
+            "个体适配需要进入私域宠物助手后结合 \(context.displayPetName) 的档案、过敏史和喂养记录判断。当前已展示前端交接形态：顶部会带入“\(title)”，后端接入后将通过 ugc_id 重新读取可见内容。",
+            ["UGC 上下文", "私域宠物判断"],
             nil
         )
     }
 
-    private func generalResponse() -> (message: AIAssistantMessage, action: AIAssistantProposedAction?) {
+    private func generalResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
         (
-            AIAssistantMessage(
-                role: .assistant,
-                text: "我会按私域宠物助手的边界处理：先确认问题类型，再读取授权范围内的宠物事实，最后给出带来源的回答和需要确认的动作。",
-                referenceChips: ["意图识别", "受控工具", "来源校验"]
-            ),
+            "我会按私域宠物助手的边界处理：先确认问题类型，再读取授权范围内的宠物事实，最后给出带来源的回答和需要确认的动作。",
+            ["意图识别", "受控工具", "来源校验"],
             nil
         )
     }

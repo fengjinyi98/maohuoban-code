@@ -1,0 +1,14 @@
+{
+  "originHash" : "254baf0f93a79223fdf89ff477091bd8081a079909ff0a7894d4c9e8fcfa1301",
+  "pins" : [
+    {
+      "identity" : "proton",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/fengjinyi98/proton.git",
+      "state" : {
+        "revision" : "30c0f87c48ccba6f89935d16096b6c01c204a82d"
+      }
+    }
+  ],
+  "version" : 3
+}

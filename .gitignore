@@ -11,6 +11,7 @@ xcuserdata/
 .build/
 .swiftpm/
 Package.resolved
+!maohuoban/maohuoban.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 # Rust
 target/

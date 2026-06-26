@@ -5,6 +5,7 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 按消息角色渲染用户、助手和系统提示
 // - 展示回答引用来源标签
+// - 流式输出时展示打字光标
 struct AIAssistantMessageBubble: View {
     let message: AIAssistantMessage
 
@@ -15,12 +16,18 @@ struct AIAssistantMessageBubble: View {
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                Text(message.text)
-                    .font(MHBTheme.Typography.body)
-                    .foregroundStyle(foregroundColor)
-                    .fixedSize(horizontal: false, vertical: true)
+                if message.text.isEmpty && message.isStreaming {
+                    HStack(spacing: 4) {
+                        ThinkingDots()
+                    }
+                } else {
+                    streamingText
+                        .font(MHBTheme.Typography.body)
+                        .foregroundStyle(foregroundColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-                if message.referenceChips.isEmpty == false {
+                if message.referenceChips.isEmpty == false && !message.isStreaming {
                     AIAssistantReferenceChipFlow(chips: message.referenceChips)
                 }
             }
@@ -38,6 +45,10 @@ struct AIAssistantMessageBubble: View {
             }
         }
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var streamingText: Text {
+        Text(message.text) + Text(message.isStreaming ? " ▋" : "")
     }
 
     private var backgroundColor: Color {
@@ -77,39 +88,6 @@ struct AIAssistantMessageBubble: View {
             "ai.assistant.message.user"
         case .system:
             "ai.assistant.message.system"
-        }
-    }
-}
-
-// AIAssistantReferenceChipFlow AI 回答引用标签流
-// 核心职责：
-// - 在消息气泡内展示紧凑来源标签
-// - 支持标签自动换行以适配窄屏
-private struct AIAssistantReferenceChipFlow: View {
-    let chips: [String]
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                referenceChips
-            }
-
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                referenceChips
-            }
-        }
-    }
-
-    private var referenceChips: some View {
-        ForEach(chips, id: \.self) { chip in
-            Text(chip)
-                .font(MHBTheme.Typography.caption)
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                .lineLimit(1)
-                .padding(.horizontal, MHBTheme.Spacing.s2)
-                .frame(height: 24)
-                .background(MHBTheme.ColorToken.background.color)
-                .clipShape(Capsule())
         }
     }
 }

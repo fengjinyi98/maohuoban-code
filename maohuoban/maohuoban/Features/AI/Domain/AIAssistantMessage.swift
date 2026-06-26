@@ -4,6 +4,7 @@ import Foundation
 // 核心职责：
 // - 表达用户、助手和系统边界提示消息
 // - 携带前端可展示的引用标签和稳定身份
+// - 通过 isStreaming / streamingRevision 支持流式增量渲染 diff
 struct AIAssistantMessage: Identifiable, Hashable {
     enum Role: Hashable {
         case assistant
@@ -13,18 +14,28 @@ struct AIAssistantMessage: Identifiable, Hashable {
 
     let id: UUID
     let role: Role
-    let text: String
-    let referenceChips: [String]
+    var text: String {
+        didSet {
+            streamingRevision += 1
+        }
+    }
+    var referenceChips: [String]
+    var isStreaming: Bool
+    private(set) var streamingRevision: Int
 
     init(
         id: UUID = UUID(),
         role: Role,
         text: String,
-        referenceChips: [String] = []
+        referenceChips: [String] = [],
+        isStreaming: Bool = false,
+        streamingRevision: Int = 0
     ) {
         self.id = id
         self.role = role
         self.text = text
         self.referenceChips = referenceChips
+        self.isStreaming = isStreaming
+        self.streamingRevision = streamingRevision
     }
 }

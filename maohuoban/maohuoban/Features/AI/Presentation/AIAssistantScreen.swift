@@ -10,6 +10,7 @@ struct AIAssistantScreen: View {
     @State private var isHistoryScreenPresented = false
     @State private var isCameraFailureAlertPresented = false
     @State private var cameraFailureMessage = ""
+    @State private var fpsMonitor = MHBFPSMonitor()
 
     private static let bottomAnchorID = "ai.assistant.bottom"
 
@@ -58,6 +59,9 @@ struct AIAssistantScreen: View {
                         proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                     }
                 }
+                .onChange(of: store.streamingRevision) { _, _ in
+                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                }
                 .onChange(of: store.pendingAction) { _, _ in
                     withAnimation(.smooth(duration: 0.2)) {
                         proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
@@ -65,6 +69,20 @@ struct AIAssistantScreen: View {
                 }
             }
 
+        }
+        .overlay(alignment: .topTrailing) {
+            if fpsMonitor.isVisible {
+                Text(String(format: "FPS: %.0f", fpsMonitor.fps))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.black.opacity(0.7))
+                    .clipShape(Capsule())
+                    .padding(.top, 60)
+                    .padding(.trailing, 16)
+                    .allowsHitTesting(false)
+            }
         }
         .safeAreaInset(edge: .bottom) {
             AIAssistantComposerBar(
@@ -102,11 +120,36 @@ struct AIAssistantScreen: View {
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-                AIAssistantTopBarActions(
-                    onOpenHistory: {
-                        isHistoryScreenPresented = true
+                HStack(spacing: MHBTheme.Spacing.s1) {
+                    // 临时按钮：触发 mock 流式输出
+                    Button {
+                        store.triggerMockStreamingResponse()
+                    } label: {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 14))
+                            .frame(width: 32, height: 32)
                     }
-                )
+                    .buttonStyle(.plain)
+                    .disabled(store.isStreaming)
+                    .accessibilityLabel("触发流式输出测试")
+
+                    // 临时按钮：切换 FPS 悬浮
+                    Button {
+                        fpsMonitor.toggleVisibility()
+                    } label: {
+                        Image(systemName: "speedometer")
+                            .font(.system(size: 14))
+                            .frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("FPS 监视器")
+
+                    AIAssistantTopBarActions(
+                        onOpenHistory: {
+                            isHistoryScreenPresented = true
+                        }
+                    )
+                }
             }
         }
         .navigationDestination(isPresented: $isHistoryScreenPresented) {
