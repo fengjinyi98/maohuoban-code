@@ -43,6 +43,7 @@ pub(crate) fn reminders_from_events(events: &[PetEvent]) -> Vec<HomeReminder> {
 /// - 从异常症状事件投影为 open_abnormal_episode 轻提示
 /// - 如果存在对应的 abnormal_recovery 事件则隐藏 hint
 /// - symptom_followup 不生成独立 hint
+#[allow(dead_code)]
 pub(crate) fn attention_hints_from_events(events: &[PetEvent]) -> Vec<AttentionHint> {
     // 收集已恢复的宠物 ID
     let recovered_pets: HashSet<Uuid> = events

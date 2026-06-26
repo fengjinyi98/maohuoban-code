@@ -587,6 +587,44 @@ pub trait PetRepository: Send + Sync {
         started_at: chrono::DateTime<Utc>,
     ) -> PetResult<Uuid>;
 
+    /// create_abnormal_symptom_event 事务级异常事件创建
+    /// 核心职责：
+    /// - 在同一个事务中写入 pet_events + abnormal_episodes + attention_hints
+    /// - 自动将 episode_id 写入 event_payload
+    /// - 返回包含 episode_id 的完整 PetEvent
+    async fn create_abnormal_symptom_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
+
+    /// update_episode_for_recovery 标记异常 episode 恢复
+    /// 核心职责：
+    /// - 更新 abnormal_episodes.status = recovered, recovered_at, latest_event_id
+    /// - 将关联的 attention_hints 标记为 resolved
+    async fn update_episode_for_recovery(
+        &self,
+        pet_id: Uuid,
+        event_id: Uuid,
+        episode_id: Option<Uuid>,
+        recovered_at: chrono::DateTime<Utc>,
+    ) -> PetResult<()>;
+
+    /// load_attention_hints 从 DB 查询 active attention_hints
+    /// 核心职责：
+    /// - 按 pet_id 查询状态为 active 的 attention_hints
+    /// - 按 priority DESC, created_at DESC 排序
+    /// - 返回 JSON Value 列表，由调用方反序列化为领域类型
+    async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>>;
+
+    /// update_episode_for_followup 更新异常 episode 的观察时间线
+    /// 核心职责：
+    /// - 更新 abnormal_episodes.last_observed_at, latest_event_id
+    /// - episode_id 为 None 时查找最新 open episode
+    async fn update_episode_for_followup(
+        &self,
+        pet_id: Uuid,
+        event_id: Uuid,
+        episode_id: Option<Uuid>,
+        observed_at: chrono::DateTime<Utc>,
+    ) -> PetResult<()>;
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 
     async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport>;

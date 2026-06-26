@@ -121,7 +121,7 @@ struct AIAssistantScreen: View {
                 }
             )
         }
-        .sheet(
+        .fullScreenCover(
             isPresented: Binding(
                 get: {
                     store.presentedAttachmentSource == .photoLibrary
@@ -150,7 +150,6 @@ struct AIAssistantScreen: View {
                     store.cancelAttachmentSelection()
                 }
             )
-            .ignoresSafeArea()
         }
         .fullScreenCover(
             isPresented: Binding(

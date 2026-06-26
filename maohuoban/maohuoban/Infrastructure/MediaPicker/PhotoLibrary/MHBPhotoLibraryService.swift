@@ -96,6 +96,21 @@ final class MHBPhotoLibraryService {
         }
     }
 
+    func requestAlbumThumbnail(
+        for album: MHBPhotoLibraryAlbum,
+        filter: MHBMediaPickerFilter,
+        completion: @escaping (UIImage?) -> Void
+    ) -> PHImageRequestID? {
+        let result = mediaFetchResult(in: album.collection, filter: filter)
+        guard result.count > 0 else {
+            completion(nil)
+            return nil
+        }
+
+        let asset = MHBPhotoLibraryAsset(asset: result.object(at: 0))
+        return requestThumbnail(for: asset, completion: completion)
+    }
+
     func cancelImageRequest(_ requestID: PHImageRequestID) {
         imageManager.cancelImageRequest(requestID)
     }

@@ -211,7 +211,7 @@ struct PublishEventComposerScreen: View {
                 .accessibilityLabel("关联宠物")
             }
         }
-        .sheet(isPresented: $isMediaPickerPresented) {
+        .fullScreenCover(isPresented: $isMediaPickerPresented) {
             MHBMediaPickerScreen(
                 request: MHBMediaPickerRequest(
                     maxSelectionCount: mediaPickerMaxSelectionCount,
@@ -222,7 +222,6 @@ struct PublishEventComposerScreen: View {
                     isMediaPickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .sheet(item: $activeSheet) { sheet in
             optionSheet(for: sheet)

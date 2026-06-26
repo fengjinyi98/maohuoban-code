@@ -31,7 +31,7 @@ extension PetProfileAddScreen {
                     onHeroMediaUpdated: saveLocalHeroMedia
                 )
             }
-            .sheet(isPresented: $isAvatarPickerPresented) {
+            .fullScreenCover(isPresented: $isAvatarPickerPresented) {
                 MHBMediaPickerScreen(
                     request: .singleImage,
                     onComplete: { result in
@@ -42,7 +42,6 @@ extension PetProfileAddScreen {
                         isAvatarPickerPresented = false
                     }
                 )
-                .ignoresSafeArea()
             }
             .fullScreenCover(item: $avatarCropTarget) { target in
                 MHBCircularImageCropScreen(

@@ -59,7 +59,7 @@ struct PetProfileAvatarPreviewScreen: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $isMediaPickerPresented) {
+        .fullScreenCover(isPresented: $isMediaPickerPresented) {
             MHBMediaPickerScreen(
                 request: .singleImage,
                 onComplete: { result in
@@ -70,7 +70,6 @@ struct PetProfileAvatarPreviewScreen: View {
                     isMediaPickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .fullScreenCover(item: $cropTarget) { target in
             MHBCircularImageCropScreen(

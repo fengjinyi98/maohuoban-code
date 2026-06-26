@@ -247,6 +247,36 @@ impl PetRepository for PostgresPetRepository {
         .await
     }
 
+    async fn create_abnormal_symptom_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
+        self.create_abnormal_symptom_event_command(input).await
+    }
+
+    async fn update_episode_for_recovery(
+        &self,
+        pet_id: Uuid,
+        event_id: Uuid,
+        episode_id: Option<Uuid>,
+        recovered_at: chrono::DateTime<Utc>,
+    ) -> PetResult<()> {
+        self.update_episode_for_recovery_command(pet_id, event_id, episode_id, recovered_at)
+            .await
+    }
+
+    async fn update_episode_for_followup(
+        &self,
+        pet_id: Uuid,
+        event_id: Uuid,
+        episode_id: Option<Uuid>,
+        observed_at: chrono::DateTime<Utc>,
+    ) -> PetResult<()> {
+        self.update_episode_for_followup_command(pet_id, event_id, episode_id, observed_at)
+            .await
+    }
+
+    async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>> {
+        self.load_attention_hints_query(pet_id).await
+    }
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         self.create_pet_event_command(input).await
     }

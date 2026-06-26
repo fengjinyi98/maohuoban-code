@@ -62,7 +62,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $isImagePickerPresented) {
+        .fullScreenCover(isPresented: $isImagePickerPresented) {
             MHBMediaPickerScreen(
                 title: "选择主页背景",
                 onComplete: { result in
@@ -73,7 +73,6 @@ struct ProfileUserBackgroundPreviewScreen: View {
                     isImagePickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .fullScreenCover(item: $cropTarget) { target in
             MHBRectImageCropScreen(

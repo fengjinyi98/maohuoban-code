@@ -65,7 +65,7 @@ struct PetAlbumCreateScreen: View {
                 .accessibilityIdentifier("petAlbum.create.submitButton")
             }
         }
-        .sheet(isPresented: $isCoverPickerPresented) {
+        .fullScreenCover(isPresented: $isCoverPickerPresented) {
             MHBMediaPickerScreen(
                 title: "选择封面",
                 onComplete: handleCoverPickerResult,
@@ -73,7 +73,6 @@ struct PetAlbumCreateScreen: View {
                     isCoverPickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .accessibilityIdentifier("petAlbum.create.screen")
     }

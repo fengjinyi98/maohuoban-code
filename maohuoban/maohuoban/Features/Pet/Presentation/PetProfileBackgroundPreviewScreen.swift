@@ -60,7 +60,7 @@ struct PetProfileBackgroundPreviewScreen: View {
             }
         }
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $isImagePickerPresented) {
+        .fullScreenCover(isPresented: $isImagePickerPresented) {
             MHBMediaPickerScreen(
                 title: "选择背景图片",
                 onComplete: { result in
@@ -71,9 +71,8 @@ struct PetProfileBackgroundPreviewScreen: View {
                     isImagePickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
-        .sheet(isPresented: $isVideoPickerPresented) {
+        .fullScreenCover(isPresented: $isVideoPickerPresented) {
             MHBMediaPickerScreen(
                 request: .singleVideoOrLivePhoto,
                 onComplete: { result in
@@ -84,7 +83,6 @@ struct PetProfileBackgroundPreviewScreen: View {
                     isVideoPickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .fullScreenCover(item: $cropTarget) { target in
             MHBRectImageCropScreen(

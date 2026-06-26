@@ -3,26 +3,29 @@ import UIKit
 
 // MHBPhotoGridViewRepresentable PhotoKit 网格 SwiftUI 桥接
 // 核心职责：
-// - 将 UIKit UICollectionView 网格嵌入 SwiftUI 页面
+// - 将 UIKit UICollectionView 网格容器嵌入 SwiftUI 页面
 // - 同步资源列表、解析状态和选择事件
-struct MHBPhotoGridViewRepresentable: UIViewRepresentable {
+struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
     let assets: [MHBPhotoLibraryAsset]
     let resolvingAssetID: String?
     let selectedAssetIDs: [String: Int]
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
 
-    func makeUIView(context: Context) -> UICollectionView {
+    func makeUIViewController(context: Context) -> MHBPhotoGridContainerController {
         let controller = MHBPhotoGridController(service: service)
         controller.assets = assets
         controller.resolvingAssetID = resolvingAssetID
         controller.selectedAssetIDs = selectedAssetIDs
         controller.onSelectAsset = onSelectAsset
         context.coordinator.controller = controller
-        return controller.collectionView
+        return MHBPhotoGridContainerController(gridController: controller)
     }
 
-    func updateUIView(_ uiView: UICollectionView, context: Context) {
+    func updateUIViewController(
+        _ uiViewController: MHBPhotoGridContainerController,
+        context: Context
+    ) {
         guard let controller = context.coordinator.controller else {
             return
         }

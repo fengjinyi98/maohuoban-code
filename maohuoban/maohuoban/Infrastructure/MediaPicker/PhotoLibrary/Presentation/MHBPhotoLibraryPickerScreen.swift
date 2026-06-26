@@ -32,39 +32,50 @@ struct MHBPhotoLibraryPickerScreen: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            MHBPhotoLibraryPickerHeader(
-                title: title,
-                albumTitle: store.currentAlbum?.title,
-                onCancel: handleCancel,
-                onToggleAlbums: {
-                    isAlbumPickerPresented = true
-                }
-            )
-
-            MHBPhotoLibraryPickerContent(
-                authorizationStatus: store.authorizationStatus,
-                isLoading: store.isLoading,
-                isResolvingSelection: store.isResolvingSelection,
-                assets: store.assets,
-                resolvingAssetID: resolvingAssetID,
-                selectedAssetIDs: store.selectedAssetIDMap,
-                service: store.service,
-                onSelectAsset: handleSelectAsset,
-                onOpenSettings: openSettings,
-                onOpenLimitedPicker: {
-                    isLimitedPickerPresented = true
-                }
-            )
-
-            if !request.autoConfirmSingleSelection {
-                MHBPhotoLibraryPickerBottomBar(
-                    selectedCountText: store.selectedCountText,
-                    hasSelection: store.hasSelection,
-                    isResolvingSelection: store.isResolvingSelection,
-                    onConfirm: handleConfirm
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                MHBPhotoLibraryPickerHeader(
+                    title: title,
+                    albumTitle: store.currentAlbum?.title,
+                    onCancel: handleCancel,
+                    onToggleAlbums: handleToggleAlbums
                 )
+
+                MHBPhotoLibraryPickerContent(
+                    authorizationStatus: store.authorizationStatus,
+                    isLoading: store.isLoading,
+                    isResolvingSelection: store.isResolvingSelection,
+                    assets: store.assets,
+                    resolvingAssetID: resolvingAssetID,
+                    selectedAssetIDs: store.selectedAssetIDMap,
+                    service: store.service,
+                    onSelectAsset: handleSelectAsset,
+                    onOpenSettings: openSettings,
+                    onOpenLimitedPicker: {
+                        isLimitedPickerPresented = true
+                    }
+                )
+
+                if !request.autoConfirmSingleSelection {
+                    MHBPhotoLibraryPickerBottomBar(
+                        selectedCountText: store.selectedCountText,
+                        hasSelection: store.hasSelection,
+                        isResolvingSelection: store.isResolvingSelection,
+                        onConfirm: handleConfirm
+                    )
+                }
             }
+
+            MHBPhotoLibraryAlbumPickerView(
+                isPresented: isAlbumPickerPresented,
+                albums: store.albums,
+                currentAlbumID: store.currentAlbum?.id,
+                filter: request.filter,
+                service: store.service,
+                topOffset: 63,
+                onDismiss: handleDismissAlbums,
+                onSelect: handleSelectAlbum
+            )
         }
         .background(Color.black.ignoresSafeArea())
         .task {
@@ -72,13 +83,6 @@ struct MHBPhotoLibraryPickerScreen: View {
         }
         .onDisappear {
             store.cleanup()
-        }
-        .sheet(isPresented: $isAlbumPickerPresented) {
-            MHBPhotoLibraryAlbumPickerView(
-                albums: store.albums,
-                currentAlbumID: store.currentAlbum?.id,
-                onSelect: handleSelectAlbum
-            )
         }
         .sheet(isPresented: $isLimitedPickerPresented) {
             MHBPhotoLibraryLimitedPickerPresenter {
@@ -109,8 +113,20 @@ struct MHBPhotoLibraryPickerScreen: View {
         dismiss()
     }
 
+    private func handleToggleAlbums() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            isAlbumPickerPresented.toggle()
+        }
+    }
+
+    private func handleDismissAlbums() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            isAlbumPickerPresented = false
+        }
+    }
+
     private func handleSelectAlbum(_ album: MHBPhotoLibraryAlbum) {
-        isAlbumPickerPresented = false
+        handleDismissAlbums()
         Task {
             await store.selectAlbum(album)
         }

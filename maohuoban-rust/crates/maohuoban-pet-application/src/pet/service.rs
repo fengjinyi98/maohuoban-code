@@ -171,49 +171,52 @@ impl PetService {
         }
         self.enrich_feeding_event_payload(&mut input).await?;
 
-        // 检查是否 abnormal_symptom；保存字段到局部变量避免 move 后访问 input
-        let is_abnormal = input.event_subkind.as_deref() == Some("abnormal_symptom")
-            && input.event_kind == EventKind::Health;
-        let abnormal_pet_id = input.pet_id;
-        let abnormal_actor_user_id = input.actor_user_id;
+        // abnormal_symptom 事件：使用统一事务写入 pet_events + abnormal_episodes + attention_hints
+        // 自动回填 episode_id 到 event_payload
+        if input.event_subkind.as_deref() == Some("abnormal_symptom")
+            && input.event_kind == EventKind::Health
+        {
+            return self.repository.create_abnormal_symptom_event(input).await;
+        }
 
-        // 先创建事件以获取 event_id
-        let event = self
-            .repository
-            .create_pet_event(input)
-            .await?;
+        // 先写 pet_events 行
+        let event = self.repository.create_pet_event(input).await?;
 
-        // abnormal_symptom 事件：原子创建 episode + hint
-        if is_abnormal {
-            let symptom_kinds_str = event
+        // abnormal_recovery 事件：关闭 episode + resolve hints
+        if event.event_subkind.as_deref() == Some("abnormal_recovery")
+            && event.event_kind == EventKind::Health
+        {
+            let episode_id = event
                 .event_payload
-                .get("symptom_kinds")
-                .map(|v| v.to_string())
-                .unwrap_or_else(|| "[]".to_owned());
-            let severity_str = event
-                .event_payload
-                .get("severity")
+                .get("episode_id")
                 .and_then(|v| v.as_str())
-                .unwrap_or("mild")
-                .to_owned();
-            let primary_symptom_str = event
-                .event_payload
-                .get("symptom_kinds")
-                .and_then(|v| v.as_array())
-                .and_then(|a| a.first())
-                .and_then(|v| v.as_str())
-                .unwrap_or("other")
-                .to_owned();
+                .and_then(|s| Uuid::parse_str(s).ok());
 
-            let _episode_id = self
-                .repository
-                .handle_abnormal_symptom_event(
-                    abnormal_pet_id,
-                    abnormal_actor_user_id,
+            self.repository
+                .update_episode_for_recovery(
+                    event.pet_id.unwrap_or(event.id),
                     event.id,
-                    &symptom_kinds_str,
-                    &primary_symptom_str,
-                    &severity_str,
+                    episode_id,
+                    event.occurred_at,
+                )
+                .await?;
+        }
+
+        // symptom_followup 事件：更新 episode 观察时间线
+        if event.event_subkind.as_deref() == Some("symptom_followup")
+            && event.event_kind == EventKind::Health
+        {
+            let episode_id = event
+                .event_payload
+                .get("episode_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Uuid::parse_str(s).ok());
+
+            self.repository
+                .update_episode_for_followup(
+                    event.pet_id.unwrap_or(event.id),
+                    event.id,
+                    episode_id,
                     event.occurred_at,
                 )
                 .await?;
@@ -277,6 +280,10 @@ impl PetService {
             .load_pet_event_detail(owner_user_id, event_id)
             .await?
             .ok_or(PetError::PetNotFound)
+    }
+
+    pub async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>> {
+        self.repository.load_attention_hints(pet_id).await
     }
 
     // --- Food Inventory ---

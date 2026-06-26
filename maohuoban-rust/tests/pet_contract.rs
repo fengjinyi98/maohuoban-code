@@ -9,6 +9,8 @@ use support::*;
 mod abnormal_episode;
 #[path = "pet_contract/abnormal_episode_table_test.rs"]
 mod abnormal_episode_table_test;
+#[path = "pet_contract/agent_confirmation_task_test.rs"]
+mod agent_confirmation_task_test;
 #[path = "pet_contract/auth_trade.rs"]
 mod auth_trade;
 #[path = "pet_contract/diet_assignment.rs"]

@@ -65,7 +65,7 @@ struct ProfileFavoriteFolderCreateScreen: View {
                 .accessibilityIdentifier("profile.favoriteFolder.create.submitButton")
             }
         }
-        .sheet(isPresented: $isCoverPickerPresented) {
+        .fullScreenCover(isPresented: $isCoverPickerPresented) {
             MHBMediaPickerScreen(
                 title: "选择封面",
                 onComplete: handleCoverPickerResult,
@@ -73,7 +73,6 @@ struct ProfileFavoriteFolderCreateScreen: View {
                     isCoverPickerPresented = false
                 }
             )
-            .ignoresSafeArea()
         }
         .accessibilityIdentifier("profile.favoriteFolder.create.screen")
     }
