@@ -50,7 +50,7 @@ struct AIAssistantMessageBubble: View {
     }
 
     private var streamingText: Text {
-        Text(message.text) + Text(message.isStreaming ? " ▋" : "")
+        Text(message.text) + Text(message.isStreaming ? "|" : "")
     }
 
     private var backgroundColor: Color {
