@@ -134,7 +134,7 @@ struct AIAssistantScreen: View {
                 }
             )
         ) {
-            MHBSystemMediaPicker(
+            MHBMediaPickerScreen(
                 request: .singleImage,
                 onComplete: { result in
                     guard let image = result.images.first else {

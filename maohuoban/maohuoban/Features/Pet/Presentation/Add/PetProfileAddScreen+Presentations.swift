@@ -32,7 +32,7 @@ extension PetProfileAddScreen {
                 )
             }
             .sheet(isPresented: $isAvatarPickerPresented) {
-                MHBSystemMediaPicker(
+                MHBMediaPickerScreen(
                     request: .singleImage,
                     onComplete: { result in
                         isAvatarPickerPresented = false

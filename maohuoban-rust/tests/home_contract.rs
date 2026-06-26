@@ -5,6 +5,8 @@ mod support;
 
 use support::*;
 
+#[path = "home_contract/attention_hints.rs"]
+mod attention_hints;
 #[path = "home_contract/empty_merchant.rs"]
 mod empty_merchant;
 #[path = "home_contract/fallback_care.rs"]

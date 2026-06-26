@@ -9,15 +9,37 @@ import UIKit
 @Observable
 final class MHBPhotoLibraryPickerStore {
     let service: MHBPhotoLibraryService
+    let request: MHBMediaPickerRequest
     var authorizationStatus: MHBPhotoLibraryAuthorizationStatus = .notDetermined
     var albums: [MHBPhotoLibraryAlbum] = []
     var currentAlbum: MHBPhotoLibraryAlbum?
     var assets: [MHBPhotoLibraryAsset] = []
+    var selectedAssets: [MHBPhotoLibraryAsset] = []
     var isLoading = false
     var isResolvingSelection = false
     var errorMessage: String?
 
-    init(service: MHBPhotoLibraryService = MHBPhotoLibraryService()) {
+    var hasSelection: Bool {
+        !selectedAssets.isEmpty
+    }
+
+    var selectedCountText: String {
+        "\(selectedAssets.count)/\(request.maxSelectionCount)"
+    }
+
+    var selectedAssetIDMap: [String: Int] {
+        Dictionary(
+            uniqueKeysWithValues: selectedAssets.enumerated().map { index, asset in
+                (asset.id, index + 1)
+            }
+        )
+    }
+
+    init(
+        request: MHBMediaPickerRequest = .singleImage,
+        service: MHBPhotoLibraryService = MHBPhotoLibraryService()
+    ) {
+        self.request = request
         self.service = service
     }
 
@@ -47,7 +69,25 @@ final class MHBPhotoLibraryPickerStore {
         isLoading = true
         defer { isLoading = false }
 
-        assets = service.fetchAssets(from: album)
+        assets = service.fetchAssets(from: album, filter: request.filter)
+    }
+
+    func selectionIndex(for asset: MHBPhotoLibraryAsset) -> Int? {
+        selectedAssets.firstIndex(where: { $0.id == asset.id }).map { $0 + 1 }
+    }
+
+    func toggleSelection(for asset: MHBPhotoLibraryAsset) {
+        if let index = selectedAssets.firstIndex(where: { $0.id == asset.id }) {
+            selectedAssets.remove(at: index)
+            return
+        }
+
+        guard selectedAssets.count < request.maxSelectionCount else {
+            errorMessage = "最多只能选择 \(request.maxSelectionCount) 个媒体"
+            return
+        }
+
+        selectedAssets.append(asset)
     }
 
     func resolveSelection(for asset: MHBPhotoLibraryAsset) async -> MHBMediaPickerResult? {
@@ -56,11 +96,36 @@ final class MHBPhotoLibraryPickerStore {
         defer { isResolvingSelection = false }
 
         let result = await service.loadSelection(for: asset)
-        if result.images.isEmpty && result.livePhotos.isEmpty {
-            errorMessage = "无法读取这张照片"
+        if result.isEmpty {
+            errorMessage = "无法读取这个媒体"
             return nil
         }
         return result
+    }
+
+    func resolveSelectedAssets() async -> MHBMediaPickerResult? {
+        guard !selectedAssets.isEmpty else {
+            return nil
+        }
+
+        isResolvingSelection = true
+        errorMessage = nil
+        defer { isResolvingSelection = false }
+
+        var results: [MHBMediaPickerResult] = []
+        for asset in selectedAssets {
+            let result = await service.loadSelection(for: asset)
+            if !result.isEmpty {
+                results.append(result)
+            }
+        }
+
+        let mergedResult = MHBMediaPickerResult.merging(results)
+        if mergedResult.isEmpty {
+            errorMessage = "无法读取选择的媒体"
+            return nil
+        }
+        return mergedResult
     }
 
     func cleanup() {
@@ -71,7 +136,7 @@ final class MHBPhotoLibraryPickerStore {
         isLoading = true
         defer { isLoading = false }
 
-        let fetchedAlbums = service.fetchAlbums()
+        let fetchedAlbums = service.fetchAlbums(filter: request.filter)
         albums = fetchedAlbums
         if let firstAlbum = fetchedAlbums.first {
             await selectAlbum(firstAlbum)

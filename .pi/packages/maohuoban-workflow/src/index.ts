@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { Type } from "typebox";
@@ -7,7 +8,7 @@ import { defineTool, isToolCallEventType, type ExtensionAPI, type ExtensionConte
 type GoalStatus = "active" | "complete" | "blocked";
 type ExternalGoalStatus = "active" | "paused" | "budgetLimited" | "complete";
 type ItemStatus = "pending" | "in_progress" | "done" | "blocked";
-type EvidenceKind = "failing-test" | "green-test" | "verification" | "diff" | "note";
+type EvidenceKind = "failing-test" | "green-test" | "verification" | "advisor-review" | "diff" | "note";
 
 interface AcceptanceItem {
 	id: string;
@@ -29,6 +30,7 @@ interface GoalState {
 	objective: string;
 	source?: string;
 	currentSlice?: string;
+	todoWikiPath?: string;
 	acceptanceItems: AcceptanceItem[];
 	evidence: GoalEvidence[];
 	blockedReason?: string;
@@ -38,11 +40,19 @@ interface GoalState {
 
 const STATE_ENTRY_TYPE = "maohuoban-goal-state";
 const CODEX_GOAL_ENTRY_TYPE = "pi-codex-goal";
+const TODO_WIKI_DIR = "docs/engineering/_goal-wiki";
+const PROJECT_GOAL_STATE_FILE = `${TODO_WIKI_DIR}/_active-goal.json`;
 const RESPONSIBILITY_DIRS = ["Domain", "Data", "Presentation", "Stores", "Services", "Infrastructure", "Theme"];
+const RUST_CRATE_RESPONSIBILITY_SUFFIXES = ["-domain", "-application", "-http", "-infrastructure", "-worker", "-storage"];
 const SWIFT_GUIDELINE_LIMIT = 250;
 const SWIFT_HARD_LIMIT = 400;
 const RUST_GUIDELINE_LIMIT = 300;
 const RUST_HARD_LIMIT = 500;
+
+interface StructureEvaluation {
+	errors: string[];
+	warnings: string[];
+}
 
 const GoalUpdateParams = Type.Object({
 	action: Type.Union([
@@ -65,6 +75,7 @@ const GoalUpdateParams = Type.Object({
 		Type.Literal("failing-test"),
 		Type.Literal("green-test"),
 		Type.Literal("verification"),
+		Type.Literal("advisor-review"),
 		Type.Literal("diff"),
 		Type.Literal("note"),
 	])),
@@ -99,10 +110,57 @@ function resolveProjectPath(value: string, cwd = process.cwd()): string {
 	return path.resolve(cwd, value);
 }
 
+// projectGoalStatePath 获取项目级 goal 状态文件
+// 核心职责：
+// - 提供跨 Pi session 的稳定恢复来源
+// - 与 TODO wiki 放在同一执行台账目录
+function projectGoalStatePath(): string {
+	return path.resolve(process.cwd(), PROJECT_GOAL_STATE_FILE);
+}
+
+// loadProjectGoal 读取项目级 goal 状态
+// 核心职责：
+// - 在新 session 没有历史 entry 时恢复 Maohuoban gate
+// - 避免状态文件损坏导致 Pi 启动失败
+function loadProjectGoal(): GoalState | undefined {
+	const filePath = projectGoalStatePath();
+	if (!fs.existsSync(filePath)) {
+		return undefined;
+	}
+	try {
+		const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as GoalState;
+		if (!parsed || typeof parsed !== "object" || typeof parsed.status !== "string" || typeof parsed.objective !== "string") {
+			return undefined;
+		}
+		if (!parsed.todoWikiPath) {
+			parsed.todoWikiPath = todoWikiPathForGoal(parsed);
+		}
+		return parsed;
+	} catch {
+		return undefined;
+	}
+}
+
+// saveProjectGoal 写入项目级 goal 状态
+// 核心职责：
+// - 让 active goal 跨新会话可恢复
+// - clear 时移除 active 状态文件
+function saveProjectGoal(goal: GoalState | undefined): void {
+	const filePath = projectGoalStatePath();
+	if (!goal) {
+		if (fs.existsSync(filePath)) {
+			fs.rmSync(filePath);
+		}
+		return;
+	}
+	fs.mkdirSync(path.dirname(filePath), { recursive: true });
+	fs.writeFileSync(filePath, `${JSON.stringify(goal, null, 2)}\n`, "utf8");
+}
+
 // reconstructGoal 从会话恢复目标状态
 // 核心职责：
 // - 读取 Pi session 中的自定义状态记录
-// - 恢复当前分支最后一个 goal 状态
+// - 会话无状态时从项目级状态文件恢复
 function reconstructGoal(ctx: ExtensionContext): void {
 	const manager = ctx.sessionManager as unknown as {
 		getBranch?: () => unknown[];
@@ -139,6 +197,9 @@ function reconstructGoal(ctx: ExtensionContext): void {
 			}
 		}
 	}
+	if (!activeGoal) {
+		activeGoal = loadProjectGoal();
+	}
 }
 
 // saveGoal 保存目标状态
@@ -147,6 +208,10 @@ function reconstructGoal(ctx: ExtensionContext): void {
 // - 将状态追加进 Pi session 供恢复使用
 function saveGoal(pi: ExtensionAPI, goal: GoalState | undefined): void {
 	activeGoal = goal;
+	if (goal) {
+		syncTodoWiki(goal);
+	}
+	saveProjectGoal(goal);
 	pi.appendEntry(STATE_ENTRY_TYPE, goal ?? null);
 }
 
@@ -166,7 +231,7 @@ function createGoalFromSource(sourceOrObjective: string, explicitObjective?: str
 	const objective = explicitObjective?.trim() || extractObjective(content) || sourceOrObjective.trim();
 	const acceptanceItems = content ? extractAcceptanceItems(content) : [];
 	const createdAt = nowIso();
-	return {
+	const goal: GoalState = {
 		status: "active",
 		objective,
 		source,
@@ -175,6 +240,94 @@ function createGoalFromSource(sourceOrObjective: string, explicitObjective?: str
 		createdAt,
 		updatedAt: createdAt,
 	};
+	goal.todoWikiPath = todoWikiPathForGoal(goal);
+	return goal;
+}
+
+// todoWikiPathForGoal 生成目标台账路径
+// 核心职责：
+// - 每个目标文档映射到一个稳定 TODO wiki
+// - 避免中文标题和同名文档冲突
+function todoWikiPathForGoal(goal: GoalState): string {
+	const seed = goal.source ?? goal.objective;
+	const baseName = goal.source ? path.basename(goal.source, path.extname(goal.source)) : goal.objective;
+	const slug = slugify(baseName).slice(0, 72) || "goal";
+	const hash = crypto.createHash("sha1").update(seed).digest("hex").slice(0, 8);
+	return path.resolve(process.cwd(), TODO_WIKI_DIR, `${slug}-${hash}.md`);
+}
+
+// slugify 生成可读文件名片段
+// 核心职责：
+// - 保留中文、英文、数字和连字符
+// - 清理文件系统不稳定字符
+function slugify(value: string): string {
+	return value
+		.normalize("NFKC")
+		.replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+		.replace(/^-+|-+$/g, "")
+		.toLowerCase();
+}
+
+// syncTodoWiki 同步目标执行台账
+// 核心职责：
+// - 将 goal 状态、验收项和证据落到可审查文档
+// - 给 Pi/DeepSeek 提供外部化 TODO 记忆
+function syncTodoWiki(goal: GoalState): void {
+	if (!goal.todoWikiPath) {
+		goal.todoWikiPath = todoWikiPathForGoal(goal);
+	}
+	fs.mkdirSync(path.dirname(goal.todoWikiPath), { recursive: true });
+	fs.writeFileSync(goal.todoWikiPath, renderTodoWiki(goal), "utf8");
+}
+
+// renderTodoWiki 渲染目标执行台账
+// 核心职责：
+// - 固定章节顺序，方便模型逐轮维护
+// - 保留状态、TODO、证据和 advisor 审查记录
+function renderTodoWiki(goal: GoalState): string {
+	const source = goal.source ?? "未绑定目标文档";
+	const currentSlice = goal.currentSlice ?? "未设置";
+	const acceptance = goal.acceptanceItems.length > 0
+		? goal.acceptanceItems.map((item) => `- [${item.status === "done" ? "x" : " "}] ${item.id} (${item.status}) ${item.text}${item.evidence.length > 0 ? `\n  - evidence: ${item.evidence.join(" | ")}` : ""}`).join("\n")
+		: "- [ ] 当前目标未解析到验收项，必须从目标文档手工补充。";
+	const evidence = goal.evidence.length > 0
+		? goal.evidence.map((item) => `- ${item.timestamp} [${item.kind}]${item.slice ? ` slice=${item.slice}` : ""}${item.command ? `\n  - command: \`${item.command.replaceAll("`", "\\`")}\`` : ""}\n  - ${item.text}`).join("\n")
+		: "- 暂无证据。";
+	const nextActions = goal.acceptanceItems
+		.filter((item) => item.status !== "done")
+		.map((item) => `- [ ] ${item.id}: ${item.text}`)
+		.join("\n") || "- [x] 当前无未完成验收项，完成前仍需 advisor-review 和 verification 证据。";
+
+	return `# Maohuoban Goal TODO Wiki
+
+## 目标
+- status: ${goal.status}
+- objective: ${goal.objective}
+- source: ${source}
+- current_slice: ${currentSlice}
+- updated_at: ${goal.updatedAt}
+
+## 当前执行规则
+- 每个生产代码切片先记录 failing-test 证据，再写实现。
+- 每次完成切片必须记录 green-test 或 verification 证据。
+- 关键节点必须调用 advisor，并把结论记录为 advisor-review 证据。
+- 标记 goal complete 前必须逐项核对目标文档验收项。
+
+## TODO
+${acceptance}
+
+## 下一步
+${nextActions}
+
+## 证据
+${evidence}
+
+## 风险与待审
+- [ ] 是否存在测试只验证派生快照、未验证真实持久化的问题。
+- [ ] 是否存在状态更新过宽，误影响其他 pet/episode/task 的问题。
+- [ ] 是否存在 route payload 缺少稳定 ID 的问题。
+- [ ] 是否已执行目标文档要求的 agent_confirmation_tasks。
+`;
 }
 
 // extractObjective 提取目标摘要
@@ -284,6 +437,7 @@ function renderGoal(goal: GoalState | undefined): string {
 		goal.currentSlice ? `current_slice: ${goal.currentSlice}` : undefined,
 		`acceptance: ${done}/${total}`,
 		`evidence: ${goal.evidence.length}`,
+		goal.todoWikiPath ? `todo_wiki: ${goal.todoWikiPath}` : undefined,
 		goal.blockedReason ? `blocked_reason: ${goal.blockedReason}` : undefined,
 	].filter(Boolean) as string[];
 	if (goal.acceptanceItems.length > 0) {
@@ -448,35 +602,36 @@ function isProductionCodePath(filePath: string): boolean {
 // evaluateStructure 检查项目结构
 // 核心职责：
 // - 复刻 Codex hook 的关键结构规则
-// - 在 Pi 写入前阻断明显违规的新内容
-function evaluateStructure(filePath: string, content?: string): string | undefined {
+// - 区分硬阻断和建议提醒
+function evaluateStructure(filePath: string, content?: string): StructureEvaluation {
+	const result: StructureEvaluation = { errors: [], warnings: [] };
 	if (!isCodePath(filePath)) {
-		return undefined;
+		return result;
 	}
 	const normalized = filePath.replaceAll("\\", "/");
 	if (!hasResponsibilityDirectory(normalized)) {
-		return `代码文件未落在明确职责目录中；允许职责目录：${RESPONSIBILITY_DIRS.join(", ")}`;
+		result.errors.push(`代码文件未落在明确职责目录中；允许职责目录：${RESPONSIBILITY_DIRS.join(", ")}，或 maohuoban-rust/crates/*-{domain,application,http,infrastructure}。`);
 	}
 	if (content !== undefined) {
 		const lineCount = content.split(/\r?\n/).length;
 		if (normalized.endsWith(".swift") && lineCount > SWIFT_HARD_LIMIT) {
-			return `Swift 文件 ${lineCount} 行，超过硬上限 ${SWIFT_HARD_LIMIT} 行，必须拆分。`;
+			result.errors.push(`Swift 文件 ${lineCount} 行，超过硬上限 ${SWIFT_HARD_LIMIT} 行，必须拆分。`);
 		}
 		if (normalized.endsWith(".rs") && lineCount > RUST_HARD_LIMIT) {
-			return `Rust 文件 ${lineCount} 行，超过硬上限 ${RUST_HARD_LIMIT} 行，必须拆分。`;
+			result.errors.push(`Rust 文件 ${lineCount} 行，超过硬上限 ${RUST_HARD_LIMIT} 行，必须拆分。`);
 		}
 		const declarations = primaryDeclarations(normalized, content);
 		if (declarations.length > 1) {
-			return `一个文件包含多个顶层主要类型：${declarations.join(", ")}；一个类型优先一个文件。`;
+			result.warnings.push(`一个文件包含多个顶层主要类型：${declarations.join(", ")}；建议一个类型优先一个文件。`);
 		}
 		if (normalized.endsWith(".swift") && lineCount > SWIFT_GUIDELINE_LIMIT) {
-			return `Swift 文件 ${lineCount} 行，超过建议线 ${SWIFT_GUIDELINE_LIMIT} 行，请拆分后再写入。`;
+			result.warnings.push(`Swift 文件 ${lineCount} 行，超过建议线 ${SWIFT_GUIDELINE_LIMIT} 行，建议拆分。`);
 		}
 		if (normalized.endsWith(".rs") && lineCount > RUST_GUIDELINE_LIMIT) {
-			return `Rust 文件 ${lineCount} 行，超过建议线 ${RUST_GUIDELINE_LIMIT} 行，请拆分后再写入。`;
+			result.warnings.push(`Rust 文件 ${lineCount} 行，超过建议线 ${RUST_GUIDELINE_LIMIT} 行，建议拆分。`);
 		}
 	}
-	return undefined;
+	return result;
 }
 
 // hasResponsibilityDirectory 判断职责目录
@@ -488,7 +643,15 @@ function hasResponsibilityDirectory(filePath: string): boolean {
 	if (parts.some((part) => ["Tests", "tests", "__tests__", "Fixtures", "fixtures", ".pi", ".codex"].includes(part))) {
 		return true;
 	}
-	return parts.slice(0, -1).some((part) => RESPONSIBILITY_DIRS.includes(part));
+	if (parts.slice(0, -1).some((part) => RESPONSIBILITY_DIRS.includes(part))) {
+		return true;
+	}
+	const cratesIndex = parts.indexOf("crates");
+	const crateName = cratesIndex >= 0 ? parts[cratesIndex + 1] : undefined;
+	if (crateName?.startsWith("maohuoban-") && RUST_CRATE_RESPONSIBILITY_SUFFIXES.some((suffix) => crateName.endsWith(suffix))) {
+		return true;
+	}
+	return false;
 }
 
 // primaryDeclarations 提取顶层主要声明
@@ -579,6 +742,8 @@ ${renderGoal(activeGoal)}
 Rules for this project gate:
 - Use pi-codex-goal tools for the durable long-running objective: get_goal, create_goal, update_goal.
 - Use mhb_goal_update to record current slice, failing-test, green-test, verification, and acceptance item updates.
+- Maintain the TODO wiki shown in mhb_goal_update status. Treat it as the visible execution ledger for TODO, evidence, risks, and next actions.
+- Use advisor before major production edits, before marking an acceptance item done, and before completing the goal. Record the result with mhb_goal_update evidenceKind=advisor-review.
 - Before editing production Swift/Rust code, create a failing test and record failing-test evidence for the current slice.
 - Do not call update_goal complete until mhb_goal_update status shows required slice evidence and the objective audit has real verification.
 - If evidence is missing, report progress and the exact missing evidence.
@@ -604,9 +769,12 @@ Rules for this project gate:
 			const target = toolPath(event.input);
 			if (!target) return;
 			const resolved = resolveProjectPath(target);
-			const structureError = evaluateStructure(resolved, toolContent(event.input));
-			if (structureError) {
-				return { block: true, reason: `[MHB_STRUCTURE_GATE] ${structureError}` };
+			const structure = evaluateStructure(resolved, toolContent(event.input));
+			if (structure.warnings.length > 0) {
+				ctx.ui.notify(`[MHB_STRUCTURE_GATE] ${structure.warnings.join("\n")}`, "warning");
+			}
+			if (structure.errors.length > 0) {
+				return { block: true, reason: `[MHB_STRUCTURE_GATE] ${structure.errors.join("\n")}` };
 			}
 			if (isGoalWorkActive() && isProductionCodePath(resolved) && !hasFailingEvidenceForCurrentSlice(activeGoal)) {
 				return {
@@ -678,6 +846,8 @@ Rules for this project gate:
 		promptGuidelines: [
 			"Use create_goal/get_goal/update_goal for the durable Codex-style objective.",
 			"Use mhb_goal_update before and after each TDD slice.",
+			"Maintain the TODO wiki path returned by mhb_goal_update as the visible execution ledger.",
+			"Call advisor before major production edits, before completing an acceptance item, and before completing the goal; record advisor guidance as advisor-review evidence.",
 			"Record failing-test evidence before production code edits.",
 			"Only allow update_goal completion after project gate evidence covers all required acceptance items.",
 		],

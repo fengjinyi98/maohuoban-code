@@ -573,6 +573,20 @@ pub trait PetRepository: Send + Sync {
         asset_ids: &[Uuid],
     ) -> PetResult<Vec<MediaAssetDisplayMetadata>>;
 
+    /// 当提交异常症状事件时，原子创建 abnormal_episode + attention_hint
+    /// 返回 episode_id，调用方应将其写入 event_payload
+    /// 参数使用字符串而非领域枚举，避免跨 crate 序列化依赖
+    async fn handle_abnormal_symptom_event(
+        &self,
+        pet_id: Uuid,
+        actor_user_id: Uuid,
+        event_id: Uuid,
+        symptom_kinds_json: &str,
+        primary_symptom: &str,
+        severity: &str,
+        started_at: chrono::DateTime<Utc>,
+    ) -> PetResult<Uuid>;
+
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 
     async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport>;

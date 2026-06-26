@@ -61,7 +61,7 @@ struct PetProfileBackgroundPreviewScreen: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isImagePickerPresented) {
-            MHBPhotoLibraryPickerScreen(
+            MHBMediaPickerScreen(
                 title: "选择背景图片",
                 onComplete: { result in
                     isImagePickerPresented = false
@@ -74,7 +74,7 @@ struct PetProfileBackgroundPreviewScreen: View {
             .ignoresSafeArea()
         }
         .sheet(isPresented: $isVideoPickerPresented) {
-            MHBSystemMediaPicker(
+            MHBMediaPickerScreen(
                 request: .singleVideoOrLivePhoto,
                 onComplete: { result in
                     isVideoPickerPresented = false

@@ -2,7 +2,7 @@ import UIKit
 
 // MHBPhotoGridCell PhotoKit 照片网格单元格
 // 核心职责：
-// - 展示照片缩略图和 Live Photo 标识
+// - 展示媒体缩略图、类型标识和选择序号
 // - 在资源解析时提供选中遮罩状态
 final class MHBPhotoGridCell: UICollectionViewCell {
     static let reuseIdentifier = "MHBPhotoGridCell"
@@ -30,6 +30,33 @@ final class MHBPhotoGridCell: UICollectionViewCell {
         view.clipsToBounds = true
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
+    }()
+
+    private let videoBadge: UILabel = {
+        let label = UILabel()
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.42)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 5
+        label.clipsToBounds = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
+    private let selectionBadge: UILabel = {
+        let label = UILabel()
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 13, weight: .bold)
+        label.textAlignment = .center
+        label.backgroundColor = UIColor.systemBlue
+        label.layer.cornerRadius = 11
+        label.layer.borderColor = UIColor.white.cgColor
+        label.layer.borderWidth = 1.5
+        label.clipsToBounds = true
+        label.isHidden = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }()
 
     private let selectionOverlay: UIView = {
@@ -62,11 +89,17 @@ final class MHBPhotoGridCell: UICollectionViewCell {
         assetID: String,
         image: UIImage?,
         isLivePhoto: Bool,
+        isVideo: Bool,
+        durationText: String?,
+        selectionIndex: Int?,
         isResolving: Bool
     ) {
         representedAssetID = assetID
         imageView.image = image
         livePhotoBadge.isHidden = !isLivePhoto
+        videoBadge.isHidden = !isVideo
+        videoBadge.text = durationText
+        updateSelectionIndex(selectionIndex)
         updateResolvingState(isResolving)
     }
 
@@ -86,17 +119,27 @@ final class MHBPhotoGridCell: UICollectionViewCell {
         }
     }
 
+    func updateSelectionIndex(_ selectionIndex: Int?) {
+        selectionBadge.isHidden = selectionIndex == nil
+        selectionBadge.text = selectionIndex.map(String.init)
+    }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         representedAssetID = nil
         imageView.image = nil
         livePhotoBadge.isHidden = true
+        videoBadge.isHidden = true
+        videoBadge.text = nil
+        updateSelectionIndex(nil)
         updateResolvingState(false)
     }
 
     private func setupUI() {
         contentView.addSubview(imageView)
         contentView.addSubview(livePhotoBadge)
+        contentView.addSubview(videoBadge)
+        contentView.addSubview(selectionBadge)
         contentView.addSubview(selectionOverlay)
         selectionOverlay.addSubview(activityIndicator)
 
@@ -110,6 +153,16 @@ final class MHBPhotoGridCell: UICollectionViewCell {
             livePhotoBadge.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -5),
             livePhotoBadge.widthAnchor.constraint(equalToConstant: 30),
             livePhotoBadge.heightAnchor.constraint(equalToConstant: 22),
+
+            videoBadge.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 5),
+            videoBadge.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -5),
+            videoBadge.widthAnchor.constraint(greaterThanOrEqualToConstant: 42),
+            videoBadge.heightAnchor.constraint(equalToConstant: 22),
+
+            selectionBadge.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 7),
+            selectionBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -7),
+            selectionBadge.widthAnchor.constraint(equalToConstant: 22),
+            selectionBadge.heightAnchor.constraint(equalToConstant: 22),
 
             selectionOverlay.topAnchor.constraint(equalTo: contentView.topAnchor),
             selectionOverlay.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),

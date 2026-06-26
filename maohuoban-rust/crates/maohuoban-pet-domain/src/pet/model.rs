@@ -1,3 +1,5 @@
+mod abnormal_episode;
+mod agent_confirmation_task;
 mod diet_assignment;
 mod event;
 mod external_identifier;
@@ -10,6 +12,10 @@ mod pet_guardian;
 mod profile;
 mod value_objects;
 
+pub use abnormal_episode::{AbnormalEpisode, AbnormalEpisodeStatus, Severity, SymptomKind};
+pub use agent_confirmation_task::{
+    AgentConfirmationTask, ConfirmationTaskKind, ConfirmationTaskStatus,
+};
 pub use diet_assignment::{DietAssignmentRole, DietAssignmentStatus, PetDietAssignment};
 pub use event::{EventKind, EventVisibility, PetEvent, PetTimeline};
 pub use external_identifier::{

@@ -212,7 +212,7 @@ struct PublishEventComposerScreen: View {
             }
         }
         .sheet(isPresented: $isMediaPickerPresented) {
-            MHBSystemMediaPicker(
+            MHBMediaPickerScreen(
                 request: MHBMediaPickerRequest(
                     maxSelectionCount: mediaPickerMaxSelectionCount,
                     filter: .images

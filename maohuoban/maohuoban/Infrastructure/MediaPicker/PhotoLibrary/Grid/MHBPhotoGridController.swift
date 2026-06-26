@@ -15,6 +15,7 @@ final class MHBPhotoGridController: NSObject {
         }
     }
     var resolvingAssetID: String?
+    var selectedAssetIDs: [String: Int] = [:]
     var onSelectAsset: ((MHBPhotoLibraryAsset) -> Void)?
 
     private let service: MHBPhotoLibraryService
@@ -34,13 +35,24 @@ final class MHBPhotoGridController: NSObject {
 
     func updateResolvingAssetID(_ assetID: String?) {
         resolvingAssetID = assetID
+        updateVisibleCellStates()
+    }
+
+    func updateSelectedAssetIDs(_ selectedAssetIDs: [String: Int]) {
+        self.selectedAssetIDs = selectedAssetIDs
+        updateVisibleCellStates()
+    }
+
+    private func updateVisibleCellStates() {
         collectionView.indexPathsForVisibleItems.forEach { indexPath in
             guard indexPath.item < assets.count,
                   let cell = collectionView.cellForItem(at: indexPath) as? MHBPhotoGridCell
             else {
                 return
             }
-            cell.updateResolvingState(assets[indexPath.item].id == assetID)
+            let asset = assets[indexPath.item]
+            cell.updateResolvingState(asset.id == resolvingAssetID)
+            cell.updateSelectionIndex(selectedAssetIDs[asset.id])
         }
     }
 
@@ -49,7 +61,7 @@ final class MHBPhotoGridController: NSObject {
             MHBPhotoGridCell.self,
             forCellWithReuseIdentifier: MHBPhotoGridCell.reuseIdentifier
         )
-        collectionView.backgroundColor = .systemBackground
+        collectionView.backgroundColor = .black
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.showsVerticalScrollIndicator = false
@@ -81,12 +93,22 @@ extension MHBPhotoGridController: UICollectionViewDataSource {
             assetID: asset.id,
             image: nil,
             isLivePhoto: asset.isLivePhoto,
+            isVideo: asset.isVideo,
+            durationText: asset.duration.map(Self.formatDuration(_:)),
+            selectionIndex: selectedAssetIDs[asset.id],
             isResolving: asset.id == resolvingAssetID
         )
         _ = service.requestThumbnail(for: asset) { [weak cell] image in
             cell?.updateImage(image, for: asset.id)
         }
         return cell
+    }
+
+    private static func formatDuration(_ duration: TimeInterval) -> String {
+        let totalSeconds = max(Int(duration.rounded()), 0)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 

@@ -20,6 +20,7 @@ pub(super) fn merchant_home_snapshot_from_workspace(
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
+        attention_hints: Vec::new(),
         reminders: Vec::new(),
         quick_actions: vec![
             HomeAction {

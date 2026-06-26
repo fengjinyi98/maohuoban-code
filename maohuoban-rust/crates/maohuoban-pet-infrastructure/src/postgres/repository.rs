@@ -14,6 +14,7 @@ use maohuoban_pet_domain::pet::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
+mod abnormal_event_handler;
 mod event_queries;
 mod event_rows;
 mod identity_context_query;
@@ -222,6 +223,28 @@ impl PetRepository for PostgresPetRepository {
         asset_ids: &[Uuid],
     ) -> PetResult<Vec<MediaAssetDisplayMetadata>> {
         self.list_media_display_metadata_query(asset_ids).await
+    }
+
+    async fn handle_abnormal_symptom_event(
+        &self,
+        pet_id: Uuid,
+        actor_user_id: Uuid,
+        event_id: Uuid,
+        symptom_kinds_json: &str,
+        primary_symptom: &str,
+        severity: &str,
+        started_at: chrono::DateTime<Utc>,
+    ) -> PetResult<Uuid> {
+        self.handle_abnormal_symptom_event_command(
+            pet_id,
+            actor_user_id,
+            event_id,
+            symptom_kinds_json,
+            primary_symptom,
+            severity,
+            started_at,
+        )
+        .await
     }
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {

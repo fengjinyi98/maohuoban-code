@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 mod activity;
+mod attention_hint;
 mod identity;
 mod merchant;
 mod pantry;
@@ -10,6 +11,10 @@ pub use activity::{
     HomeAction, HomeActionKind, HomeEmptyState, HomeEmptyStateKind, HomeReminder, HomeReminderKind,
     HomeTimelineEvent, HomeTimelineEventKind, PartnerRecommendation, PartnerRelationshipKind,
     RecommendedContent, RecommendedContentKind,
+};
+pub use attention_hint::{
+    AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
+    AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone,
 };
 pub use identity::{HomeIdentity, HomeIdentityKind};
 pub use merchant::{
@@ -31,6 +36,7 @@ pub struct HomeDashboardSnapshot {
     pub selected_pet: Option<PetHeroSummary>,
     pub pet_switcher: Vec<PetSwitchItem>,
     pub reminders: Vec<HomeReminder>,
+    pub attention_hints: Vec<AttentionHint>,
     pub quick_actions: Vec<HomeAction>,
     pub partner_recommendation: Option<PartnerRecommendation>,
     pub recent_timeline: Vec<HomeTimelineEvent>,

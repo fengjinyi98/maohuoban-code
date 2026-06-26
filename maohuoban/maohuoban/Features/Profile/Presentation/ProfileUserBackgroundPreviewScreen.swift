@@ -63,7 +63,7 @@ struct ProfileUserBackgroundPreviewScreen: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isImagePickerPresented) {
-            MHBPhotoLibraryPickerScreen(
+            MHBMediaPickerScreen(
                 title: "选择主页背景",
                 onComplete: { result in
                     isImagePickerPresented = false

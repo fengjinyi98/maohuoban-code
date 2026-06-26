@@ -28,6 +28,7 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
+        attention_hints: Vec::new(),
         reminders: vec![HomeReminder {
             id: seed_uuid("63878ee3-76c0-47c9-8a3e-97d2048b9f1e"),
             kind: HomeReminderKind::Deworming,
@@ -74,6 +75,7 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
+        attention_hints: Vec::new(),
         reminders: Vec::new(),
         quick_actions: vec![HomeAction {
             kind: HomeActionKind::CreatePet,
@@ -118,6 +120,7 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         },
         selected_pet: None,
         pet_switcher: Vec::new(),
+        attention_hints: Vec::new(),
         reminders: Vec::new(),
         quick_actions: vec![
             HomeAction {

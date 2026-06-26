@@ -26,6 +26,15 @@ pub struct AuthTestApp {
 }
 
 impl AuthTestApp {
+    /// pool 返回数据库连接池引用
+    /// 核心职责：
+    /// - 为契约测试提供直接数据库查询能力
+    /// - 验证数据写入结果不依赖投影路径
+    #[must_use]
+    pub fn pool(&self) -> &sqlx::PgPool {
+        &self.app.pool
+    }
+
     #[must_use]
     pub fn router(&self) -> axum::Router {
         self.app.router.clone()

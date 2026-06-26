@@ -66,7 +66,7 @@ struct PetAlbumCreateScreen: View {
             }
         }
         .sheet(isPresented: $isCoverPickerPresented) {
-            MHBPhotoLibraryPickerScreen(
+            MHBMediaPickerScreen(
                 title: "选择封面",
                 onComplete: handleCoverPickerResult,
                 onCancel: {

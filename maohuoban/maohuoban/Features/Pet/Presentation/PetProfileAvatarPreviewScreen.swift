@@ -60,7 +60,7 @@ struct PetProfileAvatarPreviewScreen: View {
         }
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isMediaPickerPresented) {
-            MHBSystemMediaPicker(
+            MHBMediaPickerScreen(
                 request: .singleImage,
                 onComplete: { result in
                     isMediaPickerPresented = false

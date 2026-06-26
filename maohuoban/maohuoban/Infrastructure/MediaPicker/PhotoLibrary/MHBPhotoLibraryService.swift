@@ -28,7 +28,7 @@ final class MHBPhotoLibraryService {
         return MHBPhotoLibraryAuthorizationStatus(status)
     }
 
-    func fetchAlbums() -> [MHBPhotoLibraryAlbum] {
+    func fetchAlbums(filter: MHBMediaPickerFilter = .images) -> [MHBPhotoLibraryAlbum] {
         var albums: [MHBPhotoLibraryAlbum] = []
         appendAlbums(
             from: PHAssetCollection.fetchAssetCollections(
@@ -36,6 +36,7 @@ final class MHBPhotoLibraryService {
                 subtype: .any,
                 options: nil
             ),
+            filter: filter,
             to: &albums
         )
         appendAlbums(
@@ -44,6 +45,7 @@ final class MHBPhotoLibraryService {
                 subtype: .albumRegular,
                 options: nil
             ),
+            filter: filter,
             to: &albums
         )
 
@@ -58,8 +60,11 @@ final class MHBPhotoLibraryService {
         }
     }
 
-    func fetchAssets(from album: MHBPhotoLibraryAlbum) -> [MHBPhotoLibraryAsset] {
-        let result = imageFetchResult(in: album.collection)
+    func fetchAssets(
+        from album: MHBPhotoLibraryAlbum,
+        filter: MHBMediaPickerFilter = .images
+    ) -> [MHBPhotoLibraryAsset] {
+        let result = mediaFetchResult(in: album.collection, filter: filter)
         var assets: [MHBPhotoLibraryAsset] = []
         assets.reserveCapacity(result.count)
 
@@ -100,6 +105,13 @@ final class MHBPhotoLibraryService {
     }
 
     func loadSelection(for asset: MHBPhotoLibraryAsset) async -> MHBMediaPickerResult {
+        if asset.isVideo {
+            guard let video = await loadVideo(for: asset) else {
+                return MHBMediaPickerResult()
+            }
+            return MHBMediaPickerResult(videos: [video])
+        }
+
         let livePhoto = asset.isLivePhoto ? await loadLivePhoto(for: asset) : nil
         let image = livePhoto == nil ? await loadFullImage(for: asset) : nil
         return MHBPhotoLibrarySelectionResolver.resolve(
@@ -112,11 +124,12 @@ final class MHBPhotoLibraryService {
 
     private func appendAlbums(
         from collections: PHFetchResult<PHAssetCollection>,
+        filter: MHBMediaPickerFilter,
         to albums: inout [MHBPhotoLibraryAlbum]
     ) {
         for index in 0..<collections.count {
             let collection = collections.object(at: index)
-            let assetCount = imageFetchResult(in: collection).count
+            let assetCount = mediaFetchResult(in: collection, filter: filter).count
             if assetCount > 0 {
                 albums.append(
                     MHBPhotoLibraryAlbum(
@@ -128,14 +141,36 @@ final class MHBPhotoLibraryService {
         }
     }
 
-    private func imageFetchResult(in collection: PHAssetCollection) -> PHFetchResult<PHAsset> {
+    private func mediaFetchResult(
+        in collection: PHAssetCollection,
+        filter: MHBMediaPickerFilter
+    ) -> PHFetchResult<PHAsset> {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        options.predicate = NSPredicate(
-            format: "mediaType = %d",
-            PHAssetMediaType.image.rawValue
-        )
+        options.predicate = predicate(for: filter)
         return PHAsset.fetchAssets(in: collection, options: options)
+    }
+
+    private func predicate(for filter: MHBMediaPickerFilter) -> NSPredicate? {
+        switch filter {
+        case .images:
+            NSPredicate(format: "mediaType = %d", PHAssetMediaType.image.rawValue)
+        case .videos:
+            NSPredicate(format: "mediaType = %d", PHAssetMediaType.video.rawValue)
+        case .videosAndLivePhotos:
+            NSPredicate(
+                format: "mediaType = %d OR (mediaType = %d AND (mediaSubtype & %d) != 0)",
+                PHAssetMediaType.video.rawValue,
+                PHAssetMediaType.image.rawValue,
+                PHAssetMediaSubtype.photoLive.rawValue
+            )
+        case .all:
+            NSPredicate(
+                format: "mediaType = %d OR mediaType = %d",
+                PHAssetMediaType.image.rawValue,
+                PHAssetMediaType.video.rawValue
+            )
+        }
     }
 
     private func loadFullImage(for asset: MHBPhotoLibraryAsset) async -> UIImage? {
@@ -174,6 +209,16 @@ final class MHBPhotoLibraryService {
             pairedVideoURL: resolvedPairedVideoURL,
             previewImage: previewImage
         )
+    }
+
+    private func loadVideo(for asset: MHBPhotoLibraryAsset) async -> MHBPickedVideo? {
+        let resources = PHAssetResource.assetResources(for: asset.asset)
+        guard let videoResource = resources.first(where: { $0.type == .video || $0.type == .fullSizeVideo }),
+              let url = await copyResourceToTemporaryFile(videoResource)
+        else {
+            return nil
+        }
+        return MHBPickedVideo(url: url)
     }
 
     private func copyResourceToTemporaryFile(_ resource: PHAssetResource) async -> URL? {

@@ -32,3 +32,4 @@ docs/resources/
 
 # 代码量统计生成文件（每次运行脚本生成，不纳入版本管理）
 code-stats/
+.ace-tool/

@@ -170,7 +170,56 @@ impl PetService {
             return Err(PetError::PetNotFound);
         }
         self.enrich_feeding_event_payload(&mut input).await?;
-        self.repository.create_pet_event(input).await
+
+        // 检查是否 abnormal_symptom；保存字段到局部变量避免 move 后访问 input
+        let is_abnormal = input.event_subkind.as_deref() == Some("abnormal_symptom")
+            && input.event_kind == EventKind::Health;
+        let abnormal_pet_id = input.pet_id;
+        let abnormal_actor_user_id = input.actor_user_id;
+
+        // 先创建事件以获取 event_id
+        let event = self
+            .repository
+            .create_pet_event(input)
+            .await?;
+
+        // abnormal_symptom 事件：原子创建 episode + hint
+        if is_abnormal {
+            let symptom_kinds_str = event
+                .event_payload
+                .get("symptom_kinds")
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "[]".to_owned());
+            let severity_str = event
+                .event_payload
+                .get("severity")
+                .and_then(|v| v.as_str())
+                .unwrap_or("mild")
+                .to_owned();
+            let primary_symptom_str = event
+                .event_payload
+                .get("symptom_kinds")
+                .and_then(|v| v.as_array())
+                .and_then(|a| a.first())
+                .and_then(|v| v.as_str())
+                .unwrap_or("other")
+                .to_owned();
+
+            let _episode_id = self
+                .repository
+                .handle_abnormal_symptom_event(
+                    abnormal_pet_id,
+                    abnormal_actor_user_id,
+                    event.id,
+                    &symptom_kinds_str,
+                    &primary_symptom_str,
+                    &severity_str,
+                    event.occurred_at,
+                )
+                .await?;
+        }
+
+        Ok(event)
     }
 
     pub async fn import_trade_pet(

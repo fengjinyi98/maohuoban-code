@@ -3,28 +3,32 @@ import UIKit
 
 // MHBPhotoLibraryPickerScreen PhotoKit 照片选择页
 // 核心职责：
-// - 提供普通照片和 Live Photo 混合选择入口
+// - 提供图片、视频和 Live Photo 统一选择入口
 // - 将用户选择转换为通用媒体选择结果回传业务层
 struct MHBPhotoLibraryPickerScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let title: String
+    let request: MHBMediaPickerRequest
     let onComplete: (MHBMediaPickerResult) -> Void
     let onCancel: () -> Void
 
-    @State private var store = MHBPhotoLibraryPickerStore()
+    @State private var store: MHBPhotoLibraryPickerStore
     @State private var isAlbumPickerPresented = false
     @State private var isLimitedPickerPresented = false
     @State private var resolvingAssetID: String?
 
     init(
         title: String = "选择照片",
+        request: MHBMediaPickerRequest = .singleImage,
         onComplete: @escaping (MHBMediaPickerResult) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.title = title
+        self.request = request
         self.onComplete = onComplete
         self.onCancel = onCancel
+        _store = State(initialValue: MHBPhotoLibraryPickerStore(request: request))
     }
 
     var body: some View {
@@ -44,6 +48,7 @@ struct MHBPhotoLibraryPickerScreen: View {
                 isResolvingSelection: store.isResolvingSelection,
                 assets: store.assets,
                 resolvingAssetID: resolvingAssetID,
+                selectedAssetIDs: store.selectedAssetIDMap,
                 service: store.service,
                 onSelectAsset: handleSelectAsset,
                 onOpenSettings: openSettings,
@@ -51,8 +56,17 @@ struct MHBPhotoLibraryPickerScreen: View {
                     isLimitedPickerPresented = true
                 }
             )
+
+            if !request.autoConfirmSingleSelection {
+                MHBPhotoLibraryPickerBottomBar(
+                    selectedCountText: store.selectedCountText,
+                    hasSelection: store.hasSelection,
+                    isResolvingSelection: store.isResolvingSelection,
+                    onConfirm: handleConfirm
+                )
+            }
         }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background(Color.black.ignoresSafeArea())
         .task {
             await store.load()
         }
@@ -103,7 +117,12 @@ struct MHBPhotoLibraryPickerScreen: View {
     }
 
     private func handleSelectAsset(_ asset: MHBPhotoLibraryAsset) {
-        guard resolvingAssetID == nil else {
+        guard !store.isResolvingSelection else {
+            return
+        }
+
+        guard request.autoConfirmSingleSelection else {
+            store.toggleSelection(for: asset)
             return
         }
 
@@ -112,6 +131,20 @@ struct MHBPhotoLibraryPickerScreen: View {
             let result = await store.resolveSelection(for: asset)
             resolvingAssetID = nil
             guard let result else {
+                return
+            }
+            onComplete(result)
+            dismiss()
+        }
+    }
+
+    private func handleConfirm() {
+        guard store.hasSelection else {
+            return
+        }
+
+        Task {
+            guard let result = await store.resolveSelectedAssets() else {
                 return
             }
             onComplete(result)
