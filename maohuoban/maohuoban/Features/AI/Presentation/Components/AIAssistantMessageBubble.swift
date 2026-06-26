@@ -12,7 +12,7 @@ struct AIAssistantMessageBubble: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s2) {
             if message.role == .user {
-                Spacer(minLength: MHBTheme.Spacing.s8)
+                Spacer(minLength: UIScreen.main.bounds.width * 0.15)
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -22,7 +22,7 @@ struct AIAssistantMessageBubble: View {
                     }
                 } else {
                     streamingText
-                        .font(MHBTheme.Typography.body)
+                        .font(MHBTheme.Typography.headline.weight(.regular))
                         .foregroundStyle(foregroundColor)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -31,16 +31,18 @@ struct AIAssistantMessageBubble: View {
                     AIAssistantReferenceChipFlow(chips: message.referenceChips)
                 }
             }
-            .padding(MHBTheme.Spacing.s4)
-            .frame(maxWidth: 310, alignment: .leading)
+            .padding(message.role == .assistant ? 0 : MHBTheme.Spacing.s4)
+            .frame(maxWidth: message.role == .assistant ? .infinity : nil, alignment: .leading)
             .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: message.role == .assistant ? 0 : MHBTheme.Radius.large, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
+                if message.role != .assistant && borderColor != .clear {
+                    RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                        .stroke(borderColor, lineWidth: 1)
+                }
             }
 
-            if message.role != .user {
+            if message.role == .system {
                 Spacer(minLength: MHBTheme.Spacing.s8)
             }
         }
@@ -54,9 +56,9 @@ struct AIAssistantMessageBubble: View {
     private var backgroundColor: Color {
         switch message.role {
         case .assistant:
-            MHBTheme.ColorToken.cardSolid.color
+            Color.clear
         case .user:
-            MHBTheme.ColorToken.primary.color
+            MHBTheme.ColorToken.background.color
         case .system:
             MHBTheme.ColorToken.primaryBackgroundSoft.color
         }
@@ -65,7 +67,7 @@ struct AIAssistantMessageBubble: View {
     private var foregroundColor: Color {
         switch message.role {
         case .user:
-            .white
+            MHBTheme.ColorToken.labelPrimary.color
         case .assistant, .system:
             MHBTheme.ColorToken.labelPrimary.color
         }
@@ -76,7 +78,7 @@ struct AIAssistantMessageBubble: View {
         case .user:
             Color.clear
         case .assistant, .system:
-            MHBTheme.ColorToken.separator.color
+            Color.clear
         }
     }
 

@@ -35,14 +35,10 @@ struct AIAssistantComposerBar: View {
                 onClearAttachmentSource: onClearAttachmentSource,
                 onSend: onSend
             )
-            .padding(.horizontal, MHBTheme.Spacing.s5)
+            .padding(.horizontal, MHBTheme.Spacing.s4)
         }
         .padding(.top, MHBTheme.Spacing.s2)
-        .padding(.bottom, MHBTheme.Spacing.s3)
-        .background {
-            MHBTheme.ColorToken.background.color.opacity(0.94)
-                .ignoresSafeArea()
-        }
+        .padding(.bottom, MHBTheme.Spacing.s5)
         .accessibilityIdentifier("ai.assistant.composer")
     }
 }

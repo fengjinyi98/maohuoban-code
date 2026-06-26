@@ -21,13 +21,9 @@ struct AIAssistantScreen: View {
     var body: some View {
         @Bindable var store = store
 
-        ZStack {
-            MHBTheme.ColorToken.background.color
-                .ignoresSafeArea()
-
-            ScrollViewReader { proxy in
-                MHBScreenScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+        ScrollViewReader { proxy in
+            MHBScreenScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
                         ForEach(store.messages) { message in
                             AIAssistantMessageBubble(message: message)
                         }
@@ -68,8 +64,7 @@ struct AIAssistantScreen: View {
                     }
                 }
             }
-
-        }
+        .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
             if fpsMonitor.isVisible {
                 Text(String(format: "FPS: %.0f", fpsMonitor.fps))
@@ -108,6 +103,7 @@ struct AIAssistantScreen: View {
                     store.submitDraft()
                 }
             )
+            .ignoresSafeArea(.container, edges: .bottom)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
