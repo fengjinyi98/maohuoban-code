@@ -165,3 +165,71 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         "SSE should contain completion event, got: {text}"
     );
 }
+
+/// `off_topic` 请求写入 gate log，且不调用主 `LLM Provider`
+#[tokio::test]
+async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body("data: {\"choices\":[{\"delta\":{\"content\":\"不应调用\"}}]}\n\n");
+    });
+
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = Some(
+        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+            base_url: server.base_url(),
+            api_key: "contract-api-key".to_owned(),
+            model: "contract-model".to_owned(),
+            timeout_secs: 5,
+            temperature: 0.2,
+            max_output_tokens: None,
+        },
+    );
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139010", "ios-ai-off-topic").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "帮我写一首关于夏天的诗",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send off-topic chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+
+    mock.assert_hits(0);
+    assert!(
+        text.contains("event: message_completed"),
+        "SSE should complete with a safe boundary message, got: {text}"
+    );
+
+    let row: (String, bool, Option<String>) = sqlx::query_as(
+        r"
+        SELECT intent, context_loaded, risk_signal
+        FROM ai_request_gate_logs
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest gate log");
+
+    assert_eq!(row.0, "off_topic");
+    assert!(!row.1);
+    assert_eq!(row.2, None);
+}

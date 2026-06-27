@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
-use maohuoban_ai_application::ai::ports::AiSessionRepository;
+use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiError, AiMessage, AiMessageRole, AiMessageStatus,
     AiPetDisplaySnapshot, AiResult,
@@ -199,6 +199,33 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
 
         Ok(row.map(Into::into))
+    }
+
+    async fn insert_request_gate_log(&self, log: &AiRequestGateLog) -> AiResult<()> {
+        sqlx::query(
+            r"
+            INSERT INTO ai_request_gate_logs
+                (session_id, actor_user_id, intent, gate_decision, context_loaded,
+                 request_hash, resolved_pet_id, selected_pet_id, risk_signal,
+                 estimated_input_tokens)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ",
+        )
+        .bind(log.session_id)
+        .bind(log.actor_user_id)
+        .bind(&log.intent)
+        .bind(&log.gate_decision)
+        .bind(log.context_loaded)
+        .bind(&log.request_hash)
+        .bind(log.resolved_pet_id)
+        .bind(log.selected_pet_id)
+        .bind(&log.risk_signal)
+        .bind(log.estimated_input_tokens)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
     }
 }
 
