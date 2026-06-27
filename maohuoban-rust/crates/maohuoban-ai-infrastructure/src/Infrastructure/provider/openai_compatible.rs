@@ -132,7 +132,8 @@ impl OpenAiCompatibleLlmProvider {
 
     /// parse_response 解析 OpenAI 兼容非流式响应
     fn parse_response(body: &str) -> AiResult<LlmChatResponse> {
-        let json: serde_json::Value = serde_json::from_str(body)?;
+        let json: serde_json::Value = serde_json::from_str(body)
+            .map_err(|error| AiError::ProviderRequestFailed(format!("invalid json: {error}")))?;
 
         let choice = json
             .get("choices")

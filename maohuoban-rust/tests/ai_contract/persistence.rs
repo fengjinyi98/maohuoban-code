@@ -144,6 +144,11 @@ async fn ai_proposed_action_repository_persists_pending_action() {
         confirmation_task_id: None,
     };
 
+    let pet_event_count_before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pet_events")
+        .fetch_one(app.pool())
+        .await
+        .expect("count pet events before proposed action");
+
     let repo = PostgresAiSessionRepository::new(app.pool().clone());
     repo.insert_proposed_action(session_id, &action)
         .await
@@ -165,4 +170,14 @@ async fn ai_proposed_action_repository_persists_pending_action() {
     assert_eq!(row.1, "medium");
     assert_eq!(row.2, "pending");
     assert_eq!(row.3["food_name"], "渴望六种鱼");
+
+    let pet_event_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM pet_events")
+        .fetch_one(app.pool())
+        .await
+        .expect("count pet events after proposed action");
+
+    assert_eq!(
+        pet_event_count_after, pet_event_count_before,
+        "proposed action persistence must not write pet_events strong facts"
+    );
 }

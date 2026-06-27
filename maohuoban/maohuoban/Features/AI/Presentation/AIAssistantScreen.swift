@@ -3,8 +3,8 @@ import MaohuobanDesignSystem
 
 // AIAssistantScreen 私域宠物 AI 助手页面
 // 核心职责：
-// - 组合 AI 助手上下文、消息流、建议问题和输入栏
-// - 在后端接入前提供前端可交互的本地对话壳
+// - 组合 AI 助手上下文、后端流式消息、建议问题和输入栏
+// - 接入真实 AI 对话仓库并在 Debug 环境保留本地流式压测入口
 struct AIAssistantScreen: View {
     @State private var store: AIAssistantStore
     @State private var isHistoryScreenPresented = false

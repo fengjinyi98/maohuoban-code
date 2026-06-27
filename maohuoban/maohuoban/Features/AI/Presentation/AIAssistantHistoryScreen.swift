@@ -3,7 +3,7 @@ import MaohuobanDesignSystem
 
 // AIAssistantHistoryScreen AI 对话记录页面
 // 核心职责：
-// - 以系统 push 页面展示毛球 mock 对话记录
+// - 以系统 push 页面展示后端 AI 对话记录
 // - 点击历史会话后回填聊天页并返回
 struct AIAssistantHistoryScreen: View {
     @Environment(\.dismiss) private var dismiss

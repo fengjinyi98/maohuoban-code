@@ -11,6 +11,7 @@ use maohuoban_ai_domain::ai::{
     LlmChatRequest, LlmFinishReason, LlmMessage, LlmRole, LlmToolSchema,
 };
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
+use std::time::Duration;
 
 #[test]
 fn provider_config_from_env_values_requires_base_url_key_and_model() {
@@ -256,4 +257,69 @@ async fn provider_maps_500_to_retryable_error() {
     let result = provider.complete(&sample_request()).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().is_retryable());
+}
+
+#[tokio::test]
+async fn provider_maps_timeout_to_stable_retryable_error() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions");
+        then.status(200)
+            .delay(Duration::from_secs(2))
+            .json_body(serde_json::json!({
+                "id": "chatcmpl-1",
+                "model": "test-model",
+                "choices": [{
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "ok"},
+                    "finish_reason": "stop"
+                }],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+            }));
+    });
+
+    let config = OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "test-key".to_owned(),
+        model: "test-model".to_owned(),
+        timeout_secs: 1,
+        temperature: 0.2,
+        max_output_tokens: None,
+    };
+    let provider = OpenAiCompatibleLlmProvider::new(config);
+
+    let result = provider.complete(&sample_request()).await;
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.stable_code(), "ai.provider_request_failed");
+    assert!(err.is_retryable());
+}
+
+#[tokio::test]
+async fn provider_maps_invalid_json_to_stable_retryable_error() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions");
+        then.status(200)
+            .header("content-type", "application/json")
+            .body("not-json");
+    });
+
+    let config = OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "test-key".to_owned(),
+        model: "test-model".to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: None,
+    };
+    let provider = OpenAiCompatibleLlmProvider::new(config);
+
+    let result = provider.complete(&sample_request()).await;
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.stable_code(), "ai.provider_request_failed");
+    assert!(err.is_retryable());
 }
