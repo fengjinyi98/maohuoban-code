@@ -163,7 +163,8 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
                 actionKind: "reminder_creation",
                 targetPetID: petID,
                 confirmText: "添加提醒",
-                riskLevel: "low"
+                riskLevel: "low",
+                payload: nil
             )),
         ]
     }

@@ -127,15 +127,9 @@ final class AIAssistantStore {
 
     func confirmPendingAction() {
         guard let pendingAction else { return }
-        messages.append(AIAssistantMessage(role: .user, text: pendingAction.confirmTitle))
-        messages.append(
-            AIAssistantMessage(
-                role: .assistant,
-                text: "已保留这次确认状态。后端写入接口接入后，这里会创建对应提醒或宠物事件，并生成审计记录。",
-                referenceChips: ["待接入后端动作"]
-            )
-        )
-        self.pendingAction = nil
+        Task { [weak self] in
+            await self?.confirm(pendingAction)
+        }
     }
 
     func cancelPendingAction() {
@@ -239,6 +233,23 @@ final class AIAssistantStore {
             messages[index].isStreaming = false
         }
         streamingRevision += 1
+    }
+
+    private func confirm(_ action: AIAssistantProposedAction) async {
+        do {
+            _ = try await repository.confirmProposedAction(action)
+            messages.append(AIAssistantMessage(role: .user, text: action.confirmTitle))
+            messages.append(AIAssistantMessage(role: .assistant, text: "已完成这次确认。"))
+            pendingAction = nil
+        } catch {
+            messages.append(
+                AIAssistantMessage(
+                    role: .assistant,
+                    text: "确认失败，请稍后重试。",
+                    referenceChips: ["确认未完成"]
+                )
+            )
+        }
     }
 
     private func loadSessionMessages(sessionID: String) async {

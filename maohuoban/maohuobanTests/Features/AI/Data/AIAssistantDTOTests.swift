@@ -77,7 +77,7 @@ final class AIAssistantDTOTests: XCTestCase {
 
     func testDecodeProposedActionEvent() {
         let json = """
-        {"action":{"id":"\(UUID.zeroString)","action_kind":"diet_change_confirmation","target_pet_id":"\(UUID.zeroString)","confirm_text":"确认换粮","risk_level":"low"}}
+        {"action":{"id":"\(UUID.zeroString)","action_kind":"diet_change_confirmation","target_pet_id":"\(UUID.zeroString)","confirm_text":"确认换粮","risk_level":"low","payload":{"food_item_id":"\(UUID.zeroString)","confirmed_fact_kind":"diet_change","source_question":"是否确认换粮？","derive_diet_change":true,"derive_feeding_correction":false}}}
         """
         let result = AIStreamEventDecoder.decode(event: "proposed_action", data: json)
 
@@ -88,6 +88,11 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(action.actionKind, "diet_change_confirmation")
         XCTAssertEqual(action.confirmText, "确认换粮")
         XCTAssertEqual(action.riskLevel, "low")
+        XCTAssertEqual(action.payload?.foodItemID, UUID(uuidString: UUID.zeroString))
+        XCTAssertEqual(action.payload?.confirmedFactKind, "diet_change")
+        XCTAssertEqual(action.payload?.sourceQuestion, "是否确认换粮？")
+        XCTAssertTrue(action.payload?.deriveDietChange == true)
+        XCTAssertTrue(action.payload?.deriveFeedingCorrection == false)
     }
 
     func testDecodeUnknownEventReturnsNil() {

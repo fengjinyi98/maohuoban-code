@@ -75,9 +75,10 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
     }
 
     func testConfirmPendingActionAppendsMessages() async {
+        let repository = MockAIAssistantRepository(streamEvents: Self.streamWithAction())
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
-            repository: MockAIAssistantRepository(streamEvents: Self.streamWithAction())
+            repository: repository
         )
         store.draftText = "疫苗"
         store.submitDraft()
@@ -85,11 +86,18 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 200_000_000)
 
         let countBefore = store.messages.count
+        guard let actionID = store.pendingAction?.id else {
+            XCTFail("没有待确认动作")
+            return
+        }
         store.confirmPendingAction()
+        try? await Task.sleep(nanoseconds: 200_000_000)
 
         XCTAssertEqual(store.messages.count, countBefore + 2)
         XCTAssertEqual(store.messages[countBefore].role, .user)
         XCTAssertEqual(store.messages[countBefore + 1].role, .assistant)
+        XCTAssertEqual(store.messages[countBefore + 1].text, "已完成这次确认。")
+        XCTAssertEqual(repository.confirmedActionIDs, [actionID])
         XCTAssertNil(store.pendingAction)
     }
 
@@ -181,7 +189,14 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
                 actionKind: "diet_change_confirmation",
                 targetPetID: petID,
                 confirmText: "确认换粮",
-                riskLevel: "low"
+                riskLevel: "low",
+                payload: AIProposedActionPayloadDTO(
+                    foodItemID: UUID(),
+                    confirmedFactKind: "diet_change",
+                    sourceQuestion: "是否确认换粮？",
+                    deriveDietChange: true,
+                    deriveFeedingCorrection: false
+                )
             )),
         ]
     }

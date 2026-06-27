@@ -14,6 +14,9 @@ protocol AIAssistantRepository {
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]>
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]>
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO>
 }
 
 // DefaultAIAssistantRepository 默认 AI 助手数据仓库
@@ -97,6 +100,40 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         try await client.get(path: "/api/v1/ai/chat-sessions/\(sessionID)/messages")
     }
 
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
+        guard action.actionKind == "diet_change_confirmation" || action.actionKind == "feeding_correction" else {
+            throw .business(
+                code: "ai.unsupported_action",
+                message: "当前建议动作暂不支持确认",
+                statusCode: 400
+            )
+        }
+        guard let payload = action.payload,
+              let foodItemID = payload.foodItemID,
+              let confirmedFactKind = payload.confirmedFactKind,
+              let sourceQuestion = payload.sourceQuestion else {
+            throw .business(
+                code: "ai.action_payload_missing",
+                message: "建议动作缺少确认所需信息",
+                statusCode: 400
+            )
+        }
+
+        let body = AIDietConfirmationRequestBody(
+            foodItemID: foodItemID,
+            confirmedFactKind: confirmedFactKind,
+            sourceQuestion: sourceQuestion,
+            deriveDietChange: payload.deriveDietChange,
+            deriveFeedingCorrection: payload.deriveFeedingCorrection
+        )
+        return try await client.post(
+            path: "/api/v1/pets/\(action.targetPetID)/diet-confirmations",
+            body: body
+        )
+    }
+
     // MARK: - Private
 
     private func buildStreamRequest(
@@ -146,6 +183,42 @@ private struct ChatStreamRequestBody: Encodable {
     }
 }
 
+// AIDietConfirmationRequestBody AI 饮食确认请求体
+// 核心职责：
+// - 承载 pending action 确认接口所需字段
+// - 保持前端字段命名和后端 snake_case 契约一致
+private struct AIDietConfirmationRequestBody: Encodable {
+    let foodItemID: String
+    let confirmedFactKind: String
+    let sourceQuestion: String
+    let deriveDietChange: Bool
+    let deriveFeedingCorrection: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case foodItemID = "food_item_id"
+        case confirmedFactKind = "confirmed_fact_kind"
+        case sourceQuestion = "source_question"
+        case deriveDietChange = "derive_diet_change"
+        case deriveFeedingCorrection = "derive_feeding_correction"
+    }
+}
+
+// AIAssistantActionConfirmationResultDTO 建议动作确认结果 DTO
+// 核心职责：
+// - 解码后端饮食确认接口返回的事件与配置 ID
+// - 让 Store 只关心确认是否成功
+struct AIAssistantActionConfirmationResultDTO: Decodable, Equatable {
+    let confirmedEventID: UUID
+    let assignmentID: UUID?
+    let correctionEventID: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case confirmedEventID = "confirmed_event_id"
+        case assignmentID = "assignment_id"
+        case correctionEventID = "correction_event_id"
+    }
+}
+
 // MockAIAssistantRepository 测试用 AI 助手数据仓库
 // 核心职责：
 // - 提供可控的流式事件序列和历史数据
@@ -154,15 +227,30 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var streamEvents: [AIStreamEventDTO]
     var sessions: [AIChatSessionDTO]
     var messages: [AIMessageDTO]
+    var confirmedActionIDs: [String] = []
+    var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
 
     init(
         streamEvents: [AIStreamEventDTO] = [],
         sessions: [AIChatSessionDTO] = [],
-        messages: [AIMessageDTO] = []
+        messages: [AIMessageDTO] = [],
+        confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError> = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.diet_candidate_confirmed",
+                message: "饮食候选已确认",
+                data: AIAssistantActionConfirmationResultDTO(
+                    confirmedEventID: UUID(),
+                    assignmentID: nil,
+                    correctionEventID: nil
+                )
+            )
+        )
     ) {
         self.streamEvents = streamEvents
         self.sessions = sessions
         self.messages = messages
+        self.confirmResult = confirmResult
     }
 
     func openChatStream(
@@ -185,5 +273,17 @@ final class MockAIAssistantRepository: AIAssistantRepository {
 
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
         MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: messages)
+    }
+
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
+        confirmedActionIDs.append(action.id)
+        switch confirmResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
     }
 }
