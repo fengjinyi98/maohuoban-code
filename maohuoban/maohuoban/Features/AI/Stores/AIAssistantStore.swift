@@ -64,8 +64,10 @@ final class AIAssistantStore {
 
     func submitDraft() {
         let prompt = sanitizedDraft
+        debugLog("submitDraft_enter promptEmpty=\(prompt.isEmpty) promptLen=\(prompt.count) canSendDraft=\(canSendDraft)")
         guard prompt.isEmpty == false else { return }
         draftText = ""
+        debugLog("submitDraft_after_clear")
         send(prompt)
     }
 
@@ -249,13 +251,18 @@ final class AIAssistantStore {
     }
 
     private func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
+        debugLog(
+            "applyStreamingFlush_enter messageID=\(String(messageID.uuidString.prefix(8))) textLen=\(text.count) nextIsStreaming=\(isStreaming)"
+        )
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index].text = text
         messages[index].isStreaming = isStreaming
         streamingRevision += 1
+        debugLog("applyStreamingFlush_after revision=\(streamingRevision)")
     }
 
     private func send(_ text: String) {
+        debugLog("send_enter textLen=\(text.count)")
         if currentConversationTitle == nil {
             currentConversationTitle = makeConversationTitle(from: text)
         }
@@ -274,11 +281,16 @@ final class AIAssistantStore {
         let assistantReplyStartIndex = messages.count
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
+        debugLog(
+            "send_placeholder_appended placeholderID=\(String(placeholder.id.uuidString.prefix(8))) assistantReplyStartIndex=\(assistantReplyStartIndex)"
+        )
         streamingEngine.begin(messageID: placeholder.id)
+        debugLog("send_after_begin")
 
         streamingTask?.cancel()
         streamingTask = Task { [weak self] in
             guard let self else { return }
+            self.debugLog("stream_task_start sessionPrefix=\(String((self.currentChatSessionID ?? "").prefix(8)))")
             let stream = self.repository.openChatStream(
                 message: text,
                 selectedPetID: self.context.selectedPetID,
@@ -288,22 +300,27 @@ final class AIAssistantStore {
             do {
                 for try await event in stream {
                     if Task.isCancelled { return }
+                    self.debugLog("stream_event_loop event=\(self.streamEventDebugName(event))")
                     self.handleStreamEvent(event)
                 }
                 if Task.isCancelled { return }
+                self.debugLog("stream_loop_finished_before_empty_check")
                 self.finishStreamIfAssistantReplyMissing(after: assistantReplyStartIndex)
                 await AIAssistantDiagnostics.recordStreamCompleted(
                     messageCount: self.messages.count,
                     assistantReplyPresent: self.hasCompletedAssistantReply(after: assistantReplyStartIndex),
                     isStreaming: self.isStreaming
                 )
+                self.debugLog("stream_task_completed")
             } catch {
+                self.debugLog("stream_task_catch error=\(self.streamErrorDiagnosticsCode(error))")
                 self.handleStreamError(error)
             }
         }
     }
 
     private func handleStreamEvent(_ event: AIStreamEventDTO) {
+        debugLog("handleStreamEvent_enter event=\(streamEventDebugName(event))")
         Task {
             await AIAssistantDiagnostics.recordStreamEventConsumed(
                 event,
@@ -314,6 +331,7 @@ final class AIAssistantStore {
 
         switch event {
         case .messageStarted(let chatSessionID, _, let title):
+            debugLog("handle_messageStarted sessionPrefix=\(String(chatSessionID.uuidString.prefix(8)))")
             currentChatSessionID = chatSessionID.uuidString
             if !title.isEmpty && title != "新对话" {
                 currentConversationTitle = title
@@ -334,6 +352,9 @@ final class AIAssistantStore {
             pendingAction = AIAssistantProposedAction(from: action)
 
         case .error(let code, _, let retryable, let safeFallbackText):
+            debugLog(
+                "handle_error_before_finish code=\(code) retryable=\(retryable) safeTextPresent=\(safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)"
+            )
             recordStreamIssue(
                 source: "backend_sse_error",
                 code: code,
@@ -341,18 +362,25 @@ final class AIAssistantStore {
                 hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
             )
             finishBackendError(safeFallbackText: safeFallbackText)
+            debugLog("handle_error_after_finish code=\(code)")
         }
     }
 
     private func ensureStreamingPlaceholderExists() {
-        guard streamingEngine.activeMessageID == nil else { return }
+        guard streamingEngine.activeMessageID == nil else {
+            debugLog("ensure_placeholder_skip_active")
+            return
+        }
+        debugLog("ensure_placeholder_create")
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
         streamingEngine.begin(messageID: placeholder.id)
         streamingRevision += 1
+        debugLog("ensure_placeholder_after revision=\(streamingRevision)")
     }
 
     private func applyCompletedAssistantMessage(finalText: String, referenceChips: [String]) {
+        debugLog("applyCompleted_enter finalLen=\(finalText.count) chips=\(referenceChips.count)")
         let activeMessageID = streamingEngine.activeMessageID
         if let activeMessageID {
             streamingEngine.complete(finalText: finalText)
@@ -392,10 +420,12 @@ final class AIAssistantStore {
                 referenceChipCount: referenceChips.count
             )
         }
+        debugLog("applyCompleted_after")
     }
 
     private func handleStreamError(_ error: Error) {
         if error is CancellationError { return }
+        debugLog("handleStreamError_enter code=\(streamErrorDiagnosticsCode(error))")
         recordStreamIssue(
             source: "local_stream_error",
             code: streamErrorDiagnosticsCode(error),
@@ -409,12 +439,15 @@ final class AIAssistantStore {
                 referenceChipCount: 0
             )
         }
+        debugLog("handleStreamError_after")
     }
 
     private func finishBackendError(safeFallbackText: String?) {
         let trimmedText = safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        debugLog("finishBackendError_enter safeTextLen=\(trimmedText?.count ?? 0)")
         guard let trimmedText, trimmedText.isEmpty == false else {
             discardCurrentAssistantReply()
+            debugLog("finishBackendError_discarded_empty_safe_text")
             return
         }
         replaceStreamingOrAppendAssistantMessage(trimmedText)
@@ -425,27 +458,34 @@ final class AIAssistantStore {
                 referenceChipCount: 0
             )
         }
+        debugLog("finishBackendError_after_replace")
     }
 
     private func replaceStreamingOrAppendAssistantMessage(_ text: String) {
+        debugLog("replaceStreaming_enter textLen=\(text.count)")
         streamingEngine.cancel()
         if let index = messages.lastIndex(where: { $0.isStreaming }) {
+            debugLog("replaceStreaming_reuse_index=\(index)")
             messages[index].text = text
             messages[index].isStreaming = false
         } else {
+            debugLog("replaceStreaming_append_new")
             messages.append(AIAssistantMessage(role: .assistant, text: text))
         }
         streamingRevision += 1
+        debugLog("replaceStreaming_after revision=\(streamingRevision)")
     }
 
     private func finishStreamIfAssistantReplyMissing(after startIndex: Int) {
         guard hasCompletedAssistantReply(after: startIndex) == false else { return }
+        debugLog("finishStreamIfMissing_enter startIndex=\(startIndex)")
         recordStreamIssue(
             source: "local_empty_stream",
             code: "ai.empty_stream",
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
         discardIncompleteAssistantReplies(after: startIndex)
+        debugLog("finishStreamIfMissing_after")
     }
 
     private func hasCompletedAssistantReply(after startIndex: Int) -> Bool {
@@ -458,6 +498,7 @@ final class AIAssistantStore {
     }
 
     private func discardIncompleteAssistantReplies(after startIndex: Int) {
+        debugLog("discardIncomplete_enter startIndex=\(startIndex)")
         let hadActiveStream = streamingEngine.isStreaming
         streamingEngine.cancel()
         let originalCount = messages.count
@@ -473,9 +514,11 @@ final class AIAssistantStore {
         if hadActiveStream || messages.count != originalCount {
             streamingRevision += 1
         }
+        debugLog("discardIncomplete_after originalCount=\(originalCount) revision=\(streamingRevision)")
     }
 
     private func discardCurrentAssistantReply() {
+        debugLog("discardCurrent_enter")
         let activeMessageID = streamingEngine.activeMessageID
         let hadActiveStream = streamingEngine.isStreaming
         streamingEngine.cancel()
@@ -488,6 +531,7 @@ final class AIAssistantStore {
         if hadActiveStream || messages.count != originalCount {
             streamingRevision += 1
         }
+        debugLog("discardCurrent_after originalCount=\(originalCount) revision=\(streamingRevision)")
     }
 
     private func recordStreamIssue(
@@ -520,6 +564,31 @@ final class AIAssistantStore {
         case .invalidResponse:
             return "invalid_response"
         }
+    }
+
+    private func streamEventDebugName(_ event: AIStreamEventDTO) -> String {
+        switch event {
+        case .messageStarted:
+            "message_started"
+        case .delta:
+            "delta"
+        case .messageCompleted:
+            "message_completed"
+        case .proposedAction:
+            "proposed_action"
+        case .error(let code, _, _, _):
+            "error:\(code)"
+        }
+    }
+
+    private func debugLog(_ message: String) {
+        #if DEBUG
+        let activePrefix = streamingEngine.activeMessageID.map { String($0.uuidString.prefix(8)) } ?? "nil"
+        let streamingMessageCount = messages.filter(\.isStreaming).count
+        print(
+            "[DEBUG:AISendLock] store \(message) isStreaming=\(isStreaming) activeMessageID=\(activePrefix) draftLen=\(draftText.count) messageCount=\(messages.count) streamingMessages=\(streamingMessageCount) revision=\(streamingRevision)"
+        )
+        #endif
     }
 
     private func confirm(_ action: AIAssistantProposedAction) async {
