@@ -25,7 +25,6 @@ final class AIAssistantStore {
     private var streamingTask: Task<Void, Never>?
     private var currentChatSessionID: String?
 
-    private static let genericFallbackText = "暂时无法获取回答，请稍后重试。"
     private static let networkFailureFallbackText = "网络连接失败，请检查网络后重试。"
 
     var isStreaming: Bool {
@@ -241,7 +240,7 @@ final class AIAssistantStore {
                     self.handleStreamEvent(event)
                 }
                 if Task.isCancelled { return }
-                self.appendFallbackIfAssistantReplyMissing(after: assistantReplyStartIndex)
+                self.finishStreamIfAssistantReplyMissing(after: assistantReplyStartIndex)
             } catch {
                 self.handleStreamError(error)
             }
@@ -267,39 +266,70 @@ final class AIAssistantStore {
             streamingRevision += 1
 
         case .messageCompleted(_, let finalText, let chips):
-            let activeMessageID = streamingEngine.activeMessageID
-            streamingEngine.complete(finalText: finalText)
-            if let activeMessageID,
-               let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
-                messages[index].referenceChips = chips
-            }
-            streamingRevision += 1
+            applyCompletedAssistantMessage(finalText: finalText, referenceChips: chips)
 
         case .proposedAction(let action):
             pendingAction = AIAssistantProposedAction(from: action)
 
         case .error(let code, _, let retryable, let safeFallbackText):
-            recordStreamFallback(
+            recordStreamIssue(
                 source: "backend_sse_error",
                 code: code,
                 retryable: retryable,
                 hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
             )
-            replaceStreamingOrAppendFallback(safeFallbackText ?? Self.genericFallbackText)
+            finishBackendError(safeFallbackText: safeFallbackText)
         }
+    }
+
+    private func applyCompletedAssistantMessage(finalText: String, referenceChips: [String]) {
+        let activeMessageID = streamingEngine.activeMessageID
+        if let activeMessageID {
+            streamingEngine.complete(finalText: finalText)
+            if let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
+                messages[index].referenceChips = referenceChips
+            }
+            streamingRevision += 1
+            return
+        }
+
+        streamingEngine.cancel()
+        if let index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
+            messages[index].text = finalText
+            messages[index].referenceChips = referenceChips
+            messages[index].isStreaming = false
+        } else {
+            messages.append(
+                AIAssistantMessage(
+                    role: .assistant,
+                    text: finalText,
+                    referenceChips: referenceChips
+                )
+            )
+        }
+        streamingRevision += 1
     }
 
     private func handleStreamError(_ error: Error) {
         if error is CancellationError { return }
-        recordStreamFallback(
+        recordStreamIssue(
             source: "local_stream_error",
             code: streamErrorDiagnosticsCode(error),
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
-        replaceStreamingOrAppendFallback(Self.networkFailureFallbackText)
+        replaceStreamingOrAppendAssistantMessage(Self.networkFailureFallbackText)
     }
 
-    private func replaceStreamingOrAppendFallback(_ text: String) {
+    private func finishBackendError(safeFallbackText: String?) {
+        let trimmedText = safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmedText, trimmedText.isEmpty == false else {
+            discardCurrentAssistantReply()
+            return
+        }
+        replaceStreamingOrAppendAssistantMessage(trimmedText)
+    }
+
+    private func replaceStreamingOrAppendAssistantMessage(_ text: String) {
         streamingEngine.cancel()
         if let index = messages.lastIndex(where: { $0.isStreaming }) {
             messages[index].text = text
@@ -310,20 +340,56 @@ final class AIAssistantStore {
         streamingRevision += 1
     }
 
-    private func appendFallbackIfAssistantReplyMissing(after startIndex: Int) {
-        let hasAssistantReply = messages.enumerated().contains { index, message in
-            index >= startIndex && message.role == .assistant
+    private func finishStreamIfAssistantReplyMissing(after startIndex: Int) {
+        let hasCompletedAssistantReply = messages.enumerated().contains { index, message in
+            index >= startIndex
+                && message.role == .assistant
+                && message.isStreaming == false
+                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         }
-        guard hasAssistantReply == false else { return }
-        recordStreamFallback(
+        guard hasCompletedAssistantReply == false else { return }
+        recordStreamIssue(
             source: "local_empty_stream",
             code: "ai.empty_stream",
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
-        replaceStreamingOrAppendFallback(Self.genericFallbackText)
+        discardIncompleteAssistantReplies(after: startIndex)
     }
 
-    private func recordStreamFallback(
+    private func discardIncompleteAssistantReplies(after startIndex: Int) {
+        let hadActiveStream = streamingEngine.isStreaming
+        streamingEngine.cancel()
+        let originalCount = messages.count
+        messages = messages.enumerated().compactMap { index, message in
+            guard index >= startIndex,
+                  message.role == .assistant,
+                  message.isStreaming || message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                return message
+            }
+            return nil
+        }
+        if hadActiveStream || messages.count != originalCount {
+            streamingRevision += 1
+        }
+    }
+
+    private func discardCurrentAssistantReply() {
+        let activeMessageID = streamingEngine.activeMessageID
+        let hadActiveStream = streamingEngine.isStreaming
+        streamingEngine.cancel()
+        let originalCount = messages.count
+        if let activeMessageID {
+            messages.removeAll { $0.id == activeMessageID }
+        } else {
+            messages.removeAll { $0.isStreaming }
+        }
+        if hadActiveStream || messages.count != originalCount {
+            streamingRevision += 1
+        }
+    }
+
+    private func recordStreamIssue(
         source: String,
         code: String,
         retryable: Bool? = nil,
@@ -338,7 +404,7 @@ final class AIAssistantStore {
             properties["retryable"] = .bool(retryable)
         }
         Task {
-            await Diagnostics.track("ai.chat.stream.fallback", properties: properties)
+            await Diagnostics.track("ai.chat.stream.issue", properties: properties)
         }
     }
 

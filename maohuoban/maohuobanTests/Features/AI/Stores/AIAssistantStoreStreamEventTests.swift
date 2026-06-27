@@ -4,8 +4,8 @@ import XCTest
 // AIAssistantStoreStreamEventTests Store 流式事件消费测试
 // 核心职责：
 // - 验证 Store 正确消费 Repository 返回的流式事件
-// - 验证 error 事件关闭流式状态并展示安全回退文案
-// - 验证网络错误关闭流式状态
+// - 验证 error 事件关闭流式状态并展示后端安全文案
+// - 验证异常流不会生成前端 AI 回复兜底
 @MainActor
 final class AIAssistantStoreStreamEventTests: XCTestCase {
 
@@ -28,7 +28,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(assistant.referenceChips, ["健康分级", "红旗症状"])
     }
 
-    func testErrorEventClosesStreamingAndShowsFallback() async {
+    func testErrorEventClosesStreamingAndShowsBackendSafeText() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
             repository: MockAIAssistantRepository(streamEvents: Self.errorEvents())
@@ -44,7 +44,39 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
             return
         }
         XCTAssertFalse(lastMessage.isStreaming)
-        XCTAssertEqual(lastMessage.text, "暂时无法获取回答，请稍后重试。")
+        XCTAssertEqual(lastMessage.text, "AI 服务暂时不可用，请稍后重试。")
+    }
+
+    func testErrorEventWithoutSafeTextDoesNotAppendFrontendFallback() async {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(streamEvents: Self.errorEventsWithoutSafeText())
+        )
+        store.draftText = "测试"
+        store.submitDraft()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertFalse(store.isStreaming)
+        XCTAssertEqual(store.messages.count, 1)
+        XCTAssertEqual(store.messages[0].role, .user)
+    }
+
+    func testMessageCompletedWithoutStartedShowsBackendFinalText() async {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(streamEvents: Self.backendCompletionOnlyEvents())
+        )
+        store.draftText = "测试"
+        store.submitDraft()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(store.messages.count, 2)
+        guard store.messages.count == 2 else { return }
+        XCTAssertEqual(store.messages[1].role, .assistant)
+        XCTAssertFalse(store.messages[1].isStreaming)
+        XCTAssertEqual(store.messages[1].text, "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。")
     }
 
     func testStreamFailureBeforeMessageStartedAppendsFallbackReply() async {
@@ -65,7 +97,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(store.messages[1].text, "网络连接失败，请检查网络后重试。")
     }
 
-    func testEmptyStreamAppendsFallbackReply() async {
+    func testEmptyStreamDoesNotAppendFrontendFallbackReply() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
             repository: MockAIAssistantRepository(streamEvents: [])
@@ -75,12 +107,24 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
 
         try? await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(store.messages.count, 2)
-        guard store.messages.count == 2 else { return }
+        XCTAssertFalse(store.isStreaming)
+        XCTAssertEqual(store.messages.count, 1)
         XCTAssertEqual(store.messages[0].role, .user)
-        XCTAssertEqual(store.messages[1].role, .assistant)
-        XCTAssertFalse(store.messages[1].isStreaming)
-        XCTAssertEqual(store.messages[1].text, "暂时无法获取回答，请稍后重试。")
+    }
+
+    func testStartedStreamWithoutCompletedTextRemovesEmptyPlaceholder() async {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(streamEvents: Self.startedOnlyEvents())
+        )
+        store.draftText = "毛球为什么不回复"
+        store.submitDraft()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertFalse(store.isStreaming)
+        XCTAssertEqual(store.messages.count, 1)
+        XCTAssertEqual(store.messages[0].role, .user)
     }
 
     func testProposedActionSetsPendingAction() async {
@@ -202,8 +246,38 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
                 code: "ai.provider_not_configured",
                 message: "AI 服务未配置",
                 retryable: false,
-                safeFallbackText: "暂时无法获取回答，请稍后重试。"
+                safeFallbackText: "AI 服务暂时不可用，请稍后重试。"
             ),
+        ]
+    }
+
+    private static func errorEventsWithoutSafeText() -> [AIStreamEventDTO] {
+        let sessionID = UUID()
+        let messageID = UUID()
+        return [
+            .messageStarted(chatSessionID: sessionID, messageID: messageID, title: "新对话"),
+            .error(
+                code: "ai.provider_not_configured",
+                message: "AI 服务未配置",
+                retryable: false,
+                safeFallbackText: nil
+            ),
+        ]
+    }
+
+    private static func backendCompletionOnlyEvents() -> [AIStreamEventDTO] {
+        [
+            .messageCompleted(
+                messageID: UUID(),
+                finalText: "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。",
+                referenceChips: []
+            ),
+        ]
+    }
+
+    private static func startedOnlyEvents() -> [AIStreamEventDTO] {
+        [
+            .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "新对话"),
         ]
     }
 
@@ -254,7 +328,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
 // FailingAIAssistantRepository 流式失败测试仓库
 // 核心职责：
 // - 模拟网络或 HTTP 错误发生在 message_started 之前
-// - 验证 Store 能给用户追加可见兜底回复
+// - 验证 Store 能给用户追加本地网络失败提示
 private final class FailingAIAssistantRepository: AIAssistantRepository {
     func openChatStream(
         message: String,
