@@ -2,10 +2,20 @@ use chrono::{DateTime, Utc};
 use maohuoban_ai_application::ai::ports::AiSessionRepository;
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiMessage, AiMessageRole, AiMessageStatus,
+    AiPetDisplaySnapshot,
 };
 use uuid::Uuid;
 
 use super::request::ChatStreamRequest;
+
+/// PetSessionContext AI 会话宠物上下文
+/// 核心职责：
+/// - 承载后端解析后的主宠物 ID
+/// - 承载用于历史展示的宠物快照
+pub(super) struct PetSessionContext {
+    pub(super) primary_pet_id: Option<Uuid>,
+    pub(super) pet_display_snapshot: Option<AiPetDisplaySnapshot>,
+}
 
 /// persist_session_and_user_message 持久化会话和用户消息
 /// 核心职责：
@@ -17,17 +27,18 @@ pub(super) async fn persist_session_and_user_message(
     actor_user_id: Uuid,
     session_id: Uuid,
     title: String,
+    pet_context: PetSessionContext,
     now: DateTime<Utc>,
 ) {
     let session = AiChatSession {
         id: session_id,
         actor_user_id,
-        primary_pet_id: req.selected_pet_id,
+        primary_pet_id: pet_context.primary_pet_id,
         surface: req.surface,
         source_hint_id: req.source_hint_id,
         source_task_id: req.confirmation_task_id,
         title,
-        pet_display_snapshot: None,
+        pet_display_snapshot: pet_context.pet_display_snapshot,
         status: AiChatSessionStatus::Active,
         created_at: now,
         updated_at: now,

@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiError, AiStreamEvent, LlmChatRequest, LlmFinishReason, LlmStreamEvent,
+    AiAnswerVerification, AiError, AiPetDisplaySnapshot, AiStreamEvent, LlmChatRequest,
+    LlmFinishReason, LlmStreamEvent,
 };
 
 use crate::ai::ports::LlmProvider;
@@ -44,6 +45,22 @@ impl AiStreamPipeline {
         message_id: uuid::Uuid,
         title: String,
     ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
+        self.run_with_target_pet(request, chat_session_id, message_id, title, None)
+    }
+
+    /// run_with_target_pet 启动带目标宠物快照的流式 pipeline
+    /// 核心职责：
+    /// - 在 message_started 中携带后端解析出的宠物展示快照
+    /// - 继续保持 Provider delta 到稳定 SSE 事件的转换
+    #[must_use]
+    pub fn run_with_target_pet(
+        &self,
+        request: LlmChatRequest,
+        chat_session_id: uuid::Uuid,
+        message_id: uuid::Uuid,
+        title: String,
+        target_pet: Option<AiPetDisplaySnapshot>,
+    ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
         let provider = self.provider.clone();
 
         async_stream::stream! {
@@ -51,7 +68,7 @@ impl AiStreamPipeline {
             yield Ok(AiStreamEvent::MessageStarted {
                 chat_session_id,
                 message_id,
-                target_pet: None,
+                target_pet,
                 title,
             });
 

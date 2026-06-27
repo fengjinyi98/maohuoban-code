@@ -12,7 +12,8 @@ use futures_util::{StreamExt, stream};
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::AiRequestGateLog;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiGateDecision, AiIntent, AiStreamEvent, LlmFinishReason, LlmUsage,
+    AiAnswerVerification, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution,
+    AiStreamEvent, LlmFinishReason, LlmUsage,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -23,7 +24,7 @@ use super::super::auth::current_user_id;
 use super::assistant_message_persistence::spawn_assistant_message_persist;
 use super::llm_request::build_llm_request;
 use super::request::ChatStreamRequest;
-use super::session_persistence::persist_session_and_user_message;
+use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
 use crate::ai::response::unauthorized_response;
 
@@ -47,12 +48,30 @@ pub async fn handle_chat_stream(
     let title = build_title(&req.message);
     let gate_decision = AiIntentGate::new().classify(&req.message);
 
+    let pet_resolution = if gate_decision.context_loaded {
+        state
+            .pet_resolver
+            .resolve(&req.message, req.selected_pet_id, actor_user_id)
+            .await
+            .ok()
+    } else {
+        None
+    };
+    let resolved_pet_id = pet_resolution
+        .as_ref()
+        .and_then(AiPetResolution::resolved_pet_id);
+    let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
+
     persist_session_and_user_message(
         &state.session_repository,
         &req,
         actor_user_id,
         session_id,
         title.clone(),
+        PetSessionContext {
+            primary_pet_id: resolved_pet_id.or(req.selected_pet_id),
+            pet_display_snapshot: target_pet.clone(),
+        },
         now,
     )
     .await;
@@ -66,7 +85,7 @@ pub async fn handle_chat_stream(
             gate_decision: gate_decision_code(&gate_decision).to_owned(),
             context_loaded: gate_decision.context_loaded,
             request_hash: request_hash(&req.message),
-            resolved_pet_id: None,
+            resolved_pet_id,
             selected_pet_id: req.selected_pet_id,
             risk_signal: gate_decision.risk_signal.clone(),
             estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
@@ -83,11 +102,50 @@ pub async fn handle_chat_stream(
         );
     }
 
-    let stream = state
-        .stream_pipeline
-        .run(llm_request, session_id, message_id, title);
+    if let Some(resolution) = pet_resolution
+        .as_ref()
+        .filter(|resolution| !resolution.is_resolved())
+    {
+        return pet_resolution_stream_response(
+            state.session_repository.clone(),
+            session_id,
+            message_id,
+            title,
+            resolution.clone(),
+        );
+    }
 
-    let session_repo = state.session_repository.clone();
+    let stream = state.stream_pipeline.run_with_target_pet(
+        llm_request,
+        session_id,
+        message_id,
+        title,
+        target_pet,
+    );
+
+    provider_stream_response(
+        stream,
+        state.session_repository.clone(),
+        session_id,
+        message_id,
+    )
+}
+
+/// provider_stream_response 构建 Provider 流式响应
+/// 核心职责：
+/// - 将 AiStreamEvent 转换为 SSE Event
+/// - 在 message_completed 时持久化助手消息
+fn provider_stream_response<S>(
+    stream: S,
+    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    session_id: Uuid,
+    message_id: Uuid,
+) -> Response
+where
+    S: futures_util::Stream<Item = Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
+        + Send
+        + 'static,
+{
     let sse_stream = stream.map(move |result| {
         let event = match result {
             Ok(e) => e,
@@ -173,6 +231,77 @@ fn gated_stream_response(
     Sse::new(sse_stream)
         .keep_alive(KeepAlive::default())
         .into_response()
+}
+
+/// pet_resolution_stream_response 构建宠物解析未完成的安全 SSE 响应
+/// 核心职责：
+/// - 返回 pet_resolution 事件帮助前端展示选择或缺失信息
+/// - 跳过主 Provider，避免在没有唯一宠物事实根时调用 LLM
+fn pet_resolution_stream_response(
+    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    session_id: Uuid,
+    message_id: Uuid,
+    title: String,
+    resolution: AiPetResolution,
+) -> Response {
+    let final_text = pet_resolution_message_text(&resolution).to_owned();
+    spawn_assistant_message_persist(
+        session_repo,
+        message_id,
+        session_id,
+        final_text.clone(),
+        0,
+        0,
+        "pet_resolution_skipped_main_agent".to_owned(),
+    );
+
+    let events = vec![
+        AiStreamEvent::MessageStarted {
+            chat_session_id: session_id,
+            message_id,
+            target_pet: None,
+            title,
+        },
+        AiStreamEvent::PetResolution { resolution },
+        AiStreamEvent::MessageCompleted {
+            message_id,
+            final_text,
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            citations: vec![],
+            verification: AiAnswerVerification::passed(),
+        },
+    ];
+    let sse_stream = stream::iter(events.into_iter().map(|event| {
+        let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
+        Ok::<Event, std::convert::Infallible>(Event::default().event(event.event_name()).data(json))
+    }));
+
+    Sse::new(sse_stream)
+        .keep_alive(KeepAlive::default())
+        .into_response()
+}
+
+/// resolved_pet_snapshot 提取已解析宠物快照
+/// 核心职责：
+/// - 只在 AiPetResolution::Resolved 时返回后端宠物展示快照
+fn resolved_pet_snapshot(pet_resolution: Option<&AiPetResolution>) -> Option<AiPetDisplaySnapshot> {
+    match pet_resolution {
+        Some(AiPetResolution::Resolved { snapshot, .. }) => Some(snapshot.clone()),
+        _ => None,
+    }
+}
+
+/// pet_resolution_message_text 返回宠物解析分支安全提示
+/// 核心职责：
+/// - 为无宠物、歧义和未授权场景提供不泄漏隐私的文案
+fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
+    match resolution {
+        AiPetResolution::NeedsSelection { .. } => "我需要先确认你想问哪只宠物。",
+        AiPetResolution::UnauthorizedOrNotFound => "我没有找到你有权限访问的这只宠物。",
+        AiPetResolution::NoPetContext => "请先创建或选择一只宠物，我再围绕它的记录继续回答。",
+        AiPetResolution::Resolved { .. } => "已确认目标宠物。",
+    }
 }
 
 /// gated_message_text 返回 gate 分支安全提示

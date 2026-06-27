@@ -6,6 +6,8 @@
     clippy::needless_raw_string_hashes
 )]
 
+#[path = "Infrastructure/ai_pet_catalog.rs"]
+mod ai_pet_catalog;
 #[path = "Infrastructure/ai_provider.rs"]
 mod ai_provider;
 pub mod diagnostics;
@@ -22,6 +24,7 @@ use diagnostics::{
     build_diagnostics_ingest_router, diagnostics_ingest_config_from_env, record_http_network,
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
+use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_http::ai::router::{AiHttpState, build_ai_router};
 use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
 use maohuoban_auth_application::auth::{
@@ -56,6 +59,8 @@ use media_content::build_media_content_router;
 use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
+
+use crate::ai_pet_catalog::PetServiceAuthorizedPetCatalog;
 
 /// BackendConfig 后端启动配置
 /// 核心职责：
@@ -212,10 +217,14 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let ai_stream_pipeline = Arc::new(ai_provider::build_ai_stream_pipeline_from_provider_config(
         config.ai_llm_provider_config,
     ));
+    let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
+        pet_service.clone(),
+    )));
     let ai_http_state = AiHttpState::new(
         ai_stream_pipeline,
         Arc::new(ai_session_repository.clone())
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+        ai_pet_resolver,
         auth_service.clone(),
     );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())

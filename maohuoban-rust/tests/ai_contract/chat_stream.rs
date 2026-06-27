@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use httpmock::MockServer;
+use serde_json::Value;
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -40,6 +41,8 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139001", "ios-ai-stream-test").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
 
     let response = app
         .router()
@@ -50,7 +53,8 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
             &access_token,
             json!({
                 "message": "毛球今天怎么样",
-                "surface": "home_private"
+                "surface": "home_private",
+                "selected_pet_id": pet_id
             }),
         ))
         .await
@@ -132,6 +136,8 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139009", "ios-ai-provider-config").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
 
     let response = app
         .router()
@@ -142,7 +148,8 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
             &access_token,
             json!({
                 "message": "毛球今天怎么样",
-                "surface": "home_private"
+                "surface": "home_private",
+                "selected_pet_id": pet_id
             }),
         ))
         .await
@@ -232,4 +239,120 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
     assert_eq!(row.0, "off_topic");
     assert!(!row.1);
     assert_eq!(row.2, None);
+}
+
+/// 宠物领域流式请求会从后端宠物档案解析 selected pet
+#[tokio::test]
+async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139011", "ios-ai-pet-resolve").await;
+
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+    let profile_number = pet["profile_number"].as_str().expect("profile number");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天拉肚子了怎么办",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send selected pet chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    let started = sse_event_data(&text, "message_started");
+
+    assert_eq!(started["target_pet"]["pet_id"], pet_id);
+    assert_eq!(started["target_pet"]["pet_name"], "毛球");
+    assert_eq!(started["target_pet"]["pet_species"], "cat");
+    assert_eq!(started["target_pet"]["profile_number"], profile_number);
+
+    let row: (Option<uuid::Uuid>, Option<uuid::Uuid>, bool) = sqlx::query_as(
+        r"
+        SELECT selected_pet_id, resolved_pet_id, context_loaded
+        FROM ai_request_gate_logs
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest gate log");
+
+    let pet_uuid = uuid::Uuid::parse_str(pet_id).expect("parse pet id");
+    assert_eq!(row.0, Some(pet_uuid));
+    assert_eq!(row.1, Some(pet_uuid));
+    assert!(row.2);
+
+    let snapshot: serde_json::Value = sqlx::query_scalar(
+        r"
+        SELECT pet_display_snapshot
+        FROM ai_chat_sessions
+        WHERE primary_pet_id = $1
+        ORDER BY updated_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(pet_uuid)
+    .fetch_one(app.pool())
+    .await
+    .expect("read session pet snapshot");
+
+    assert_eq!(snapshot["pet_id"], pet_id);
+    assert_eq!(snapshot["pet_name"], "毛球");
+    assert_eq!(snapshot["pet_species"], "cat");
+    assert_eq!(snapshot["profile_number"], profile_number);
+}
+
+async fn create_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+    name: &str,
+) -> Value {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/pets",
+            access_token,
+            json!({
+                "name": name,
+                "species": "cat",
+                "breed": "英短",
+                "sex": "male",
+                "birthday": "2024-01-01",
+                "arrival_date": "2024-03-01"
+            }),
+        ))
+        .await
+        .expect("create pet");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await["data"].clone()
+}
+
+fn sse_event_data(text: &str, event_name: &str) -> Value {
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == format!("event: {event_name}") {
+            for data_line in lines.by_ref() {
+                if let Some(data) = data_line.strip_prefix("data: ") {
+                    return serde_json::from_str(data).expect("parse sse data");
+                }
+            }
+        }
+    }
+
+    panic!("missing SSE event {event_name}, got: {text}");
 }
