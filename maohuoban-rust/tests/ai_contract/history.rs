@@ -26,6 +26,29 @@ async fn ai_chat_sessions_unauthorized_without_token() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
+/// GET /api/v1/ai/chat-sessions/{id}/messages 未登录返回 401
+#[tokio::test]
+async fn ai_session_messages_unauthorized_without_token() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let session_id = uuid::Uuid::new_v4();
+    let response = app
+        .router()
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/ai/chat-sessions/{session_id}/messages"))
+                .body(axum::body::Body::empty())
+                .expect("build request"),
+        )
+        .await
+        .expect("send unauthorized messages request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
 /// GET /api/v1/ai/chat-sessions 返回当前用户会话列表
 #[tokio::test]
 async fn ai_chat_sessions_returns_user_sessions() {

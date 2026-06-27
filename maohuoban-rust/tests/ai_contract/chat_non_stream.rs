@@ -3,7 +3,33 @@ use httpmock::MockServer;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_json};
+use super::{authorized_json_request, json_request, login_and_get_token, response_json};
+
+/// `/api/v1/ai/chat` 未登录返回 401
+#[tokio::test]
+async fn ai_chat_non_stream_unauthorized_without_token() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/ai/chat",
+            json!({
+                "message": "毛球今天怎么样",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send unauthorized non-stream chat request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "auth.session_expired");
+}
 
 /// `/api/v1/ai/chat` 未配置 Provider 时返回稳定错误
 #[tokio::test]
