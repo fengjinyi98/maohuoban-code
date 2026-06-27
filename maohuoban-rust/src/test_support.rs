@@ -45,6 +45,10 @@ impl AuthTestApp {
         sqlx::query(
             r#"
             TRUNCATE TABLE
+                ai_request_gate_logs,
+                ai_tool_access_logs,
+                ai_messages,
+                ai_chat_sessions,
                 samecity_hospital_appointments,
                 media_audit_events,
                 media_cleanup_jobs,
@@ -314,8 +318,16 @@ async fn assert_test_database(pool: &sqlx::PgPool) {
 }
 
 pub async fn spawn_auth_test_app() -> AuthTestApp {
+    spawn_auth_test_app_with_config(BackendConfig::local_test()).await
+}
+
+/// spawn_auth_test_app_with_config 使用指定配置构建契约测试应用
+/// 核心职责：
+/// - 允许测试覆盖根服务配置装配分支
+/// - 复用同一把锁避免数据库和 Redis 重置互相干扰
+pub async fn spawn_auth_test_app_with_config(config: BackendConfig) -> AuthTestApp {
     let guard = auth_test_lock().lock_owned().await;
-    let app = build_backend_app(BackendConfig::local_test())
+    let app = build_backend_app(config)
         .await
         .expect("build auth test app");
     AuthTestApp { app, _guard: guard }

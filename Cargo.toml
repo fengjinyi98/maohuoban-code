@@ -18,6 +18,10 @@ members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-ai-domain",
+    "maohuoban-rust/crates/maohuoban-ai-application",
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure",
+    "maohuoban-rust/crates/maohuoban-ai-http",
     "maohuoban-rust/crates/maohuoban-profile-application",
     "maohuoban-rust/crates/maohuoban-profile-domain",
     "maohuoban-rust/crates/maohuoban-profile-http",
@@ -51,6 +55,10 @@ default-members = [
     "maohuoban-rust/crates/maohuoban-pet-domain",
     "maohuoban-rust/crates/maohuoban-pet-http",
     "maohuoban-rust/crates/maohuoban-pet-infrastructure",
+    "maohuoban-rust/crates/maohuoban-ai-domain",
+    "maohuoban-rust/crates/maohuoban-ai-application",
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure",
+    "maohuoban-rust/crates/maohuoban-ai-http",
     "maohuoban-rust/crates/maohuoban-profile-application",
     "maohuoban-rust/crates/maohuoban-profile-domain",
     "maohuoban-rust/crates/maohuoban-profile-http",
@@ -74,6 +82,7 @@ rust-version = "1.96"
 
 [workspace.dependencies]
 argon2 = "0.5.3"
+async-stream = "0.3"
 async-trait = "0.1.89"
 axum = "0.8.9"
 base64 = "0.22.1"
@@ -98,6 +107,10 @@ maohuoban-pet-application = { path = "maohuoban-rust/crates/maohuoban-pet-applic
 maohuoban-pet-domain = { path = "maohuoban-rust/crates/maohuoban-pet-domain" }
 maohuoban-pet-http = { path = "maohuoban-rust/crates/maohuoban-pet-http" }
 maohuoban-pet-infrastructure = { path = "maohuoban-rust/crates/maohuoban-pet-infrastructure" }
+maohuoban-ai-application = { path = "maohuoban-rust/crates/maohuoban-ai-application" }
+maohuoban-ai-domain = { path = "maohuoban-rust/crates/maohuoban-ai-domain" }
+maohuoban-ai-http = { path = "maohuoban-rust/crates/maohuoban-ai-http" }
+maohuoban-ai-infrastructure = { path = "maohuoban-rust/crates/maohuoban-ai-infrastructure" }
 maohuoban-profile-application = { path = "maohuoban-rust/crates/maohuoban-profile-application" }
 maohuoban-profile-domain = { path = "maohuoban-rust/crates/maohuoban-profile-domain" }
 maohuoban-profile-http = { path = "maohuoban-rust/crates/maohuoban-profile-http" }
@@ -122,6 +135,9 @@ tower-http = { version = "0.6.11", features = ["cors", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 uuid = { version = "1.23.3", features = ["serde", "v4"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+httpmock = { version = "0.7", default-features = false }
+futures-util = "0.3.31"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

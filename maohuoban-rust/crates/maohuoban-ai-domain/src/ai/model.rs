@@ -1,0 +1,27 @@
+//! model AI 领域模型聚合
+//! 核心职责：
+//! - 声明 AI 领域全部 struct / enum 子模块并统一导出
+//! - 保持领域层无基础设施依赖
+
+mod fact_package;
+mod intent;
+mod llm;
+mod proposed_action;
+mod session;
+mod stream;
+mod surface;
+mod verification;
+
+mod pet_resolution;
+mod pet_snapshot;
+
+pub use fact_package::*;
+pub use intent::*;
+pub use llm::*;
+pub use pet_resolution::*;
+pub use pet_snapshot::*;
+pub use proposed_action::*;
+pub use session::*;
+pub use stream::*;
+pub use surface::*;
+pub use verification::*;

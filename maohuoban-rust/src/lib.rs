@@ -6,6 +6,8 @@
     clippy::needless_raw_string_hashes
 )]
 
+#[path = "Infrastructure/ai_provider.rs"]
+mod ai_provider;
 pub mod diagnostics;
 mod home_dashboard;
 mod home_event_projection;
@@ -20,6 +22,8 @@ use diagnostics::{
     build_diagnostics_ingest_router, diagnostics_ingest_config_from_env, record_http_network,
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
+use maohuoban_ai_http::ai::router::{AiHttpState, build_ai_router};
+use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
 };
@@ -67,6 +71,8 @@ pub struct BackendConfig {
     pub access_token_ttl_seconds: i64,
     pub refresh_token_ttl_seconds: i64,
     pub diagnostics_ingest_enabled: bool,
+    pub ai_llm_provider_config:
+        Option<maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig>,
 }
 
 impl BackendConfig {
@@ -92,6 +98,8 @@ impl BackendConfig {
                     .ok()
                     .as_deref(),
             ),
+            ai_llm_provider_config:
+                maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig::from_env(),
         }
     }
 
@@ -113,6 +121,7 @@ impl BackendConfig {
             access_token_ttl_seconds: 15 * 60,
             refresh_token_ttl_seconds: 180 * 24 * 60 * 60,
             diagnostics_ingest_enabled: true,
+            ai_llm_provider_config: None,
         }
     }
 }
@@ -134,6 +143,7 @@ pub struct BackendApp {
     pub profile_repository: PostgresProfileRepository,
     pub recommendation_repository: PostgresRecommendationRepository,
     pub samecity_repository: PostgresSameCityRepository,
+    pub ai_session_repository: PostgresAiSessionRepository,
 }
 
 /// build_backend_app 构建后端应用
@@ -198,13 +208,24 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
+    let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
+    let ai_stream_pipeline = Arc::new(ai_provider::build_ai_stream_pipeline_from_provider_config(
+        config.ai_llm_provider_config,
+    ));
+    let ai_http_state = AiHttpState::new(
+        ai_stream_pipeline,
+        Arc::new(ai_session_repository.clone())
+            as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+        auth_service.clone(),
+    );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
         .merge(build_legal_router(legal_service))
         .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
         .merge(build_profile_router(profile_service, auth_service.clone()))
         .merge(build_pet_router(pet_service, auth_service.clone()))
-        .merge(build_samecity_router(samecity_service, auth_service));
+        .merge(build_samecity_router(samecity_service, auth_service))
+        .merge(build_ai_router(ai_http_state));
     if config.diagnostics_ingest_enabled {
         router = router.merge(build_diagnostics_ingest_router(
             diagnostics_ingest_config_from_env(),
@@ -224,6 +245,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         profile_repository,
         recommendation_repository,
         samecity_repository,
+        ai_session_repository,
     })
 }
 

@@ -1,0 +1,23 @@
+[package]
+name = "maohuoban-ai-application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-stream.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
+maohuoban-ai-domain.workspace = true
+maohuoban-pet-application.workspace = true
+maohuoban-pet-domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true
