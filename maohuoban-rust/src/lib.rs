@@ -8,6 +8,8 @@
 
 #[path = "Infrastructure/ai_diet_context.rs"]
 mod ai_diet_context;
+#[path = "Infrastructure/ai_food_inventory_hints.rs"]
+mod ai_food_inventory_hints;
 #[path = "Infrastructure/ai_identity_context.rs"]
 mod ai_identity_context;
 #[path = "Infrastructure/ai_pet_catalog.rs"]
@@ -65,6 +67,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
 use crate::ai_diet_context::PetServiceDietFactProvider;
+use crate::ai_food_inventory_hints::PetServiceFoodInventoryHintProvider;
 use crate::ai_identity_context::PetServiceIdentityFactProvider;
 use crate::ai_pet_catalog::PetServiceAuthorizedPetCatalog;
 
@@ -220,19 +223,10 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
-    let ai_stream_pipeline = Arc::new(ai_provider::build_ai_stream_pipeline_from_provider_config(
+    let ai_http_state = build_ai_http_state(
         config.ai_llm_provider_config,
-    ));
-    let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
         pet_service.clone(),
-    )));
-    let ai_http_state = AiHttpState::new(
-        ai_stream_pipeline,
-        Arc::new(ai_session_repository.clone())
-            as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-        ai_pet_resolver,
-        Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
-        Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
+        ai_session_repository.clone(),
         auth_service.clone(),
     );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
@@ -264,6 +258,35 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         samecity_repository,
         ai_session_repository,
     })
+}
+
+/// build_ai_http_state 装配 AI HTTP 状态
+/// 核心职责：
+/// - 构建 LLM stream pipeline 和宠物上下文 provider
+/// - 保持 build_backend_app 的服务装配流程可读
+fn build_ai_http_state(
+    provider_config: Option<maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig>,
+    pet_service: Arc<PetService>,
+    ai_session_repository: PostgresAiSessionRepository,
+    auth_service: Arc<AuthService>,
+) -> AiHttpState {
+    let ai_stream_pipeline = Arc::new(ai_provider::build_ai_stream_pipeline_from_provider_config(
+        provider_config,
+    ));
+    let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
+        pet_service.clone(),
+    )));
+
+    AiHttpState::new(
+        ai_stream_pipeline,
+        Arc::new(ai_session_repository)
+            as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+        ai_pet_resolver,
+        Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
+        Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
+        Arc::new(PetServiceFoodInventoryHintProvider::new(pet_service)),
+        auth_service,
+    )
 }
 
 /// AuthProfileInitializer 认证资料初始化适配器

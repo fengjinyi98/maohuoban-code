@@ -6,6 +6,7 @@
 mod assistant_message_persistence;
 mod diet_fact_loader;
 mod fact_package_merge;
+mod food_inventory_hint_loader;
 mod gated_stream_response;
 mod identity_fact_loader;
 mod llm_request;

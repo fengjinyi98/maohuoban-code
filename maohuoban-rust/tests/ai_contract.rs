@@ -130,6 +130,9 @@ mod chat_stream;
 #[path = "ai_contract/chat_stream_diet_context.rs"]
 mod chat_stream_diet_context;
 
+#[path = "ai_contract/chat_stream_inventory_hints.rs"]
+mod chat_stream_inventory_hints;
+
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 

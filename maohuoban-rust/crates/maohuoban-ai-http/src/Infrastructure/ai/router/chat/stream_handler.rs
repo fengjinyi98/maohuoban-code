@@ -24,6 +24,7 @@ use super::super::auth::current_user_id;
 use super::assistant_message_persistence::spawn_assistant_message_persist;
 use super::diet_fact_loader::load_current_diet_fact_package;
 use super::fact_package_merge::merge_fact_packages;
+use super::food_inventory_hint_loader::load_food_inventory_hint_package;
 use super::gated_stream_response::gated_stream_response;
 use super::identity_fact_loader::load_identity_fact_package;
 use super::llm_request::build_llm_request;
@@ -161,11 +162,17 @@ async fn load_fact_context_and_initial_events(
         load_identity_fact_package(state, session_id, actor_user_id, target_pet).await;
     let (diet_fact_package, diet_events) =
         load_current_diet_fact_package(state, session_id, actor_user_id, target_pet).await;
+    let (food_inventory_hint_package, food_inventory_hint_events) =
+        load_food_inventory_hint_package(state, session_id, actor_user_id, target_pet).await;
     initial_events.extend(identity_events);
     initial_events.extend(diet_events);
+    initial_events.extend(food_inventory_hint_events);
 
     (
-        merge_fact_packages(identity_fact_package, diet_fact_package),
+        merge_fact_packages(
+            merge_fact_packages(identity_fact_package, diet_fact_package),
+            food_inventory_hint_package,
+        ),
         initial_events,
     )
 }
