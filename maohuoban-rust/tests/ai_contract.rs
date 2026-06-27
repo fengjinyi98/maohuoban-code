@@ -31,6 +31,51 @@ fn authorized_json_request(
         .expect("build authorized json request")
 }
 
+/// `authorized_multipart_media_request` 构造带 Bearer 认证的媒体上传请求
+/// 核心职责：
+/// - 固定 AI 契约测试中的 multipart 上传协议
+/// - 同时提交 `file`、`source_client` 和访问令牌
+fn authorized_multipart_media_request(
+    uri: &str,
+    file_name: &str,
+    mime_type: &str,
+    content: &[u8],
+    source_client: &str,
+    access_token: &str,
+) -> Request<Body> {
+    let boundary = format!("maohuoban-ai-test-{}", uuid::Uuid::new_v4());
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n\
+             Content-Type: {mime_type}\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(content);
+    body.extend_from_slice(b"\r\n");
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!(
+            "Content-Disposition: form-data; name=\"source_client\"\r\n\r\n{source_client}\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={boundary}"),
+        )
+        .header("authorization", format!("Bearer {access_token}"))
+        .body(Body::from(body))
+        .expect("build authorized multipart media request")
+}
+
 /// `authorized_get_request` 构造带 Bearer 认证的 GET 请求
 fn authorized_get_request(uri: &str, access_token: &str) -> Request<Body> {
     Request::builder()
@@ -39,6 +84,19 @@ fn authorized_get_request(uri: &str, access_token: &str) -> Request<Body> {
         .header("authorization", format!("Bearer {access_token}"))
         .body(Body::empty())
         .expect("build authorized get request")
+}
+
+/// `authorized_delete_request` 构造带 Bearer 认证的 DELETE 请求
+/// 核心职责：
+/// - 固定无 JSON body 的删除类契约测试请求
+/// - 保持认证头注入方式与 GET/JSON 请求一致
+fn authorized_delete_request(uri: &str, access_token: &str) -> Request<Body> {
+    Request::builder()
+        .method("DELETE")
+        .uri(uri)
+        .header("authorization", format!("Bearer {access_token}"))
+        .body(Body::empty())
+        .expect("build authorized delete request")
 }
 
 /// `response_json` 读取 JSON 响应

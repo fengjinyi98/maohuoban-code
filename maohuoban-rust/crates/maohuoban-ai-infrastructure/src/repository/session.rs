@@ -4,15 +4,16 @@
 //! - 持久化 AI 会话、消息，查询会话列表和消息详情
 
 use async_trait::async_trait;
-use chrono::Utc;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiError, AiMessage,
-    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiProposedAction, AiProposedActionKind,
-    AiProposedActionRisk, AiResult,
+    AiMessageRole, AiMessageStatus, AiProposedAction, AiProposedActionKind, AiProposedActionRisk,
+    AiResult,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use super::session_rows::{MessageRow, SessionRow};
 
 /// PostgresAiSessionRepository PostgreSQL AI 会话仓储
 /// 核心职责：
@@ -56,9 +57,9 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             r"
             INSERT INTO ai_chat_sessions
                 (id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                 source_task_id, title, pet_display_snapshot, status,
+                 source_task_id, title, is_pinned, pet_display_snapshot, status,
                  created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ON CONFLICT (id) DO UPDATE SET
                 title = EXCLUDED.title,
                 pet_display_snapshot = EXCLUDED.pet_display_snapshot,
@@ -73,6 +74,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(session.source_hint_id)
         .bind(session.source_task_id)
         .bind(&session.title)
+        .bind(session.is_pinned)
         .bind(snapshot_json)
         .bind(status_str)
         .bind(session.created_at)
@@ -148,11 +150,11 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         let rows = sqlx::query_as::<_, SessionRow>(
             r"
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                   source_task_id, title, pet_display_snapshot, status,
+                   source_task_id, title, is_pinned, pet_display_snapshot, status,
                    created_at, updated_at
             FROM ai_chat_sessions
-            WHERE actor_user_id = $1
-            ORDER BY updated_at DESC
+            WHERE actor_user_id = $1 AND status = 'active'
+            ORDER BY is_pinned DESC, updated_at DESC
             LIMIT $2
             ",
         )
@@ -188,13 +190,89 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         let row = sqlx::query_as::<_, SessionRow>(
             r"
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                   source_task_id, title, pet_display_snapshot, status,
+                   source_task_id, title, is_pinned, pet_display_snapshot, status,
                    created_at, updated_at
             FROM ai_chat_sessions
-            WHERE id = $1
+            WHERE id = $1 AND status = 'active'
             ",
         )
         .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(row.map(Into::into))
+    }
+
+    async fn rename_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        title: &str,
+    ) -> AiResult<Option<AiChatSession>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            r"
+            UPDATE ai_chat_sessions
+            SET title = $3, updated_at = now()
+            WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
+            RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
+                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                      created_at, updated_at
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
+        .bind(title)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(row.map(Into::into))
+    }
+
+    async fn set_session_pinned(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        is_pinned: bool,
+    ) -> AiResult<Option<AiChatSession>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            r"
+            UPDATE ai_chat_sessions
+            SET is_pinned = $3, updated_at = now()
+            WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
+            RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
+                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                      created_at, updated_at
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
+        .bind(is_pinned)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(row.map(Into::into))
+    }
+
+    async fn archive_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            r"
+            UPDATE ai_chat_sessions
+            SET status = 'archived', updated_at = now()
+            WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
+            RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
+                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                      created_at, updated_at
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
@@ -363,118 +441,5 @@ fn proposed_action_risk_code(risk: AiProposedActionRisk) -> &'static str {
         AiProposedActionRisk::Low => "low",
         AiProposedActionRisk::Medium => "medium",
         AiProposedActionRisk::High => "high",
-    }
-}
-
-#[derive(sqlx::FromRow)]
-struct SessionRow {
-    id: Uuid,
-    actor_user_id: Uuid,
-    primary_pet_id: Option<Uuid>,
-    surface: String,
-    source_hint_id: Option<Uuid>,
-    source_task_id: Option<Uuid>,
-    title: String,
-    pet_display_snapshot: Option<serde_json::Value>,
-    status: String,
-    created_at: chrono::DateTime<Utc>,
-    updated_at: chrono::DateTime<Utc>,
-}
-
-impl From<SessionRow> for AiChatSession {
-    fn from(row: SessionRow) -> Self {
-        let surface = match row.surface.as_str() {
-            "pet_profile" => maohuoban_ai_domain::ai::AiConversationSurface::PetProfile,
-            "abnormal_detail" => maohuoban_ai_domain::ai::AiConversationSurface::AbnormalDetail,
-            "confirmation_task" => maohuoban_ai_domain::ai::AiConversationSurface::ConfirmationTask,
-            "ugc_comment" => maohuoban_ai_domain::ai::AiConversationSurface::UgcComment,
-            _ => maohuoban_ai_domain::ai::AiConversationSurface::HomePrivate,
-        };
-
-        let status = match row.status.as_str() {
-            "archived" => AiChatSessionStatus::Archived,
-            _ => AiChatSessionStatus::Active,
-        };
-
-        let pet_display_snapshot = row
-            .pet_display_snapshot
-            .and_then(|v| serde_json::from_value::<AiPetDisplaySnapshot>(v).ok());
-
-        Self {
-            id: row.id,
-            actor_user_id: row.actor_user_id,
-            primary_pet_id: row.primary_pet_id,
-            surface,
-            source_hint_id: row.source_hint_id,
-            source_task_id: row.source_task_id,
-            title: row.title,
-            pet_display_snapshot,
-            status,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-        }
-    }
-}
-
-#[derive(sqlx::FromRow)]
-struct MessageRow {
-    id: Uuid,
-    session_id: Uuid,
-    role: String,
-    content: String,
-    status: String,
-    citations: serde_json::Value,
-    model: Option<String>,
-    provider: Option<String>,
-    finish_reason: Option<String>,
-    usage_input_tokens: Option<i32>,
-    usage_output_tokens: Option<i32>,
-    verification: Option<serde_json::Value>,
-    created_at: chrono::DateTime<Utc>,
-}
-
-impl From<MessageRow> for AiMessage {
-    fn from(row: MessageRow) -> Self {
-        let role = match row.role.as_str() {
-            "assistant" => AiMessageRole::Assistant,
-            "system" => AiMessageRole::System,
-            _ => AiMessageRole::User,
-        };
-
-        let status = match row.status.as_str() {
-            "streaming" => AiMessageStatus::Streaming,
-            "failed" => AiMessageStatus::Failed,
-            _ => AiMessageStatus::Completed,
-        };
-
-        let citations: Vec<Uuid> = row
-            .citations
-            .as_array()
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().and_then(|s| Uuid::parse_str(s).ok()))
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        let verification = row
-            .verification
-            .and_then(|v| serde_json::from_value(v).ok());
-
-        Self {
-            id: row.id,
-            session_id: row.session_id,
-            role,
-            content: row.content,
-            status,
-            citations,
-            model: row.model,
-            provider: row.provider,
-            finish_reason: row.finish_reason,
-            usage_input_tokens: row.usage_input_tokens.map(|t| t as u32),
-            usage_output_tokens: row.usage_output_tokens.map(|t| t as u32),
-            verification,
-            created_at: row.created_at,
-        }
     }
 }

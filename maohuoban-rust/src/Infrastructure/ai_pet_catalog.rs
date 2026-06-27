@@ -40,10 +40,18 @@ impl AuthorizedPetCatalog for PetServiceAuthorizedPetCatalog {
             .map(|profile| AiPetCandidate {
                 pet_id: profile.id,
                 name: profile.name,
-                avatar_url: None,
+                avatar_url: profile.avatar_asset_id.map(media_asset_url),
                 species: profile.species.as_str().to_owned(),
                 profile_number: profile.profile_number,
             })
             .collect())
     }
+}
+
+/// media_asset_url 构造媒体资产内容 URL
+/// 核心职责：
+/// - 对齐首页和宠物档案已有媒体 URL 契约
+/// - 为 AI 历史快照提供可直接展示的相对地址
+fn media_asset_url(asset_id: Uuid) -> String {
+    format!("/api/v1/media/assets/{asset_id}/content")
 }

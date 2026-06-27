@@ -4,28 +4,53 @@
 //! - 返回指定会话的消息详情
 //! - 校验 session 归属当前 actor
 
+use std::collections::HashMap;
+
 use axum::{
+    Json,
     extract::{Path, State},
     http::HeaderMap,
     response::Response,
 };
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use maohuoban_ai_domain::ai::{AiChatSession, AiError, AiPetCandidate, AiPetDisplaySnapshot};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::AiHttpState;
 use super::auth::current_user_id;
-use crate::ai::response::{ok_response, unauthorized_response};
+use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 /// ChatSessionItem 会话列表项
 #[derive(Debug, Serialize)]
 pub struct ChatSessionItem {
     pub id: Uuid,
     pub title: String,
+    pub is_pinned: bool,
     pub subtitle: String,
     pub pet_display_snapshot: Option<PetDisplaySnapshotDTO>,
     pub last_message_preview: String,
     pub last_message_at: String,
+}
+
+/// SessionMutationResultDTO 会话操作结果 DTO
+#[derive(Debug, Serialize)]
+pub struct SessionMutationResultDTO {
+    pub id: Uuid,
+    pub title: String,
+    pub is_pinned: bool,
+}
+
+/// RenameChatSessionRequest 重命名会话请求
+#[derive(Debug, Deserialize)]
+pub struct RenameChatSessionRequest {
+    pub title: String,
+}
+
+/// PinChatSessionRequest 置顶会话请求
+#[derive(Debug, Deserialize)]
+pub struct PinChatSessionRequest {
+    pub is_pinned: bool,
 }
 
 /// PetDisplaySnapshotDTO 宠物展示快照 DTO
@@ -62,6 +87,15 @@ pub async fn handle_list_sessions(
         .await
         .unwrap_or_default();
 
+    let pet_candidates_by_id = state
+        .pet_resolver
+        .list_authorized_candidates(actor_user_id)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|candidate| (candidate.pet_id, candidate))
+        .collect::<HashMap<_, _>>();
+
     let mut items: Vec<ChatSessionItem> = Vec::new();
     for s in &sessions {
         let messages = state
@@ -82,17 +116,14 @@ pub async fn handle_list_sessions(
         items.push(ChatSessionItem {
             id: s.id,
             title: s.title.clone(),
+            is_pinned: s.is_pinned,
             subtitle: format_subtitle(s.updated_at),
-            pet_display_snapshot: s
-                .pet_display_snapshot
-                .as_ref()
-                .map(|p| PetDisplaySnapshotDTO {
-                    pet_id: p.pet_id,
-                    pet_name: p.pet_name.clone(),
-                    pet_avatar_url: p.pet_avatar_url.clone(),
-                    pet_species: p.pet_species.clone(),
-                    profile_number: p.profile_number.clone(),
-                }),
+            pet_display_snapshot: history_pet_snapshot(
+                s.pet_display_snapshot.as_ref(),
+                s.primary_pet_id,
+                &pet_candidates_by_id,
+            )
+            .map(pet_snapshot_dto),
             last_message_preview: last_preview,
             last_message_at: last_at,
         });
@@ -137,6 +168,160 @@ pub async fn handle_get_session_messages(
 
     let _ = session;
     ok_response("ai.messages_loaded", "消息列表已加载", dtos)
+}
+
+/// handle_rename_session 重命名当前用户会话
+pub async fn handle_rename_session(
+    State(state): State<AiHttpState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(req): Json<RenameChatSessionRequest>,
+) -> Response {
+    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    let title = req.title.trim();
+    if title.is_empty() || title.chars().count() > 60 {
+        return ai_error_response(&AiError::InvalidInput(
+            "会话标题长度需为 1-60 个字符".to_owned(),
+        ));
+    }
+
+    match state
+        .session_repository
+        .rename_session(session_id, actor_user_id, title)
+        .await
+    {
+        Ok(Some(session)) => ok_response(
+            "ai.session_renamed",
+            "会话已重命名",
+            session_mutation_result(session),
+        ),
+        Ok(None) => unauthorized_response(),
+        Err(error) => ai_error_response(&error),
+    }
+}
+
+/// handle_pin_session 更新当前用户会话置顶状态
+pub async fn handle_pin_session(
+    State(state): State<AiHttpState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+    Json(req): Json<PinChatSessionRequest>,
+) -> Response {
+    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    match state
+        .session_repository
+        .set_session_pinned(session_id, actor_user_id, req.is_pinned)
+        .await
+    {
+        Ok(Some(session)) => ok_response(
+            "ai.session_pin_updated",
+            "会话置顶状态已更新",
+            session_mutation_result(session),
+        ),
+        Ok(None) => unauthorized_response(),
+        Err(error) => ai_error_response(&error),
+    }
+}
+
+/// handle_delete_session 归档当前用户会话
+pub async fn handle_delete_session(
+    State(state): State<AiHttpState>,
+    headers: HeaderMap,
+    Path(session_id): Path<Uuid>,
+) -> Response {
+    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
+        return unauthorized_response();
+    };
+
+    match state
+        .session_repository
+        .archive_session(session_id, actor_user_id)
+        .await
+    {
+        Ok(Some(session)) => ok_response(
+            "ai.session_deleted",
+            "会话已删除",
+            session_mutation_result(session),
+        ),
+        Ok(None) => unauthorized_response(),
+        Err(error) => ai_error_response(&error),
+    }
+}
+
+/// session_mutation_result 构造会话操作响应
+/// 核心职责：
+/// - 只暴露前端更新历史列表所需字段
+/// - 避免 mutation 响应泄露完整会话内部状态
+fn session_mutation_result(session: AiChatSession) -> SessionMutationResultDTO {
+    SessionMutationResultDTO {
+        id: session.id,
+        title: session.title,
+        is_pinned: session.is_pinned,
+    }
+}
+
+/// history_pet_snapshot 构造历史列表宠物快照
+/// 核心职责：
+/// - 保留会话创建时已持久化的宠物展示快照
+/// - 对旧数据缺失的头像字段使用当前授权宠物档案补齐
+fn history_pet_snapshot(
+    snapshot: Option<&AiPetDisplaySnapshot>,
+    primary_pet_id: Option<Uuid>,
+    pet_candidates_by_id: &HashMap<Uuid, AiPetCandidate>,
+) -> Option<AiPetDisplaySnapshot> {
+    let candidate = primary_pet_id.and_then(|pet_id| pet_candidates_by_id.get(&pet_id));
+
+    match (snapshot, candidate) {
+        (Some(snapshot), Some(candidate)) => {
+            let mut snapshot = snapshot.clone();
+            if is_missing_url(snapshot.pet_avatar_url.as_deref()) {
+                snapshot.pet_avatar_url.clone_from(&candidate.avatar_url);
+            }
+            if snapshot.pet_name.is_empty() {
+                snapshot.pet_name.clone_from(&candidate.name);
+            }
+            if snapshot.pet_species.is_empty() {
+                snapshot.pet_species.clone_from(&candidate.species);
+            }
+            if snapshot.profile_number.is_empty() {
+                snapshot
+                    .profile_number
+                    .clone_from(&candidate.profile_number);
+            }
+            Some(snapshot)
+        }
+        (Some(snapshot), None) => Some(snapshot.clone()),
+        (None, Some(candidate)) => Some(AiPetDisplaySnapshot::from(candidate)),
+        (None, None) => None,
+    }
+}
+
+/// is_missing_url 判断展示 URL 是否缺失
+/// 核心职责：
+/// - 统一处理 null、空串和纯空白字符串
+/// - 避免历史 DTO 输出无效头像地址
+fn is_missing_url(value: Option<&str>) -> bool {
+    value.is_none_or(|value| value.trim().is_empty())
+}
+
+/// pet_snapshot_dto 转换宠物快照 DTO
+/// 核心职责：
+/// - 隔离 domain 快照与 HTTP 响应结构
+/// - 保持历史列表字段命名稳定
+fn pet_snapshot_dto(snapshot: AiPetDisplaySnapshot) -> PetDisplaySnapshotDTO {
+    PetDisplaySnapshotDTO {
+        pet_id: snapshot.pet_id,
+        pet_name: snapshot.pet_name,
+        pet_avatar_url: snapshot.pet_avatar_url,
+        pet_species: snapshot.pet_species,
+        profile_number: snapshot.profile_number,
+    }
 }
 
 /// format_subtitle 格式化时间显示

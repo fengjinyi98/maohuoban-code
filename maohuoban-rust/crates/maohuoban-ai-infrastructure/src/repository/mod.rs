@@ -5,5 +5,6 @@
 //! - 查询会话列表和消息详情
 
 mod session;
+mod session_rows;
 
 pub use session::PostgresAiSessionRepository;

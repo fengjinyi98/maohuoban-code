@@ -48,7 +48,7 @@ pub trait AiSessionRepository: Send + Sync {
     /// insert_message 插入一条消息
     async fn insert_message(&self, message: &AiMessage) -> AiResult<()>;
 
-    /// list_sessions_by_actor 返回当前用户会话列表（按更新时间降序）
+    /// list_sessions_by_actor 返回当前用户会话列表（置顶优先，按更新时间降序）
     async fn list_sessions_by_actor(
         &self,
         actor_user_id: Uuid,
@@ -60,6 +60,29 @@ pub trait AiSessionRepository: Send + Sync {
 
     /// get_session 获取单个会话（含归属校验）
     async fn get_session(&self, session_id: Uuid) -> AiResult<Option<AiChatSession>>;
+
+    /// rename_session 重命名当前用户会话
+    async fn rename_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        title: &str,
+    ) -> AiResult<Option<AiChatSession>>;
+
+    /// set_session_pinned 更新当前用户会话置顶状态
+    async fn set_session_pinned(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        is_pinned: bool,
+    ) -> AiResult<Option<AiChatSession>>;
+
+    /// archive_session 归档当前用户会话
+    async fn archive_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>>;
 
     /// insert_request_gate_log 写入请求 gate 审计日志
     async fn insert_request_gate_log(&self, log: &AiRequestGateLog) -> AiResult<()>;

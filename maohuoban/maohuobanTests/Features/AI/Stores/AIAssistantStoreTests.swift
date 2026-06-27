@@ -119,6 +119,96 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testRenamingConversationHistoryUpdatesLocalListAndCurrentTitle() async {
+        let history = AIAssistantConversationHistory(
+            id: "test-session",
+            title: "旧标题",
+            subtitle: "今天",
+            messages: [AIAssistantMessage(role: .user, text: "疫苗")],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
+        )
+        let repository = MockAIAssistantRepository()
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: repository
+        )
+        store.histories = [history]
+        store.selectConversationHistory(history)
+
+        await store.renameConversationHistory(history, title: "新标题")
+
+        XCTAssertEqual(repository.renamedSessionIDs, ["test-session"])
+        XCTAssertEqual(repository.renamedTitles, ["新标题"])
+        XCTAssertEqual(store.histories.first?.title, "新标题")
+        XCTAssertEqual(store.navigationTitle, "新标题")
+    }
+
+    @MainActor
+    func testPinningConversationHistoryMovesItToTop() async {
+        let first = AIAssistantConversationHistory(
+            id: "first-session",
+            title: "第一条",
+            subtitle: "今天",
+            messages: [],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
+        )
+        let second = AIAssistantConversationHistory(
+            id: "second-session",
+            title: "第二条",
+            subtitle: "昨天",
+            messages: [],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
+        )
+        let repository = MockAIAssistantRepository()
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: repository
+        )
+        store.histories = [first, second]
+
+        await store.setConversationHistoryPinned(second, isPinned: true)
+
+        XCTAssertEqual(repository.pinnedSessionIDs, ["second-session"])
+        XCTAssertEqual(repository.pinnedStates, [true])
+        XCTAssertEqual(store.histories.map(\.id), ["second-session", "first-session"])
+        XCTAssertTrue(store.histories[0].isPinned)
+    }
+
+    @MainActor
+    func testDeletingSelectedConversationHistoryStartsNewConversation() async {
+        let history = AIAssistantConversationHistory(
+            id: "test-session",
+            title: "准备删除",
+            subtitle: "今天",
+            messages: [AIAssistantMessage(role: .user, text: "疫苗")],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
+        )
+        let repository = MockAIAssistantRepository()
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: repository
+        )
+        store.histories = [history]
+        store.selectConversationHistory(history)
+
+        await store.deleteConversationHistory(history)
+
+        XCTAssertEqual(repository.deletedSessionIDs, ["test-session"])
+        XCTAssertTrue(store.histories.isEmpty)
+        XCTAssertNil(store.selectedConversationHistoryID)
+        XCTAssertEqual(store.navigationTitle, "新对话")
+        XCTAssertTrue(store.messages.isEmpty)
+    }
+
+    @MainActor
     func testSubmittingFirstMessageUsesQuestionAsConversationTitle() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),

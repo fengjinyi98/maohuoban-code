@@ -1,8 +1,12 @@
 use axum::http::StatusCode;
 use serde_json::json;
+use std::time::Duration;
 use tower::ServiceExt;
 
-use super::{authorized_get_request, authorized_json_request, login_and_get_token, response_json};
+use super::{
+    authorized_delete_request, authorized_get_request, authorized_json_request,
+    authorized_multipart_media_request, login_and_get_token, response_json, response_text,
+};
 
 /// GET /api/v1/ai/chat-sessions 未登录返回 401
 #[tokio::test]
@@ -99,6 +103,87 @@ async fn ai_chat_sessions_returns_user_sessions() {
     );
 }
 
+/// GET /api/v1/ai/chat-sessions 对旧空快照补齐当前宠物头像
+#[tokio::test]
+async fn ai_chat_sessions_returns_pet_avatar_when_snapshot_avatar_is_missing() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139015", "ios-ai-history-avatar").await;
+
+    let avatar_asset_id = upload_pending_avatar(&app, &access_token).await;
+    let pet = create_pet_with_avatar(&app, &access_token, "毛球", &avatar_asset_id).await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let stream_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天拉肚子了怎么办",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send chat stream");
+    assert_eq!(stream_response.status(), StatusCode::OK);
+    let _ = response_text(stream_response).await;
+
+    let pet_uuid = uuid::Uuid::parse_str(pet_id).expect("parse pet id");
+    let session_id: uuid::Uuid = sqlx::query_scalar(
+        r"
+        SELECT id
+        FROM ai_chat_sessions
+        WHERE primary_pet_id = $1
+        ORDER BY updated_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(pet_uuid)
+    .fetch_one(app.pool())
+    .await
+    .expect("read created session id");
+
+    sqlx::query(
+        r"
+        UPDATE ai_chat_sessions
+        SET pet_display_snapshot = jsonb_set(
+            pet_display_snapshot,
+            '{pet_avatar_url}',
+            'null'::jsonb,
+            true
+        )
+        WHERE id = $1
+        ",
+    )
+    .bind(session_id)
+    .execute(app.pool())
+    .await
+    .expect("clear stored snapshot avatar");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_get_request(
+            "/api/v1/ai/chat-sessions",
+            &access_token,
+        ))
+        .await
+        .expect("get sessions");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    let first = &body["data"][0];
+    let expected_avatar_url = format!("/api/v1/media/assets/{avatar_asset_id}/content");
+    assert_eq!(
+        first["pet_display_snapshot"]["pet_avatar_url"],
+        expected_avatar_url
+    );
+}
+
 /// GET /api/v1/ai/chat-sessions/{id}/messages 返回会话消息
 #[tokio::test]
 async fn ai_session_messages_returns_messages() {
@@ -157,6 +242,248 @@ async fn ai_session_messages_returns_messages() {
     let first_msg = &messages[0];
     assert_eq!(first_msg["role"], "user");
     assert_eq!(first_msg["content"], "毛球精神不好");
+}
+
+/// PATCH /api/v1/ai/chat-sessions/{id}/title 重命名当前用户会话
+#[tokio::test]
+async fn ai_chat_session_title_can_be_renamed_by_owner() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139016", "ios-ai-history-rename").await;
+    let session_id = create_chat_session(&app, &access_token, "毛球今天吃饭了吗").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "PATCH",
+            &format!("/api/v1/ai/chat-sessions/{session_id}/title"),
+            &access_token,
+            json!({ "title": "毛球吃饭复盘" }),
+        ))
+        .await
+        .expect("rename chat session");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "ai.session_renamed");
+    assert_eq!(body["data"]["id"], session_id);
+    assert_eq!(body["data"]["title"], "毛球吃饭复盘");
+
+    let list_body = list_chat_sessions(&app, &access_token).await;
+    assert_eq!(list_body["data"][0]["title"], "毛球吃饭复盘");
+}
+
+/// PATCH /api/v1/ai/chat-sessions/{id}/pin 置顶后列表优先返回该会话
+#[tokio::test]
+async fn ai_chat_session_pin_moves_session_to_top() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139017", "ios-ai-history-pin").await;
+    let first_session_id = create_chat_session(&app, &access_token, "第一条聊天").await;
+    tokio::time::sleep(Duration::from_millis(5)).await;
+    let second_session_id = create_chat_session(&app, &access_token, "第二条聊天").await;
+
+    let before_body = list_chat_sessions(&app, &access_token).await;
+    assert_eq!(before_body["data"][0]["id"], second_session_id);
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "PATCH",
+            &format!("/api/v1/ai/chat-sessions/{first_session_id}/pin"),
+            &access_token,
+            json!({ "is_pinned": true }),
+        ))
+        .await
+        .expect("pin chat session");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "ai.session_pin_updated");
+    assert_eq!(body["data"]["id"], first_session_id);
+    assert_eq!(body["data"]["is_pinned"], true);
+
+    let after_body = list_chat_sessions(&app, &access_token).await;
+    assert_eq!(after_body["data"][0]["id"], first_session_id);
+    assert_eq!(after_body["data"][0]["is_pinned"], true);
+    assert_eq!(after_body["data"][1]["id"], second_session_id);
+}
+
+/// DELETE /api/v1/ai/chat-sessions/{id} 删除后历史列表不再返回该会话
+#[tokio::test]
+async fn ai_chat_session_delete_hides_session_from_history() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139018", "ios-ai-history-delete").await;
+    let session_id = create_chat_session(&app, &access_token, "准备删除的聊天").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_delete_request(
+            &format!("/api/v1/ai/chat-sessions/{session_id}"),
+            &access_token,
+        ))
+        .await
+        .expect("delete chat session");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "ai.session_deleted");
+    assert_eq!(body["data"]["id"], session_id);
+
+    let list_body = list_chat_sessions(&app, &access_token).await;
+    let sessions = list_body["data"].as_array().expect("sessions array");
+    assert!(
+        sessions.iter().all(|session| session["id"] != session_id),
+        "deleted session should be hidden from history list"
+    );
+}
+
+/// 会话操作拒绝其他用户访问
+#[tokio::test]
+async fn ai_chat_session_mutation_rejects_other_user() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let token_a = login_and_get_token(&app, "13800139019", "ios-ai-mutation-a").await;
+    let token_b = login_and_get_token(&app, "13800139020", "ios-ai-mutation-b").await;
+    let session_id = create_chat_session(&app, &token_a, "用户 A 的聊天").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "PATCH",
+            &format!("/api/v1/ai/chat-sessions/{session_id}/title"),
+            &token_b,
+            json!({ "title": "用户 B 尝试重命名" }),
+        ))
+        .await
+        .expect("rename other user session");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// `upload_pending_avatar` 上传待绑定宠物头像
+/// 核心职责：
+/// - 为 AI 历史契约创建真实媒体资产
+/// - 返回可绑定到宠物档案的 asset id
+async fn upload_pending_avatar(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+) -> String {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_multipart_media_request(
+            "/api/v1/pet-media/avatar",
+            "ai-history-avatar.txt",
+            "text/plain",
+            b"ai-history-avatar",
+            "ios",
+            access_token,
+        ))
+        .await
+        .expect("upload pending avatar");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    body["data"]["asset"]["id"]
+        .as_str()
+        .expect("avatar asset id")
+        .to_owned()
+}
+
+/// `create_pet_with_avatar` 创建带头像的宠物档案
+/// 核心职责：
+/// - 复用真实宠物创建接口绑定头像资产
+/// - 返回后续 AI 会话使用的宠物档案数据
+async fn create_pet_with_avatar(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+    name: &str,
+    avatar_asset_id: &str,
+) -> serde_json::Value {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/pets",
+            access_token,
+            json!({
+                "name": name,
+                "species": "cat",
+                "breed": "英短",
+                "sex": "male",
+                "birthday": "2024-01-01",
+                "arrival_date": "2024-03-01",
+                "avatar_asset_id": avatar_asset_id
+            }),
+        ))
+        .await
+        .expect("create pet with avatar");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await["data"].clone()
+}
+
+/// `create_chat_session` 通过真实聊天流创建 AI 会话
+/// 核心职责：
+/// - 复用当前历史契约的会话创建路径
+/// - 返回最新会话 ID 供后续会话操作接口测试
+async fn create_chat_session(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+    message: &str,
+) -> String {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            access_token,
+            json!({
+                "message": message,
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send chat stream");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+
+    let body = list_chat_sessions(app, access_token).await;
+    body["data"][0]["id"]
+        .as_str()
+        .expect("session id")
+        .to_owned()
+}
+
+/// `list_chat_sessions` 读取当前用户 AI 历史列表
+/// 核心职责：
+/// - 固定历史契约测试的列表请求
+/// - 返回完整 JSON 方便测试断言排序和字段
+async fn list_chat_sessions(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+) -> serde_json::Value {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_get_request(
+            "/api/v1/ai/chat-sessions",
+            access_token,
+        ))
+        .await
+        .expect("get sessions");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    response_json(response).await
 }
 
 /// 其他用户不能访问不属于自己的会话消息

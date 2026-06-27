@@ -109,7 +109,7 @@ final class AIAssistantDTOTests: XCTestCase {
 
     func testDecodeChatSessionList() throws {
         let json = """
-        [{"id":"\(UUID.zeroString)","title":"疫苗咨询","subtitle":"今天","pet_display_snapshot":{"pet_id":"\(UUID.zeroString)","pet_name":"毛球","pet_avatar_url":null,"pet_species":"cat","profile_number":"P001"},"last_message_preview":"下次疫苗在八月","last_message_at":"2026-06-27T10:00:00Z"}]
+        [{"id":"\(UUID.zeroString)","title":"疫苗咨询","is_pinned":true,"subtitle":"今天","pet_display_snapshot":{"pet_id":"\(UUID.zeroString)","pet_name":"毛球","pet_avatar_url":null,"pet_species":"cat","profile_number":"P001"},"last_message_preview":"下次疫苗在八月","last_message_at":"2026-06-27T10:00:00Z"}]
         """
         let data = json.data(using: .utf8)!
         let sessions = try JSONDecoder().decode([AIChatSessionDTO].self, from: data)
@@ -117,6 +117,7 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(sessions.count, 1)
         let session = sessions[0]
         XCTAssertEqual(session.title, "疫苗咨询")
+        XCTAssertTrue(session.isPinned)
         XCTAssertEqual(session.subtitle, "今天")
         XCTAssertEqual(session.lastMessagePreview, "下次疫苗在八月")
         XCTAssertEqual(session.petDisplaySnapshot?.petName, "毛球")

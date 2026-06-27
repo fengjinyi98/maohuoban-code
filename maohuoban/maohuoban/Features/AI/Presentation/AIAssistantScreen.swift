@@ -163,6 +163,21 @@ struct AIAssistantScreen: View {
                 },
                 onNewChat: {
                     store.startNewConversation()
+                },
+                onTogglePin: { history in
+                    Task {
+                        await store.setConversationHistoryPinned(history, isPinned: !history.isPinned)
+                    }
+                },
+                onRename: { history, title in
+                    Task {
+                        await store.renameConversationHistory(history, title: title)
+                    }
+                },
+                onDelete: { history in
+                    Task {
+                        await store.deleteConversationHistory(history)
+                    }
                 }
             )
             .task {

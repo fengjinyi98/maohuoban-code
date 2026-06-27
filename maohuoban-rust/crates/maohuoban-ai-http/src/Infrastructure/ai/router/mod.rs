@@ -9,7 +9,10 @@ mod history;
 
 use std::sync::Arc;
 
-use axum::{Router, routing::post};
+use axum::{
+    Router,
+    routing::{delete, get, patch, post},
+};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, FoodInventoryHintProvider, PetDietConfirmationCandidateProvider,
@@ -88,11 +91,23 @@ pub fn build_ai_router(state: AiHttpState) -> Router {
         .route("/api/v1/ai/chat/stream", post(chat::handle_chat_stream))
         .route(
             "/api/v1/ai/chat-sessions",
-            axum::routing::get(history::handle_list_sessions),
+            get(history::handle_list_sessions),
+        )
+        .route(
+            "/api/v1/ai/chat-sessions/{id}/title",
+            patch(history::handle_rename_session),
+        )
+        .route(
+            "/api/v1/ai/chat-sessions/{id}/pin",
+            patch(history::handle_pin_session),
+        )
+        .route(
+            "/api/v1/ai/chat-sessions/{id}",
+            delete(history::handle_delete_session),
         )
         .route(
             "/api/v1/ai/chat-sessions/{id}/messages",
-            axum::routing::get(history::handle_get_session_messages),
+            get(history::handle_get_session_messages),
         )
         .with_state(state)
 }

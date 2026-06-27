@@ -7,12 +7,18 @@ import MaohuobanDesignSystem
 // - 点击历史会话或新聊天入口后回填聊天页并返回
 struct AIAssistantHistoryScreen: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var pendingDeleteHistory: AIAssistantConversationHistory?
+    @State private var pendingRenameHistory: AIAssistantConversationHistory?
+    @State private var renameDraftTitle = ""
 
     let title: String
     let histories: [AIAssistantConversationHistory]
     let selectedHistoryID: String?
     let onSelect: (AIAssistantConversationHistory) -> Void
     let onNewChat: () -> Void
+    let onTogglePin: (AIAssistantConversationHistory) -> Void
+    let onRename: (AIAssistantConversationHistory, String) -> Void
+    let onDelete: (AIAssistantConversationHistory) -> Void
 
     var body: some View {
         GeometryReader { proxy in
@@ -36,6 +42,16 @@ struct AIAssistantHistoryScreen: View {
                                         dismiss()
                                     }
                                 )
+                                .contextMenu {
+                                    AIAssistantHistoryContextMenuContent(
+                                        actions: AIAssistantHistoryContextMenuActionResolver.actions(
+                                            isPinned: history.isPinned
+                                        ),
+                                        onAction: { action in
+                                            handleMenuAction(action, history: history)
+                                        }
+                                    )
+                                }
 
                                 if history.id != histories.last?.id {
                                     Divider()
@@ -69,6 +85,77 @@ struct AIAssistantHistoryScreen: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ai.assistant.historyScreen")
+        .alert(
+            "重命名聊天",
+            isPresented: renameHistoryAlertBinding,
+            presenting: pendingRenameHistory
+        ) { history in
+            TextField("聊天标题", text: $renameDraftTitle)
+            Button("保存") {
+                onRename(history, renameDraftTitle)
+                pendingRenameHistory = nil
+                renameDraftTitle = ""
+            }
+            Button("取消", role: .cancel) {
+                pendingRenameHistory = nil
+                renameDraftTitle = ""
+            }
+        } message: { history in
+            Text("为“\(history.title)”设置新的标题。")
+        }
+        .alert(
+            "删除聊天记录",
+            isPresented: deleteHistoryAlertBinding,
+            presenting: pendingDeleteHistory
+        ) { history in
+            Button("删除", role: .destructive) {
+                onDelete(history)
+                pendingDeleteHistory = nil
+            }
+            Button("取消", role: .cancel) {
+                pendingDeleteHistory = nil
+            }
+        } message: { history in
+            Text("将删除“\(history.title)”这条聊天记录。")
+        }
+    }
+
+    private var renameHistoryAlertBinding: Binding<Bool> {
+        Binding(
+            get: { pendingRenameHistory != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    pendingRenameHistory = nil
+                    renameDraftTitle = ""
+                }
+            }
+        )
+    }
+
+    private var deleteHistoryAlertBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeleteHistory != nil },
+            set: { isPresented in
+                if isPresented == false {
+                    pendingDeleteHistory = nil
+                }
+            }
+        )
+    }
+
+    private func handleMenuAction(
+        _ action: AIAssistantHistoryContextMenuAction,
+        history: AIAssistantConversationHistory
+    ) {
+        switch action {
+        case .togglePin:
+            onTogglePin(history)
+        case .rename:
+            renameDraftTitle = history.title
+            pendingRenameHistory = history
+        case .delete:
+            pendingDeleteHistory = history
+        }
     }
 }
 
@@ -115,10 +202,18 @@ private struct AIAssistantHistoryRow: View {
                             .lineLimit(1)
                     }
 
-                    Text(history.title)
-                        .font(MHBTheme.Typography.callout.weight(.semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                        .lineLimit(1)
+                    HStack(spacing: MHBTheme.Spacing.s1) {
+                        if history.isPinned {
+                            Image(systemName: "pin.fill")
+                                .font(MHBTheme.Typography.caption.weight(.semibold))
+                                .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                        }
+
+                        Text(history.title)
+                            .font(MHBTheme.Typography.callout.weight(.semibold))
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                            .lineLimit(1)
+                    }
 
                     Text(history.messages.last?.text ?? "暂无消息")
                         .font(MHBTheme.Typography.footnote)
@@ -133,7 +228,27 @@ private struct AIAssistantHistoryRow: View {
             .background(isSelected ? MHBTheme.ColorToken.primaryBackgroundSoft.color : MHBTheme.ColorToken.background.color)
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(.interaction, Rectangle())
+        .contentShape(.contextMenuPreview, AIAssistantHistoryTrailingMenuAnchorShape())
         .accessibilityLabel(history.title)
+    }
+}
+
+// AIAssistantHistoryTrailingMenuAnchorShape 历史菜单右侧锚点形状
+// 核心职责：
+// - 将系统 context menu 的预览源区域约束到 row 右侧
+// - 保持整行点击和长按命中区域不变
+private struct AIAssistantHistoryTrailingMenuAnchorShape: Shape {
+    nonisolated func path(in rect: CGRect) -> Path {
+        let width = min(96, rect.width)
+        let anchorRect = CGRect(
+            x: rect.maxX - width,
+            y: rect.minY,
+            width: width,
+            height: rect.height
+        )
+        return Path(anchorRect)
     }
 }
 

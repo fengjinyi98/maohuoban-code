@@ -141,12 +141,21 @@ async fn stream_pipeline_emits_error_on_provider_failure() {
         events.push(event);
     }
 
-    // 应该有 message_started + error
     assert!(!events.is_empty());
-    let has_error = events
-        .iter()
-        .any(|e| matches!(e, Ok(AiStreamEvent::Error { .. })));
-    assert!(has_error, "should emit error event");
+    assert!(matches!(
+        events.first(),
+        Some(Ok(AiStreamEvent::MessageStarted { .. }))
+    ));
+    assert!(matches!(
+        events.get(1),
+        Some(Ok(AiStreamEvent::Error {
+            code,
+            retryable: false,
+            safe_fallback_text: Some(safe_fallback_text),
+            ..
+        })) if code == "ai.provider_not_configured"
+            && safe_fallback_text == "暂时无法获取回答，请稍后重试。"
+    ));
 }
 
 #[tokio::test]

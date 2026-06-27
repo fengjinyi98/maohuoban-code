@@ -76,6 +76,17 @@ impl AiPetResolver {
         }
     }
 
+    /// list_authorized_candidates 读取当前用户授权宠物候选
+    /// 核心职责：
+    /// - 复用 resolver 持有的授权宠物目录
+    /// - 支撑历史展示对旧会话宠物快照的只读补齐
+    pub async fn list_authorized_candidates(
+        &self,
+        actor_user_id: uuid::Uuid,
+    ) -> AiResult<Vec<AiPetCandidate>> {
+        self.catalog.list_authorized_candidates(actor_user_id).await
+    }
+
     /// resolve_with_selected 有 selected pet 时的解析
     fn resolve_with_selected(
         candidates: &[AiPetCandidate],

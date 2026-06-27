@@ -58,7 +58,7 @@ pub enum AiChatSessionStatus {
 
 /// AiChatSession AI 会话
 /// 核心职责：
-/// - 持久化会话、actor user、primary pet、surface、source hint、source task、标题和宠物展示快照
+/// - 持久化会话、actor user、primary pet、surface、source hint、source task、标题、置顶和宠物展示快照
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiChatSession {
     pub id: Uuid,
@@ -70,6 +70,7 @@ pub struct AiChatSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_task_id: Option<Uuid>,
     pub title: String,
+    pub is_pinned: bool,
     pub pet_display_snapshot: Option<AiPetDisplaySnapshot>,
     pub status: AiChatSessionStatus,
     pub created_at: DateTime<Utc>,

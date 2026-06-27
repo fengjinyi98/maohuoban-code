@@ -38,6 +38,7 @@ pub(super) async fn persist_session_and_user_message(
         source_hint_id: req.source_hint_id,
         source_task_id: req.confirmation_task_id,
         title,
+        is_pinned: false,
         pet_display_snapshot: pet_context.pet_display_snapshot,
         status: AiChatSessionStatus::Active,
         created_at: now,

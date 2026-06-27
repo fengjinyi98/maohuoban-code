@@ -63,16 +63,29 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
     assert_eq!(response.status(), StatusCode::OK);
     let text = response_text(response).await;
 
-    // SSE 应包含 message_started 事件
     assert!(
         text.contains("event: message_started"),
         "SSE should contain message_started event, got: {text}"
     );
-
-    // DisabledLlmProvider 触发 error 事件
     assert!(
         text.contains("event: error"),
         "SSE should contain error event for disabled provider, got: {text}"
+    );
+    let started_index = text
+        .find("event: message_started")
+        .expect("message_started event index");
+    let error_index = text.find("event: error").expect("error event index");
+    assert!(
+        started_index < error_index,
+        "message_started should arrive before provider error, got: {text}"
+    );
+
+    let error = sse_event_data(&text, "error");
+    assert_eq!(error["code"], "ai.provider_not_configured");
+    assert_eq!(error["retryable"], false);
+    assert_eq!(
+        error["safe_fallback_text"],
+        "暂时无法获取回答，请稍后重试。"
     );
 }
 

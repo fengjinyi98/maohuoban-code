@@ -14,6 +14,15 @@ protocol AIAssistantRepository {
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]>
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]>
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO>
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO>
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO>
     func confirmProposedAction(
         _ action: AIAssistantProposedAction
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO>
@@ -100,6 +109,33 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         try await client.get(path: "/api/v1/ai/chat-sessions/\(sessionID)/messages")
     }
 
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        try await client.patch(
+            path: "/api/v1/ai/chat-sessions/\(sessionID)/title",
+            body: AIChatSessionRenameRequestBody(title: title)
+        )
+    }
+
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        try await client.patch(
+            path: "/api/v1/ai/chat-sessions/\(sessionID)/pin",
+            body: AIChatSessionPinRequestBody(isPinned: isPinned)
+        )
+    }
+
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        try await client.delete(
+            path: "/api/v1/ai/chat-sessions/\(sessionID)",
+            body: AIChatSessionEmptyRequestBody()
+        )
+    }
+
     func confirmProposedAction(
         _ action: AIAssistantProposedAction
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
@@ -165,6 +201,32 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
     }
 }
 
+// AIChatSessionRenameRequestBody AI 会话重命名请求体
+// 核心职责：
+// - 承载用户输入的新会话标题
+// - 保持字段命名与后端契约一致
+private struct AIChatSessionRenameRequestBody: Encodable {
+    let title: String
+}
+
+// AIChatSessionPinRequestBody AI 会话置顶请求体
+// 核心职责：
+// - 承载目标置顶状态
+// - 对齐后端 is_pinned 字段
+private struct AIChatSessionPinRequestBody: Encodable {
+    let isPinned: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case isPinned = "is_pinned"
+    }
+}
+
+// AIChatSessionEmptyRequestBody AI 会话空请求体
+// 核心职责：
+// - 复用 JSON DELETE 发送路径
+// - 承接只依赖路径和授权头的会话删除命令
+private struct AIChatSessionEmptyRequestBody: Encodable {}
+
 // ChatStreamRequestBody 流式聊天请求体
 // 核心职责：
 // - 承载用户消息和入口上下文
@@ -228,6 +290,11 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var sessions: [AIChatSessionDTO]
     var messages: [AIMessageDTO]
     var confirmedActionIDs: [String] = []
+    var renamedSessionIDs: [String] = []
+    var renamedTitles: [String] = []
+    var pinnedSessionIDs: [String] = []
+    var pinnedStates: [Bool] = []
+    var deletedSessionIDs: [String] = []
     var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
 
     init(
@@ -275,6 +342,41 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: messages)
     }
 
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        renamedSessionIDs.append(sessionID)
+        renamedTitles.append(title)
+        return sessionMutationResponse(
+            sessionID: sessionID,
+            title: title,
+            isPinned: currentPinnedState(sessionID: sessionID)
+        )
+    }
+
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        pinnedSessionIDs.append(sessionID)
+        pinnedStates.append(isPinned)
+        return sessionMutationResponse(
+            sessionID: sessionID,
+            title: currentTitle(sessionID: sessionID),
+            isPinned: isPinned
+        )
+    }
+
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        deletedSessionIDs.append(sessionID)
+        return sessionMutationResponse(
+            sessionID: sessionID,
+            title: currentTitle(sessionID: sessionID),
+            isPinned: currentPinnedState(sessionID: sessionID)
+        )
+    }
+
     func confirmProposedAction(
         _ action: AIAssistantProposedAction
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
@@ -285,5 +387,30 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         case .failure(let error):
             throw error
         }
+    }
+
+    private func sessionMutationResponse(
+        sessionID: String,
+        title: String,
+        isPinned: Bool
+    ) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        MHBAPIResponse(
+            success: true,
+            code: "ai.session_mutated",
+            message: "ok",
+            data: AIChatSessionMutationResultDTO(
+                id: UUID(uuidString: sessionID) ?? UUID(),
+                title: title,
+                isPinned: isPinned
+            )
+        )
+    }
+
+    private func currentTitle(sessionID: String) -> String {
+        sessions.first { $0.id.uuidString == sessionID }?.title ?? "会话"
+    }
+
+    private func currentPinnedState(sessionID: String) -> Bool {
+        sessions.first { $0.id.uuidString == sessionID }?.isPinned ?? false
     }
 }

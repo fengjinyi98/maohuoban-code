@@ -7,11 +7,32 @@ import Foundation
 struct AIAssistantConversationHistory: Identifiable, Hashable {
     let id: String
     let title: String
+    let isPinned: Bool
     let subtitle: String
     let messages: [AIAssistantMessage]
     let petAvatarURL: String?
     let petName: String
     let petSpecies: AIAssistantPetSpecies
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String,
+        messages: [AIAssistantMessage],
+        petAvatarURL: String?,
+        petName: String,
+        petSpecies: AIAssistantPetSpecies,
+        isPinned: Bool = false
+    ) {
+        self.id = id
+        self.title = title
+        self.isPinned = isPinned
+        self.subtitle = subtitle
+        self.messages = messages
+        self.petAvatarURL = petAvatarURL
+        self.petName = petName
+        self.petSpecies = petSpecies
+    }
 }
 
 // MARK: - DTO 映射
@@ -31,7 +52,21 @@ extension AIAssistantConversationHistory {
             ],
             petAvatarURL: snapshot?.petAvatarURL,
             petName: snapshot?.petName ?? "宠物",
-            petSpecies: AIAssistantPetSpecies.from(dto.petDisplaySnapshot?.petSpecies)
+            petSpecies: AIAssistantPetSpecies.from(dto.petDisplaySnapshot?.petSpecies),
+            isPinned: dto.isPinned
+        )
+    }
+
+    func updating(title: String? = nil, isPinned: Bool? = nil) -> AIAssistantConversationHistory {
+        AIAssistantConversationHistory(
+            id: id,
+            title: title ?? self.title,
+            subtitle: subtitle,
+            messages: messages,
+            petAvatarURL: petAvatarURL,
+            petName: petName,
+            petSpecies: petSpecies,
+            isPinned: isPinned ?? self.isPinned
         )
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 import UIKit
 
 // AIAssistantStore AI 助手状态容器
@@ -23,6 +24,9 @@ final class AIAssistantStore {
     private(set) var streamingEngine = AIAssistantStreamingEngine()
     private var streamingTask: Task<Void, Never>?
     private var currentChatSessionID: String?
+
+    private static let genericFallbackText = "暂时无法获取回答，请稍后重试。"
+    private static let networkFailureFallbackText = "网络连接失败，请检查网络后重试。"
 
     var isStreaming: Bool {
         streamingEngine.isStreaming
@@ -125,6 +129,61 @@ final class AIAssistantStore {
         }
     }
 
+    func renameConversationHistory(
+        _ history: AIAssistantConversationHistory,
+        title: String
+    ) async {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedTitle.isEmpty == false else { return }
+
+        do {
+            let response = try await repository.renameChatSession(
+                sessionID: history.id,
+                title: trimmedTitle
+            )
+            let updatedTitle = response.data?.title ?? trimmedTitle
+            updateHistory(history.id) { history in
+                history.updating(title: updatedTitle)
+            }
+            if selectedConversationHistoryID == history.id {
+                currentConversationTitle = updatedTitle
+            }
+        } catch {
+            return
+        }
+    }
+
+    func setConversationHistoryPinned(
+        _ history: AIAssistantConversationHistory,
+        isPinned: Bool
+    ) async {
+        do {
+            let response = try await repository.setChatSessionPinned(
+                sessionID: history.id,
+                isPinned: isPinned
+            )
+            let updatedPinnedState = response.data?.isPinned ?? isPinned
+            updateHistory(history.id) { history in
+                history.updating(isPinned: updatedPinnedState)
+            }
+            sortHistoriesByPinnedState()
+        } catch {
+            return
+        }
+    }
+
+    func deleteConversationHistory(_ history: AIAssistantConversationHistory) async {
+        do {
+            _ = try await repository.deleteChatSession(sessionID: history.id)
+            histories.removeAll { $0.id == history.id }
+            if selectedConversationHistoryID == history.id || currentChatSessionID == history.id {
+                startNewConversation()
+            }
+        } catch {
+            return
+        }
+    }
+
     func confirmPendingAction() {
         guard let pendingAction else { return }
         Task { [weak self] in
@@ -165,6 +224,7 @@ final class AIAssistantStore {
 
         messages.append(AIAssistantMessage(role: .user, text: text))
         clearAttachment()
+        let assistantReplyStartIndex = messages.count
 
         streamingTask?.cancel()
         streamingTask = Task { [weak self] in
@@ -180,6 +240,8 @@ final class AIAssistantStore {
                     if Task.isCancelled { return }
                     self.handleStreamEvent(event)
                 }
+                if Task.isCancelled { return }
+                self.appendFallbackIfAssistantReplyMissing(after: assistantReplyStartIndex)
             } catch {
                 self.handleStreamError(error)
             }
@@ -216,23 +278,84 @@ final class AIAssistantStore {
         case .proposedAction(let action):
             pendingAction = AIAssistantProposedAction(from: action)
 
-        case .error(_, _, _, let safeFallbackText):
-            streamingEngine.cancel()
-            if let index = messages.lastIndex(where: { $0.isStreaming }) {
-                messages[index].text = safeFallbackText ?? "暂时无法获取回答，请稍后重试。"
-                messages[index].isStreaming = false
-            }
-            streamingRevision += 1
+        case .error(let code, _, let retryable, let safeFallbackText):
+            recordStreamFallback(
+                source: "backend_sse_error",
+                code: code,
+                retryable: retryable,
+                hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
+            )
+            replaceStreamingOrAppendFallback(safeFallbackText ?? Self.genericFallbackText)
         }
     }
 
     private func handleStreamError(_ error: Error) {
+        if error is CancellationError { return }
+        recordStreamFallback(
+            source: "local_stream_error",
+            code: streamErrorDiagnosticsCode(error),
+            hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
+        )
+        replaceStreamingOrAppendFallback(Self.networkFailureFallbackText)
+    }
+
+    private func replaceStreamingOrAppendFallback(_ text: String) {
         streamingEngine.cancel()
         if let index = messages.lastIndex(where: { $0.isStreaming }) {
-            messages[index].text = "网络连接失败，请检查网络后重试。"
+            messages[index].text = text
             messages[index].isStreaming = false
+        } else {
+            messages.append(AIAssistantMessage(role: .assistant, text: text))
         }
         streamingRevision += 1
+    }
+
+    private func appendFallbackIfAssistantReplyMissing(after startIndex: Int) {
+        let hasAssistantReply = messages.enumerated().contains { index, message in
+            index >= startIndex && message.role == .assistant
+        }
+        guard hasAssistantReply == false else { return }
+        recordStreamFallback(
+            source: "local_empty_stream",
+            code: "ai.empty_stream",
+            hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
+        )
+        replaceStreamingOrAppendFallback(Self.genericFallbackText)
+    }
+
+    private func recordStreamFallback(
+        source: String,
+        code: String,
+        retryable: Bool? = nil,
+        hasStreamingPlaceholder: Bool
+    ) {
+        var properties: DiagnosticProperties = [
+            "source": .string(source),
+            "code": .string(code),
+            "has_streaming_placeholder": .bool(hasStreamingPlaceholder)
+        ]
+        if let retryable {
+            properties["retryable"] = .bool(retryable)
+        }
+        Task {
+            await Diagnostics.track("ai.chat.stream.fallback", properties: properties)
+        }
+    }
+
+    private func streamErrorDiagnosticsCode(_ error: Error) -> String {
+        guard let apiError = error as? MHBAPIError else {
+            return String(describing: type(of: error))
+        }
+        switch apiError {
+        case .business(let code, _, _):
+            return code
+        case .transport:
+            return "transport"
+        case .decoding:
+            return "decoding"
+        case .invalidResponse:
+            return "invalid_response"
+        }
     }
 
     private func confirm(_ action: AIAssistantProposedAction) async {
@@ -255,6 +378,7 @@ final class AIAssistantStore {
     private func loadSessionMessages(sessionID: String) async {
         do {
             let response = try await repository.fetchSessionMessages(sessionID: sessionID)
+            guard currentChatSessionID == sessionID else { return }
             if let data = response.data {
                 messages = data.map { dto in
                     AIAssistantMessage(
@@ -272,6 +396,20 @@ final class AIAssistantStore {
         let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard title.count > 18 else { return title }
         return "\(title.prefix(18))..."
+    }
+
+    private func updateHistory(
+        _ id: String,
+        transform: (AIAssistantConversationHistory) -> AIAssistantConversationHistory
+    ) {
+        guard let index = histories.firstIndex(where: { $0.id == id }) else { return }
+        histories[index] = transform(histories[index])
+    }
+
+    private func sortHistoriesByPinnedState() {
+        let pinned = histories.filter(\.isPinned)
+        let unpinned = histories.filter { !$0.isPinned }
+        histories = pinned + unpinned
     }
 }
 

@@ -7,6 +7,7 @@ import Foundation
 struct AIChatSessionDTO: Decodable {
     let id: UUID
     let title: String
+    let isPinned: Bool
     let subtitle: String
     let petDisplaySnapshot: AIPetDisplaySnapshotDTO?
     let lastMessagePreview: String
@@ -15,10 +16,38 @@ struct AIChatSessionDTO: Decodable {
     enum CodingKeys: String, CodingKey {
         case id
         case title
+        case isPinned = "is_pinned"
         case subtitle
         case petDisplaySnapshot = "pet_display_snapshot"
         case lastMessagePreview = "last_message_preview"
         case lastMessageAt = "last_message_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        subtitle = try container.decode(String.self, forKey: .subtitle)
+        petDisplaySnapshot = try container.decodeIfPresent(AIPetDisplaySnapshotDTO.self, forKey: .petDisplaySnapshot)
+        lastMessagePreview = try container.decode(String.self, forKey: .lastMessagePreview)
+        lastMessageAt = try container.decode(String.self, forKey: .lastMessageAt)
+    }
+}
+
+// AIChatSessionMutationResultDTO AI 会话操作结果 DTO
+// 核心职责：
+// - 解码后端重命名、置顶和删除接口返回的会话关键字段
+// - 让 Store 使用服务端确认后的标题与置顶状态更新本地列表
+struct AIChatSessionMutationResultDTO: Decodable, Equatable {
+    let id: UUID
+    let title: String
+    let isPinned: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case isPinned = "is_pinned"
     }
 }
 
