@@ -22,7 +22,9 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
-use super::assistant_message_persistence::spawn_assistant_message_persist;
+use super::assistant_message_persistence::{
+    AssistantMessagePersistRequest, persist_assistant_message,
+};
 use super::diet_confirmation_candidate_loader::load_diet_confirmation_candidate_package;
 use super::diet_fact_loader::load_current_diet_fact_package;
 use super::fact_package_merge::merge_fact_packages;
@@ -340,38 +342,59 @@ where
         + Send
         + 'static,
 {
-    let sse_stream = stream.map(move |result| {
-        let event = match result {
-            Ok(e) => e,
-            Err(err) => AiStreamEvent::Error {
-                code: err.stable_code().to_owned(),
-                message: err.to_string(),
-                retryable: err.is_retryable(),
-                blocked_reason: None,
-                safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
-            },
-        };
+    let sse_stream = stream.then(move |result| {
+        let session_repo = session_repo.clone();
+        async move {
+            let event = match result {
+                Ok(e) => e,
+                Err(err) => AiStreamEvent::Error {
+                    code: err.stable_code().to_owned(),
+                    message: err.to_string(),
+                    retryable: err.is_retryable(),
+                    blocked_reason: None,
+                    safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
+                },
+            };
 
-        if let AiStreamEvent::MessageCompleted {
-            final_text,
-            usage,
-            finish_reason,
-            ..
-        } = &event
-        {
-            spawn_assistant_message_persist(
-                session_repo.clone(),
-                message_id,
-                session_id,
-                final_text.clone(),
-                usage.input_tokens,
-                usage.output_tokens,
-                format!("{finish_reason:?}"),
-            );
+            if let AiStreamEvent::MessageCompleted {
+                final_text,
+                usage,
+                finish_reason,
+                citations,
+                ..
+            } = &event
+            {
+                persist_assistant_message(
+                    &session_repo,
+                    AssistantMessagePersistRequest::new(
+                        message_id,
+                        session_id,
+                        final_text.clone(),
+                        citations.clone(),
+                        usage.input_tokens,
+                        usage.output_tokens,
+                        format!("{finish_reason:?}"),
+                    ),
+                )
+                .await;
+            }
+
+            if let AiStreamEvent::ProposedAction { action } = &event {
+                let repo = session_repo.clone();
+                let mut action = action.clone();
+                if action.source_message_id.is_none() {
+                    action.source_message_id = Some(message_id);
+                }
+                tokio::spawn(async move {
+                    let _ = repo.insert_proposed_action(session_id, &action).await;
+                });
+            }
+
+            let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
+            Ok::<Event, std::convert::Infallible>(
+                Event::default().event(event.event_name()).data(json),
+            )
         }
-
-        let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
-        Ok::<Event, std::convert::Infallible>(Event::default().event(event.event_name()).data(json))
     });
 
     Sse::new(sse_stream)

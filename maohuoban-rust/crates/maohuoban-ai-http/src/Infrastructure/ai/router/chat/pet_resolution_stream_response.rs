@@ -8,7 +8,9 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::assistant_message_persistence::spawn_assistant_message_persist;
+use super::assistant_message_persistence::{
+    AssistantMessagePersistRequest, spawn_assistant_message_persist,
+};
 
 /// pet_resolution_stream_response 构建宠物解析未完成的安全 SSE 响应
 /// 核心职责：
@@ -24,12 +26,15 @@ pub(super) fn pet_resolution_stream_response(
     let final_text = pet_resolution_message_text(&resolution).to_owned();
     spawn_assistant_message_persist(
         session_repo,
-        message_id,
-        session_id,
-        final_text.clone(),
-        0,
-        0,
-        "pet_resolution_skipped_main_agent".to_owned(),
+        AssistantMessagePersistRequest::new(
+            message_id,
+            session_id,
+            final_text.clone(),
+            Vec::new(),
+            0,
+            0,
+            "pet_resolution_skipped_main_agent".to_owned(),
+        ),
     );
 
     let events = vec![

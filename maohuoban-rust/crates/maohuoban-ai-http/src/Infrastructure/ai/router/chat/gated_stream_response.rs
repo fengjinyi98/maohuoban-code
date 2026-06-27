@@ -8,7 +8,9 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::assistant_message_persistence::spawn_assistant_message_persist;
+use super::assistant_message_persistence::{
+    AssistantMessagePersistRequest, spawn_assistant_message_persist,
+};
 
 /// gated_stream_response 构建不进入主 Agent 的安全 SSE 响应
 /// 核心职责：
@@ -24,12 +26,15 @@ pub(super) fn gated_stream_response(
     let final_text = gated_message_text(gate_decision).to_owned();
     spawn_assistant_message_persist(
         session_repo,
-        message_id,
-        session_id,
-        final_text.clone(),
-        0,
-        0,
-        "gate_skipped_main_agent".to_owned(),
+        AssistantMessagePersistRequest::new(
+            message_id,
+            session_id,
+            final_text.clone(),
+            Vec::new(),
+            0,
+            0,
+            "gate_skipped_main_agent".to_owned(),
+        ),
     );
 
     let events = vec![

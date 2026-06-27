@@ -67,6 +67,10 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
         text.contains("event: tool_call") && text.contains("load_pet_current_diet_context"),
         "SSE should contain diet context tool_call, got: {text}"
     );
+    assert!(
+        text.contains("event: citation") && text.contains(&assignment_id),
+        "SSE should contain diet assignment citation event, got: {text}"
+    );
 
     let tool_log: (String, bool, Option<uuid::Uuid>, serde_json::Value) = sqlx::query_as(
         r"
@@ -87,6 +91,21 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     assert_eq!(tool_log.2, Some(pet_uuid));
     let returned_ref_ids = tool_log.3.as_array().expect("returned ref ids");
     assert!(returned_ref_ids.contains(&json!(assignment_id)));
+
+    let citation_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_message_citations
+        WHERE source_kind = 'diet_assignment'
+          AND source_id = $1
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(&assignment_id).expect("assignment id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count persisted message citations");
+
+    assert_eq!(citation_count, 1);
 }
 
 async fn create_pet(

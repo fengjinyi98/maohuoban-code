@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiError, AiFactPackage, AiPetDisplaySnapshot, AiResult, AiStreamEvent,
-    LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
+    AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiPetDisplaySnapshot, AiResult,
+    AiStreamEvent, LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
 };
 
 use crate::ai::ports::LlmProvider;
@@ -46,6 +46,7 @@ pub struct AiCompleteResult {
     pub finish_reason: LlmFinishReason,
     pub provider: String,
     pub model: String,
+    pub citations: Vec<AiCitation>,
     pub verification: AiAnswerVerification,
 }
 
@@ -194,6 +195,7 @@ impl AiStreamPipeline {
 
             let accumulated_text = delta_chunks.concat();
             let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
+            let citations = package.citations.clone();
             let verification = AiAnswerVerifier::new().verify(&accumulated_text, &package);
 
             if verification.is_blocked() {
@@ -201,6 +203,9 @@ impl AiStreamPipeline {
                     .safe_fallback_text
                     .clone()
                     .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
+                for citation in citations.clone() {
+                    yield Ok(AiStreamEvent::Citation { citation });
+                }
                 yield Ok(AiStreamEvent::Delta {
                     text: final_text.clone(),
                 });
@@ -209,12 +214,15 @@ impl AiStreamPipeline {
                     final_text,
                     usage,
                     finish_reason: LlmFinishReason::ContentFilter,
-                    citations: Vec::new(),
+                    citations,
                     verification,
                 });
                 return;
             }
 
+            for citation in citations.clone() {
+                yield Ok(AiStreamEvent::Citation { citation });
+            }
             for text in delta_chunks {
                 yield Ok(AiStreamEvent::Delta { text });
             }
@@ -225,7 +233,7 @@ impl AiStreamPipeline {
                 final_text: accumulated_text,
                 usage,
                 finish_reason,
-                citations: Vec::new(),
+                citations,
                 verification,
             });
         }
@@ -251,22 +259,26 @@ impl AiStreamPipeline {
                 .safe_fallback_text
                 .clone()
                 .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
+            let citations = package.citations;
             return Ok(AiCompleteResult {
                 final_text,
                 usage: response.usage,
                 finish_reason: LlmFinishReason::ContentFilter,
                 provider: response.provider,
                 model: response.model,
+                citations,
                 verification,
             });
         }
 
+        let citations = package.citations;
         Ok(AiCompleteResult {
             final_text: response.message.content,
             usage: response.usage,
             finish_reason: response.finish_reason,
             provider: response.provider,
             model: response.model,
+            citations,
             verification,
         })
     }

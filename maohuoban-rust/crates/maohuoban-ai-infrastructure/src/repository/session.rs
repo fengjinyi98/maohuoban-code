@@ -7,8 +7,9 @@ use async_trait::async_trait;
 use chrono::Utc;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiError, AiMessage, AiMessageRole, AiMessageStatus,
-    AiPetDisplaySnapshot, AiResult,
+    AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiError, AiMessage,
+    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiProposedAction, AiProposedActionKind,
+    AiProposedActionRisk, AiResult,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -255,6 +256,113 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
 
         Ok(())
+    }
+
+    async fn insert_message_citations(
+        &self,
+        message_id: Uuid,
+        session_id: Uuid,
+        citations: &[AiCitation],
+    ) -> AiResult<()> {
+        for citation in citations {
+            sqlx::query(
+                r"
+                INSERT INTO ai_message_citations
+                    (message_id, session_id, source_kind, source_id, label)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (message_id, source_kind, source_id) DO NOTHING
+                ",
+            )
+            .bind(message_id)
+            .bind(session_id)
+            .bind(citation_source_kind_code(citation.source_kind))
+            .bind(citation.source_id)
+            .bind(&citation.label)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    async fn insert_proposed_action(
+        &self,
+        session_id: Uuid,
+        action: &AiProposedAction,
+    ) -> AiResult<()> {
+        sqlx::query(
+            r"
+            INSERT INTO ai_proposed_actions
+                (id, session_id, source_message_id, action_kind, target_pet_id,
+                 payload, confirm_text, risk_level, confirmation_task_id, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+            ON CONFLICT (id) DO UPDATE SET
+                source_message_id = EXCLUDED.source_message_id,
+                action_kind = EXCLUDED.action_kind,
+                target_pet_id = EXCLUDED.target_pet_id,
+                payload = EXCLUDED.payload,
+                confirm_text = EXCLUDED.confirm_text,
+                risk_level = EXCLUDED.risk_level,
+                confirmation_task_id = EXCLUDED.confirmation_task_id,
+                updated_at = now()
+            ",
+        )
+        .bind(action.id)
+        .bind(session_id)
+        .bind(action.source_message_id)
+        .bind(proposed_action_kind_code(action.action_kind))
+        .bind(action.target_pet_id)
+        .bind(&action.payload)
+        .bind(&action.confirm_text)
+        .bind(proposed_action_risk_code(action.risk_level))
+        .bind(action.confirmation_task_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
+    }
+}
+
+/// citation_source_kind_code 返回引用来源类型编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 保持 DB 枚举值与 HTTP DTO 序列化一致
+fn citation_source_kind_code(kind: AiCitationSourceKind) -> &'static str {
+    match kind {
+        AiCitationSourceKind::PetEvent => "pet_event",
+        AiCitationSourceKind::DietAssignment => "diet_assignment",
+        AiCitationSourceKind::FoodInventoryHint => "food_inventory_hint",
+        AiCitationSourceKind::AttentionHint => "attention_hint",
+        AiCitationSourceKind::ConfirmationTask => "confirmation_task",
+        AiCitationSourceKind::AbnormalEpisode => "abnormal_episode",
+    }
+}
+
+/// proposed_action_kind_code 返回建议动作类型编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 避免在 SQL 层依赖 Rust Debug 字符串
+fn proposed_action_kind_code(kind: AiProposedActionKind) -> &'static str {
+    match kind {
+        AiProposedActionKind::DietChangeConfirmation => "diet_change_confirmation",
+        AiProposedActionKind::FeedingCorrection => "feeding_correction",
+        AiProposedActionKind::SymptomFollowup => "symptom_followup",
+        AiProposedActionKind::ReminderCreation => "reminder_creation",
+        AiProposedActionKind::RiskContextConfirmation => "risk_context_confirmation",
+    }
+}
+
+/// proposed_action_risk_code 返回建议动作风险编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 对齐前端 pending action 风险展示
+fn proposed_action_risk_code(risk: AiProposedActionRisk) -> &'static str {
+    match risk {
+        AiProposedActionRisk::Low => "low",
+        AiProposedActionRisk::Medium => "medium",
+        AiProposedActionRisk::High => "high",
     }
 }
 

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use maohuoban_ai_domain::ai::{AiChatSession, AiMessage, AiResult};
+use maohuoban_ai_domain::ai::{AiChatSession, AiCitation, AiMessage, AiProposedAction, AiResult};
 use uuid::Uuid;
 
 /// AiRequestGateLog AI 请求 gate 审计日志
@@ -66,4 +66,19 @@ pub trait AiSessionRepository: Send + Sync {
 
     /// insert_tool_access_log 写入工具访问审计日志
     async fn insert_tool_access_log(&self, log: &AiToolAccessLog) -> AiResult<()>;
+
+    /// insert_message_citations 写入助手消息引用
+    async fn insert_message_citations(
+        &self,
+        message_id: Uuid,
+        session_id: Uuid,
+        citations: &[AiCitation],
+    ) -> AiResult<()>;
+
+    /// insert_proposed_action 写入待确认建议动作
+    async fn insert_proposed_action(
+        &self,
+        session_id: Uuid,
+        action: &AiProposedAction,
+    ) -> AiResult<()>;
 }

@@ -3,7 +3,7 @@ use chrono::Utc;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
+    AiAnswerVerification, AiCitation, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
     AiPetDisplaySnapshot, AiPetResolution, LlmFinishReason, LlmUsage,
 };
 use serde::Serialize;
@@ -130,6 +130,7 @@ pub async fn handle_chat(
             title: context.title,
             target_pet: context.target_pet,
             final_text: complete.final_text,
+            citations: complete.citations,
             usage: complete.usage,
             finish_reason: complete.finish_reason,
             verification: complete.verification,
@@ -224,6 +225,7 @@ struct ChatCompleteResponse {
     title: String,
     target_pet: Option<AiPetDisplaySnapshot>,
     final_text: String,
+    citations: Vec<AiCitation>,
     usage: LlmUsage,
     finish_reason: LlmFinishReason,
     verification: AiAnswerVerification,
@@ -245,6 +247,7 @@ async fn persist_assistant_message(
             message_id,
             session_id,
             final_text: complete.final_text.clone(),
+            citations: complete.citations.clone(),
             usage: complete.usage,
             finish_reason: format!("{:?}", complete.finish_reason),
             provider: Some(complete.provider.clone()),
@@ -276,6 +279,7 @@ async fn persist_and_respond_boundary_message(
             message_id,
             session_id,
             final_text: final_text.clone(),
+            citations: Vec::new(),
             usage,
             finish_reason,
             provider: None,
@@ -294,6 +298,7 @@ async fn persist_and_respond_boundary_message(
             title,
             target_pet,
             final_text,
+            citations: Vec::new(),
             usage,
             finish_reason: LlmFinishReason::Stop,
             verification,
@@ -309,6 +314,7 @@ struct AssistantMessageRecord {
     message_id: Uuid,
     session_id: Uuid,
     final_text: String,
+    citations: Vec<AiCitation>,
     usage: LlmUsage,
     finish_reason: String,
     provider: Option<String>,
@@ -324,13 +330,18 @@ async fn persist_assistant_message_from_parts(
     repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     record: AssistantMessageRecord,
 ) {
+    let citation_ids = record
+        .citations
+        .iter()
+        .map(|citation| citation.source_id)
+        .collect::<Vec<_>>();
     let assistant_message = AiMessage {
         id: record.message_id,
         session_id: record.session_id,
         role: AiMessageRole::Assistant,
         content: record.final_text,
         status: AiMessageStatus::Completed,
-        citations: Vec::new(),
+        citations: citation_ids,
         model: record.model,
         provider: record.provider,
         finish_reason: Some(record.finish_reason),
@@ -340,4 +351,7 @@ async fn persist_assistant_message_from_parts(
         created_at: Utc::now(),
     };
     let _ = repo.insert_message(&assistant_message).await;
+    let _ = repo
+        .insert_message_citations(record.message_id, record.session_id, &record.citations)
+        .await;
 }
