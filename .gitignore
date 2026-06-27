@@ -24,6 +24,7 @@ output/
 
 # External reference projects (独立 Git 仓库，主仓库不跟踪)
 references/projects/
+references/agent/
 
 # Repository migration backups
 .repo-backups/
