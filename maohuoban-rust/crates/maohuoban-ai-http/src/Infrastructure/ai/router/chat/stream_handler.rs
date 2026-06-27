@@ -154,7 +154,7 @@ pub async fn handle_chat_stream(
 /// 核心职责：
 /// - 依次加载身份事实和当前饮食事实
 /// - 合并工具事件，保持 Provider 前的上下文准备集中
-async fn load_fact_context_and_initial_events(
+pub(super) async fn load_fact_context_and_initial_events(
     state: &AiHttpState,
     session_id: Uuid,
     actor_user_id: Uuid,
@@ -191,7 +191,7 @@ async fn load_fact_context_and_initial_events(
 /// 核心职责：
 /// - 只在 gate 要求加载上下文时调用后端授权宠物解析器
 /// - 将解析失败降级为无宠物上下文，保持 SSE 主链路可返回安全响应
-async fn resolve_stream_target_pet(
+pub(super) async fn resolve_stream_target_pet(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
@@ -212,7 +212,7 @@ async fn resolve_stream_target_pet(
 /// 核心职责：
 /// - 只在需要上下文的请求中记录宠物候选工具审计
 /// - 返回可在 message_started 后输出的 tool_call 事件
-async fn load_pet_catalog_initial_events(
+pub(super) async fn load_pet_catalog_initial_events(
     session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
     actor_user_id: Uuid,
@@ -240,7 +240,7 @@ async fn load_pet_catalog_initial_events(
 /// 核心职责：
 /// - 持久化意图、上下文加载状态和宠物解析结果
 /// - 避免在主 handler 中展开审计表字段细节
-async fn insert_request_gate_log(
+pub(super) async fn insert_request_gate_log(
     session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     req: &ChatStreamRequest,
     session_id: Uuid,
@@ -382,7 +382,9 @@ where
 /// resolved_pet_snapshot 提取已解析宠物快照
 /// 核心职责：
 /// - 只在 AiPetResolution::Resolved 时返回后端宠物展示快照
-fn resolved_pet_snapshot(pet_resolution: Option<&AiPetResolution>) -> Option<AiPetDisplaySnapshot> {
+pub(super) fn resolved_pet_snapshot(
+    pet_resolution: Option<&AiPetResolution>,
+) -> Option<AiPetDisplaySnapshot> {
     match pet_resolution {
         Some(AiPetResolution::Resolved { snapshot, .. }) => Some(snapshot.clone()),
         _ => None,

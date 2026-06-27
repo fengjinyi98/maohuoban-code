@@ -61,7 +61,7 @@ pub(super) fn gated_stream_response(
 /// gated_message_text 返回 gate 分支安全提示
 /// 核心职责：
 /// - 为非宠物和风险请求提供明确边界文案
-fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
+pub(super) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
     match gate_decision.intent {
         AiIntent::AppSupport => {
             "这个问题属于毛伙伴 App 使用帮助，我先不读取宠物事实。你可以描述遇到的页面或操作，我会按应用功能边界说明。"

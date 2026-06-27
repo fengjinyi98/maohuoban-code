@@ -1,22 +1,343 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
+use chrono::Utc;
+use maohuoban_ai_application::ai::intent::AiIntentGate;
+use maohuoban_ai_application::ai::stream::AiStreamRunContext;
+use maohuoban_ai_domain::ai::{
+    AiAnswerVerification, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
+    AiPetDisplaySnapshot, AiPetResolution, LlmFinishReason, LlmUsage,
+};
+use serde::Serialize;
+use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
+use super::gated_stream_response::gated_message_text;
+use super::llm_request::build_llm_request;
+use super::pet_resolution_stream_response::pet_resolution_message_text;
 use super::request::ChatStreamRequest;
-use crate::ai::response::{ai_error_response, unauthorized_response};
+use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
+use super::stream_handler::{
+    insert_request_gate_log, load_fact_context_and_initial_events, load_pet_catalog_initial_events,
+    resolve_stream_target_pet, resolved_pet_snapshot,
+};
+use super::title::build_title;
+use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 /// handle_chat 非流式聊天 handler
 /// 核心职责：
 /// - 校验登录态并从 token 注入 actor
-/// - 返回非流式调试响应
+/// - 复用流式链路的宠物解析、事实包、回答校验和消息持久化
 pub async fn handle_chat(
     State(state): State<AiHttpState>,
     headers: HeaderMap,
-    Json(_req): Json<ChatStreamRequest>,
+    Json(req): Json<ChatStreamRequest>,
 ) -> Response {
-    let Ok(_actor_user_id) = current_user_id(&state.auth, &headers).await else {
+    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
         return unauthorized_response();
     };
 
-    ai_error_response(&maohuoban_ai_domain::ai::AiError::ProviderNotConfigured)
+    let context = prepare_non_stream_context(&state, &req, actor_user_id).await;
+    persist_initial_chat_records(&state, &req, actor_user_id, &context).await;
+
+    let _ = load_pet_catalog_initial_events(
+        &state.session_repository,
+        context.session_id,
+        actor_user_id,
+        &context.gate_decision,
+        context.resolved_pet_id,
+        req.selected_pet_id,
+        context.pet_resolution.as_ref(),
+    )
+    .await;
+
+    if !context.gate_decision.context_loaded {
+        return persist_and_respond_boundary_message(
+            &state.session_repository,
+            context.message_id,
+            context.session_id,
+            context.title,
+            context.target_pet,
+            gated_message_text(&context.gate_decision).to_owned(),
+            "gate_skipped_main_agent".to_owned(),
+        )
+        .await;
+    }
+
+    if let Some(resolution) = context
+        .pet_resolution
+        .as_ref()
+        .filter(|resolution| !resolution.is_resolved())
+    {
+        return persist_and_respond_boundary_message(
+            &state.session_repository,
+            context.message_id,
+            context.session_id,
+            context.title,
+            context.target_pet,
+            pet_resolution_message_text(resolution).to_owned(),
+            "pet_resolution_skipped_main_agent".to_owned(),
+        )
+        .await;
+    }
+
+    let (fact_package, _initial_events) = load_fact_context_and_initial_events(
+        &state,
+        context.session_id,
+        actor_user_id,
+        context.target_pet.as_ref(),
+        Vec::new(),
+    )
+    .await;
+
+    let llm_request = build_llm_request(
+        &req.message,
+        context.target_pet.as_ref(),
+        fact_package.as_ref(),
+    );
+    let complete = match state
+        .stream_pipeline
+        .complete_with_context(
+            llm_request,
+            AiStreamRunContext {
+                chat_session_id: context.session_id,
+                message_id: context.message_id,
+                title: context.title.clone(),
+                target_pet: context.target_pet.clone(),
+                initial_events: Vec::new(),
+                fact_package,
+            },
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => return ai_error_response(&error),
+    };
+
+    persist_assistant_message(
+        &state.session_repository,
+        context.message_id,
+        context.session_id,
+        &complete,
+    )
+    .await;
+
+    ok_response(
+        "ai.chat_completed",
+        "AI 回答已完成",
+        ChatCompleteResponse {
+            chat_session_id: context.session_id,
+            message_id: context.message_id,
+            title: context.title,
+            target_pet: context.target_pet,
+            final_text: complete.final_text,
+            usage: complete.usage,
+            finish_reason: complete.finish_reason,
+            verification: complete.verification,
+        },
+    )
+}
+
+/// NonStreamChatContext 非流式请求运行上下文
+/// 核心职责：
+/// - 汇总会话、消息、gate 和宠物解析结果
+/// - 作为后续持久化、边界分支和 Provider 调用的输入
+struct NonStreamChatContext {
+    session_id: Uuid,
+    message_id: Uuid,
+    title: String,
+    gate_decision: AiGateDecision,
+    pet_resolution: Option<AiPetResolution>,
+    resolved_pet_id: Option<Uuid>,
+    target_pet: Option<AiPetDisplaySnapshot>,
+}
+
+/// prepare_non_stream_context 准备非流式运行上下文
+/// 核心职责：
+/// - 创建会话和消息 ID
+/// - 完成意图闸门和授权宠物解析
+async fn prepare_non_stream_context(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+) -> NonStreamChatContext {
+    let gate_decision = AiIntentGate::new().classify(&req.message);
+    let pet_resolution = resolve_stream_target_pet(state, req, actor_user_id, &gate_decision).await;
+    let resolved_pet_id = pet_resolution
+        .as_ref()
+        .and_then(AiPetResolution::resolved_pet_id);
+    let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
+
+    NonStreamChatContext {
+        session_id: req.chat_session_id.unwrap_or_else(Uuid::new_v4),
+        message_id: Uuid::new_v4(),
+        title: build_title(&req.message),
+        gate_decision,
+        pet_resolution,
+        resolved_pet_id,
+        target_pet,
+    }
+}
+
+/// persist_initial_chat_records 写入会话、用户消息和 gate 日志
+/// 核心职责：
+/// - 保持非流式与流式入口的初始持久化一致
+/// - 避免 handler 展开数据库写入参数
+async fn persist_initial_chat_records(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    context: &NonStreamChatContext,
+) {
+    persist_session_and_user_message(
+        &state.session_repository,
+        req,
+        actor_user_id,
+        context.session_id,
+        context.title.clone(),
+        PetSessionContext {
+            primary_pet_id: context.resolved_pet_id.or(req.selected_pet_id),
+            pet_display_snapshot: context.target_pet.clone(),
+        },
+        Utc::now(),
+    )
+    .await;
+
+    insert_request_gate_log(
+        &state.session_repository,
+        req,
+        context.session_id,
+        actor_user_id,
+        context.resolved_pet_id,
+        &context.gate_decision,
+    )
+    .await;
+}
+
+/// ChatCompleteResponse 非流式聊天完成响应
+/// 核心职责：
+/// - 对齐流式完成后的聚合结果
+/// - 返回前端渲染和调试所需的最小字段
+#[derive(Serialize)]
+struct ChatCompleteResponse {
+    chat_session_id: Uuid,
+    message_id: Uuid,
+    title: String,
+    target_pet: Option<AiPetDisplaySnapshot>,
+    final_text: String,
+    usage: LlmUsage,
+    finish_reason: LlmFinishReason,
+    verification: AiAnswerVerification,
+}
+
+/// persist_assistant_message 持久化非流式助手消息
+/// 核心职责：
+/// - 保存最终回答、Provider 元信息和回答校验结果
+/// - 保持非流式与流式历史读取路径一致
+async fn persist_assistant_message(
+    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    message_id: Uuid,
+    session_id: Uuid,
+    complete: &maohuoban_ai_application::ai::stream::AiCompleteResult,
+) {
+    persist_assistant_message_from_parts(
+        repo,
+        AssistantMessageRecord {
+            message_id,
+            session_id,
+            final_text: complete.final_text.clone(),
+            usage: complete.usage,
+            finish_reason: format!("{:?}", complete.finish_reason),
+            provider: Some(complete.provider.clone()),
+            model: Some(complete.model.clone()),
+            verification: Some(complete.verification.clone()),
+        },
+    )
+    .await;
+}
+
+/// persist_and_respond_boundary_message 返回非 Provider 分支聚合结果
+/// 核心职责：
+/// - 持久化 gate / 宠物解析边界消息
+/// - 返回与 Provider 完成一致的响应形状
+async fn persist_and_respond_boundary_message(
+    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    message_id: Uuid,
+    session_id: Uuid,
+    title: String,
+    target_pet: Option<AiPetDisplaySnapshot>,
+    final_text: String,
+    finish_reason: String,
+) -> Response {
+    let usage = LlmUsage::default();
+    let verification = AiAnswerVerification::passed();
+    persist_assistant_message_from_parts(
+        repo,
+        AssistantMessageRecord {
+            message_id,
+            session_id,
+            final_text: final_text.clone(),
+            usage,
+            finish_reason,
+            provider: None,
+            model: None,
+            verification: Some(verification.clone()),
+        },
+    )
+    .await;
+
+    ok_response(
+        "ai.chat_completed",
+        "AI 回答已完成",
+        ChatCompleteResponse {
+            chat_session_id: session_id,
+            message_id,
+            title,
+            target_pet,
+            final_text,
+            usage,
+            finish_reason: LlmFinishReason::Stop,
+            verification,
+        },
+    )
+}
+
+/// AssistantMessageRecord 助手消息持久化输入
+/// 核心职责：
+/// - 承载助手最终消息字段
+/// - 降低持久化 helper 参数复杂度
+struct AssistantMessageRecord {
+    message_id: Uuid,
+    session_id: Uuid,
+    final_text: String,
+    usage: LlmUsage,
+    finish_reason: String,
+    provider: Option<String>,
+    model: Option<String>,
+    verification: Option<AiAnswerVerification>,
+}
+
+/// persist_assistant_message_from_parts 持久化助手消息字段
+/// 核心职责：
+/// - 统一 Provider 分支和边界分支的消息写入
+/// - 保留完成原因、Provider 元信息和校验结果
+async fn persist_assistant_message_from_parts(
+    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    record: AssistantMessageRecord,
+) {
+    let assistant_message = AiMessage {
+        id: record.message_id,
+        session_id: record.session_id,
+        role: AiMessageRole::Assistant,
+        content: record.final_text,
+        status: AiMessageStatus::Completed,
+        citations: Vec::new(),
+        model: record.model,
+        provider: record.provider,
+        finish_reason: Some(record.finish_reason),
+        usage_input_tokens: Some(record.usage.input_tokens),
+        usage_output_tokens: Some(record.usage.output_tokens),
+        verification: record.verification,
+        created_at: Utc::now(),
+    };
+    let _ = repo.insert_message(&assistant_message).await;
 }

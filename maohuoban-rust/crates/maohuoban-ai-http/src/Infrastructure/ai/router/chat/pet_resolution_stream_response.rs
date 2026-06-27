@@ -62,7 +62,7 @@ pub(super) fn pet_resolution_stream_response(
 /// pet_resolution_message_text 返回宠物解析分支安全提示
 /// 核心职责：
 /// - 为无宠物、歧义和未授权场景提供不泄漏隐私的文案
-fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
+pub(super) fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
     match resolution {
         AiPetResolution::NeedsSelection { .. } => "我需要先确认你想问哪只宠物。",
         AiPetResolution::UnauthorizedOrNotFound => "我没有找到你有权限访问的这只宠物。",

@@ -76,34 +76,6 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
     );
 }
 
-/// 已登录访问 /api/v1/ai/chat 返回 `provider_not_configured`
-#[tokio::test]
-async fn ai_chat_non_stream_returns_provider_not_configured() {
-    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
-    app.reset().await;
-    let access_token = login_and_get_token(&app, "13800139002", "ios-ai-chat-test").await;
-
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_json_request(
-            "POST",
-            "/api/v1/ai/chat",
-            &access_token,
-            json!({
-                "message": "毛球今天怎么样",
-                "surface": "home_private"
-            }),
-        ))
-        .await
-        .expect("send chat request");
-
-    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-    let body = response_json(response).await;
-    assert_eq!(body["success"], false);
-    assert_eq!(body["code"], "ai.provider_not_configured");
-}
-
 /// 配置 `OpenAI` 兼容 Provider 后 `/api/v1/ai/chat/stream` 返回真实 Provider delta
 #[tokio::test]
 async fn ai_chat_stream_uses_configured_openai_provider() {

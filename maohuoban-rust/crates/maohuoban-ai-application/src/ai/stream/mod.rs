@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
-    AiError, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent, LlmChatRequest, LlmFinishReason,
-    LlmStreamEvent,
+    AiAnswerVerification, AiError, AiFactPackage, AiPetDisplaySnapshot, AiResult, AiStreamEvent,
+    LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
 };
 
 use crate::ai::ports::LlmProvider;
@@ -34,6 +34,19 @@ pub struct AiStreamRunContext {
     pub target_pet: Option<AiPetDisplaySnapshot>,
     pub initial_events: Vec<AiStreamEvent>,
     pub fact_package: Option<AiFactPackage>,
+}
+
+/// AiCompleteResult 非流式聊天完成结果
+/// 核心职责：
+/// - 汇总 Provider 完整回答和回答校验结果
+/// - 为 HTTP 非流式响应与消息持久化提供稳定数据
+pub struct AiCompleteResult {
+    pub final_text: String,
+    pub usage: LlmUsage,
+    pub finish_reason: LlmFinishReason,
+    pub provider: String,
+    pub model: String,
+    pub verification: AiAnswerVerification,
 }
 
 impl AiStreamPipeline {
@@ -217,5 +230,44 @@ impl AiStreamPipeline {
             });
         }
         .boxed()
+    }
+
+    /// complete_with_context 执行非流式完整回答
+    /// 核心职责：
+    /// - 使用 Provider complete 获取完整回答
+    /// - 使用真实事实包校验最终回答并在违规时返回安全文案
+    pub async fn complete_with_context(
+        &self,
+        mut request: LlmChatRequest,
+        context: AiStreamRunContext,
+    ) -> AiResult<AiCompleteResult> {
+        request.stream = false;
+        let response = self.provider.complete(&request).await?;
+        let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
+        let verification = AiAnswerVerifier::new().verify(&response.message.content, &package);
+
+        if verification.is_blocked() {
+            let final_text = verification
+                .safe_fallback_text
+                .clone()
+                .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
+            return Ok(AiCompleteResult {
+                final_text,
+                usage: response.usage,
+                finish_reason: LlmFinishReason::ContentFilter,
+                provider: response.provider,
+                model: response.model,
+                verification,
+            });
+        }
+
+        Ok(AiCompleteResult {
+            final_text: response.message.content,
+            usage: response.usage,
+            finish_reason: response.finish_reason,
+            provider: response.provider,
+            model: response.model,
+            verification,
+        })
     }
 }
