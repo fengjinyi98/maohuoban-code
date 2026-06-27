@@ -44,10 +44,7 @@ final class AIAssistantStoreTests: XCTestCase {
         let image = UIImage()
         store.requestAttachmentSource(.photoLibrary)
 
-        store.completeAttachmentSelection(
-            source: .photoLibrary,
-            image: image
-        )
+        store.completeAttachmentSelection(source: .photoLibrary, image: image)
 
         XCTAssertNil(store.presentedAttachmentSource)
         XCTAssertEqual(store.selectedAttachment?.source, .photoLibrary)
@@ -55,15 +52,25 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testSelectingConversationHistoryLoadsMockMessages() {
-        let store = AIAssistantStore(context: AIAssistantEntryContext())
-        let image = UIImage()
-        let history = store.conversationHistories[1]
-        store.draftText = "临时问题"
-        store.completeAttachmentSelection(
-            source: .camera,
-            image: image
+    func testSelectingConversationHistoryLoadsMessages() {
+        let history = AIAssistantConversationHistory(
+            id: "test-session",
+            title: "腹泻观察",
+            subtitle: "昨天",
+            messages: [
+                AIAssistantMessage(role: .user, text: "拉肚子了"),
+                AIAssistantMessage(role: .assistant, text: "先观察精神状态"),
+            ],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
         )
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository()
+        )
+        store.draftText = "临时问题"
+        store.completeAttachmentSelection(source: .camera, image: UIImage())
 
         store.selectConversationHistory(history)
 
@@ -78,7 +85,8 @@ final class AIAssistantStoreTests: XCTestCase {
     @MainActor
     func testNewConversationShowsDefaultTitleAndSuggestedPrompts() {
         let store = AIAssistantStore(
-            context: AIAssistantEntryContext(selectedPetName: "雪球")
+            context: AIAssistantEntryContext(selectedPetName: "雪球"),
+            repository: MockAIAssistantRepository()
         )
 
         XCTAssertEqual(store.navigationTitle, "新对话")
@@ -89,8 +97,19 @@ final class AIAssistantStoreTests: XCTestCase {
 
     @MainActor
     func testSelectingHistoryUsesHistoryTitleAndHidesSuggestedPrompts() {
-        let store = AIAssistantStore(context: AIAssistantEntryContext())
-        let history = store.conversationHistories[0]
+        let history = AIAssistantConversationHistory(
+            id: "test-session",
+            title: "疫苗咨询",
+            subtitle: "今天",
+            messages: [AIAssistantMessage(role: .user, text: "疫苗")],
+            petAvatarURL: nil,
+            petName: "毛球",
+            petSpecies: .cat
+        )
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository()
+        )
 
         store.selectConversationHistory(history)
 
@@ -100,11 +119,19 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testSubmittingFirstMessageUsesQuestionAsConversationTitle() {
-        let store = AIAssistantStore(context: AIAssistantEntryContext())
+    func testSubmittingFirstMessageUsesQuestionAsConversationTitle() async {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(streamEvents: [
+                .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "新对话"),
+                .messageCompleted(messageID: UUID(), finalText: "ok", referenceChips: []),
+            ])
+        )
         store.draftText = "下一次疫苗是什么时候？"
 
         store.submitDraft()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
 
         XCTAssertEqual(store.navigationTitle, "下一次疫苗是什么时候？")
         XCTAssertNil(store.navigationSubtitle)

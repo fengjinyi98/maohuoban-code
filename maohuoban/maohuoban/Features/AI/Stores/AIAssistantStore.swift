@@ -1,15 +1,16 @@
 import Foundation
 import UIKit
 
-// AIAssistantStore AI 助手本地状态容器
+// AIAssistantStore AI 助手状态容器
 // 核心职责：
-// - 管理前端对话消息、输入草稿和待确认动作
-// - 管理系统相机、相册入口和本地附件摘要
-// - 通过流式引擎驱动 assistant 回复的增量渲染
+// - 管理对话消息、输入草稿、待确认动作和历史列表
+// - 通过 Repository 消费后端 SSE 流式事件
+// - 保留 AIAssistantStreamingEngine 作为 UI 增量渲染层
 @MainActor
 @Observable
 final class AIAssistantStore {
     let context: AIAssistantEntryContext
+    let repository: AIAssistantRepository
     var draftText = ""
     var messages: [AIAssistantMessage]
     var pendingAction: AIAssistantProposedAction?
@@ -18,18 +19,23 @@ final class AIAssistantStore {
     var selectedAttachmentImage: UIImage?
     var selectedConversationHistoryID: String?
     var currentConversationTitle: String?
+    var histories: [AIAssistantConversationHistory] = []
     private(set) var streamingEngine = AIAssistantStreamingEngine()
     private var streamingTask: Task<Void, Never>?
+    private var currentChatSessionID: String?
 
     var isStreaming: Bool {
         streamingEngine.isStreaming
     }
 
-    /// 流式内容版本号，用于驱动视图层滚动
     private(set) var streamingRevision: Int = 0
 
-    init(context: AIAssistantEntryContext) {
+    init(
+        context: AIAssistantEntryContext,
+        repository: AIAssistantRepository = DefaultAIAssistantRepository()
+    ) {
         self.context = context
+        self.repository = repository
         self.messages = []
         configureStreamingEngine()
     }
@@ -56,24 +62,13 @@ final class AIAssistantStore {
 
     func submitDraft() {
         let prompt = sanitizedDraft
-        guard prompt.isEmpty == false else {
-            return
-        }
-
+        guard prompt.isEmpty == false else { return }
         draftText = ""
         send(prompt)
     }
 
     func sendSuggestedPrompt(_ prompt: AIAssistantSuggestedPrompt) {
         send(prompt.prompt)
-    }
-
-    func triggerMockStreamingResponse() {
-        startStreamingResponse(
-            fullText: AIAssistantMockContent.longStreamingText,
-            referenceChips: ["意图识别", "受控工具", "来源校验"],
-            action: nil
-        )
     }
 
     func requestAttachmentSource(_ source: AIAssistantAttachmentSource) {
@@ -84,16 +79,10 @@ final class AIAssistantStore {
         presentedAttachmentSource = nil
     }
 
-    func completeAttachmentSelection(
-        source: AIAssistantAttachmentSource,
-        image: UIImage
-    ) {
+    func completeAttachmentSelection(source: AIAssistantAttachmentSource, image: UIImage) {
         presentedAttachmentSource = nil
         selectedAttachmentImage = image
-        selectedAttachment = AIAssistantSelectedAttachment(
-            source: source,
-            title: "已添加 1 张图片"
-        )
+        selectedAttachment = AIAssistantSelectedAttachment(source: source, title: "已添加 1 张图片")
     }
 
     func clearAttachment() {
@@ -105,32 +94,40 @@ final class AIAssistantStore {
     func selectConversationHistory(_ history: AIAssistantConversationHistory) {
         selectedConversationHistoryID = history.id
         currentConversationTitle = history.title
+        currentChatSessionID = history.id
         draftText = ""
         pendingAction = nil
         clearAttachment()
         messages = history.messages
+        Task { [weak self] in
+            await self?.loadSessionMessages(sessionID: history.id)
+        }
     }
 
     func startNewConversation() {
         selectedConversationHistoryID = nil
         currentConversationTitle = nil
+        currentChatSessionID = nil
         draftText = ""
         pendingAction = nil
         clearAttachment()
         messages = []
     }
 
-    func confirmPendingAction() {
-        guard let pendingAction else {
-            return
+    func loadHistories() async {
+        do {
+            let response = try await repository.fetchChatSessions()
+            if let data = response.data {
+                histories = data.map { AIAssistantConversationHistory(from: $0) }
+            }
+        } catch {
+            histories = []
         }
+    }
 
-        messages.append(
-            AIAssistantMessage(
-                role: .user,
-                text: pendingAction.confirmTitle
-            )
-        )
+    func confirmPendingAction() {
+        guard let pendingAction else { return }
+        messages.append(AIAssistantMessage(role: .user, text: pendingAction.confirmTitle))
         messages.append(
             AIAssistantMessage(
                 role: .assistant,
@@ -144,10 +141,7 @@ final class AIAssistantStore {
     func cancelPendingAction() {
         pendingAction = nil
         messages.append(
-            AIAssistantMessage(
-                role: .assistant,
-                text: "已取消这次建议动作，对话记录会继续保留。"
-            )
+            AIAssistantMessage(role: .assistant, text: "已取消这次建议动作，对话记录会继续保留。")
         )
     }
 
@@ -165,7 +159,6 @@ final class AIAssistantStore {
 
     private func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
-
         messages[index].text = text
         messages[index].isStreaming = isStreaming
         streamingRevision += 1
@@ -176,36 +169,122 @@ final class AIAssistantStore {
             currentConversationTitle = makeConversationTitle(from: text)
         }
 
-        messages.append(
-            AIAssistantMessage(
-                role: .user,
-                text: text
-            )
-        )
+        messages.append(AIAssistantMessage(role: .user, text: text))
         clearAttachment()
 
-        let response = responseContent(for: text)
-        startStreamingResponse(
-            fullText: response.text,
-            referenceChips: response.chips,
-            action: response.action
+        streamingTask?.cancel()
+        streamingTask = Task { [weak self] in
+            guard let self else { return }
+            let stream = self.repository.openChatStream(
+                message: text,
+                selectedPetID: self.context.selectedPetID,
+                surface: "home_private",
+                chatSessionID: self.currentChatSessionID
+            )
+            do {
+                for try await event in stream {
+                    if Task.isCancelled { return }
+                    self.handleStreamEvent(event)
+                }
+            } catch {
+                self.handleStreamError(error)
+            }
+        }
+    }
+
+    private func handleStreamEvent(_ event: AIStreamEventDTO) {
+        switch event {
+        case .messageStarted(let chatSessionID, _, let title):
+            currentChatSessionID = chatSessionID.uuidString
+            if !title.isEmpty && title != "新对话" {
+                currentConversationTitle = title
+            } else if currentConversationTitle == nil {
+                currentConversationTitle = title
+            }
+            let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
+            messages.append(placeholder)
+            streamingEngine.begin(messageID: placeholder.id)
+
+        case .delta(let text):
+            streamingEngine.appendDelta(text)
+            streamingEngine.flush()
+            streamingRevision += 1
+
+        case .messageCompleted(_, let finalText, let chips):
+            let activeMessageID = streamingEngine.activeMessageID
+            streamingEngine.complete(finalText: finalText)
+            if let activeMessageID,
+               let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
+                messages[index].referenceChips = chips
+            }
+            streamingRevision += 1
+
+        case .proposedAction(let action):
+            pendingAction = AIAssistantProposedAction(from: action)
+
+        case .error(_, _, _, let safeFallbackText):
+            streamingEngine.cancel()
+            if let index = messages.lastIndex(where: { $0.isStreaming }) {
+                messages[index].text = safeFallbackText ?? "暂时无法获取回答，请稍后重试。"
+                messages[index].isStreaming = false
+            }
+            streamingRevision += 1
+        }
+    }
+
+    private func handleStreamError(_ error: Error) {
+        streamingEngine.cancel()
+        if let index = messages.lastIndex(where: { $0.isStreaming }) {
+            messages[index].text = "网络连接失败，请检查网络后重试。"
+            messages[index].isStreaming = false
+        }
+        streamingRevision += 1
+    }
+
+    private func loadSessionMessages(sessionID: String) async {
+        do {
+            let response = try await repository.fetchSessionMessages(sessionID: sessionID)
+            if let data = response.data {
+                messages = data.map { dto in
+                    AIAssistantMessage(
+                        role: dto.role == "user" ? .user : .assistant,
+                        text: dto.content
+                    )
+                }
+            }
+        } catch {
+            // 保持预览消息
+        }
+    }
+
+    private func makeConversationTitle(from text: String) -> String {
+        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.count > 18 else { return title }
+        return "\(title.prefix(18))..."
+    }
+}
+
+// MARK: - Debug mock 流式
+
+#if DEBUG
+extension AIAssistantStore {
+    func triggerMockStreamingResponse() {
+        startMockStreamingResponse(
+            fullText: AIAssistantMockContent.longStreamingText,
+            referenceChips: ["意图识别", "受控工具", "来源校验"],
+            action: nil
         )
     }
 
-    private func startStreamingResponse(
+    private func startMockStreamingResponse(
         fullText: String,
         referenceChips: [String],
         action: AIAssistantProposedAction?
     ) {
         streamingTask?.cancel()
 
-        let placeholder = AIAssistantMessage(
-            role: .assistant,
-            text: "",
-            isStreaming: true
-        )
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
-
         streamingEngine.begin(messageID: placeholder.id)
 
         let messageID = placeholder.id
@@ -219,11 +298,7 @@ final class AIAssistantStore {
                 self.streamingEngine.flush()
                 try? await Task.sleep(nanoseconds: 30_000_000)
             }
-
-            // 完成
             self.streamingEngine.complete(finalText: fullText)
-
-            // 设置引用标签和 pendingAction
             if let index = self.messages.firstIndex(where: { $0.id == messageID }) {
                 self.messages[index].referenceChips = referenceChips
             }
@@ -236,7 +311,6 @@ final class AIAssistantStore {
         let chunkSize = 8
         var chunks: [String] = []
         var accumulated = ""
-
         for char in text {
             accumulated.append(char)
             if accumulated.count >= chunkSize {
@@ -249,78 +323,5 @@ final class AIAssistantStore {
         }
         return chunks
     }
-
-    private func makeConversationTitle(from text: String) -> String {
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard title.count > 18 else {
-            return title
-        }
-
-        return "\(title.prefix(18))..."
-    }
-
-    private func responseContent(for text: String) -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
-        if text.contains("疫苗") {
-            return vaccineResponse()
-        }
-
-        if text.contains("拉肚子") || text.contains("腹泻") || text.contains("医院") {
-            return healthTriageResponse()
-        }
-
-        if text.contains("测评") || text.contains("猫粮") || text.contains("适合") {
-            return ugcHandoffResponse()
-        }
-
-        return generalResponse()
-    }
-
-    private func vaccineResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
-        let petName = context.displayPetName
-        return (
-            "\(petName) 的疫苗问题需要读取未来提醒和最近疫苗事件。当前前端先展示结果形态：若最近狂犬疫苗记录为 2025-08-20，下一次可推算到 2026-08-20，并提示用户确认添加提醒。",
-            ["疫苗记录", "提醒查询", "年度加强推算"],
-            AIAssistantProposedAction(
-                id: "add-vaccine-reminder",
-                title: "添加疫苗提醒",
-                subtitle: "为 \(petName) 添加 2026-08-20 狂犬疫苗提醒",
-                confirmTitle: "添加提醒",
-                cancelTitle: "暂不添加",
-                systemImage: "calendar.badge.plus"
-            )
-        )
-    }
-
-    private func healthTriageResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
-        let petName = context.displayPetName
-        return (
-            "\(petName) 腹泻需要结合精神状态、便血、呕吐、饮水、年龄和持续时间判断。若出现便血、频繁呕吐、精神沉郁、脱水或幼宠状态，应尽快就医；症状轻微且少于 24 小时，可先记录症状并观察变化。",
-            ["健康分级", "红旗症状", "时间线记录"],
-            AIAssistantProposedAction(
-                id: "record-symptom",
-                title: "记录症状",
-                subtitle: "把这次腹泻情况加入 \(petName) 时间线",
-                confirmTitle: "记录到时间线",
-                cancelTitle: "先观察",
-                systemImage: "waveform.path.ecg"
-            )
-        )
-    }
-
-    private func ugcHandoffResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
-        let title = context.ugcContextTitle ?? "这篇内容"
-        return (
-            "个体适配需要进入私域宠物助手后结合 \(context.displayPetName) 的档案、过敏史和喂养记录判断。当前已展示前端交接形态：顶部会带入“\(title)”，后端接入后将通过 ugc_id 重新读取可见内容。",
-            ["UGC 上下文", "私域宠物判断"],
-            nil
-        )
-    }
-
-    private func generalResponse() -> (text: String, chips: [String], action: AIAssistantProposedAction?) {
-        (
-            "我会按私域宠物助手的边界处理：先确认问题类型，再读取授权范围内的宠物事实，最后给出带来源的回答和需要确认的动作。",
-            ["意图识别", "受控工具", "来源校验"],
-            nil
-        )
-    }
 }
+#endif

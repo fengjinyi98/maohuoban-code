@@ -116,6 +116,7 @@ struct AIAssistantScreen: View {
 
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: MHBTheme.Spacing.s1) {
+                    #if DEBUG
                     // 临时按钮：触发 mock 流式输出
                     Button {
                         store.triggerMockStreamingResponse()
@@ -138,6 +139,7 @@ struct AIAssistantScreen: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("FPS 监视器")
+                    #endif
 
                     AIAssistantTopBarActions(
                         onOpenHistory: {
@@ -150,7 +152,7 @@ struct AIAssistantScreen: View {
         .navigationDestination(isPresented: $isHistoryScreenPresented) {
             AIAssistantHistoryScreen(
                 title: store.conversationHistoryNavigationTitle,
-                histories: store.conversationHistories,
+                histories: store.histories,
                 selectedHistoryID: store.selectedConversationHistoryID,
                 onSelect: { history in
                     store.selectConversationHistory(history)
@@ -159,6 +161,9 @@ struct AIAssistantScreen: View {
                     store.startNewConversation()
                 }
             )
+            .task {
+                await store.loadHistories()
+            }
         }
         .fullScreenCover(
             isPresented: Binding(
