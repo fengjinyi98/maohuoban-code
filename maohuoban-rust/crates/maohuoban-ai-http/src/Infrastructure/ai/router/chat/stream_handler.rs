@@ -41,7 +41,6 @@ pub async fn handle_chat_stream(
         return unauthorized_response();
     };
 
-    let llm_request = build_llm_request(&req.message);
     let session_id = req.chat_session_id.unwrap_or_else(Uuid::new_v4);
     let message_id = Uuid::new_v4();
     let now = Utc::now();
@@ -123,6 +122,7 @@ pub async fn handle_chat_stream(
         );
     }
 
+    let llm_request = build_llm_request(&req.message, target_pet.as_ref());
     let stream = state
         .stream_pipeline
         .run_with_target_pet_and_initial_events(

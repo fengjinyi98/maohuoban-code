@@ -111,7 +111,9 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
-            .header("authorization", "Bearer contract-api-key");
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("只能基于提供的事实包")
+            .body_contains("当前用户授权宠物");
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
