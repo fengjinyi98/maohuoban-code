@@ -8,12 +8,12 @@ use axum::{
     },
 };
 use chrono::Utc;
-use futures_util::{StreamExt, stream};
+use futures_util::StreamExt;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot,
-    AiPetResolution, AiStreamEvent, AiToolCallStatus, LlmFinishReason, LlmUsage,
+    AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiStreamEvent,
+    AiToolCallStatus,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -22,7 +22,12 @@ use uuid::Uuid;
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
 use super::assistant_message_persistence::spawn_assistant_message_persist;
+use super::diet_fact_loader::load_current_diet_fact_package;
+use super::fact_package_merge::merge_fact_packages;
+use super::gated_stream_response::gated_stream_response;
+use super::identity_fact_loader::load_identity_fact_package;
 use super::llm_request::build_llm_request;
+use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
@@ -47,15 +52,8 @@ pub async fn handle_chat_stream(
     let title = build_title(&req.message);
     let gate_decision = AiIntentGate::new().classify(&req.message);
 
-    let pet_resolution = if gate_decision.context_loaded {
-        state
-            .pet_resolver
-            .resolve(&req.message, req.selected_pet_id, actor_user_id)
-            .await
-            .ok()
-    } else {
-        None
-    };
+    let pet_resolution =
+        resolve_stream_target_pet(&state, &req, actor_user_id, &gate_decision).await;
     let resolved_pet_id = pet_resolution
         .as_ref()
         .and_then(AiPetResolution::resolved_pet_id);
@@ -85,19 +83,16 @@ pub async fn handle_chat_stream(
     )
     .await;
 
-    let initial_events = if gate_decision.context_loaded {
-        insert_pet_catalog_tool_log(
-            &state.session_repository,
-            session_id,
-            actor_user_id,
-            resolved_pet_id,
-            req.selected_pet_id,
-            pet_resolution.as_ref(),
-        )
-        .await
-    } else {
-        Vec::new()
-    };
+    let initial_events = load_pet_catalog_initial_events(
+        &state.session_repository,
+        session_id,
+        actor_user_id,
+        &gate_decision,
+        resolved_pet_id,
+        req.selected_pet_id,
+        pet_resolution.as_ref(),
+    )
+    .await;
 
     if !gate_decision.context_loaded {
         return gated_stream_response(
@@ -122,10 +117,14 @@ pub async fn handle_chat_stream(
         );
     }
 
-    let (fact_package, identity_events) =
-        load_identity_fact_package(&state, session_id, actor_user_id, target_pet.as_ref()).await;
-    let mut initial_events = initial_events;
-    initial_events.extend(identity_events);
+    let (fact_package, initial_events) = load_fact_context_and_initial_events(
+        &state,
+        session_id,
+        actor_user_id,
+        target_pet.as_ref(),
+        initial_events,
+    )
+    .await;
 
     let llm_request = build_llm_request(&req.message, target_pet.as_ref(), fact_package.as_ref());
     let stream = state
@@ -147,69 +146,76 @@ pub async fn handle_chat_stream(
     )
 }
 
-/// load_identity_fact_package 加载宠物身份事实包
+/// load_fact_context_and_initial_events 加载事实上下文并拼接初始事件
 /// 核心职责：
-/// - 调用后端宠物身份事实读模型
-/// - 写入 load_pet_identity_context 工具审计并返回 tool_call 事件
-async fn load_identity_fact_package(
+/// - 依次加载身份事实和当前饮食事实
+/// - 合并工具事件，保持 Provider 前的上下文准备集中
+async fn load_fact_context_and_initial_events(
     state: &AiHttpState,
     session_id: Uuid,
     actor_user_id: Uuid,
     target_pet: Option<&AiPetDisplaySnapshot>,
+    mut initial_events: Vec<AiStreamEvent>,
 ) -> (Option<AiFactPackage>, Vec<AiStreamEvent>) {
-    let Some(target_pet) = target_pet else {
-        return (None, Vec::new());
-    };
+    let (identity_fact_package, identity_events) =
+        load_identity_fact_package(state, session_id, actor_user_id, target_pet).await;
+    let (diet_fact_package, diet_events) =
+        load_current_diet_fact_package(state, session_id, actor_user_id, target_pet).await;
+    initial_events.extend(identity_events);
+    initial_events.extend(diet_events);
 
-    match state
-        .identity_fact_provider
-        .load_identity_fact_package(actor_user_id, target_pet)
+    (
+        merge_fact_packages(identity_fact_package, diet_fact_package),
+        initial_events,
+    )
+}
+
+/// resolve_stream_target_pet 解析流式请求目标宠物
+/// 核心职责：
+/// - 只在 gate 要求加载上下文时调用后端授权宠物解析器
+/// - 将解析失败降级为无宠物上下文，保持 SSE 主链路可返回安全响应
+async fn resolve_stream_target_pet(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    gate_decision: &AiGateDecision,
+) -> Option<AiPetResolution> {
+    if gate_decision.context_loaded {
+        state
+            .pet_resolver
+            .resolve(&req.message, req.selected_pet_id, actor_user_id)
+            .await
+            .ok()
+    } else {
+        None
+    }
+}
+
+/// load_pet_catalog_initial_events 加载宠物候选工具初始事件
+/// 核心职责：
+/// - 只在需要上下文的请求中记录宠物候选工具审计
+/// - 返回可在 message_started 后输出的 tool_call 事件
+async fn load_pet_catalog_initial_events(
+    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    session_id: Uuid,
+    actor_user_id: Uuid,
+    gate_decision: &AiGateDecision,
+    resolved_pet_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    pet_resolution: Option<&AiPetResolution>,
+) -> Vec<AiStreamEvent> {
+    if gate_decision.context_loaded {
+        insert_pet_catalog_tool_log(
+            session_repo,
+            session_id,
+            actor_user_id,
+            resolved_pet_id,
+            selected_pet_id,
+            pet_resolution,
+        )
         .await
-    {
-        Ok(package) => {
-            let _ = state
-                .session_repository
-                .insert_tool_access_log(&AiToolAccessLog {
-                    session_id: Some(session_id),
-                    actor_user_id,
-                    tool_name: "load_pet_identity_context".to_owned(),
-                    requested_scope: "pet_identity".to_owned(),
-                    target_pet_id: Some(target_pet.pet_id),
-                    allowed: true,
-                    denied_reason: None,
-                    returned_ref_ids: vec![target_pet.pet_id.to_string()],
-                    duration_ms: 0,
-                    risk_signal: None,
-                })
-                .await;
-
-            (
-                Some(package),
-                vec![AiStreamEvent::ToolCall {
-                    tool_name: "load_pet_identity_context".to_owned(),
-                    status: AiToolCallStatus::Allowed,
-                    citation_count: 0,
-                }],
-            )
-        }
-        Err(error) => {
-            let _ = state
-                .session_repository
-                .insert_tool_access_log(&AiToolAccessLog {
-                    session_id: Some(session_id),
-                    actor_user_id,
-                    tool_name: "load_pet_identity_context".to_owned(),
-                    requested_scope: "pet_identity".to_owned(),
-                    target_pet_id: Some(target_pet.pet_id),
-                    allowed: false,
-                    denied_reason: Some(error.stable_code().to_owned()),
-                    returned_ref_ids: vec![],
-                    duration_ms: 0,
-                    risk_signal: None,
-                })
-                .await;
-            (None, Vec::new())
-        }
+    } else {
+        Vec::new()
     }
 }
 
@@ -356,103 +362,6 @@ where
         .into_response()
 }
 
-/// gated_stream_response 构建不进入主 Agent 的安全 SSE 响应
-/// 核心职责：
-/// - 对 off-topic、app support 和风险请求跳过 Provider
-/// - 输出稳定 message_started/message_completed 事件
-fn gated_stream_response(
-    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    session_id: Uuid,
-    message_id: Uuid,
-    title: String,
-    gate_decision: &AiGateDecision,
-) -> Response {
-    let final_text = gated_message_text(gate_decision).to_owned();
-    spawn_assistant_message_persist(
-        session_repo,
-        message_id,
-        session_id,
-        final_text.clone(),
-        0,
-        0,
-        "gate_skipped_main_agent".to_owned(),
-    );
-
-    let events = vec![
-        AiStreamEvent::MessageStarted {
-            chat_session_id: session_id,
-            message_id,
-            target_pet: None,
-            title,
-        },
-        AiStreamEvent::MessageCompleted {
-            message_id,
-            final_text,
-            usage: LlmUsage::default(),
-            finish_reason: LlmFinishReason::Stop,
-            citations: vec![],
-            verification: AiAnswerVerification::passed(),
-        },
-    ];
-    let sse_stream = stream::iter(events.into_iter().map(|event| {
-        let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
-        Ok::<Event, std::convert::Infallible>(Event::default().event(event.event_name()).data(json))
-    }));
-
-    Sse::new(sse_stream)
-        .keep_alive(KeepAlive::default())
-        .into_response()
-}
-
-/// pet_resolution_stream_response 构建宠物解析未完成的安全 SSE 响应
-/// 核心职责：
-/// - 返回 pet_resolution 事件帮助前端展示选择或缺失信息
-/// - 跳过主 Provider，避免在没有唯一宠物事实根时调用 LLM
-fn pet_resolution_stream_response(
-    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    session_id: Uuid,
-    message_id: Uuid,
-    title: String,
-    resolution: AiPetResolution,
-) -> Response {
-    let final_text = pet_resolution_message_text(&resolution).to_owned();
-    spawn_assistant_message_persist(
-        session_repo,
-        message_id,
-        session_id,
-        final_text.clone(),
-        0,
-        0,
-        "pet_resolution_skipped_main_agent".to_owned(),
-    );
-
-    let events = vec![
-        AiStreamEvent::MessageStarted {
-            chat_session_id: session_id,
-            message_id,
-            target_pet: None,
-            title,
-        },
-        AiStreamEvent::PetResolution { resolution },
-        AiStreamEvent::MessageCompleted {
-            message_id,
-            final_text,
-            usage: LlmUsage::default(),
-            finish_reason: LlmFinishReason::Stop,
-            citations: vec![],
-            verification: AiAnswerVerification::passed(),
-        },
-    ];
-    let sse_stream = stream::iter(events.into_iter().map(|event| {
-        let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
-        Ok::<Event, std::convert::Infallible>(Event::default().event(event.event_name()).data(json))
-    }));
-
-    Sse::new(sse_stream)
-        .keep_alive(KeepAlive::default())
-        .into_response()
-}
-
 /// resolved_pet_snapshot 提取已解析宠物快照
 /// 核心职责：
 /// - 只在 AiPetResolution::Resolved 时返回后端宠物展示快照
@@ -460,33 +369,6 @@ fn resolved_pet_snapshot(pet_resolution: Option<&AiPetResolution>) -> Option<AiP
     match pet_resolution {
         Some(AiPetResolution::Resolved { snapshot, .. }) => Some(snapshot.clone()),
         _ => None,
-    }
-}
-
-/// pet_resolution_message_text 返回宠物解析分支安全提示
-/// 核心职责：
-/// - 为无宠物、歧义和未授权场景提供不泄漏隐私的文案
-fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
-    match resolution {
-        AiPetResolution::NeedsSelection { .. } => "我需要先确认你想问哪只宠物。",
-        AiPetResolution::UnauthorizedOrNotFound => "我没有找到你有权限访问的这只宠物。",
-        AiPetResolution::NoPetContext => "请先创建或选择一只宠物，我再围绕它的记录继续回答。",
-        AiPetResolution::Resolved { .. } => "已确认目标宠物。",
-    }
-}
-
-/// gated_message_text 返回 gate 分支安全提示
-/// 核心职责：
-/// - 为非宠物和风险请求提供明确边界文案
-fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
-    match gate_decision.intent {
-        AiIntent::AppSupport => {
-            "这个问题属于毛伙伴 App 使用帮助，我先不读取宠物事实。你可以描述遇到的页面或操作，我会按应用功能边界说明。"
-        }
-        AiIntent::PromptInjection | AiIntent::CostAbuse => {
-            "这个请求不符合毛球助手的安全边界，我不能继续处理。"
-        }
-        _ => "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。",
     }
 }
 

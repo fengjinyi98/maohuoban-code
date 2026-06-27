@@ -6,6 +6,8 @@
     clippy::needless_raw_string_hashes
 )]
 
+#[path = "Infrastructure/ai_diet_context.rs"]
+mod ai_diet_context;
 #[path = "Infrastructure/ai_identity_context.rs"]
 mod ai_identity_context;
 #[path = "Infrastructure/ai_pet_catalog.rs"]
@@ -62,6 +64,7 @@ use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
+use crate::ai_diet_context::PetServiceDietFactProvider;
 use crate::ai_identity_context::PetServiceIdentityFactProvider;
 use crate::ai_pet_catalog::PetServiceAuthorizedPetCatalog;
 
@@ -229,6 +232,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
         ai_pet_resolver,
         Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
+        Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
         auth_service.clone(),
     );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())

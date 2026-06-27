@@ -11,7 +11,9 @@ use std::sync::Arc;
 
 use axum::{Router, routing::post};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
-use maohuoban_ai_application::ai::ports::{AiSessionRepository, PetIdentityFactProvider};
+use maohuoban_ai_application::ai::ports::{
+    AiSessionRepository, PetDietFactProvider, PetIdentityFactProvider,
+};
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_auth_application::auth::AuthService;
 
@@ -25,6 +27,7 @@ pub struct AiHttpState {
     pub session_repository: Arc<dyn AiSessionRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+    pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
     pub auth: Arc<AuthService>,
 }
 
@@ -36,6 +39,7 @@ impl AiHttpState {
         session_repository: Arc<dyn AiSessionRepository>,
         pet_resolver: Arc<AiPetResolver>,
         identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+        diet_fact_provider: Arc<dyn PetDietFactProvider>,
         auth: Arc<AuthService>,
     ) -> Self {
         Self {
@@ -43,6 +47,7 @@ impl AiHttpState {
             session_repository,
             pet_resolver,
             identity_fact_provider,
+            diet_fact_provider,
             auth,
         }
     }

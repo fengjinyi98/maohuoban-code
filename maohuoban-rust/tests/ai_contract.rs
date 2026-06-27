@@ -127,6 +127,9 @@ async fn login_and_get_token(
 #[path = "ai_contract/chat_stream.rs"]
 mod chat_stream;
 
+#[path = "ai_contract/chat_stream_diet_context.rs"]
+mod chat_stream_diet_context;
+
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 

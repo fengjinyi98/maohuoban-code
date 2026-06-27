@@ -4,8 +4,13 @@
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
 mod assistant_message_persistence;
+mod diet_fact_loader;
+mod fact_package_merge;
+mod gated_stream_response;
+mod identity_fact_loader;
 mod llm_request;
 mod non_stream_handler;
+mod pet_resolution_stream_response;
 mod request;
 mod session_persistence;
 mod stream_handler;
