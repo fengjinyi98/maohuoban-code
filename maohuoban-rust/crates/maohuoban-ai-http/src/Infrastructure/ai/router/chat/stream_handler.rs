@@ -11,6 +11,7 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
+use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_domain::ai::{
     AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiStreamEvent,
     AiToolCallStatus,
@@ -129,16 +130,17 @@ pub async fn handle_chat_stream(
     .await;
 
     let llm_request = build_llm_request(&req.message, target_pet.as_ref(), fact_package.as_ref());
-    let stream = state
-        .stream_pipeline
-        .run_with_target_pet_and_initial_events(
-            llm_request,
-            session_id,
+    let stream = state.stream_pipeline.run_with_context(
+        llm_request,
+        AiStreamRunContext {
+            chat_session_id: session_id,
             message_id,
             title,
             target_pet,
             initial_events,
-        );
+            fact_package,
+        },
+    );
 
     provider_stream_response(
         stream,

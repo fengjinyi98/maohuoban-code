@@ -23,6 +23,19 @@ pub struct AiStreamPipeline {
     provider: Arc<dyn LlmProvider>,
 }
 
+/// AiStreamRunContext 流式运行上下文
+/// 核心职责：
+/// - 汇总稳定 SSE 所需的会话、消息、宠物和初始事件参数
+/// - 携带真实事实包供回答校验器使用
+pub struct AiStreamRunContext {
+    pub chat_session_id: uuid::Uuid,
+    pub message_id: uuid::Uuid,
+    pub title: String,
+    pub target_pet: Option<AiPetDisplaySnapshot>,
+    pub initial_events: Vec<AiStreamEvent>,
+    pub fact_package: Option<AiFactPackage>,
+}
+
 impl AiStreamPipeline {
     /// new 构造 pipeline
     #[must_use]
@@ -86,18 +99,41 @@ impl AiStreamPipeline {
         target_pet: Option<AiPetDisplaySnapshot>,
         initial_events: Vec<AiStreamEvent>,
     ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
+        self.run_with_context(
+            request,
+            AiStreamRunContext {
+                chat_session_id,
+                message_id,
+                title,
+                target_pet,
+                initial_events,
+                fact_package: None,
+            },
+        )
+    }
+
+    /// run_with_context 启动带运行上下文的流式 pipeline
+    /// 核心职责：
+    /// - 在 message_started 后输出应用层初始事件
+    /// - 使用真实事实包校验 Provider 最终回答
+    #[must_use]
+    pub fn run_with_context(
+        &self,
+        request: LlmChatRequest,
+        context: AiStreamRunContext,
+    ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
         let provider = self.provider.clone();
 
         async_stream::stream! {
             // 1. 发送 message_started
             yield Ok(AiStreamEvent::MessageStarted {
-                chat_session_id,
-                message_id,
-                target_pet,
-                title,
+                chat_session_id: context.chat_session_id,
+                message_id: context.message_id,
+                target_pet: context.target_pet,
+                title: context.title,
             });
 
-            for event in initial_events {
+            for event in context.initial_events {
                 yield Ok(event);
             }
 
@@ -144,7 +180,7 @@ impl AiStreamPipeline {
             }
 
             let accumulated_text = delta_chunks.concat();
-            let package = AiFactPackage::empty();
+            let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
             let verification = AiAnswerVerifier::new().verify(&accumulated_text, &package);
 
             if verification.is_blocked() {
@@ -156,7 +192,7 @@ impl AiStreamPipeline {
                     text: final_text.clone(),
                 });
                 yield Ok(AiStreamEvent::MessageCompleted {
-                    message_id,
+                    message_id: context.message_id,
                     final_text,
                     usage,
                     finish_reason: LlmFinishReason::ContentFilter,
@@ -172,7 +208,7 @@ impl AiStreamPipeline {
 
             // 3. 发送 message_completed
             yield Ok(AiStreamEvent::MessageCompleted {
-                message_id,
+                message_id: context.message_id,
                 final_text: accumulated_text,
                 usage,
                 finish_reason,

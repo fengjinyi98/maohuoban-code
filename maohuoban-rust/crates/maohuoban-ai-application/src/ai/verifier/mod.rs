@@ -103,25 +103,22 @@ impl AiAnswerVerifier {
         const CERTAINTY: &[&str] = &["已经", "已", "现在吃", "现在用", "换粮了", "换了", "改吃"];
         const DIET_CERTAINTY: &[&str] = &["换粮了", "换了粮", "已经换", "改吃"];
 
-        let has_strong = package
-            .facts
-            .iter()
-            .any(|f| f.strength == AiFactStrength::Strong);
-
-        if has_strong {
-            return false;
-        }
-
-        // 如果只有弱线索，回答表达了确定性事实
-        // 检查回答是否把弱线索内容表达为已发生
+        // 检查回答是否把弱线索内容表达为已发生。
+        // 只有同一食品已存在强事实时才放行，身份强事实不能掩盖饮食弱线索。
         for hint in &package.weak_hints {
             let food_name = extract_food_name(&hint.value);
-            if answer.contains(&food_name) && CERTAINTY.iter().any(|c| answer.contains(c)) {
+            let confirmed_same_food = package.facts.iter().any(|fact| {
+                fact.strength == AiFactStrength::Strong && fact.value.contains(&food_name)
+            });
+            if !confirmed_same_food
+                && answer.contains(&food_name)
+                && CERTAINTY.iter().any(|c| answer.contains(c))
+            {
                 return true;
             }
         }
 
-        // 如果只有弱线索且回答包含换粮/吃粮等确定性表达
+        // 只要存在弱线索，回答又包含换粮等确定性表达，需要先确认。
         if !package.weak_hints.is_empty() && DIET_CERTAINTY.iter().any(|c| answer.contains(c)) {
             return true;
         }
