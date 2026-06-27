@@ -8,11 +8,12 @@ use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiError, AiPetDisplaySnapshot, AiStreamEvent, LlmChatRequest,
-    LlmFinishReason, LlmStreamEvent,
+    AiError, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent, LlmChatRequest, LlmFinishReason,
+    LlmStreamEvent,
 };
 
 use crate::ai::ports::LlmProvider;
+use crate::ai::verifier::AiAnswerVerifier;
 
 /// AiStreamPipeline 流式事件 pipeline
 /// 核心职责：
@@ -100,17 +101,16 @@ impl AiStreamPipeline {
                 yield Ok(event);
             }
 
-            // 2. 消费 Provider stream
+            // 2. 消费 Provider stream，并先缓冲 delta，避免违规内容在校验前透出。
             let mut stream = provider.stream(&request);
-            let mut accumulated_text = String::new();
+            let mut delta_chunks = Vec::new();
             let mut finish_reason = LlmFinishReason::Stop;
             let mut usage = maohuoban_ai_domain::ai::LlmUsage::default();
 
             while let Some(event_result) = stream.next().await {
                 match event_result {
                     Ok(LlmStreamEvent::Delta { content }) => {
-                        accumulated_text.push_str(&content);
-                        yield Ok(AiStreamEvent::Delta { text: content });
+                        delta_chunks.push(content);
                     }
                     Ok(LlmStreamEvent::ToolCall { tool_call: _ }) => {
                         // 工具调用事件暂不转发到 iOS
@@ -143,6 +143,33 @@ impl AiStreamPipeline {
                 }
             }
 
+            let accumulated_text = delta_chunks.concat();
+            let package = AiFactPackage::empty();
+            let verification = AiAnswerVerifier::new().verify(&accumulated_text, &package);
+
+            if verification.is_blocked() {
+                let final_text = verification
+                    .safe_fallback_text
+                    .clone()
+                    .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
+                yield Ok(AiStreamEvent::Delta {
+                    text: final_text.clone(),
+                });
+                yield Ok(AiStreamEvent::MessageCompleted {
+                    message_id,
+                    final_text,
+                    usage,
+                    finish_reason: LlmFinishReason::ContentFilter,
+                    citations: Vec::new(),
+                    verification,
+                });
+                return;
+            }
+
+            for text in delta_chunks {
+                yield Ok(AiStreamEvent::Delta { text });
+            }
+
             // 3. 发送 message_completed
             yield Ok(AiStreamEvent::MessageCompleted {
                 message_id,
@@ -150,7 +177,7 @@ impl AiStreamPipeline {
                 usage,
                 finish_reason,
                 citations: Vec::new(),
-                verification: AiAnswerVerification::passed(),
+                verification,
             });
         }
         .boxed()
