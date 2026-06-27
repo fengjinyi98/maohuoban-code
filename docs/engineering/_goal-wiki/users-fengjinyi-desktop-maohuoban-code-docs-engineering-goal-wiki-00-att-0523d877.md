@@ -2,7 +2,7 @@
 
 ## 目标
 - status: active
-- objective: /Users/fengjinyi/Desktop/maohuoban-code/docs/engineering/_goal-wiki/00-attentionhint与异常追踪闭环phase3目标文档-06462c19.md
+- objective: /Users/fengjinyi/Developer/maohuoban-code/docs/engineering/_goal-wiki/00-attentionhint与异常追踪闭环phase3目标文档-06462c19.md
 - source: 未绑定目标文档
 - current_slice: Slice 2: 原子事务写入 pet_events + abnormal_episodes + attention_hints；event_payload 回填 episode_id
 - updated_at: 2026-06-26T06:10:31.089Z

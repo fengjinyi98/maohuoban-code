@@ -242,7 +242,7 @@ diagnostics.set_context_metadata("worker", json!("scheduler"));
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
+  --workspace-root /Users/fengjinyi/Developer/maohuoban-code
 ```
 
 输出：

@@ -1,7 +1,7 @@
 {
   "status": "active",
   "objective": "目录与文件规则回归收敛目标文档",
-  "source": "/Users/fengjinyi/Desktop/maohuoban-code/docs/engineering/code-structure/01_目录与文件规则回归收敛目标文档.md",
+  "source": "/Users/fengjinyi/Developer/maohuoban-code/docs/engineering/code-structure/01_目录与文件规则回归收敛目标文档.md",
   "acceptanceItems": [
     {
       "id": "task-1",
@@ -254,6 +254,6 @@
   ],
   "createdAt": "2026-06-26T09:08:45.124Z",
   "updatedAt": "2026-06-26T10:22:28.745Z",
-  "todoWikiPath": "/Users/fengjinyi/Desktop/maohuoban-code/docs/engineering/_goal-wiki/01-目录与文件规则回归收敛目标文档-3b1c32cc.md",
+  "todoWikiPath": "/Users/fengjinyi/Developer/maohuoban-code/docs/engineering/_goal-wiki/01-目录与文件规则回归收敛目标文档-3b1c32cc.md",
   "currentSlice": "Task 3.1：拆分 pet/service.rs (743 行) — 按用例域拆出首个子模块"
 }

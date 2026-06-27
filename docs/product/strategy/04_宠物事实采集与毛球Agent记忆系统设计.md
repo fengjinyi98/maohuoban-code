@@ -457,10 +457,10 @@
 
 | 类型 | 命令 / 验收 |
 |---|---|
-| Rust 格式 | `cd /Users/fengjinyi/Desktop/maohuoban-code/maohuoban-rust && cargo fmt --all --check` |
-| Rust 编译 | `cd /Users/fengjinyi/Desktop/maohuoban-code/maohuoban-rust && cargo check --workspace --all-targets` |
-| Rust 测试 | `cd /Users/fengjinyi/Desktop/maohuoban-code/maohuoban-rust && cargo test --workspace` |
-| iOS 构建 | `cd /Users/fengjinyi/Desktop/maohuoban-code && xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
+| Rust 格式 | `cd /Users/fengjinyi/Developer/maohuoban-code/maohuoban-rust && cargo fmt --all --check` |
+| Rust 编译 | `cd /Users/fengjinyi/Developer/maohuoban-code/maohuoban-rust && cargo check --workspace --all-targets` |
+| Rust 测试 | `cd /Users/fengjinyi/Developer/maohuoban-code/maohuoban-rust && cargo test --workspace` |
+| iOS 构建 | `cd /Users/fengjinyi/Developer/maohuoban-code && xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
 | 产品验收 | 用户能 1 到 2 次点击记录已喂、排便正常、拉稀异常 |
 | Agent 验收 | 毛球在“今天拉稀了”场景能读取当前主粮和近期换粮事实 |
 | 追踪验收 | 症状次日反馈能写回同一症状链 |

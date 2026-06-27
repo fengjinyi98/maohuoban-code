@@ -90,8 +90,8 @@ ScrollView {
 ## 4. 真实案例研究（Case Study）
 
 在 `maohuoban-code` 项目中，用户协议与隐私条款页面就成功应用了该设计模式：
-* 案例视图：[LegalDocumentView.swift](file:///Users/fengjinyi/Desktop/maohuoban-code/maohuoban/maohuoban/Features/Legal/Presentation/LegalDocumentView.swift)
-* 渲染组件：[LegalHTMLTextView.swift](file:///Users/fengjinyi/Desktop/maohuoban-code/maohuoban/maohuoban/Features/Legal/Presentation/LegalHTMLTextView.swift)
+* 案例视图：[LegalDocumentView.swift](file:///Users/fengjinyi/Developer/maohuoban-code/maohuoban/maohuoban/Features/Legal/Presentation/LegalDocumentView.swift)
+* 渲染组件：[LegalHTMLTextView.swift](file:///Users/fengjinyi/Developer/maohuoban-code/maohuoban/maohuoban/Features/Legal/Presentation/LegalHTMLTextView.swift)
 
 此重构移除了所有全局污染导航栈的 UIKit 外观拦截代码，且实现了状态栏的天然适配与完美的透明渐变滚动。
 

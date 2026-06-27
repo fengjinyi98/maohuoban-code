@@ -17,14 +17,14 @@ Collector 是本地诊断采集器，负责把工作区内的 Swift SDK、Rust S
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
+  --workspace-root /Users/fengjinyi/Developer/maohuoban-code
 ```
 
 LLM 排障完成后需要让下一轮证据窗口变小，可以在导出成功后清理已读源段文件：
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code \
+  --workspace-root /Users/fengjinyi/Developer/maohuoban-code \
   --clean-sources
 ```
 

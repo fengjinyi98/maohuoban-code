@@ -674,7 +674,7 @@ Collector 继续作为最终分析入口：
 
 ```bash
 cargo run -p maohuoban_diagnostics_collector -- \
-  --workspace-root /Users/fengjinyi/Desktop/maohuoban-code
+  --workspace-root /Users/fengjinyi/Developer/maohuoban-code
 ```
 
 输出：

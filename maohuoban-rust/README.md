@@ -65,7 +65,7 @@
 ## 本地运行
 
 ```bash
-cd /Users/fengjinyi/Desktop/maohuoban-code/maohuoban-rust
+cd /Users/fengjinyi/Developer/maohuoban-code/maohuoban-rust
 cargo run
 ```
 

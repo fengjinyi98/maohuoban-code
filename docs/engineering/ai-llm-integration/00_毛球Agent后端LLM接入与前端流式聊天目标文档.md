@@ -418,7 +418,7 @@ SSE 事件：
 | 目标 | workspace 出现可编译的 AI 分层 crate，并有稳定 domain 模型承载会话、消息、intent、宠物解析、LLM 请求响应和流式事件 |
 | 前置依赖 | 无 |
 | 验收项映射 | A1、A2、A3 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
 
 #### Slice 1.1：workspace crate 骨架
 
@@ -427,8 +427,8 @@ SSE 事件：
 | 行为目标 | 新增 `maohuoban-ai-domain`、`maohuoban-ai-application`、`maohuoban-ai-infrastructure`、`maohuoban-ai-http` 并加入 workspace |
 | 先写失败测试 | 在 `maohuoban-rust/tests/ai_contract.rs` 增加 smoke test 或编译引用，先验证缺 crate 时无法编译 |
 | 允许修改 | 根 `Cargo.toml`、各新 crate `Cargo.toml`、`src/lib.rs`、`maohuoban-rust/tests/ai_contract.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-infrastructure -p maohuoban-ai-http` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-infrastructure -p maohuoban-ai-http` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
 | 完成证据 | 记录 failing-test 编译失败原因、green-test 编译通过输出、workspace check 摘要 |
 | 停止条件 | 新 crate 需要引入无关业务依赖，或 workspace 现有 crate 出现无关编译错误 |
 
@@ -439,8 +439,8 @@ SSE 事件：
 | 行为目标 | `AiIntent`、`AiGateDecision`、`AiConversationSurface`、`AiPetResolution`、`AiStreamEvent` 可稳定序列化/反序列化 |
 | 先写失败测试 | `maohuoban-ai-domain` 内新增 enum roundtrip tests，断言 snake_case 和未知值拒绝 |
 | 允许修改 | `maohuoban-ai-domain/src` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-domain` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-domain` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
 | 完成证据 | 记录 enum roundtrip 红绿结果和编译验证 |
 | 停止条件 | domain 模型需要引用 axum、sqlx、reqwest 或其他 infrastructure 依赖 |
 
@@ -451,7 +451,7 @@ SSE 事件：
 | 目标 | application 通过 `LlmProvider` trait 调用 fake provider；infrastructure 可把内部请求转换成 OpenAI 兼容 HTTP/SSE 请求 |
 | 前置依赖 | Task 1 |
 | 验收项映射 | A4、A5、A6、A7 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application -p maohuoban-ai-infrastructure` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application -p maohuoban-ai-infrastructure` |
 
 #### Slice 2.1：`LlmProvider` 端口与 fake provider
 
@@ -460,8 +460,8 @@ SSE 事件：
 | 行为目标 | `AiGatewayService` 能依赖 trait 获取 fake assistant response 和 fake stream events |
 | 先写失败测试 | `maohuoban-ai-application` 新增测试：fake provider 返回固定回答和 delta 序列，application 不依赖 concrete provider |
 | 允许修改 | `maohuoban-ai-application/src`、`maohuoban-ai-domain/src` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application llm_provider` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-domain -p maohuoban-ai-application` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application llm_provider` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-domain -p maohuoban-ai-application` |
 | 完成证据 | 记录 trait 测试从 unresolved trait 红到 fake provider 绿 |
 | 停止条件 | application 直接引用 reqwest、Provider URL 或 API key |
 
@@ -472,8 +472,8 @@ SSE 事件：
 | 行为目标 | `OpenAiCompatibleLlmProvider` 将内部请求序列化为 OpenAI 兼容 JSON，Authorization 使用 Bearer |
 | 先写失败测试 | `maohuoban-ai-infrastructure` 新增 HTTP mock 测试，断言 path、headers、model、messages、tools、temperature、stream 字段 |
 | 允许修改 | `maohuoban-ai-infrastructure/src`、根 `Cargo.toml` workspace dependencies |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-infrastructure openai_compatible` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-infrastructure openai_compatible` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
 | 完成证据 | 记录 mock server 断言失败与通过结果；确认日志不包含 API key |
 | 停止条件 | 测试需要真实外网或真实 API key |
 
@@ -484,8 +484,8 @@ SSE 事件：
 | 行为目标 | Provider SSE chunk 能解析为 `LlmStreamEvent`，支持 delta、finish、usage、error |
 | 先写失败测试 | 用本地 fixture 模拟 OpenAI 兼容 SSE，断言 delta 顺序和 `[DONE]` 处理 |
 | 允许修改 | `maohuoban-ai-infrastructure/src/provider`、`maohuoban-ai-domain/src/stream.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-infrastructure sse_stream_parser` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-infrastructure` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-infrastructure sse_stream_parser` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-infrastructure` |
 | 完成证据 | 记录 chunk fixture 数量、delta 合并顺序、finish 断言 |
 | 停止条件 | 解析逻辑依赖真实外部 Provider 才能验证 |
 
@@ -496,7 +496,7 @@ SSE 事件：
 | 目标 | 用户可用宠物名字提问，后端在授权宠物集合内解析唯一 `pet_id`；宠物数据来自 pet 后端读模型 |
 | 前置依赖 | Task 1 |
 | 验收项映射 | A8、A9、A10、A11 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application pet_resolver` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application pet_resolver` |
 
 #### Slice 3.1：授权宠物候选端口
 
@@ -505,8 +505,8 @@ SSE 事件：
 | 行为目标 | AI application 能通过端口获取当前用户授权宠物最小摘要 |
 | 先写失败测试 | fake pet catalog 返回多宠列表，断言候选只含 `pet_id/name/avatar/species/profile_number` |
 | 允许修改 | `maohuoban-ai-application/src/pets`、必要的 pet application 端口 |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application authorized_pet_candidates` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-pet-application` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application authorized_pet_candidates` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-pet-application` |
 | 完成证据 | 记录候选字段断言，确认无饮食/异常/事件事实泄漏 |
 | 停止条件 | 需要在 AI 模块复制宠物表或新增宠物事实缓存 |
 
@@ -517,7 +517,7 @@ SSE 事件：
 | 行为目标 | 消息中出现唯一授权宠物名时解析到对应 `pet_id`；未提名时使用 selected pet；歧义时返回 needs_selection |
 | 先写失败测试 | table tests 覆盖 selected pet、唯一名字、同名多宠、未授权名字、无宠物上下文 |
 | 允许修改 | `maohuoban-ai-application/src/pet_resolver`、`maohuoban-ai-domain/src/pet_resolution.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application pet_resolver` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application pet_resolver` |
 | 回归命令 | 无 |
 | 完成证据 | 记录解析状态和目标 `pet_id` 断言 |
 | 停止条件 | 解析结果依赖前端传来的宠物名字作为权威值 |
@@ -529,7 +529,7 @@ SSE 事件：
 | 目标 | off-topic 不加载上下文；宠物领域问题按 intent 强制调用工具并生成事实包 |
 | 前置依赖 | Task 1、Task 3 |
 | 验收项映射 | A12、A13、A14、A15 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application` |
 
 #### Slice 4.1：规则版 `AiIntentGate`
 
@@ -538,7 +538,7 @@ SSE 事件：
 | 行为目标 | 规则分类器识别宠物照护、食品、健康风险、App 帮助、off-topic、prompt injection |
 | 先写失败测试 | `maohuoban-ai-application` 新增 table tests，覆盖典型中文输入和 expected decision |
 | 允许修改 | `maohuoban-ai-application/src/intent`、`maohuoban-ai-domain/src/intent.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application intent_gate` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application intent_gate` |
 | 回归命令 | 无 |
 | 完成证据 | 记录分类用例数量、红绿结果和低置信度处理 |
 | 停止条件 | 分类需要调用主 LLM 或读取宠物上下文 |
@@ -550,8 +550,8 @@ SSE 事件：
 | 行为目标 | 未注册工具调用被拒绝；已注册 pet tool 通过 pet application 完成权限校验 |
 | 先写失败测试 | `tool_registry_rejects_unknown_tool` 和 `pet_tool_authorization`，断言未授权无宠物名/食品名泄漏 |
 | 允许修改 | `maohuoban-ai-application/src/tools`、必要的 pet application 适配 |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application tool_registry pet_tool_authorization` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-pet-application` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application tool_registry pet_tool_authorization` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-pet-application` |
 | 完成证据 | 记录 unknown tool 拒绝、授权成功、未授权无泄漏 |
 | 停止条件 | 需要直接依赖 `maohuoban-pet-infrastructure` 或 SQL 查询 |
 
@@ -562,8 +562,8 @@ SSE 事件：
 | 行为目标 | 当前主粮/喂食/确认事实进入 strong facts，储物柜变化只进入 hints / confirmation candidates |
 | 先写失败测试 | 构造有 food hint 但无喂食/配置的 fixture，断言 hint 不进入 strong facts |
 | 允许修改 | `maohuoban-ai-application/src/context`、`maohuoban-ai-domain/src/fact_package.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application fact_package_diet_hints` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application fact_package_diet_hints` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application` |
 | 完成证据 | 记录强事实/弱线索断言结果 |
 | 停止条件 | 事实包需要塞入全量 pet_events 或完整聊天历史 |
 
@@ -574,7 +574,7 @@ SSE 事件：
 | 目标 | LLM 只基于事实包回答；流式输出在后端完成缓冲校验后结束，边界违规可回退为安全消息 |
 | 前置依赖 | Task 2、Task 4 |
 | 验收项映射 | A16、A17、A18、A19 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application answer_verifier stream_pipeline` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application answer_verifier stream_pipeline` |
 
 #### Slice 5.1：Prompt Builder 不含越权字段
 
@@ -583,7 +583,7 @@ SSE 事件：
 | 行为目标 | Prompt messages 只包含系统规则、用户问题、宠物候选、授权事实包和输出格式；不包含 API key、actor token、审计表原文 |
 | 先写失败测试 | 构造事实包和敏感字段，断言生成 messages 不包含 token/api key/unauthorized payload |
 | 允许修改 | `maohuoban-ai-application/src/prompt` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application prompt_builder` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application prompt_builder` |
 | 回归命令 | 无 |
 | 完成证据 | 记录敏感字段扫描断言结果 |
 | 停止条件 | 需要把完整数据库行或审计日志塞进 prompt |
@@ -595,8 +595,8 @@ SSE 事件：
 | 行为目标 | 回答中出现事实包外食品/日期/医院/药物，或把 weak hint 表达为已吃过，必须被阻断 |
 | 先写失败测试 | 构造 facts 只含弱线索“新增主粮”，回答却说“毛球已经换粮”，断言 blocked_reason |
 | 允许修改 | `maohuoban-ai-application/src/verifier`、`maohuoban-ai-domain/src/verification.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application answer_verifier` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application answer_verifier` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application` |
 | 完成证据 | 记录 unsupported fact 和 weak hint misuse 拦截 |
 | 停止条件 | 校验器只能靠 LLM 自我审查才能通过 |
 
@@ -607,7 +607,7 @@ SSE 事件：
 | 行为目标 | fake provider delta 序列被转换为毛伙伴稳定 SSE 事件，事件顺序固定 |
 | 先写失败测试 | `stream_pipeline_emits_stable_events` 断言 `message_started -> delta* -> message_completed` |
 | 允许修改 | `maohuoban-ai-application/src/stream`、`maohuoban-ai-domain/src/stream.rs` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-application stream_pipeline` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application stream_pipeline` |
 | 回归命令 | 无 |
 | 完成证据 | 记录事件顺序和 final text 断言 |
 | 停止条件 | iOS 需要直接解析 OpenAI 原始 chunk |
@@ -619,7 +619,7 @@ SSE 事件：
 | 目标 | 根服务装配 AI router；聊天、流式、历史列表、消息详情和审计持久化可用 |
 | 前置依赖 | Task 1-5 |
 | 验收项映射 | A20、A21、A22、A23、A24 |
-| 回归验证 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
+| 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
 
 #### Slice 6.1：HTTP 认证与 stream route
 
@@ -628,8 +628,8 @@ SSE 事件：
 | 行为目标 | 未登录 `/ai/chat/stream` 返回 unauthorized；已登录进入 stream，前端不能传 actor user |
 | 先写失败测试 | `maohuoban-rust/tests/ai_contract/chat_stream.rs` 新增 unauthorized 和 authenticated smoke tests |
 | 允许修改 | `maohuoban-ai-http/src`、根服务装配、根 `Cargo.toml` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_chat_stream_auth` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_chat_stream_auth` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
 | 完成证据 | 记录 401 和认证通过测试结果 |
 | 停止条件 | HTTP handler 接收或信任 `actor_user_id` 字段 |
 
@@ -640,8 +640,8 @@ SSE 事件：
 | 行为目标 | AI chat 成功后 DB 中有 session、user message、assistant message 和 pet display snapshot |
 | 先写失败测试 | contract test 查询 `ai_chat_sessions`、`ai_messages`，断言 actor user、primary pet、message role、pet snapshot |
 | 允许修改 | `maohuoban-rust/migrations`、`maohuoban-ai-*` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_chat_persistence` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_chat_stream_auth ai_chat_persistence` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_chat_persistence` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_chat_stream_auth ai_chat_persistence` |
 | 完成证据 | 记录 DB 断言行数和关键字段 |
 | 停止条件 | 需要保存完整敏感 Provider 原始请求才能通过 |
 
@@ -652,8 +652,8 @@ SSE 事件：
 | 行为目标 | `GET /ai/chat-sessions` 返回带宠物头像/名字快照的会话列表；`GET /messages` 返回消息 |
 | 先写失败测试 | contract test 创建两条会话，断言排序、pet display snapshot、最近消息摘要和鉴权 |
 | 允许修改 | `maohuoban-ai-http/src`、`maohuoban-ai-application/src/history`、`maohuoban-ai-infrastructure/src/postgres` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_chat_history` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_chat_history` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
 | 完成证据 | 记录历史响应 JSON 和鉴权拒绝测试 |
 | 停止条件 | 历史接口读取前端本地 mock 或新增宠物事实源 |
 
@@ -664,8 +664,8 @@ SSE 事件：
 | 行为目标 | 每次工具调用和每次 gate decision 都写审计日志；off-topic 日志显示 context_loaded = false |
 | 先写失败测试 | contract test 调用宠物问题和 off-topic，查询 `ai_tool_access_logs`、`ai_request_gate_logs` |
 | 允许修改 | `maohuoban-rust/migrations`、`maohuoban-ai-application`、`maohuoban-ai-infrastructure` |
-| 最小绿灯命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_audit_logs` |
-| 回归命令 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
+| 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_audit_logs` |
+| 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban_rust ai_contract` |
 | 完成证据 | 记录 allowed/denied、returned_ref_ids、context_loaded 断言 |
 | 停止条件 | 审计日志必须保存完整聊天原文或完整私有事实 payload |
 
@@ -719,8 +719,8 @@ SSE 事件：
 | ID | 类型 | 命令 / 验收 |
 |---|---|---|
 | A1 | workspace | 根 `Cargo.toml` 包含 `maohuoban-ai-domain/application/infrastructure/http` workspace members 和 dependencies |
-| A2 | domain 编译 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test -p maohuoban-ai-domain` 通过 |
-| A3 | workspace 编译 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo check --workspace --all-targets` 通过 |
+| A2 | domain 编译 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-domain` 通过 |
+| A3 | workspace 编译 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` 通过 |
 | A4 | Provider 端口 | application 测试证明只依赖 `LlmProvider` trait |
 | A5 | OpenAI 兼容序列化 | mock HTTP 测试断言 path、headers、model、messages、tools、temperature、stream 正确 |
 | A6 | Provider 错误 | 401、429、5xx、timeout、invalid JSON 映射为稳定错误 |
@@ -746,9 +746,9 @@ SSE 事件：
 | A26 | iOS Store | Store 流式事件累积、完成、错误、pending action 测试通过 |
 | A27 | iOS 历史 | 历史记录使用后端返回宠物头像和名字映射 |
 | A28 | iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` 以 `** BUILD SUCCEEDED **` 结束 |
-| A29 | Rust 格式 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo fmt --all --check` 通过 |
-| A30 | Rust 测试 | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo test --workspace` 通过 |
-| A31 | Rust lint | `cd /Users/fengjinyi/Desktop/maohuoban-code && cargo clippy --workspace --all-targets` 无新增 warning |
+| A29 | Rust 格式 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo fmt --all --check` 通过 |
+| A30 | Rust 测试 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test --workspace` 通过 |
+| A31 | Rust lint | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo clippy --workspace --all-targets` 无新增 warning |
 
 ## 10. 不变约束
 

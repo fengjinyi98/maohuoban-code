@@ -146,7 +146,7 @@ curl -D - '<RustFS 签名对象 URL，包含 response-cache-control 查询参数
 | 运行方式 | 使用独立 Rust 二进制进程，开发环境同样由 `launchd` / `LaunchAgent` 管理 |
 | LaunchAgent label | `com.maohuoban.media-gc-worker` |
 | plist 路径 | `~/Library/LaunchAgents/com.maohuoban.media-gc-worker.plist` |
-| 工作目录 | 当前项目 Rust 后端目录，例如 `/Users/fengjinyi/Desktop/maohuoban-code/maohuoban-rust` |
+| 工作目录 | 当前项目 Rust 后端目录，例如 `/Users/fengjinyi/Developer/maohuoban-code/maohuoban-rust` |
 | 日志路径 | 建议为 `~/Library/Logs/maohuoban-code-media-gc-worker.log` |
 | 轮询配置 | 使用 `MEDIA_GC_POLL_INTERVAL_MS` 控制轮询间隔 |
 | 单次模式 | 使用 `MEDIA_GC_WORKER_RUN_ONCE=true` 支持测试和手动清理 |

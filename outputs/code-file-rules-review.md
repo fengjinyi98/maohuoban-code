@@ -1,6 +1,6 @@
 # 目录与文件规则审查报告
 
-仓库：`/Users/fengjinyi/Desktop/maohuoban-code`
+仓库：`/Users/fengjinyi/Developer/maohuoban-code`
 扫描日期：2026-06-24
 
 ## 结论

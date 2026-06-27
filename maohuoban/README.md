@@ -40,7 +40,7 @@
 ## 构建与验证
 
 ```bash
-cd /Users/fengjinyi/Desktop/maohuoban-code
+cd /Users/fengjinyi/Developer/maohuoban-code
 xcodebuild -project maohuoban/maohuoban.xcodeproj \
   -scheme maohuoban \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' \

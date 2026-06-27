@@ -3,7 +3,7 @@
 ## 目标
 - status: active
 - objective: Maohuoban Goal TODO Wiki
-- source: /Users/fengjinyi/Desktop/maohuoban-code/docs/engineering/_goal-wiki/00-attentionhint与异常追踪闭环phase3目标文档-06462c19.md
+- source: /Users/fengjinyi/Developer/maohuoban-code/docs/engineering/_goal-wiki/00-attentionhint与异常追踪闭环phase3目标文档-06462c19.md
 - current_slice: 未设置
 - updated_at: 2026-06-26T03:06:36.887Z
 
