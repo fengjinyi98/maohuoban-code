@@ -6,6 +6,7 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
+use super::super::diagnostics::record_chat_session_persisted;
 use super::request::ChatStreamRequest;
 
 /// PetSessionContext AI 会话宠物上下文
@@ -44,7 +45,7 @@ pub(super) async fn persist_session_and_user_message(
         created_at: now,
         updated_at: now,
     };
-    let _ = repo.upsert_session(&session).await;
+    let session_persisted = repo.upsert_session(&session).await.is_ok();
 
     let user_message = AiMessage {
         id: Uuid::new_v4(),
@@ -61,5 +62,12 @@ pub(super) async fn persist_session_and_user_message(
         verification: None,
         created_at: now,
     };
-    let _ = repo.insert_message(&user_message).await;
+    let user_message_persisted = repo.insert_message(&user_message).await.is_ok();
+    record_chat_session_persisted(
+        actor_user_id,
+        session_id,
+        pet_context.primary_pet_id,
+        session_persisted,
+        user_message_persisted,
+    );
 }

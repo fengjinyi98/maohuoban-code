@@ -19,6 +19,10 @@ use uuid::Uuid;
 
 use super::AiHttpState;
 use super::auth::current_user_id;
+use super::diagnostics::{
+    record_history_messages_loaded, record_history_mutation_completed,
+    record_history_sessions_loaded,
+};
 use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 /// ChatSessionItem 会话列表项
@@ -129,6 +133,16 @@ pub async fn handle_list_sessions(
         });
     }
 
+    record_history_sessions_loaded(
+        actor_user_id,
+        items.len(),
+        sessions.iter().filter(|session| session.is_pinned).count(),
+        items
+            .iter()
+            .filter(|item| item.pet_display_snapshot.is_some())
+            .count(),
+        pet_candidates_by_id.len(),
+    );
     ok_response("ai.sessions_loaded", "会话列表已加载", items)
 }
 
@@ -167,6 +181,7 @@ pub async fn handle_get_session_messages(
         .collect();
 
     let _ = session;
+    record_history_messages_loaded(actor_user_id, session_id, dtos.len());
     ok_response("ai.messages_loaded", "消息列表已加载", dtos)
 }
 
@@ -183,6 +198,7 @@ pub async fn handle_rename_session(
 
     let title = req.title.trim();
     if title.is_empty() || title.chars().count() > 60 {
+        record_history_mutation_completed("rename", actor_user_id, session_id, false);
         return ai_error_response(&AiError::InvalidInput(
             "会话标题长度需为 1-60 个字符".to_owned(),
         ));
@@ -193,13 +209,22 @@ pub async fn handle_rename_session(
         .rename_session(session_id, actor_user_id, title)
         .await
     {
-        Ok(Some(session)) => ok_response(
-            "ai.session_renamed",
-            "会话已重命名",
-            session_mutation_result(session),
-        ),
-        Ok(None) => unauthorized_response(),
-        Err(error) => ai_error_response(&error),
+        Ok(Some(session)) => {
+            record_history_mutation_completed("rename", actor_user_id, session_id, true);
+            ok_response(
+                "ai.session_renamed",
+                "会话已重命名",
+                session_mutation_result(session),
+            )
+        }
+        Ok(None) => {
+            record_history_mutation_completed("rename", actor_user_id, session_id, false);
+            unauthorized_response()
+        }
+        Err(error) => {
+            record_history_mutation_completed("rename", actor_user_id, session_id, false);
+            ai_error_response(&error)
+        }
     }
 }
 
@@ -219,13 +244,22 @@ pub async fn handle_pin_session(
         .set_session_pinned(session_id, actor_user_id, req.is_pinned)
         .await
     {
-        Ok(Some(session)) => ok_response(
-            "ai.session_pin_updated",
-            "会话置顶状态已更新",
-            session_mutation_result(session),
-        ),
-        Ok(None) => unauthorized_response(),
-        Err(error) => ai_error_response(&error),
+        Ok(Some(session)) => {
+            record_history_mutation_completed("pin", actor_user_id, session_id, true);
+            ok_response(
+                "ai.session_pin_updated",
+                "会话置顶状态已更新",
+                session_mutation_result(session),
+            )
+        }
+        Ok(None) => {
+            record_history_mutation_completed("pin", actor_user_id, session_id, false);
+            unauthorized_response()
+        }
+        Err(error) => {
+            record_history_mutation_completed("pin", actor_user_id, session_id, false);
+            ai_error_response(&error)
+        }
     }
 }
 
@@ -244,13 +278,22 @@ pub async fn handle_delete_session(
         .archive_session(session_id, actor_user_id)
         .await
     {
-        Ok(Some(session)) => ok_response(
-            "ai.session_deleted",
-            "会话已删除",
-            session_mutation_result(session),
-        ),
-        Ok(None) => unauthorized_response(),
-        Err(error) => ai_error_response(&error),
+        Ok(Some(session)) => {
+            record_history_mutation_completed("delete", actor_user_id, session_id, true);
+            ok_response(
+                "ai.session_deleted",
+                "会话已删除",
+                session_mutation_result(session),
+            )
+        }
+        Ok(None) => {
+            record_history_mutation_completed("delete", actor_user_id, session_id, false);
+            unauthorized_response()
+        }
+        Err(error) => {
+            record_history_mutation_completed("delete", actor_user_id, session_id, false);
+            ai_error_response(&error)
+        }
     }
 }
 

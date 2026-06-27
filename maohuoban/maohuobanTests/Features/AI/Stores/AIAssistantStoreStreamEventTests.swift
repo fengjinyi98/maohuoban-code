@@ -28,6 +28,23 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(assistant.referenceChips, ["健康分级", "红旗症状"])
     }
 
+    func testSubmitDraftShowsStreamingPlaceholderImmediately() async {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: PendingAIAssistantRepository()
+        )
+        store.draftText = "我的宠物下一次疫苗是什么时候"
+
+        store.submitDraft()
+
+        XCTAssertEqual(store.messages.count, 2)
+        XCTAssertEqual(store.messages[0].role, .user)
+        XCTAssertEqual(store.messages[1].role, .assistant)
+        XCTAssertTrue(store.messages[1].isStreaming)
+        XCTAssertTrue(store.messages[1].text.isEmpty)
+        XCTAssertTrue(store.isStreaming)
+    }
+
     func testErrorEventClosesStreamingAndShowsBackendSafeText() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
@@ -343,6 +360,69 @@ private final class FailingAIAssistantRepository: AIAssistantRepository {
                 statusCode: 503
             ))
         }
+    }
+
+    func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
+        MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: [])
+    }
+
+    func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
+        MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: [])
+    }
+
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持重命名",
+            statusCode: 400
+        )
+    }
+
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持置顶",
+            statusCode: 400
+        )
+    }
+
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持删除",
+            statusCode: 400
+        )
+    }
+
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前建议动作暂不支持确认",
+            statusCode: 400
+        )
+    }
+}
+
+// PendingAIAssistantRepository 挂起流式测试仓库
+// 核心职责：
+// - 模拟后端尚未返回首个 SSE 事件的等待窗口
+// - 验证 Store 发起请求后立即提供输入反馈
+private final class PendingAIAssistantRepository: AIAssistantRepository {
+    func openChatStream(
+        message: String,
+        selectedPetID: String?,
+        surface: String,
+        chatSessionID: String?
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { _ in }
     }
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {

@@ -1,5 +1,9 @@
 use axum::http::StatusCode;
 use httpmock::MockServer;
+use maohuoban_diagnostics::{
+    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
+    PrivacyPolicy,
+};
 use serde_json::Value;
 use serde_json::json;
 use tower::ServiceExt;
@@ -87,6 +91,65 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
         error["safe_fallback_text"],
         "暂时无法获取回答，请稍后重试。"
     );
+}
+
+/// 流式聊天写入后端业务链路诊断事件
+#[tokio::test]
+async fn ai_chat_stream_records_backend_diagnostics_chain() {
+    let diagnostics = install_ai_test_diagnostics();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139019", "ios-ai-diagnostics").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天拉肚子了怎么办",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send diagnostics chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Analytics
+            && event.message == "ai.chat.stream.request.received"
+            && event.metadata["surface"] == json!("home_private")
+            && event.metadata["message_length_bucket"] == json!("1_32")
+            && event.metadata.get("message").is_none()
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.gate.decided"
+            && event.metadata["gate_decision"] == json!("load_context")
+            && event.metadata["context_loaded"] == json!(true)
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.provider.started"
+            && event.metadata["target_pet_present"] == json!(true)
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.stream.event.emitted"
+            && event.metadata["event_name"] == json!("error")
+            && event.metadata["error_code"] == json!("ai.provider_not_configured")
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.provider.error"
+            && event.metadata["error_code"] == json!("ai.provider_not_configured")
+            && event.metadata["retryable"] == json!(false)
+    }));
 }
 
 /// 配置 `OpenAI` 兼容 Provider 后 `/api/v1/ai/chat/stream` 返回真实 Provider delta
@@ -436,6 +499,21 @@ async fn create_pet(
 
     assert_eq!(response.status(), StatusCode::CREATED);
     response_json(response).await["data"].clone()
+}
+
+fn install_ai_test_diagnostics() -> Diagnostics {
+    let root =
+        std::env::temp_dir().join(format!("maohuoban-ai-diagnostics-{}", uuid::Uuid::new_v4()));
+    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
+    Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_owned(),
+        environment: "test".to_owned(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics")
 }
 
 fn sse_event_data(text: &str, event_name: &str) -> Value {

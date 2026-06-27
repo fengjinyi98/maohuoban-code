@@ -32,10 +32,10 @@ fn json_request(method: &str, uri: &str, body: serde_json::Value) -> Request<Bod
 }
 
 #[test]
-fn backend_config_requires_explicit_diagnostics_ingest_enablement() {
+fn backend_config_enables_local_diagnostics_ingest_by_default() {
     assert!(
-        !maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(None),
-        "diagnostics ingest must not be exposed by default"
+        maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(None),
+        "local diagnostics ingest must be available for iOS device debug mirror"
     );
     assert!(maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("1")));
     assert!(maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("true")));

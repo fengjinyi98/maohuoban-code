@@ -230,27 +230,10 @@ private struct AIAssistantHistoryRow: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(.interaction, Rectangle())
-        .contentShape(.contextMenuPreview, AIAssistantHistoryTrailingMenuAnchorShape())
         .accessibilityLabel(history.title)
     }
 }
 
-// AIAssistantHistoryTrailingMenuAnchorShape 历史菜单右侧锚点形状
-// 核心职责：
-// - 将系统 context menu 的预览源区域约束到 row 右侧
-// - 保持整行点击和长按命中区域不变
-private struct AIAssistantHistoryTrailingMenuAnchorShape: Shape {
-    nonisolated func path(in rect: CGRect) -> Path {
-        let width = min(96, rect.width)
-        let anchorRect = CGRect(
-            x: rect.maxX - width,
-            y: rect.minY,
-            width: width,
-            height: rect.height
-        )
-        return Path(anchorRect)
-    }
-}
 
 // AIAssistantHistoryEmptyState AI 对话记录空态
 // 核心职责：

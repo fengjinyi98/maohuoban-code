@@ -1793,6 +1793,7 @@ dependencies = [
  "maohuoban-ai-domain",
  "maohuoban-auth-application",
  "maohuoban-auth-domain",
+ "maohuoban_diagnostics",
  "serde",
  "serde_json",
  "tokio",

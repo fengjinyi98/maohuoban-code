@@ -1,5 +1,4 @@
 import Foundation
-import MaohuobanDiagnostics
 import UIKit
 
 // AIAssistantStore AI 助手状态容器
@@ -122,9 +121,19 @@ final class AIAssistantStore {
             let response = try await repository.fetchChatSessions()
             if let data = response.data {
                 histories = data.map { AIAssistantConversationHistory(from: $0) }
+                await AIAssistantDiagnostics.recordHistorySessionsLoaded(
+                    sessionCount: histories.count,
+                    pinnedCount: histories.filter(\.isPinned).count,
+                    petSnapshotCount: data.filter { $0.petDisplaySnapshot != nil }.count
+                )
             }
         } catch {
             histories = []
+            await AIAssistantDiagnostics.recordHistorySessionsLoaded(
+                sessionCount: 0,
+                pinnedCount: 0,
+                petSnapshotCount: 0
+            )
         }
     }
 
@@ -147,7 +156,17 @@ final class AIAssistantStore {
             if selectedConversationHistoryID == history.id {
                 currentConversationTitle = updatedTitle
             }
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "rename",
+                sessionID: history.id,
+                success: true
+            )
         } catch {
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "rename",
+                sessionID: history.id,
+                success: false
+            )
             return
         }
     }
@@ -166,7 +185,17 @@ final class AIAssistantStore {
                 history.updating(isPinned: updatedPinnedState)
             }
             sortHistoriesByPinnedState()
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "pin",
+                sessionID: history.id,
+                success: true
+            )
         } catch {
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "pin",
+                sessionID: history.id,
+                success: false
+            )
             return
         }
     }
@@ -178,7 +207,17 @@ final class AIAssistantStore {
             if selectedConversationHistoryID == history.id || currentChatSessionID == history.id {
                 startNewConversation()
             }
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "delete",
+                sessionID: history.id,
+                success: true
+            )
         } catch {
+            await AIAssistantDiagnostics.recordHistoryMutationCompleted(
+                action: "delete",
+                sessionID: history.id,
+                success: false
+            )
             return
         }
     }
@@ -221,9 +260,21 @@ final class AIAssistantStore {
             currentConversationTitle = makeConversationTitle(from: text)
         }
 
+        let submittingSessionID = currentChatSessionID
+        Task {
+            await AIAssistantDiagnostics.recordChatSubmit(
+                message: text,
+                selectedPetID: context.selectedPetID,
+                chatSessionID: submittingSessionID
+            )
+        }
+
         messages.append(AIAssistantMessage(role: .user, text: text))
         clearAttachment()
         let assistantReplyStartIndex = messages.count
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
+        messages.append(placeholder)
+        streamingEngine.begin(messageID: placeholder.id)
 
         streamingTask?.cancel()
         streamingTask = Task { [weak self] in
@@ -241,6 +292,11 @@ final class AIAssistantStore {
                 }
                 if Task.isCancelled { return }
                 self.finishStreamIfAssistantReplyMissing(after: assistantReplyStartIndex)
+                await AIAssistantDiagnostics.recordStreamCompleted(
+                    messageCount: self.messages.count,
+                    assistantReplyPresent: self.hasCompletedAssistantReply(after: assistantReplyStartIndex),
+                    isStreaming: self.isStreaming
+                )
             } catch {
                 self.handleStreamError(error)
             }
@@ -248,6 +304,14 @@ final class AIAssistantStore {
     }
 
     private func handleStreamEvent(_ event: AIStreamEventDTO) {
+        Task {
+            await AIAssistantDiagnostics.recordStreamEventConsumed(
+                event,
+                messageCount: messages.count,
+                isStreaming: isStreaming
+            )
+        }
+
         switch event {
         case .messageStarted(let chatSessionID, _, let title):
             currentChatSessionID = chatSessionID.uuidString
@@ -256,9 +320,7 @@ final class AIAssistantStore {
             } else if currentConversationTitle == nil {
                 currentConversationTitle = title
             }
-            let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
-            messages.append(placeholder)
-            streamingEngine.begin(messageID: placeholder.id)
+            ensureStreamingPlaceholderExists()
 
         case .delta(let text):
             streamingEngine.appendDelta(text)
@@ -282,6 +344,14 @@ final class AIAssistantStore {
         }
     }
 
+    private func ensureStreamingPlaceholderExists() {
+        guard streamingEngine.activeMessageID == nil else { return }
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
+        messages.append(placeholder)
+        streamingEngine.begin(messageID: placeholder.id)
+        streamingRevision += 1
+    }
+
     private func applyCompletedAssistantMessage(finalText: String, referenceChips: [String]) {
         let activeMessageID = streamingEngine.activeMessageID
         if let activeMessageID {
@@ -290,6 +360,13 @@ final class AIAssistantStore {
                 messages[index].referenceChips = referenceChips
             }
             streamingRevision += 1
+            Task {
+                await AIAssistantDiagnostics.recordAssistantFinalized(
+                    source: "message_completed",
+                    text: finalText,
+                    referenceChipCount: referenceChips.count
+                )
+            }
             return
         }
 
@@ -308,6 +385,13 @@ final class AIAssistantStore {
             )
         }
         streamingRevision += 1
+        Task {
+            await AIAssistantDiagnostics.recordAssistantFinalized(
+                source: "message_completed",
+                text: finalText,
+                referenceChipCount: referenceChips.count
+            )
+        }
     }
 
     private func handleStreamError(_ error: Error) {
@@ -318,6 +402,13 @@ final class AIAssistantStore {
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
         replaceStreamingOrAppendAssistantMessage(Self.networkFailureFallbackText)
+        Task {
+            await AIAssistantDiagnostics.recordAssistantFinalized(
+                source: "local_stream_error",
+                text: Self.networkFailureFallbackText,
+                referenceChipCount: 0
+            )
+        }
     }
 
     private func finishBackendError(safeFallbackText: String?) {
@@ -327,6 +418,13 @@ final class AIAssistantStore {
             return
         }
         replaceStreamingOrAppendAssistantMessage(trimmedText)
+        Task {
+            await AIAssistantDiagnostics.recordAssistantFinalized(
+                source: "backend_sse_error",
+                text: trimmedText,
+                referenceChipCount: 0
+            )
+        }
     }
 
     private func replaceStreamingOrAppendAssistantMessage(_ text: String) {
@@ -341,19 +439,22 @@ final class AIAssistantStore {
     }
 
     private func finishStreamIfAssistantReplyMissing(after startIndex: Int) {
-        let hasCompletedAssistantReply = messages.enumerated().contains { index, message in
-            index >= startIndex
-                && message.role == .assistant
-                && message.isStreaming == false
-                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        }
-        guard hasCompletedAssistantReply == false else { return }
+        guard hasCompletedAssistantReply(after: startIndex) == false else { return }
         recordStreamIssue(
             source: "local_empty_stream",
             code: "ai.empty_stream",
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
         discardIncompleteAssistantReplies(after: startIndex)
+    }
+
+    private func hasCompletedAssistantReply(after startIndex: Int) -> Bool {
+        messages.enumerated().contains { index, message in
+            index >= startIndex
+                && message.role == .assistant
+                && message.isStreaming == false
+                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        }
     }
 
     private func discardIncompleteAssistantReplies(after startIndex: Int) {
@@ -395,16 +496,13 @@ final class AIAssistantStore {
         retryable: Bool? = nil,
         hasStreamingPlaceholder: Bool
     ) {
-        var properties: DiagnosticProperties = [
-            "source": .string(source),
-            "code": .string(code),
-            "has_streaming_placeholder": .bool(hasStreamingPlaceholder)
-        ]
-        if let retryable {
-            properties["retryable"] = .bool(retryable)
-        }
         Task {
-            await Diagnostics.track("ai.chat.stream.issue", properties: properties)
+            await AIAssistantDiagnostics.recordStreamIssue(
+                source: source,
+                code: code,
+                retryable: retryable,
+                hasStreamingPlaceholder: hasStreamingPlaceholder
+            )
         }
     }
 
@@ -452,9 +550,17 @@ final class AIAssistantStore {
                         text: dto.content
                     )
                 }
+                await AIAssistantDiagnostics.recordHistoryMessagesLoaded(
+                    sessionID: sessionID,
+                    messageCount: messages.count
+                )
             }
         } catch {
             // 保持预览消息
+            await AIAssistantDiagnostics.recordHistoryMessagesLoaded(
+                sessionID: sessionID,
+                messageCount: 0
+            )
         }
     }
 

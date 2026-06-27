@@ -22,6 +22,10 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
+use super::super::diagnostics::{
+    record_chat_gate_decided, record_chat_provider_error, record_chat_provider_started,
+    record_chat_stream_event_emitted, record_chat_stream_request_received,
+};
 use super::assistant_message_persistence::{
     AssistantMessagePersistRequest, persist_assistant_message,
 };
@@ -56,6 +60,7 @@ pub async fn handle_chat_stream(
     let now = Utc::now();
     let title = build_title(&req.message);
     let gate_decision = AiIntentGate::new().classify(&req.message);
+    record_stream_request_received(&req, actor_user_id, session_id);
 
     let pet_resolution =
         resolve_stream_target_pet(&state, &req, actor_user_id, &gate_decision).await;
@@ -63,17 +68,19 @@ pub async fn handle_chat_stream(
         .as_ref()
         .and_then(AiPetResolution::resolved_pet_id);
     let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
+    record_stream_gate_decided(&req, session_id, resolved_pet_id, &gate_decision);
 
-    persist_session_and_user_message(
-        &state.session_repository,
+    let pet_session_context = PetSessionContext {
+        primary_pet_id: resolved_pet_id.or(req.selected_pet_id),
+        pet_display_snapshot: target_pet.clone(),
+    };
+    persist_current_turn(
+        &state,
         &req,
         actor_user_id,
         session_id,
         title.clone(),
-        PetSessionContext {
-            primary_pet_id: resolved_pet_id.or(req.selected_pet_id),
-            pet_display_snapshot: target_pet.clone(),
-        },
+        pet_session_context,
         now,
     )
     .await;
@@ -122,23 +129,72 @@ pub async fn handle_chat_stream(
         );
     }
 
-    let (fact_package, initial_events) = load_fact_context_and_initial_events(
+    provider_response_for_context(
         &state,
-        session_id,
-        actor_user_id,
-        target_pet.as_ref(),
-        initial_events,
+        &req,
+        ProviderResponseInput {
+            session_id,
+            message_id,
+            title,
+            actor_user_id,
+            target_pet,
+            initial_events,
+        },
+    )
+    .await
+}
+
+/// ProviderResponseInput Provider 响应构建输入
+/// 核心职责：
+/// - 承载 stream 主链路进入 Provider 分支所需上下文
+/// - 控制 helper 参数数量并保持所有权边界清晰
+struct ProviderResponseInput {
+    session_id: Uuid,
+    message_id: Uuid,
+    title: String,
+    actor_user_id: Uuid,
+    target_pet: Option<AiPetDisplaySnapshot>,
+    initial_events: Vec<AiStreamEvent>,
+}
+
+/// provider_response_for_context 构建 Provider SSE 响应
+/// 核心职责：
+/// - 加载事实包并记录 Provider 分支入口
+/// - 将 LLM 请求交给 stream pipeline 生成稳定 SSE
+async fn provider_response_for_context(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    input: ProviderResponseInput,
+) -> Response {
+    let (fact_package, initial_events) = load_fact_context_and_initial_events(
+        state,
+        input.session_id,
+        input.actor_user_id,
+        input.target_pet.as_ref(),
+        input.initial_events,
     )
     .await;
 
-    let llm_request = build_llm_request(&req.message, target_pet.as_ref(), fact_package.as_ref());
+    record_provider_context_started(
+        input.session_id,
+        input.message_id,
+        input.target_pet.as_ref(),
+        &initial_events,
+        fact_package.as_ref(),
+    );
+
+    let llm_request = build_llm_request(
+        &req.message,
+        input.target_pet.as_ref(),
+        fact_package.as_ref(),
+    );
     let stream = state.stream_pipeline.run_with_context(
         llm_request,
         AiStreamRunContext {
-            chat_session_id: session_id,
-            message_id,
-            title,
-            target_pet,
+            chat_session_id: input.session_id,
+            message_id: input.message_id,
+            title: input.title,
+            target_pet: input.target_pet,
             initial_events,
             fact_package,
         },
@@ -147,9 +203,86 @@ pub async fn handle_chat_stream(
     provider_stream_response(
         stream,
         state.session_repository.clone(),
+        input.session_id,
+        input.message_id,
+    )
+}
+
+/// persist_current_turn 持久化当前 stream 轮次
+/// 核心职责：
+/// - 保存会话、用户消息和宠物展示快照
+/// - 保持 handler 主流程聚焦分支编排
+async fn persist_current_turn(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    session_id: Uuid,
+    title: String,
+    pet_context: PetSessionContext,
+    now: chrono::DateTime<Utc>,
+) {
+    persist_session_and_user_message(
+        &state.session_repository,
+        req,
+        actor_user_id,
+        session_id,
+        title,
+        pet_context,
+        now,
+    )
+    .await;
+}
+
+/// record_stream_request_received 记录 stream 请求入口观测
+/// 核心职责：
+/// - 从请求体提取脱敏诊断字段
+/// - 保持主 handler 聚焦链路编排
+fn record_stream_request_received(req: &ChatStreamRequest, actor_user_id: Uuid, session_id: Uuid) {
+    record_chat_stream_request_received(
+        actor_user_id,
+        session_id,
+        req.selected_pet_id,
+        req.surface,
+        &req.message,
+    );
+}
+
+/// record_stream_gate_decided 记录 stream gate 决策观测
+/// 核心职责：
+/// - 关联会话、选择宠物和解析宠物
+/// - 保持 gate 诊断字段集中构造
+fn record_stream_gate_decided(
+    req: &ChatStreamRequest,
+    session_id: Uuid,
+    resolved_pet_id: Option<Uuid>,
+    gate_decision: &AiGateDecision,
+) {
+    record_chat_gate_decided(
+        session_id,
+        req.selected_pet_id,
+        resolved_pet_id,
+        gate_decision,
+    );
+}
+
+/// record_provider_context_started 记录 Provider 分支上下文状态
+/// 核心职责：
+/// - 在进入 Provider 前记录事实包和初始事件状态
+/// - 为 provider 错误和 SSE 输出提供前置证据
+fn record_provider_context_started(
+    session_id: Uuid,
+    message_id: Uuid,
+    target_pet: Option<&AiPetDisplaySnapshot>,
+    initial_events: &[AiStreamEvent],
+    fact_package: Option<&AiFactPackage>,
+) {
+    record_chat_provider_started(
         session_id,
         message_id,
-    )
+        target_pet.is_some(),
+        initial_events.len(),
+        fact_package.is_some(),
+    );
 }
 
 /// load_fact_context_and_initial_events 加载事实上下文并拼接初始事件
@@ -356,6 +489,21 @@ where
                 },
             };
 
+            if let AiStreamEvent::Error {
+                code,
+                retryable,
+                safe_fallback_text,
+                ..
+            } = &event
+            {
+                record_chat_provider_error(
+                    session_id,
+                    code,
+                    *retryable,
+                    safe_fallback_text.as_deref(),
+                );
+            }
+
             if let AiStreamEvent::MessageCompleted {
                 final_text,
                 usage,
@@ -390,6 +538,7 @@ where
                 });
             }
 
+            record_chat_stream_event_emitted(session_id, &event);
             let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
             Ok::<Event, std::convert::Infallible>(
                 Event::default().event(event.event_name()).data(json),

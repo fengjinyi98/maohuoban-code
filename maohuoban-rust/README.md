@@ -59,6 +59,8 @@
 | `REDIS_URL` | `redis://127.0.0.1:6379/0` | 运行环境 Redis |
 | `REDIS_KEY_PREFIX` | `maohuoban:auth` | 验证码等 Redis key 前缀 |
 | `JWT_SECRET` | 本地开发默认密钥 | JWT 签名密钥，生产环境必须覆盖 |
+| `MAOHUOBAN_DIAGNOSTICS_INGEST_ENABLED` | `true` | 本地 Debug ingest 开关，真机诊断回流依赖 `/internal/diagnostics/ingest` |
+| `MAOHUOBAN_DIAGNOSTICS_INGEST_TOKEN` | `maohuoban-local-diagnostics` | 真机诊断回流 token |
 | `TEST_DATABASE_URL` | `postgres://fengjinyi@localhost/maohuoban_test` | 契约测试数据库，必须与开发库隔离 |
 | `TEST_REDIS_URL` | `redis://127.0.0.1:6379/15` | 契约测试 Redis DB |
 

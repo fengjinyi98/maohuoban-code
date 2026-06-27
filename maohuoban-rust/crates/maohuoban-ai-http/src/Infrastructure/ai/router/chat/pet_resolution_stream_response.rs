@@ -8,6 +8,7 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
+use super::super::diagnostics::record_chat_stream_event_emitted;
 use super::assistant_message_persistence::{
     AssistantMessagePersistRequest, spawn_assistant_message_persist,
 };
@@ -54,7 +55,8 @@ pub(super) fn pet_resolution_stream_response(
             verification: AiAnswerVerification::passed(),
         },
     ];
-    let sse_stream = stream::iter(events.into_iter().map(|event| {
+    let sse_stream = stream::iter(events.into_iter().map(move |event| {
+        record_chat_stream_event_emitted(session_id, &event);
         let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
         Ok::<Event, std::convert::Infallible>(Event::default().event(event.event_name()).data(json))
     }));

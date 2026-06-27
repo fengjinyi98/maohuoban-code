@@ -1,4 +1,8 @@
 use axum::http::StatusCode;
+use maohuoban_diagnostics::{
+    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
+    PrivacyPolicy,
+};
 use serde_json::json;
 use std::time::Duration;
 use tower::ServiceExt;
@@ -101,6 +105,54 @@ async fn ai_chat_sessions_returns_user_sessions() {
         first["last_message_at"].as_str().is_some(),
         "last_message_at"
     );
+}
+
+/// 历史列表和消息详情写入后端诊断计数
+#[tokio::test]
+async fn ai_chat_history_records_backend_diagnostics_counts() {
+    let diagnostics = install_ai_history_test_diagnostics();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139020", "ios-ai-history-diagnostics").await;
+
+    let session_id = create_chat_session(&app, &access_token, "毛球今天吃饭了吗").await;
+    let list_body = list_chat_sessions(&app, &access_token).await;
+    assert!(
+        list_body["data"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_get_request(
+            &format!("/api/v1/ai/chat-sessions/{session_id}/messages"),
+            &access_token,
+        ))
+        .await
+        .expect("get session messages");
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_json(response).await;
+
+    diagnostics.flush().expect("flush diagnostics");
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Analytics
+            && event.message == "ai.history.sessions.loaded"
+            && event.metadata["session_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 1)
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.history.messages.loaded"
+            && event.metadata["chat_session_id_prefix"]
+                == json!(session_id.chars().take(8).collect::<String>())
+            && event.metadata["message_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 1)
+            && event.metadata.get("message_text").is_none()
+    }));
 }
 
 /// GET /api/v1/ai/chat-sessions 对旧空快照补齐当前宠物头像
@@ -484,6 +536,23 @@ async fn list_chat_sessions(
 
     assert_eq!(response.status(), StatusCode::OK);
     response_json(response).await
+}
+
+fn install_ai_history_test_diagnostics() -> Diagnostics {
+    let root = std::env::temp_dir().join(format!(
+        "maohuoban-ai-history-diagnostics-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
+    Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_owned(),
+        environment: "test".to_owned(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics")
 }
 
 /// 其他用户不能访问不属于自己的会话消息

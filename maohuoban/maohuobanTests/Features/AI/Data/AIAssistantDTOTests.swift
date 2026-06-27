@@ -105,6 +105,50 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertNil(result)
     }
 
+    func testSSEParserFlushesEventWhenNextEventStartsWithoutBlankLine() {
+        var parser = AIStreamEventParser()
+        let startedData = #"{"chat_session_id":"\#(UUID.zeroString)","message_id":"\#(UUID.zeroString)","title":"新对话"}"#
+        let errorData = #"{"code":"ai.provider_not_configured","message":"AI 服务未配置","retryable":false,"safe_fallback_text":"暂时无法获取回答"}"#
+
+        var parsed: [AIStreamParsedEvent] = []
+        parsed += parser.consumeLine("event: message_started")
+        parsed += parser.consumeLine("data: \(startedData)")
+        parsed += parser.consumeLine("event: error")
+        parsed += parser.consumeLine("data: \(errorData)")
+        parsed += parser.finish()
+
+        XCTAssertEqual(parsed.map(\.eventName), ["message_started", "error"])
+        guard case .messageStarted = parsed[0].event else {
+            XCTFail("expected messageStarted")
+            return
+        }
+        guard case let .error(code, _, retryable, fallback) = parsed[1].event else {
+            XCTFail("expected error")
+            return
+        }
+        XCTAssertEqual(code, "ai.provider_not_configured")
+        XCTAssertFalse(retryable)
+        XCTAssertEqual(fallback, "暂时无法获取回答")
+    }
+
+    func testSSEParserFlushesPendingEventAtEndOfStream() {
+        var parser = AIStreamEventParser()
+        let errorData = #"{"code":"ai.provider_not_configured","message":"AI 服务未配置","retryable":false,"safe_fallback_text":"暂时无法获取回答"}"#
+
+        XCTAssertTrue(parser.consumeLine("event: error").isEmpty)
+        XCTAssertTrue(parser.consumeLine("data: \(errorData)").isEmpty)
+
+        let parsed = parser.finish()
+
+        XCTAssertEqual(parsed.map(\.eventName), ["error"])
+        guard case let .error(code, _, _, fallback) = parsed[0].event else {
+            XCTFail("expected error")
+            return
+        }
+        XCTAssertEqual(code, "ai.provider_not_configured")
+        XCTAssertEqual(fallback, "暂时无法获取回答")
+    }
+
     // MARK: - 历史会话 DTO 解码
 
     func testDecodeChatSessionList() throws {

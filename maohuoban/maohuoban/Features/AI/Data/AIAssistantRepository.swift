@@ -1,4 +1,5 @@
 import Foundation
+import MaohuobanDiagnostics
 
 // AIAssistantRepository AI 助手数据仓库协议
 // 核心职责：
@@ -50,6 +51,11 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
+                    await AIAssistantDiagnostics.recordStreamRequestStarted(
+                        surface: surface,
+                        selectedPetID: selectedPetID,
+                        chatSessionID: chatSessionID
+                    )
                     let request = try buildStreamRequest(
                         message: message,
                         selectedPetID: selectedPetID,
@@ -62,6 +68,7 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                         continuation.finish(throwing: MHBAPIError.invalidResponse)
                         return
                     }
+                    await AIAssistantDiagnostics.recordStreamResponseOpened(statusCode: httpResponse.statusCode)
                     guard httpResponse.statusCode == 200 else {
                         continuation.finish(throwing: MHBAPIError.business(
                             code: "ai.stream_failed",
@@ -71,24 +78,29 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                         return
                     }
 
-                    var currentEvent: String?
-                    var currentData: String?
+                    var parser = AIStreamEventParser()
 
                     for try await line in bytes.lines {
                         if Task.isCancelled { break }
 
-                        if line.hasPrefix("event:") {
-                            currentEvent = line.dropFirst("event:".count).trimmingCharacters(in: .whitespaces)
-                        } else if line.hasPrefix("data:") {
-                            currentData = line.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
-                        } else if line.isEmpty {
-                            if let event = currentEvent, let data = currentData {
-                                if let dto = AIStreamEventDecoder.decode(event: event, data: data) {
-                                    continuation.yield(dto)
-                                }
+                        for parsedEvent in parser.consumeLine(line) {
+                            await AIAssistantDiagnostics.recordStreamEventReceived(
+                                eventName: parsedEvent.eventName,
+                                event: parsedEvent.event
+                            )
+                            if let event = parsedEvent.event {
+                                continuation.yield(event)
                             }
-                            currentEvent = nil
-                            currentData = nil
+                        }
+                    }
+
+                    for parsedEvent in parser.finish() {
+                        await AIAssistantDiagnostics.recordStreamEventReceived(
+                            eventName: parsedEvent.eventName,
+                            event: parsedEvent.event
+                        )
+                        if let event = parsedEvent.event {
+                            continuation.yield(event)
                         }
                     }
 

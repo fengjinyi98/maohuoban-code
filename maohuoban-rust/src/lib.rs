@@ -122,7 +122,7 @@ impl BackendConfig {
 
     #[must_use]
     pub fn diagnostics_ingest_enabled_from_env_value(value: Option<&str>) -> bool {
-        value.is_some_and(|value| value != "0" && !value.eq_ignore_ascii_case("false"))
+        value.is_none_or(|value| value != "0" && !value.eq_ignore_ascii_case("false"))
     }
 
     #[must_use]

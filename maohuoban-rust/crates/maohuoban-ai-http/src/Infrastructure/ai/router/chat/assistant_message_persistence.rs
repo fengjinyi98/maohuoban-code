@@ -3,6 +3,8 @@ use maohuoban_ai_application::ai::ports::AiSessionRepository;
 use maohuoban_ai_domain::ai::{AiCitation, AiMessage, AiMessageRole, AiMessageStatus};
 use uuid::Uuid;
 
+use super::super::diagnostics::record_chat_assistant_persisted;
+
 /// spawn_assistant_message_persist 异步持久化助手消息
 /// 核心职责：
 /// - 在流式完成后保存助手最终消息
@@ -67,6 +69,8 @@ pub(super) async fn persist_assistant_message(
         .iter()
         .map(|citation| citation.source_id)
         .collect::<Vec<_>>();
+    let citation_count = request.citations.len();
+    let finish_reason = request.finish_reason.clone();
     let assistant_message = AiMessage {
         id: request.message_id,
         session_id: request.session_id,
@@ -82,8 +86,18 @@ pub(super) async fn persist_assistant_message(
         verification: None,
         created_at: Utc::now(),
     };
-    let _ = repo.insert_message(&assistant_message).await;
-    let _ = repo
+    let message_persisted = repo.insert_message(&assistant_message).await.is_ok();
+    let citations_persisted = repo
         .insert_message_citations(request.message_id, request.session_id, &request.citations)
-        .await;
+        .await
+        .is_ok();
+    record_chat_assistant_persisted(
+        request.session_id,
+        request.message_id,
+        message_persisted && citations_persisted,
+        citation_count,
+        request.input_tokens,
+        request.output_tokens,
+        &finish_reason,
+    );
 }
