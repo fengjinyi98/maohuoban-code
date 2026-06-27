@@ -1,5 +1,7 @@
 use maohuoban_ai_application::ai::prompt::AiPromptBuilder;
-use maohuoban_ai_domain::ai::{AiPetCandidate, AiPetDisplaySnapshot, LlmChatRequest};
+use maohuoban_ai_domain::ai::{
+    AiFactPackage, AiPetCandidate, AiPetDisplaySnapshot, LlmChatRequest,
+};
 
 /// build_llm_request 构建 LLM 请求
 /// 核心职责：
@@ -8,6 +10,7 @@ use maohuoban_ai_domain::ai::{AiPetCandidate, AiPetDisplaySnapshot, LlmChatReque
 pub(super) fn build_llm_request(
     message: &str,
     target_pet: Option<&AiPetDisplaySnapshot>,
+    fact_package: Option<&AiFactPackage>,
 ) -> LlmChatRequest {
     let pet_candidates = target_pet.map_or_else(Vec::new, |snapshot| {
         vec![AiPetCandidate {
@@ -21,7 +24,7 @@ pub(super) fn build_llm_request(
 
     LlmChatRequest {
         model: "default".to_owned(),
-        messages: AiPromptBuilder::new().build_messages(message, &pet_candidates, None),
+        messages: AiPromptBuilder::new().build_messages(message, &pet_candidates, fact_package),
         tools: vec![],
         tool_choice: None,
         temperature: 0.2,

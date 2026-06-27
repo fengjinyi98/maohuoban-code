@@ -113,7 +113,9 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("只能基于提供的事实包")
-            .body_contains("当前用户授权宠物");
+            .body_contains("当前用户授权宠物")
+            .body_contains("## 目标宠物")
+            .body_contains("pet_identity");
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
@@ -173,6 +175,22 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         text.contains("event: message_completed"),
         "SSE should contain completion event, got: {text}"
     );
+
+    let identity_log_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_tool_access_logs
+        WHERE tool_name = 'load_pet_identity_context'
+          AND target_pet_id = $1
+          AND allowed = true
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(pet_id).expect("pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count identity tool log");
+
+    assert_eq!(identity_log_count, 1);
 }
 
 /// Provider 输出医疗诊断时由回答校验器回退为安全消息
@@ -373,6 +391,7 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
         r"
         SELECT tool_name, allowed, target_pet_id, returned_ref_ids
         FROM ai_tool_access_logs
+        WHERE tool_name = 'list_authorized_pet_candidates'
         ORDER BY created_at DESC
         LIMIT 1
         ",
