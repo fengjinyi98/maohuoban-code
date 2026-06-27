@@ -12,6 +12,8 @@ struct AIAssistantComposerBar: View {
     let prompts: [AIAssistantSuggestedPrompt]
     let selectedAttachment: AIAssistantSelectedAttachment?
     let selectedAttachmentImage: UIImage?
+    @Binding var isInputFocused: Bool
+    let isInputFirstResponderAllowed: Bool
     @Bindable var store: AIAssistantStore
     let onSelectPrompt: (AIAssistantSuggestedPrompt) -> Void
     let onSelectAttachmentSource: (AIAssistantAttachmentSource) -> Void
@@ -30,6 +32,8 @@ struct AIAssistantComposerBar: View {
             AIAssistantComposerSurface(
                 selectedAttachment: selectedAttachment,
                 selectedAttachmentImage: selectedAttachmentImage,
+                isInputFocused: $isInputFocused,
+                isInputFirstResponderAllowed: isInputFirstResponderAllowed,
                 store: store,
                 onSelectAttachmentSource: onSelectAttachmentSource,
                 onClearAttachmentSource: onClearAttachmentSource,

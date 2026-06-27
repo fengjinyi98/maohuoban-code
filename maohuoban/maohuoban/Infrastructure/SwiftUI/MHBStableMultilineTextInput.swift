@@ -4,9 +4,10 @@ import UIKit
 // MHBStableMultilineTextInput 稳定多行文本输入
 // 核心职责：
 // - 使用 UITextView 承载多行输入、光标和输入法组合态
-// - 将稳定文本变化同步到 SwiftUI Binding
+// - 将稳定文本变化、动态高度和显式焦点状态同步到 SwiftUI Binding
 struct MHBStableMultilineTextInput: UIViewRepresentable {
     @Binding private var text: String
+    @Binding private var isFocused: Bool
     @Binding private var dynamicHeight: CGFloat
     private let font: UIFont
     private let textColor: UIColor
@@ -15,9 +16,12 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
     private let tintColor: UIColor
     private let minHeight: CGFloat
     private let maxHeight: CGFloat
+    private let keyboardDismissMode: UIScrollView.KeyboardDismissMode
+    private let allowsFirstResponder: Bool
 
     init(
         text: Binding<String>,
+        isFocused: Binding<Bool>,
         dynamicHeight: Binding<CGFloat>,
         font: UIFont,
         textColor: UIColor,
@@ -25,9 +29,12 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         placeholderColor: UIColor,
         tintColor: UIColor,
         minHeight: CGFloat,
-        maxHeight: CGFloat
+        maxHeight: CGFloat,
+        keyboardDismissMode: UIScrollView.KeyboardDismissMode = .none,
+        allowsFirstResponder: Bool = true
     ) {
         _text = text
+        _isFocused = isFocused
         _dynamicHeight = dynamicHeight
         self.font = font
         self.textColor = textColor
@@ -36,11 +43,14 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         self.tintColor = tintColor
         self.minHeight = minHeight
         self.maxHeight = max(maxHeight, minHeight)
+        self.keyboardDismissMode = keyboardDismissMode
+        self.allowsFirstResponder = allowsFirstResponder
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             text: $text,
+            isFocused: $isFocused,
             dynamicHeight: $dynamicHeight,
             minHeight: minHeight,
             maxHeight: maxHeight
@@ -56,10 +66,11 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         textView.tintColor = tintColor
         textView.isScrollEnabled = false
         textView.alwaysBounceVertical = false
-        textView.keyboardDismissMode = .interactive
         textView.autocorrectionType = .yes
         textView.autocapitalizationType = .sentences
         textView.spellCheckingType = .yes
+        textView.keyboardDismissMode = keyboardDismissMode
+        textView.allowsFirstResponder = allowsFirstResponder
         textView.textContainer.lineFragmentPadding = 0
         textView.textContainerInset = Self.textContainerInset(
             font: font,
@@ -76,11 +87,17 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         context.coordinator.updateHeightIfNeeded(for: textView, force: true)
+        context.coordinator.syncFocusIfNeeded(
+            for: textView,
+            shouldBeFocused: isFocused,
+            allowsFirstResponder: allowsFirstResponder
+        )
         return textView
     }
 
     func updateUIView(_ uiView: StableTextView, context: Context) {
         context.coordinator.text = $text
+        context.coordinator.isFocused = $isFocused
         context.coordinator.dynamicHeight = $dynamicHeight
         uiView.font = font
         uiView.textColor = textColor
@@ -91,6 +108,12 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         uiView.textContainer.widthTracksTextView = true
         uiView.typingAttributes[.font] = font
         uiView.typingAttributes[.foregroundColor] = textColor
+        uiView.keyboardDismissMode = keyboardDismissMode
+        uiView.allowsFirstResponder = allowsFirstResponder
+        if !allowsFirstResponder,
+           uiView.isFirstResponder {
+            uiView.resignFirstResponder()
+        }
         uiView.applyPlaceholder(
             placeholder,
             font: font,
@@ -99,6 +122,11 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
         uiView.tintColor = tintColor
         uiView.updatePlaceholderVisibility()
         context.coordinator.updateHeightIfNeeded(for: uiView)
+        context.coordinator.syncFocusIfNeeded(
+            for: uiView,
+            shouldBeFocused: isFocused,
+            allowsFirstResponder: allowsFirstResponder
+        )
 
         guard uiView.text != text,
               !uiView.hasMarkedText
@@ -130,27 +158,33 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
     // 核心职责：
     // - 过滤 SwiftUI 主动回写造成的重复通知
     // - 避免输入法组合态下的异常空文本覆盖已有业务草稿
+    // - 仅在焦点 Binding 翻转时驱动 first responder 变化
     @MainActor
     final class Coordinator: NSObject, UITextViewDelegate {
         var text: Binding<String>
+        var isFocused: Binding<Bool>
         var dynamicHeight: Binding<CGFloat>
         var isApplyingSwiftUIText = false
         private var wasComposing = false
         private let minHeight: CGFloat
         private let maxHeight: CGFloat
+        private var lastFocusBindingValue: Bool
         private var pendingHeightValue: CGFloat?
         private var isHeightCommitScheduled = false
 
         init(
             text: Binding<String>,
+            isFocused: Binding<Bool>,
             dynamicHeight: Binding<CGFloat>,
             minHeight: CGFloat,
             maxHeight: CGFloat
         ) {
             self.text = text
+            self.isFocused = isFocused
             self.dynamicHeight = dynamicHeight
             self.minHeight = minHeight
             self.maxHeight = maxHeight
+            self.lastFocusBindingValue = isFocused.wrappedValue
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -180,6 +214,82 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
 
             wasComposing = false
             text.wrappedValue = newValue
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            guard (textView as? StableTextView)?.allowsFirstResponder != false else {
+                return
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      !self.isFocused.wrappedValue
+                else {
+                    return
+                }
+
+                self.isFocused.wrappedValue = true
+                self.lastFocusBindingValue = true
+            }
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      self.isFocused.wrappedValue
+                else {
+                    return
+                }
+
+                self.isFocused.wrappedValue = false
+                self.lastFocusBindingValue = false
+            }
+        }
+
+        func syncFocusIfNeeded(
+            for textView: UITextView,
+            shouldBeFocused: Bool,
+            allowsFirstResponder: Bool
+        ) {
+            let focusBindingDidChange = shouldBeFocused != lastFocusBindingValue
+            guard focusBindingDidChange
+                    || shouldBeFocused && allowsFirstResponder && !textView.isFirstResponder
+            else {
+                return
+            }
+
+            if shouldBeFocused,
+               !allowsFirstResponder {
+                return
+            }
+
+            lastFocusBindingValue = shouldBeFocused
+
+            if shouldBeFocused {
+                guard !textView.isFirstResponder else {
+                    return
+                }
+
+                DispatchQueue.main.async { [weak textView] in
+                    guard let textView else {
+                        return
+                    }
+
+                    textView.becomeFirstResponder()
+                }
+            } else {
+                guard textView.isFirstResponder else {
+                    return
+                }
+
+                DispatchQueue.main.async { [weak textView] in
+                    guard let textView else {
+                        return
+                    }
+
+                    textView.resignFirstResponder()
+                }
+            }
         }
 
         func updateHeightIfNeeded(
@@ -280,6 +390,7 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
     @MainActor
     final class StableTextView: UITextView {
         private let placeholderLabel = UILabel()
+        var allowsFirstResponder = true
 
         override init(frame: CGRect, textContainer: NSTextContainer?) {
             super.init(frame: frame, textContainer: textContainer)
@@ -295,6 +406,18 @@ struct MHBStableMultilineTextInput: UIViewRepresentable {
             super.layoutSubviews()
             normalizeContentOffsetIfNeeded()
             updatePlaceholderFrame()
+        }
+
+        override var canBecomeFirstResponder: Bool {
+            allowsFirstResponder && super.canBecomeFirstResponder
+        }
+
+        override func becomeFirstResponder() -> Bool {
+            guard allowsFirstResponder else {
+                return false
+            }
+
+            return super.becomeFirstResponder()
         }
 
         override var intrinsicContentSize: CGSize {

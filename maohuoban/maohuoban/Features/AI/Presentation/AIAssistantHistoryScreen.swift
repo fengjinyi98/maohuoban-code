@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // AIAssistantHistoryScreen AI 对话记录页面
 // 核心职责：
 // - 以系统 push 页面展示后端 AI 对话记录
-// - 点击历史会话后回填聊天页并返回
+// - 点击历史会话或新聊天入口后回填聊天页并返回
 struct AIAssistantHistoryScreen: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -44,7 +44,7 @@ struct AIAssistantHistoryScreen: View {
                             }
                         }
                         .padding(.top, MHBTheme.Spacing.s2)
-                        // s8 + s8 + s6 is the standard CTA bottom padding used elsewhere
+                        // 底部留出 CTA 和安全区空间，避免最后一行被浮动按钮遮挡
                         .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6 + bottomInset)
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)

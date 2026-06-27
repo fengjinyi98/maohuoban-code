@@ -79,6 +79,7 @@
 5. Swift 文件建议控制在 250 行以内，超过 400 行必须拆分或给出明确理由。
 6. Rust 文件建议控制在 300 行以内，超过 500 行必须拆分或给出明确理由。
 7. 新目录命名必须表达架构职责，例如 `Domain`、`Data`、`Presentation`、`Stores`、`Services`、`Infrastructure`、`Theme`。
+8. 当前 iOS 工程使用 Xcode 文件系统同步组（`PBXFileSystemSynchronizedRootGroup`）；新增到 `maohuoban/maohuoban` 同步目录下的 Swift 文件会自动纳入 App target，默认不需要检查或手动修改 `.xcodeproj/project.pbxproj`。只有编译明确提示文件未纳入 target、同步目录配置发生变化，或新增文件位于同步目录外时，再检查 Xcode 工程配置。
 
 ## 5. iOS 架构规则
 

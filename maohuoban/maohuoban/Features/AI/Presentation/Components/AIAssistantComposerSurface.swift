@@ -9,6 +9,8 @@ import UIKit
 struct AIAssistantComposerSurface: View {
     let selectedAttachment: AIAssistantSelectedAttachment?
     let selectedAttachmentImage: UIImage?
+    @Binding var isInputFocused: Bool
+    let isInputFirstResponderAllowed: Bool
     @Bindable var store: AIAssistantStore
     @State private var inputHeight: CGFloat = 34
     let onSelectAttachmentSource: (AIAssistantAttachmentSource) -> Void
@@ -43,6 +45,7 @@ struct AIAssistantComposerSurface: View {
 
                 MHBStableMultilineTextInput(
                     text: draftTextBinding,
+                    isFocused: $isInputFocused,
                     dynamicHeight: $inputHeight,
                     font: MHBTheme.Typography.uiBody,
                     textColor: MHBTheme.ColorToken.labelPrimary.uiColor,
@@ -50,7 +53,8 @@ struct AIAssistantComposerSurface: View {
                     placeholderColor: MHBTheme.ColorToken.labelTertiary.uiColor,
                     tintColor: MHBTheme.ColorToken.primary.uiColor,
                     minHeight: 34,
-                    maxHeight: 110
+                    maxHeight: 110,
+                    allowsFirstResponder: isInputFirstResponderAllowed
                 )
                 .frame(height: max(inputHeight, 34))
             }

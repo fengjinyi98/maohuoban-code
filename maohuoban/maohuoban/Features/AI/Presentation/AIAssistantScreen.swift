@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct AIAssistantScreen: View {
     @State private var store: AIAssistantStore
     @State private var isHistoryScreenPresented = false
+    @State private var isComposerInputFocused = false
     @State private var isCameraFailureAlertPresented = false
     @State private var cameraFailureMessage = ""
     @State private var fpsMonitor = MHBFPSMonitor()
@@ -24,46 +25,46 @@ struct AIAssistantScreen: View {
         ScrollViewReader { proxy in
             MHBScreenScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                        ForEach(store.messages) { message in
-                            AIAssistantMessageBubble(message: message)
-                        }
-
-                        if let pendingAction = store.pendingAction {
-                            AIAssistantProposedActionCard(
-                                action: pendingAction,
-                                onConfirm: {
-                                    store.confirmPendingAction()
-                                },
-                                onCancel: {
-                                    store.cancelPendingAction()
-                                }
-                            )
-                        }
-
-                        Color.clear
-                            .frame(height: 1)
-                            .id(Self.bottomAnchorID)
+                    ForEach(store.messages) { message in
+                        AIAssistantMessageBubble(message: message)
                     }
-                    .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .padding(.top, MHBTheme.Spacing.s6)
-                    .padding(.bottom, MHBTheme.Spacing.s4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: store.messages.count) { _, _ in
-                    withAnimation(.smooth(duration: 0.2)) {
-                        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+
+                    if let pendingAction = store.pendingAction {
+                        AIAssistantProposedActionCard(
+                            action: pendingAction,
+                            onConfirm: {
+                                store.confirmPendingAction()
+                            },
+                            onCancel: {
+                                store.cancelPendingAction()
+                            }
+                        )
                     }
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id(Self.bottomAnchorID)
                 }
-                .onChange(of: store.streamingRevision) { _, _ in
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.top, MHBTheme.Spacing.s6)
+                .padding(.bottom, MHBTheme.Spacing.s4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: store.messages.count) { _, _ in
+                withAnimation(.smooth(duration: 0.2)) {
                     proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                 }
-                .onChange(of: store.pendingAction) { _, _ in
-                    withAnimation(.smooth(duration: 0.2)) {
-                        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
-                    }
+            }
+            .onChange(of: store.streamingRevision) { _, _ in
+                proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+            }
+            .onChange(of: store.pendingAction) { _, _ in
+                withAnimation(.smooth(duration: 0.2)) {
+                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                 }
             }
+        }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .overlay(alignment: .topTrailing) {
             if fpsMonitor.isVisible {
@@ -84,6 +85,8 @@ struct AIAssistantScreen: View {
                 prompts: store.shouldShowSuggestedPrompts ? store.suggestedPrompts : [],
                 selectedAttachment: store.selectedAttachment,
                 selectedAttachmentImage: store.selectedAttachmentImage,
+                isInputFocused: $isComposerInputFocused,
+                isInputFirstResponderAllowed: !isHistoryScreenPresented,
                 store: store,
                 onSelectPrompt: { prompt in
                     store.sendSuggestedPrompt(prompt)
@@ -143,6 +146,7 @@ struct AIAssistantScreen: View {
 
                     AIAssistantTopBarActions(
                         onOpenHistory: {
+                            isComposerInputFocused = false
                             isHistoryScreenPresented = true
                         }
                     )
@@ -234,6 +238,9 @@ struct AIAssistantScreen: View {
             Text(cameraFailureMessage)
         }
         .accessibilityIdentifier("ai.assistant.screen")
+        .onChange(of: isHistoryScreenPresented) { _, _ in
+            isComposerInputFocused = false
+        }
     }
 
     private func presentCameraFailure(_ message: String) {
