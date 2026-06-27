@@ -61,6 +61,30 @@ impl AiStreamPipeline {
         title: String,
         target_pet: Option<AiPetDisplaySnapshot>,
     ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
+        self.run_with_target_pet_and_initial_events(
+            request,
+            chat_session_id,
+            message_id,
+            title,
+            target_pet,
+            vec![],
+        )
+    }
+
+    /// run_with_target_pet_and_initial_events 启动带初始事件的流式 pipeline
+    /// 核心职责：
+    /// - 在 message_started 后输出工具调用、解析等应用层初始事件
+    /// - 再消费 Provider stream 并输出 delta / completed
+    #[must_use]
+    pub fn run_with_target_pet_and_initial_events(
+        &self,
+        request: LlmChatRequest,
+        chat_session_id: uuid::Uuid,
+        message_id: uuid::Uuid,
+        title: String,
+        target_pet: Option<AiPetDisplaySnapshot>,
+        initial_events: Vec<AiStreamEvent>,
+    ) -> BoxStream<'static, Result<AiStreamEvent, AiError>> {
         let provider = self.provider.clone();
 
         async_stream::stream! {
@@ -71,6 +95,10 @@ impl AiStreamPipeline {
                 target_pet,
                 title,
             });
+
+            for event in initial_events {
+                yield Ok(event);
+            }
 
             // 2. 消费 Provider stream
             let mut stream = provider.stream(&request);

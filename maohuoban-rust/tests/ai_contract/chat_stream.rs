@@ -276,6 +276,10 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
     assert_eq!(started["target_pet"]["pet_name"], "毛球");
     assert_eq!(started["target_pet"]["pet_species"], "cat");
     assert_eq!(started["target_pet"]["profile_number"], profile_number);
+    assert!(
+        text.contains("event: tool_call") && text.contains("list_authorized_pet_candidates"),
+        "SSE should contain authorized pet catalog tool_call, got: {text}"
+    );
 
     let row: (Option<uuid::Uuid>, Option<uuid::Uuid>, bool) = sqlx::query_as(
         r"
@@ -293,6 +297,23 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
     assert_eq!(row.0, Some(pet_uuid));
     assert_eq!(row.1, Some(pet_uuid));
     assert!(row.2);
+
+    let tool_log: (String, bool, Option<uuid::Uuid>, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT tool_name, allowed, target_pet_id, returned_ref_ids
+        FROM ai_tool_access_logs
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest tool access log");
+
+    assert_eq!(tool_log.0, "list_authorized_pet_candidates");
+    assert!(tool_log.1);
+    assert_eq!(tool_log.2, Some(pet_uuid));
+    assert_eq!(tool_log.3, json!([pet_id]));
 
     let snapshot: serde_json::Value = sqlx::query_scalar(
         r"

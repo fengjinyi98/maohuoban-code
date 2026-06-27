@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
-use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository};
+use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiError, AiMessage, AiMessageRole, AiMessageStatus,
     AiPetDisplaySnapshot, AiResult,
@@ -221,6 +221,35 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(log.selected_pet_id)
         .bind(&log.risk_signal)
         .bind(log.estimated_input_tokens)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn insert_tool_access_log(&self, log: &AiToolAccessLog) -> AiResult<()> {
+        let returned_ref_ids = serde_json::to_value(&log.returned_ref_ids)
+            .unwrap_or_else(|_| serde_json::Value::Array(vec![]));
+
+        sqlx::query(
+            r"
+            INSERT INTO ai_tool_access_logs
+                (session_id, actor_user_id, tool_name, requested_scope, target_pet_id,
+                 allowed, denied_reason, returned_ref_ids, duration_ms, risk_signal)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ",
+        )
+        .bind(log.session_id)
+        .bind(log.actor_user_id)
+        .bind(&log.tool_name)
+        .bind(&log.requested_scope)
+        .bind(log.target_pet_id)
+        .bind(log.allowed)
+        .bind(&log.denied_reason)
+        .bind(returned_ref_ids)
+        .bind(log.duration_ms)
+        .bind(&log.risk_signal)
         .execute(&self.pool)
         .await
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;

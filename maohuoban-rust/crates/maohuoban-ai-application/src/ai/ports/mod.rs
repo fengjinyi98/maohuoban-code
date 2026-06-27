@@ -9,4 +9,4 @@ pub mod session_repository;
 
 pub use llm::{DisabledLlmProvider, FakeLlmProvider, LlmProvider};
 pub use pet_catalog::{AuthorizedPetCatalog, EmptyPetCatalog, InMemoryPetCatalog};
-pub use session_repository::{AiRequestGateLog, AiSessionRepository};
+pub use session_repository::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};

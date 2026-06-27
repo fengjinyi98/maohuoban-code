@@ -10,10 +10,10 @@ use axum::{
 use chrono::Utc;
 use futures_util::{StreamExt, stream};
 use maohuoban_ai_application::ai::intent::AiIntentGate;
-use maohuoban_ai_application::ai::ports::AiRequestGateLog;
+use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
     AiAnswerVerification, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution,
-    AiStreamEvent, LlmFinishReason, LlmUsage,
+    AiStreamEvent, AiToolCallStatus, LlmFinishReason, LlmUsage,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -76,21 +76,29 @@ pub async fn handle_chat_stream(
     )
     .await;
 
-    let _ = state
-        .session_repository
-        .insert_request_gate_log(&AiRequestGateLog {
-            session_id: Some(session_id),
+    insert_request_gate_log(
+        &state.session_repository,
+        &req,
+        session_id,
+        actor_user_id,
+        resolved_pet_id,
+        &gate_decision,
+    )
+    .await;
+
+    let initial_events = if gate_decision.context_loaded {
+        insert_pet_catalog_tool_log(
+            &state.session_repository,
+            session_id,
             actor_user_id,
-            intent: intent_code(gate_decision.intent).to_owned(),
-            gate_decision: gate_decision_code(&gate_decision).to_owned(),
-            context_loaded: gate_decision.context_loaded,
-            request_hash: request_hash(&req.message),
             resolved_pet_id,
-            selected_pet_id: req.selected_pet_id,
-            risk_signal: gate_decision.risk_signal.clone(),
-            estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
-        })
-        .await;
+            req.selected_pet_id,
+            pet_resolution.as_ref(),
+        )
+        .await
+    } else {
+        Vec::new()
+    };
 
     if !gate_decision.context_loaded {
         return gated_stream_response(
@@ -115,13 +123,16 @@ pub async fn handle_chat_stream(
         );
     }
 
-    let stream = state.stream_pipeline.run_with_target_pet(
-        llm_request,
-        session_id,
-        message_id,
-        title,
-        target_pet,
-    );
+    let stream = state
+        .stream_pipeline
+        .run_with_target_pet_and_initial_events(
+            llm_request,
+            session_id,
+            message_id,
+            title,
+            target_pet,
+            initial_events,
+        );
 
     provider_stream_response(
         stream,
@@ -129,6 +140,95 @@ pub async fn handle_chat_stream(
         session_id,
         message_id,
     )
+}
+
+/// insert_request_gate_log 写入请求 gate 审计
+/// 核心职责：
+/// - 持久化意图、上下文加载状态和宠物解析结果
+/// - 避免在主 handler 中展开审计表字段细节
+async fn insert_request_gate_log(
+    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    req: &ChatStreamRequest,
+    session_id: Uuid,
+    actor_user_id: Uuid,
+    resolved_pet_id: Option<Uuid>,
+    gate_decision: &AiGateDecision,
+) {
+    let _ = session_repo
+        .insert_request_gate_log(&AiRequestGateLog {
+            session_id: Some(session_id),
+            actor_user_id,
+            intent: intent_code(gate_decision.intent).to_owned(),
+            gate_decision: gate_decision_code(gate_decision).to_owned(),
+            context_loaded: gate_decision.context_loaded,
+            request_hash: request_hash(&req.message),
+            resolved_pet_id,
+            selected_pet_id: req.selected_pet_id,
+            risk_signal: gate_decision.risk_signal.clone(),
+            estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
+        })
+        .await;
+}
+
+/// insert_pet_catalog_tool_log 写入授权宠物候选工具审计
+/// 核心职责：
+/// - 记录 list_authorized_pet_candidates 工具读取
+/// - 为解析成功的请求返回 tool_call 初始事件
+async fn insert_pet_catalog_tool_log(
+    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    session_id: Uuid,
+    actor_user_id: Uuid,
+    resolved_pet_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    pet_resolution: Option<&AiPetResolution>,
+) -> Vec<AiStreamEvent> {
+    let allowed = pet_resolution.is_some_and(AiPetResolution::is_resolved);
+    let target_pet_id = resolved_pet_id.or(selected_pet_id);
+    let returned_ref_ids = if allowed {
+        target_pet_id
+            .map(|id| vec![id.to_string()])
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
+    let denied_reason = pet_resolution.and_then(pet_resolution_denied_reason);
+
+    let _ = session_repo
+        .insert_tool_access_log(&AiToolAccessLog {
+            session_id: Some(session_id),
+            actor_user_id,
+            tool_name: "list_authorized_pet_candidates".to_owned(),
+            requested_scope: "actor_pet_candidates".to_owned(),
+            target_pet_id,
+            allowed,
+            denied_reason,
+            returned_ref_ids,
+            duration_ms: 0,
+            risk_signal: None,
+        })
+        .await;
+
+    if allowed {
+        vec![AiStreamEvent::ToolCall {
+            tool_name: "list_authorized_pet_candidates".to_owned(),
+            status: AiToolCallStatus::Allowed,
+            citation_count: 0,
+        }]
+    } else {
+        Vec::new()
+    }
+}
+
+/// pet_resolution_denied_reason 返回工具审计拒绝原因
+/// 核心职责：
+/// - 使用稳定原因码记录解析未完成原因
+fn pet_resolution_denied_reason(resolution: &AiPetResolution) -> Option<String> {
+    match resolution {
+        AiPetResolution::Resolved { .. } => None,
+        AiPetResolution::NeedsSelection { .. } => Some("needs_pet_selection".to_owned()),
+        AiPetResolution::UnauthorizedOrNotFound => Some("unauthorized_or_not_found".to_owned()),
+        AiPetResolution::NoPetContext => Some("no_pet_context".to_owned()),
+    }
 }
 
 /// provider_stream_response 构建 Provider 流式响应

@@ -19,6 +19,23 @@ pub struct AiRequestGateLog {
     pub estimated_input_tokens: i32,
 }
 
+/// AiToolAccessLog AI 工具访问审计日志
+/// 核心职责：
+/// - 记录 Agent Gateway 工具调用和授权结果
+/// - 只保存引用 ID 和风险标签，避免写入完整私有 payload
+pub struct AiToolAccessLog {
+    pub session_id: Option<Uuid>,
+    pub actor_user_id: Uuid,
+    pub tool_name: String,
+    pub requested_scope: String,
+    pub target_pet_id: Option<Uuid>,
+    pub allowed: bool,
+    pub denied_reason: Option<String>,
+    pub returned_ref_ids: Vec<String>,
+    pub duration_ms: i64,
+    pub risk_signal: Option<String>,
+}
+
 /// AiSessionRepository AI 会话仓储端口
 /// 核心职责：
 /// - 持久化和查询 AI 会话、消息
@@ -46,4 +63,7 @@ pub trait AiSessionRepository: Send + Sync {
 
     /// insert_request_gate_log 写入请求 gate 审计日志
     async fn insert_request_gate_log(&self, log: &AiRequestGateLog) -> AiResult<()>;
+
+    /// insert_tool_access_log 写入工具访问审计日志
+    async fn insert_tool_access_log(&self, log: &AiToolAccessLog) -> AiResult<()>;
 }
