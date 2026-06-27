@@ -6,6 +6,8 @@
     clippy::needless_raw_string_hashes
 )]
 
+#[path = "Infrastructure/ai_diet_confirmation_candidates.rs"]
+mod ai_diet_confirmation_candidates;
 #[path = "Infrastructure/ai_diet_context.rs"]
 mod ai_diet_context;
 #[path = "Infrastructure/ai_food_inventory_hints.rs"]
@@ -31,7 +33,7 @@ use diagnostics::{
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
-use maohuoban_ai_http::ai::router::{AiHttpState, build_ai_router};
+use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
@@ -66,6 +68,7 @@ use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
+use crate::ai_diet_confirmation_candidates::PetServiceDietConfirmationCandidateProvider;
 use crate::ai_diet_context::PetServiceDietFactProvider;
 use crate::ai_food_inventory_hints::PetServiceFoodInventoryHintProvider;
 use crate::ai_identity_context::PetServiceIdentityFactProvider;
@@ -282,9 +285,16 @@ fn build_ai_http_state(
         Arc::new(ai_session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
         ai_pet_resolver,
-        Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
-        Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
-        Arc::new(PetServiceFoodInventoryHintProvider::new(pet_service)),
+        AiPetContextProviders::new(
+            Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
+            Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
+            Arc::new(PetServiceFoodInventoryHintProvider::new(
+                pet_service.clone(),
+            )),
+            Arc::new(PetServiceDietConfirmationCandidateProvider::new(
+                pet_service,
+            )),
+        ),
         auth_service,
     )
 }

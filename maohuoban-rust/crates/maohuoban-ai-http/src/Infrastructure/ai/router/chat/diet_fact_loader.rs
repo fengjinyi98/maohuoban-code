@@ -21,6 +21,7 @@ pub(super) async fn load_current_diet_fact_package(
     };
 
     match state
+        .pet_context_providers
         .diet_fact_provider
         .load_current_diet_fact_package(actor_user_id, target_pet)
         .await

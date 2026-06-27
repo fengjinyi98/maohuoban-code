@@ -12,7 +12,8 @@ use std::sync::Arc;
 use axum::{Router, routing::post};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
-    AiSessionRepository, FoodInventoryHintProvider, PetDietFactProvider, PetIdentityFactProvider,
+    AiSessionRepository, FoodInventoryHintProvider, PetDietConfirmationCandidateProvider,
+    PetDietFactProvider, PetIdentityFactProvider,
 };
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_auth_application::auth::AuthService;
@@ -26,10 +27,38 @@ pub struct AiHttpState {
     pub stream_pipeline: Arc<AiStreamPipeline>,
     pub session_repository: Arc<dyn AiSessionRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
+    pub pet_context_providers: AiPetContextProviders,
+    pub auth: Arc<AuthService>,
+}
+
+/// AiPetContextProviders AI 宠物上下文 provider 集合
+/// 核心职责：
+/// - 聚合身份、当前饮食、储物柜线索和待确认候选 provider
+/// - 控制 AiHttpState 构造参数数量，保持上下文依赖边界清晰
+#[derive(Clone)]
+pub struct AiPetContextProviders {
     pub identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
     pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
-    pub auth: Arc<AuthService>,
+    pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
+}
+
+impl AiPetContextProviders {
+    /// new 构造宠物上下文 provider 集合
+    #[must_use]
+    pub fn new(
+        identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+        diet_fact_provider: Arc<dyn PetDietFactProvider>,
+        food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
+        diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
+    ) -> Self {
+        Self {
+            identity_fact_provider,
+            diet_fact_provider,
+            food_inventory_hint_provider,
+            diet_confirmation_candidate_provider,
+        }
+    }
 }
 
 impl AiHttpState {
@@ -39,18 +68,14 @@ impl AiHttpState {
         stream_pipeline: Arc<AiStreamPipeline>,
         session_repository: Arc<dyn AiSessionRepository>,
         pet_resolver: Arc<AiPetResolver>,
-        identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
-        diet_fact_provider: Arc<dyn PetDietFactProvider>,
-        food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
+        pet_context_providers: AiPetContextProviders,
         auth: Arc<AuthService>,
     ) -> Self {
         Self {
             stream_pipeline,
             session_repository,
             pet_resolver,
-            identity_fact_provider,
-            diet_fact_provider,
-            food_inventory_hint_provider,
+            pet_context_providers,
             auth,
         }
     }

@@ -21,6 +21,7 @@ pub(super) async fn load_food_inventory_hint_package(
     };
 
     match state
+        .pet_context_providers
         .food_inventory_hint_provider
         .load_food_inventory_hint_package(actor_user_id, target_pet)
         .await
