@@ -26,6 +26,7 @@ final class AIAssistantStore {
     @ObservationIgnored private(set) var streamingEngine = AIAssistantStreamingEngine()
     var streamingTask: Task<Void, Never>?
     var currentChatSessionID: String?
+    var pendingReferenceChips: [String] = []
 
     static let networkFailureFallbackText = "网络连接失败，请检查网络后重试。"
 

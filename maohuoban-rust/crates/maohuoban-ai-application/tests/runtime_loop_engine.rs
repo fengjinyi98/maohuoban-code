@@ -15,8 +15,9 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiConversationSurface, AiToolConfirmationRequirement, LlmChatRequest,
-    LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmToolCall, LlmUsage,
+    AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength,
+    AiToolConfirmationRequirement, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage,
+    LlmRole, LlmToolCall, LlmUsage,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -135,7 +136,15 @@ impl AiToolDefinition for EchoIdentityTool {
             .and_then(|value| Uuid::parse_str(value).ok());
 
         match pet_id {
-            Some(id) if id == ctx.authorized_pet_id => AiToolResult::allowed(vec![]),
+            Some(id) if id == ctx.authorized_pet_id => AiToolResult::allowed_with_facts(
+                vec![AiFactEntry {
+                    key: "current_staple".to_owned(),
+                    value: "渴望六种鱼".to_owned(),
+                    strength: AiFactStrength::Strong,
+                    citation_id: Some(Uuid::new_v4()),
+                }],
+                Vec::new(),
+            ),
             Some(_) => AiToolResult::denied("pet not authorized"),
             None => AiToolResult::failed("missing pet_id"),
         }
@@ -331,6 +340,64 @@ async fn agent_runtime_executes_tool_loop() {
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].tools.len(), 1);
     assert_eq!(requests[0].tools[0].name, "load_pet_identity_context");
+}
+
+#[tokio::test]
+async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
+    let provider = ScriptedProvider::new(vec![tool_response(), final_response()]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                .expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("查看毛球档案").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    let followup_messages = &requests.get(1).expect("followup model request").messages;
+    let assistant_tool_call_index = followup_messages
+        .iter()
+        .position(|message| {
+            message.role == LlmRole::Assistant
+                && message
+                    .tool_calls
+                    .iter()
+                    .any(|tool_call| tool_call.id == "call_1")
+        })
+        .expect("assistant tool_call message should be replayed");
+    let tool_result_index = followup_messages
+        .iter()
+        .position(|message| {
+            message.role == LlmRole::Tool && message.tool_call_id.as_deref() == Some("call_1")
+        })
+        .expect("tool result message should be present");
+
+    assert!(
+        assistant_tool_call_index < tool_result_index,
+        "assistant tool_calls message must precede matching tool result message"
+    );
+
+    let tool_result_content = &followup_messages[tool_result_index].content;
+    assert!(tool_result_content.contains("渴望六种鱼"));
+    assert!(
+        !tool_result_content.contains("current_staple"),
+        "tool result content sent back to model must not expose internal fact keys"
+    );
 }
 
 #[tokio::test]

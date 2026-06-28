@@ -99,6 +99,11 @@ impl OpenAiCompatibleLlmProvider {
                 if let Some(id) = &m.tool_call_id {
                     msg["tool_call_id"] = serde_json::Value::String(id.clone());
                 }
+                if !m.tool_calls.is_empty() {
+                    msg["tool_calls"] = serde_json::Value::Array(
+                        m.tool_calls.iter().map(openai_tool_call_json).collect(),
+                    );
+                }
                 msg
             })
             .collect();
@@ -421,4 +426,19 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         }
         .boxed()
     }
+}
+
+/// openai_tool_call_json 序列化 OpenAI 兼容工具调用消息
+/// 核心职责：
+/// - 将内部工具调用意图转换为 Chat Completions function tool call
+/// - 保持 assistant tool_calls 与后续 tool result 可通过 id 配对
+fn openai_tool_call_json(tool_call: &LlmToolCall) -> serde_json::Value {
+    serde_json::json!({
+        "id": tool_call.id.clone(),
+        "type": "function",
+        "function": {
+            "name": tool_call.name.clone(),
+            "arguments": tool_call.arguments.clone(),
+        }
+    })
 }

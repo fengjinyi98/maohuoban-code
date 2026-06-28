@@ -191,6 +191,11 @@ enum AIAssistantDiagnostics {
                 "event_name": .string("delta"),
                 "delta_length_bucket": .string(lengthBucket(text.count)),
             ]
+        case .citation(let label):
+            [
+                "event_name": .string("citation"),
+                "label_length_bucket": .string(lengthBucket(label.count)),
+            ]
         case .messageCompleted(let messageID, let finalText, let referenceChips):
             [
                 "event_name": .string("message_completed"),

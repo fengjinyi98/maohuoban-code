@@ -259,3 +259,63 @@ fn prompt_keeps_internal_fact_keys_out_of_visible_answer_text() {
         "prompt should not expose raw pet species enum values in visible context"
     );
 }
+
+#[test]
+fn prompt_projects_facts_without_internal_keys_or_source_ids() {
+    let pet = pet_candidate("奶盖");
+    let package = fact_package(&pet);
+    let citation_source_id = package
+        .citations
+        .first()
+        .expect("citation")
+        .source_id
+        .to_string();
+    let builder = AiPromptBuilder::new();
+    let messages =
+        builder.build_messages("我的宠物信息", std::slice::from_ref(&pet), Some(&package));
+
+    let all_content: String = messages
+        .iter()
+        .map(|message| message.content.as_str())
+        .collect();
+
+    assert!(all_content.contains("渴望六种鱼"));
+    assert!(all_content.contains("新增零食"));
+    assert!(all_content.contains("待确认"));
+    assert!(
+        !all_content.contains("current_staple"),
+        "model-visible context must not expose internal fact key current_staple"
+    );
+    assert!(
+        !all_content.contains("inventory_hint"),
+        "model-visible context must not expose internal fact key inventory_hint"
+    );
+    assert!(
+        !all_content.contains(&citation_source_id),
+        "model-visible context must not expose backend citation source ids"
+    );
+}
+
+#[test]
+fn prompt_filters_internal_life_status_facts() {
+    let pet = pet_candidate("奶盖");
+    let mut package = fact_package(&pet);
+    package.facts.push(AiFactEntry {
+        key: "life_status".to_owned(),
+        value: "生命状态：存活中".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    let builder = AiPromptBuilder::new();
+    let messages =
+        builder.build_messages("我的宠物信息", std::slice::from_ref(&pet), Some(&package));
+
+    let all_content: String = messages
+        .iter()
+        .map(|message| message.content.as_str())
+        .collect();
+
+    assert!(!all_content.contains("生命状态"));
+    assert!(!all_content.contains("存活中"));
+    assert!(!all_content.contains("life_status"));
+}

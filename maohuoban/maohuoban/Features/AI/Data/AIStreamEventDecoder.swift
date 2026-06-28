@@ -16,6 +16,9 @@ enum AIStreamEventDecoder {
         case "delta":
             guard let payload = try? decoder.decode(AIStreamDeltaPayload.self, from: jsonData) else { return nil }
             return .delta(text: payload.text)
+        case "citation":
+            guard let payload = try? decoder.decode(AIStreamCitationPayload.self, from: jsonData) else { return nil }
+            return .citation(label: payload.citation.label)
         case "tool_call":
             guard let payload = try? decoder.decode(AIStreamToolCallPayload.self, from: jsonData) else { return nil }
             return .toolCall(toolName: payload.toolName, status: payload.status, citationCount: payload.citationCount)

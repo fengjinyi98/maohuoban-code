@@ -4,6 +4,7 @@
 
 pub mod citations;
 pub mod context;
+pub mod fact_projection;
 pub mod intent;
 pub mod model_router;
 pub mod output;

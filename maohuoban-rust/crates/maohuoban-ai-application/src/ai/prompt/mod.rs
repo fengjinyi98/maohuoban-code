@@ -3,9 +3,9 @@
 //! - 把系统规则、用户问题、宠物候选、目标宠物事实包和输出格式拼成 LLM messages
 //! - 不包含 API key、Authorization、actor token、审计表原文
 
-use std::fmt::Write;
-
 use maohuoban_ai_domain::ai::{AiFactPackage, AiPetCandidate, LlmMessage, LlmRole};
+
+use crate::ai::fact_projection::AiFactProjection;
 
 /// AiPromptBuilder Prompt 构建器
 /// 核心职责：
@@ -46,7 +46,7 @@ impl AiPromptBuilder {
         if let Some(pkg) = fact_package {
             messages.push(LlmMessage {
                 role: LlmRole::System,
-                content: Self::build_context_prompt(pet_candidates, pkg),
+                content: AiFactProjection::build_context_prompt(pet_candidates, pkg),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -107,89 +107,16 @@ impl AiPromptBuilder {
         prompt
     }
 
-    /// build_context_prompt 构建上下文 prompt（宠物候选 + 事实包）
-    fn build_context_prompt(pet_candidates: &[AiPetCandidate], pkg: &AiFactPackage) -> String {
-        let mut prompt = String::new();
-
-        // 宠物候选
-        if !pet_candidates.is_empty() {
-            prompt.push_str("## 当前用户授权宠物\n");
-            for pet in pet_candidates {
-                let _ = writeln!(
-                    prompt,
-                    "- 名字: {}，物种: {}，档案号: {}",
-                    pet.name,
-                    display_species(&pet.species),
-                    pet.profile_number
-                );
-            }
-            prompt.push('\n');
-        }
-
-        // 目标宠物
-        if let Some(snapshot) = &pkg.target_pet {
-            let _ = writeln!(
-                prompt,
-                "## 目标宠物: {} ({})\n",
-                snapshot.pet_name,
-                display_species(&snapshot.pet_species)
-            );
-        }
-
-        // 强事实
-        if !pkg.facts.is_empty() {
-            prompt.push_str("## 已确认事实\n");
-            for fact in &pkg.facts {
-                let label = match fact.strength {
-                    maohuoban_ai_domain::ai::AiFactStrength::Strong => "confirmed",
-                    maohuoban_ai_domain::ai::AiFactStrength::PendingConfirmation => "pending",
-                    maohuoban_ai_domain::ai::AiFactStrength::Weak => "weak",
-                };
-                let _ = writeln!(prompt, "- [{}] {}: {}", label, fact.key, fact.value);
-            }
-            prompt.push('\n');
-        }
-
-        // 弱线索
-        if !pkg.weak_hints.is_empty() {
-            prompt.push_str("## 弱线索（待确认，不能作为已发生事实）\n");
-            for hint in &pkg.weak_hints {
-                let _ = writeln!(prompt, "- [hint] {}: {}", hint.key, hint.value);
-            }
-            prompt.push('\n');
-        }
-
-        // 缺失信息
-        if !pkg.missing_info.is_empty() {
-            prompt.push_str("## 缺失信息\n");
-            for info in &pkg.missing_info {
-                let _ = writeln!(prompt, "- {info}");
-            }
-            prompt.push('\n');
-        }
-
-        // 引用
-        if !pkg.citations.is_empty() {
-            prompt.push_str("## 引用来源\n");
-            for citation in &pkg.citations {
-                let _ = writeln!(prompt, "- {}: {}", citation.label, citation.source_id);
-            }
-        }
-
-        prompt
-    }
-
     /// build_candidates_prompt 只构建宠物候选 prompt（无事实包时）
     fn build_candidates_prompt(pet_candidates: &[AiPetCandidate]) -> String {
         let mut prompt = String::new();
         prompt.push_str("## 当前用户授权宠物\n");
         for pet in pet_candidates {
-            let _ = writeln!(
-                prompt,
-                "- 名字: {}，物种: {}",
-                pet.name,
-                display_species(&pet.species)
-            );
+            prompt.push_str("- 名字: ");
+            prompt.push_str(&pet.name);
+            prompt.push_str("，物种: ");
+            prompt.push_str(display_species(&pet.species));
+            prompt.push('\n');
         }
         prompt
     }

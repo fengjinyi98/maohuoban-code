@@ -40,6 +40,7 @@ extension AIAssistantStore {
         let assistantReplyStartIndex = messages.count
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
+        pendingReferenceChips = []
         beginStreaming(messageID: placeholder.id)
 
         streamingTask?.cancel()
@@ -105,15 +106,21 @@ extension AIAssistantStore {
             streamingEngine.flush()
             streamingRevision += 1
 
+        case .citation(let label):
+            appendPendingReferenceChip(label)
+
         case .messageCompleted(_, let finalText, let chips):
             clearActiveAgentActivity()
-            applyCompletedAssistantMessage(finalText: finalText, referenceChips: chips)
+            let resolvedChips = chips.isEmpty ? pendingReferenceChips : chips
+            applyCompletedAssistantMessage(finalText: finalText, referenceChips: resolvedChips)
+            pendingReferenceChips = []
 
         case .proposedAction(let action):
             pendingAction = AIAssistantProposedAction(from: action)
 
         case .error(let code, _, let retryable, let safeFallbackText):
             clearActiveAgentActivity()
+            pendingReferenceChips = []
             recordStreamIssue(
                 source: "backend_sse_error",
                 code: code,
@@ -151,6 +158,13 @@ extension AIAssistantStore {
         guard let index, messages[index].activityText != nil else { return }
         messages[index].activityText = nil
         streamingRevision += 1
+    }
+
+    func appendPendingReferenceChip(_ label: String) {
+        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedLabel.isEmpty == false else { return }
+        guard pendingReferenceChips.contains(trimmedLabel) == false else { return }
+        pendingReferenceChips.append(trimmedLabel)
     }
 
     func ensureStreamingPlaceholderExists() {
@@ -191,6 +205,7 @@ extension AIAssistantStore {
 
     func handleStreamError(_ error: Error) {
         if error is CancellationError { return }
+        pendingReferenceChips = []
         recordStreamIssue(
             source: "local_stream_error",
             code: streamErrorDiagnosticsCode(error),
@@ -221,6 +236,7 @@ extension AIAssistantStore {
 
     func finishStreamIfAssistantReplyMissing(after startIndex: Int) {
         guard hasCompletedAssistantReply(after: startIndex) == false else { return }
+        pendingReferenceChips = []
         recordStreamIssue(
             source: "local_empty_stream",
             code: "ai.empty_stream",

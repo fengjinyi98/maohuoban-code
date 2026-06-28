@@ -8,6 +8,7 @@ use maohuoban_ai_domain::ai::{
 };
 use serde_json::Value;
 
+use crate::ai::fact_projection::AiFactProjection;
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
@@ -34,6 +35,7 @@ enum RuntimePhase {
         tool_calls: Vec<LlmToolCall>,
     },
     FollowupModel {
+        assistant_tool_calls: Vec<LlmToolCall>,
         tool_results: Vec<LoopToolResult>,
     },
     Done {
@@ -64,11 +66,21 @@ impl AgentRuntimeLoopEngine {
     fn build_messages(
         &self,
         state: &AgentSessionState,
+        assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
     ) -> Vec<LlmMessage> {
         let user_message = state.user_inputs.last().cloned().unwrap_or_default();
         let mut messages =
             AiPromptBuilder::new().build_messages(&user_message, &[], self.fact_package.as_ref());
+
+        if !assistant_tool_calls.is_empty() {
+            messages.push(LlmMessage {
+                role: LlmRole::Assistant,
+                content: String::new(),
+                tool_call_id: None,
+                tool_calls: assistant_tool_calls.to_vec(),
+            });
+        }
 
         for tool_result in tool_results {
             messages.push(tool_result_to_message(tool_result));
@@ -80,6 +92,7 @@ impl AgentRuntimeLoopEngine {
     fn build_request(
         &self,
         state: &AgentSessionState,
+        assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
     ) -> LlmChatRequest {
         let tools: Vec<LlmToolSchema> = self
@@ -95,7 +108,7 @@ impl AgentRuntimeLoopEngine {
 
         LlmChatRequest {
             model: "primary".to_owned(),
-            messages: self.build_messages(state, tool_results),
+            messages: self.build_messages(state, assistant_tool_calls, tool_results),
             tools,
             tool_choice: None,
             temperature: 0.2,
@@ -127,7 +140,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
             RuntimePhase::Model => {
-                let request = self.build_request(state, &[]);
+                let request = self.build_request(state, &[], &[]);
                 let response = self.provider.complete(&request).await?;
 
                 if response.tool_calls.is_empty() {
@@ -164,6 +177,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                 }
             }
             RuntimePhase::ToolExecution { tool_calls } => {
+                let assistant_tool_calls = tool_calls.clone();
                 let tool_results = self.execute_tool_calls(tool_calls).await;
                 let needs_confirmation = tool_results
                     .iter()
@@ -177,14 +191,18 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     };
                 } else {
                     self.phase = RuntimePhase::FollowupModel {
+                        assistant_tool_calls,
                         tool_results: tool_results.clone(),
                     };
                 }
 
                 Ok(Some(LoopStep::CallTools { tool_results }))
             }
-            RuntimePhase::FollowupModel { tool_results } => {
-                let request = self.build_request(state, &tool_results);
+            RuntimePhase::FollowupModel {
+                assistant_tool_calls,
+                tool_results,
+            } => {
+                let request = self.build_request(state, &assistant_tool_calls, &tool_results);
                 let response = self.provider.complete(&request).await?;
 
                 self.phase = RuntimePhase::Done {
@@ -261,7 +279,7 @@ fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopTool
     if result.allowed {
         return LoopToolResult::succeeded(
             tool_call,
-            serde_json::to_string(&result.facts).unwrap_or_else(|_| "[]".to_owned()),
+            AiFactProjection::build_tool_result_json(&result.facts),
         );
     }
 
