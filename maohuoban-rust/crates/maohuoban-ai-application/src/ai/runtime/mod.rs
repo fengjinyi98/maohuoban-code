@@ -10,6 +10,8 @@ mod fake_loop_engine;
 mod rig_adapter;
 mod session;
 mod session_runtime;
+#[path = "../Infrastructure/runtime/workbench_prompt_projection.rs"]
+mod workbench_prompt_projection;
 
 pub use agent_runtime_loop_engine::*;
 pub use engine::*;

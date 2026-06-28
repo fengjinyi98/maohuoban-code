@@ -16,7 +16,7 @@ use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
 use crate::ai::tools::{AiToolContext, AiToolResult, ToolDefinitionInfo, ToolRegistry};
 
-use super::LoopEngine;
+use super::{LoopEngine, workbench_prompt_projection::workbench_context_prompt};
 
 /// AgentRuntimeLoopEngine 毛球 Agent Runtime loop 实现
 /// 核心职责：
@@ -359,19 +359,6 @@ async fn execute_tool_calls(
 /// - 避免平台相关截断影响事件字段
 fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
-}
-
-/// workbench_context_prompt 构建模型可见工作台上下文
-/// 核心职责：
-/// - 将 Agent 定义、能力目录和可见上下文投影给模型
-/// - 保持工具执行权仍由 Tool Gateway 控制
-fn workbench_context_prompt(workbench: &AgentSessionWorkbench) -> String {
-    let payload = serde_json::to_string(workbench).unwrap_or_else(|_| "{}".to_owned());
-    format!(
-        "## AgentSession Workbench\n\
-         这是本轮可见能力目录、上下文包和记忆包。模型只能在这些能力边界内回答、追问或申请工具。\n\
-         {payload}"
-    )
 }
 
 /// tool_visible_for_workbench 判断工具是否应投影给本轮模型
