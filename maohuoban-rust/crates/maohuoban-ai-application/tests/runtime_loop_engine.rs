@@ -15,9 +15,10 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength,
-    AiToolConfirmationRequirement, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage,
-    LlmRole, LlmToolCall, LlmUsage,
+    AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
+    AiConversationSurface, AiFactEntry, AiFactStrength, AiToolConfirmationRequirement,
+    CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
+    LlmFinishReason, LlmMessage, LlmRole, LlmToolCall, LlmUsage, MemoryPack, ModelLabel,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -229,6 +230,38 @@ fn json_final_response() -> LlmChatResponse {
     }
 }
 
+fn public_pet_domain_workbench() -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![CapabilityDomain::PublicPetDomain],
+        },
+        capability_catalog: CapabilityCatalog {
+            capabilities: vec![AgentCapability {
+                code: "public_pet_care".to_owned(),
+                domain: CapabilityDomain::PublicPetDomain,
+                title: "公共养宠咨询".to_owned(),
+                when_to_use: "用户咨询通用照护、饮食、行为或常见症状观察时使用".to_owned(),
+                requires_private_context: false,
+            }],
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            selected_pet: None,
+            authorized_pets: Vec::new(),
+            session_summary: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
+    }
+}
+
 #[tokio::test]
 async fn agent_session_stream_yields_tool_progress_before_followup_model_finishes() {
     let provider = ScriptedProvider::with_delays(
@@ -340,6 +373,48 @@ async fn agent_runtime_executes_tool_loop() {
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].tools.len(), 1);
     assert_eq!(requests[0].tools[0].name, "load_pet_identity_context");
+}
+
+#[tokio::test]
+async fn public_pet_domain_without_private_tools() {
+    let provider = ScriptedProvider::new(vec![final_response()]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                .expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", public_pet_domain_workbench())
+        .await
+        .expect("prompt public pet domain");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0].tools.is_empty(),
+        "public pet domain without selected pet must not expose private tools, got {:?}",
+        requests[0]
+            .tools
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>()
+    );
 }
 
 #[tokio::test]

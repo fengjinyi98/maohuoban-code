@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AiFactPackage, AiResult, LlmChatRequest, LlmMessage, LlmRole, LlmToolCall,
-    LlmToolSchema, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome, ModelLabel,
-    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    AgentSessionState, AgentSessionWorkbench, AiFactPackage, AiResult, CapabilityDomain,
+    LlmChatRequest, LlmMessage, LlmRole, LlmToolCall, LlmToolSchema, LoopStep, LoopToolResult,
+    LoopToolStatus, ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use serde_json::Value;
 
@@ -12,7 +12,7 @@ use crate::ai::fact_projection::AiFactProjection;
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
-use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
+use crate::ai::tools::{AiToolContext, AiToolResult, ToolDefinitionInfo, ToolRegistry};
 
 use super::LoopEngine;
 
@@ -99,6 +99,7 @@ impl AgentRuntimeLoopEngine {
             .registry
             .list_definitions()
             .into_iter()
+            .filter(|tool| tool_visible_for_workbench(tool, state.workbench.as_ref()))
             .map(|tool| LlmToolSchema {
                 name: tool.name,
                 description: tool.description,
@@ -241,6 +242,54 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 /// - 避免平台相关截断影响事件字段
 fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
+}
+
+/// tool_visible_for_workbench 判断工具是否应投影给本轮模型
+/// 核心职责：
+/// - 无私域上下文时隐藏宠物私域读取工具
+/// - 保留未携带 Workbench 的旧路径兼容行为
+fn tool_visible_for_workbench(
+    tool: &ToolDefinitionInfo,
+    workbench: Option<&AgentSessionWorkbench>,
+) -> bool {
+    let Some(workbench) = workbench else {
+        return true;
+    };
+
+    if workbench_has_private_context(workbench) {
+        return true;
+    }
+
+    !is_private_pet_tool(tool)
+}
+
+/// workbench_has_private_context 判断本轮是否具备私域宠物能力
+/// 核心职责：
+/// - 使用 ContextPack 和能力目录共同判断私域工具是否可见
+fn workbench_has_private_context(workbench: &AgentSessionWorkbench) -> bool {
+    workbench.context_pack.selected_pet.is_some()
+        || workbench
+            .agent_definition
+            .capability_domains
+            .contains(&CapabilityDomain::PrivatePetContext)
+        || workbench
+            .capability_catalog
+            .capabilities
+            .iter()
+            .any(|capability| capability.requires_private_context)
+}
+
+/// is_private_pet_tool 判断工具是否读取宠物私域事实
+/// 核心职责：
+/// - 依据 scope 和 domain tag 识别当前私域工具组
+fn is_private_pet_tool(tool: &ToolDefinitionInfo) -> bool {
+    tool.scope.starts_with("pet.")
+        || tool.domain_tags.iter().any(|tag| {
+            matches!(
+                tag.as_str(),
+                "identity" | "diet" | "inventory" | "diet_confirmation"
+            )
+        })
 }
 
 fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
