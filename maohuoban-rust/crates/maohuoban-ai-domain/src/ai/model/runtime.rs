@@ -168,7 +168,7 @@ impl AgentSessionState {
 
 /// LoopStep LoopEngine 输出 step
 /// 核心职责：
-/// - 固定 CallModel、CallTools、Done 三类 Runtime step
+/// - 固定模型调用、工具调用、消息增量和终态 Runtime step
 /// - 让不同 LoopEngine adapter 可替换
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "step", rename_all = "snake_case")]
@@ -177,6 +177,9 @@ pub enum LoopStep {
         model_label: ModelLabel,
         tool_count: u32,
         outcome: ModelCallOutcome,
+    },
+    MessageDelta {
+        text: String,
     },
     CallTools {
         tool_results: Vec<LoopToolResult>,
@@ -255,6 +258,7 @@ impl LoopStep {
     pub fn step_name(&self) -> &'static str {
         match self {
             Self::CallModel { .. } => "call_model",
+            Self::MessageDelta { .. } => "message_delta",
             Self::CallTools { .. } => "call_tools",
             Self::Done { .. } => "done",
         }

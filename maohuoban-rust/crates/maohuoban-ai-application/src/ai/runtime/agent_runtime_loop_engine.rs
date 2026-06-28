@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
     AgentSessionState, AgentSessionWorkbench, AiFactPackage, AiResult, CapabilityDomain,
-    LlmChatRequest, LlmMessage, LlmRole, LlmToolCall, LlmToolSchema, LoopStep, LoopToolResult,
-    LoopToolStatus, ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    LlmChatRequest, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall,
+    LlmToolSchema, LlmUsage, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome,
+    ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use serde_json::Value;
 
@@ -28,9 +30,16 @@ pub struct AgentRuntimeLoopEngine {
     phase: RuntimePhase,
 }
 
-#[derive(Debug, Clone)]
 enum RuntimePhase {
     Model,
+    StreamingModel {
+        stream: BoxStream<'static, AiResult<LlmStreamEvent>>,
+        accumulated_text: String,
+        tool_calls: Vec<LlmToolCall>,
+        usage: LlmUsage,
+        finish_reason: LlmFinishReason,
+        tool_count: u32,
+    },
     ToolExecution {
         tool_calls: Vec<LlmToolCall>,
     },
@@ -72,6 +81,19 @@ impl AgentRuntimeLoopEngine {
         let user_message = state.user_inputs.last().cloned().unwrap_or_default();
         let mut messages =
             AiPromptBuilder::new().build_messages(&user_message, &[], self.fact_package.as_ref());
+
+        if let Some(workbench) = state.workbench.as_ref() {
+            let insert_index = messages.len().saturating_sub(1);
+            messages.insert(
+                insert_index,
+                LlmMessage {
+                    role: LlmRole::System,
+                    content: workbench_context_prompt(workbench),
+                    tool_call_id: None,
+                    tool_calls: Vec::new(),
+                },
+            );
+        }
 
         if !assistant_tool_calls.is_empty() {
             messages.push(LlmMessage {
@@ -118,39 +140,158 @@ impl AgentRuntimeLoopEngine {
             response_format: None,
         }
     }
-
-    async fn execute_tool_calls(&self, tool_calls: Vec<LlmToolCall>) -> Vec<LoopToolResult> {
-        let mut results = Vec::with_capacity(tool_calls.len());
-
-        for tool_call in tool_calls {
-            let args = serde_json::from_str::<Value>(&tool_call.arguments)
-                .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
-            let result = self
-                .registry
-                .call(&tool_call.name, &self.tool_context, &args)
-                .await;
-            results.push(to_loop_tool_result(tool_call, result));
-        }
-
-        results
-    }
 }
 
 #[async_trait]
 impl LoopEngine for AgentRuntimeLoopEngine {
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
-        match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
-            RuntimePhase::Model => {
-                let request = self.build_request(state, &[], &[]);
-                let response = self.provider.complete(&request).await?;
+        loop {
+            match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
+                RuntimePhase::Model => {
+                    let request = self.build_request(state, &[], &[]);
+                    let tool_count = request_tool_count(&request);
+                    self.phase = RuntimePhase::StreamingModel {
+                        stream: model_stream(self.provider.clone(), request),
+                        accumulated_text: String::new(),
+                        tool_calls: Vec::new(),
+                        usage: LlmUsage::default(),
+                        finish_reason: LlmFinishReason::Stop,
+                        tool_count,
+                    };
+                    continue;
+                }
+                RuntimePhase::StreamingModel {
+                    mut stream,
+                    mut accumulated_text,
+                    mut tool_calls,
+                    mut usage,
+                    mut finish_reason,
+                    tool_count,
+                } => {
+                    if let Some(event) = stream.next().await {
+                        match event? {
+                            LlmStreamEvent::Delta { content } => {
+                                accumulated_text.push_str(&content);
+                                self.phase = RuntimePhase::StreamingModel {
+                                    stream,
+                                    accumulated_text,
+                                    tool_calls,
+                                    usage,
+                                    finish_reason,
+                                    tool_count,
+                                };
+                                return Ok(Some(LoopStep::MessageDelta { text: content }));
+                            }
+                            LlmStreamEvent::ToolCall { tool_call } => {
+                                tool_calls.push(tool_call);
+                                self.phase = RuntimePhase::StreamingModel {
+                                    stream,
+                                    accumulated_text,
+                                    tool_calls,
+                                    usage,
+                                    finish_reason,
+                                    tool_count,
+                                };
+                                continue;
+                            }
+                            LlmStreamEvent::Finish {
+                                finish_reason: fr,
+                                usage: u,
+                            } => {
+                                finish_reason = fr;
+                                usage = u;
+                                self.phase = RuntimePhase::StreamingModel {
+                                    stream,
+                                    accumulated_text,
+                                    tool_calls,
+                                    usage,
+                                    finish_reason,
+                                    tool_count,
+                                };
+                                continue;
+                            }
+                            LlmStreamEvent::Error { message } => {
+                                return Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                                    message,
+                                ));
+                            }
+                        }
+                    }
 
-                if response.tool_calls.is_empty() {
+                    if tool_calls.is_empty() {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: visible_text_from_model_output(&accumulated_text),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                        };
+                        return Ok(Some(LoopStep::CallModel {
+                            model_label: ModelLabel::Primary,
+                            tool_count,
+                            outcome: ModelCallOutcome::Finished {
+                                finish_reason,
+                                usage,
+                                provider: "runtime_stream".to_owned(),
+                                model: ModelLabel::Primary.as_str().to_owned(),
+                            },
+                        }));
+                    } else {
+                        self.phase = RuntimePhase::ToolExecution {
+                            tool_calls: tool_calls.clone(),
+                        };
+                        return Ok(Some(LoopStep::CallModel {
+                            model_label: ModelLabel::Primary,
+                            tool_count,
+                            outcome: ModelCallOutcome::Finished {
+                                finish_reason,
+                                usage,
+                                provider: "runtime_stream".to_owned(),
+                                model: ModelLabel::Primary.as_str().to_owned(),
+                            },
+                        }));
+                    }
+                }
+                RuntimePhase::ToolExecution { tool_calls } => {
+                    let assistant_tool_calls = tool_calls.clone();
+                    let tool_results = execute_tool_calls(
+                        self.registry.clone(),
+                        self.tool_context.clone(),
+                        tool_calls,
+                    )
+                    .await;
+                    let needs_confirmation = tool_results.iter().any(|result| {
+                        matches!(result.status, LoopToolStatus::RequiresConfirmation)
+                    });
+
+                    if needs_confirmation {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
+                        };
+                    } else {
+                        self.phase = RuntimePhase::FollowupModel {
+                            assistant_tool_calls,
+                            tool_results: tool_results.clone(),
+                        };
+                    }
+
+                    return Ok(Some(LoopStep::CallTools { tool_results }));
+                }
+                RuntimePhase::FollowupModel {
+                    assistant_tool_calls,
+                    tool_results,
+                } => {
+                    let request = self.build_request(state, &assistant_tool_calls, &tool_results);
+                    let provider = self.provider.clone();
+                    let response = provider.complete(&request).await?;
+
                     self.phase = RuntimePhase::Done {
                         message_id: uuid::Uuid::new_v4(),
                         final_text: visible_text_from_model_output(&response.message.content),
                         status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
                     };
-                    Ok(Some(LoopStep::CallModel {
+
+                    return Ok(Some(LoopStep::CallModel {
                         model_label: ModelLabel::Primary,
                         tool_count: request_tool_count(&request),
                         outcome: ModelCallOutcome::Finished {
@@ -159,81 +300,51 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             provider: response.provider,
                             model: response.model,
                         },
-                    }))
-                } else {
-                    let tool_calls = response.tool_calls;
-                    self.phase = RuntimePhase::ToolExecution {
-                        tool_calls: tool_calls.clone(),
-                    };
-                    Ok(Some(LoopStep::CallModel {
-                        model_label: ModelLabel::Primary,
-                        tool_count: request_tool_count(&request),
-                        outcome: ModelCallOutcome::Finished {
-                            finish_reason: response.finish_reason,
-                            usage: response.usage,
-                            provider: response.provider,
-                            model: response.model,
-                        },
-                    }))
+                    }));
+                }
+                RuntimePhase::Done {
+                    message_id,
+                    final_text,
+                    status,
+                } => {
+                    return Ok(Some(LoopStep::Done {
+                        message_id,
+                        final_text,
+                        status,
+                    }));
                 }
             }
-            RuntimePhase::ToolExecution { tool_calls } => {
-                let assistant_tool_calls = tool_calls.clone();
-                let tool_results = self.execute_tool_calls(tool_calls).await;
-                let needs_confirmation = tool_results
-                    .iter()
-                    .any(|result| matches!(result.status, LoopToolStatus::RequiresConfirmation));
-
-                if needs_confirmation {
-                    self.phase = RuntimePhase::Done {
-                        message_id: uuid::Uuid::new_v4(),
-                        final_text: String::new(),
-                        status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
-                    };
-                } else {
-                    self.phase = RuntimePhase::FollowupModel {
-                        assistant_tool_calls,
-                        tool_results: tool_results.clone(),
-                    };
-                }
-
-                Ok(Some(LoopStep::CallTools { tool_results }))
-            }
-            RuntimePhase::FollowupModel {
-                assistant_tool_calls,
-                tool_results,
-            } => {
-                let request = self.build_request(state, &assistant_tool_calls, &tool_results);
-                let response = self.provider.complete(&request).await?;
-
-                self.phase = RuntimePhase::Done {
-                    message_id: uuid::Uuid::new_v4(),
-                    final_text: visible_text_from_model_output(&response.message.content),
-                    status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
-                };
-
-                Ok(Some(LoopStep::CallModel {
-                    model_label: ModelLabel::Primary,
-                    tool_count: request_tool_count(&request),
-                    outcome: ModelCallOutcome::Finished {
-                        finish_reason: response.finish_reason,
-                        usage: response.usage,
-                        provider: response.provider,
-                        model: response.model,
-                    },
-                }))
-            }
-            RuntimePhase::Done {
-                message_id,
-                final_text,
-                status,
-            } => Ok(Some(LoopStep::Done {
-                message_id,
-                final_text,
-                status,
-            })),
         }
     }
+}
+
+fn model_stream(
+    provider: Arc<dyn LlmProvider>,
+    request: LlmChatRequest,
+) -> BoxStream<'static, AiResult<LlmStreamEvent>> {
+    Box::pin(async_stream::try_stream! {
+        let mut stream = provider.stream(&request);
+        while let Some(event) = stream.next().await {
+            yield event?;
+        }
+    })
+}
+
+async fn execute_tool_calls(
+    registry: Arc<ToolRegistry>,
+    tool_context: AiToolContext,
+    tool_calls: Vec<LlmToolCall>,
+) -> Vec<LoopToolResult> {
+    let mut results = Vec::with_capacity(tool_calls.len());
+
+    for tool_call in tool_calls {
+        let args = serde_json::from_str::<Value>(&tool_call.arguments)
+            .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+        let result = registry.call(&tool_call.name, &tool_context, &args).await;
+        results.push(to_loop_tool_result(tool_call, result));
+    }
+
+    results
 }
 
 /// request_tool_count 计算模型请求中的工具数量
@@ -242,6 +353,19 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 /// - 避免平台相关截断影响事件字段
 fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
+}
+
+/// workbench_context_prompt 构建模型可见工作台上下文
+/// 核心职责：
+/// - 将 Agent 定义、能力目录和可见上下文投影给模型
+/// - 保持工具执行权仍由 Tool Gateway 控制
+fn workbench_context_prompt(workbench: &AgentSessionWorkbench) -> String {
+    let payload = serde_json::to_string(workbench).unwrap_or_else(|_| "{}".to_owned());
+    format!(
+        "## AgentSession Workbench\n\
+         这是本轮可见能力目录、上下文包和记忆包。模型只能在这些能力边界内回答、追问或申请工具。\n\
+         {payload}"
+    )
 }
 
 /// tool_visible_for_workbench 判断工具是否应投影给本轮模型

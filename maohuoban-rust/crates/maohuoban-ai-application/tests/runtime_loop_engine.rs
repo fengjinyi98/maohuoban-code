@@ -18,7 +18,8 @@ use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
     AiConversationSurface, AiFactEntry, AiFactStrength, AiToolConfirmationRequirement,
     CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmMessage, LlmRole, LlmToolCall, LlmUsage, MemoryPack, ModelLabel,
+    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
+    ModelLabel,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -88,13 +89,48 @@ impl LlmProvider for ScriptedProvider {
 
     fn stream<'a>(
         &'a self,
-        _request: &'a LlmChatRequest,
+        request: &'a LlmChatRequest,
     ) -> futures_util::stream::BoxStream<
         'a,
         maohuoban_ai_domain::ai::AiResult<maohuoban_ai_domain::ai::LlmStreamEvent>,
     > {
-        futures_util::stream::empty().boxed()
+        self.requests
+            .lock()
+            .expect("requests")
+            .push(request.clone());
+        let _ = self.delays.lock().expect("delays").pop_front();
+        let events = self
+            .responses
+            .lock()
+            .expect("responses")
+            .pop_front()
+            .map(response_to_stream_events)
+            .unwrap_or_else(|| {
+                vec![Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                    "missing scripted response".to_owned(),
+                ))]
+            });
+        futures_util::stream::iter(events).boxed()
     }
+}
+
+fn response_to_stream_events(
+    response: LlmChatResponse,
+) -> Vec<maohuoban_ai_domain::ai::AiResult<LlmStreamEvent>> {
+    let mut events = Vec::new();
+    for tool_call in response.tool_calls {
+        events.push(Ok(LlmStreamEvent::ToolCall { tool_call }));
+    }
+    if !response.message.content.is_empty() {
+        events.push(Ok(LlmStreamEvent::Delta {
+            content: response.message.content,
+        }));
+    }
+    events.push(Ok(LlmStreamEvent::Finish {
+        finish_reason: response.finish_reason,
+        usage: response.usage,
+    }));
+    events
 }
 
 struct EchoIdentityTool;

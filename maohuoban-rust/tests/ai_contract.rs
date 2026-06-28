@@ -211,6 +211,9 @@ mod chat_stream_confirmation_candidates;
 #[path = "ai_contract/chat_stream_diagnostics.rs"]
 mod chat_stream_diagnostics;
 
+#[path = "ai_contract/chat_workbench.rs"]
+mod chat_workbench;
+
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 

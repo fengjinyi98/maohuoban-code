@@ -5,12 +5,25 @@
 
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
-    LlmFinishReason, LlmUsage, ModelLabel, ProviderErrorCategory,
+    LlmFinishReason, LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory,
 };
 use uuid::Uuid;
 
 fn turn_id() -> AgentTurnId {
     AgentTurnId::from_uuid(Uuid::parse_str("018f4f21-9f44-7a62-a14d-4e7465726e31").unwrap())
+}
+
+#[test]
+fn runtime_loop_step_roundtrip_covers_message_delta() {
+    let step = LoopStep::MessageDelta {
+        text: "第一段增量".to_owned(),
+    };
+
+    let encoded = serde_json::to_string(&step).expect("serialize loop step");
+    assert!(encoded.contains("message_delta"));
+    assert_eq!(step.step_name(), "message_delta");
+    let decoded: LoopStep = serde_json::from_str(&encoded).expect("deserialize loop step");
+    assert_eq!(decoded, step);
 }
 
 #[test]

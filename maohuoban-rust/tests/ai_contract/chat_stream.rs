@@ -904,8 +904,8 @@ fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
             .body_contains("\"tools\"")
             .body_contains("load_pet_identity_context");
         then.status(200)
-            .header("content-type", "application/json")
-            .body(first_body.to_string());
+            .header("content-type", "text/event-stream")
+            .body(first_body);
     });
     let second_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -922,35 +922,13 @@ fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
     (first_mock, second_mock)
 }
 
-fn runtime_tool_call_response_body(pet_id: &str) -> serde_json::Value {
-    serde_json::json!({
-        "id": "chatcmpl-runtime-tool-call",
-        "model": "contract-model",
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "",
-                    "tool_calls": [
-                        {
-                            "id": "call_1",
-                            "type": "function",
-                            "function": {
-                                "name": "load_pet_identity_context",
-                                "arguments": serde_json::json!({ "pet_id": pet_id }).to_string()
-                            }
-                        }
-                    ]
-                },
-                "finish_reason": "tool_calls"
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 8,
-            "completion_tokens": 2,
-            "total_tokens": 10
-        }
-    })
+fn runtime_tool_call_response_body(pet_id: &str) -> String {
+    let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":\"load_pet_identity_context\",\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
 }
 
 fn runtime_tool_followup_response_body() -> &'static str {

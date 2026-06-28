@@ -74,14 +74,41 @@ impl<E: LoopEngine> AgentSession<E> {
     /// - 在每个 LoopStep 完成后立即产出对应 AgentEvent
     /// - 让 HTTP SSE 层可以实时展示工具执行进度
     pub fn into_prompt_stream(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, None)
+    }
+
+    /// into_prompt_stream_with_workbench 提交用户输入和工作台并逐步产出事件
+    /// 核心职责：
+    /// - 在流式 Runtime 路径中携带本轮 Workbench
+    /// - 保持事件生成顺序与 into_prompt_stream 一致
+    pub fn into_prompt_stream_with_workbench(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+        workbench: AgentSessionWorkbench,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, Some(workbench))
+    }
+
+    fn into_prompt_stream_inner(
         mut self,
         user_input: impl Into<String> + Send + 'static,
+        workbench: Option<AgentSessionWorkbench>,
     ) -> BoxStream<'static, AiResult<AgentEvent>>
     where
         E: 'static,
     {
         let user_input = user_input.into();
         Box::pin(async_stream::try_stream! {
+            self.state.attach_workbench(workbench);
             let turn_id = self.state.begin_turn(user_input);
             yield AgentEvent::TurnStarted {
                 turn_id,
@@ -125,6 +152,10 @@ fn append_step_events(
             tool_count,
             outcome,
         } => append_model_events(turn_id, model_label, tool_count, outcome, events),
+        LoopStep::MessageDelta { text } => {
+            events.push(AgentEvent::MessageDelta { turn_id, text });
+            StepFlow::Continue
+        }
         LoopStep::CallTools { tool_results } => append_tool_events(turn_id, tool_results, events),
         LoopStep::Done {
             message_id,
