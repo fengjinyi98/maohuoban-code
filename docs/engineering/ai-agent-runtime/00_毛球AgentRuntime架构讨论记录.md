@@ -49,10 +49,10 @@
 
 | 层 | 当前已有 | 当前缺口 |
 |---|---|---|
-| LLM 请求模型 | `LlmChatRequest` 已有 `messages`、`tools`、`tool_choice` 字段 | 当前实际构造请求时 `tools: vec![]`，模型没有工具可调用 |
+| LLM 请求模型 | `LlmChatRequest` 已有 `messages`、`tools`、`tool_choice` 字段，Runtime 主链路已通过 Workbench 注入可见工具目录 | 后续还需要补齐 provider fallback、模型能力差异和更细粒度工具选择策略 |
 | Provider | 已有 `LlmProvider`、OpenAI 兼容 Provider、Disabled Provider | 还缺 provider fallback、分级错误策略、provider 能力差异抽象 |
-| SSE Pipeline | 已能把 Provider stream 转换为毛伙伴稳定事件 | 当前遇到 `ToolCall` 事件时没有执行工具和回灌 |
-| 工具系统 | 已有 `ToolRegistry`、`AiToolDefinition`、`AiToolContext`、`AiToolResult` | 工具注册表还没有成为主链路的 Agent Runtime |
+| SSE Pipeline | 已能把 Runtime 模型流、工具进度、完成和错误转换为毛伙伴稳定事件 | 还需要完善重连、恢复和更细的前端观测字段 |
+| 工具系统 | 已有 `ToolRegistry`、`AiToolDefinition`、`AiToolContext`、`AiToolResult`，并已进入 Agent Runtime 主链路 | 后续需要扩展更多业务工具和确认态写入闭环 |
 | 意图闸门 | 已有规则版 `AiIntentGate` | 关键词规则过硬，寒暄、模糊表达、隐含宠物语义容易被挡掉 |
 | 事实包 | 已有 `AiFactPackage`、身份/饮食/弱线索加载器 | 事实包仍偏“提前装配”，还不是按模型计划动态调用 |
 | 回答校验 | 已有 `AiAnswerVerifier` | 校验仍是末端阻断，缺少失败后的恢复规划 |
@@ -64,7 +64,7 @@
 | 问题 | 表现 | 本质 |
 |---|---|---|
 | gate 过硬 | 用户发“你好”会直接得到“我现在只能处理宠物照护...” | 代码规则把语义分类当最终答案生成 |
-| 工具没有进入主循环 | 请求里没有把工具 schema 暴露给模型 | 后端仍是固定上下文问答，不是工具型 Agent |
+| 工具主循环需要继续扩展 | 工具 schema 已进入 Runtime 模型请求，当前工具集合仍偏少 | 后端需要继续扩展按需读取、确认写入和恢复策略 |
 | Provider 错误和业务回复边界不够清晰 | 未配置 provider、上游错误、越界拒答、模型正常回答容易混在一条聊天语义里 | 缺少统一错误分类与持久化策略 |
 | 软引导不聪明 | 越界或模糊请求只能返回固定文案 | 缺少基于当前状态的 Recovery Planner |
 | 事实读取偏预加载 | 进入 Provider 前固定加载身份、饮食、线索等上下文 | 用户问题复杂后需要按需工具调用，避免 token 浪费和事实噪音 |
