@@ -41,7 +41,7 @@ use super::identity_fact_loader::load_identity_fact_package;
 use super::llm_request::build_llm_request;
 use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
-use super::runtime_stream::{agent_events_to_sse_events, ai_error_to_sse_event};
+use super::runtime_stream::{AgentEventSseProjector, ai_error_to_sse_event};
 use super::runtime_tools::build_runtime_tool_registry;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
@@ -262,7 +262,7 @@ fn runtime_provider_stream(
     };
     let engine =
         AgentRuntimeLoopEngine::new(provider, registry, tool_context, input.fact_package.clone());
-    let mut session = AgentSession::new(
+    let session = AgentSession::new(
         input.session_id,
         AgentId::main_pet_care_agent(),
         req.surface,
@@ -273,38 +273,46 @@ fn runtime_provider_stream(
     let fact_package = input.fact_package;
     let context = input.context;
 
-    futures_util::stream::once(async move {
-        let activity_pet_name = context
-            .target_pet
+    async_stream::stream! {
+        let AiStreamRunContext {
+            chat_session_id,
+            message_id: started_message_id,
+            title,
+            target_pet,
+            initial_events,
+            ..
+        } = context;
+        let activity_pet_name = target_pet
             .as_ref()
             .map_or_else(|| "宠物".to_owned(), |pet| pet.pet_name.clone());
-        let mut events = vec![Ok(AiStreamEvent::MessageStarted {
-            chat_session_id: context.chat_session_id,
-            message_id: context.message_id,
-            target_pet: context.target_pet,
-            title: context.title,
-        })];
 
-        events.extend(context.initial_events.into_iter().map(Ok));
+        yield Ok(AiStreamEvent::MessageStarted {
+            chat_session_id,
+            message_id: started_message_id,
+            target_pet,
+            title,
+        });
 
-        match session.prompt(user_message).await {
-            Ok(agent_events) => {
-                for event in agent_events_to_sse_events(
-                    agent_events,
-                    message_id,
-                    fact_package,
-                    &activity_pet_name,
-                ) {
-                    events.push(Ok(event));
+        for event in initial_events {
+            yield Ok(event);
+        }
+
+        let mut projector = AgentEventSseProjector::new(message_id, fact_package, &activity_pet_name);
+        let mut agent_stream = session.into_prompt_stream(user_message);
+        while let Some(result) = agent_stream.next().await {
+            match result {
+                Ok(agent_event) => {
+                    for event in projector.project(agent_event) {
+                        yield Ok(event);
+                    }
+                }
+                Err(error) => {
+                    yield Ok(ai_error_to_sse_event(&error));
+                    break;
                 }
             }
-            Err(error) => {
-                events.push(Ok(ai_error_to_sse_event(&error)));
-            }
         }
-        events
-    })
-    .flat_map(futures_util::stream::iter)
+    }
     .boxed()
 }
 

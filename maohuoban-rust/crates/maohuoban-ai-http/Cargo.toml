@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+async-stream.workspace = true
 async-trait.workspace = true
 axum.workspace = true
 chrono.workspace = true

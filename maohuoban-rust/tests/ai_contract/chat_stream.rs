@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use futures_util::StreamExt;
 use httpmock::{Mock, MockServer, prelude::HttpMockRequest};
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
@@ -6,6 +7,7 @@ use maohuoban_diagnostics::{
 };
 use serde_json::Value;
 use serde_json::json;
+use std::time::Duration;
 use tower::ServiceExt;
 
 use super::{
@@ -194,16 +196,16 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139009", "ios-ai-provider-config").await;
@@ -265,16 +267,16 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
 async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     let server = MockServer::start();
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139021", "ios-ai-runtime-tool").await;
@@ -343,6 +345,107 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     );
 }
 
+/// Runtime 工具进度在二次模型完成前通过 SSE 到达
+#[tokio::test]
+async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finishes() {
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let access_token =
+        login_and_get_token(&app, "13800139022", "ios-ai-runtime-tool-progress").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+    let (first_mock, second_mock) = install_runtime_tool_call_mocks_with_followup_delay(
+        &server,
+        pet_id,
+        Duration::from_secs(3),
+    );
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "读取毛球档案后告诉我状态",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send runtime tool progress chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let mut body_stream = response.into_body().into_data_stream();
+    let partial_text = read_sse_until_contains(
+        &mut body_stream,
+        &[
+            "event: agent_activity",
+            "正在查看毛球档案",
+            "\"status\":\"completed\"",
+        ],
+        Duration::from_secs(1),
+    )
+    .await;
+
+    first_mock.assert();
+    assert!(
+        !partial_text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
+        "runtime tool progress should arrive before delayed followup answer, got: {partial_text}"
+    );
+
+    let tool_call_events = sse_event_data_all(&partial_text, "tool_call");
+    assert!(
+        tool_call_events.iter().any(|event| {
+            event["tool_name"] == "load_pet_identity_context" && event["status"] == "started"
+        }),
+        "SSE should stream runtime tool start before followup model finishes, got: {tool_call_events:?}"
+    );
+    assert!(
+        tool_call_events.iter().any(|event| {
+            event["tool_name"] == "load_pet_identity_context" && event["status"] == "allowed"
+        }),
+        "SSE should stream runtime tool completion before followup model finishes, got: {tool_call_events:?}"
+    );
+    let activity_events = sse_event_data_all(&partial_text, "agent_activity");
+    assert!(
+        activity_events.iter().any(|event| {
+            event["display_text"] == "正在查看毛球档案" && event["status"] == "started"
+        }),
+        "SSE should stream backend-provided activity start text, got: {activity_events:?}"
+    );
+    assert!(
+        activity_events.iter().any(|event| {
+            event["display_text"] == "正在查看毛球档案" && event["status"] == "completed"
+        }),
+        "SSE should stream backend-provided activity completion text, got: {activity_events:?}"
+    );
+
+    let mut full_text = partial_text;
+    while let Some(chunk) = body_stream.next().await {
+        let chunk = chunk.expect("read remaining SSE chunk");
+        full_text.push_str(&String::from_utf8_lossy(&chunk));
+    }
+    second_mock.assert();
+    assert!(
+        full_text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
+        "SSE should still complete with followup model answer, got: {full_text}"
+    );
+}
+
 /// Provider 输出医疗诊断时由回答校验器回退为安全消息
 #[tokio::test]
 async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
@@ -377,16 +480,16 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139012", "ios-ai-verifier").await;
@@ -441,16 +544,16 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139010", "ios-ai-off-topic").await;
@@ -665,9 +768,45 @@ fn sse_event_data_all(text: &str, event_name: &str) -> Vec<Value> {
     values
 }
 
+/// `read_sse_until_contains` 逐块读取 SSE 直到命中目标片段
+/// 核心职责：
+/// - 验证 SSE 事件在 body 未完成前可被消费
+/// - 为工具进度实时性测试保留已读取文本
+async fn read_sse_until_contains(
+    body_stream: &mut axum::body::BodyDataStream,
+    expected_fragments: &[&str],
+    timeout: Duration,
+) -> String {
+    tokio::time::timeout(timeout, async {
+        let mut text = String::new();
+        while !expected_fragments
+            .iter()
+            .all(|fragment| text.contains(fragment))
+        {
+            let chunk = body_stream
+                .next()
+                .await
+                .expect("SSE stream should continue before expected fragments")
+                .expect("read SSE chunk");
+            text.push_str(&String::from_utf8_lossy(&chunk));
+        }
+        text
+    })
+    .await
+    .expect("SSE should emit expected fragments before timeout")
+}
+
 fn install_runtime_tool_call_mocks<'a>(
     server: &'a MockServer,
     pet_id: &str,
+) -> (Mock<'a>, Mock<'a>) {
+    install_runtime_tool_call_mocks_with_followup_delay(server, pet_id, Duration::ZERO)
+}
+
+fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
+    server: &'a MockServer,
+    pet_id: &str,
+    followup_delay: Duration,
 ) -> (Mock<'a>, Mock<'a>) {
     let first_body = runtime_tool_call_response_body(pet_id);
     let first_mock = server.mock(|when, then| {
@@ -689,6 +828,7 @@ fn install_runtime_tool_call_mocks<'a>(
             .body_contains("\"role\":\"tool\"")
             .body_contains("\"tool_call_id\":\"call_1\"");
         then.status(200)
+            .delay(followup_delay)
             .header("content-type", "application/json")
             .body(runtime_tool_followup_response_body());
     });

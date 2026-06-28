@@ -26,16 +26,16 @@ async fn ai_chat_stream_loads_diet_confirmation_candidates_as_pending_context() 
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139015", "ios-ai-confirm-candidates").await;

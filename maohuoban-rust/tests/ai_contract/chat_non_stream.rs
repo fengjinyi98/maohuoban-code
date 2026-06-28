@@ -98,16 +98,16 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139017", "ios-ai-chat-non-stream").await;
@@ -167,16 +167,16 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
 async fn ai_chat_non_stream_executes_runtime_tool_call_and_followup_model() {
     let server = MockServer::start();
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139022", "ios-ai-chat-runtime-tool").await;
@@ -257,16 +257,16 @@ async fn ai_chat_non_stream_off_topic_records_gate_log_and_skips_provider() {
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = Some(
-        maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-            base_url: server.base_url(),
-            api_key: "contract-api-key".to_owned(),
-            model: "contract-model".to_owned(),
-            timeout_secs: 5,
-            temperature: 0.2,
-            max_output_tokens: None,
-        },
-    );
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139018", "ios-ai-chat-off-topic").await;

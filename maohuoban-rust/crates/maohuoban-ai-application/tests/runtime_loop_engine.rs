@@ -5,6 +5,7 @@
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
@@ -24,13 +25,19 @@ use uuid::Uuid;
 struct ScriptedProvider {
     requests: Arc<Mutex<Vec<LlmChatRequest>>>,
     responses: Arc<Mutex<VecDeque<LlmChatResponse>>>,
+    delays: Arc<Mutex<VecDeque<Duration>>>,
 }
 
 impl ScriptedProvider {
     fn new(responses: Vec<LlmChatResponse>) -> Self {
+        Self::with_delays(responses, Vec::new())
+    }
+
+    fn with_delays(responses: Vec<LlmChatResponse>, delays: Vec<Duration>) -> Self {
         Self {
             requests: Arc::new(Mutex::new(Vec::new())),
             responses: Arc::new(Mutex::new(VecDeque::from(responses))),
+            delays: Arc::new(Mutex::new(VecDeque::from(delays))),
         }
     }
 
@@ -52,10 +59,19 @@ impl LlmProvider for ScriptedProvider {
     > {
         let response = self.responses.clone();
         let requests = self.requests.clone();
+        let delays = self.delays.clone();
         let request = request.clone();
 
         Box::pin(async move {
             requests.lock().expect("requests").push(request);
+            let delay = delays
+                .lock()
+                .expect("delays")
+                .pop_front()
+                .unwrap_or_default();
+            if !delay.is_zero() {
+                tokio::time::sleep(delay).await;
+            }
             response
                 .lock()
                 .expect("responses")
@@ -173,6 +189,103 @@ fn final_response() -> LlmChatResponse {
     }
 }
 
+fn json_final_response() -> LlmChatResponse {
+    LlmChatResponse {
+        message: LlmMessage {
+            role: LlmRole::Assistant,
+            content: serde_json::json!({
+                "answer_text": "毛球当前状态正常，可以继续观察精神和食欲。",
+                "display_blocks": [
+                    {
+                        "type": "paragraph",
+                        "text": "毛球当前状态正常，可以继续观察精神和食欲。"
+                    }
+                ],
+                "follow_up_questions": [],
+                "safety_notes": []
+            })
+            .to_string(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        tool_calls: vec![],
+        usage: LlmUsage {
+            input_tokens: 12,
+            output_tokens: 20,
+            total_tokens: 32,
+        },
+        finish_reason: LlmFinishReason::Stop,
+        provider: "scripted".to_owned(),
+        model: "primary".to_owned(),
+    }
+}
+
+#[tokio::test]
+async fn agent_session_stream_yields_tool_progress_before_followup_model_finishes() {
+    let provider = ScriptedProvider::with_delays(
+        vec![tool_response(), final_response()],
+        vec![Duration::ZERO, Duration::from_secs(5)],
+    );
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                .expect("pet id"),
+        },
+        None,
+    );
+
+    let session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+    let mut stream = Box::pin(session.into_prompt_stream("查看毛球档案".to_owned()));
+
+    let mut names = Vec::new();
+    let tool_finished = tokio::time::timeout(Duration::from_millis(200), async {
+        loop {
+            let event = stream
+                .next()
+                .await
+                .expect("runtime stream event")
+                .expect("runtime event ok");
+            names.push(event.event_name());
+            if event.event_name() == "tool_finished" {
+                break;
+            }
+        }
+    })
+    .await;
+
+    assert!(
+        tool_finished.is_ok(),
+        "tool progress should arrive before delayed followup model completes, got {names:?}"
+    );
+    assert_eq!(
+        names,
+        vec![
+            "turn_started",
+            "model_call_started",
+            "model_call_finished",
+            "tool_started",
+            "tool_finished",
+        ]
+    );
+
+    let followup_event = tokio::time::timeout(Duration::from_millis(50), stream.next()).await;
+    assert!(
+        followup_event.is_err(),
+        "followup model event should still be pending while provider is delayed"
+    );
+}
+
 #[tokio::test]
 async fn agent_runtime_executes_tool_loop() {
     let provider = ScriptedProvider::new(vec![tool_response(), final_response()]);
@@ -218,6 +331,41 @@ async fn agent_runtime_executes_tool_loop() {
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].tools.len(), 1);
     assert_eq!(requests[0].tools[0].name, "load_pet_identity_context");
+}
+
+#[tokio::test]
+async fn agent_runtime_uses_answer_text_from_json_output() {
+    let provider = ScriptedProvider::new(vec![json_final_response()]);
+    let registry = ToolRegistry::new();
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                .expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session.prompt("毛球今天怎么样").await.expect("prompt");
+    let final_text = events.iter().find_map(|event| match event {
+        AgentEvent::TurnFinished { final_text, .. } => Some(final_text.as_str()),
+        _ => None,
+    });
+
+    assert_eq!(
+        final_text,
+        Some("毛球当前状态正常，可以继续观察精神和食欲。")
+    );
 }
 
 #[tokio::test]

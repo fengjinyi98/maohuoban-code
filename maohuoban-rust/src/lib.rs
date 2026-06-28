@@ -35,6 +35,7 @@ use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider}
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
+use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
@@ -89,8 +90,7 @@ pub struct BackendConfig {
     pub access_token_ttl_seconds: i64,
     pub refresh_token_ttl_seconds: i64,
     pub diagnostics_ingest_enabled: bool,
-    pub ai_llm_provider_config:
-        Option<maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig>,
+    pub ai_llm_provider_config: LlmProviderRegistryConfig,
 }
 
 impl BackendConfig {
@@ -116,8 +116,7 @@ impl BackendConfig {
                     .ok()
                     .as_deref(),
             ),
-            ai_llm_provider_config:
-                maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig::from_env(),
+            ai_llm_provider_config: LlmProviderRegistryConfig::from_env(),
         }
     }
 
@@ -139,7 +138,7 @@ impl BackendConfig {
             access_token_ttl_seconds: 15 * 60,
             refresh_token_ttl_seconds: 180 * 24 * 60 * 60,
             diagnostics_ingest_enabled: true,
-            ai_llm_provider_config: None,
+            ai_llm_provider_config: LlmProviderRegistryConfig::default(),
         }
     }
 }
@@ -228,7 +227,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
     let ai_http_state = build_ai_http_state(
-        config.ai_llm_provider_config,
+        &config.ai_llm_provider_config,
         pet_service.clone(),
         ai_session_repository.clone(),
         auth_service.clone(),
@@ -269,7 +268,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
 /// - 构建 LLM stream pipeline 和宠物上下文 provider
 /// - 保持 build_backend_app 的服务装配流程可读
 fn build_ai_http_state(
-    provider_config: Option<maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig>,
+    provider_config: &LlmProviderRegistryConfig,
     pet_service: Arc<PetService>,
     ai_session_repository: PostgresAiSessionRepository,
     auth_service: Arc<AuthService>,

@@ -6,7 +6,7 @@
 
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::FakeLlmProvider;
-use maohuoban_ai_application::ai::stream::AiStreamPipeline;
+use maohuoban_ai_application::ai::stream::{AiStreamPipeline, AiStreamRunContext};
 use maohuoban_ai_domain::ai::{
     AiStreamEvent, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
     LlmStreamEvent, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
@@ -207,4 +207,125 @@ async fn stream_pipeline_preserves_event_order() {
         names,
         vec!["message_started", "delta", "delta", "message_completed"]
     );
+}
+
+#[tokio::test]
+async fn stream_pipeline_uses_answer_text_from_json_output() {
+    let json_output = serde_json::json!({
+        "answer_text": "毛球今天精神不错，可以继续观察饮食和排便。",
+        "display_blocks": [
+            {
+                "type": "paragraph",
+                "text": "毛球今天精神不错，可以继续观察饮食和排便。"
+            }
+        ],
+        "follow_up_questions": [],
+        "safety_notes": []
+    })
+    .to_string();
+    let provider = FakeLlmProvider::new(
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: json_output.clone(),
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: vec![],
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            provider: "fake".to_owned(),
+            model: "test".to_owned(),
+        },
+        vec![
+            LlmStreamEvent::Delta {
+                content: json_output,
+            },
+            LlmStreamEvent::Finish {
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+            },
+        ],
+    );
+
+    let pipeline = AiStreamPipeline::new(provider);
+    let mut stream = pipeline.run(
+        dummy_request(),
+        Uuid::new_v4(),
+        Uuid::new_v4(),
+        "test".to_owned(),
+    );
+
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event.expect("event"));
+    }
+
+    let deltas: Vec<&str> = events
+        .iter()
+        .filter_map(|event| match event {
+            AiStreamEvent::Delta { text } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(deltas, vec!["毛球今天精神不错，可以继续观察饮食和排便。"]);
+
+    let completed_text = events.iter().find_map(|event| match event {
+        AiStreamEvent::MessageCompleted { final_text, .. } => Some(final_text.as_str()),
+        _ => None,
+    });
+    assert_eq!(
+        completed_text,
+        Some("毛球今天精神不错，可以继续观察饮食和排便。")
+    );
+}
+
+#[tokio::test]
+async fn complete_with_context_uses_answer_text_from_json_output() {
+    let json_output = serde_json::json!({
+        "answer_text": "毛球当前记录显示精神稳定。",
+        "display_blocks": [
+            {
+                "type": "paragraph",
+                "text": "毛球当前记录显示精神稳定。"
+            }
+        ],
+        "follow_up_questions": [],
+        "safety_notes": []
+    })
+    .to_string();
+    let provider = FakeLlmProvider::new(
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: json_output,
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: vec![],
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            provider: "fake".to_owned(),
+            model: "test".to_owned(),
+        },
+        Vec::new(),
+    );
+    let pipeline = AiStreamPipeline::new(provider);
+
+    let result = pipeline
+        .complete_with_context(
+            dummy_request(),
+            AiStreamRunContext {
+                chat_session_id: Uuid::new_v4(),
+                message_id: Uuid::new_v4(),
+                title: "test".to_owned(),
+                target_pet: None,
+                initial_events: Vec::new(),
+                fact_package: None,
+            },
+        )
+        .await
+        .expect("complete");
+
+    assert_eq!(result.final_text, "毛球当前记录显示精神稳定。");
 }

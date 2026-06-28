@@ -13,6 +13,7 @@ use maohuoban_ai_domain::ai::{
     PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 
+use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::verifier::AiAnswerVerifier;
 
@@ -204,9 +205,10 @@ impl AiStreamPipeline {
             }
 
             let accumulated_text = delta_chunks.concat();
+            let visible_text = visible_text_from_model_output(&accumulated_text);
             let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
             let citations = package.citations.clone();
-            let verification = AiAnswerVerifier::new().verify(&accumulated_text, &package);
+            let verification = AiAnswerVerifier::new().verify(&visible_text, &package);
 
             if verification.is_blocked() {
                 let final_text = verification
@@ -233,14 +235,20 @@ impl AiStreamPipeline {
             for citation in citations.clone() {
                 yield Ok(AiStreamEvent::Citation { citation });
             }
-            for text in delta_chunks {
-                yield Ok(AiStreamEvent::Delta { text });
+            if visible_text == accumulated_text {
+                for text in delta_chunks {
+                    yield Ok(AiStreamEvent::Delta { text });
+                }
+            } else {
+                yield Ok(AiStreamEvent::Delta {
+                    text: visible_text.clone(),
+                });
             }
 
             // 3. 发送 message_completed
             yield Ok(AiStreamEvent::MessageCompleted {
                 message_id: context.message_id,
-                final_text: accumulated_text,
+                final_text: visible_text,
                 usage,
                 finish_reason,
                 citations,
@@ -262,7 +270,8 @@ impl AiStreamPipeline {
         request.stream = false;
         let response = self.provider.complete(&request).await?;
         let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
-        let verification = AiAnswerVerifier::new().verify(&response.message.content, &package);
+        let visible_text = visible_text_from_model_output(&response.message.content);
+        let verification = AiAnswerVerifier::new().verify(&visible_text, &package);
 
         if verification.is_blocked() {
             let final_text = verification
@@ -283,7 +292,7 @@ impl AiStreamPipeline {
 
         let citations = package.citations;
         Ok(AiCompleteResult {
-            final_text: response.message.content,
+            final_text: visible_text,
             usage: response.usage,
             finish_reason: response.finish_reason,
             provider: response.provider,

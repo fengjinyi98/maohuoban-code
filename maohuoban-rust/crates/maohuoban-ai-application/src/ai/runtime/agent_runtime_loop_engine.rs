@@ -8,6 +8,7 @@ use maohuoban_ai_domain::ai::{
 };
 use serde_json::Value;
 
+use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
 use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
@@ -132,7 +133,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                 if response.tool_calls.is_empty() {
                     self.phase = RuntimePhase::Done {
                         message_id: uuid::Uuid::new_v4(),
-                        final_text: response.message.content,
+                        final_text: visible_text_from_model_output(&response.message.content),
                         status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
                     };
                     Ok(Some(LoopStep::CallModel {
@@ -188,7 +189,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 
                 self.phase = RuntimePhase::Done {
                     message_id: uuid::Uuid::new_v4(),
-                    final_text: response.message.content,
+                    final_text: visible_text_from_model_output(&response.message.content),
                     status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
                 };
 

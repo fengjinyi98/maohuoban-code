@@ -36,6 +36,7 @@ fn config(base_url: String) -> OpenAiCompatibleConfig {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     }
 }
 

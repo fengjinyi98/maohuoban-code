@@ -39,8 +39,8 @@
 | 范围 | 目标 |
 |---|---|
 | AI 后端分层 | 新增 `maohuoban-ai-domain`、`maohuoban-ai-application`、`maohuoban-ai-infrastructure`、`maohuoban-ai-http`，接入 workspace 和根服务装配 |
-| OpenAI 兼容 Provider | 新增 `LlmProvider` 端口和 `OpenAiCompatibleLlmProvider`，支持普通响应和 SSE 流式响应 |
-| Provider 配置 | 从环境变量读取 `AI_LLM_BASE_URL`、`AI_LLM_API_KEY`、`AI_LLM_MODEL`、`AI_LLM_TIMEOUT_SECS`、`AI_LLM_TEMPERATURE`，日志不输出密钥 |
+| LLM Provider 分层 | 新增 `LlmProvider` 端口、厂商 Provider factory、`DeepSeekLlmProvider` 和 OpenAI 兼容协议客户端，支持普通响应和 SSE 流式响应 |
+| Provider 配置 | 从环境变量读取 `AI_LLM_PROVIDER_KIND`、`AI_LLM_BASE_URL`、`AI_LLM_API_KEY`、`AI_LLM_MODEL`、`AI_LLM_TIMEOUT_SECS`、`AI_LLM_TEMPERATURE`，日志不输出密钥 |
 | 私域聊天接口 | 新增 `POST /api/v1/ai/chat` 用于非流式调试和测试；新增 `POST /api/v1/ai/chat/stream` 用于 iOS 流式聊天 |
 | 会话历史接口 | 新增 `GET /api/v1/ai/chat-sessions`、`GET /api/v1/ai/chat-sessions/{id}/messages`，支撑现有历史页真实数据源 |
 | 会话与消息表 | 新增 AI 会话、消息、引用、建议动作、审计表；会话只保存宠物展示快照，不作为宠物事实权威来源 |
@@ -117,7 +117,8 @@ iOS AIAssistantStore.submitDraft
   -> AiPetResolver 解析目标宠物
   -> Agent Gateway 强制工具链
   -> 业务工具读取授权事实包
-  -> OpenAiCompatibleLlmProvider stream
+  -> Provider factory 选择 DeepSeekLlmProvider
+  -> DeepSeekLlmProvider 复用 OpenAI-compatible 协议客户端
   -> AiAnswerVerifier 增量缓冲 / 完成校验
   -> 后端 SSE 输出 message_started / delta / citation / proposed_action / completed
   -> iOS AIAssistantStreamingEngine 增量渲染
@@ -175,7 +176,7 @@ GET /api/v1/ai/chat-sessions/{id}/messages
   -> 用户确认后写 agent_confirmed_fact / diet_change / feeding_correction
 ```
 
-### 4.5 OpenAI 兼容 Provider 数据流
+### 4.5 Provider 分层与 OpenAI 兼容协议数据流
 
 ```text
 AiPromptBuilder
@@ -188,9 +189,13 @@ AiPromptBuilder
        stream,
        response_format
      }
-  -> OpenAiCompatibleLlmProvider
+  -> LlmProviderRegistryConfig.active_runtime_provider_config
+  -> provider factory
+  -> DeepSeekLlmProvider / future GlmLlmProvider / future KimiLlmProvider
+  -> OpenAiCompatibleLlmProvider 协议客户端
   -> POST {base_url}/chat/completions 或 {base_url}/v1/chat/completions
   -> LlmStreamEvent / LlmChatResponse
+  -> JSON Output answer_text 兼容解析
   -> AiAnswerVerifier
   -> Maohuoban SSE Event
 ```
@@ -203,7 +208,7 @@ AiPromptBuilder
 |---|---|
 | `maohuoban-ai-domain` | AI 会话、消息、intent、surface、LLM 请求响应、流式事件、工具调用、事实包、引用、建议动作、回答校验结果、错误 |
 | `maohuoban-ai-application` | `AiGatewayService`、`AiIntentGate`、`AiPetResolver`、工具注册、工具编排、事实包构建、Prompt 构建、回答校验、聊天和历史用例 |
-| `maohuoban-ai-infrastructure` | `OpenAiCompatibleLlmProvider`、PostgreSQL AI 仓储、审计仓储、Provider 配置、HTTP client、SSE 解析、错误映射 |
+| `maohuoban-ai-infrastructure` | 厂商 Provider factory、`DeepSeekLlmProvider`、`OpenAiCompatibleLlmProvider` 协议客户端、PostgreSQL AI 仓储、审计仓储、Provider 配置、HTTP client、SSE 解析、错误映射 |
 | `maohuoban-ai-http` | `/api/v1/ai/chat`、`/api/v1/ai/chat/stream`、历史接口、确认动作接口、反馈接口的 HTTP DTO 和路由 |
 
 依赖方向：
@@ -246,15 +251,35 @@ AI application 可以依赖 pet application 端口或服务对象，不能直接
 
 | 配置 | 默认 / 要求 |
 |---|---|
-| `AI_LLM_PROVIDER` | 首版默认 `openai_compatible` |
-| `AI_LLM_BASE_URL` | 必填；支持以 `/v1` 结尾或不以 `/v1` 结尾的 base URL，Provider 内归一化 |
-| `AI_LLM_API_KEY` | 必填；只在 infrastructure 内读取和使用 |
+| `AI_LLM_PROVIDER_ID` | 默认 `env-openai-compatible`；运营配置中的 Provider 稳定标识 |
+| `AI_LLM_PROVIDER_KIND` | 默认按 `provider_id` 推断，当前支持 `openai_compatible`、`deepseek`；运行时按 kind 装配厂商 Provider |
+| `AI_LLM_PROVIDER_DISPLAY_NAME` | 默认 `OpenAI Compatible`；管理后台展示名称 |
+| `AI_LLM_PROVIDER_ENABLED` | 默认 true；关闭后运行时降级为未配置 Provider |
+| `AI_LLM_PROVIDER_IS_DEFAULT` | 默认 true；运行时只选择启用且默认的 Provider |
+| `AI_LLM_BASE_URL` | 必填；OpenAI 格式 base URL，支持以 `/v1` 结尾或不以 `/v1` 结尾，Provider 内归一化到 `/v1/chat/completions` |
+| `AI_LLM_API_KEY` | 必填；传入真实 key，Base64 等外部传输格式必须在进入后端配置前解码 |
 | `AI_LLM_MODEL` | 必填；不在代码里硬编码厂商模型 |
 | `AI_LLM_TIMEOUT_SECS` | 默认 30 秒 |
 | `AI_LLM_TEMPERATURE` | 默认 0.2，事实问答保持低随机性 |
 | `AI_LLM_MAX_OUTPUT_TOKENS` | 可选；缺省按 Provider 默认或应用层策略 |
-| `AI_LLM_ENABLE_STREAM` | 默认 true；可用于本地降级 |
-| `AI_LLM_ENABLE_TOOLS` | 默认 true；可用于测试或降级 |
+| `AI_LLM_RESPONSE_FORMAT` | 可选；`json_object` 时按 OpenAI 兼容格式发送 `{"type":"json_object"}`，用于 DeepSeek JSON Output |
+
+本地开发当前使用 DeepSeek OpenAI 兼容接口：
+
+```bash
+AI_LLM_PROVIDER_ID=deepseek
+AI_LLM_PROVIDER_KIND=deepseek
+AI_LLM_PROVIDER_DISPLAY_NAME="DeepSeek"
+AI_LLM_PROVIDER_ENABLED=true
+AI_LLM_PROVIDER_IS_DEFAULT=true
+AI_LLM_BASE_URL=https://api.deepseek.com
+AI_LLM_API_KEY=<真实 sk-... key>
+AI_LLM_MODEL=deepseek-v4-flash
+AI_LLM_TIMEOUT_SECS=90
+AI_LLM_TEMPERATURE=0.2
+AI_LLM_MAX_OUTPUT_TOKENS=4096
+AI_LLM_RESPONSE_FORMAT=json_object
+```
 
 配置规则：
 
@@ -264,6 +289,8 @@ AI application 可以依赖 pet application 端口或服务对象，不能直接
 | 缺配置可降级 | 本地缺少 `AI_LLM_API_KEY` 时服务可启动，AI 接口返回 provider_not_configured |
 | 测试不打外网 | 单元测试和契约测试默认使用 fake provider 或 mock HTTP server |
 | Provider 可替换 | application 只依赖 trait，不感知 base URL、header 和 HTTP client |
+| 厂商差异隔离 | DeepSeek 独立在 `provider/deepseek.rs`，OpenAI 兼容协议客户端只负责通用 HTTP 序列化；后续 GLM/Kimi 新增各自 Provider 文件和 kind |
+| 管理后台投影 | 后端只对管理后台暴露 Provider 元数据和 `api_key_configured`，不返回密钥明文 |
 
 ### 5.4 HTTP 接口
 
@@ -444,11 +471,11 @@ SSE 事件：
 | 完成证据 | 记录 enum roundtrip 红绿结果和编译验证 |
 | 停止条件 | domain 模型需要引用 axum、sqlx、reqwest 或其他 infrastructure 依赖 |
 
-### Task 2：OpenAI 兼容 Provider 与 SSE 解析
+### Task 2：Provider 分层、OpenAI 兼容协议与 SSE 解析
 
 | 项 | 内容 |
 |---|---|
-| 目标 | application 通过 `LlmProvider` trait 调用 fake provider；infrastructure 可把内部请求转换成 OpenAI 兼容 HTTP/SSE 请求 |
+| 目标 | application 通过 `LlmProvider` trait 调用 fake provider；infrastructure 通过厂商 Provider factory 装配 DeepSeek，并把内部请求转换成 OpenAI 兼容 HTTP/SSE 请求 |
 | 前置依赖 | Task 1 |
 | 验收项映射 | A4、A5、A6、A7 |
 | 回归验证 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-application -p maohuoban-ai-infrastructure` |
@@ -465,12 +492,12 @@ SSE 事件：
 | 完成证据 | 记录 trait 测试从 unresolved trait 红到 fake provider 绿 |
 | 停止条件 | application 直接引用 reqwest、Provider URL 或 API key |
 
-#### Slice 2.2：OpenAI 兼容请求序列化
+#### Slice 2.2：Provider factory、DeepSeek Provider 与 OpenAI 兼容请求序列化
 
 | 项 | 要求 |
 |---|---|
-| 行为目标 | `OpenAiCompatibleLlmProvider` 将内部请求序列化为 OpenAI 兼容 JSON，Authorization 使用 Bearer |
-| 先写失败测试 | `maohuoban-ai-infrastructure` 新增 HTTP mock 测试，断言 path、headers、model、messages、tools、temperature、stream 字段 |
+| 行为目标 | `DeepSeekLlmProvider` 独立封装 DeepSeek 默认行为，内部复用 `OpenAiCompatibleLlmProvider` 将请求序列化为 OpenAI 兼容 JSON，Authorization 使用 Bearer |
+| 先写失败测试 | `maohuoban-ai-infrastructure` 新增 HTTP mock 测试，断言 provider kind、path、headers、model、messages、tools、temperature、stream、response_format 字段 |
 | 允许修改 | `maohuoban-ai-infrastructure/src`、根 `Cargo.toml` workspace dependencies |
 | 最小绿灯命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-infrastructure openai_compatible` |
 | 回归命令 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` |
@@ -722,7 +749,7 @@ SSE 事件：
 | A2 | domain 编译 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo test -p maohuoban-ai-domain` 通过 |
 | A3 | workspace 编译 | `cd /Users/fengjinyi/Developer/maohuoban-code && cargo check --workspace --all-targets` 通过 |
 | A4 | Provider 端口 | application 测试证明只依赖 `LlmProvider` trait |
-| A5 | OpenAI 兼容序列化 | mock HTTP 测试断言 path、headers、model、messages、tools、temperature、stream 正确 |
+| A5 | Provider 分层与 OpenAI 兼容序列化 | mock HTTP 测试断言 DeepSeek kind、factory 装配、path、headers、model、messages、tools、temperature、stream、response_format 正确 |
 | A6 | Provider 错误 | 401、429、5xx、timeout、invalid JSON 映射为稳定错误 |
 | A7 | SSE 解析 | Provider SSE chunk 解析为稳定 `LlmStreamEvent` |
 | A8 | 宠物候选 | AI 只能读取当前 actor 授权宠物候选摘要 |
@@ -794,4 +821,3 @@ SSE 事件：
 | 审计保存过多敏感数据 | 保存 hash、引用 ID、短摘要和风险标签；完整 payload 默认不保存 |
 | 健康问题过度保守影响体验 | 回答提供观察要点、缺失信息和就医边界，避免诊断和处方 |
 | 范围膨胀 | 本目标期只做私域聊天、流式、历史、首批工具；UGC、向量记忆、医疗规则库独立目标文档 |
-

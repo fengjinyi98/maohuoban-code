@@ -17,6 +17,8 @@ Package.resolved
 target/
 
 # Local tooling artifacts
+.env
+.env.*
 .worktree/
 .worktrees/
 .playwright-cli/

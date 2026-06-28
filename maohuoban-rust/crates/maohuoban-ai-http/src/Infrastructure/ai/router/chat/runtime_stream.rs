@@ -7,31 +7,51 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-/// agent_events_to_sse_events 将 Runtime 事件转换为 iOS SSE 事件
+/// AgentEventSseProjector Runtime 事件到 SSE 事件的增量投影器
 /// 核心职责：
-/// - 保持现有 AiStreamEvent 协议不变
-/// - 对最终回答执行事实校验并输出引用
-pub(super) fn agent_events_to_sse_events(
-    events: Vec<AgentEvent>,
+/// - 保留模型 usage、finish_reason 和工具 call_id 映射
+/// - 支持 Runtime 事件到达后立即转换为前端可消费 SSE 事件
+pub(super) struct AgentEventSseProjector {
     message_id: Uuid,
-    fact_package: Option<AiFactPackage>,
-    pet_name: &str,
-) -> Vec<AiStreamEvent> {
-    let package = fact_package.unwrap_or_else(AiFactPackage::empty);
-    let mut output = Vec::new();
-    let mut latest_usage = LlmUsage::default();
-    let mut finish_reason = LlmFinishReason::Stop;
-    let mut tool_names_by_call_id = HashMap::new();
+    package: AiFactPackage,
+    pet_name: String,
+    latest_usage: LlmUsage,
+    finish_reason: LlmFinishReason,
+    tool_names_by_call_id: HashMap<String, String>,
+}
 
-    for event in events {
+impl AgentEventSseProjector {
+    /// new 构造 Runtime SSE 增量投影器
+    #[must_use]
+    pub(super) fn new(
+        message_id: Uuid,
+        fact_package: Option<AiFactPackage>,
+        pet_name: &str,
+    ) -> Self {
+        Self {
+            message_id,
+            package: fact_package.unwrap_or_else(AiFactPackage::empty),
+            pet_name: pet_name.to_owned(),
+            latest_usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            tool_names_by_call_id: HashMap::new(),
+        }
+    }
+
+    /// project 转换单个 Runtime 事件
+    /// 核心职责：
+    /// - 对状态事件更新内部上下文
+    /// - 对可见事件返回 0 到多个 SSE 事件
+    pub(super) fn project(&mut self, event: AgentEvent) -> Vec<AiStreamEvent> {
+        let mut output = Vec::new();
         match event {
             AgentEvent::ModelCallFinished {
                 finish_reason: reason,
                 usage,
                 ..
             } => {
-                latest_usage = usage;
-                finish_reason = reason;
+                self.latest_usage = usage;
+                self.finish_reason = reason;
             }
             AgentEvent::ToolStarted {
                 tool_call_id,
@@ -40,10 +60,10 @@ pub(super) fn agent_events_to_sse_events(
             } => {
                 push_tool_started_sse_events(
                     &mut output,
-                    &mut tool_names_by_call_id,
+                    &mut self.tool_names_by_call_id,
                     tool_call_id,
                     tool_name,
-                    pet_name,
+                    &self.pet_name,
                 );
             }
             AgentEvent::ToolFinished {
@@ -54,11 +74,11 @@ pub(super) fn agent_events_to_sse_events(
             } => {
                 push_tool_finished_sse_events(
                     &mut output,
-                    &mut tool_names_by_call_id,
+                    &mut self.tool_names_by_call_id,
                     &tool_call_id,
                     status,
                     citation_count,
-                    pet_name,
+                    &self.pet_name,
                 );
             }
             AgentEvent::NeedsConfirmation {
@@ -77,11 +97,11 @@ pub(super) fn agent_events_to_sse_events(
             AgentEvent::TurnFinished { final_text, .. } => {
                 append_verified_completion(
                     &mut output,
-                    message_id,
+                    self.message_id,
                     final_text,
-                    latest_usage,
-                    finish_reason,
-                    &package,
+                    self.latest_usage,
+                    self.finish_reason,
+                    &self.package,
                 );
             }
             AgentEvent::ProviderError {
@@ -115,9 +135,9 @@ pub(super) fn agent_events_to_sse_events(
             | AgentEvent::ModelCallStarted { .. }
             | AgentEvent::NeedsClarification { .. } => {}
         }
-    }
 
-    output
+        output
+    }
 }
 
 /// push_tool_started_sse_events 投影 Runtime 工具开始事件

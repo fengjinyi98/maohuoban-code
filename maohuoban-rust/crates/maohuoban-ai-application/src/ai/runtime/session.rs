@@ -1,3 +1,4 @@
+use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentSessionState, AgentToolStatus, AgentTurnStatus,
     AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome,
@@ -47,6 +48,40 @@ impl<E: LoopEngine> AgentSession<E> {
         }
 
         Ok(events)
+    }
+
+    /// into_prompt_stream 提交用户输入并逐步产出 Runtime 事件
+    /// 核心职责：
+    /// - 在每个 LoopStep 完成后立即产出对应 AgentEvent
+    /// - 让 HTTP SSE 层可以实时展示工具执行进度
+    pub fn into_prompt_stream(
+        mut self,
+        user_input: impl Into<String> + Send + 'static,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        let user_input = user_input.into();
+        Box::pin(async_stream::try_stream! {
+            let turn_id = self.state.begin_turn(user_input);
+            yield AgentEvent::TurnStarted {
+                turn_id,
+                chat_session_id: self.state.chat_session_id,
+                agent_id: self.state.agent_id.clone(),
+                surface: self.state.surface,
+            };
+
+            while let Some(step) = self.engine.next(&mut self.state).await? {
+                let mut step_events = Vec::new();
+                let flow = append_step_events(turn_id, step, &mut step_events);
+                for event in step_events {
+                    yield event;
+                }
+                if flow == StepFlow::Stop {
+                    break;
+                }
+            }
+        })
     }
 }
 

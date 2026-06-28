@@ -134,8 +134,12 @@ impl OpenAiCompatibleLlmProvider {
         if let Some(max) = request.max_output_tokens.or(self.config.max_output_tokens) {
             body["max_tokens"] = serde_json::Value::Number(max.into());
         }
-        if let Some(fmt) = &request.response_format {
-            body["response_format"] = fmt.clone();
+        if let Some(fmt) = request
+            .response_format
+            .clone()
+            .or_else(|| self.config.response_format.clone())
+        {
+            body["response_format"] = fmt;
         }
 
         body
@@ -249,6 +253,13 @@ impl OpenAiCompatibleLlmProvider {
                     .collect()
             })
             .unwrap_or_default();
+
+        if tool_calls.is_empty() && content.trim().is_empty() {
+            return Err(Self::provider_error(
+                ProviderErrorCategory::InvalidResponse,
+                "empty assistant content without tool calls",
+            ));
+        }
 
         let usage = json
             .get("usage")

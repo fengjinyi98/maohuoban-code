@@ -167,3 +167,28 @@ fn prompt_includes_missing_info() {
         "missing info should be in prompt"
     );
 }
+
+#[test]
+fn prompt_includes_json_output_contract() {
+    let pet = pet_candidate("毛球");
+    let package = fact_package(&pet);
+    let builder = AiPromptBuilder::new();
+    let messages = builder.build_messages("毛球怎么样", std::slice::from_ref(&pet), Some(&package));
+
+    let all_content: String = messages
+        .iter()
+        .map(|message| message.content.as_str())
+        .collect();
+    assert!(
+        all_content.to_ascii_lowercase().contains("json"),
+        "DeepSeek JSON Output requires the prompt to mention json"
+    );
+    assert!(
+        all_content.contains("\"answer_text\""),
+        "prompt should include a stable JSON response example for frontend rendering"
+    );
+    assert!(
+        all_content.contains("\"display_blocks\""),
+        "prompt should describe structured blocks for frontend rendering"
+    );
+}

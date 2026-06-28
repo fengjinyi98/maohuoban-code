@@ -13,6 +13,7 @@ use maohuoban_ai_domain::ai::{
     ProviderErrorCategory,
 };
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
+use serde_json::json;
 use std::time::Duration;
 
 #[test]
@@ -24,6 +25,7 @@ fn provider_config_from_env_values_requires_base_url_key_and_model() {
         None,
         None,
         None,
+        None,
     );
     assert!(missing.is_none());
 
@@ -31,6 +33,7 @@ fn provider_config_from_env_values_requires_base_url_key_and_model() {
         Some("https://llm.example.com"),
         Some("secret-key"),
         Some("maohuoban-model"),
+        None,
         None,
         None,
         None,
@@ -53,6 +56,7 @@ fn provider_config_parses_optional_limits_and_redacts_debug_key() {
         Some("12"),
         Some("0.4"),
         Some("2048"),
+        None,
     )
     .expect("config should be available");
 
@@ -141,11 +145,15 @@ async fn non_stream_request_serializes_correctly() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: Some(1024),
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+    request.max_output_tokens = None;
 
     let response = provider
-        .complete(&sample_request())
+        .complete(&request)
         .await
         .expect("complete should succeed");
 
@@ -154,6 +162,60 @@ async fn non_stream_request_serializes_correctly() {
     assert_eq!(response.finish_reason, LlmFinishReason::Stop);
     assert_eq!(response.usage.total_tokens, 15);
     assert_eq!(response.model, "test-model");
+}
+
+#[tokio::test]
+async fn non_stream_request_applies_configured_json_response_format() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer test-api-key")
+            .body_contains("\"response_format\":{\"type\":\"json_object\"}")
+            .body_contains("\"max_tokens\":4096");
+        then.status(200)
+            .header("content-type", "application/json")
+            .json_body(json!({
+                "id": "chatcmpl-json",
+                "model": "deepseek-v4-flash",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "{\"answer_text\":\"毛球可以先观察精神和食欲。\",\"display_blocks\":[{\"type\":\"paragraph\",\"text\":\"毛球可以先观察精神和食欲。\"}]}"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30
+                }
+            }));
+    });
+
+    let config = OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "test-api-key".to_owned(),
+        model: "deepseek-v4-flash".to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: Some(4096),
+        response_format: Some(json!({ "type": "json_object" })),
+    };
+    let provider = OpenAiCompatibleLlmProvider::new(config);
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+    request.max_output_tokens = None;
+
+    let response = provider
+        .complete(&request)
+        .await
+        .expect("complete should succeed");
+
+    mock.assert();
+    assert!(response.message.content.contains("\"answer_text\""));
+    assert_eq!(response.model, "deepseek-v4-flash");
 }
 
 #[tokio::test]
@@ -182,6 +244,7 @@ async fn provider_normalizes_base_url_without_v1() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -211,6 +274,7 @@ async fn provider_maps_401_to_stable_error() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -237,6 +301,7 @@ async fn provider_maps_429_to_rate_limited_category() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -263,6 +328,7 @@ async fn provider_maps_500_to_upstream_category() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -298,6 +364,7 @@ async fn provider_maps_timeout_to_timeout_category() {
         timeout_secs: 1,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -324,10 +391,56 @@ async fn provider_maps_invalid_json_to_invalid_response_category() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
     let result = provider.complete(&sample_request()).await;
+    assert!(result.is_err());
+    assert_provider_category(result.unwrap_err(), ProviderErrorCategory::InvalidResponse);
+}
+
+#[tokio::test]
+async fn provider_maps_empty_content_without_tool_calls_to_invalid_response() {
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions");
+        then.status(200)
+            .header("content-type", "application/json")
+            .json_body(json!({
+                "id": "chatcmpl-empty",
+                "model": "deepseek-v4-flash",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": ""
+                    },
+                    "finish_reason": "length"
+                }],
+                "usage": {
+                    "prompt_tokens": 44,
+                    "completion_tokens": 64,
+                    "total_tokens": 108
+                }
+            }));
+    });
+
+    let config = OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "test-key".to_owned(),
+        model: "deepseek-v4-flash".to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: Some(4096),
+        response_format: Some(json!({ "type": "json_object" })),
+    };
+    let provider = OpenAiCompatibleLlmProvider::new(config);
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+
+    let result = provider.complete(&request).await;
     assert!(result.is_err());
     assert_provider_category(result.unwrap_err(), ProviderErrorCategory::InvalidResponse);
 }
@@ -350,6 +463,7 @@ async fn openai_compatible_maps_provider_errors() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -376,6 +490,7 @@ async fn stream_maps_invalid_sse_to_invalid_response_category() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 
@@ -407,6 +522,7 @@ async fn stream_maps_missing_done_marker_to_stream_interrupted_category() {
         timeout_secs: 30,
         temperature: 0.2,
         max_output_tokens: None,
+        response_format: None,
     };
     let provider = OpenAiCompatibleLlmProvider::new(config);
 

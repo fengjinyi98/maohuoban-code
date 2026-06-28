@@ -81,10 +81,23 @@ impl AiPromptBuilder {
         prompt.push_str("- 如果事实包中没有相关信息，请如实告知用户暂时无法获取记录，不要编造。\n");
         prompt.push_str("- 对于健康问题，提供观察要点和就医建议，不要诊断、开药或给剂量。\n");
         prompt.push_str("- 写操作（换粮、喂食修正、提醒创建）必须生成待确认动作，不能直接执行。\n");
+        prompt.push_str(
+            "- 如果需要调用工具，先返回工具调用；工具结果回灌后的最终回答再按 JSON 输出。\n",
+        );
         prompt.push_str("\n## 输出格式\n");
-        prompt.push_str("- 用中文回答。\n");
-        prompt.push_str("- 引用事实时附带引用标签。\n");
-        prompt.push_str("- 如果需要用户确认，明确提出确认问题。\n");
+        prompt.push_str(
+            "- 必须输出合法 JSON 对象，不要使用 Markdown 代码块，不要输出 JSON 之外的额外文本。\n",
+        );
+        prompt.push_str("- `answer_text` 是给用户直接阅读的中文回答。\n");
+        prompt.push_str("- `display_blocks` 是给前端渲染的结构化块数组，当前只使用 paragraph / bullet_list / warning / question。\n");
+        prompt.push_str("- 引用事实时在 `answer_text` 和对应 block 文本中附带引用标签。\n");
+        prompt.push_str(
+            "- 如果需要用户确认，在 `answer_text` 中明确提出确认问题，并追加 question block。\n",
+        );
+        prompt.push_str("- JSON 示例:\n");
+        prompt.push_str(
+            "{\"answer_text\":\"毛球当前记录显示精神和食欲正常 [当前档案]。\",\"display_blocks\":[{\"type\":\"paragraph\",\"text\":\"毛球当前记录显示精神和食欲正常 [当前档案]。\"}],\"follow_up_questions\":[],\"safety_notes\":[]}\n",
+        );
         prompt
     }
 
