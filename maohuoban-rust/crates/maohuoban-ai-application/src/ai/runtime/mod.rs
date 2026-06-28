@@ -6,11 +6,14 @@
 mod agent_runtime_loop_engine;
 mod engine;
 mod fake_loop_engine;
+#[path = "../Infrastructure/runtime/rig_adapter/mod.rs"]
+mod rig_adapter;
 mod session;
 mod session_runtime;
 
 pub use agent_runtime_loop_engine::*;
 pub use engine::*;
 pub use fake_loop_engine::*;
+pub use rig_adapter::*;
 pub use session::*;
 pub use session_runtime::*;
