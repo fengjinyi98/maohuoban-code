@@ -155,6 +155,22 @@ fn prompt_works_without_fact_package() {
 }
 
 #[test]
+fn prompt_allows_public_pet_care_without_private_fact_package() {
+    let builder = AiPromptBuilder::new();
+    let messages = builder.build_messages("猫拉肚子一般要观察什么？", &[], None);
+    let system_prompt = &messages[0].content;
+
+    assert!(
+        system_prompt.contains("公共养宠"),
+        "system prompt should allow public pet care without private facts: {system_prompt}"
+    );
+    assert!(
+        !system_prompt.contains("你只能基于提供的事实包回答宠物相关问题"),
+        "system prompt must not block public pet care when no private fact package exists"
+    );
+}
+
+#[test]
 fn prompt_includes_missing_info() {
     let pet = pet_candidate("毛球");
     let package = fact_package(&pet);
