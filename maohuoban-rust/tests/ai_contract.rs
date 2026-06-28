@@ -214,6 +214,9 @@ mod chat_stream_diagnostics;
 #[path = "ai_contract/chat_workbench.rs"]
 mod chat_workbench;
 
+#[path = "ai_contract/chat_non_stream_workbench.rs"]
+mod chat_non_stream_workbench;
+
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 

@@ -70,30 +70,15 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":false")
+            .body_contains("\"stream\":true")
             .body_contains("只能基于提供的事实包")
             .body_contains("## 目标宠物");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(
-                r#"{
-                    "id": "chatcmpl-contract",
-                    "model": "contract-model",
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": "毛球今天可以先观察精神、食欲和排便变化。"
-                            },
-                            "finish_reason": "stop"
-                        }
-                    ],
-                    "usage": {
-                        "prompt_tokens": 6,
-                        "completion_tokens": 12,
-                        "total_tokens": 18
-                    }
-                }"#,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"毛球今天可以先观察精神、食欲和排便变化。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":12,\"total_tokens\":18}}\n\n\
+                 data: [DONE]\n\n",
             );
     });
 
@@ -151,8 +136,8 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
         FROM ai_messages
         WHERE role = 'assistant'
           AND content = '毛球今天可以先观察精神、食欲和排便变化。'
-          AND model = 'contract-model'
-          AND provider = 'openai_compatible'
+          AND model = 'primary'
+          AND provider = 'runtime_stream'
         ",
     )
     .fetch_one(app.pool())
@@ -231,28 +216,21 @@ async fn ai_chat_non_stream_executes_runtime_tool_call_and_followup_model() {
     assert!(identity_log_count >= 1);
 }
 
-/// `/api/v1/ai/chat` 对 off-topic 请求跳过主 Provider
+/// `/api/v1/ai/chat` 对 off-topic 请求进入公共 Workbench Provider
 #[tokio::test]
-async fn ai_chat_non_stream_off_topic_records_gate_log_and_skips_provider() {
+async fn ai_chat_non_stream_off_topic_records_gate_log_and_enters_workbench() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions");
+            .path("/v1/chat/completions")
+            .body_contains("public_pet_domain")
+            .body_contains("app_product_support");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(
-                r#"{
-                "model": "contract-model",
-                "choices": [
-                    {
-                        "message": {
-                            "role": "assistant",
-                            "content": "不应调用"
-                        },
-                        "finish_reason": "stop"
-                    }
-                ]
-            }"#,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我会把重点收回到宠物和毛伙伴 App 相关问题。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8,\"total_tokens\":13}}\n\n\
+                 data: [DONE]\n\n",
             );
     });
 
@@ -289,12 +267,11 @@ async fn ai_chat_non_stream_off_topic_records_gate_log_and_skips_provider() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = response_json(response).await;
 
-    mock.assert_hits(0);
+    mock.assert();
     assert_eq!(body["success"], true);
-    assert!(
-        body["data"]["final_text"]
-            .as_str()
-            .is_some_and(|text| text.contains("只能处理宠物照护"))
+    assert_eq!(
+        body["data"]["final_text"],
+        "我会把重点收回到宠物和毛伙伴 App 相关问题。"
     );
 
     let row: (String, bool, Option<String>) = sqlx::query_as(
@@ -355,8 +332,8 @@ fn install_runtime_tool_call_mocks<'a>(
             .body_contains("\"tools\"")
             .body_contains("load_pet_identity_context");
         then.status(200)
-            .header("content-type", "application/json")
-            .body(first_body.to_string());
+            .header("content-type", "text/event-stream")
+            .body(first_body);
     });
     let second_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -372,35 +349,13 @@ fn install_runtime_tool_call_mocks<'a>(
     (first_mock, second_mock)
 }
 
-fn runtime_tool_call_response_body(pet_id: &str) -> serde_json::Value {
-    serde_json::json!({
-        "id": "chatcmpl-runtime-tool-call",
-        "model": "contract-model",
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "",
-                    "tool_calls": [
-                        {
-                            "id": "call_1",
-                            "type": "function",
-                            "function": {
-                                "name": "load_pet_identity_context",
-                                "arguments": serde_json::json!({ "pet_id": pet_id }).to_string()
-                            }
-                        }
-                    ]
-                },
-                "finish_reason": "tool_calls"
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 8,
-            "completion_tokens": 2,
-            "total_tokens": 10
-        }
-    })
+fn runtime_tool_call_response_body(pet_id: &str) -> String {
+    let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":\"load_pet_identity_context\",\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
 }
 
 fn runtime_tool_followup_response_body() -> &'static str {
