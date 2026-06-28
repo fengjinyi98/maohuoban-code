@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentToolStatus, AiAgentActivityStatus, AiError, AiFactPackage, AiStreamEvent,
@@ -237,7 +238,6 @@ fn append_verified_completion(
     finish_reason: LlmFinishReason,
     package: &AiFactPackage,
 ) {
-    let citations = package.citations.clone();
     let verification = AiAnswerVerifier::new().verify(&final_text, package);
 
     if verification.is_blocked() {
@@ -245,6 +245,7 @@ fn append_verified_completion(
             .safe_fallback_text
             .clone()
             .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
+        let citations = citations_for_answer(&safe_text, package);
         append_citations(output, citations.clone());
         output.push(AiStreamEvent::Delta {
             text: safe_text.clone(),
@@ -260,6 +261,7 @@ fn append_verified_completion(
         return;
     }
 
+    let citations = citations_for_answer(&final_text, package);
     append_citations(output, citations.clone());
     output.push(AiStreamEvent::Delta {
         text: final_text.clone(),

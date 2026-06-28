@@ -8,6 +8,7 @@ use maohuoban_ai_domain::ai::{
     AiResult,
 };
 use maohuoban_pet_application::pet::PetService;
+use maohuoban_pet_domain::pet::IdentitySummary;
 use uuid::Uuid;
 
 /// PetServiceIdentityFactProvider AI 宠物身份事实适配器
@@ -48,24 +49,38 @@ impl PetIdentityFactProvider for PetServiceIdentityFactProvider {
             profile_number: context.identity.profile_number.clone(),
         };
         let mut builder = AiFactPackageBuilder::new(&candidate);
-        builder.add_strong_fact(identity_fact("pet_identity.name", context.identity.name));
-        builder.add_strong_fact(identity_fact(
-            "pet_identity.species",
-            context.identity.species,
-        ));
-        builder.add_strong_fact(identity_fact("pet_identity.sex", context.identity.sex));
-        builder.add_strong_fact(identity_fact(
-            "pet_identity.life_status",
-            context.identity.life_status,
-        ));
-        if let Some(breed) = context.identity.breed {
-            builder.add_strong_fact(identity_fact("pet_identity.breed", breed));
-        }
-        if let Some(birthday) = context.identity.birthday {
-            builder.add_strong_fact(identity_fact("pet_identity.birthday", birthday));
+        for fact in identity_facts_for_prompt(&context.identity) {
+            builder.add_strong_fact(fact);
         }
         Ok(builder.build())
     }
+}
+
+/// identity_facts_for_prompt 构造可进入普通回答的身份事实
+/// 核心职责：
+/// - 只保留用户视角的基础档案字段
+/// - 将内部枚举值转换为自然中文展示值
+fn identity_facts_for_prompt(identity: &IdentitySummary) -> Vec<AiFactEntry> {
+    let mut facts = vec![
+        identity_fact("pet_identity.name", identity.name.clone()),
+        identity_fact(
+            "pet_identity.species",
+            display_species(&identity.species).to_owned(),
+        ),
+        identity_fact(
+            "pet_identity.sex",
+            display_sex(&identity.species, &identity.sex).to_owned(),
+        ),
+    ];
+
+    if let Some(breed) = &identity.breed {
+        facts.push(identity_fact("pet_identity.breed", breed.clone()));
+    }
+    if let Some(birthday) = &identity.birthday {
+        facts.push(identity_fact("pet_identity.birthday", birthday.clone()));
+    }
+
+    facts
 }
 
 /// identity_fact 构造身份强事实
@@ -77,5 +92,82 @@ fn identity_fact(key: &str, value: String) -> AiFactEntry {
         value,
         strength: AiFactStrength::Strong,
         citation_id: None,
+    }
+}
+
+/// display_species 返回身份事实里的宠物物种展示值
+/// 核心职责：
+/// - 屏蔽数据库枚举值
+/// - 保留未知扩展值的信息量
+fn display_species(species: &str) -> &str {
+    match species {
+        "cat" => "猫",
+        "dog" => "狗",
+        "other" => "其他",
+        value => value,
+    }
+}
+
+/// display_sex 返回身份事实里的宠物性别展示值
+/// 核心职责：
+/// - 按物种输出自然中文
+/// - 对未知扩展值保持原值，避免丢失信息
+fn display_sex<'a>(species: &str, sex: &'a str) -> &'a str {
+    match (species, sex) {
+        ("cat", "female") => "母猫",
+        ("cat", "male") => "公猫",
+        ("dog", "female") => "母犬",
+        ("dog", "male") => "公犬",
+        (_, "female") => "雌性",
+        (_, "male") => "雄性",
+        (_, "unknown") => "未知",
+        (_, value) => value,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_identity() -> IdentitySummary {
+        IdentitySummary {
+            pet_id: Uuid::new_v4(),
+            profile_number: "P001".to_owned(),
+            name: "测试名字1".to_owned(),
+            species: "cat".to_owned(),
+            breed: Some("英短".to_owned()),
+            sex: "female".to_owned(),
+            birthday: Some("2024-06-17".to_owned()),
+            life_status: "alive".to_owned(),
+        }
+    }
+
+    #[test]
+    fn identity_facts_for_prompt_excludes_life_status() {
+        let facts = identity_facts_for_prompt(&sample_identity());
+
+        assert!(
+            facts
+                .iter()
+                .all(|fact| fact.key != "pet_identity.life_status"),
+            "普通身份事实不应把生命周期状态交给模型展示"
+        );
+    }
+
+    #[test]
+    fn identity_facts_for_prompt_localizes_enum_values() {
+        let facts = identity_facts_for_prompt(&sample_identity());
+        let value_for = |key: &str| {
+            facts
+                .iter()
+                .find(|fact| fact.key == key)
+                .map(|fact| fact.value.as_str())
+        };
+
+        assert_eq!(value_for("pet_identity.species"), Some("猫"));
+        assert_eq!(value_for("pet_identity.sex"), Some("母猫"));
+        assert_eq!(value_for("pet_identity.birthday"), Some("2024-06-17"));
+        assert!(facts.iter().all(|fact| fact.value != "cat"));
+        assert!(facts.iter().all(|fact| fact.value != "female"));
     }
 }

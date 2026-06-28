@@ -10,8 +10,7 @@ struct AIAssistantSendButton: View {
     let onSend: () -> Void
 
     private var canSend: Bool {
-        store.isStreaming == false
-            && store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        store.canSendDraft
     }
 
     var body: some View {

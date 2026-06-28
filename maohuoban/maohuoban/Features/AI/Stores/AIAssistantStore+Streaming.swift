@@ -40,7 +40,7 @@ extension AIAssistantStore {
         let assistantReplyStartIndex = messages.count
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
-        streamingEngine.begin(messageID: placeholder.id)
+        beginStreaming(messageID: placeholder.id)
 
         streamingTask?.cancel()
         streamingTask = Task { [weak self] in
@@ -157,14 +157,14 @@ extension AIAssistantStore {
         guard streamingEngine.activeMessageID == nil else { return }
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
-        streamingEngine.begin(messageID: placeholder.id)
+        beginStreaming(messageID: placeholder.id)
         streamingRevision += 1
     }
 
     func applyCompletedAssistantMessage(finalText: String, referenceChips: [String]) {
         let activeMessageID = streamingEngine.activeMessageID
         if let activeMessageID {
-            streamingEngine.complete(finalText: finalText)
+            completeStreaming(finalText: finalText)
             if let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
                 messages[index].referenceChips = referenceChips
             }
@@ -172,7 +172,7 @@ extension AIAssistantStore {
             return
         }
 
-        streamingEngine.cancel()
+        cancelStreaming()
         if let index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
             messages[index].text = finalText
             messages[index].referenceChips = referenceChips
@@ -209,7 +209,7 @@ extension AIAssistantStore {
     }
 
     func replaceStreamingOrAppendAssistantMessage(_ text: String) {
-        streamingEngine.cancel()
+        cancelStreaming()
         if let index = messages.lastIndex(where: { $0.isStreaming }) {
             messages[index].text = text
             messages[index].isStreaming = false
@@ -239,8 +239,8 @@ extension AIAssistantStore {
     }
 
     func discardIncompleteAssistantReplies(after startIndex: Int) {
-        let hadActiveStream = streamingEngine.isStreaming
-        streamingEngine.cancel()
+        let hadActiveStream = isStreaming
+        cancelStreaming()
         let originalCount = messages.count
         messages = messages.enumerated().compactMap { index, message in
             guard index >= startIndex,
@@ -258,8 +258,8 @@ extension AIAssistantStore {
 
     func discardCurrentAssistantReply() {
         let activeMessageID = streamingEngine.activeMessageID
-        let hadActiveStream = streamingEngine.isStreaming
-        streamingEngine.cancel()
+        let hadActiveStream = isStreaming
+        cancelStreaming()
         let originalCount = messages.count
         if let activeMessageID {
             messages.removeAll { $0.id == activeMessageID }

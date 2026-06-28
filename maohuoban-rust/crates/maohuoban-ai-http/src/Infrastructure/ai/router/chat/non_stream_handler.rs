@@ -1,5 +1,6 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
+use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::stream::{AiCompleteResult, AiStreamRunContext};
@@ -248,7 +249,6 @@ fn complete_from_runtime_events(
 
     let final_text = completed_text
         .ok_or_else(|| AiError::Infrastructure("runtime turn did not finish".to_owned()))?;
-    let citations = package.citations.clone();
     let verification = AiAnswerVerifier::new().verify(&final_text, &package);
 
     if verification.is_blocked() {
@@ -256,6 +256,7 @@ fn complete_from_runtime_events(
             .safe_fallback_text
             .clone()
             .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
+        let citations = citations_for_answer(&safe_text, &package);
         return Ok(AiCompleteResult {
             final_text: safe_text,
             usage,
@@ -267,6 +268,7 @@ fn complete_from_runtime_events(
         });
     }
 
+    let citations = citations_for_answer(&final_text, &package);
     Ok(AiCompleteResult {
         final_text,
         usage,

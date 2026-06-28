@@ -58,7 +58,12 @@ struct AIAssistantComposerSurface: View {
                 )
                 .frame(height: max(inputHeight, 34))
             }
-            .frame(minHeight: 34, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard isInputFirstResponderAllowed else { return }
+                isInputFocused = true
+            }
 
             AIAssistantSendButton(
                 store: store,

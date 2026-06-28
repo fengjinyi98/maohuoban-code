@@ -2,6 +2,7 @@
 //! 核心职责：
 //! - 汇聚端口、服务、意图闸门、宠物解析、工具、上下文、Prompt、校验和流式 pipeline
 
+pub mod citations;
 pub mod context;
 pub mod intent;
 pub mod model_router;

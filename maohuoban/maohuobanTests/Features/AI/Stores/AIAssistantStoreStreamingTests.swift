@@ -1,3 +1,4 @@
+import Observation
 import XCTest
 @testable import maohuoban
 
@@ -119,7 +120,7 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
     func testCanNotSendDuringRepositoryStreaming() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
-            repository: MockAIAssistantRepository(streamEvents: Self.startedOnlyEvents())
+            repository: PendingStreamingAIAssistantRepository()
         )
         store.draftText = "测试"
         store.submitDraft()
@@ -128,6 +129,45 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
 
         store.draftText = "再发一条"
         XCTAssertFalse(store.canSendDraft)
+    }
+
+    func testCanSendDraftNotifiesObservationWhenStreamCompletesWithPreparedDraft() async {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        store.ensureStreamingPlaceholderExists()
+        store.draftText = "再发一条"
+        XCTAssertFalse(store.canSendDraft)
+
+        let probe = ObservationExpectationProbe(
+            expectation: expectation(description: "canSendDraft should notify observers")
+        )
+
+        withObservationTracking {
+            _ = store.canSendDraft
+        } onChange: {
+            probe.fulfill()
+        }
+
+        store.applyCompletedAssistantMessage(finalText: "已完成", referenceChips: [])
+
+        await fulfillment(of: [probe.expectation], timeout: 1)
+        XCTAssertTrue(store.canSendDraft)
+    }
+
+    func testStreamingStateNotifiesObservationWhenStreamStarts() async {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let probe = ObservationExpectationProbe(
+            expectation: expectation(description: "isStreaming should notify observers")
+        )
+
+        withObservationTracking {
+            _ = store.isStreaming
+        } onChange: {
+            probe.fulfill()
+        }
+
+        store.ensureStreamingPlaceholderExists()
+
+        await fulfillment(of: [probe.expectation], timeout: 1)
     }
 
     // MARK: - Helpers
@@ -140,12 +180,6 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
             .delta(text: "你好"),
             .delta(text: "，毛球"),
             .messageCompleted(messageID: messageID, finalText: "你好，毛球", referenceChips: ["疫苗记录"]),
-        ]
-    }
-
-    private static func startedOnlyEvents() -> [AIStreamEventDTO] {
-        [
-            .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "流式中"),
         ]
     }
 
@@ -167,5 +201,92 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
                 payload: nil
             )),
         ]
+    }
+}
+
+// ObservationExpectationProbe Observation 测试探针
+// 核心职责：
+// - 在 @Sendable onChange 闭包中安全持有 XCTestExpectation
+// - 避免测试代码泄露到业务实现
+private final class ObservationExpectationProbe: @unchecked Sendable {
+    let expectation: XCTestExpectation
+
+    init(expectation: XCTestExpectation) {
+        self.expectation = expectation
+    }
+
+    func fulfill() {
+        expectation.fulfill()
+    }
+}
+
+// PendingStreamingAIAssistantRepository 挂起流式测试仓库
+// 核心职责：
+// - 模拟后端 SSE 请求已经发起但尚未结束的窗口
+// - 验证 Store 在真实流式等待期间保持发送禁用
+private final class PendingStreamingAIAssistantRepository: AIAssistantRepository {
+    private var continuation: AsyncThrowingStream<AIStreamEventDTO, Error>.Continuation?
+
+    deinit {
+        continuation?.finish()
+    }
+
+    func openChatStream(
+        message: String,
+        selectedPetID: String?,
+        surface: String,
+        chatSessionID: String?
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
+        MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: [])
+    }
+
+    func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
+        MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: [])
+    }
+
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持重命名",
+            statusCode: 400
+        )
+    }
+
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持置顶",
+            statusCode: 400
+        )
+    }
+
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持删除",
+            statusCode: 400
+        )
+    }
+
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持确认",
+            statusCode: 400
+        )
     }
 }

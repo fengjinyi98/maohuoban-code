@@ -75,11 +75,18 @@ impl AiPromptBuilder {
         let mut prompt = String::new();
         prompt.push_str("你是毛球助手，毛伙伴平台的宠物照护 AI 助手。\n\n");
         prompt.push_str("## 核心规则\n");
+        prompt.push_str("- 只有用户明确询问你是谁、你的身份或你的名字时，才说明你是毛球助手。\n");
+        prompt.push_str(
+            "- 毛球助手是助手身份，不是默认宠物名；宠物名只能来自授权宠物候选或目标宠物事实包。\n",
+        );
+        prompt.push_str("- 默认回答直接给结论和依据，不要用“毛球为您查询到”“毛球助手为您查询到”“我为您查询到”等自称式开头。\n");
         prompt.push_str("- 你只能基于提供的事实包回答宠物相关问题。\n");
         prompt.push_str("- 强事实（标注为 confirmed/strong）可以直接引用。\n");
         prompt.push_str("- 弱线索（标注为 weak/hint）是待确认信息，不能表达为已发生的事实，只能提示用户确认。\n");
         prompt.push_str("- 如果事实包中没有相关信息，请如实告知用户暂时无法获取记录，不要编造。\n");
         prompt.push_str("- 对于健康问题，提供观察要点和就医建议，不要诊断、开药或给剂量。\n");
+        prompt.push_str("- 不要输出内部事实 key，例如 `pet_identity.name`、`diet.recent_feeding` 或任何方括号形式的内部标识。\n");
+        prompt.push_str("- 引用只能绑定回答中实际使用的事实；引用由后端事件提供，正文和 blocks 只输出自然语言。\n");
         prompt.push_str("- 写操作（换粮、喂食修正、提醒创建）必须生成待确认动作，不能直接执行。\n");
         prompt.push_str(
             "- 如果需要调用工具，先返回工具调用；工具结果回灌后的最终回答再按 JSON 输出。\n",
@@ -90,13 +97,12 @@ impl AiPromptBuilder {
         );
         prompt.push_str("- `answer_text` 是给用户直接阅读的中文回答。\n");
         prompt.push_str("- `display_blocks` 是给前端渲染的结构化块数组，当前只使用 paragraph / bullet_list / warning / question。\n");
-        prompt.push_str("- 引用事实时在 `answer_text` 和对应 block 文本中附带引用标签。\n");
         prompt.push_str(
             "- 如果需要用户确认，在 `answer_text` 中明确提出确认问题，并追加 question block。\n",
         );
         prompt.push_str("- JSON 示例:\n");
         prompt.push_str(
-            "{\"answer_text\":\"毛球当前记录显示精神和食欲正常 [当前档案]。\",\"display_blocks\":[{\"type\":\"paragraph\",\"text\":\"毛球当前记录显示精神和食欲正常 [当前档案]。\"}],\"follow_up_questions\":[],\"safety_notes\":[]}\n",
+            "{\"answer_text\":\"当前记录显示精神和食欲正常。\",\"display_blocks\":[{\"type\":\"paragraph\",\"text\":\"当前记录显示精神和食欲正常。\"}],\"follow_up_questions\":[],\"safety_notes\":[]}\n",
         );
         prompt
     }
@@ -112,7 +118,9 @@ impl AiPromptBuilder {
                 let _ = writeln!(
                     prompt,
                     "- 名字: {}，物种: {}，档案号: {}",
-                    pet.name, pet.species, pet.profile_number
+                    pet.name,
+                    display_species(&pet.species),
+                    pet.profile_number
                 );
             }
             prompt.push('\n');
@@ -123,7 +131,8 @@ impl AiPromptBuilder {
             let _ = writeln!(
                 prompt,
                 "## 目标宠物: {} ({})\n",
-                snapshot.pet_name, snapshot.pet_species
+                snapshot.pet_name,
+                display_species(&snapshot.pet_species)
             );
         }
 
@@ -175,9 +184,27 @@ impl AiPromptBuilder {
         let mut prompt = String::new();
         prompt.push_str("## 当前用户授权宠物\n");
         for pet in pet_candidates {
-            let _ = writeln!(prompt, "- 名字: {}，物种: {}", pet.name, pet.species);
+            let _ = writeln!(
+                prompt,
+                "- 名字: {}，物种: {}",
+                pet.name,
+                display_species(&pet.species)
+            );
         }
         prompt
+    }
+}
+
+/// display_species 返回给模型阅读的宠物物种展示值
+/// 核心职责：
+/// - 把后端枚举值转换为中文语义
+/// - 对未知扩展值保持原值，避免丢失信息
+fn display_species(species: &str) -> &str {
+    match species {
+        "cat" => "猫",
+        "dog" => "狗",
+        "other" => "其他",
+        value => value,
     }
 }
 

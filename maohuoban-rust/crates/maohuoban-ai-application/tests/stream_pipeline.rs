@@ -8,8 +8,9 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::FakeLlmProvider;
 use maohuoban_ai_application::ai::stream::{AiStreamPipeline, AiStreamRunContext};
 use maohuoban_ai_domain::ai::{
-    AiStreamEvent, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
-    LlmStreamEvent, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactPackage, AiFactStrength, AiStreamEvent,
+    LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
+    LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use uuid::Uuid;
 
@@ -278,6 +279,147 @@ async fn stream_pipeline_uses_answer_text_from_json_output() {
         completed_text,
         Some("毛球今天精神不错，可以继续观察饮食和排便。")
     );
+}
+
+#[tokio::test]
+async fn stream_pipeline_filters_citations_to_facts_used_in_answer() {
+    let feeding_event_id = Uuid::new_v4();
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "diet.recent_feeding".to_owned(),
+        value: "未知食品 @ 2026-06-25T00:21:00Z".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: Some(feeding_event_id),
+    });
+    package.citations.push(AiCitation {
+        source_kind: AiCitationSourceKind::PetEvent,
+        source_id: feeding_event_id,
+        label: "最近喂食: 未知食品".to_owned(),
+    });
+
+    let provider = FakeLlmProvider::new(
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: "目前记录中没有疫苗接种信息。".to_owned(),
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: vec![],
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            provider: "fake".to_owned(),
+            model: "test".to_owned(),
+        },
+        vec![
+            LlmStreamEvent::Delta {
+                content: "目前记录中没有疫苗接种信息。".to_owned(),
+            },
+            LlmStreamEvent::Finish {
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+            },
+        ],
+    );
+    let pipeline = AiStreamPipeline::new(provider);
+    let mut stream = pipeline.run_with_context(
+        dummy_request(),
+        AiStreamRunContext {
+            chat_session_id: Uuid::new_v4(),
+            message_id: Uuid::new_v4(),
+            title: "test".to_owned(),
+            target_pet: None,
+            initial_events: Vec::new(),
+            fact_package: Some(package),
+        },
+    );
+
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event.expect("event"));
+    }
+
+    assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::Citation { .. })),
+        "unused diet citation should not be emitted for a vaccine answer"
+    );
+    let completed_citations = events.iter().find_map(|event| match event {
+        AiStreamEvent::MessageCompleted { citations, .. } => Some(citations),
+        _ => None,
+    });
+    assert_eq!(completed_citations.map(Vec::len), Some(0));
+}
+
+#[tokio::test]
+async fn stream_pipeline_keeps_citation_when_answer_uses_fact_value() {
+    let feeding_event_id = Uuid::new_v4();
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "diet.recent_feeding".to_owned(),
+        value: "未知食品 @ 2026-06-25T00:21:00Z".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: Some(feeding_event_id),
+    });
+    package.citations.push(AiCitation {
+        source_kind: AiCitationSourceKind::PetEvent,
+        source_id: feeding_event_id,
+        label: "最近喂食: 未知食品".to_owned(),
+    });
+
+    let provider = FakeLlmProvider::new(
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: "最近一次喂食记录显示为未知食品。".to_owned(),
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: vec![],
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            provider: "fake".to_owned(),
+            model: "test".to_owned(),
+        },
+        vec![
+            LlmStreamEvent::Delta {
+                content: "最近一次喂食记录显示为未知食品。".to_owned(),
+            },
+            LlmStreamEvent::Finish {
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+            },
+        ],
+    );
+    let pipeline = AiStreamPipeline::new(provider);
+    let mut stream = pipeline.run_with_context(
+        dummy_request(),
+        AiStreamRunContext {
+            chat_session_id: Uuid::new_v4(),
+            message_id: Uuid::new_v4(),
+            title: "test".to_owned(),
+            target_pet: None,
+            initial_events: Vec::new(),
+            fact_package: Some(package),
+        },
+    );
+
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event.expect("event"));
+    }
+
+    let emitted_citation_count = events
+        .iter()
+        .filter(|event| matches!(event, AiStreamEvent::Citation { .. }))
+        .count();
+    assert_eq!(emitted_citation_count, 1);
+    let completed_citations = events.iter().find_map(|event| match event {
+        AiStreamEvent::MessageCompleted { citations, .. } => Some(citations),
+        _ => None,
+    });
+    assert_eq!(completed_citations.map(Vec::len), Some(1));
 }
 
 #[tokio::test]

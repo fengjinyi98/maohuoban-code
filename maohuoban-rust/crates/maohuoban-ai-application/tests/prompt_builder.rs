@@ -192,3 +192,70 @@ fn prompt_includes_json_output_contract() {
         "prompt should describe structured blocks for frontend rendering"
     );
 }
+
+#[test]
+fn prompt_keeps_assistant_identity_out_of_default_answer_style() {
+    let pet = pet_candidate("奶盖");
+    let package = fact_package(&pet);
+    let builder = AiPromptBuilder::new();
+    let messages =
+        builder.build_messages("我的宠物信息", std::slice::from_ref(&pet), Some(&package));
+
+    let system_prompt = &messages[0].content;
+    assert!(
+        system_prompt.contains("只有用户明确询问你是谁"),
+        "prompt should only expose assistant identity when user asks for it"
+    );
+    assert!(
+        system_prompt.contains("毛球助手是助手身份，不是默认宠物名"),
+        "prompt should separate assistant identity from pet names"
+    );
+    assert!(
+        system_prompt.contains("不要用“毛球为您查询到”"),
+        "prompt should forbid assistant-name service prefaces"
+    );
+    assert!(
+        !system_prompt.contains("毛球当前记录显示"),
+        "JSON example should not teach the model to treat 毛球 as a pet name"
+    );
+}
+
+#[test]
+fn prompt_keeps_internal_fact_keys_out_of_visible_answer_text() {
+    let pet = pet_candidate("奶盖");
+    let package = fact_package(&pet);
+    let builder = AiPromptBuilder::new();
+    let messages =
+        builder.build_messages("我的宠物信息", std::slice::from_ref(&pet), Some(&package));
+
+    let system_prompt = &messages[0].content;
+    assert!(
+        system_prompt.contains("不要输出内部事实 key"),
+        "prompt should explicitly keep pet_identity.* and diet.* keys out of visible text"
+    );
+    assert!(
+        system_prompt.contains("引用由后端事件提供"),
+        "prompt should tell the model citations are emitted by backend events"
+    );
+    assert!(
+        !system_prompt.contains("附带引用标签"),
+        "prompt should not ask the model to put citation labels in answer_text or blocks"
+    );
+    assert!(
+        !system_prompt.contains("[当前档案]"),
+        "JSON example should not teach bracketed citation labels in visible text"
+    );
+
+    let all_content: String = messages
+        .iter()
+        .map(|message| message.content.as_str())
+        .collect();
+    assert!(
+        all_content.contains("物种: 猫"),
+        "prompt should localize known pet species for the model"
+    );
+    assert!(
+        !all_content.contains("物种: cat"),
+        "prompt should not expose raw pet species enum values in visible context"
+    );
+}

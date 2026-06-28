@@ -13,6 +13,7 @@ use maohuoban_ai_domain::ai::{
     PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 
+use crate::ai::citations::citations_for_answer;
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::verifier::AiAnswerVerifier;
@@ -207,7 +208,6 @@ impl AiStreamPipeline {
             let accumulated_text = delta_chunks.concat();
             let visible_text = visible_text_from_model_output(&accumulated_text);
             let package = context.fact_package.unwrap_or_else(AiFactPackage::empty);
-            let citations = package.citations.clone();
             let verification = AiAnswerVerifier::new().verify(&visible_text, &package);
 
             if verification.is_blocked() {
@@ -215,6 +215,7 @@ impl AiStreamPipeline {
                     .safe_fallback_text
                     .clone()
                     .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
+                let citations = citations_for_answer(&final_text, &package);
                 for citation in citations.clone() {
                     yield Ok(AiStreamEvent::Citation { citation });
                 }
@@ -232,6 +233,7 @@ impl AiStreamPipeline {
                 return;
             }
 
+            let citations = citations_for_answer(&visible_text, &package);
             for citation in citations.clone() {
                 yield Ok(AiStreamEvent::Citation { citation });
             }
@@ -278,7 +280,7 @@ impl AiStreamPipeline {
                 .safe_fallback_text
                 .clone()
                 .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
-            let citations = package.citations;
+            let citations = citations_for_answer(&final_text, &package);
             return Ok(AiCompleteResult {
                 final_text,
                 usage: response.usage,
@@ -290,7 +292,7 @@ impl AiStreamPipeline {
             });
         }
 
-        let citations = package.citations;
+        let citations = citations_for_answer(&visible_text, &package);
         Ok(AiCompleteResult {
             final_text: visible_text,
             usage: response.usage,

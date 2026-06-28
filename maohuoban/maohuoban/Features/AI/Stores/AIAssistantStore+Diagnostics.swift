@@ -40,7 +40,7 @@ extension AIAssistantStore {
 
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
-        streamingEngine.begin(messageID: placeholder.id)
+        beginStreaming(messageID: placeholder.id)
 
         let messageID = placeholder.id
         let chunks = splitIntoChunks(fullText)
@@ -53,7 +53,7 @@ extension AIAssistantStore {
                 self.streamingEngine.flush()
                 try? await Task.sleep(nanoseconds: 30_000_000)
             }
-            self.streamingEngine.complete(finalText: fullText)
+            self.completeStreaming(finalText: fullText)
             if let index = self.messages.firstIndex(where: { $0.id == messageID }) {
                 self.messages[index].referenceChips = referenceChips
             }

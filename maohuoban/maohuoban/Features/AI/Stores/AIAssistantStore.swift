@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import UIKit
 
 // AIAssistantStore AI 助手状态容器
@@ -22,15 +23,13 @@ final class AIAssistantStore {
     var histories: [AIAssistantConversationHistory] = []
     var activeToolStatus: ActiveToolStatus?
     var pendingConfirmationTask: PendingConfirmationTask?
-    private(set) var streamingEngine = AIAssistantStreamingEngine()
+    @ObservationIgnored private(set) var streamingEngine = AIAssistantStreamingEngine()
     var streamingTask: Task<Void, Never>?
     var currentChatSessionID: String?
 
     static let networkFailureFallbackText = "网络连接失败，请检查网络后重试。"
 
-    var isStreaming: Bool {
-        streamingEngine.isStreaming
-    }
+    private(set) var isStreaming = false
 
     var streamingRevision: Int = 0
 
@@ -64,4 +63,18 @@ final class AIAssistantStore {
         "\(context.displayPetName)的对话记录"
     }
 
+    func beginStreaming(messageID: UUID) {
+        streamingEngine.begin(messageID: messageID)
+        isStreaming = streamingEngine.isStreaming
+    }
+
+    func completeStreaming(finalText: String) {
+        streamingEngine.complete(finalText: finalText)
+        isStreaming = streamingEngine.isStreaming
+    }
+
+    func cancelStreaming() {
+        streamingEngine.cancel()
+        isStreaming = streamingEngine.isStreaming
+    }
 }
