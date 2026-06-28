@@ -15,6 +15,8 @@
 | 工具执行入口 | `ToolRegistry` 演进为 Tool Gateway，但保持白名单和 actor / pet 注入 |
 | 策略裁决 | `PolicyGuard` 输出 `Allow`、`Deny`、`Transform`、`RequireConfirmation`、`Terminate` |
 | 工具发现 | 借鉴 Anda，先暴露 group，再按需展开 schema |
+| 工具分层 | 工具目录按公共能力 / 私域宠物事实分组；无 selected pet 或无私域上下文时不向模型暴露私域宠物读取工具 |
+| 进度文案 | 工具 started / completed / failed 的用户可见活动文案由后端 Tool Gateway / SSE adapter 提供，前端不根据工具名自行映射 |
 
 ## 2. 目标边界
 
@@ -24,6 +26,8 @@
 |---|---|
 | 工具元数据 | 扩展 `AiToolDefinition` 或新增 metadata wrapper |
 | 工具发现 | 支持按 `domain_tags` / group 列出工具摘要和展开 schema |
+| 公共 / 私域分组 | 支持根据 Workbench 上下文过滤私域工具，公共宠物咨询不暴露宠物事实读取工具 |
+| 工具进度文案 | 工具 metadata 或 adapter 能提供 started / completed / failed 活动文案 |
 | Policy Guard | 执行前根据 metadata 和上下文裁决 |
 | 确认输出 | `requires_confirmation` 工具不直接执行写入，返回确认需求 |
 | 测试 | 覆盖未知工具、只读工具允许、高风险工具确认、越权拒绝、工具 group 展开 |

@@ -91,6 +91,38 @@ data: [DONE]\n\
 }
 
 #[test]
+fn parse_tool_call_delta_fragments_into_single_complete_call() {
+    let sse = "\
+data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"load_pet_identity_context\",\"arguments\":\"\"}}]}}]}\n\
+\n\
+data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"pet_id\\\":\\\"11111111-1111-1111-1111-111111111111\"}}]}}]}\n\
+\n\
+data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"}\"}}]}}]}\n\
+\n\
+data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":5,\"total_tokens\":17}}\n\
+\n\
+data: [DONE]\n\
+\n";
+
+    let events = parse_sse_stream(sse);
+    let tool_calls: Vec<_> = events
+        .iter()
+        .filter_map(|event| match event {
+            Ok(LlmStreamEvent::ToolCall { tool_call }) => Some(tool_call.clone()),
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(tool_calls.len(), 1);
+    assert_eq!(tool_calls[0].id, "call_1");
+    assert_eq!(tool_calls[0].name, "load_pet_identity_context");
+    assert_eq!(
+        tool_calls[0].arguments,
+        "{\"pet_id\":\"11111111-1111-1111-1111-111111111111\"}"
+    );
+}
+
+#[test]
 fn parse_error_in_stream() {
     let sse = "\
 data: {\"error\":{\"message\":\"rate limited\"}}\n\

@@ -11,6 +11,7 @@
 | 项 | 结论 |
 |---|---|
 | 前端协议 | iOS 消费毛伙伴 SSE 事件，不消费 Provider chunk |
+| 工具活动 | iOS 只消费后端输出的 `AgentActivity` / `ToolCall` 文案、状态和完成结果，不根据工具名自行映射展示文案 |
 | 用户体验 | 发送后必须立即进入等待态，Provider 失败显示错误 / 重试态，不锁死发送按钮 |
 | 历史展示 | 历史 row 使用后端 pet display snapshot，头像和名字必须正确 |
 | Xcode 文件规则 | 当前项目使用系统自动同步，不需要每次手动检查 `.xcodeproj` target 文件列表 |
@@ -23,6 +24,7 @@
 |---|---|
 | SSE Adapter | 映射 runtime event 到现有 / 新增 `AiStreamEvent` |
 | HTTP 合同 | `/api/v1/ai/chat/stream` 输出工具态、错误态和完成态顺序稳定 |
+| 活动文案 | 后端 SSE 事件包含可直接展示的工具进度文案、活动状态、完成状态和错误状态 |
 | iOS DTO | 解析新增事件并映射到 Store 状态 |
 | iOS Store | Provider 错误后发送按钮恢复；输入不被异常锁死 |
 | iOS 历史 | 继续显示 pet name / avatar，进入历史消息后状态一致 |
@@ -119,7 +121,7 @@ AgentEvent
 |---|---|
 | 目标 | iOS 正确消费 error、tool、confirmation、completed |
 | 前置依赖 | Task 1 的事件名 |
-| 回归验证 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build` |
+| 回归验证 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 
 #### Slice 2.1：错误后发送按钮恢复
 
@@ -128,8 +130,8 @@ AgentEvent
 | 行为目标 | 收到 error event 后 Store 退出 sending / streaming 锁定，草稿可继续发送 |
 | 先写失败测试 | iOS AI Store 测试；若当前无专用测试 target case，先新增 `maohuobanTests` 下 AI Store 测试 |
 | 允许修改 | `Features/AI/Data/*`、`Features/AI/Stores/*`、对应测试文件 |
-| 最小绿灯命令 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:maohuobanTests` |
-| 回归命令 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build` |
+| 最小绿灯命令 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -only-testing:maohuobanTests` |
+| 回归命令 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 | 完成证据 | 记录 error event 后 `canSend == true` 的断言 |
 | 停止条件 | 测试 target 不可运行时，记录原因并至少执行 Debug build |
 
@@ -140,8 +142,8 @@ AgentEvent
 | 行为目标 | history DTO 中 pet avatar / name 映射到 row view model |
 | 先写失败测试 | iOS history mapper / store 测试 |
 | 允许修改 | `Features/AI/Data/*`、`Features/AI/Domain/*`、`Features/AI/Presentation/AIAssistantHistoryScreen.swift` |
-| 最小绿灯命令 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:maohuobanTests` |
-| 回归命令 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build` |
+| 最小绿灯命令 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -only-testing:maohuobanTests` |
+| 回归命令 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 | 完成证据 | 记录头像 URL / 名称断言 |
 | 停止条件 | 需要修改后端历史 schema 时停止并对齐合同 |
 
@@ -152,7 +154,7 @@ AgentEvent
 | 后端合同 | `cargo test -p maohuoban_rust --test ai_contract ai_chat_stream` |
 | 后端构建 | `cargo check -p maohuoban-ai-http` |
 | iOS scheme | `xcodebuild -list -project maohuoban/maohuoban.xcodeproj` |
-| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build` |
+| iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 
 ## 9. 不变约束
 

@@ -4,7 +4,7 @@
 // - 验证样例可驱动 intent gate 的确定性断言
 
 use maohuoban_ai_application::ai::intent::AiIntentGate;
-use maohuoban_ai_domain::ai::AiIntent;
+use maohuoban_ai_domain::ai::{AiGateDecision, AiIntent};
 use serde::Deserialize;
 
 const EVAL_CASES_JSON: &str = include_str!(
@@ -51,12 +51,12 @@ fn eval_case_parses_fixture() {
     });
     assert_case(&cases, "app_support_edit_pet_profile", |case| {
         assert_eq!(case.expected_intent, "app_support");
-        assert_eq!(case.expected_gate_decision, "skip_main_agent");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "off_topic_weather_chat", |case| {
         assert_eq!(case.expected_intent, "off_topic");
-        assert_eq!(case.expected_gate_decision, "skip_main_agent");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "provider_not_configured_pet_care", |case| {
@@ -93,7 +93,7 @@ fn eval_case_matches_intent_gate() {
             case.name
         );
         assert_eq!(
-            gate_decision_code(decision.intent, decision.context_loaded),
+            gate_decision_code(&decision),
             case.expected_gate_decision,
             "case {} gate decision mismatch",
             case.name
@@ -164,7 +164,7 @@ struct EvalOutcome {
 fn evaluate_case(gate: &AiIntentGate, case: EvalCase) -> EvalOutcome {
     let decision = gate.classify(&case.message);
     let intent = intent_code(decision.intent);
-    let gate_decision = gate_decision_code(decision.intent, decision.context_loaded);
+    let gate_decision = gate_decision_code(&decision);
 
     let passed = intent == case.expected_intent
         && gate_decision == case.expected_gate_decision
@@ -213,12 +213,12 @@ fn intent_code(intent: AiIntent) -> &'static str {
     }
 }
 
-fn gate_decision_code(intent: AiIntent, context_loaded: bool) -> &'static str {
-    if matches!(intent, AiIntent::PromptInjection | AiIntent::CostAbuse) {
+fn gate_decision_code(decision: &AiGateDecision) -> &'static str {
+    if !decision.enters_workbench() {
         "blocked"
-    } else if context_loaded {
+    } else if decision.context_loaded {
         "load_context"
     } else {
-        "skip_main_agent"
+        "enter_workbench"
     }
 }

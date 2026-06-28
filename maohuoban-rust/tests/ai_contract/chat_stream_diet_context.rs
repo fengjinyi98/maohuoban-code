@@ -100,30 +100,15 @@ fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":false")
-            .body_contains("current_staple")
+            .body_contains("\"stream\":true")
+            .body_contains("已确认事实")
             .body_contains("渴望六种鱼");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(
-                r#"{
-                    "id": "chatcmpl-diet-context",
-                    "model": "contract-model",
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": "当前主粮是渴望六种鱼。"
-                            },
-                            "finish_reason": "stop"
-                        }
-                    ],
-                    "usage": {
-                        "prompt_tokens": 4,
-                        "completion_tokens": 6,
-                        "total_tokens": 10
-                    }
-                }"#,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"当前主粮是渴望六种鱼。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4,\"completion_tokens\":6,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
             );
     })
 }

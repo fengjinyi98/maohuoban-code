@@ -757,7 +757,7 @@ SSE 事件：
 | A9 | 宠物解析 | selected pet、宠物名、同名歧义、未授权目标都有测试 |
 | A10 | 唯一数据源 | AI 不新增宠物事实表；宠物展示快照仅用于历史展示 |
 | A11 | 未授权拒绝 | 未授权 pet 不返回宠物姓名、头像、食品名或存在性细节 |
-| A12 | 意图闸门 | off-topic / app_support 不加载宠物事实、不调用主 Agent |
+| A12 | 意图闸门 | off-topic / app_support 不加载宠物事实，硬安全通过后进入 AgentSession Workbench |
 | A13 | prompt injection | “忽略权限/管理员模式/读取全库”等请求被拒绝并记录风险信号 |
 | A14 | 工具白名单 | 未注册工具调用被拒绝 |
 | A15 | 饮食事实包 | 强事实和弱线索分离，储物柜新增不进入强事实 |
@@ -816,7 +816,7 @@ SSE 事件：
 | 流式半截输出违规 | 后端保留最终校验；必要时以安全消息收束并记录 verifier block |
 | iOS 流式状态卡住 | Store 测试覆盖 error/completed/cancel，确保 `isStreaming` 最终关闭 |
 | 历史记录宠物改名后展示混乱 | 会话保存展示快照，同时新一轮回答重新读取当前 pet 事实 |
-| 成本失控 | 意图闸门前置；off-topic 不调用主 Agent；记录 token usage 和 gate logs |
+| 成本失控 | 硬安全和成本闸门前置；off-topic 不加载宠物私域事实，公共工作台使用短上下文和限速控制成本；记录 token usage 和 gate logs |
 | API key 泄漏 | 配置读取集中在 infrastructure；日志扫描测试覆盖敏感字段 |
 | Provider 格式差异 | 内部稳定 `LlmChatRequest/Response/StreamEvent`，Provider 单独做兼容适配 |
 | 审计保存过多敏感数据 | 保存 hash、引用 ID、短摘要和风险标签；完整 payload 默认不保存 |

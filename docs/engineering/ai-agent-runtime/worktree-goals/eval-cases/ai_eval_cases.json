@@ -12,7 +12,7 @@
     "message": "怎么修改宠物资料",
     "surface": "home_private",
     "expected_intent": "app_support",
-    "expected_gate_decision": "skip_main_agent",
+    "expected_gate_decision": "enter_workbench",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -20,7 +20,7 @@
     "message": "今天天气真好",
     "surface": "home_private",
     "expected_intent": "off_topic",
-    "expected_gate_decision": "skip_main_agent",
+    "expected_gate_decision": "enter_workbench",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {

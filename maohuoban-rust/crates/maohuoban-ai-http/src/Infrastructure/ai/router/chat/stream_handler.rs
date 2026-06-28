@@ -13,10 +13,10 @@ use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
-use maohuoban_ai_application::ai::tools::AiToolContext;
+use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_domain::ai::{
-    AgentId, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution,
-    AiStreamEvent, AiToolCallStatus,
+    AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot,
+    AiPetResolution, AiStreamEvent, AiToolCallStatus,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -38,13 +38,13 @@ use super::fact_package_merge::merge_fact_packages;
 use super::food_inventory_hint_loader::load_food_inventory_hint_package;
 use super::gated_stream_response::gated_stream_response;
 use super::identity_fact_loader::load_identity_fact_package;
-use super::llm_request::build_llm_request;
 use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
 use super::runtime_stream::{AgentEventSseProjector, ai_error_to_sse_event};
 use super::runtime_tools::build_runtime_tool_registry;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
+use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::unauthorized_response;
 
 /// handle_chat_stream 流式聊天 SSE handler
@@ -111,7 +111,7 @@ pub async fn handle_chat_stream(
     )
     .await;
 
-    if !gate_decision.context_loaded {
+    if !gate_decision.enters_workbench() {
         return gated_stream_response(
             state.session_repository.clone(),
             session_id,
@@ -188,11 +188,6 @@ async fn provider_response_for_context(
         fact_package.as_ref(),
     );
 
-    let llm_request = build_llm_request(
-        &req.message,
-        input.target_pet.as_ref(),
-        fact_package.as_ref(),
-    );
     let stream_context = AiStreamRunContext {
         chat_session_id: input.session_id,
         message_id: input.message_id,
@@ -201,23 +196,20 @@ async fn provider_response_for_context(
         initial_events,
         fact_package: fact_package.clone(),
     };
-    let stream = match input.target_pet {
-        Some(target_pet) => runtime_provider_stream(
-            state,
-            req,
-            RuntimeProviderStreamInput {
-                session_id: input.session_id,
-                message_id: input.message_id,
-                actor_user_id: input.actor_user_id,
-                target_pet,
-                fact_package,
-                context: stream_context,
-            },
-        ),
-        None => state
-            .stream_pipeline
-            .run_with_context(llm_request, stream_context),
-    };
+    let workbench = build_agent_session_workbench(req.surface, input.target_pet.as_ref());
+    let stream = runtime_provider_stream(
+        state,
+        req,
+        RuntimeProviderStreamInput {
+            session_id: input.session_id,
+            message_id: input.message_id,
+            actor_user_id: input.actor_user_id,
+            target_pet: input.target_pet,
+            fact_package,
+            context: stream_context,
+            workbench,
+        },
+    );
 
     provider_stream_response(
         stream,
@@ -235,9 +227,10 @@ struct RuntimeProviderStreamInput {
     session_id: Uuid,
     message_id: Uuid,
     actor_user_id: Uuid,
-    target_pet: AiPetDisplaySnapshot,
+    target_pet: Option<AiPetDisplaySnapshot>,
     fact_package: Option<AiFactPackage>,
     context: AiStreamRunContext,
+    workbench: AgentSessionWorkbench,
 }
 
 /// runtime_provider_stream 通过自有 Agent Runtime 构建 SSE 流
@@ -251,14 +244,16 @@ fn runtime_provider_stream(
 ) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
 {
     let provider = state.llm_provider.clone();
-    let registry = Arc::new(build_runtime_tool_registry(
-        state,
-        input.session_id,
-        &input.target_pet,
-    ));
+    let registry = Arc::new(match input.target_pet.as_ref() {
+        Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
+        None => ToolRegistry::new(),
+    });
     let tool_context = AiToolContext {
         actor_user_id: input.actor_user_id,
-        authorized_pet_id: input.target_pet.pet_id,
+        authorized_pet_id: input
+            .target_pet
+            .as_ref()
+            .map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
     let engine =
         AgentRuntimeLoopEngine::new(provider, registry, tool_context, input.fact_package.clone());
@@ -272,6 +267,7 @@ fn runtime_provider_stream(
     let message_id = input.message_id;
     let fact_package = input.fact_package;
     let context = input.context;
+    let workbench = input.workbench;
 
     async_stream::stream! {
         let AiStreamRunContext {
@@ -298,7 +294,7 @@ fn runtime_provider_stream(
         }
 
         let mut projector = AgentEventSseProjector::new(message_id, fact_package, &activity_pet_name);
-        let mut agent_stream = session.into_prompt_stream(user_message);
+        let mut agent_stream = session.into_prompt_stream_with_workbench(user_message, workbench);
         while let Some(result) = agent_stream.next().await {
             match result {
                 Ok(agent_event) => {
@@ -692,12 +688,12 @@ fn intent_code(intent: AiIntent) -> &'static str {
 /// 核心职责：
 /// - 区分加载上下文、跳过主 Agent 和安全阻断
 fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.allow_processing() {
+    if !gate_decision.enters_workbench() {
         "blocked"
     } else if gate_decision.context_loaded {
         "load_context"
     } else {
-        "skip_main_agent"
+        "enter_workbench"
     }
 }
 

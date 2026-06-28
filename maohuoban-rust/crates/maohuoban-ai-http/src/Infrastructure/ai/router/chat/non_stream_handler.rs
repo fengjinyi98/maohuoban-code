@@ -3,8 +3,8 @@ use chrono::Utc;
 use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
-use maohuoban_ai_application::ai::stream::{AiCompleteResult, AiStreamRunContext};
-use maohuoban_ai_application::ai::tools::AiToolContext;
+use maohuoban_ai_application::ai::stream::AiCompleteResult;
+use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiGateDecision,
@@ -18,7 +18,6 @@ use uuid::Uuid;
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
 use super::gated_stream_response::gated_message_text;
-use super::llm_request::build_llm_request;
 use super::pet_resolution_stream_response::pet_resolution_message_text;
 use super::request::ChatStreamRequest;
 use super::runtime_tools::build_runtime_tool_registry;
@@ -28,6 +27,7 @@ use super::stream_handler::{
     resolve_stream_target_pet, resolved_pet_snapshot,
 };
 use super::title::build_title;
+use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 /// handle_chat 非流式聊天 handler
@@ -57,7 +57,7 @@ pub async fn handle_chat(
     )
     .await;
 
-    if !context.gate_decision.context_loaded {
+    if !context.gate_decision.enters_workbench() {
         return persist_and_respond_boundary_message(
             &state.session_repository,
             context.message_id,
@@ -96,20 +96,15 @@ pub async fn handle_chat(
     )
     .await;
 
-    let complete_result = match context.target_pet.clone() {
-        Some(target_pet) => {
-            complete_with_runtime(
-                &state,
-                &req,
-                actor_user_id,
-                &context,
-                target_pet,
-                fact_package,
-            )
-            .await
-        }
-        None => complete_with_pipeline(&state, &req, &context, fact_package).await,
-    };
+    let complete_result = complete_with_runtime(
+        &state,
+        &req,
+        actor_user_id,
+        &context,
+        context.target_pet.clone(),
+        fact_package,
+    )
+    .await;
     let complete = match complete_result {
         Ok(result) => result,
         Err(error) => return ai_error_response(&error),
@@ -140,37 +135,6 @@ pub async fn handle_chat(
     )
 }
 
-/// complete_with_pipeline 使用旧 pipeline 完成无目标宠物回答
-/// 核心职责：
-/// - 保留无目标宠物上下文的非流式 Provider 路径
-/// - 将 Provider 完整响应转换为既有完成结果
-async fn complete_with_pipeline(
-    state: &AiHttpState,
-    req: &ChatStreamRequest,
-    context: &NonStreamChatContext,
-    fact_package: Option<AiFactPackage>,
-) -> Result<AiCompleteResult, AiError> {
-    let llm_request = build_llm_request(
-        &req.message,
-        context.target_pet.as_ref(),
-        fact_package.as_ref(),
-    );
-    state
-        .stream_pipeline
-        .complete_with_context(
-            llm_request,
-            AiStreamRunContext {
-                chat_session_id: context.session_id,
-                message_id: context.message_id,
-                title: context.title.clone(),
-                target_pet: context.target_pet.clone(),
-                initial_events: Vec::new(),
-                fact_package,
-            },
-        )
-        .await
-}
-
 /// complete_with_runtime 使用自有 Agent Runtime 完成非流式回答
 /// 核心职责：
 /// - 通过 AgentSession 驱动模型、Tool Gateway 和二次模型调用
@@ -180,17 +144,16 @@ async fn complete_with_runtime(
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
     context: &NonStreamChatContext,
-    target_pet: AiPetDisplaySnapshot,
+    target_pet: Option<AiPetDisplaySnapshot>,
     fact_package: Option<AiFactPackage>,
 ) -> Result<AiCompleteResult, AiError> {
-    let registry = Arc::new(build_runtime_tool_registry(
-        state,
-        context.session_id,
-        &target_pet,
-    ));
+    let registry = Arc::new(match target_pet.as_ref() {
+        Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
+        None => ToolRegistry::new(),
+    });
     let tool_context = AiToolContext {
         actor_user_id,
-        authorized_pet_id: target_pet.pet_id,
+        authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
     let engine = AgentRuntimeLoopEngine::new(
         state.llm_provider.clone(),
@@ -204,7 +167,10 @@ async fn complete_with_runtime(
         req.surface,
         engine,
     );
-    let events = session.prompt(req.message.clone()).await?;
+    let workbench = build_agent_session_workbench(req.surface, target_pet.as_ref());
+    let events = session
+        .prompt_with_workbench(req.message.clone(), workbench)
+        .await?;
     complete_from_runtime_events(events, fact_package)
 }
 

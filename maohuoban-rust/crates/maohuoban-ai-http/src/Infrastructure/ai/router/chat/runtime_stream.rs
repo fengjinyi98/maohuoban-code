@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use maohuoban_ai_application::ai::citations::citations_for_answer;
+use maohuoban_ai_application::ai::output::visible_text_from_model_output;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentToolStatus, AiAgentActivityStatus, AiError, AiFactPackage, AiStreamEvent,
@@ -19,6 +20,9 @@ pub(super) struct AgentEventSseProjector {
     latest_usage: LlmUsage,
     finish_reason: LlmFinishReason,
     tool_names_by_call_id: HashMap<String, String>,
+    pending_delta_text: String,
+    streamed_delta_text: String,
+    suppress_model_delta: bool,
 }
 
 impl AgentEventSseProjector {
@@ -36,6 +40,9 @@ impl AgentEventSseProjector {
             latest_usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
             tool_names_by_call_id: HashMap::new(),
+            pending_delta_text: String::new(),
+            streamed_delta_text: String::new(),
+            suppress_model_delta: false,
         }
     }
 
@@ -93,7 +100,7 @@ impl AgentEventSseProjector {
                 });
             }
             AgentEvent::MessageDelta { text, .. } => {
-                output.push(AiStreamEvent::Delta { text });
+                self.project_message_delta(&mut output, text);
             }
             AgentEvent::TurnFinished { final_text, .. } => {
                 append_verified_completion(
@@ -103,6 +110,7 @@ impl AgentEventSseProjector {
                     self.latest_usage,
                     self.finish_reason,
                     &self.package,
+                    &self.streamed_delta_text,
                 );
             }
             AgentEvent::ProviderError {
@@ -139,6 +147,45 @@ impl AgentEventSseProjector {
 
         output
     }
+
+    /// project_message_delta 安全投影模型增量
+    /// 核心职责：
+    /// - 累积模型原始输出，避免 JSON 和违规内容提前透出
+    /// - 仅在当前可见文本通过本地校验时输出用户可见 delta
+    fn project_message_delta(&mut self, output: &mut Vec<AiStreamEvent>, text: String) {
+        self.pending_delta_text.push_str(&text);
+        if self.suppress_model_delta {
+            return;
+        }
+
+        if model_output_json_is_pending(&self.pending_delta_text) {
+            return;
+        }
+
+        let visible_text = visible_text_from_model_output(&self.pending_delta_text);
+        if visible_text != self.pending_delta_text {
+            return;
+        }
+
+        let verification = AiAnswerVerifier::new().verify(&visible_text, &self.package);
+        if verification.is_blocked() {
+            self.suppress_model_delta = true;
+            return;
+        }
+
+        self.streamed_delta_text.push_str(&text);
+        output.push(AiStreamEvent::Delta { text });
+    }
+}
+
+/// model_output_json_is_pending 判断模型 JSON 输出是否仍在分片中
+/// 核心职责：
+/// - 识别以 JSON 对象或数组起始的未完整输出
+/// - 避免结构化输出半截内容作为用户可见 delta 泄漏
+fn model_output_json_is_pending(content: &str) -> bool {
+    let trimmed = content.trim_start();
+    (trimmed.starts_with('{') || trimmed.starts_with('['))
+        && serde_json::from_str::<serde_json::Value>(trimmed).is_err()
 }
 
 /// push_tool_started_sse_events 投影 Runtime 工具开始事件
@@ -237,6 +284,7 @@ fn append_verified_completion(
     usage: LlmUsage,
     finish_reason: LlmFinishReason,
     package: &AiFactPackage,
+    streamed_delta_text: &str,
 ) {
     let verification = AiAnswerVerifier::new().verify(&final_text, package);
 
@@ -263,9 +311,11 @@ fn append_verified_completion(
 
     let citations = citations_for_answer(&final_text, package);
     append_citations(output, citations.clone());
-    output.push(AiStreamEvent::Delta {
-        text: final_text.clone(),
-    });
+    if streamed_delta_text != final_text {
+        output.push(AiStreamEvent::Delta {
+            text: final_text.clone(),
+        });
+    }
     output.push(AiStreamEvent::MessageCompleted {
         message_id,
         final_text,
@@ -282,5 +332,49 @@ fn append_citations(
 ) {
     for citation in citations {
         output.push(AiStreamEvent::Citation { citation });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use maohuoban_ai_domain::ai::{AgentEvent, AgentTurnId, AgentTurnStatus, AiStreamEvent};
+
+    use super::*;
+
+    #[test]
+    fn projector_buffers_partial_json_until_answer_text_is_complete() {
+        let message_id = Uuid::new_v4();
+        let turn_id = AgentTurnId::new();
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+
+        let partial_events = projector.project(AgentEvent::MessageDelta {
+            turn_id,
+            text: "{\"answer_text\":\"豆包精神".to_owned(),
+        });
+
+        assert!(
+            partial_events.is_empty(),
+            "partial JSON must not be sent to iOS as raw delta: {partial_events:?}"
+        );
+
+        let _ = projector.project(AgentEvent::MessageDelta {
+            turn_id,
+            text: "正常。\",\"display_blocks\":[]}".to_owned(),
+        });
+        let completed_events = projector.project(AgentEvent::TurnFinished {
+            turn_id,
+            message_id,
+            final_text: "豆包精神正常。".to_owned(),
+            status: AgentTurnStatus::Completed,
+        });
+        let deltas: Vec<&str> = completed_events
+            .iter()
+            .filter_map(|event| match event {
+                AiStreamEvent::Delta { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(deltas, vec!["豆包精神正常。"]);
     }
 }

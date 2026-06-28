@@ -371,9 +371,9 @@ Agent Gateway 收到工具调用申请
 |---|---|
 | 闸门前置 | 在读取宠物事实、私有记忆、向量检索和主模型调用前完成 |
 | 轻量实现 | 优先使用规则、小模型或低成本分类器，输出标准化 intent 和置信度 |
-| 宠物领域放行 | `pet_care`、`pet_record_query`、`pet_food`、`pet_health_risk`、`emotional_pet_context` 才能进入主 Agent |
-| App 帮助轻量 | `app_support` 不读取宠物私有事实，使用产品帮助知识或规则短答 |
-| 非宠物短拒答 | `off_topic` 返回固定短话术，不加载事实、不检索记忆、不调用主 Agent |
+| 工作台放行 | `pet_care`、`pet_record_query`、`pet_food`、`pet_health_risk`、`emotional_pet_context`、`app_support`、`off_topic` 在通过硬安全后进入 AgentSession Workbench |
+| App 帮助轻量 | `app_support` 不读取宠物私有事实，可使用产品帮助能力或轻量回答 |
+| 非私域轻量引导 | `off_topic` 不加载事实、不检索私有记忆，可进入 Workbench 生成轻量边界引导 |
 | 成本滥用限速 | 连续 `off_topic` 长请求或批量无关请求触发 `cost_abuse`，进入限速/冷却 |
 | 紧急安全独立 | `safety_emergency` 走安全帮助路径，不混入宠物事实和普通闲聊 |
 | 观测记录 | 每次请求写 `agent_request_gate_logs`，记录 gate 决策和是否加载上下文 |
@@ -381,7 +381,7 @@ Agent Gateway 收到工具调用申请
 推荐拒答话术：
 
 ```text
-我主要帮你处理宠物照护、记录和健康相关问题。这个问题超出了毛球的范围。
+我主要帮你处理宠物照护、记录和健康相关问题，也可以帮你回到毛伙伴里的相关操作。
 ```
 
 ### 5.5 工具权限矩阵
@@ -571,7 +571,7 @@ Prompt 只承担行为约束，安全由工具层执行。
 | 审计验收 | 每次 Agent 私有工具读取都有 access log，包含 allowed/denied 和引用 ID |
 | 风控验收 | 连续未授权读取、宠物枚举和管理员诱导会生成 `agent_security_events` 并更新 `user_risk_scores` |
 | 处置验收 | 高风险用户触发限速或冻结 Agent 私有工具后，普通账号安全和申诉入口仍可访问 |
-| 意图验收 | `off_topic` / `app_support` 不加载宠物事实包，不检索私有记忆，不进入主 Agent |
+| 意图验收 | `off_topic` / `app_support` 不加载宠物事实包，不检索私有记忆；可进入 AgentSession Workbench 做轻量边界引导或产品帮助 |
 | 成本验收 | 连续非宠物长请求会记录 `agent_request_gate_logs` 并触发 `cost_abuse` 限速或冷却 |
 
 ## 10. 不变约束

@@ -1,7 +1,8 @@
 use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentSessionState, AgentToolStatus, AgentTurnStatus,
-    AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome,
+    AgentEvent, AgentId, AgentSessionState, AgentSessionWorkbench, AgentToolStatus,
+    AgentTurnStatus, AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus,
+    ModelCallOutcome,
 };
 use uuid::Uuid;
 
@@ -33,7 +34,25 @@ impl<E: LoopEngine> AgentSession<E> {
 
     /// prompt 提交用户输入并收集 Runtime 内部事件
     pub async fn prompt(&mut self, user_input: impl Into<String>) -> AiResult<Vec<AgentEvent>> {
-        let turn_id = self.state.begin_turn(user_input.into());
+        self.prompt_inner(user_input.into(), None).await
+    }
+
+    /// prompt_with_workbench 提交用户输入和本轮工作台上下文
+    pub async fn prompt_with_workbench(
+        &mut self,
+        user_input: impl Into<String>,
+        workbench: AgentSessionWorkbench,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.prompt_inner(user_input.into(), Some(workbench)).await
+    }
+
+    async fn prompt_inner(
+        &mut self,
+        user_input: String,
+        workbench: Option<AgentSessionWorkbench>,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.state.attach_workbench(workbench);
+        let turn_id = self.state.begin_turn(user_input);
         let mut events = vec![AgentEvent::TurnStarted {
             turn_id,
             chat_session_id: self.state.chat_session_id,
@@ -55,14 +74,41 @@ impl<E: LoopEngine> AgentSession<E> {
     /// - 在每个 LoopStep 完成后立即产出对应 AgentEvent
     /// - 让 HTTP SSE 层可以实时展示工具执行进度
     pub fn into_prompt_stream(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, None)
+    }
+
+    /// into_prompt_stream_with_workbench 提交用户输入和工作台并逐步产出事件
+    /// 核心职责：
+    /// - 在流式 Runtime 路径中携带本轮 Workbench
+    /// - 保持事件生成顺序与 into_prompt_stream 一致
+    pub fn into_prompt_stream_with_workbench(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+        workbench: AgentSessionWorkbench,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, Some(workbench))
+    }
+
+    fn into_prompt_stream_inner(
         mut self,
         user_input: impl Into<String> + Send + 'static,
+        workbench: Option<AgentSessionWorkbench>,
     ) -> BoxStream<'static, AiResult<AgentEvent>>
     where
         E: 'static,
     {
         let user_input = user_input.into();
         Box::pin(async_stream::try_stream! {
+            self.state.attach_workbench(workbench);
             let turn_id = self.state.begin_turn(user_input);
             yield AgentEvent::TurnStarted {
                 turn_id,
@@ -106,6 +152,10 @@ fn append_step_events(
             tool_count,
             outcome,
         } => append_model_events(turn_id, model_label, tool_count, outcome, events),
+        LoopStep::MessageDelta { text } => {
+            events.push(AgentEvent::MessageDelta { turn_id, text });
+            StepFlow::Continue
+        }
         LoopStep::CallTools { tool_results } => append_tool_events(turn_id, tool_results, events),
         LoopStep::Done {
             message_id,

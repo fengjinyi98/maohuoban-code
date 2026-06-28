@@ -107,7 +107,7 @@ iOS / History / IM / Replay / CLI
 | AI crate 测试 | `cargo test -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-infrastructure -p maohuoban-ai-http` |
 | AI 合同测试 | `cargo test -p maohuoban_rust --test ai_contract` |
 | iOS scheme 检查 | `xcodebuild -list -project maohuoban/maohuoban.xcodeproj` |
-| iOS Debug 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build` |
+| iOS Debug 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 | 文档复查 | 每个 worktree 最终回复必须列出红灯测试、绿灯测试、回归命令和未覆盖风险 |
 
 ## 8. 不变约束

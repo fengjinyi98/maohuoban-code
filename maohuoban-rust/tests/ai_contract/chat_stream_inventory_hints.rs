@@ -13,31 +13,16 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":false")
+            .body_contains("\"stream\":true")
             .body_contains("弱线索")
             .body_contains("不能作为已发生事实")
             .body_contains("巅峰牛肉罐头");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(
-                r#"{
-                    "id": "chatcmpl-inventory-hint",
-                    "model": "contract-model",
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": "我看到储物柜里有巅峰牛肉罐头的变化线索，需要你确认毛球是否在吃。"
-                            },
-                            "finish_reason": "stop"
-                        }
-                    ],
-                    "usage": {
-                        "prompt_tokens": 5,
-                        "completion_tokens": 10,
-                        "total_tokens": 15
-                    }
-                }"#,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我看到储物柜里有巅峰牛肉罐头的变化线索，需要你确认毛球是否在吃。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":10,\"total_tokens\":15}}\n\n\
+                 data: [DONE]\n\n",
             );
     });
 
@@ -113,28 +98,13 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":false");
+            .body_contains("\"stream\":true");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(
-                r#"{
-                    "id": "chatcmpl-inventory-weak-block",
-                    "model": "contract-model",
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": "毛球已经换成巅峰牛肉罐头了。"
-                            },
-                            "finish_reason": "stop"
-                        }
-                    ],
-                    "usage": {
-                        "prompt_tokens": 5,
-                        "completion_tokens": 8,
-                        "total_tokens": 13
-                    }
-                }"#,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"毛球已经换成巅峰牛肉罐头了。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8,\"total_tokens\":13}}\n\n\
+                 data: [DONE]\n\n",
             );
     });
 

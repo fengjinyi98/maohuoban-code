@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::provider_error::ProviderErrorCategory;
-use super::{AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
+use super::{AgentSessionWorkbench, AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
 
 /// MAIN_PET_CARE_AGENT_ID 首期主 Agent 标识
 /// 核心职责：
@@ -128,6 +128,8 @@ pub struct AgentSessionState {
     pub chat_session_id: Uuid,
     pub agent_id: AgentId,
     pub surface: AiConversationSurface,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workbench: Option<AgentSessionWorkbench>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub user_inputs: Vec<String>,
     pub turn_index: u32,
@@ -142,10 +144,16 @@ impl AgentSessionState {
             chat_session_id,
             agent_id,
             surface,
+            workbench: None,
             user_inputs: Vec::new(),
             turn_index: 0,
             current_turn_id: None,
         }
+    }
+
+    /// attach_workbench 设置本轮 Runtime 工作台上下文
+    pub fn attach_workbench(&mut self, workbench: Option<AgentSessionWorkbench>) {
+        self.workbench = workbench;
     }
 
     /// begin_turn 记录用户输入并开启新 turn
@@ -160,7 +168,7 @@ impl AgentSessionState {
 
 /// LoopStep LoopEngine 输出 step
 /// 核心职责：
-/// - 固定 CallModel、CallTools、Done 三类 Runtime step
+/// - 固定模型调用、工具调用、消息增量和终态 Runtime step
 /// - 让不同 LoopEngine adapter 可替换
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "step", rename_all = "snake_case")]
@@ -169,6 +177,9 @@ pub enum LoopStep {
         model_label: ModelLabel,
         tool_count: u32,
         outcome: ModelCallOutcome,
+    },
+    MessageDelta {
+        text: String,
     },
     CallTools {
         tool_results: Vec<LoopToolResult>,
@@ -247,6 +258,7 @@ impl LoopStep {
     pub fn step_name(&self) -> &'static str {
         match self {
             Self::CallModel { .. } => "call_model",
+            Self::MessageDelta { .. } => "message_delta",
             Self::CallTools { .. } => "call_tools",
             Self::Done { .. } => "done",
         }

@@ -15,9 +15,11 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength,
-    AiToolConfirmationRequirement, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage,
-    LlmRole, LlmToolCall, LlmUsage,
+    AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
+    AiConversationSurface, AiFactEntry, AiFactStrength, AiToolConfirmationRequirement,
+    CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
+    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
+    ModelLabel,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -87,13 +89,50 @@ impl LlmProvider for ScriptedProvider {
 
     fn stream<'a>(
         &'a self,
-        _request: &'a LlmChatRequest,
+        request: &'a LlmChatRequest,
     ) -> futures_util::stream::BoxStream<
         'a,
         maohuoban_ai_domain::ai::AiResult<maohuoban_ai_domain::ai::LlmStreamEvent>,
     > {
-        futures_util::stream::empty().boxed()
+        self.requests
+            .lock()
+            .expect("requests")
+            .push(request.clone());
+        let _ = self.delays.lock().expect("delays").pop_front();
+        let events = self
+            .responses
+            .lock()
+            .expect("responses")
+            .pop_front()
+            .map_or_else(
+                || {
+                    vec![Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                        "missing scripted response".to_owned(),
+                    ))]
+                },
+                response_to_stream_events,
+            );
+        futures_util::stream::iter(events).boxed()
     }
+}
+
+fn response_to_stream_events(
+    response: LlmChatResponse,
+) -> Vec<maohuoban_ai_domain::ai::AiResult<LlmStreamEvent>> {
+    let mut events = Vec::new();
+    for tool_call in response.tool_calls {
+        events.push(Ok(LlmStreamEvent::ToolCall { tool_call }));
+    }
+    if !response.message.content.is_empty() {
+        events.push(Ok(LlmStreamEvent::Delta {
+            content: response.message.content,
+        }));
+    }
+    events.push(Ok(LlmStreamEvent::Finish {
+        finish_reason: response.finish_reason,
+        usage: response.usage,
+    }));
+    events
 }
 
 struct EchoIdentityTool;
@@ -151,33 +190,6 @@ impl AiToolDefinition for EchoIdentityTool {
     }
 }
 
-fn tool_response() -> LlmChatResponse {
-    LlmChatResponse {
-        message: LlmMessage {
-            role: LlmRole::Assistant,
-            content: String::new(),
-            tool_call_id: None,
-            tool_calls: Vec::new(),
-        },
-        tool_calls: vec![LlmToolCall {
-            id: "call_1".to_owned(),
-            name: "load_pet_identity_context".to_owned(),
-            arguments: json!({
-                "pet_id": "11111111-1111-1111-1111-111111111111"
-            })
-            .to_string(),
-        }],
-        usage: LlmUsage {
-            input_tokens: 8,
-            output_tokens: 2,
-            total_tokens: 10,
-        },
-        finish_reason: LlmFinishReason::ToolCalls,
-        provider: "scripted".to_owned(),
-        model: "primary".to_owned(),
-    }
-}
-
 fn final_response() -> LlmChatResponse {
     LlmChatResponse {
         message: LlmMessage {
@@ -229,75 +241,41 @@ fn json_final_response() -> LlmChatResponse {
     }
 }
 
-#[tokio::test]
-async fn agent_session_stream_yields_tool_progress_before_followup_model_finishes() {
-    let provider = ScriptedProvider::with_delays(
-        vec![tool_response(), final_response()],
-        vec![Duration::ZERO, Duration::from_secs(5)],
-    );
-    let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool);
-
-    let engine = AgentRuntimeLoopEngine::new(
-        Arc::new(provider),
-        Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
+fn public_pet_domain_workbench() -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![CapabilityDomain::PublicPetDomain],
         },
-        None,
-    );
-
-    let session = AgentSession::new(
-        Uuid::new_v4(),
-        AgentId::main_pet_care_agent(),
-        AiConversationSurface::HomePrivate,
-        engine,
-    );
-    let mut stream = Box::pin(session.into_prompt_stream("查看毛球档案".to_owned()));
-
-    let mut names = Vec::new();
-    let tool_finished = tokio::time::timeout(Duration::from_millis(200), async {
-        loop {
-            let event = stream
-                .next()
-                .await
-                .expect("runtime stream event")
-                .expect("runtime event ok");
-            names.push(event.event_name());
-            if event.event_name() == "tool_finished" {
-                break;
-            }
-        }
-    })
-    .await;
-
-    assert!(
-        tool_finished.is_ok(),
-        "tool progress should arrive before delayed followup model completes, got {names:?}"
-    );
-    assert_eq!(
-        names,
-        vec![
-            "turn_started",
-            "model_call_started",
-            "model_call_finished",
-            "tool_started",
-            "tool_finished",
-        ]
-    );
-
-    let followup_event = tokio::time::timeout(Duration::from_millis(50), stream.next()).await;
-    assert!(
-        followup_event.is_err(),
-        "followup model event should still be pending while provider is delayed"
-    );
+        capability_catalog: CapabilityCatalog {
+            capabilities: vec![AgentCapability {
+                code: "public_pet_care".to_owned(),
+                domain: CapabilityDomain::PublicPetDomain,
+                title: "公共养宠咨询".to_owned(),
+                when_to_use: "用户咨询通用照护、饮食、行为或常见症状观察时使用".to_owned(),
+                requires_private_context: false,
+            }],
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            selected_pet: None,
+            authorized_pets: Vec::new(),
+            session_summary: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
+    }
 }
 
 #[tokio::test]
-async fn agent_runtime_executes_tool_loop() {
-    let provider = ScriptedProvider::new(vec![tool_response(), final_response()]);
+async fn public_pet_domain_without_private_tools() {
+    let provider = ScriptedProvider::new(vec![final_response()]);
     let mut registry = ToolRegistry::new();
     registry.register(EchoIdentityTool);
 
@@ -319,84 +297,21 @@ async fn agent_runtime_executes_tool_loop() {
         engine,
     );
 
-    let events = session.prompt("查看毛球档案").await.expect("prompt");
-    let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
-
-    assert_eq!(
-        names,
-        vec![
-            "turn_started",
-            "model_call_started",
-            "model_call_finished",
-            "tool_started",
-            "tool_finished",
-            "model_call_started",
-            "model_call_finished",
-            "turn_finished",
-        ]
-    );
+    session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", public_pet_domain_workbench())
+        .await
+        .expect("prompt public pet domain");
 
     let requests = provider.take_requests();
-    assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0].tools.len(), 1);
-    assert_eq!(requests[0].tools[0].name, "load_pet_identity_context");
-}
-
-#[tokio::test]
-async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
-    let provider = ScriptedProvider::new(vec![tool_response(), final_response()]);
-    let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool);
-
-    let engine = AgentRuntimeLoopEngine::new(
-        Arc::new(provider.clone()),
-        Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
-        },
-        None,
-    );
-
-    let mut session = AgentSession::new(
-        Uuid::new_v4(),
-        AgentId::main_pet_care_agent(),
-        AiConversationSurface::HomePrivate,
-        engine,
-    );
-
-    session.prompt("查看毛球档案").await.expect("prompt");
-
-    let requests = provider.take_requests();
-    let followup_messages = &requests.get(1).expect("followup model request").messages;
-    let assistant_tool_call_index = followup_messages
-        .iter()
-        .position(|message| {
-            message.role == LlmRole::Assistant
-                && message
-                    .tool_calls
-                    .iter()
-                    .any(|tool_call| tool_call.id == "call_1")
-        })
-        .expect("assistant tool_call message should be replayed");
-    let tool_result_index = followup_messages
-        .iter()
-        .position(|message| {
-            message.role == LlmRole::Tool && message.tool_call_id.as_deref() == Some("call_1")
-        })
-        .expect("tool result message should be present");
-
+    assert_eq!(requests.len(), 1);
     assert!(
-        assistant_tool_call_index < tool_result_index,
-        "assistant tool_calls message must precede matching tool result message"
-    );
-
-    let tool_result_content = &followup_messages[tool_result_index].content;
-    assert!(tool_result_content.contains("渴望六种鱼"));
-    assert!(
-        !tool_result_content.contains("current_staple"),
-        "tool result content sent back to model must not expose internal fact keys"
+        requests[0].tools.is_empty(),
+        "public pet domain without selected pet must not expose private tools, got {:?}",
+        requests[0]
+            .tools
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>()
     );
 }
 

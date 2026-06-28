@@ -57,10 +57,10 @@
 | Runtime Loop | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine.rs` | 已能执行模型调用、工具执行、工具结果回灌和二次模型调用 |
 | Tool Gateway | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/registry.rs` | 工具注册、工具 metadata、工具发现、执行前 `PolicyGuard` 已出现 |
 | Policy Guard | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/policy/guard.rs` | 已能基于 `authorized_pet_id` 校验工具参数，写入和高风险工具要求确认 |
-| SSE Adapter | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_stream.rs` | 已能把工具开始和完成映射为 `AgentActivity` 和 `ToolCall` 事件 |
-| 旧 Gate | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/stream_handler.rs` | 仍存在 `if !gate_decision.context_loaded { return gated_stream_response(...) }` |
-| 无宠物路径 | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/stream_handler.rs` | `target_pet=None` 时走旧 stream pipeline，未进入统一工作台工具能力 |
-| 旧 LLM request | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/llm_request.rs` | 旧路径 `tools: vec![]`，模型拿不到工具能力目录 |
+| SSE Adapter | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_stream.rs` | 已能把工具开始 / 完成、模型 delta、完成和错误映射为稳定事件，并缓冲未完整 JSON delta |
+| HTTP Gate | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/stream_handler.rs`、`non_stream_handler.rs` | 主链路按 `enters_workbench()` 处理硬安全阻断；`context_loaded` 仅表达是否加载私域事实和审计状态 |
+| 无宠物路径 | `maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/stream_handler.rs` | `target_pet=None` 仍进入 `AgentSession Workbench`；公共能力可用，私域宠物工具被隐藏 |
+| LLM request | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine.rs` | Runtime 根据 Workbench 和 `ToolRegistry` 构造模型可见工具目录，初次和工具回灌后的模型调用都走流式 provider |
 
 ### 2.3 旧 `AgentTurnPlan` ADR 的问题
 

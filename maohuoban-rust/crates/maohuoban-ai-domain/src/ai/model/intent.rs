@@ -52,4 +52,12 @@ impl AiGateDecision {
     pub fn allow_processing(&self) -> bool {
         !matches!(self.intent, AiIntent::PromptInjection | AiIntent::CostAbuse)
     }
+
+    /// enters_workbench 判断该决策是否进入 AgentSession Workbench
+    /// 核心职责：
+    /// - 只让硬安全阻断拦截工作台入口
+    /// - 将私域事实加载与 Agent 执行入口解耦
+    pub fn enters_workbench(&self) -> bool {
+        self.allow_processing()
+    }
 }
