@@ -158,6 +158,10 @@ impl AgentEventSseProjector {
             return;
         }
 
+        if model_output_json_is_pending(&self.pending_delta_text) {
+            return;
+        }
+
         let visible_text = visible_text_from_model_output(&self.pending_delta_text);
         if visible_text != self.pending_delta_text {
             return;
@@ -172,6 +176,16 @@ impl AgentEventSseProjector {
         self.streamed_delta_text.push_str(&text);
         output.push(AiStreamEvent::Delta { text });
     }
+}
+
+/// model_output_json_is_pending 判断模型 JSON 输出是否仍在分片中
+/// 核心职责：
+/// - 识别以 JSON 对象或数组起始的未完整输出
+/// - 避免结构化输出半截内容作为用户可见 delta 泄漏
+fn model_output_json_is_pending(content: &str) -> bool {
+    let trimmed = content.trim_start();
+    (trimmed.starts_with('{') || trimmed.starts_with('['))
+        && serde_json::from_str::<serde_json::Value>(trimmed).is_err()
 }
 
 /// push_tool_started_sse_events 投影 Runtime 工具开始事件
@@ -318,5 +332,49 @@ fn append_citations(
 ) {
     for citation in citations {
         output.push(AiStreamEvent::Citation { citation });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use maohuoban_ai_domain::ai::{AgentEvent, AgentTurnId, AgentTurnStatus, AiStreamEvent};
+
+    use super::*;
+
+    #[test]
+    fn projector_buffers_partial_json_until_answer_text_is_complete() {
+        let message_id = Uuid::new_v4();
+        let turn_id = AgentTurnId::new();
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+
+        let partial_events = projector.project(AgentEvent::MessageDelta {
+            turn_id,
+            text: "{\"answer_text\":\"豆包精神".to_owned(),
+        });
+
+        assert!(
+            partial_events.is_empty(),
+            "partial JSON must not be sent to iOS as raw delta: {partial_events:?}"
+        );
+
+        let _ = projector.project(AgentEvent::MessageDelta {
+            turn_id,
+            text: "正常。\",\"display_blocks\":[]}".to_owned(),
+        });
+        let completed_events = projector.project(AgentEvent::TurnFinished {
+            turn_id,
+            message_id,
+            final_text: "豆包精神正常。".to_owned(),
+            status: AgentTurnStatus::Completed,
+        });
+        let deltas: Vec<&str> = completed_events
+            .iter()
+            .filter_map(|event| match event {
+                AiStreamEvent::Delta { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(deltas, vec!["豆包精神正常。"]);
     }
 }
