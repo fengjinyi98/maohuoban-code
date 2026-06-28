@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use httpmock::MockServer;
+use httpmock::{Mock, MockServer};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -9,20 +9,7 @@ use super::{authorized_json_request, login_and_get_token, response_json, respons
 #[tokio::test]
 async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     let server = MockServer::start();
-    let mock = server.mock(|when, then| {
-        when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions")
-            .header("authorization", "Bearer contract-api-key")
-            .body_contains("current_staple")
-            .body_contains("渴望六种鱼");
-        then.status(200)
-            .header("content-type", "text/event-stream")
-            .body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"当前主粮是渴望六种鱼。\"}}]}\n\n\
-                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4,\"completion_tokens\":6,\"total_tokens\":10}}\n\n\
-                 data: [DONE]\n\n",
-            );
-    });
+    let mock = install_current_diet_context_mock(&server);
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
     config.ai_llm_provider_config = Some(
@@ -106,6 +93,39 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     .expect("count persisted message citations");
 
     assert_eq!(citation_count, 1);
+}
+
+fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
+    server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":false")
+            .body_contains("current_staple")
+            .body_contains("渴望六种鱼");
+        then.status(200)
+            .header("content-type", "application/json")
+            .body(
+                r#"{
+                    "id": "chatcmpl-diet-context",
+                    "model": "contract-model",
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "当前主粮是渴望六种鱼。"
+                            },
+                            "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 4,
+                        "completion_tokens": 6,
+                        "total_tokens": 10
+                    }
+                }"#,
+            );
+    })
 }
 
 async fn create_pet(

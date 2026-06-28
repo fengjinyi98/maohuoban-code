@@ -41,7 +41,7 @@ impl ToolRegistry {
     /// - 未注册工具返回 denied
     /// - 已注册工具先通过 PolicyGuard 裁决，再执行或返回确认需求
     #[must_use]
-    pub fn call(
+    pub async fn call(
         &self,
         tool_name: &str,
         ctx: &AiToolContext,
@@ -52,9 +52,9 @@ impl ToolRegistry {
         };
 
         match PolicyGuard.evaluate_tool(tool_name, &tool.metadata(), ctx, args) {
-            PolicyDecision::Allow => tool.execute(ctx, args),
+            PolicyDecision::Allow => tool.execute(ctx, args).await,
             PolicyDecision::Deny { reason } => AiToolResult::denied(&reason),
-            PolicyDecision::Transform { args } => tool.execute(ctx, &args),
+            PolicyDecision::Transform { args } => tool.execute(ctx, &args).await,
             PolicyDecision::RequireConfirmation { confirmation } => {
                 AiToolResult::requires_confirmation(confirmation)
             }

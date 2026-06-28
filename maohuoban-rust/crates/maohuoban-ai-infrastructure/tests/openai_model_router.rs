@@ -17,6 +17,7 @@ fn sample_request_with_model(model: &str) -> LlmChatRequest {
             role: LlmRole::User,
             content: "毛球怎么样了".to_owned(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
         tool_choice: None,

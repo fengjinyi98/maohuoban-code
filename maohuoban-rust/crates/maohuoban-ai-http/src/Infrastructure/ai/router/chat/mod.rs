@@ -14,6 +14,8 @@ mod llm_request;
 mod non_stream_handler;
 mod pet_resolution_stream_response;
 mod request;
+mod runtime_stream;
+mod runtime_tools;
 mod session_persistence;
 mod stream_handler;
 mod title;

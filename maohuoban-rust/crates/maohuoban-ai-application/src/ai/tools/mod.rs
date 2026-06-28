@@ -5,7 +5,6 @@
 //! - 工具调用前执行风险策略裁决，写入和高风险动作返回确认需求
 //! - 工具发现按 domain_tags 输出摘要并按需展开 schema
 
-mod confirmation_requirement;
 mod context;
 mod definition;
 mod definition_info;
@@ -15,7 +14,6 @@ mod registry;
 mod result;
 mod risk_level;
 
-pub use confirmation_requirement::AiToolConfirmationRequirement;
 pub use context::AiToolContext;
 pub use definition::AiToolDefinition;
 pub use definition_info::ToolDefinitionInfo;

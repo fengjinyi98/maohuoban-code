@@ -4,6 +4,7 @@
 // - 验证已注册 pet tool 通过 pet application 完成权限校验
 // - 遵循 TDD：先写失败测试（red），再实现工具注册（green）
 
+use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
@@ -14,6 +15,7 @@ use uuid::Uuid;
 /// `FakePetTool` 测试用假宠物工具
 struct FakePetTool;
 
+#[async_trait]
 impl AiToolDefinition for FakePetTool {
     fn name(&self) -> &'static str {
         "load_pet_identity_context"
@@ -44,7 +46,7 @@ impl AiToolDefinition for FakePetTool {
         }
     }
 
-    fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
+    async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
         let pet_id = args
             .get("pet_id")
             .and_then(|v| v.as_str())
@@ -61,6 +63,7 @@ impl AiToolDefinition for FakePetTool {
 /// `HighRiskWriteTool` 测试用高风险写入工具
 struct HighRiskWriteTool;
 
+#[async_trait]
 impl AiToolDefinition for HighRiskWriteTool {
     fn name(&self) -> &'static str {
         "create_pet_reminder"
@@ -92,7 +95,7 @@ impl AiToolDefinition for HighRiskWriteTool {
         }
     }
 
-    fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
         AiToolResult::allowed(vec![])
     }
 }
@@ -104,7 +107,7 @@ async fn tool_registry_rejects_unknown_tool() {
         actor_user_id: Uuid::new_v4(),
         authorized_pet_id: Uuid::new_v4(),
     };
-    let result = registry.call("nonexistent_tool", &ctx, &json!({}));
+    let result = registry.call("nonexistent_tool", &ctx, &json!({})).await;
     assert!(!result.allowed);
     assert!(
         result
@@ -124,11 +127,13 @@ async fn registered_tool_executes_successfully() {
         actor_user_id: Uuid::new_v4(),
         authorized_pet_id: pet_id,
     };
-    let result = registry.call(
-        "load_pet_identity_context",
-        &ctx,
-        &json!({ "pet_id": pet_id.to_string() }),
-    );
+    let result = registry
+        .call(
+            "load_pet_identity_context",
+            &ctx,
+            &json!({ "pet_id": pet_id.to_string() }),
+        )
+        .await;
     assert!(result.allowed);
     assert!(result.denied_reason.is_none());
 }
@@ -142,11 +147,13 @@ async fn pet_tool_authorization_denies_unauthorized_pet() {
         authorized_pet_id: Uuid::new_v4(),
     };
     let other_pet = Uuid::new_v4();
-    let result = registry.call(
-        "load_pet_identity_context",
-        &ctx,
-        &json!({ "pet_id": other_pet.to_string() }),
-    );
+    let result = registry
+        .call(
+            "load_pet_identity_context",
+            &ctx,
+            &json!({ "pet_id": other_pet.to_string() }),
+        )
+        .await;
     assert!(!result.allowed);
     assert!(
         result

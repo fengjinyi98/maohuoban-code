@@ -73,11 +73,13 @@ fn sample_request() -> LlmChatRequest {
                 role: LlmRole::System,
                 content: "你是毛球助手".to_owned(),
                 tool_call_id: None,
+                tool_calls: Vec::new(),
             },
             LlmMessage {
                 role: LlmRole::User,
                 content: "毛球怎么样了".to_owned(),
                 tool_call_id: None,
+                tool_calls: Vec::new(),
             },
         ],
         tools: vec![LlmToolSchema {

@@ -1,4 +1,4 @@
-use crate::ai::tools::AiToolConfirmationRequirement;
+use maohuoban_ai_domain::ai::AiToolConfirmationRequirement;
 
 /// PolicyDecision 工具策略裁决结果
 /// 核心职责：

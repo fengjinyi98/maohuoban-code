@@ -60,6 +60,15 @@ impl AiStreamPipeline {
         }
     }
 
+    /// from_provider 使用共享 Provider 构造 pipeline
+    /// 核心职责：
+    /// - 让 HTTP adapter 与 Agent Runtime 复用同一 Provider 装配
+    /// - 避免重复创建网络 client 和模型路由
+    #[must_use]
+    pub fn from_provider(provider: Arc<dyn LlmProvider>) -> Self {
+        Self { provider }
+    }
+
     /// run 启动流式 pipeline
     /// 核心职责：
     /// - 首先发送 message_started 事件

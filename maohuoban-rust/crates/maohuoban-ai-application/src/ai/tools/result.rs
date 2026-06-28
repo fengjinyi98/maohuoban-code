@@ -1,6 +1,6 @@
 use maohuoban_ai_domain::ai::{AiCitation, AiFactEntry};
 
-use super::AiToolConfirmationRequirement;
+use maohuoban_ai_domain::ai::AiToolConfirmationRequirement;
 
 /// AiToolResult 工具执行结果
 /// 核心职责：

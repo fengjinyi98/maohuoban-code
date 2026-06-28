@@ -3,6 +3,7 @@
 // - 验证按 domain_tags 形成工具组摘要
 // - 验证按需展开 group schema
 
+use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
@@ -19,6 +20,7 @@ struct TaggedTool {
     domain_tags: Vec<String>,
 }
 
+#[async_trait]
 impl AiToolDefinition for TaggedTool {
     fn name(&self) -> &str {
         self.name
@@ -49,7 +51,7 @@ impl AiToolDefinition for TaggedTool {
         }
     }
 
-    fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
         AiToolResult::allowed(vec![])
     }
 }

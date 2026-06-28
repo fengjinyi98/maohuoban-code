@@ -1,9 +1,9 @@
 use uuid::Uuid;
 
+use maohuoban_ai_domain::ai::AiToolConfirmationRequirement;
+
 use crate::ai::policy::PolicyDecision;
-use crate::ai::tools::{
-    AiToolConfirmationRequirement, AiToolContext, AiToolMetadata, AiToolRiskLevel, ToolRegistry,
-};
+use crate::ai::tools::{AiToolContext, AiToolMetadata, AiToolRiskLevel, ToolRegistry};
 
 /// PolicyGuard 工具策略守卫
 /// 核心职责：

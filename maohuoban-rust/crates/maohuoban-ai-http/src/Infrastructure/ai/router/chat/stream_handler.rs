@@ -11,13 +11,16 @@ use chrono::Utc;
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
+use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
+use maohuoban_ai_application::ai::tools::AiToolContext;
 use maohuoban_ai_domain::ai::{
-    AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiStreamEvent,
-    AiToolCallStatus,
+    AgentId, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution,
+    AiStreamEvent, AiToolCallStatus,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::super::AiHttpState;
@@ -38,6 +41,8 @@ use super::identity_fact_loader::load_identity_fact_package;
 use super::llm_request::build_llm_request;
 use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
+use super::runtime_stream::{agent_events_to_sse_events, ai_error_to_sse_event};
+use super::runtime_tools::build_runtime_tool_registry;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
 use crate::ai::response::unauthorized_response;
@@ -188,17 +193,31 @@ async fn provider_response_for_context(
         input.target_pet.as_ref(),
         fact_package.as_ref(),
     );
-    let stream = state.stream_pipeline.run_with_context(
-        llm_request,
-        AiStreamRunContext {
-            chat_session_id: input.session_id,
-            message_id: input.message_id,
-            title: input.title,
-            target_pet: input.target_pet,
-            initial_events,
-            fact_package,
-        },
-    );
+    let stream_context = AiStreamRunContext {
+        chat_session_id: input.session_id,
+        message_id: input.message_id,
+        title: input.title,
+        target_pet: input.target_pet.clone(),
+        initial_events,
+        fact_package: fact_package.clone(),
+    };
+    let stream = match input.target_pet {
+        Some(target_pet) => runtime_provider_stream(
+            state,
+            req,
+            RuntimeProviderStreamInput {
+                session_id: input.session_id,
+                message_id: input.message_id,
+                actor_user_id: input.actor_user_id,
+                target_pet,
+                fact_package,
+                context: stream_context,
+            },
+        ),
+        None => state
+            .stream_pipeline
+            .run_with_context(llm_request, stream_context),
+    };
 
     provider_stream_response(
         stream,
@@ -206,6 +225,78 @@ async fn provider_response_for_context(
         input.session_id,
         input.message_id,
     )
+}
+
+/// RuntimeProviderStreamInput Runtime SSE 构建输入
+/// 核心职责：
+/// - 汇总 Agent Runtime 运行所需上下文
+/// - 控制 runtime_provider_stream 参数数量
+struct RuntimeProviderStreamInput {
+    session_id: Uuid,
+    message_id: Uuid,
+    actor_user_id: Uuid,
+    target_pet: AiPetDisplaySnapshot,
+    fact_package: Option<AiFactPackage>,
+    context: AiStreamRunContext,
+}
+
+/// runtime_provider_stream 通过自有 Agent Runtime 构建 SSE 流
+/// 核心职责：
+/// - 使用 AgentSession 驱动模型、工具和二次模型调用
+/// - 将 Runtime 事件映射回现有 AiStreamEvent 协议
+fn runtime_provider_stream(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    input: RuntimeProviderStreamInput,
+) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
+{
+    let provider = state.llm_provider.clone();
+    let registry = Arc::new(build_runtime_tool_registry(
+        state,
+        input.session_id,
+        &input.target_pet,
+    ));
+    let tool_context = AiToolContext {
+        actor_user_id: input.actor_user_id,
+        authorized_pet_id: input.target_pet.pet_id,
+    };
+    let engine =
+        AgentRuntimeLoopEngine::new(provider, registry, tool_context, input.fact_package.clone());
+    let mut session = AgentSession::new(
+        input.session_id,
+        AgentId::main_pet_care_agent(),
+        req.surface,
+        engine,
+    );
+    let user_message = req.message.clone();
+    let message_id = input.message_id;
+    let fact_package = input.fact_package;
+    let context = input.context;
+
+    futures_util::stream::once(async move {
+        let mut events = vec![Ok(AiStreamEvent::MessageStarted {
+            chat_session_id: context.chat_session_id,
+            message_id: context.message_id,
+            target_pet: context.target_pet,
+            title: context.title,
+        })];
+
+        events.extend(context.initial_events.into_iter().map(Ok));
+
+        match session.prompt(user_message).await {
+            Ok(agent_events) => {
+                for event in agent_events_to_sse_events(agent_events, message_id, fact_package) {
+                    events.push(Ok(event));
+                }
+            }
+            Err(error) => {
+                events.push(Ok(ai_error_to_sse_event(&error)));
+            }
+        }
+        events
+    })
+    .flat_map(futures_util::stream::iter)
+    .boxed()
 }
 
 /// persist_current_turn 持久化当前 stream 轮次

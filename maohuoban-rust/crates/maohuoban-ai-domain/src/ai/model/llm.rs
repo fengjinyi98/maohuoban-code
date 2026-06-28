@@ -18,6 +18,8 @@ pub struct LlmMessage {
     pub content: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<LlmToolCall>,
 }
 
 /// LlmToolCall LLM 工具调用意图

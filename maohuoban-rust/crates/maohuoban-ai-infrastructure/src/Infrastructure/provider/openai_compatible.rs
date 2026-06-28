@@ -279,6 +279,7 @@ impl OpenAiCompatibleLlmProvider {
                 role: LlmRole::Assistant,
                 content,
                 tool_call_id: None,
+                tool_calls: tool_calls.clone(),
             },
             tool_calls,
             usage,

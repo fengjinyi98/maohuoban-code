@@ -1,9 +1,12 @@
+use async_trait::async_trait;
+
 use super::{AiToolContext, AiToolMetadata, AiToolResult};
 
 /// AiToolDefinition 工具定义端口
 /// 核心职责：
 /// - 声明工具名、描述、参数 schema 和风险 metadata
 /// - 执行时接收上下文和参数，返回裁剪后的事实和引用
+#[async_trait]
 pub trait AiToolDefinition: Send + Sync {
     /// name 工具名
     fn name(&self) -> &str;
@@ -18,5 +21,5 @@ pub trait AiToolDefinition: Send + Sync {
     fn metadata(&self) -> AiToolMetadata;
 
     /// execute 执行工具
-    fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult;
+    async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult;
 }

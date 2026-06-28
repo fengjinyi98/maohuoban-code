@@ -309,7 +309,7 @@ async fn ai_session_event_store_lists_session_events_with_message_link_payload()
     assert_eq!(linked_message_count, 1);
 }
 
-/// AI session event 仓储对同一时间戳的事件仍按 append 顺序回放，并生成非空 event_index
+/// AI session event 仓储对同一时间戳的事件仍按 append 顺序回放，并生成非空 `event_index`
 #[tokio::test]
 async fn ai_session_event_store_preserves_append_order_for_same_timestamp_events() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;

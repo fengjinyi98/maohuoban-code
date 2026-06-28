@@ -8,7 +8,7 @@ use maohuoban_ai_application::ai::runtime::{
 };
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentTurnStatus, AiConversationSurface, LlmFinishReason, LlmToolCall,
-    LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory,
+    LlmUsage, LoopStep, LoopToolResult, ModelLabel, ProviderErrorCategory,
 };
 use uuid::Uuid;
 
@@ -85,11 +85,14 @@ async fn agent_session_emits_turn_events() {
 #[tokio::test]
 async fn agent_session_emits_tool_events() {
     let engine = FakeLoopEngine::new(vec![
-        LoopStep::call_tools(vec![LlmToolCall {
-            id: "call_1".to_owned(),
-            name: "load_pet_identity_context".to_owned(),
-            arguments: "{}".to_owned(),
-        }]),
+        LoopStep::call_tool_results(vec![LoopToolResult::succeeded(
+            LlmToolCall {
+                id: "call_1".to_owned(),
+                name: "load_pet_identity_context".to_owned(),
+                arguments: "{}".to_owned(),
+            },
+            "{}",
+        )]),
         LoopStep::done(
             Uuid::new_v4(),
             "已读取毛球档案".to_owned(),

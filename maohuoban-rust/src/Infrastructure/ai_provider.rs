@@ -1,19 +1,35 @@
-use maohuoban_ai_application::ai::ports::DisabledLlmProvider;
+use std::sync::Arc;
+
+use maohuoban_ai_application::ai::ports::{DisabledLlmProvider, LlmProvider};
+#[cfg(test)]
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
+
+/// build_ai_llm_provider_from_provider_config 构建 AI LLM Provider
+/// 核心职责：
+/// - 有 OpenAI 兼容配置时装配真实 Provider
+/// - 缺少配置时装配可降级的 Disabled Provider
+#[must_use]
+pub(crate) fn build_ai_llm_provider_from_provider_config(
+    config: Option<OpenAiCompatibleConfig>,
+) -> Arc<dyn LlmProvider> {
+    match config {
+        Some(config) => Arc::new(OpenAiCompatibleLlmProvider::new(config)),
+        None => Arc::new(DisabledLlmProvider),
+    }
+}
 
 /// build_ai_stream_pipeline_from_provider_config 构建 AI 流式 pipeline
 /// 核心职责：
 /// - 有 OpenAI 兼容配置时装配真实 Provider
 /// - 缺少配置时装配可降级的 Disabled Provider
 #[must_use]
+#[cfg(test)]
 pub(crate) fn build_ai_stream_pipeline_from_provider_config(
     config: Option<OpenAiCompatibleConfig>,
 ) -> AiStreamPipeline {
-    match config {
-        Some(config) => AiStreamPipeline::new(OpenAiCompatibleLlmProvider::new(config)),
-        None => AiStreamPipeline::new(DisabledLlmProvider),
-    }
+    let provider = build_ai_llm_provider_from_provider_config(config);
+    AiStreamPipeline::from_provider(provider)
 }
 
 #[cfg(test)]
@@ -32,6 +48,7 @@ mod tests {
                 role: LlmRole::User,
                 content: "毛球今天怎么样".to_owned(),
                 tool_call_id: None,
+                tool_calls: Vec::new(),
             }],
             tools: vec![],
             tool_choice: None,
@@ -61,7 +78,7 @@ mod tests {
         ));
         assert!(matches!(
             events.get(1),
-            Some(Ok(AiStreamEvent::Error { code, .. })) if code == "ai.provider_not_configured"
+            Some(Ok(AiStreamEvent::Error { code, .. })) if code == "ai.provider.not_configured"
         ));
     }
 

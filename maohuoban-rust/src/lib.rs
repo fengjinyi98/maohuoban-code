@@ -33,6 +33,7 @@ use diagnostics::{
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
+use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
 use maohuoban_auth_application::auth::{
@@ -273,15 +274,15 @@ fn build_ai_http_state(
     ai_session_repository: PostgresAiSessionRepository,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
-    let ai_stream_pipeline = Arc::new(ai_provider::build_ai_stream_pipeline_from_provider_config(
-        provider_config,
-    ));
+    let ai_llm_provider = ai_provider::build_ai_llm_provider_from_provider_config(provider_config);
+    let ai_stream_pipeline = Arc::new(AiStreamPipeline::from_provider(ai_llm_provider.clone()));
     let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
         pet_service.clone(),
     )));
 
     AiHttpState::new(
         ai_stream_pipeline,
+        ai_llm_provider,
         Arc::new(ai_session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
         ai_pet_resolver,

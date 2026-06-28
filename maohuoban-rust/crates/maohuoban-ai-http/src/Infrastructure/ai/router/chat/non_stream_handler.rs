@@ -1,12 +1,17 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
-use maohuoban_ai_application::ai::stream::AiStreamRunContext;
+use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
+use maohuoban_ai_application::ai::stream::{AiCompleteResult, AiStreamRunContext};
+use maohuoban_ai_application::ai::tools::AiToolContext;
+use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiCitation, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
-    AiPetDisplaySnapshot, AiPetResolution, LlmFinishReason, LlmUsage,
+    AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiGateDecision,
+    AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution,
+    LlmFinishReason, LlmUsage,
 };
 use serde::Serialize;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::super::AiHttpState;
@@ -15,6 +20,7 @@ use super::gated_stream_response::gated_message_text;
 use super::llm_request::build_llm_request;
 use super::pet_resolution_stream_response::pet_resolution_message_text;
 use super::request::ChatStreamRequest;
+use super::runtime_tools::build_runtime_tool_registry;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::stream_handler::{
     insert_request_gate_log, load_fact_context_and_initial_events, load_pet_catalog_initial_events,
@@ -89,26 +95,21 @@ pub async fn handle_chat(
     )
     .await;
 
-    let llm_request = build_llm_request(
-        &req.message,
-        context.target_pet.as_ref(),
-        fact_package.as_ref(),
-    );
-    let complete = match state
-        .stream_pipeline
-        .complete_with_context(
-            llm_request,
-            AiStreamRunContext {
-                chat_session_id: context.session_id,
-                message_id: context.message_id,
-                title: context.title.clone(),
-                target_pet: context.target_pet.clone(),
-                initial_events: Vec::new(),
+    let complete_result = match context.target_pet.clone() {
+        Some(target_pet) => {
+            complete_with_runtime(
+                &state,
+                &req,
+                actor_user_id,
+                &context,
+                target_pet,
                 fact_package,
-            },
-        )
-        .await
-    {
+            )
+            .await
+        }
+        None => complete_with_pipeline(&state, &req, &context, fact_package).await,
+    };
+    let complete = match complete_result {
         Ok(result) => result,
         Err(error) => return ai_error_response(&error),
     };
@@ -136,6 +137,145 @@ pub async fn handle_chat(
             verification: complete.verification,
         },
     )
+}
+
+/// complete_with_pipeline 使用旧 pipeline 完成无目标宠物回答
+/// 核心职责：
+/// - 保留无目标宠物上下文的非流式 Provider 路径
+/// - 将 Provider 完整响应转换为既有完成结果
+async fn complete_with_pipeline(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    context: &NonStreamChatContext,
+    fact_package: Option<AiFactPackage>,
+) -> Result<AiCompleteResult, AiError> {
+    let llm_request = build_llm_request(
+        &req.message,
+        context.target_pet.as_ref(),
+        fact_package.as_ref(),
+    );
+    state
+        .stream_pipeline
+        .complete_with_context(
+            llm_request,
+            AiStreamRunContext {
+                chat_session_id: context.session_id,
+                message_id: context.message_id,
+                title: context.title.clone(),
+                target_pet: context.target_pet.clone(),
+                initial_events: Vec::new(),
+                fact_package,
+            },
+        )
+        .await
+}
+
+/// complete_with_runtime 使用自有 Agent Runtime 完成非流式回答
+/// 核心职责：
+/// - 通过 AgentSession 驱动模型、Tool Gateway 和二次模型调用
+/// - 将 Runtime 事件聚合为非流式完成结果
+async fn complete_with_runtime(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    context: &NonStreamChatContext,
+    target_pet: AiPetDisplaySnapshot,
+    fact_package: Option<AiFactPackage>,
+) -> Result<AiCompleteResult, AiError> {
+    let registry = Arc::new(build_runtime_tool_registry(
+        state,
+        context.session_id,
+        &target_pet,
+    ));
+    let tool_context = AiToolContext {
+        actor_user_id,
+        authorized_pet_id: target_pet.pet_id,
+    };
+    let engine = AgentRuntimeLoopEngine::new(
+        state.llm_provider.clone(),
+        registry,
+        tool_context,
+        fact_package.clone(),
+    );
+    let mut session = AgentSession::new(
+        context.session_id,
+        AgentId::main_pet_care_agent(),
+        req.surface,
+        engine,
+    );
+    let events = session.prompt(req.message.clone()).await?;
+    complete_from_runtime_events(events, fact_package)
+}
+
+/// complete_from_runtime_events 聚合 Runtime 事件
+/// 核心职责：
+/// - 提取最终文本、用量和 Provider 元数据
+/// - 复用回答校验器生成非流式响应数据
+fn complete_from_runtime_events(
+    events: Vec<AgentEvent>,
+    fact_package: Option<AiFactPackage>,
+) -> Result<AiCompleteResult, AiError> {
+    let package = fact_package.unwrap_or_else(AiFactPackage::empty);
+    let mut usage = LlmUsage::default();
+    let mut finish_reason = LlmFinishReason::Stop;
+    let mut provider = "runtime".to_owned();
+    let mut model = "primary".to_owned();
+    let mut completed_text = None;
+
+    for event in events {
+        match event {
+            AgentEvent::ModelCallFinished {
+                finish_reason: event_finish_reason,
+                usage: event_usage,
+                provider: event_provider,
+                model: event_model,
+                ..
+            } => {
+                usage = event_usage;
+                finish_reason = event_finish_reason;
+                provider = event_provider;
+                model = event_model;
+            }
+            AgentEvent::TurnFinished { final_text, .. } => {
+                completed_text = Some(final_text);
+            }
+            AgentEvent::TurnFailed { error_code, .. } => {
+                return Err(AiError::Infrastructure(error_code));
+            }
+            _ => {}
+        }
+    }
+
+    let final_text = completed_text
+        .ok_or_else(|| AiError::Infrastructure("runtime turn did not finish".to_owned()))?;
+    let citations = package.citations.clone();
+    let verification = AiAnswerVerifier::new().verify(&final_text, &package);
+
+    if verification.is_blocked() {
+        let safe_text = verification
+            .safe_fallback_text
+            .clone()
+            .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
+        return Ok(AiCompleteResult {
+            final_text: safe_text,
+            usage,
+            finish_reason: LlmFinishReason::ContentFilter,
+            provider,
+            model,
+            citations,
+            verification,
+        });
+    }
+
+    Ok(AiCompleteResult {
+        final_text,
+        usage,
+        finish_reason,
+        provider,
+        model,
+        citations,
+        verification,
+    })
 }
 
 /// NonStreamChatContext 非流式请求运行上下文

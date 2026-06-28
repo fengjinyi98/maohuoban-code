@@ -89,6 +89,8 @@ fn runtime_event_roundtrip_covers_tool_finished_and_provider_error() {
                 output_tokens: 7,
                 total_tokens: 19,
             },
+            provider: "openai_compatible".to_owned(),
+            model: "contract-model".to_owned(),
         },
     ];
 

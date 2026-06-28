@@ -8,6 +8,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
+use async_trait::async_trait;
 use maohuoban_ai_application::ai::{
     policy::{PolicyDecision, PolicyGuard},
     tools::{
@@ -24,6 +25,7 @@ use uuid::Uuid;
 /// - 在策略允许时返回成功结果
 struct ReadonlyPetTool;
 
+#[async_trait]
 impl AiToolDefinition for ReadonlyPetTool {
     fn name(&self) -> &'static str {
         "load_pet_diet_context"
@@ -54,7 +56,7 @@ impl AiToolDefinition for ReadonlyPetTool {
         }
     }
 
-    fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
         AiToolResult::allowed(vec![])
     }
 }
@@ -67,6 +69,7 @@ struct ConfirmationTool {
     execute_count: Arc<AtomicUsize>,
 }
 
+#[async_trait]
 impl AiToolDefinition for ConfirmationTool {
     fn name(&self) -> &'static str {
         "create_pet_reminder"
@@ -98,7 +101,7 @@ impl AiToolDefinition for ConfirmationTool {
         }
     }
 
-    fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
         self.execute_count.fetch_add(1, Ordering::SeqCst);
         AiToolResult::allowed(vec![])
     }
@@ -137,11 +140,13 @@ async fn policy_guard_requires_confirmation() {
         authorized_pet_id: pet_id,
     };
 
-    let result = registry.call(
-        "create_pet_reminder",
-        &ctx,
-        &json!({ "pet_id": pet_id.to_string(), "title": "吃药" }),
-    );
+    let result = registry
+        .call(
+            "create_pet_reminder",
+            &ctx,
+            &json!({ "pet_id": pet_id.to_string(), "title": "吃药" }),
+        )
+        .await;
 
     assert!(!result.allowed);
     assert!(result.confirmation.is_some());
@@ -164,11 +169,13 @@ async fn policy_guard_denies_unknown_or_unauthorized() {
         &ctx,
         &json!({ "pet_id": ctx.authorized_pet_id.to_string() }),
     );
-    let unauthorized = registry.call(
-        "load_pet_diet_context",
-        &ctx,
-        &json!({ "pet_id": other_pet_id.to_string() }),
-    );
+    let unauthorized = registry
+        .call(
+            "load_pet_diet_context",
+            &ctx,
+            &json!({ "pet_id": other_pet_id.to_string() }),
+        )
+        .await;
 
     assert!(matches!(unknown, PolicyDecision::Deny { .. }));
     assert!(!unauthorized.allowed);

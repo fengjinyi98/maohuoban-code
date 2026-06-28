@@ -39,6 +39,7 @@ impl AiPromptBuilder {
             role: LlmRole::System,
             content: Self::build_system_prompt(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         });
 
         // 2. Context message: 宠物候选 + 事实包
@@ -47,12 +48,14 @@ impl AiPromptBuilder {
                 role: LlmRole::System,
                 content: Self::build_context_prompt(pet_candidates, pkg),
                 tool_call_id: None,
+                tool_calls: Vec::new(),
             });
         } else if !pet_candidates.is_empty() {
             messages.push(LlmMessage {
                 role: LlmRole::System,
                 content: Self::build_candidates_prompt(pet_candidates),
                 tool_call_id: None,
+                tool_calls: Vec::new(),
             });
         }
 
@@ -61,6 +64,7 @@ impl AiPromptBuilder {
             role: LlmRole::User,
             content: user_message.to_owned(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         });
 
         messages

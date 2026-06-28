@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
 use super::provider_error::ProviderErrorCategory;
+use super::{AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
 
 /// MAIN_PET_CARE_AGENT_ID 首期主 Agent 标识
 /// 核心职责：
@@ -72,6 +72,18 @@ pub enum ModelLabel {
     Memory,
 }
 
+impl ModelLabel {
+    /// as_str 返回稳定模型标签
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lite => "lite",
+            Self::Primary => "primary",
+            Self::Pro => "pro",
+            Self::Memory => "memory",
+        }
+    }
+}
+
 /// AgentTurnStatus Runtime turn 结束状态
 /// 核心职责：
 /// - 表达单轮对话完成、等待或失败状态
@@ -82,6 +94,18 @@ pub enum AgentTurnStatus {
     Failed,
     AwaitingConfirmation,
     AwaitingClarification,
+}
+
+/// AiToolConfirmationRequirement 工具确认需求
+/// 核心职责：
+/// - 表达确认前不得执行的工具调用
+/// - 保留确认任务、工具名、问题文案和原始参数
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiToolConfirmationRequirement {
+    pub confirmation_task_id: String,
+    pub tool_name: String,
+    pub question_text: String,
+    pub args: serde_json::Value,
 }
 
 /// AgentToolStatus Runtime 工具执行状态
@@ -147,7 +171,7 @@ pub enum LoopStep {
         outcome: ModelCallOutcome,
     },
     CallTools {
-        tool_calls: Vec<LlmToolCall>,
+        tool_results: Vec<LoopToolResult>,
     },
     Done {
         message_id: Uuid,
@@ -170,6 +194,8 @@ impl LoopStep {
             outcome: ModelCallOutcome::Finished {
                 finish_reason,
                 usage,
+                provider: "runtime".to_owned(),
+                model: model_label.as_str().to_owned(),
             },
         }
     }
@@ -195,7 +221,17 @@ impl LoopStep {
 
     /// call_tools 构造工具调用 step
     pub fn call_tools(tool_calls: Vec<LlmToolCall>) -> Self {
-        Self::CallTools { tool_calls }
+        Self::CallTools {
+            tool_results: tool_calls
+                .into_iter()
+                .map(LoopToolResult::requested)
+                .collect(),
+        }
+    }
+
+    /// call_tool_results 构造工具结果 step
+    pub fn call_tool_results(tool_results: Vec<LoopToolResult>) -> Self {
+        Self::CallTools { tool_results }
     }
 
     /// done 构造终止 step
@@ -217,6 +253,102 @@ impl LoopStep {
     }
 }
 
+/// LoopToolResult 工具调用结果
+/// 核心职责：
+/// - 承载模型申请的工具调用、执行结果和确认需求
+/// - 让 LoopEngine 能将工具执行回灌到下一轮模型调用
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoopToolResult {
+    pub tool_call: LlmToolCall,
+    pub status: LoopToolStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub denied_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmation: Option<AiToolConfirmationRequirement>,
+}
+
+impl LoopToolResult {
+    /// requested 构造待执行工具请求
+    pub fn requested(tool_call: LlmToolCall) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::Requested,
+            output: None,
+            denied_reason: None,
+            failed_reason: None,
+            confirmation: None,
+        }
+    }
+
+    /// succeeded 构造成功工具结果
+    pub fn succeeded(tool_call: LlmToolCall, output: impl Into<String>) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::Succeeded,
+            output: Some(output.into()),
+            denied_reason: None,
+            failed_reason: None,
+            confirmation: None,
+        }
+    }
+
+    /// denied 构造拒绝工具结果
+    pub fn denied(tool_call: LlmToolCall, reason: impl Into<String>) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::Denied,
+            output: None,
+            denied_reason: Some(reason.into()),
+            failed_reason: None,
+            confirmation: None,
+        }
+    }
+
+    /// failed 构造失败工具结果
+    pub fn failed(tool_call: LlmToolCall, reason: impl Into<String>) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::Failed,
+            output: None,
+            denied_reason: None,
+            failed_reason: Some(reason.into()),
+            confirmation: None,
+        }
+    }
+
+    /// requires_confirmation 构造确认需求工具结果
+    pub fn requires_confirmation(
+        tool_call: LlmToolCall,
+        confirmation: AiToolConfirmationRequirement,
+    ) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::RequiresConfirmation,
+            output: None,
+            denied_reason: None,
+            failed_reason: None,
+            confirmation: Some(confirmation),
+        }
+    }
+}
+
+/// LoopToolStatus 工具调用状态
+/// 核心职责：
+/// - 表达工具在 Runtime 内的请求、结果和确认态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoopToolStatus {
+    Requested,
+    Succeeded,
+    Denied,
+    Failed,
+    RequiresConfirmation,
+}
+
 /// ModelCallOutcome 模型调用结果
 /// 核心职责：
 /// - 在 CallModel step 内表达成功完成或 Provider 失败
@@ -226,6 +358,8 @@ pub enum ModelCallOutcome {
     Finished {
         finish_reason: LlmFinishReason,
         usage: LlmUsage,
+        provider: String,
+        model: String,
     },
     ProviderError {
         category: ProviderErrorCategory,
@@ -261,6 +395,8 @@ pub enum AgentEvent {
         turn_id: AgentTurnId,
         finish_reason: LlmFinishReason,
         usage: LlmUsage,
+        provider: String,
+        model: String,
     },
     ToolStarted {
         turn_id: AgentTurnId,
