@@ -1,7 +1,8 @@
 use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentSessionState, AgentToolStatus, AgentTurnStatus,
-    AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome,
+    AgentEvent, AgentId, AgentSessionState, AgentSessionWorkbench, AgentToolStatus,
+    AgentTurnStatus, AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus,
+    ModelCallOutcome,
 };
 use uuid::Uuid;
 
@@ -33,7 +34,25 @@ impl<E: LoopEngine> AgentSession<E> {
 
     /// prompt 提交用户输入并收集 Runtime 内部事件
     pub async fn prompt(&mut self, user_input: impl Into<String>) -> AiResult<Vec<AgentEvent>> {
-        let turn_id = self.state.begin_turn(user_input.into());
+        self.prompt_inner(user_input.into(), None).await
+    }
+
+    /// prompt_with_workbench 提交用户输入和本轮工作台上下文
+    pub async fn prompt_with_workbench(
+        &mut self,
+        user_input: impl Into<String>,
+        workbench: AgentSessionWorkbench,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.prompt_inner(user_input.into(), Some(workbench)).await
+    }
+
+    async fn prompt_inner(
+        &mut self,
+        user_input: String,
+        workbench: Option<AgentSessionWorkbench>,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.state.attach_workbench(workbench);
+        let turn_id = self.state.begin_turn(user_input);
         let mut events = vec![AgentEvent::TurnStarted {
             turn_id,
             chat_session_id: self.state.chat_session_id,

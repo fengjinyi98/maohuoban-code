@@ -7,8 +7,10 @@ use maohuoban_ai_application::ai::runtime::{
     AgentSession, AgentSessionRuntime, FakeLoopEngine, LoopEngine,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentTurnStatus, AiConversationSurface, LlmFinishReason, LlmToolCall,
-    LlmUsage, LoopStep, LoopToolResult, ModelLabel, ProviderErrorCategory,
+    AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionState,
+    AgentSessionWorkbench, AgentTurnStatus, AiConversationSurface, AiResult, CapabilityCatalog,
+    CapabilityDomain, ContextPack, LlmFinishReason, LlmToolCall, LlmUsage, LoopStep,
+    LoopToolResult, MemoryPack, ModelLabel, ProviderErrorCategory,
 };
 use uuid::Uuid;
 
@@ -17,6 +19,40 @@ fn usage() -> LlmUsage {
         input_tokens: 10,
         output_tokens: 5,
         total_tokens: 15,
+    }
+}
+
+fn workbench_with_capabilities(capability_count: usize) -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![CapabilityDomain::PublicPetDomain],
+        },
+        capability_catalog: CapabilityCatalog {
+            capabilities: (0..capability_count)
+                .map(|index| AgentCapability {
+                    code: format!("capability_{index}"),
+                    domain: CapabilityDomain::PublicPetDomain,
+                    title: format!("能力 {index}"),
+                    when_to_use: "用于测试能力目录透传".to_owned(),
+                    requires_private_context: false,
+                })
+                .collect(),
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            selected_pet: None,
+            authorized_pets: Vec::new(),
+            session_summary: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
     }
 }
 
@@ -148,4 +184,61 @@ async fn agent_session_emits_provider_error_and_turn_failed() {
             "turn_failed"
         ]
     );
+}
+
+#[tokio::test]
+async fn agent_session_uses_workbench_context() {
+    struct WorkbenchCountingEngine {
+        emitted_model: bool,
+    }
+
+    #[async_trait::async_trait]
+    impl LoopEngine for WorkbenchCountingEngine {
+        async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
+            if self.emitted_model {
+                return Ok(Some(LoopStep::done(
+                    Uuid::new_v4(),
+                    "已读取能力目录".to_owned(),
+                    AgentTurnStatus::Completed,
+                )));
+            }
+
+            self.emitted_model = true;
+            let capability_count = state
+                .workbench
+                .as_ref()
+                .expect("workbench should be attached to state")
+                .capability_catalog
+                .capabilities
+                .len();
+
+            Ok(Some(LoopStep::model_finished(
+                ModelLabel::Primary,
+                u32::try_from(capability_count).expect("capability count"),
+                LlmFinishReason::Stop,
+                usage(),
+            )))
+        }
+    }
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        WorkbenchCountingEngine {
+            emitted_model: false,
+        },
+    );
+
+    let events = session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", workbench_with_capabilities(2))
+        .await
+        .expect("prompt with workbench");
+
+    let tool_count = events.iter().find_map(|event| match event {
+        AgentEvent::ModelCallStarted { tool_count, .. } => Some(tool_count.to_owned()),
+        _ => None,
+    });
+
+    assert_eq!(tool_count, Some(2));
 }
