@@ -24,7 +24,7 @@
 | Eval case | 建立 YAML / JSON / Rust fixture 样例 |
 | Eval runner | 用 fake provider / fake tools 驱动 runtime 或合同链路 |
 | Diagnostics 断言 | 验证关键事件不含敏感原文和密钥 |
-| 回归样例 | 覆盖 pet_care、app_support、off_topic、provider_error、unauthorized_pet |
+| 回归样例 | 覆盖 public_pet_domain、private_pet_context、app_support、off_topic、provider_error、unauthorized_pet 和内部字段泄露 |
 | 输出 | 每个 eval case 有通过 / 失败原因 |
 
 ### 2.2 本目标期暂不做
@@ -121,7 +121,7 @@ eval case
 
 | 项 | 内容 |
 |---|---|
-| 目标 | 固定样例覆盖 off_topic、provider_error、unauthorized_pet |
+| 目标 | 固定样例覆盖 off_topic 进入 workbench、provider_error、unauthorized_pet 和输出泄露 |
 | 前置依赖 | Task 1 |
 | 回归验证 | `cargo test -p maohuoban_rust --test ai_eval` |
 
@@ -129,7 +129,7 @@ eval case
 
 | 项 | 要求 |
 |---|---|
-| 行为目标 | provider 未配置样例得到 retryable=false、用户文案统一、无正常 assistant final |
+| 行为目标 | provider 未配置样例得到 retryable=false、用户文案统一、无正常 assistant final；off_topic / app_support 不再断言 `skip_main_agent` |
 | 先写失败测试 | `maohuoban-rust/tests/ai_eval/provider_error.rs` |
 | 允许修改 | eval 测试和 fixture；必要时只新增 diagnostics 断言 |
 | 最小绿灯命令 | `cargo test -p maohuoban_rust --test ai_eval provider_not_configured_eval` |

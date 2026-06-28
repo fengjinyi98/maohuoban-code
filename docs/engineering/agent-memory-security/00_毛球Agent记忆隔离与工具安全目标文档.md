@@ -571,7 +571,7 @@ Prompt 只承担行为约束，安全由工具层执行。
 | 审计验收 | 每次 Agent 私有工具读取都有 access log，包含 allowed/denied 和引用 ID |
 | 风控验收 | 连续未授权读取、宠物枚举和管理员诱导会生成 `agent_security_events` 并更新 `user_risk_scores` |
 | 处置验收 | 高风险用户触发限速或冻结 Agent 私有工具后，普通账号安全和申诉入口仍可访问 |
-| 意图验收 | `off_topic` / `app_support` 不加载宠物事实包，不检索私有记忆，不进入主 Agent |
+| 意图验收 | `off_topic` / `app_support` 不加载宠物事实包，不检索私有记忆；可进入 AgentSession Workbench 做轻量边界引导或产品帮助 |
 | 成本验收 | 连续非宠物长请求会记录 `agent_request_gate_logs` 并触发 `cost_abuse` 限速或冷却 |
 
 ## 10. 不变约束

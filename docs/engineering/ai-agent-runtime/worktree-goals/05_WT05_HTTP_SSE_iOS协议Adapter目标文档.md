@@ -11,6 +11,7 @@
 | 项 | 结论 |
 |---|---|
 | 前端协议 | iOS 消费毛伙伴 SSE 事件，不消费 Provider chunk |
+| 工具活动 | iOS 只消费后端输出的 `AgentActivity` / `ToolCall` 文案、状态和完成结果，不根据工具名自行映射展示文案 |
 | 用户体验 | 发送后必须立即进入等待态，Provider 失败显示错误 / 重试态，不锁死发送按钮 |
 | 历史展示 | 历史 row 使用后端 pet display snapshot，头像和名字必须正确 |
 | Xcode 文件规则 | 当前项目使用系统自动同步，不需要每次手动检查 `.xcodeproj` target 文件列表 |
@@ -23,6 +24,7 @@
 |---|---|
 | SSE Adapter | 映射 runtime event 到现有 / 新增 `AiStreamEvent` |
 | HTTP 合同 | `/api/v1/ai/chat/stream` 输出工具态、错误态和完成态顺序稳定 |
+| 活动文案 | 后端 SSE 事件包含可直接展示的工具进度文案、活动状态、完成状态和错误状态 |
 | iOS DTO | 解析新增事件并映射到 Store 状态 |
 | iOS Store | Provider 错误后发送按钮恢复；输入不被异常锁死 |
 | iOS 历史 | 继续显示 pet name / avatar，进入历史消息后状态一致 |
