@@ -173,8 +173,8 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 | 变更 | 必须验证 |
 |---|---|
-| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
-| DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug test` |
+| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
+| DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'id=<当前连接真机设备ID>' -configuration Debug test` |
 | Rust 格式 | `cargo fmt --all --check` |
 | Rust 编译 | `cargo check --workspace --all-targets` |
 | Rust 后端 | `cargo test --workspace` |
@@ -184,7 +184,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 ### 12.1 iOS 测试执行与 XCTestDevices 控制
 
-1. 日常 iOS App 代码验证默认执行 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build`。
+1. 日常 iOS App 代码验证默认执行真机 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build`。
 2. `xcodebuild test`、`build-for-testing`、UI Test 仅用于测试覆盖、业务规则回归、端到端交互验证或用户明确要求测试的场景。
 3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
 4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。

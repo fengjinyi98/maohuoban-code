@@ -18,6 +18,7 @@ target/
 
 # Local tooling artifacts
 .worktree/
+.worktrees/
 .playwright-cli/
 .maohuoban-diagnostics/
 output/
