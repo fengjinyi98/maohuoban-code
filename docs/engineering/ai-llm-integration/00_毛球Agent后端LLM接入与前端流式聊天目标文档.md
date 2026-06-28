@@ -1,8 +1,9 @@
 # 毛球 Agent 后端 LLM 接入与前端流式聊天目标文档
 
 - 更新时间：2026-06-26
-- Goal：新增毛球 Agent 后端 AI 编排层，使用通用 OpenAI 兼容格式接入可替换 LLM Provider，并接入 iOS 现有毛球聊天 UI、流式输出、对话记录和宠物头像/名称展示，让用户可以围绕自己有权限的宠物进行私域 AI 对话；宠物数据的唯一权威来源仍是后端现有宠物事实、身份、饮食、异常和事件读模型，不能在 AI 模块或前端新增第二套宠物数据源。
-- 执行方式：先目标文档后实现；后端和 iOS 按 TDD / 最小切片推进；首版完成私域宠物助手、OpenAI 兼容非流式 Provider、后端 SSE 流式转发、iOS 流式消费、历史记录列表；所有私有事实读取必须经过 Agent Gateway、业务工具和权限校验；完成后执行 Rust 质量门和 iOS Debug 构建。
+- Goal：新增毛球 Agent 后端 AI 编排层，使用通用 OpenAI 兼容格式接入可替换 LLM Provider，并接入 iOS 现有毛球聊天 UI、流式输出、对话记录和宠物头像/名称展示，让用户可以咨询宠物垂直公共问题，并在授权范围内围绕自己的宠物进行私域 AI 对话；宠物数据的唯一权威来源仍是后端现有宠物事实、身份、饮食、异常和事件读模型，不能在 AI 模块或前端新增第二套宠物数据源。
+- 执行方式：先目标文档后实现；后端和 iOS 按 TDD / 最小切片推进；首版完成宠物垂直公共能力、用户宠物私域助手、OpenAI 兼容非流式 Provider、后端 SSE 流式转发、iOS 流式消费、历史记录列表；所有私有事实读取必须经过 Agent Gateway、业务工具和权限校验；完成后执行 Rust 质量门和 iOS Debug 构建。
+- 架构修订：`docs/engineering/ai-agent-runtime/02_毛球Agent能力工作台与Rig接入ADR.md` 已将毛球定位扩展为“宠物垂直领域 Agent + 用户宠物私域 Agent”，并将入口 Gate 收敛为硬安全边界。
 - 关联文档：
   - `docs/design/01_毛伙伴AI入口与后端架构方案.md`
   - `docs/product/strategy/04_宠物事实采集与毛球Agent记忆系统设计.md`
@@ -17,7 +18,7 @@
 
 | 项 | 结论 |
 |---|---|
-| 产品目标 | 毛球是宠物照护 Agent，不是通用聊天机器人；首版围绕用户有权限的宠物事实问答、饮食/异常追问和建议动作确认 |
+| 产品目标 | 毛球是宠物垂直领域 Agent + 用户宠物私域 Agent；首版支持公共宠物咨询、用户有权限的宠物事实问答、饮食/异常追问和建议动作确认 |
 | 实现方向 | 新增独立 `maohuoban-ai-*` 后端分层 crate，并接入现有 iOS `Features/AI` 聊天页面 |
 | LLM 协议 | 使用 OpenAI 兼容 Chat Completions / SSE 格式，Provider 通过 `base_url`、`api_key`、`model` 配置，不绑定厂商 SDK |
 | LLM 角色 | LLM 负责理解自然语言、在授权事实包内组织回答、必要时提出工具调用或追问；事实读取、宠物解析、健康分级、写入动作和权限判断由后端完成 |
@@ -47,7 +48,7 @@
 | 宠物解析 | 新增 `AiPetResolver`，结合当前入口 pet、用户消息中的宠物名、授权宠物列表解析唯一目标宠物；歧义时追问选择 |
 | 宠物候选工具 | 新增或复用后端宠物列表/身份读模型，向 Agent 提供“当前用户有权限的宠物候选摘要”，字段来自 pet 后端 |
 | Agent Gateway | 新增统一工具注册和调用入口，所有私有工具从认证上下文注入 `actor_user_id` 并执行权限校验 |
-| 意图闸门 | 主 Agent 前置轻量 `AiIntentGate`，区分宠物领域、App 帮助、非宠物、prompt injection、cost abuse；非宠物请求不加载宠物事实 |
+| 硬安全闸门 | AgentSession Workbench 前置 `HardSafetyGate`，只处理 prompt injection、越权诱导、危险写入和恶意成本滥用；非私域请求不加载宠物事实 |
 | 首批工具 | 接入 `load_pet_identity_context`、授权宠物候选、`load_pet_current_diet_context`、`load_food_inventory_change_hints`、`load_pet_diet_confirmation_candidates` |
 | 事实包 | 新增 `AiFactPackage`，包含目标宠物、事实、弱线索、引用、缺失信息和事实强度 |
 | Prompt 构建 | 新增 `AiPromptBuilder`，把系统规则、用户问题、宠物候选、目标宠物事实包和输出格式拼成 LLM messages |
@@ -70,7 +71,7 @@
 | 后台运营审核台 | 本期写审计与风险数据，不做管理 UI |
 | 前端复杂多宠选择器 | 歧义时后端返回选择需求，首版 iOS 可展示轻量系统消息或建议动作；完整选择 UI 后续独立切片 |
 | 长期保存完整原始聊天 | 隐私策略未定；首版保存必要消息、摘要、引用、宠物展示快照和审计元数据 |
-| 公共知识库 | App 帮助和公开养宠知识库后续建设，首版不把模型当百科知识源 |
+| 公共知识库 | App 帮助和公开养宠知识库后续建设；首版允许宠物垂直公共咨询进入 AgentSession Workbench，但不把模型当泛百科知识源 |
 
 ## 3. 依据
 

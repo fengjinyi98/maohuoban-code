@@ -1,7 +1,7 @@
 # WT-01 Runtime 契约与 LoopEngine 目标文档
 
 - 更新时间：2026-06-28
-- Goal：在现有 `maohuoban-ai-domain` / `maohuoban-ai-application` 内建立 Agent Runtime 核心契约，包括 `AgentSession`、`AgentSessionRuntime`、`AgentEvent`、`LoopEngine` 和 fake loop 测试；为其他 worktree 提供稳定事件和 step 边界。
+- Goal：在现有 `maohuoban-ai-domain` / `maohuoban-ai-application` 内建立 Agent Runtime 核心契约，包括 `AgentSession Workbench`、`AgentDefinition`、`CapabilityCatalog`、`ContextPack`、`MemoryPack`、`AgentEvent`、`LoopEngine` 和 fake loop 测试；为其他 worktree 提供稳定事件、能力目录和 step 边界。
 - 执行方式：TDD；只做契约和 fake engine，不接真实 Rig、不改 HTTP、不改 iOS、不改数据库。
 
 ---
@@ -10,10 +10,11 @@
 
 | 项 | 结论 |
 |---|---|
-| Runtime 形态 | 自有 `AgentSession` / `AgentSessionRuntime`，对外暴露事件流 |
+| Runtime 形态 | 自有 `AgentSession` / `AgentSessionRuntime` / `AgentSession Workbench`，对外暴露事件流 |
+| Workbench 形态 | Workbench 汇总 AgentDefinition、CapabilityCatalog、ContextPack、MemoryPack 和 ToolCapabilityCatalog |
 | Loop 形态 | `LoopEngine` trait 输出 `CallModel`、`CallTools`、`Done` 三类 step |
-| 首期实现 | FakeLoopEngine + in-memory session，证明事件顺序和状态推进 |
-| Rig 位置 | 首期只预留 adapter 边界，真实 Rig POC 后续切片 |
+| 首期实现 | FakeLoopEngine + in-memory session + workbench context，证明事件顺序、能力目录和状态推进 |
+| Rig 位置 | 首期先冻结 `LoopEngine` 和 Workbench 契约；Rig adapter 作为 POC 切片接入 |
 
 ## 2. 目标边界
 
@@ -22,16 +23,17 @@
 | 范围 | 目标 |
 |---|---|
 | Runtime domain model | 新增 runtime event、turn id、agent id、step、session state 基础类型 |
+| Agent Workbench | 新增 `AgentDefinition`、`CapabilityCatalog`、`ContextPack`、`MemoryPack`，表达模型可用能力和可见上下文 |
 | LoopEngine trait | 定义输入、输出、错误和可替换边界 |
-| AgentSession | 支持提交用户输入、推进 fake loop、收集事件 |
+| AgentSession | 支持提交用户输入和 workbench context、推进 fake loop、收集事件 |
 | AgentSessionRuntime | 支持创建当前 session；预留 switch/resume/fork 方法签名或契约占位 |
-| 测试 | 覆盖事件顺序、fake loop step、provider error step、tool step |
+| 测试 | 覆盖事件顺序、workbench roundtrip、fake loop step、provider error step、tool step |
 
 ### 2.2 本目标期暂不做
 
 | 暂不做 | 原因 |
 |---|---|
-| 接入 Rig crate | 先冻结毛球自有 trait，避免框架牵动其他 worktree |
+| 直接替换为 Rig 主链路 | 先冻结毛球自有 trait 和 Workbench 契约，避免框架牵动其他 worktree |
 | HTTP/SSE 映射 | WT-05 负责 |
 | Session 持久化 | WT-04 负责 |
 | Tool Gateway 策略 | WT-02 负责 |
@@ -51,6 +53,7 @@
 
 ```text
 AgentSession.prompt(user_input)
+  -> build AgentSessionWorkbench
   -> emit turn_started
   -> LoopEngine.next(session_state)
   -> CallModel / CallTools / Done
@@ -63,6 +66,7 @@ AgentSession.prompt(user_input)
 | 文件 / 模块 | 要求 |
 |---|---|
 | `maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/runtime.rs` | 新增 runtime domain 类型 |
+| `maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/workbench.rs` 或 `runtime/workbench.rs` | 新增 Workbench、ContextPack、CapabilityCatalog 类型；具体文件名以实现时局部结构为准 |
 | `maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/mod.rs` | 只做 additive export |
 | `maohuoban-rust/crates/maohuoban-ai-domain/src/ai/mod.rs` | 只做 additive export |
 | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/` | 新增 runtime application 模块 |
@@ -81,11 +85,11 @@ AgentSession.prompt(user_input)
 
 ## 7. TDD 任务拆分
 
-### Task 1：Runtime 事件契约
+### Task 1：Runtime 事件与 Workbench 契约
 
 | 项 | 内容 |
 |---|---|
-| 目标 | 定义 `AgentEvent` 并能序列化 / 反序列化冻结事件 |
+| 目标 | 定义 `AgentEvent` 和 Workbench 基础类型，并能序列化 / 反序列化冻结事件和能力上下文 |
 | 前置依赖 | 无 |
 | 回归验证 | `cargo test -p maohuoban-ai-domain` |
 
@@ -101,6 +105,18 @@ AgentSession.prompt(user_input)
 | 完成证据 | 记录测试先因类型不存在失败，再通过 |
 | 停止条件 | 需要修改现有 `AiStreamEvent` 才能通过时停止 |
 
+#### Slice 1.2：Workbench roundtrip
+
+| 项 | 要求 |
+|---|---|
+| 行为目标 | `AgentDefinition`、`CapabilityCatalog`、`ContextPack`、`MemoryPack` 可 serde roundtrip，且测试证明不包含内部字段、数据库字段或安全字段 |
+| 先写失败测试 | `maohuoban-rust/crates/maohuoban-ai-domain/tests/workbench_contract.rs` |
+| 允许修改 | `maohuoban-ai-domain/src/ai/model/runtime*` 或新增同层 workbench 模块，以及 additive export |
+| 最小绿灯命令 | `cargo test -p maohuoban-ai-domain workbench_contract` |
+| 回归命令 | `cargo test -p maohuoban-ai-domain runtime_event_roundtrip` |
+| 完成证据 | 记录 workbench JSON 断言和 forbidden fields 断言 |
+| 停止条件 | 需要改 HTTP handler、Provider 或真实工具实现时停止 |
+
 ### Task 2：LoopEngine 契约
 
 | 项 | 内容 |
@@ -113,7 +129,7 @@ AgentSession.prompt(user_input)
 
 | 项 | 要求 |
 |---|---|
-| 行为目标 | fake engine 可按脚本输出 `CallModel -> CallTools -> Done` |
+| 行为目标 | fake engine 可按脚本输出 `CallModel -> CallTools -> Done`，并能读取 Workbench 中的能力数量 |
 | 先写失败测试 | `maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_contract.rs` |
 | 允许修改 | `maohuoban-ai-application/src/ai/runtime/*` |
 | 最小绿灯命令 | `cargo test -p maohuoban-ai-application runtime_contract` |
@@ -133,7 +149,7 @@ AgentSession.prompt(user_input)
 
 | 项 | 要求 |
 |---|---|
-| 行为目标 | 调用 `prompt()` 后输出 `turn_started -> model_call_started -> model_call_finished -> turn_finished` |
+| 行为目标 | 调用 `prompt()` 并传入 Workbench 后输出 `turn_started -> model_call_started -> model_call_finished -> turn_finished` |
 | 先写失败测试 | `maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_contract.rs` |
 | 允许修改 | `maohuoban-ai-application/src/ai/runtime/session.rs` |
 | 最小绿灯命令 | `cargo test -p maohuoban-ai-application agent_session_emits_turn_events` |
