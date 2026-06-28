@@ -69,7 +69,7 @@ pub(super) fn workbench_context_prompt(workbench: &AgentSessionWorkbench) -> Str
         prompt.push_str("- 授权宠物候选: ");
         for (index, pet) in workbench.context_pack.authorized_pets.iter().enumerate() {
             if index > 0 {
-                prompt.push_str("、");
+                prompt.push('、');
             }
             write!(prompt, "{}（{}）", pet.name, display_species(&pet.species))
                 .expect("write workbench prompt");

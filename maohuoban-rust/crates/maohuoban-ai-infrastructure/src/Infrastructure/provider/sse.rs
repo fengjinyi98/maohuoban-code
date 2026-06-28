@@ -122,12 +122,12 @@ impl SseStreamDecoder {
         let mut events = Vec::new();
         if let Some(delta) = choice.get("delta") {
             self.merge_tool_call_delta(delta);
-            if let Some(content) = delta.get("content").and_then(serde_json::Value::as_str) {
-                if !content.is_empty() {
-                    events.push(Ok(LlmStreamEvent::Delta {
-                        content: content.to_owned(),
-                    }));
-                }
+            if let Some(content) = delta.get("content").and_then(serde_json::Value::as_str)
+                && !content.is_empty()
+            {
+                events.push(Ok(LlmStreamEvent::Delta {
+                    content: content.to_owned(),
+                }));
             }
         }
 
