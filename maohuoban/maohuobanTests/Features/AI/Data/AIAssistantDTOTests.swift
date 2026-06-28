@@ -95,6 +95,31 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertTrue(action.payload?.deriveFeedingCorrection == false)
     }
 
+    func testDecodeToolCallEvent() {
+        let json = #"{"tool_name":"load_pet_identity_context","status":"allowed","citation_count":2}"#
+        let result = AIStreamEventDecoder.decode(event: "tool_call", data: json)
+
+        guard case let .toolCall(toolName, status, citationCount) = result else {
+            XCTFail("expected toolCall")
+            return
+        }
+        XCTAssertEqual(toolName, "load_pet_identity_context")
+        XCTAssertEqual(status, "allowed")
+        XCTAssertEqual(citationCount, 2)
+    }
+
+    func testDecodeConfirmationTaskEvent() {
+        let json = #"{"confirmation_task_id":"\#(UUID.zeroString)","question_text":"是否确认把毛球的主粮改为鸡肉配方？"}"#
+        let result = AIStreamEventDecoder.decode(event: "confirmation_task", data: json)
+
+        guard case let .confirmationTask(taskID, questionText) = result else {
+            XCTFail("expected confirmationTask")
+            return
+        }
+        XCTAssertEqual(taskID, UUID(uuidString: UUID.zeroString))
+        XCTAssertEqual(questionText, "是否确认把毛球的主粮改为鸡肉配方？")
+    }
+
     func testDecodeUnknownEventReturnsNil() {
         let result = AIStreamEventDecoder.decode(event: "unknown_event", data: "{}")
         XCTAssertNil(result)
@@ -165,7 +190,23 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(session.subtitle, "今天")
         XCTAssertEqual(session.lastMessagePreview, "下次疫苗在八月")
         XCTAssertEqual(session.petDisplaySnapshot?.petName, "毛球")
+        XCTAssertNil(session.petDisplaySnapshot?.petAvatarURL)
         XCTAssertEqual(session.petDisplaySnapshot?.petSpecies, "cat")
+    }
+
+    func testHistoryMapsPetDisplaySnapshotToRowModel() throws {
+        let json = """
+        [{"id":"\(UUID.zeroString)","title":"饮食咨询","is_pinned":false,"subtitle":"刚刚","pet_display_snapshot":{"pet_id":"\(UUID.zeroString)","pet_name":"毛球","pet_avatar_url":"https://cdn.example.com/pets/mao.png","pet_species":"cat","profile_number":"P001"},"last_message_preview":"已读取饮食记录","last_message_at":"2026-06-27T10:00:00Z"}]
+        """
+        let data = json.data(using: .utf8)!
+        let sessions = try JSONDecoder().decode([AIChatSessionDTO].self, from: data)
+
+        let history = AIAssistantConversationHistory(from: sessions[0])
+
+        XCTAssertEqual(history.petName, "毛球")
+        XCTAssertEqual(history.petAvatarURL, "https://cdn.example.com/pets/mao.png")
+        XCTAssertEqual(history.petSpecies, .cat)
+        XCTAssertEqual(history.messages.last?.text, "已读取饮食记录")
     }
 
     func testDecodeChatSessionWithoutSnapshot() throws {
