@@ -379,7 +379,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
 
             use futures_util::StreamExt as _;
             let mut stream = response.bytes_stream();
-            let mut buffer = String::new();
+            let mut decoder = crate::provider::sse::SseStreamDecoder::new();
             let mut stream_completed = false;
 
             while let Some(chunk_result) = stream.next().await {
@@ -389,10 +389,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                         if chunk.contains("[DONE]") {
                             stream_completed = true;
                         }
-                        buffer.push_str(&chunk);
-                        let (events, remaining) = crate::provider::sse::parse_sse_buffer(&buffer);
-                        buffer = remaining;
-                        for event in events {
+                        for event in decoder.push_str(&chunk) {
                             match event {
                                 Ok(e) => {
                                     if matches!(e, LlmStreamEvent::Finish { .. }) {
@@ -417,7 +414,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 }
             }
 
-            if !buffer.trim().is_empty() || !stream_completed {
+            if !decoder.is_idle() || !stream_completed {
                 yield Err(Self::provider_error(
                     ProviderErrorCategory::StreamInterrupted,
                     "stream ended before completion marker",
