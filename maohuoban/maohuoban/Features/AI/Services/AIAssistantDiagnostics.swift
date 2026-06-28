@@ -167,6 +167,19 @@ enum AIAssistantDiagnostics {
                 "chat_session_id_prefix": .string(prefix(chatSessionID.uuidString)),
                 "message_id_prefix": .string(prefix(messageID.uuidString)),
             ]
+        case .toolCall(let toolName, let status, let citationCount):
+            [
+                "event_name": .string("tool_call"),
+                "tool_name": .string(toolName),
+                "status": .string(status),
+                "citation_count": .int(citationCount),
+            ]
+        case .confirmationTask(let taskID, let questionText):
+            [
+                "event_name": .string("confirmation_task"),
+                "confirmation_task_id_prefix": .string(prefix(taskID.uuidString)),
+                "question_length_bucket": .string(lengthBucket(questionText.count)),
+            ]
         case .delta(let text):
             [
                 "event_name": .string("delta"),

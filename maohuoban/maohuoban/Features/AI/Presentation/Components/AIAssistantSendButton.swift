@@ -29,28 +29,5 @@ struct AIAssistantSendButton: View {
         .disabled(!canSend)
         .accessibilityLabel("发送")
         .accessibilityIdentifier("ai.assistant.sendButton")
-        .onAppear {
-            debugLogState("appear")
-        }
-        .onChange(of: store.draftText) { _, _ in
-            debugLogState("draft_changed")
-        }
-        .onChange(of: store.isStreaming) { _, _ in
-            debugLogState("isStreaming_changed")
-        }
-        .onChange(of: store.streamingRevision) { _, _ in
-            debugLogState("streamingRevision_changed")
-        }
-        .onChange(of: store.messages.count) { _, _ in
-            debugLogState("messages_count_changed")
-        }
-    }
-
-    private func debugLogState(_ reason: String) {
-        #if DEBUG
-        print(
-            "[DEBUG:AISendLock] send_button reason=\(reason) canSend=\(canSend) draftLen=\(store.draftText.count) trimmedEmpty=\(store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) isStreaming=\(store.isStreaming) messageCount=\(store.messages.count) revision=\(store.streamingRevision)"
-        )
-        #endif
     }
 }

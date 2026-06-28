@@ -23,11 +23,6 @@ struct AIAssistantComposerSurface: View {
                 store.draftText
             },
             set: { newValue in
-                #if DEBUG
-                print(
-                    "[DEBUG:AISendLock] composer_binding_set oldLen=\(store.draftText.count) newLen=\(newValue.count) isStreaming=\(store.isStreaming) messageCount=\(store.messages.count) revision=\(store.streamingRevision)"
-                )
-                #endif
                 store.draftText = newValue
             }
         )
