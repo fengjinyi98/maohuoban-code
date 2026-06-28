@@ -3,10 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AgentSessionWorkbench, AiFactPackage, AiResult, CapabilityDomain,
-    LlmChatRequest, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall,
-    LlmToolSchema, LlmUsage, LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome,
-    ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    AgentSessionState, AgentSessionWorkbench, AiFactPackage, AiResult, LlmChatRequest,
+    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmToolSchema, LlmUsage,
+    LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome, ModelLabel,
+    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use serde_json::Value;
 
@@ -389,18 +389,10 @@ fn tool_visible_for_workbench(
 
 /// workbench_has_private_context 判断本轮是否具备私域宠物能力
 /// 核心职责：
-/// - 使用 ContextPack 和能力目录共同判断私域工具是否可见
+/// - 只以已解析 selected_pet 作为私域工具可见依据
+/// - 避免能力声明或工具目录摘要绕过宠物授权上下文
 fn workbench_has_private_context(workbench: &AgentSessionWorkbench) -> bool {
     workbench.context_pack.selected_pet.is_some()
-        || workbench
-            .agent_definition
-            .capability_domains
-            .contains(&CapabilityDomain::PrivatePetContext)
-        || workbench
-            .capability_catalog
-            .capabilities
-            .iter()
-            .any(|capability| capability.requires_private_context)
 }
 
 /// is_private_pet_tool 判断工具是否读取宠物私域事实
