@@ -53,21 +53,21 @@ fn workbench_contract_roundtrip_preserves_agent_context_and_capabilities() {
             timezone: "Asia/Shanghai".to_owned(),
             selected_pet: Some(ContextPetSummary {
                 pet_id: pet_id(),
-                name: "毛球".to_owned(),
+                name: "豆包".to_owned(),
                 species: "cat".to_owned(),
             }),
             authorized_pets: vec![ContextPetSummary {
                 pet_id: pet_id(),
-                name: "毛球".to_owned(),
+                name: "豆包".to_owned(),
                 species: "cat".to_owned(),
             }],
-            session_summary: Some("用户正在询问毛球近期饮食变化".to_owned()),
+            session_summary: Some("用户正在询问豆包近期饮食变化".to_owned()),
         },
         memory_pack: MemoryPack {
             entries: vec![MemoryEntry {
                 scope: MemoryScope::Pet,
                 subject_id: Some(pet_id()),
-                summary: "毛球对突然换粮比较敏感".to_owned(),
+                summary: "豆包对突然换粮比较敏感".to_owned(),
             }],
         },
     };
