@@ -200,5 +200,8 @@ mod chat_stream_confirmation_candidates;
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 
+#[path = "ai_contract/replay.rs"]
+mod replay;
+
 #[path = "ai_contract/history.rs"]
 mod history;

@@ -1,7 +1,12 @@
 use axum::http::StatusCode;
-use maohuoban_ai_application::ai::ports::AiSessionRepository;
-use maohuoban_ai_domain::ai::{AiProposedAction, AiProposedActionKind, AiProposedActionRisk};
-use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
+use chrono::{TimeZone, Utc};
+use maohuoban_ai_application::ai::ports::{AiSessionRepository, SessionEventRepository};
+use maohuoban_ai_domain::ai::{
+    AgentSessionEventEntry, AiProposedAction, AiProposedActionKind, AiProposedActionRisk,
+};
+use maohuoban_ai_infrastructure::repository::{
+    PostgresAiSessionRepository, PostgresSessionEventRepository,
+};
 use serde_json::json;
 use tower::ServiceExt;
 
@@ -180,4 +185,242 @@ async fn ai_proposed_action_repository_persists_pending_action() {
         pet_event_count_after, pet_event_count_before,
         "proposed action persistence must not write pet_events strong facts"
     );
+}
+
+/// AI session event 仓储按 turn 追加并按写入顺序读回 runtime events
+#[tokio::test]
+async fn ai_session_event_store_appends_and_lists_turn_events() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let session_id = uuid::Uuid::new_v4();
+    let turn_id = uuid::Uuid::new_v4();
+    insert_chat_session_fixture(app.pool(), session_id).await;
+
+    let repo = PostgresSessionEventRepository::new(app.pool().clone());
+    let started = AgentSessionEventEntry::new(
+        session_id,
+        turn_id,
+        "turn_started",
+        json!({
+            "turn_id": turn_id,
+            "chat_session_id": session_id,
+            "agent_id": "main_pet_care_agent",
+            "surface": "home_private"
+        }),
+    );
+    let model_started = AgentSessionEventEntry::new(
+        session_id,
+        turn_id,
+        "model_call_started",
+        json!({
+            "turn_id": turn_id,
+            "model_label": "primary",
+            "tool_count": 0
+        }),
+    );
+
+    repo.append(&started).await.expect("append turn_started");
+    repo.append(&model_started)
+        .await
+        .expect("append model_call_started");
+
+    let turn_events = repo
+        .list_by_turn(turn_id)
+        .await
+        .expect("list events by turn");
+
+    assert_eq!(turn_events.len(), 2);
+    assert_eq!(turn_events[0].event_name, "turn_started");
+    assert_eq!(turn_events[1].event_name, "model_call_started");
+    assert_eq!(turn_events[0].payload["agent_id"], "main_pet_care_agent");
+
+    let row_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_session_events
+        WHERE session_id = $1 AND turn_id = $2
+        ",
+    )
+    .bind(session_id)
+    .bind(turn_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count session events");
+    assert_eq!(row_count, 2);
+}
+
+/// AI session event 仓储按 session 读回事件，并能通过 payload 关联用户可见消息
+#[tokio::test]
+async fn ai_session_event_store_lists_session_events_with_message_link_payload() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let session_id = uuid::Uuid::new_v4();
+    let turn_id = uuid::Uuid::new_v4();
+    let message_id = uuid::Uuid::new_v4();
+    insert_chat_session_fixture(app.pool(), session_id).await;
+    insert_ai_message_fixture(app.pool(), session_id, message_id).await;
+
+    let repo = PostgresSessionEventRepository::new(app.pool().clone());
+    repo.append(&AgentSessionEventEntry::new(
+        session_id,
+        turn_id,
+        "turn_finished",
+        json!({
+            "turn_id": turn_id,
+            "message_id": message_id,
+            "final_text_summary": "照护建议摘要",
+            "status": "completed"
+        }),
+    ))
+    .await
+    .expect("append turn_finished");
+
+    let session_events = repo
+        .list_by_session(session_id)
+        .await
+        .expect("list events by session");
+
+    assert_eq!(session_events.len(), 1);
+    assert_eq!(session_events[0].event_name, "turn_finished");
+    assert_eq!(
+        session_events[0].payload["message_id"],
+        message_id.to_string()
+    );
+
+    let linked_message_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_messages
+        WHERE id = ($1)::uuid
+          AND session_id = $2
+        ",
+    )
+    .bind(
+        session_events[0].payload["message_id"]
+            .as_str()
+            .expect("message id payload"),
+    )
+    .bind(session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count linked message");
+    assert_eq!(linked_message_count, 1);
+}
+
+/// AI session event 仓储对同一时间戳的事件仍按 append 顺序回放，并生成非空 event_index
+#[tokio::test]
+async fn ai_session_event_store_preserves_append_order_for_same_timestamp_events() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let session_id = uuid::Uuid::new_v4();
+    let turn_id = uuid::Uuid::new_v4();
+    insert_chat_session_fixture(app.pool(), session_id).await;
+
+    let same_timestamp = Utc
+        .with_ymd_and_hms(2026, 6, 28, 10, 0, 0)
+        .single()
+        .expect("valid timestamp");
+
+    let repo = PostgresSessionEventRepository::new(app.pool().clone());
+    let first = AgentSessionEventEntry {
+        id: uuid::Uuid::new_v4(),
+        session_id,
+        turn_id,
+        parent_event_id: None,
+        event_name: "turn_started".to_owned(),
+        payload: json!({"turn_id": turn_id, "step": 1}),
+        created_at: same_timestamp,
+    };
+    let second = AgentSessionEventEntry {
+        id: uuid::Uuid::new_v4(),
+        session_id,
+        turn_id,
+        parent_event_id: Some(first.id),
+        event_name: "model_call_started".to_owned(),
+        payload: json!({"turn_id": turn_id, "step": 2}),
+        created_at: same_timestamp,
+    };
+
+    repo.append(&first).await.expect("append first event");
+    repo.append(&second).await.expect("append second event");
+
+    let turn_events = repo
+        .list_by_turn(turn_id)
+        .await
+        .expect("list same timestamp events by turn");
+
+    assert_eq!(
+        turn_events
+            .iter()
+            .map(|event| event.event_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["turn_started", "model_call_started"]
+    );
+
+    let null_index_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_session_events
+        WHERE session_id = $1
+          AND turn_id = $2
+          AND event_index IS NULL
+        ",
+    )
+    .bind(session_id)
+    .bind(turn_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count null event_index rows");
+    assert_eq!(null_index_count, 0);
+
+    let column_is_nullable: String = sqlx::query_scalar(
+        r"
+        SELECT is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'ai_session_events'
+          AND column_name = 'event_index'
+        ",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("read event_index nullability");
+    assert_eq!(column_is_nullable, "NO");
+}
+
+async fn insert_chat_session_fixture(pool: &sqlx::PgPool, session_id: uuid::Uuid) {
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, title, status, created_at, updated_at)
+        VALUES ($1, $2, 'home_private', 'session event fixture', 'active', now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(uuid::Uuid::new_v4())
+    .execute(pool)
+    .await
+    .expect("insert chat session fixture");
+}
+
+async fn insert_ai_message_fixture(
+    pool: &sqlx::PgPool,
+    session_id: uuid::Uuid,
+    message_id: uuid::Uuid,
+) {
+    sqlx::query(
+        r"
+        INSERT INTO ai_messages
+            (id, session_id, role, content, status, citations, created_at)
+        VALUES ($1, $2, 'assistant', '照护建议', 'completed', '[]'::jsonb, now())
+        ",
+    )
+    .bind(message_id)
+    .bind(session_id)
+    .execute(pool)
+    .await
+    .expect("insert ai message fixture");
 }
