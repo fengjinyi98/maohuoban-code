@@ -196,6 +196,12 @@ async fn login_and_get_token(
 #[path = "ai_contract/chat_stream.rs"]
 mod chat_stream;
 
+#[path = "ai_contract/chat_stream_provider.rs"]
+mod chat_stream_provider;
+
+#[path = "ai_contract/chat_stream_runtime_tools.rs"]
+mod chat_stream_runtime_tools;
+
 #[path = "ai_contract/chat_non_stream.rs"]
 mod chat_non_stream;
 

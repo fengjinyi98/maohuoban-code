@@ -34,6 +34,7 @@ enum RuntimePhase {
     Model,
     StreamingModel {
         stream: BoxStream<'static, AiResult<LlmStreamEvent>>,
+        purpose: StreamingModelPurpose,
         accumulated_text: String,
         tool_calls: Vec<LlmToolCall>,
         usage: LlmUsage,
@@ -52,6 +53,11 @@ enum RuntimePhase {
         final_text: String,
         status: maohuoban_ai_domain::ai::AgentTurnStatus,
     },
+}
+
+enum StreamingModelPurpose {
+    Initial,
+    Followup,
 }
 
 impl AgentRuntimeLoopEngine {
@@ -148,10 +154,12 @@ impl LoopEngine for AgentRuntimeLoopEngine {
         loop {
             match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
                 RuntimePhase::Model => {
-                    let request = self.build_request(state, &[], &[]);
+                    let mut request = self.build_request(state, &[], &[]);
+                    request.stream = true;
                     let tool_count = request_tool_count(&request);
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
+                        purpose: StreamingModelPurpose::Initial,
                         accumulated_text: String::new(),
                         tool_calls: Vec::new(),
                         usage: LlmUsage::default(),
@@ -162,6 +170,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                 }
                 RuntimePhase::StreamingModel {
                     mut stream,
+                    purpose,
                     mut accumulated_text,
                     mut tool_calls,
                     mut usage,
@@ -174,6 +183,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 accumulated_text.push_str(&content);
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
+                                    purpose,
                                     accumulated_text,
                                     tool_calls,
                                     usage,
@@ -186,6 +196,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 tool_calls.push(tool_call);
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
+                                    purpose,
                                     accumulated_text,
                                     tool_calls,
                                     usage,
@@ -202,6 +213,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 usage = u;
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
+                                    purpose,
                                     accumulated_text,
                                     tool_calls,
                                     usage,
@@ -218,7 +230,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         }
                     }
 
-                    if tool_calls.is_empty() {
+                    if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
                         self.phase = RuntimePhase::Done {
                             message_id: uuid::Uuid::new_v4(),
                             final_text: visible_text_from_model_output(&accumulated_text),
@@ -281,26 +293,20 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     assistant_tool_calls,
                     tool_results,
                 } => {
-                    let request = self.build_request(state, &assistant_tool_calls, &tool_results);
-                    let provider = self.provider.clone();
-                    let response = provider.complete(&request).await?;
-
-                    self.phase = RuntimePhase::Done {
-                        message_id: uuid::Uuid::new_v4(),
-                        final_text: visible_text_from_model_output(&response.message.content),
-                        status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                    let mut request =
+                        self.build_request(state, &assistant_tool_calls, &tool_results);
+                    request.stream = true;
+                    let tool_count = request_tool_count(&request);
+                    self.phase = RuntimePhase::StreamingModel {
+                        stream: model_stream(self.provider.clone(), request),
+                        purpose: StreamingModelPurpose::Followup,
+                        accumulated_text: String::new(),
+                        tool_calls: Vec::new(),
+                        usage: LlmUsage::default(),
+                        finish_reason: LlmFinishReason::Stop,
+                        tool_count,
                     };
-
-                    return Ok(Some(LoopStep::CallModel {
-                        model_label: ModelLabel::Primary,
-                        tool_count: request_tool_count(&request),
-                        outcome: ModelCallOutcome::Finished {
-                            finish_reason: response.finish_reason,
-                            usage: response.usage,
-                            provider: response.provider,
-                            model: response.model,
-                        },
-                    }));
+                    continue;
                 }
                 RuntimePhase::Done {
                     message_id,

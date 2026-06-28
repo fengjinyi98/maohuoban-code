@@ -340,10 +340,11 @@ fn install_runtime_tool_call_mocks<'a>(
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .matches(runtime_followup_model_request)
+            .body_contains("\"stream\":true")
             .body_contains("\"role\":\"tool\"")
             .body_contains("\"tool_call_id\":\"call_1\"");
         then.status(200)
-            .header("content-type", "application/json")
+            .header("content-type", "text/event-stream")
             .body(runtime_tool_followup_response_body());
     });
     (first_mock, second_mock)
@@ -359,24 +360,9 @@ fn runtime_tool_call_response_body(pet_id: &str) -> String {
 }
 
 fn runtime_tool_followup_response_body() -> &'static str {
-    r#"{
-        "id": "chatcmpl-runtime-final",
-        "model": "contract-model",
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "已读取毛球档案，当前可以继续观察精神和食欲。"
-                },
-                "finish_reason": "stop"
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 12,
-            "completion_tokens": 8,
-            "total_tokens": 20
-        }
-    }"#
+    "data: {\"choices\":[{\"delta\":{\"content\":\"已读取毛球档案，当前可以继续观察精神和食欲。\"}}]}\n\n\
+     data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+     data: [DONE]\n\n"
 }
 
 fn runtime_first_model_request(req: &HttpMockRequest) -> bool {

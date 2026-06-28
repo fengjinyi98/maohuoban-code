@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use maohuoban_ai_application::ai::citations::citations_for_answer;
+use maohuoban_ai_application::ai::output::visible_text_from_model_output;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentToolStatus, AiAgentActivityStatus, AiError, AiFactPackage, AiStreamEvent,
@@ -19,6 +20,9 @@ pub(super) struct AgentEventSseProjector {
     latest_usage: LlmUsage,
     finish_reason: LlmFinishReason,
     tool_names_by_call_id: HashMap<String, String>,
+    pending_delta_text: String,
+    streamed_delta_text: String,
+    suppress_model_delta: bool,
 }
 
 impl AgentEventSseProjector {
@@ -36,6 +40,9 @@ impl AgentEventSseProjector {
             latest_usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
             tool_names_by_call_id: HashMap::new(),
+            pending_delta_text: String::new(),
+            streamed_delta_text: String::new(),
+            suppress_model_delta: false,
         }
     }
 
@@ -93,7 +100,7 @@ impl AgentEventSseProjector {
                 });
             }
             AgentEvent::MessageDelta { text, .. } => {
-                output.push(AiStreamEvent::Delta { text });
+                self.project_message_delta(&mut output, text);
             }
             AgentEvent::TurnFinished { final_text, .. } => {
                 append_verified_completion(
@@ -103,6 +110,7 @@ impl AgentEventSseProjector {
                     self.latest_usage,
                     self.finish_reason,
                     &self.package,
+                    &self.streamed_delta_text,
                 );
             }
             AgentEvent::ProviderError {
@@ -138,6 +146,31 @@ impl AgentEventSseProjector {
         }
 
         output
+    }
+
+    /// project_message_delta 安全投影模型增量
+    /// 核心职责：
+    /// - 累积模型原始输出，避免 JSON 和违规内容提前透出
+    /// - 仅在当前可见文本通过本地校验时输出用户可见 delta
+    fn project_message_delta(&mut self, output: &mut Vec<AiStreamEvent>, text: String) {
+        self.pending_delta_text.push_str(&text);
+        if self.suppress_model_delta {
+            return;
+        }
+
+        let visible_text = visible_text_from_model_output(&self.pending_delta_text);
+        if visible_text != self.pending_delta_text {
+            return;
+        }
+
+        let verification = AiAnswerVerifier::new().verify(&visible_text, &self.package);
+        if verification.is_blocked() {
+            self.suppress_model_delta = true;
+            return;
+        }
+
+        self.streamed_delta_text.push_str(&text);
+        output.push(AiStreamEvent::Delta { text });
     }
 }
 
@@ -237,6 +270,7 @@ fn append_verified_completion(
     usage: LlmUsage,
     finish_reason: LlmFinishReason,
     package: &AiFactPackage,
+    streamed_delta_text: &str,
 ) {
     let verification = AiAnswerVerifier::new().verify(&final_text, package);
 
@@ -263,9 +297,11 @@ fn append_verified_completion(
 
     let citations = citations_for_answer(&final_text, package);
     append_citations(output, citations.clone());
-    output.push(AiStreamEvent::Delta {
-        text: final_text.clone(),
-    });
+    if streamed_delta_text != final_text {
+        output.push(AiStreamEvent::Delta {
+            text: final_text.clone(),
+        });
+    }
     output.push(AiStreamEvent::MessageCompleted {
         message_id,
         final_text,
