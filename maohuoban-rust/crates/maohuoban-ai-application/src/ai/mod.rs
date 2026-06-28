@@ -5,6 +5,7 @@
 pub mod context;
 pub mod intent;
 pub mod pet_resolver;
+pub mod policy;
 pub mod ports;
 pub mod prompt;
 pub mod runtime;

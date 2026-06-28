@@ -5,7 +5,7 @@
 // - 遵循 TDD：先写失败测试（red），再实现工具注册（green）
 
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolResult, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength};
 use serde_json::json;
@@ -33,6 +33,17 @@ impl AiToolDefinition for FakePetTool {
         })
     }
 
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.identity.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["identity".to_owned(), "pet_profile".to_owned()],
+        }
+    }
+
     fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
         let pet_id = args
             .get("pet_id")
@@ -44,6 +55,45 @@ impl AiToolDefinition for FakePetTool {
             Some(_) => AiToolResult::denied("pet not authorized"),
             None => AiToolResult::failed("missing pet_id"),
         }
+    }
+}
+
+/// `HighRiskWriteTool` 测试用高风险写入工具
+struct HighRiskWriteTool;
+
+impl AiToolDefinition for HighRiskWriteTool {
+    fn name(&self) -> &'static str {
+        "create_pet_reminder"
+    }
+
+    fn description(&self) -> &'static str {
+        "创建宠物提醒"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "pet_id": { "type": "string", "format": "uuid" },
+                "title": { "type": "string" }
+            },
+            "required": ["pet_id", "title"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.reminder.write".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["reminder".to_owned()],
+        }
+    }
+
+    fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(vec![])
     }
 }
 
@@ -138,4 +188,35 @@ async fn tool_registry_lists_registered_tools() {
     let tools = registry.list_definitions();
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "load_pet_identity_context");
+}
+
+#[tokio::test]
+async fn tool_registry_lists_metadata() {
+    let mut registry = ToolRegistry::new();
+    registry.register(FakePetTool);
+
+    let tools = registry.list_definitions();
+
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0].scope, "pet.identity.read");
+    assert!(tools[0].read_only);
+    assert!(tools[0].concurrency_safe);
+    assert_eq!(tools[0].risk_level, AiToolRiskLevel::Low);
+    assert!(!tools[0].declared_requires_confirmation);
+    assert!(!tools[0].requires_confirmation);
+    assert_eq!(tools[0].domain_tags, vec!["identity", "pet_profile"]);
+}
+
+#[tokio::test]
+async fn tool_registry_exposes_effective_confirmation_requirement() {
+    let mut registry = ToolRegistry::new();
+    registry.register(HighRiskWriteTool);
+
+    let tools = registry.list_definitions();
+
+    assert_eq!(tools.len(), 1);
+    assert!(!tools[0].declared_requires_confirmation);
+    assert!(tools[0].requires_confirmation);
+    assert_eq!(tools[0].risk_level, AiToolRiskLevel::High);
+    assert!(!tools[0].read_only);
 }
