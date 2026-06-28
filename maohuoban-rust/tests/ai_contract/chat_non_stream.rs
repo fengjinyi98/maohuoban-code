@@ -223,8 +223,8 @@ async fn ai_chat_non_stream_off_topic_records_gate_log_and_enters_workbench() {
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
-            .body_contains("public_pet_domain")
-            .body_contains("app_product_support");
+            .body_contains("公共宠物照护咨询")
+            .body_contains("毛伙伴 App 使用帮助");
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(

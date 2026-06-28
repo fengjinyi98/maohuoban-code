@@ -71,8 +71,8 @@ async fn ai_chat_non_stream_identity_uses_workbench_runtime_without_private_tool
 fn public_workbench_model_request(req: &HttpMockRequest) -> bool {
     let body = request_body(req);
     body.contains("你是谁")
-        && body.contains("public_pet_domain")
-        && body.contains("assistant_identity")
+        && body.contains("公共宠物照护咨询")
+        && body.contains("助手身份说明")
         && !body.contains("load_pet_identity_context")
         && !body.contains("\"role\":\"tool\"")
 }
