@@ -7,6 +7,7 @@ pub mod intent;
 pub mod pet_resolver;
 pub mod ports;
 pub mod prompt;
+pub mod runtime;
 pub mod stream;
 pub mod tools;
 pub mod verifier;
