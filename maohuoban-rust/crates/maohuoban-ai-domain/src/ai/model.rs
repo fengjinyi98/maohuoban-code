@@ -15,6 +15,7 @@ mod verification;
 
 mod pet_resolution;
 mod pet_snapshot;
+mod provider_error;
 
 pub use fact_package::*;
 pub use intent::*;
@@ -23,6 +24,7 @@ pub use pet_resolution::*;
 pub use pet_snapshot::*;
 pub use proposed_action::*;
 pub use runtime::*;
+pub use provider_error::*;
 pub use session::*;
 pub use stream::*;
 pub use surface::*;

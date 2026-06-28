@@ -482,7 +482,7 @@ where
                 Ok(e) => e,
                 Err(err) => AiStreamEvent::Error {
                     code: err.stable_code().to_owned(),
-                    message: err.to_string(),
+                    message: err.user_visible_message().to_owned(),
                     retryable: err.is_retryable(),
                     blocked_reason: None,
                     safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),

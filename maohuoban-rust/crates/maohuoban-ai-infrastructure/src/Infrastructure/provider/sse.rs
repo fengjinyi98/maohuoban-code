@@ -3,7 +3,10 @@
 //! - 将 OpenAI 兼容 SSE chunk 解析为内部 LlmStreamEvent
 //! - 支持 delta、finish、usage、error 和 [DONE] 标记
 
-use maohuoban_ai_domain::ai::{AiError, AiResult, LlmFinishReason, LlmStreamEvent, LlmUsage};
+use maohuoban_ai_domain::ai::{
+    AiError, AiResult, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError,
+    ProviderErrorCategory,
+};
 
 /// parse_sse_buffer 解析 SSE 缓冲区
 /// 核心职责：
@@ -65,90 +68,30 @@ fn parse_sse_event(lines: &[&str]) -> Option<AiResult<LlmStreamEvent>> {
 
     let json: serde_json::Value = match serde_json::from_str(&data) {
         Ok(j) => j,
-        Err(_) => return None,
+        Err(error) => {
+            return Some(Err(AiError::Provider(ProviderError::new(
+                ProviderErrorCategory::InvalidResponse,
+                format!("invalid sse json: {error}"),
+            ))));
+        }
     };
 
-    // 检查错误
     if let Some(error) = json.get("error") {
-        let message = error
-            .get("message")
-            .and_then(|m| m.as_str())
-            .unwrap_or("unknown error")
-            .to_owned();
-        return Some(Err(AiError::ProviderStreamError(message)));
+        return Some(parse_error_event(error));
     }
 
     let choices = json.get("choices")?.as_array()?;
     let choice = choices.first()?;
 
-    // 检查 finish_reason
-    let finish_reason = choice.get("finish_reason").and_then(|f| f.as_str());
-
-    if let Some(reason) = finish_reason
-        && reason != "null"
-    {
-        let fr = match reason {
-            "length" => LlmFinishReason::Length,
-            "tool_calls" => LlmFinishReason::ToolCalls,
-            "content_filter" => LlmFinishReason::ContentFilter,
-            _ => LlmFinishReason::Stop,
-        };
-        let usage = json
-            .get("usage")
-            .map(|u| LlmUsage {
-                input_tokens: u
-                    .get("prompt_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-                output_tokens: u
-                    .get("completion_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-                total_tokens: u
-                    .get("total_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-            })
-            .unwrap_or_default();
-        return Some(Ok(LlmStreamEvent::Finish {
-            finish_reason: fr,
-            usage,
-        }));
+    if let Some(event) = parse_finish_event(choice, &json) {
+        return Some(Ok(event));
     }
 
-    // 检查 delta
     let delta = choice.get("delta")?;
     let content = delta.get("content").and_then(|c| c.as_str()).unwrap_or("");
 
-    // 检查 tool_calls
-    if let Some(tool_calls) = delta.get("tool_calls").and_then(|t| t.as_array())
-        && let Some(first_call) = tool_calls.first()
-    {
-        let id = first_call
-            .get("id")
-            .and_then(|i| i.as_str())
-            .unwrap_or("")
-            .to_owned();
-        let function = first_call.get("function");
-        let name = function
-            .and_then(|f| f.get("name"))
-            .and_then(|n| n.as_str())
-            .unwrap_or("")
-            .to_owned();
-        let arguments = function
-            .and_then(|f| f.get("arguments"))
-            .and_then(|a| a.as_str())
-            .unwrap_or("{}")
-            .to_owned();
-        if !name.is_empty() {
-            return Some(Ok(LlmStreamEvent::ToolCall {
-                tool_call: maohuoban_ai_domain::ai::LlmToolCall {
-                    id,
-                    name,
-                    arguments,
-                },
-            }));
-        }
+    if let Some(event) = parse_tool_call_event(delta) {
+        return Some(Ok(event));
     }
 
     if content.is_empty() {
@@ -158,6 +101,104 @@ fn parse_sse_event(lines: &[&str]) -> Option<AiResult<LlmStreamEvent>> {
             content: content.to_owned(),
         }))
     }
+}
+
+/// parse_error_event 解析 Provider SSE 错误事件
+/// 核心职责：
+/// - 将上游 error payload 映射为 Provider upstream 分类
+fn parse_error_event(error: &serde_json::Value) -> AiResult<LlmStreamEvent> {
+    let message = error
+        .get("message")
+        .and_then(|m| m.as_str())
+        .unwrap_or("unknown error")
+        .to_owned();
+    Err(AiError::Provider(ProviderError::new(
+        ProviderErrorCategory::Upstream,
+        message,
+    )))
+}
+
+/// parse_finish_event 解析 SSE 完成事件
+/// 核心职责：
+/// - 映射 finish_reason
+/// - 抽取 usage token 用量
+fn parse_finish_event(
+    choice: &serde_json::Value,
+    event: &serde_json::Value,
+) -> Option<LlmStreamEvent> {
+    let reason = choice.get("finish_reason").and_then(|f| f.as_str())?;
+    if reason == "null" {
+        return None;
+    }
+
+    let finish_reason = match reason {
+        "length" => LlmFinishReason::Length,
+        "tool_calls" => LlmFinishReason::ToolCalls,
+        "content_filter" => LlmFinishReason::ContentFilter,
+        _ => LlmFinishReason::Stop,
+    };
+
+    Some(LlmStreamEvent::Finish {
+        finish_reason,
+        usage: event.get("usage").map(parse_usage).unwrap_or_default(),
+    })
+}
+
+/// parse_usage 解析 OpenAI usage 字段
+/// 核心职责：
+/// - 将缺失 token 字段按 0 处理
+fn parse_usage(usage: &serde_json::Value) -> LlmUsage {
+    LlmUsage {
+        input_tokens: usage
+            .get("prompt_tokens")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+        output_tokens: usage
+            .get("completion_tokens")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+        total_tokens: usage
+            .get("total_tokens")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+    }
+}
+
+/// parse_tool_call_event 解析工具调用 delta
+/// 核心职责：
+/// - 抽取首个工具调用的 id、name 和 arguments
+/// - name 为空时忽略该 delta
+fn parse_tool_call_event(delta: &serde_json::Value) -> Option<LlmStreamEvent> {
+    let first_call = delta
+        .get("tool_calls")
+        .and_then(|t| t.as_array())
+        .and_then(|tool_calls| tool_calls.first())?;
+
+    let function = first_call.get("function");
+    let name = function
+        .and_then(|f| f.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("")
+        .to_owned();
+    if name.is_empty() {
+        return None;
+    }
+
+    Some(LlmStreamEvent::ToolCall {
+        tool_call: LlmToolCall {
+            id: first_call
+                .get("id")
+                .and_then(|i| i.as_str())
+                .unwrap_or("")
+                .to_owned(),
+            name,
+            arguments: function
+                .and_then(|f| f.get("arguments"))
+                .and_then(|a| a.as_str())
+                .unwrap_or("{}")
+                .to_owned(),
+        },
+    })
 }
 
 /// parse_sse_stream 解析完整 SSE 文本流为事件列表
