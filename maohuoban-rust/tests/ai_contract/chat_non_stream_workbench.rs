@@ -7,8 +7,8 @@ use super::{authorized_json_request, login_and_get_token, response_json};
 
 /// 非流式无宠物 Workbench 合同
 /// 核心职责：
-/// - 验证 app_support / identity 这类非私域请求不再被 context_loaded 早退
-/// - 验证非流式接口同样携带 AgentSession Workbench 能力目录
+/// - 验证 `app_support` / identity 这类非私域请求不再被 `context_loaded` 早退
+/// - 验证非流式接口同样携带 `AgentSession Workbench` 能力目录
 #[tokio::test]
 async fn ai_chat_non_stream_identity_uses_workbench_runtime_without_private_tools() {
     let server = MockServer::start();

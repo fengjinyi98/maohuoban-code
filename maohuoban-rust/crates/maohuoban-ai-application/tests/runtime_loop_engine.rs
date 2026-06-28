@@ -104,12 +104,14 @@ impl LlmProvider for ScriptedProvider {
             .lock()
             .expect("responses")
             .pop_front()
-            .map(response_to_stream_events)
-            .unwrap_or_else(|| {
-                vec![Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
-                    "missing scripted response".to_owned(),
-                ))]
-            });
+            .map_or_else(
+                || {
+                    vec![Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                        "missing scripted response".to_owned(),
+                    ))]
+                },
+                response_to_stream_events,
+            );
         futures_util::stream::iter(events).boxed()
     }
 }

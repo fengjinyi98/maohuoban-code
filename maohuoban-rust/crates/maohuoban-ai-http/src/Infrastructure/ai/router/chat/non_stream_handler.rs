@@ -153,10 +153,7 @@ async fn complete_with_runtime(
     });
     let tool_context = AiToolContext {
         actor_user_id,
-        authorized_pet_id: target_pet
-            .as_ref()
-            .map(|pet| pet.pet_id)
-            .unwrap_or_else(Uuid::nil),
+        authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
     let engine = AgentRuntimeLoopEngine::new(
         state.llm_provider.clone(),

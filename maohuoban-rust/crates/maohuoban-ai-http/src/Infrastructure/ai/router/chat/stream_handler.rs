@@ -253,8 +253,7 @@ fn runtime_provider_stream(
         authorized_pet_id: input
             .target_pet
             .as_ref()
-            .map(|pet| pet.pet_id)
-            .unwrap_or_else(Uuid::nil),
+            .map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
     let engine =
         AgentRuntimeLoopEngine::new(provider, registry, tool_context, input.fact_package.clone());

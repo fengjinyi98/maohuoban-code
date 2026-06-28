@@ -148,6 +148,8 @@ impl AgentRuntimeLoopEngine {
     }
 }
 
+// LoopEngine::next 保持 Runtime 阶段迁移集中，便于审查模型流、工具执行和终态顺序。
+#[allow(clippy::too_many_lines)]
 #[async_trait]
 impl LoopEngine for AgentRuntimeLoopEngine {
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
@@ -166,7 +168,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
                     };
-                    continue;
                 }
                 RuntimePhase::StreamingModel {
                     mut stream,
@@ -246,21 +247,21 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 model: ModelLabel::Primary.as_str().to_owned(),
                             },
                         }));
-                    } else {
-                        self.phase = RuntimePhase::ToolExecution {
-                            tool_calls: tool_calls.clone(),
-                        };
-                        return Ok(Some(LoopStep::CallModel {
-                            model_label: ModelLabel::Primary,
-                            tool_count,
-                            outcome: ModelCallOutcome::Finished {
-                                finish_reason,
-                                usage,
-                                provider: "runtime_stream".to_owned(),
-                                model: ModelLabel::Primary.as_str().to_owned(),
-                            },
-                        }));
                     }
+
+                    self.phase = RuntimePhase::ToolExecution {
+                        tool_calls: tool_calls.clone(),
+                    };
+                    return Ok(Some(LoopStep::CallModel {
+                        model_label: ModelLabel::Primary,
+                        tool_count,
+                        outcome: ModelCallOutcome::Finished {
+                            finish_reason,
+                            usage,
+                            provider: "runtime_stream".to_owned(),
+                            model: ModelLabel::Primary.as_str().to_owned(),
+                        },
+                    }));
                 }
                 RuntimePhase::ToolExecution { tool_calls } => {
                     let assistant_tool_calls = tool_calls.clone();
@@ -306,7 +307,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
                     };
-                    continue;
                 }
                 RuntimePhase::Done {
                     message_id,

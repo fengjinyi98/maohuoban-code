@@ -7,7 +7,7 @@ use super::{authorized_json_request, login_and_get_token, response_text};
 
 /// 流式无宠物 Workbench 合同
 /// 核心职责：
-/// - 验证无 selected pet 的安全请求进入 AgentSession Workbench
+/// - 验证无 selected pet 的安全请求进入 `AgentSession Workbench`
 /// - 验证公共工作台不会向模型暴露宠物私域工具
 #[tokio::test]
 async fn ai_chat_stream_identity_uses_workbench_runtime_without_private_tools() {
