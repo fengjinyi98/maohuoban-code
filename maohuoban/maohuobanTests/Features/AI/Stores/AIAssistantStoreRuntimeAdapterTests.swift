@@ -40,6 +40,43 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         XCTAssertFalse(store.isStreaming)
     }
 
+    func testAgentActivityUsesBackendTextAndClearsWhenCompleted() async {
+        let store = Self.makeStoreWithStreamingPlaceholder()
+
+        store.handleStreamEvent(
+            .agentActivity(displayText: "正在查看毛球近期饮食", status: "started")
+        )
+        XCTAssertEqual(store.messages.last?.activityText, "正在查看毛球近期饮食")
+
+        store.handleStreamEvent(
+            .agentActivity(displayText: "正在查看毛球近期饮食", status: "completed")
+        )
+        XCTAssertNil(store.messages.last?.activityText)
+    }
+
+    func testAgentActivityClearsWhenAnswerDeltaArrives() async {
+        let store = Self.makeStoreWithStreamingPlaceholder()
+
+        store.handleStreamEvent(
+            .agentActivity(displayText: "正在查看毛球近期饮食", status: "started")
+        )
+        XCTAssertEqual(store.messages.last?.activityText, "正在查看毛球近期饮食")
+
+        store.handleStreamEvent(.delta(text: "先观察精神状态"))
+
+        XCTAssertNil(store.messages.last?.activityText)
+        XCTAssertEqual(store.messages.last?.text, "先观察精神状态")
+    }
+
+    private static func makeStoreWithStreamingPlaceholder() -> AIAssistantStore {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: RuntimeAdapterTestRepository(streamEvents: [])
+        )
+        store.ensureStreamingPlaceholderExists()
+        return store
+    }
+
     private static func errorEvents() -> [AIStreamEventDTO] {
         [
             .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "新对话"),

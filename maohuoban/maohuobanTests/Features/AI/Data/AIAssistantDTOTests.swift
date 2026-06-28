@@ -108,6 +108,18 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(citationCount, 2)
     }
 
+    func testDecodeAgentActivityEvent() {
+        let json = #"{"display_text":"正在查看毛球近期饮食","status":"started"}"#
+        let result = AIStreamEventDecoder.decode(event: "agent_activity", data: json)
+
+        guard case let .agentActivity(displayText, status) = result else {
+            XCTFail("expected agentActivity")
+            return
+        }
+        XCTAssertEqual(displayText, "正在查看毛球近期饮食")
+        XCTAssertEqual(status, "started")
+    }
+
     func testDecodeConfirmationTaskEvent() {
         let json = #"{"confirmation_task_id":"\#(UUID.zeroString)","question_text":"是否确认把毛球的主粮改为鸡肉配方？"}"#
         let result = AIStreamEventDecoder.decode(event: "confirmation_task", data: json)

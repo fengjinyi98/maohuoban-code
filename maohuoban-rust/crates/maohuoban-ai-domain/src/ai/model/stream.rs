@@ -28,6 +28,10 @@ pub enum AiStreamEvent {
         status: AiToolCallStatus,
         citation_count: u32,
     },
+    AgentActivity {
+        display_text: String,
+        status: AiAgentActivityStatus,
+    },
     Delta {
         text: String,
     },
@@ -70,6 +74,15 @@ pub enum AiToolCallStatus {
     Failed,
 }
 
+/// AiAgentActivityStatus Agent UI 安全进度状态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiAgentActivityStatus {
+    Started,
+    Completed,
+    Failed,
+}
+
 impl AiStreamEvent {
     /// event_name 返回 SSE 事件名
     pub fn event_name(&self) -> &'static str {
@@ -77,6 +90,7 @@ impl AiStreamEvent {
             Self::MessageStarted { .. } => "message_started",
             Self::PetResolution { .. } => "pet_resolution",
             Self::ToolCall { .. } => "tool_call",
+            Self::AgentActivity { .. } => "agent_activity",
             Self::Delta { .. } => "delta",
             Self::Citation { .. } => "citation",
             Self::ProposedAction { .. } => "proposed_action",

@@ -14,6 +14,9 @@ extension AIAssistantStore {
     func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index].text = text
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            messages[index].activityText = nil
+        }
         messages[index].isStreaming = isStreaming
         streamingRevision += 1
     }
@@ -87,6 +90,9 @@ extension AIAssistantStore {
                 citationCount: citationCount
             )
 
+        case .agentActivity(let displayText, let status):
+            applyAgentActivity(displayText: displayText, status: status)
+
         case .confirmationTask(let taskID, let questionText):
             pendingConfirmationTask = PendingConfirmationTask(
                 id: taskID.uuidString,
@@ -94,17 +100,20 @@ extension AIAssistantStore {
             )
 
         case .delta(let text):
+            clearActiveAgentActivity()
             streamingEngine.appendDelta(text)
             streamingEngine.flush()
             streamingRevision += 1
 
         case .messageCompleted(_, let finalText, let chips):
+            clearActiveAgentActivity()
             applyCompletedAssistantMessage(finalText: finalText, referenceChips: chips)
 
         case .proposedAction(let action):
             pendingAction = AIAssistantProposedAction(from: action)
 
         case .error(let code, _, let retryable, let safeFallbackText):
+            clearActiveAgentActivity()
             recordStreamIssue(
                 source: "backend_sse_error",
                 code: code,
@@ -113,6 +122,35 @@ extension AIAssistantStore {
             )
             finishBackendError(safeFallbackText: safeFallbackText)
         }
+    }
+
+    func applyAgentActivity(displayText: String, status: String) {
+        guard status == "started" else {
+            clearActiveAgentActivity()
+            return
+        }
+        let trimmedText = displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedText.isEmpty == false else { return }
+
+        if let activeMessageID = streamingEngine.activeMessageID,
+           let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
+            messages[index].activityText = trimmedText
+            streamingRevision += 1
+        }
+    }
+
+    func clearActiveAgentActivity() {
+        let activeMessageID = streamingEngine.activeMessageID
+        let index: Int?
+        if let activeMessageID {
+            index = messages.firstIndex(where: { $0.id == activeMessageID })
+        } else {
+            index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming })
+        }
+
+        guard let index, messages[index].activityText != nil else { return }
+        messages[index].activityText = nil
+        streamingRevision += 1
     }
 
     func ensureStreamingPlaceholderExists() {

@@ -274,6 +274,10 @@ fn runtime_provider_stream(
     let context = input.context;
 
     futures_util::stream::once(async move {
+        let activity_pet_name = context
+            .target_pet
+            .as_ref()
+            .map_or_else(|| "宠物".to_owned(), |pet| pet.pet_name.clone());
         let mut events = vec![Ok(AiStreamEvent::MessageStarted {
             chat_session_id: context.chat_session_id,
             message_id: context.message_id,
@@ -285,7 +289,12 @@ fn runtime_provider_stream(
 
         match session.prompt(user_message).await {
             Ok(agent_events) => {
-                for event in agent_events_to_sse_events(agent_events, message_id, fact_package) {
+                for event in agent_events_to_sse_events(
+                    agent_events,
+                    message_id,
+                    fact_package,
+                    &activity_pet_name,
+                ) {
                     events.push(Ok(event));
                 }
             }

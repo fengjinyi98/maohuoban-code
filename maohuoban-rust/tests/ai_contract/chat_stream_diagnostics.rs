@@ -4,11 +4,9 @@ use maohuoban_diagnostics::{
     PrivacyPolicy,
 };
 use serde_json::json;
-use std::sync::{Arc, OnceLock};
-use tokio::sync::Mutex;
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_text};
+use super::{authorized_json_request, diagnostics_test_lock, login_and_get_token, response_text};
 
 /// 流式聊天诊断事件不包含敏感原文和密钥
 #[tokio::test]
@@ -88,11 +86,6 @@ fn install_ai_test_diagnostics() -> Diagnostics {
         store: Box::new(store),
     })
     .expect("install diagnostics")
-}
-
-fn diagnostics_test_lock() -> Arc<Mutex<()>> {
-    static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
-    LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
 }
 
 async fn create_pet(

@@ -3,7 +3,18 @@
 use axum::body::{Body, to_bytes};
 use axum::http::Request;
 use serde_json::Value;
+use std::sync::{Arc, OnceLock};
+use tokio::sync::Mutex;
 use tower::ServiceExt;
+
+/// `diagnostics_test_lock` 隔离 AI 契约测试中的全局诊断运行时
+/// 核心职责：
+/// - 串行化 `Diagnostics::install` 调用
+/// - 避免并行测试互相覆盖全局 diagnostics runtime
+fn diagnostics_test_lock() -> Arc<Mutex<()>> {
+    static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
+    LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
+}
 
 /// `json_request` 构造 JSON HTTP 请求
 fn json_request(method: &str, uri: &str, body: Value) -> Request<Body> {

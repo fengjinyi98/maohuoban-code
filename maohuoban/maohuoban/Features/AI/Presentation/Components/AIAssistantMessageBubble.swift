@@ -17,9 +17,7 @@ struct AIAssistantMessageBubble: View {
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
                 if message.text.isEmpty && message.isStreaming {
-                    HStack(spacing: 4) {
-                        ThinkingDots()
-                    }
+                    AIAssistantThinkingStatus(displayText: message.activityText)
                 } else {
                     streamingText
                         .font(MHBTheme.Typography.headline.weight(.regular))
@@ -91,5 +89,26 @@ struct AIAssistantMessageBubble: View {
         case .system:
             "ai.assistant.message.system"
         }
+    }
+}
+
+// AIAssistantThinkingStatus AI 回复生成进度提示
+// 核心职责：
+// - 展示轻量加载动画
+// - 消费后端提供的安全进度文案
+private struct AIAssistantThinkingStatus: View {
+    let displayText: String?
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s2) {
+            ThinkingDots()
+            if let displayText, displayText.isEmpty == false {
+                Text(displayText)
+                    .font(MHBTheme.Typography.callout.weight(.regular))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityIdentifier("ai.assistant.message.activity")
     }
 }

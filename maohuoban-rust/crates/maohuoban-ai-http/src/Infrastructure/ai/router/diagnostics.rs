@@ -1,7 +1,7 @@
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiCitation, AiConversationSurface, AiGateDecision, AiIntent,
-    AiPetResolution, AiProposedAction, AiStreamEvent, AiToolCallStatus, AiVerificationStatus,
-    LlmFinishReason, LlmUsage,
+    AiAgentActivityStatus, AiAnswerVerification, AiCitation, AiConversationSurface, AiGateDecision,
+    AiIntent, AiPetResolution, AiProposedAction, AiStreamEvent, AiToolCallStatus,
+    AiVerificationStatus, LlmFinishReason, LlmUsage,
 };
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use serde_json::{Value, json};
@@ -324,6 +324,10 @@ fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {
             status,
             citation_count,
         } => tool_call_metadata(tool_name, *status, *citation_count),
+        AiStreamEvent::AgentActivity {
+            display_text,
+            status,
+        } => agent_activity_metadata(display_text, *status),
         AiStreamEvent::Delta { text } => delta_metadata(text),
         AiStreamEvent::Citation { citation } => citation_metadata(citation),
         AiStreamEvent::ProposedAction { action } => proposed_action_metadata(action),
@@ -353,6 +357,20 @@ fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {
             ..
         } => error_metadata(code, *retryable, safe_fallback_text.as_deref()),
     }
+}
+
+fn agent_activity_metadata(
+    display_text: &str,
+    status: AiAgentActivityStatus,
+) -> Vec<(&'static str, Value)> {
+    vec![
+        ("event_name", json!("agent_activity")),
+        ("activity_status", json!(agent_activity_status_code(status))),
+        (
+            "display_text_present",
+            json!(!display_text.trim().is_empty()),
+        ),
+    ]
 }
 
 fn message_started_metadata(
@@ -548,6 +566,14 @@ fn tool_status_code(status: AiToolCallStatus) -> &'static str {
         AiToolCallStatus::Allowed => "allowed",
         AiToolCallStatus::Denied => "denied",
         AiToolCallStatus::Failed => "failed",
+    }
+}
+
+fn agent_activity_status_code(status: AiAgentActivityStatus) -> &'static str {
+    match status {
+        AiAgentActivityStatus::Started => "started",
+        AiAgentActivityStatus::Completed => "completed",
+        AiAgentActivityStatus::Failed => "failed",
     }
 }
 

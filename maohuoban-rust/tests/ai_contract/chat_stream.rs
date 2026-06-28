@@ -9,16 +9,9 @@ use serde_json::json;
 use tower::ServiceExt;
 
 use super::{
-    authorized_json_request, json_request, login_and_get_token, response_json, response_text,
+    authorized_json_request, diagnostics_test_lock, json_request, login_and_get_token,
+    response_json, response_text,
 };
-
-fn diagnostics_test_lock() -> std::sync::Arc<tokio::sync::Mutex<()>> {
-    use std::sync::{Arc, OnceLock};
-    use tokio::sync::Mutex;
-
-    static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
-    LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
-}
 
 /// 未登录访问 /api/v1/ai/chat/stream 返回 401
 #[tokio::test]
@@ -324,6 +317,21 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     assert!(
         !text.contains("runtime_tool"),
         "SSE should not expose runtime tool placeholder names, got: {text}"
+    );
+    let activity_events = sse_event_data_all(&text, "agent_activity");
+    assert!(
+        activity_events.iter().any(|event| {
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("正在查看毛球档案"))
+        }),
+        "SSE should contain backend-provided safe activity text, got: {activity_events:?}"
+    );
+    assert!(
+        activity_events
+            .iter()
+            .all(|event| event.get("tool_name").is_none()),
+        "agent_activity should not expose internal tool names, got: {activity_events:?}"
     );
     assert!(
         text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),

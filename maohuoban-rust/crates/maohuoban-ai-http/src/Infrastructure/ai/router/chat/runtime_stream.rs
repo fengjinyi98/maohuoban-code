@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentToolStatus, AiError, AiFactPackage, AiStreamEvent, AiToolCallStatus,
-    LlmFinishReason, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    AgentEvent, AgentToolStatus, AiAgentActivityStatus, AiError, AiFactPackage, AiStreamEvent,
+    AiToolCallStatus, LlmFinishReason, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use uuid::Uuid;
 
@@ -15,6 +15,7 @@ pub(super) fn agent_events_to_sse_events(
     events: Vec<AgentEvent>,
     message_id: Uuid,
     fact_package: Option<AiFactPackage>,
+    pet_name: &str,
 ) -> Vec<AiStreamEvent> {
     let package = fact_package.unwrap_or_else(AiFactPackage::empty);
     let mut output = Vec::new();
@@ -37,12 +38,13 @@ pub(super) fn agent_events_to_sse_events(
                 tool_name,
                 ..
             } => {
-                tool_names_by_call_id.insert(tool_call_id, tool_name.clone());
-                output.push(AiStreamEvent::ToolCall {
+                push_tool_started_sse_events(
+                    &mut output,
+                    &mut tool_names_by_call_id,
+                    tool_call_id,
                     tool_name,
-                    status: AiToolCallStatus::Started,
-                    citation_count: 0,
-                });
+                    pet_name,
+                );
             }
             AgentEvent::ToolFinished {
                 tool_call_id,
@@ -50,14 +52,14 @@ pub(super) fn agent_events_to_sse_events(
                 citation_count,
                 ..
             } => {
-                let tool_name = tool_names_by_call_id
-                    .remove(&tool_call_id)
-                    .unwrap_or_else(|| "runtime_tool".to_owned());
-                output.push(AiStreamEvent::ToolCall {
-                    tool_name,
-                    status: map_tool_status(status),
+                push_tool_finished_sse_events(
+                    &mut output,
+                    &mut tool_names_by_call_id,
+                    &tool_call_id,
+                    status,
                     citation_count,
-                });
+                    pet_name,
+                );
             }
             AgentEvent::NeedsConfirmation {
                 confirmation_task_id,
@@ -118,6 +120,67 @@ pub(super) fn agent_events_to_sse_events(
     output
 }
 
+/// push_tool_started_sse_events 投影 Runtime 工具开始事件
+/// 核心职责：
+/// - 记录 tool_call_id 与工具名映射
+/// - 输出 UI 安全活动文案和兼容工具状态
+fn push_tool_started_sse_events(
+    output: &mut Vec<AiStreamEvent>,
+    tool_names_by_call_id: &mut HashMap<String, String>,
+    tool_call_id: String,
+    tool_name: String,
+    pet_name: &str,
+) {
+    tool_names_by_call_id.insert(tool_call_id, tool_name.clone());
+    output.push(AiStreamEvent::AgentActivity {
+        display_text: activity_text_for_tool(&tool_name, pet_name),
+        status: AiAgentActivityStatus::Started,
+    });
+    output.push(AiStreamEvent::ToolCall {
+        tool_name,
+        status: AiToolCallStatus::Started,
+        citation_count: 0,
+    });
+}
+
+/// push_tool_finished_sse_events 投影 Runtime 工具结束事件
+/// 核心职责：
+/// - 恢复工具名并输出兼容工具状态
+/// - 输出活动完成或失败状态供 UI 清理过程态
+fn push_tool_finished_sse_events(
+    output: &mut Vec<AiStreamEvent>,
+    tool_names_by_call_id: &mut HashMap<String, String>,
+    tool_call_id: &str,
+    status: AgentToolStatus,
+    citation_count: u32,
+    pet_name: &str,
+) {
+    let tool_name = tool_names_by_call_id
+        .remove(tool_call_id)
+        .unwrap_or_else(|| "runtime_tool".to_owned());
+    output.push(AiStreamEvent::ToolCall {
+        tool_name: tool_name.clone(),
+        status: map_tool_status(status),
+        citation_count,
+    });
+    output.push(AiStreamEvent::AgentActivity {
+        display_text: activity_text_for_tool(&tool_name, pet_name),
+        status: map_activity_status(status),
+    });
+}
+
+fn activity_text_for_tool(tool_name: &str, pet_name: &str) -> String {
+    match tool_name {
+        "load_pet_identity_context" => format!("正在查看{pet_name}档案"),
+        "load_pet_current_diet_context" => format!("正在查看{pet_name}近期饮食"),
+        "load_food_inventory_change_hints" => format!("正在检查{pet_name}近期喂食线索"),
+        "load_pet_diet_confirmation_candidates" => {
+            format!("正在查看{pet_name}待确认喂食记录")
+        }
+        _ => format!("正在处理{pet_name}相关信息"),
+    }
+}
+
 /// ai_error_to_sse_event 将应用错误转换为稳定 SSE 错误
 /// 核心职责：
 /// - 复用 AiError 的稳定错误码和用户可见文案
@@ -136,6 +199,13 @@ fn map_tool_status(status: AgentToolStatus) -> AiToolCallStatus {
         AgentToolStatus::Succeeded => AiToolCallStatus::Allowed,
         AgentToolStatus::Denied => AiToolCallStatus::Denied,
         AgentToolStatus::Failed => AiToolCallStatus::Failed,
+    }
+}
+
+fn map_activity_status(status: AgentToolStatus) -> AiAgentActivityStatus {
+    match status {
+        AgentToolStatus::Succeeded | AgentToolStatus::Denied => AiAgentActivityStatus::Completed,
+        AgentToolStatus::Failed => AiAgentActivityStatus::Failed,
     }
 }
 

@@ -19,6 +19,9 @@ enum AIStreamEventDecoder {
         case "tool_call":
             guard let payload = try? decoder.decode(AIStreamToolCallPayload.self, from: jsonData) else { return nil }
             return .toolCall(toolName: payload.toolName, status: payload.status, citationCount: payload.citationCount)
+        case "agent_activity":
+            guard let payload = try? decoder.decode(AIStreamAgentActivityPayload.self, from: jsonData) else { return nil }
+            return .agentActivity(displayText: payload.displayText, status: payload.status)
         case "confirmation_task":
             guard let payload = try? decoder.decode(AIStreamConfirmationTaskPayload.self, from: jsonData) else { return nil }
             return .confirmationTask(taskID: payload.taskID, questionText: payload.questionText)

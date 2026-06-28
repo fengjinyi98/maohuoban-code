@@ -7,6 +7,8 @@ extension AIAssistantStore {
             "message_started"
         case .toolCall:
             "tool_call"
+        case .agentActivity:
+            "agent_activity"
         case .confirmationTask:
             "confirmation_task"
         case .delta:

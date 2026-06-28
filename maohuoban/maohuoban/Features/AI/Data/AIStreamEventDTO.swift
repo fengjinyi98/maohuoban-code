@@ -7,6 +7,7 @@ import Foundation
 enum AIStreamEventDTO {
     case messageStarted(chatSessionID: UUID, messageID: UUID, title: String)
     case toolCall(toolName: String, status: String, citationCount: Int)
+    case agentActivity(displayText: String, status: String)
     case confirmationTask(taskID: UUID, questionText: String)
     case delta(text: String)
     case messageCompleted(messageID: UUID, finalText: String, referenceChips: [String])

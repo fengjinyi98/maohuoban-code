@@ -174,6 +174,12 @@ enum AIAssistantDiagnostics {
                 "status": .string(status),
                 "citation_count": .int(citationCount),
             ]
+        case .agentActivity(let displayText, let status):
+            [
+                "event_name": .string("agent_activity"),
+                "status": .string(status),
+                "display_text_length_bucket": .string(lengthBucket(displayText.count)),
+            ]
         case .confirmationTask(let taskID, let questionText):
             [
                 "event_name": .string("confirmation_task"),

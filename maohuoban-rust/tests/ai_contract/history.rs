@@ -9,7 +9,8 @@ use tower::ServiceExt;
 
 use super::{
     authorized_delete_request, authorized_get_request, authorized_json_request,
-    authorized_multipart_media_request, login_and_get_token, response_json, response_text,
+    authorized_multipart_media_request, diagnostics_test_lock, login_and_get_token, response_json,
+    response_text,
 };
 
 /// GET /api/v1/ai/chat-sessions 未登录返回 401
@@ -110,6 +111,7 @@ async fn ai_chat_sessions_returns_user_sessions() {
 /// 历史列表和消息详情写入后端诊断计数
 #[tokio::test]
 async fn ai_chat_history_records_backend_diagnostics_counts() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
     let diagnostics = install_ai_history_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
