@@ -23,7 +23,7 @@ pub(super) fn build_llm_request(
     });
 
     LlmChatRequest {
-        model: "default".to_owned(),
+        model: "primary".to_owned(),
         messages: AiPromptBuilder::new().build_messages(message, &pet_candidates, fact_package),
         tools: vec![],
         tool_choice: None,
@@ -31,5 +31,17 @@ pub(super) fn build_llm_request(
         stream: true,
         max_output_tokens: None,
         response_format: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_llm_request;
+
+    #[test]
+    fn llm_request_uses_primary_model_label() {
+        let request = build_llm_request("毛球今天怎么样", None, None);
+
+        assert_eq!(request.model, "primary");
     }
 }

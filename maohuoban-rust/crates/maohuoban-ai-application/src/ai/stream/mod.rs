@@ -10,6 +10,7 @@ use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
     AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiPetDisplaySnapshot, AiResult,
     AiStreamEvent, LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
+    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 
 use crate::ai::ports::LlmProvider;
@@ -169,10 +170,10 @@ impl AiStreamPipeline {
                         finish_reason = fr;
                         usage = u;
                     }
-                    Ok(LlmStreamEvent::Error { message }) => {
+                    Ok(LlmStreamEvent::Error { message: _ }) => {
                         yield Ok(AiStreamEvent::Error {
                             code: "ai.provider_stream_error".to_owned(),
-                            message,
+                            message: PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned(),
                             retryable: true,
                             blocked_reason: None,
                             safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
@@ -183,7 +184,7 @@ impl AiStreamPipeline {
                         let retryable = e.is_retryable();
                         yield Ok(AiStreamEvent::Error {
                             code: e.stable_code().to_owned(),
-                            message: e.to_string(),
+                            message: e.user_visible_message().to_owned(),
                             retryable,
                             blocked_reason: None,
                             safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),

@@ -27,7 +27,7 @@ mod tests {
 
     fn sample_request() -> LlmChatRequest {
         LlmChatRequest {
-            model: "ignored-by-provider-config".to_owned(),
+            model: "primary".to_owned(),
             messages: vec![LlmMessage {
                 role: LlmRole::User,
                 content: "毛球今天怎么样".to_owned(),

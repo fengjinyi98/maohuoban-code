@@ -8,7 +8,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use maohuoban_ai_domain::ai::AiError;
+use maohuoban_ai_domain::ai::{AiError, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -47,6 +47,40 @@ pub fn ai_error_response(error: &AiError) -> Response {
             "ai.unauthorized",
             "无权限访问该资源".to_owned(),
         ),
+        AiError::Provider(error) => {
+            let status = if matches!(
+                error.category(),
+                maohuoban_ai_domain::ai::ProviderErrorCategory::NotConfigured
+            ) {
+                StatusCode::SERVICE_UNAVAILABLE
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            (
+                status,
+                match error.category() {
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::NotConfigured => {
+                        "ai.provider.not_configured"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::Timeout => {
+                        "ai.provider.timeout"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::RateLimited => {
+                        "ai.provider.rate_limited"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::Upstream => {
+                        "ai.provider.upstream"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::StreamInterrupted => {
+                        "ai.provider.stream_interrupted"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::InvalidResponse => {
+                        "ai.provider.invalid_response"
+                    }
+                },
+                PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned(),
+            )
+        }
         AiError::ProviderNotConfigured => (
             StatusCode::SERVICE_UNAVAILABLE,
             "ai.provider_not_configured",

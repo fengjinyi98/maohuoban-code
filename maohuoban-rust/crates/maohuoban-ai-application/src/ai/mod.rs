@@ -4,6 +4,7 @@
 
 pub mod context;
 pub mod intent;
+pub mod model_router;
 pub mod pet_resolver;
 pub mod ports;
 pub mod prompt;

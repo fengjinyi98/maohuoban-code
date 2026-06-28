@@ -9,10 +9,11 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use futures_util::stream::{BoxStream, StreamExt};
+use maohuoban_ai_application::ai::model_router::{ModelRouteConfig, ModelRouter};
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
     AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
-    LlmStreamEvent, LlmToolCall, LlmUsage,
+    LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError, ProviderErrorCategory,
 };
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap};
 
@@ -25,6 +26,7 @@ use super::OpenAiCompatibleConfig;
 pub struct OpenAiCompatibleLlmProvider {
     config: OpenAiCompatibleConfig,
     client: reqwest::Client,
+    model_router: ModelRouter,
 }
 
 impl OpenAiCompatibleLlmProvider {
@@ -35,7 +37,26 @@ impl OpenAiCompatibleLlmProvider {
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        Self { config, client }
+        let model_router = Self::build_model_router(&config.model);
+        Self {
+            config,
+            client,
+            model_router,
+        }
+    }
+
+    /// build_model_router 构造首期内存模型路由
+    /// 核心职责：
+    /// - 将冻结模型 label 映射到当前 provider 配置模型
+    /// - 保留直接传入配置模型名的兼容路径
+    fn build_model_router(model: &str) -> ModelRouter {
+        ModelRouter::new([
+            ModelRouteConfig::new("lite", model),
+            ModelRouteConfig::new("primary", model),
+            ModelRouteConfig::new("pro", model),
+            ModelRouteConfig::new("memory", model),
+            ModelRouteConfig::new(model, model),
+        ])
     }
 
     /// completions_url 归一化 base_url 为完整 endpoint
@@ -61,7 +82,7 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// build_body 构造 OpenAI 兼容请求体
-    fn build_body(&self, request: &LlmChatRequest) -> serde_json::Value {
+    fn build_body(&self, request: &LlmChatRequest, model: &str) -> serde_json::Value {
         let messages: Vec<serde_json::Value> = request
             .messages
             .iter()
@@ -98,7 +119,7 @@ impl OpenAiCompatibleLlmProvider {
             .collect();
 
         let mut body = serde_json::json!({
-            "model": self.config.model,
+            "model": model,
             "messages": messages,
             "temperature": self.config.temperature,
             "stream": request.stream,
@@ -122,27 +143,71 @@ impl OpenAiCompatibleLlmProvider {
 
     /// map_status_error 将 HTTP 状态码映射为稳定错误
     fn map_status_error(status: u16, body: &str) -> AiError {
-        match status {
-            401 | 403 => AiError::Unauthorized,
-            429 => AiError::ProviderRequestFailed("rate limited".to_owned()),
-            s if s >= 500 => AiError::ProviderRequestFailed(format!("server error: {status}")),
-            _ => AiError::ProviderRequestFailed(format!("http {status}: {body}")),
-        }
+        let category = match status {
+            401 | 403 => ProviderErrorCategory::NotConfigured,
+            429 => ProviderErrorCategory::RateLimited,
+            s if s >= 500 => ProviderErrorCategory::Upstream,
+            _ => ProviderErrorCategory::Upstream,
+        };
+        AiError::Provider(ProviderError::new(
+            category,
+            format!("http {status}: {body}"),
+        ))
+    }
+
+    /// map_request_error 将 reqwest 错误映射为 Provider 分类
+    fn map_request_error(error: &reqwest::Error) -> AiError {
+        let category = if error.is_timeout() {
+            ProviderErrorCategory::Timeout
+        } else {
+            ProviderErrorCategory::Upstream
+        };
+        AiError::Provider(ProviderError::new(category, error.to_string()))
+    }
+
+    /// provider_error 构造 Provider 分类错误
+    fn provider_error(category: ProviderErrorCategory, message: impl Into<String>) -> AiError {
+        AiError::Provider(ProviderError::new(category, message))
+    }
+
+    /// resolve_request_model 解析请求模型 label
+    /// 核心职责：
+    /// - 将业务请求中的模型 label 转换为 provider model
+    /// - 未配置或未知 label 不发起上游 HTTP 调用
+    fn resolve_request_model(&self, request: &LlmChatRequest) -> AiResult<String> {
+        self.model_router
+            .resolve(&request.model)
+            .map(|route| route.model().to_owned())
+            .map_err(|error| {
+                Self::provider_error(
+                    ProviderErrorCategory::NotConfigured,
+                    format!("model route unavailable: {error}"),
+                )
+            })
     }
 
     /// parse_response 解析 OpenAI 兼容非流式响应
     fn parse_response(body: &str) -> AiResult<LlmChatResponse> {
-        let json: serde_json::Value = serde_json::from_str(body)
-            .map_err(|error| AiError::ProviderRequestFailed(format!("invalid json: {error}")))?;
+        let json: serde_json::Value = serde_json::from_str(body).map_err(|error| {
+            Self::provider_error(
+                ProviderErrorCategory::InvalidResponse,
+                format!("invalid json: {error}"),
+            )
+        })?;
 
-        let choice = json
-            .get("choices")
-            .and_then(|c| c.get(0))
-            .ok_or_else(|| AiError::ProviderRequestFailed("no choices in response".to_owned()))?;
+        let choice = json.get("choices").and_then(|c| c.get(0)).ok_or_else(|| {
+            Self::provider_error(
+                ProviderErrorCategory::InvalidResponse,
+                "no choices in response",
+            )
+        })?;
 
-        let message = choice
-            .get("message")
-            .ok_or_else(|| AiError::ProviderRequestFailed("no message in choice".to_owned()))?;
+        let message = choice.get("message").ok_or_else(|| {
+            Self::provider_error(
+                ProviderErrorCategory::InvalidResponse,
+                "no message in choice",
+            )
+        })?;
 
         let content = message
             .get("content")
@@ -232,7 +297,8 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         Box::pin(async move {
             let url = self.completions_url();
             let headers = self.build_headers();
-            let body = self.build_body(request);
+            let model = self.resolve_request_model(request)?;
+            let body = self.build_body(request, &model);
 
             let response = self
                 .client
@@ -241,13 +307,13 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| AiError::ProviderRequestFailed(e.to_string()))?;
+                .map_err(|error| Self::map_request_error(&error))?;
 
             let status = response.status().as_u16();
             let text = response
                 .text()
                 .await
-                .map_err(|e| AiError::ProviderRequestFailed(e.to_string()))?;
+                .map_err(|error| Self::map_request_error(&error))?;
 
             if status >= 400 {
                 return Err(Self::map_status_error(status, &text));
@@ -263,7 +329,11 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
     ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
         let url = self.completions_url();
         let headers = self.build_headers();
-        let mut body = self.build_body(request);
+        let model = match self.resolve_request_model(request) {
+            Ok(model) => model,
+            Err(error) => return futures_util::stream::once(async { Err(error) }).boxed(),
+        };
+        let mut body = self.build_body(request, &model);
         body["stream"] = serde_json::Value::Bool(true);
 
         let client = self.client.clone();
@@ -278,7 +348,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             {
                 Ok(r) => r,
                 Err(e) => {
-                    yield Err(AiError::ProviderStreamError(e.to_string()));
+                    yield Err(Self::map_request_error(&e));
                     return;
                 }
             };
@@ -293,25 +363,48 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             use futures_util::StreamExt as _;
             let mut stream = response.bytes_stream();
             let mut buffer = String::new();
+            let mut stream_completed = false;
 
             while let Some(chunk_result) = stream.next().await {
                 match chunk_result {
                     Ok(bytes) => {
-                        buffer.push_str(&String::from_utf8_lossy(&bytes));
+                        let chunk = String::from_utf8_lossy(&bytes);
+                        if chunk.contains("[DONE]") {
+                            stream_completed = true;
+                        }
+                        buffer.push_str(&chunk);
                         let (events, remaining) = crate::provider::sse::parse_sse_buffer(&buffer);
                         buffer = remaining;
                         for event in events {
                             match event {
-                                Ok(e) => yield Ok(e),
-                                Err(e) => yield Err(e),
+                                Ok(e) => {
+                                    if matches!(e, LlmStreamEvent::Finish { .. }) {
+                                        stream_completed = true;
+                                    }
+                                    yield Ok(e);
+                                }
+                                Err(e) => {
+                                    yield Err(e);
+                                    return;
+                                }
                             }
                         }
                     }
                     Err(e) => {
-                        yield Err(AiError::ProviderStreamError(e.to_string()));
+                        yield Err(Self::provider_error(
+                            ProviderErrorCategory::StreamInterrupted,
+                            e.to_string(),
+                        ));
                         return;
                     }
                 }
+            }
+
+            if !buffer.trim().is_empty() || !stream_completed {
+                yield Err(Self::provider_error(
+                    ProviderErrorCategory::StreamInterrupted,
+                    "stream ended before completion marker",
+                ));
             }
         }
         .boxed()
