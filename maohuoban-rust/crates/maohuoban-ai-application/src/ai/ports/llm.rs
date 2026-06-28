@@ -3,7 +3,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
-use maohuoban_ai_domain::ai::{AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent};
+use maohuoban_ai_domain::ai::{
+    AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent, ProviderError,
+    ProviderErrorCategory,
+};
 
 /// LlmProvider LLM Provider 端口
 /// 核心职责：
@@ -72,13 +75,24 @@ impl LlmProvider for DisabledLlmProvider {
         &'a self,
         _request: &'a LlmChatRequest,
     ) -> Pin<Box<dyn Future<Output = AiResult<LlmChatResponse>> + Send + 'a>> {
-        Box::pin(async { Err(AiError::ProviderNotConfigured) })
+        Box::pin(async {
+            Err(AiError::Provider(ProviderError::new(
+                ProviderErrorCategory::NotConfigured,
+                "provider is not configured",
+            )))
+        })
     }
 
     fn stream<'a>(
         &'a self,
         _request: &'a LlmChatRequest,
     ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
-        futures_util::stream::once(async { Err(AiError::ProviderNotConfigured) }).boxed()
+        futures_util::stream::once(async {
+            Err(AiError::Provider(ProviderError::new(
+                ProviderErrorCategory::NotConfigured,
+                "provider is not configured",
+            )))
+        })
+        .boxed()
     }
 }

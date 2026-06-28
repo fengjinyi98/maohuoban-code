@@ -203,5 +203,8 @@ mod chat_stream_diagnostics;
 #[path = "ai_contract/persistence.rs"]
 mod persistence;
 
+#[path = "ai_contract/replay.rs"]
+mod replay;
+
 #[path = "ai_contract/history.rs"]
 mod history;

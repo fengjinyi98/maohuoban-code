@@ -9,7 +9,7 @@ use maohuoban_ai_application::ai::ports::FakeLlmProvider;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_domain::ai::{
     AiStreamEvent, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
-    LlmStreamEvent, LlmUsage,
+    LlmStreamEvent, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use uuid::Uuid;
 
@@ -150,11 +150,13 @@ async fn stream_pipeline_emits_error_on_provider_failure() {
         events.get(1),
         Some(Ok(AiStreamEvent::Error {
             code,
+            message,
             retryable: false,
             safe_fallback_text: Some(safe_fallback_text),
             ..
-        })) if code == "ai.provider_not_configured"
-            && safe_fallback_text == "暂时无法获取回答，请稍后重试。"
+        })) if code == "ai.provider.not_configured"
+            && message == PROVIDER_USER_VISIBLE_FAILURE_MESSAGE
+            && safe_fallback_text == PROVIDER_USER_VISIBLE_FAILURE_MESSAGE
     ));
 }
 
