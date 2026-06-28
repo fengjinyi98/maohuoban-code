@@ -59,7 +59,7 @@ async fn ai_chat_non_stream_returns_provider_not_configured() {
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let body = response_json(response).await;
     assert_eq!(body["success"], false);
-    assert_eq!(body["code"], "ai.provider_not_configured");
+    assert_eq!(body["code"], "ai.provider.not_configured");
 }
 
 /// `/api/v1/ai/chat` 配置 Provider 后返回非流式聚合回答

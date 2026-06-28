@@ -29,7 +29,7 @@
     "surface": "home_private",
     "expected_intent": "pet_health_risk",
     "expected_gate_decision": "load_context",
-    "expected_error_code": "ai.provider_not_configured",
+    "expected_error_code": "ai.provider.not_configured",
     "forbidden_text": ["contract-api-key", "api_key", "authorization"]
   },
   {

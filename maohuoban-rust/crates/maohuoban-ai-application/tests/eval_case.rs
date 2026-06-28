@@ -64,7 +64,7 @@ fn eval_case_parses_fixture() {
         assert_eq!(case.expected_gate_decision, "load_context");
         assert_eq!(
             case.expected_error_code.as_deref(),
-            Some("ai.provider_not_configured")
+            Some("ai.provider.not_configured")
         );
         assert_eq!(case.forbidden_text, provider_forbidden_texts());
     });

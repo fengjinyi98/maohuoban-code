@@ -124,7 +124,7 @@ async fn agent_session_emits_provider_error_and_turn_failed() {
         0,
         ProviderErrorCategory::NotConfigured,
         false,
-        "ai.provider_not_configured".to_owned(),
+        "ai.provider.not_configured".to_owned(),
     )]);
     let mut session = AgentSession::new(
         Uuid::new_v4(),

@@ -8,10 +8,13 @@
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use serde_json::{Value, json};
+use std::sync::{Arc, OnceLock};
+use tokio::sync::Mutex;
 use tower::ServiceExt;
 
 #[tokio::test]
 async fn provider_not_configured_eval() {
+    let _guard = ai_eval_test_lock().lock_owned().await;
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139101", "ai-eval-provider-error").await;
@@ -52,7 +55,7 @@ async fn provider_not_configured_eval() {
     );
 
     let error = sse_event_data(&text, "error");
-    assert_eq!(error["code"], "ai.provider_not_configured");
+    assert_eq!(error["code"], "ai.provider.not_configured");
     assert_eq!(error["retryable"], false);
     assert_eq!(
         error["safe_fallback_text"],
@@ -62,6 +65,7 @@ async fn provider_not_configured_eval() {
 
 #[tokio::test]
 async fn unauthorized_pet_eval() {
+    let _guard = ai_eval_test_lock().lock_owned().await;
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let owner_token = login_and_get_token(&app, "13800139102", "ai-eval-pet-owner").await;
@@ -107,7 +111,7 @@ async fn unauthorized_pet_eval() {
         "unauthorized_or_not_found"
     );
     assert!(
-        !text.contains("event: error") && !text.contains("ai.provider_not_configured"),
+        !text.contains("event: error") && !text.contains("ai.provider.not_configured"),
         "unauthorized pet eval should not call provider, got body {text}"
     );
 
@@ -248,6 +252,11 @@ async fn create_pet(
 
     assert_eq!(response.status(), StatusCode::CREATED);
     response_json(response).await["data"].clone()
+}
+
+fn ai_eval_test_lock() -> Arc<Mutex<()>> {
+    static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
+    LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
 }
 
 fn sse_event_names(text: &str) -> Vec<String> {

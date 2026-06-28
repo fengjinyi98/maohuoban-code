@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
+use super::provider_error::ProviderErrorCategory;
 
 /// MAIN_PET_CARE_AGENT_ID 首期主 Agent 标识
 /// 核心职责：
@@ -69,21 +70,6 @@ pub enum ModelLabel {
     Primary,
     Pro,
     Memory,
-}
-
-/// ProviderErrorCategory Provider 错误大类
-/// 核心职责：
-/// - 固定 Runtime 内部错误分类名称
-/// - WT03 后续补充真实 Provider 映射
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProviderErrorCategory {
-    NotConfigured,
-    Timeout,
-    RateLimited,
-    Upstream,
-    StreamInterrupted,
-    InvalidResponse,
 }
 
 /// AgentTurnStatus Runtime turn 结束状态

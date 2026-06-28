@@ -12,6 +12,14 @@ use super::{
     authorized_json_request, json_request, login_and_get_token, response_json, response_text,
 };
 
+fn diagnostics_test_lock() -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    use std::sync::{Arc, OnceLock};
+    use tokio::sync::Mutex;
+
+    static LOCK: OnceLock<Arc<Mutex<()>>> = OnceLock::new();
+    LOCK.get_or_init(|| Arc::new(Mutex::new(()))).clone()
+}
+
 /// 未登录访问 /api/v1/ai/chat/stream 返回 401
 #[tokio::test]
 async fn ai_chat_stream_unauthorized_without_token() {
@@ -42,6 +50,7 @@ async fn ai_chat_stream_unauthorized_without_token() {
 /// `DisabledLlmProvider` 会触发 error 事件，但 `message_started` 应该先到达
 #[tokio::test]
 async fn ai_chat_stream_authenticated_emits_sse_events() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139001", "ios-ai-stream-test").await;
@@ -85,7 +94,7 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
     );
 
     let error = sse_event_data(&text, "error");
-    assert_eq!(error["code"], "ai.provider_not_configured");
+    assert_eq!(error["code"], "ai.provider.not_configured");
     assert_eq!(error["retryable"], false);
     assert_eq!(
         error["safe_fallback_text"],
@@ -96,6 +105,7 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
 /// 流式聊天写入后端业务链路诊断事件
 #[tokio::test]
 async fn ai_chat_stream_records_backend_diagnostics_chain() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
     let diagnostics = install_ai_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -143,11 +153,11 @@ async fn ai_chat_stream_records_backend_diagnostics_chain() {
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.stream.event.emitted"
             && event.metadata["event_name"] == json!("error")
-            && event.metadata["error_code"] == json!("ai.provider_not_configured")
+            && event.metadata["error_code"] == json!("ai.provider.not_configured")
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.provider.error"
-            && event.metadata["error_code"] == json!("ai.provider_not_configured")
+            && event.metadata["error_code"] == json!("ai.provider.not_configured")
             && event.metadata["retryable"] == json!(false)
     }));
 }
