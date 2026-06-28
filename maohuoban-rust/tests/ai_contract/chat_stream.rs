@@ -262,6 +262,84 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     assert_eq!(identity_log_count, 1);
 }
 
+/// 助手身份问题没有私域宠物上下文时仍进入后端工作台和 Provider
+#[tokio::test]
+async fn ai_chat_stream_identity_enters_workbench() {
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("你是谁");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我是毛球，可以帮你聊宠物照护和毛伙伴 App 使用。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":3,\"total_tokens\":5}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139022", "ios-ai-identity").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "你是谁",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send identity chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+
+    mock.assert();
+    assert!(
+        text.contains("我是毛球，可以帮你聊宠物照护和毛伙伴 App 使用。"),
+        "SSE should contain provider identity answer, got: {text}"
+    );
+    assert!(
+        text.contains("event: message_completed"),
+        "SSE should contain completion event, got: {text}"
+    );
+
+    let row: (String, bool, Option<String>) = sqlx::query_as(
+        r"
+        SELECT gate_decision, context_loaded, risk_signal
+        FROM ai_request_gate_logs
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest gate log");
+
+    assert_eq!(row.0, "enter_workbench");
+    assert!(!row.1);
+    assert_eq!(row.2, None);
+}
+
 /// Provider 返回工具调用时 `/api/v1/ai/chat/stream` 通过自有 Agent Runtime 执行工具并回灌
 #[tokio::test]
 async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
@@ -531,16 +609,20 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     );
 }
 
-/// `off_topic` 请求写入 gate log，且不调用主 `LLM Provider`
+/// `off_topic` 请求写入 gate log，且进入主工作台 Provider
 #[tokio::test]
-async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
+async fn ai_chat_stream_off_topic_records_gate_log_and_enters_workbench() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions");
         then.status(200)
             .header("content-type", "text/event-stream")
-            .body("data: {\"choices\":[{\"delta\":{\"content\":\"不应调用\"}}]}\n\n");
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我会把重点收回到宠物和毛伙伴 App 相关问题。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8,\"total_tokens\":13}}\n\n\
+                 data: [DONE]\n\n",
+            );
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
@@ -576,15 +658,19 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
     assert_eq!(response.status(), StatusCode::OK);
     let text = response_text(response).await;
 
-    mock.assert_hits(0);
+    mock.assert();
+    assert!(
+        text.contains("我会把重点收回到宠物和毛伙伴 App 相关问题。"),
+        "SSE should contain provider workbench response, got: {text}"
+    );
     assert!(
         text.contains("event: message_completed"),
-        "SSE should complete with a safe boundary message, got: {text}"
+        "SSE should complete through workbench provider, got: {text}"
     );
 
-    let row: (String, bool, Option<String>) = sqlx::query_as(
+    let row: (String, String, bool, Option<String>) = sqlx::query_as(
         r"
-        SELECT intent, context_loaded, risk_signal
+        SELECT intent, gate_decision, context_loaded, risk_signal
         FROM ai_request_gate_logs
         ORDER BY created_at DESC
         LIMIT 1
@@ -595,8 +681,9 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_skips_provider() {
     .expect("read latest gate log");
 
     assert_eq!(row.0, "off_topic");
-    assert!(!row.1);
-    assert_eq!(row.2, None);
+    assert_eq!(row.1, "enter_workbench");
+    assert!(!row.2);
+    assert_eq!(row.3, None);
 }
 
 /// 宠物领域流式请求会从后端宠物档案解析 selected pet

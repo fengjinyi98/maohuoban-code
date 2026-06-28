@@ -111,7 +111,7 @@ pub async fn handle_chat_stream(
     )
     .await;
 
-    if !gate_decision.context_loaded {
+    if !gate_decision.enters_workbench() {
         return gated_stream_response(
             state.session_repository.clone(),
             session_id,
@@ -692,12 +692,12 @@ fn intent_code(intent: AiIntent) -> &'static str {
 /// 核心职责：
 /// - 区分加载上下文、跳过主 Agent 和安全阻断
 fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.allow_processing() {
+    if !gate_decision.enters_workbench() {
         "blocked"
     } else if gate_decision.context_loaded {
         "load_context"
     } else {
-        "skip_main_agent"
+        "enter_workbench"
     }
 }
 

@@ -542,12 +542,12 @@ fn intent_code(intent: AiIntent) -> &'static str {
 }
 
 fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.allow_processing() {
+    if !gate_decision.enters_workbench() {
         "blocked"
     } else if gate_decision.context_loaded {
         "load_context"
     } else {
-        "skip_main_agent"
+        "enter_workbench"
     }
 }
 

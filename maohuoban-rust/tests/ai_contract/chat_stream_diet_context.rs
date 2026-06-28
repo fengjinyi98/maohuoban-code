@@ -101,7 +101,7 @@ fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":false")
-            .body_contains("current_staple")
+            .body_contains("已确认事实")
             .body_contains("渴望六种鱼");
         then.status(200)
             .header("content-type", "application/json")
