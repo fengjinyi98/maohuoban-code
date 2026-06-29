@@ -447,6 +447,7 @@ async fn agent_runtime_reports_confirmation_requests() {
             "model_call_started",
             "model_call_finished",
             "tool_started",
+            "tool_finished",
             "needs_confirmation",
         ]
     );

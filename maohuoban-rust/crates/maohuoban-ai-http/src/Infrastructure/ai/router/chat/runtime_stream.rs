@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
 use maohuoban_ai_application::ai::citations::citations_for_answer;
-use maohuoban_ai_application::ai::output::visible_text_from_model_output;
+use maohuoban_ai_application::ai::output::visible_text_prefix_from_model_output;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentToolStatus, AiAgentActivityStatus, AiError, AiFactPackage, AiStreamEvent,
     AiToolCallStatus, LlmFinishReason, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use uuid::Uuid;
+
+/// AI_STREAM_TRACE_DEBUG_TAG 流式链路临时诊断标识
+const AI_STREAM_TRACE_DEBUG_TAG: &str = "[DEBUG:AiStreamTrace]";
 
 /// AgentEventSseProjector Runtime 事件到 SSE 事件的增量投影器
 /// 核心职责：
@@ -100,7 +103,7 @@ impl AgentEventSseProjector {
                 });
             }
             AgentEvent::MessageDelta { text, .. } => {
-                self.project_message_delta(&mut output, text);
+                self.project_message_delta(&mut output, &text);
             }
             AgentEvent::TurnFinished { final_text, .. } => {
                 append_verified_completion(
@@ -152,40 +155,71 @@ impl AgentEventSseProjector {
     /// 核心职责：
     /// - 累积模型原始输出，避免 JSON 和违规内容提前透出
     /// - 仅在当前可见文本通过本地校验时输出用户可见 delta
-    fn project_message_delta(&mut self, output: &mut Vec<AiStreamEvent>, text: String) {
-        self.pending_delta_text.push_str(&text);
+    fn project_message_delta(&mut self, output: &mut Vec<AiStreamEvent>, text: &str) {
+        self.pending_delta_text.push_str(text);
+        eprintln!(
+            "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_received message_id_prefix={} raw_delta_chars={} pending_chars={} streamed_chars={}",
+            uuid_prefix(&self.message_id),
+            text.chars().count(),
+            self.pending_delta_text.chars().count(),
+            self.streamed_delta_text.chars().count()
+        );
         if self.suppress_model_delta {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_suppressed message_id_prefix={} reason=already_suppressed pending_chars={} streamed_chars={}",
+                uuid_prefix(&self.message_id),
+                self.pending_delta_text.chars().count(),
+                self.streamed_delta_text.chars().count()
+            );
             return;
         }
 
-        if model_output_json_is_pending(&self.pending_delta_text) {
+        let Some(visible_text) = visible_text_prefix_from_model_output(&self.pending_delta_text)
+        else {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_buffered message_id_prefix={} reason=visible_text_pending pending_chars={} streamed_chars={}",
+                uuid_prefix(&self.message_id),
+                self.pending_delta_text.chars().count(),
+                self.streamed_delta_text.chars().count()
+            );
             return;
-        }
-
-        let visible_text = visible_text_from_model_output(&self.pending_delta_text);
-        if visible_text != self.pending_delta_text {
+        };
+        if visible_text == self.streamed_delta_text
+            || !visible_text.starts_with(&self.streamed_delta_text)
+        {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_buffered message_id_prefix={} reason=no_new_visible_text pending_chars={} visible_chars={} streamed_chars={}",
+                uuid_prefix(&self.message_id),
+                self.pending_delta_text.chars().count(),
+                visible_text.chars().count(),
+                self.streamed_delta_text.chars().count()
+            );
             return;
         }
 
         let verification = AiAnswerVerifier::new().verify(&visible_text, &self.package);
         if verification.is_blocked() {
             self.suppress_model_delta = true;
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_suppressed message_id_prefix={} reason=verification_blocked pending_chars={} visible_chars={}",
+                uuid_prefix(&self.message_id),
+                self.pending_delta_text.chars().count(),
+                visible_text.chars().count()
+            );
             return;
         }
 
-        self.streamed_delta_text.push_str(&text);
-        output.push(AiStreamEvent::Delta { text });
+        let delta_text = visible_text[self.streamed_delta_text.len()..].to_owned();
+        self.streamed_delta_text.push_str(&delta_text);
+        eprintln!(
+            "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_emitted message_id_prefix={} emitted_chars={} streamed_chars={} pending_chars={}",
+            uuid_prefix(&self.message_id),
+            delta_text.chars().count(),
+            self.streamed_delta_text.chars().count(),
+            self.pending_delta_text.chars().count()
+        );
+        output.push(AiStreamEvent::Delta { text: delta_text });
     }
-}
-
-/// model_output_json_is_pending 判断模型 JSON 输出是否仍在分片中
-/// 核心职责：
-/// - 识别以 JSON 对象或数组起始的未完整输出
-/// - 避免结构化输出半截内容作为用户可见 delta 泄漏
-fn model_output_json_is_pending(content: &str) -> bool {
-    let trimmed = content.trim_start();
-    (trimmed.starts_with('{') || trimmed.starts_with('['))
-        && serde_json::from_str::<serde_json::Value>(trimmed).is_err()
 }
 
 /// push_tool_started_sse_events 投影 Runtime 工具开始事件
@@ -287,6 +321,13 @@ fn append_verified_completion(
     streamed_delta_text: &str,
 ) {
     let verification = AiAnswerVerifier::new().verify(&final_text, package);
+    eprintln!(
+        "{AI_STREAM_TRACE_DEBUG_TAG} projector_completion_checked message_id_prefix={} final_chars={} streamed_chars={} verification_blocked={}",
+        uuid_prefix(&message_id),
+        final_text.chars().count(),
+        streamed_delta_text.chars().count(),
+        verification.is_blocked()
+    );
 
     if verification.is_blocked() {
         let safe_text = verification
@@ -312,6 +353,12 @@ fn append_verified_completion(
     let citations = citations_for_answer(&final_text, package);
     append_citations(output, citations.clone());
     if streamed_delta_text != final_text {
+        eprintln!(
+            "{AI_STREAM_TRACE_DEBUG_TAG} projector_completion_delta_emitted message_id_prefix={} reason=streamed_text_mismatch final_chars={} streamed_chars={}",
+            uuid_prefix(&message_id),
+            final_text.chars().count(),
+            streamed_delta_text.chars().count()
+        );
         output.push(AiStreamEvent::Delta {
             text: final_text.clone(),
         });
@@ -335,6 +382,14 @@ fn append_citations(
     }
 }
 
+/// uuid_prefix 生成临时诊断用短 ID
+/// 核心职责：
+/// - 缩短日志中的 message 标识
+/// - 避免输出完整业务 ID
+fn uuid_prefix(id: &Uuid) -> String {
+    id.to_string().chars().take(8).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use maohuoban_ai_domain::ai::{AgentEvent, AgentTurnId, AgentTurnStatus, AiStreamEvent};
@@ -342,25 +397,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn projector_buffers_partial_json_until_answer_text_is_complete() {
+    fn projector_streams_json_answer_text_incrementally_without_json_fields() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
         let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
 
-        let partial_events = projector.project(AgentEvent::MessageDelta {
+        let first_events = projector.project(AgentEvent::MessageDelta {
             turn_id,
             text: "{\"answer_text\":\"豆包精神".to_owned(),
         });
+        let first_deltas: Vec<&str> = first_events
+            .iter()
+            .filter_map(|event| match event {
+                AiStreamEvent::Delta { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
 
-        assert!(
-            partial_events.is_empty(),
-            "partial JSON must not be sent to iOS as raw delta: {partial_events:?}"
-        );
+        assert_eq!(first_deltas, vec!["豆包精神"]);
 
-        let _ = projector.project(AgentEvent::MessageDelta {
+        let second_events = projector.project(AgentEvent::MessageDelta {
             turn_id,
             text: "正常。\",\"display_blocks\":[]}".to_owned(),
         });
+        let second_deltas: Vec<&str> = second_events
+            .iter()
+            .filter_map(|event| match event {
+                AiStreamEvent::Delta { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(second_deltas, vec!["正常。"]);
+
         let completed_events = projector.project(AgentEvent::TurnFinished {
             turn_id,
             message_id,
@@ -375,6 +444,9 @@ mod tests {
             })
             .collect();
 
-        assert_eq!(deltas, vec!["豆包精神正常。"]);
+        assert!(
+            deltas.is_empty(),
+            "completed event must not duplicate streamed answer_text"
+        );
     }
 }

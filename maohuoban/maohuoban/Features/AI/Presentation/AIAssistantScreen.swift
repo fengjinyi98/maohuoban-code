@@ -24,27 +24,18 @@ struct AIAssistantScreen: View {
 
         ScrollViewReader { proxy in
             MHBScreenScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                    ForEach(store.messages) { message in
-                        AIAssistantMessageBubble(message: message)
+                AIAssistantMessageTimeline(
+                    messages: store.messages,
+                    activeAgentActivityText: store.activeAgentActivityText,
+                    pendingAction: store.pendingAction,
+                    bottomAnchorID: Self.bottomAnchorID,
+                    onConfirmPendingAction: {
+                        store.confirmPendingAction()
+                    },
+                    onCancelPendingAction: {
+                        store.cancelPendingAction()
                     }
-
-                    if let pendingAction = store.pendingAction {
-                        AIAssistantProposedActionCard(
-                            action: pendingAction,
-                            onConfirm: {
-                                store.confirmPendingAction()
-                            },
-                            onCancel: {
-                                store.cancelPendingAction()
-                            }
-                        )
-                    }
-
-                    Color.clear
-                        .frame(height: 1)
-                        .id(Self.bottomAnchorID)
-                }
+                )
                 .padding(.horizontal, MHBTheme.Spacing.s4)
                 .padding(.top, MHBTheme.Spacing.s6)
                 .padding(.bottom, MHBTheme.Spacing.s4)
@@ -261,6 +252,48 @@ struct AIAssistantScreen: View {
     private func presentCameraFailure(_ message: String) {
         cameraFailureMessage = message
         isCameraFailureAlertPresented = true
+    }
+}
+
+// AIAssistantMessageTimeline AI 对话消息时间线
+// 核心职责：
+// - 渲染用户与助手消息
+// - 独立展示后端 agent_activity 进度文案
+// - 承载待确认动作卡片和滚动锚点
+private struct AIAssistantMessageTimeline: View {
+    let messages: [AIAssistantMessage]
+    let activeAgentActivityText: String?
+    let pendingAction: AIAssistantProposedAction?
+    let bottomAnchorID: String
+    let onConfirmPendingAction: () -> Void
+    let onCancelPendingAction: () -> Void
+
+    var body: some View {
+        LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+            ForEach(messages) { message in
+                AIAssistantMessageBubble(
+                    message: message,
+                    showsEmptyStreamingIndicator: activeAgentActivityText == nil
+                )
+            }
+
+            if let activeAgentActivityText {
+                AIAssistantThinkingStatus(displayText: activeAgentActivityText)
+                    .padding(.top, MHBTheme.Spacing.s1)
+            }
+
+            if let pendingAction {
+                AIAssistantProposedActionCard(
+                    action: pendingAction,
+                    onConfirm: onConfirmPendingAction,
+                    onCancel: onCancelPendingAction
+                )
+            }
+
+            Color.clear
+                .frame(height: 1)
+                .id(bottomAnchorID)
+        }
     }
 }
 

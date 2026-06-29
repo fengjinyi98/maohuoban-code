@@ -22,6 +22,7 @@ final class AIAssistantStore {
     var currentConversationTitle: String?
     var histories: [AIAssistantConversationHistory] = []
     var activeToolStatus: ActiveToolStatus?
+    var activeAgentActivityText: String?
     var pendingConfirmationTask: PendingConfirmationTask?
     @ObservationIgnored private(set) var streamingEngine = AIAssistantStreamingEngine()
     var streamingTask: Task<Void, Never>?
@@ -76,6 +77,7 @@ final class AIAssistantStore {
 
     func cancelStreaming() {
         streamingEngine.cancel()
+        activeAgentActivityText = nil
         isStreaming = streamingEngine.isStreaming
     }
 }

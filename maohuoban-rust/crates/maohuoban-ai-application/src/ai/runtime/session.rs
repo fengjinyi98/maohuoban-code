@@ -230,13 +230,12 @@ fn append_tool_events(
     let mut flow = StepFlow::Continue;
 
     for tool_result in tool_results {
-        events.push(AgentEvent::ToolStarted {
-            turn_id,
-            tool_call_id: tool_result.tool_call.id.clone(),
-            tool_name: tool_result.tool_call.name.clone(),
-        });
-
         match tool_result.status {
+            LoopToolStatus::Requested => events.push(AgentEvent::ToolStarted {
+                turn_id,
+                tool_call_id: tool_result.tool_call.id,
+                tool_name: tool_result.tool_call.name,
+            }),
             LoopToolStatus::Succeeded => append_tool_finished(
                 turn_id,
                 tool_result.tool_call.id,
@@ -256,6 +255,12 @@ fn append_tool_events(
                 events,
             ),
             LoopToolStatus::RequiresConfirmation => {
+                append_tool_finished(
+                    turn_id,
+                    tool_result.tool_call.id,
+                    AgentToolStatus::Succeeded,
+                    events,
+                );
                 if let Some(confirmation) = tool_result.confirmation {
                     events.push(AgentEvent::NeedsConfirmation {
                         turn_id,
@@ -266,7 +271,6 @@ fn append_tool_events(
                     flow = StepFlow::Stop;
                 }
             }
-            LoopToolStatus::Requested => {}
         }
     }
 

@@ -26,6 +26,9 @@ use agent_runtime_request_policy::AgentRuntimeRequestPolicy;
 
 use super::{LoopEngine, workbench_prompt_projection::workbench_context_prompt};
 
+/// AI_STREAM_TRACE_DEBUG_TAG 流式链路临时诊断标识
+const AI_STREAM_TRACE_DEBUG_TAG: &str = "[DEBUG:AiStreamTrace]";
+
 /// AgentRuntimeLoopEngine 毛球 Agent Runtime loop 实现
 /// 核心职责：
 /// - 组装模型请求、工具执行和结果回灌
@@ -50,6 +53,7 @@ enum RuntimePhase {
         tool_count: u32,
     },
     ToolExecution {
+        assistant_tool_calls: Vec<LlmToolCall>,
         tool_calls: Vec<LlmToolCall>,
     },
     FollowupModel {
@@ -171,6 +175,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "initial",
                         &request,
                     );
+                    eprintln!(
+                        "{AI_STREAM_TRACE_DEBUG_TAG} runtime_model_stream_start session_id_prefix={} purpose=initial message_count={} tool_count={} response_format_present={}",
+                        uuid_prefix(&state.chat_session_id),
+                        request.messages.len(),
+                        tool_count,
+                        request.response_format.is_some()
+                    );
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Initial,
@@ -205,7 +216,16 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         };
                         match event {
                             LlmStreamEvent::Delta { content } => {
+                                let accumulated_before = accumulated_text.chars().count();
                                 accumulated_text.push_str(&content);
+                                eprintln!(
+                                    "{AI_STREAM_TRACE_DEBUG_TAG} runtime_provider_delta session_id_prefix={} purpose={} delta_chars={} accumulated_before={} accumulated_after={}",
+                                    uuid_prefix(&state.chat_session_id),
+                                    streaming_model_purpose_code(&purpose),
+                                    content.chars().count(),
+                                    accumulated_before,
+                                    accumulated_text.chars().count()
+                                );
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
@@ -218,6 +238,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 return Ok(Some(LoopStep::MessageDelta { text: content }));
                             }
                             LlmStreamEvent::ToolCall { tool_call } => {
+                                eprintln!(
+                                    "{AI_STREAM_TRACE_DEBUG_TAG} runtime_provider_tool_call session_id_prefix={} purpose={} tool_name={} arguments_chars={}",
+                                    uuid_prefix(&state.chat_session_id),
+                                    streaming_model_purpose_code(&purpose),
+                                    tool_call.name,
+                                    tool_call.arguments.chars().count()
+                                );
                                 tool_calls.push(tool_call);
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
@@ -234,6 +261,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 finish_reason: fr,
                                 usage: u,
                             } => {
+                                eprintln!(
+                                    "{AI_STREAM_TRACE_DEBUG_TAG} runtime_provider_finish session_id_prefix={} purpose={} finish_reason={fr:?} output_tokens={} total_tokens={}",
+                                    uuid_prefix(&state.chat_session_id),
+                                    streaming_model_purpose_code(&purpose),
+                                    u.output_tokens,
+                                    u.total_tokens
+                                );
                                 finish_reason = fr;
                                 usage = u;
                                 self.phase = RuntimePhase::StreamingModel {
@@ -256,6 +290,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
+                        eprintln!(
+                            "{AI_STREAM_TRACE_DEBUG_TAG} runtime_stream_exhausted session_id_prefix={} purpose={} accumulated_chars={} tool_call_count={} finish_reason={finish_reason:?}",
+                            uuid_prefix(&state.chat_session_id),
+                            streaming_model_purpose_code(&purpose),
+                            accumulated_text.chars().count(),
+                            tool_calls.len()
+                        );
                         self.phase = RuntimePhase::Done {
                             message_id: uuid::Uuid::new_v4(),
                             final_text: visible_text_from_model_output(&accumulated_text),
@@ -274,6 +315,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     self.phase = RuntimePhase::ToolExecution {
+                        assistant_tool_calls: tool_calls.clone(),
                         tool_calls: tool_calls.clone(),
                     };
                     return Ok(Some(LoopStep::CallModel {
@@ -287,12 +329,22 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         },
                     }));
                 }
-                RuntimePhase::ToolExecution { tool_calls } => {
-                    let assistant_tool_calls = tool_calls.clone();
+                RuntimePhase::ToolExecution {
+                    assistant_tool_calls,
+                    tool_calls,
+                } => {
+                    if !tool_calls.is_empty() {
+                        self.phase = RuntimePhase::ToolExecution {
+                            assistant_tool_calls,
+                            tool_calls: Vec::new(),
+                        };
+                        return Ok(Some(LoopStep::call_tools(tool_calls)));
+                    }
+
                     let tool_results = execute_tool_calls(
                         self.registry.clone(),
                         self.tool_context.clone(),
-                        tool_calls,
+                        assistant_tool_calls.clone(),
                     )
                     .await;
                     let needs_confirmation = tool_results.iter().any(|result| {
@@ -327,6 +379,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "followup",
                         &request,
                     );
+                    eprintln!(
+                        "{AI_STREAM_TRACE_DEBUG_TAG} runtime_model_stream_start session_id_prefix={} purpose=followup message_count={} tool_count={} response_format_present={}",
+                        uuid_prefix(&state.chat_session_id),
+                        request.messages.len(),
+                        tool_count,
+                        request.response_format.is_some()
+                    );
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Followup,
@@ -351,6 +410,14 @@ impl LoopEngine for AgentRuntimeLoopEngine {
             }
         }
     }
+}
+
+/// uuid_prefix 生成临时诊断用短 ID
+/// 核心职责：
+/// - 缩短日志中的 session 标识
+/// - 避免输出完整业务 ID
+fn uuid_prefix(id: &uuid::Uuid) -> String {
+    id.to_string().chars().take(8).collect()
 }
 
 fn model_stream(

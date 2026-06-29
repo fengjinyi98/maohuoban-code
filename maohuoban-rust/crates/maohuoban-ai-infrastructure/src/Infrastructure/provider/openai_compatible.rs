@@ -21,6 +21,9 @@ use super::OpenAiCompatibleConfig;
 use super::openai_diagnostics::OpenAiProviderDiagnostics;
 use super::openai_stream_stats::ProviderStreamStats;
 
+/// AI_STREAM_TRACE_DEBUG_TAG 流式链路临时诊断标识
+const AI_STREAM_TRACE_DEBUG_TAG: &str = "[DEBUG:AiStreamTrace]";
+
 /// OpenAiCompatibleLlmProvider OpenAI 兼容 Provider
 /// 核心职责：
 /// - 将内部请求适配为 OpenAI 兼容 HTTP 调用
@@ -381,6 +384,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn stream<'a>(
         &'a self,
         request: &'a LlmChatRequest,
@@ -437,6 +441,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                             match event {
                                 Ok(e) => {
                                     stream_stats.observe_event(&e);
+                                    debug_provider_stream_event(request, &e, stream_stats);
                                     yield Ok(e);
                                 }
                                 Err(e) => {
@@ -464,6 +469,16 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
 
             let decoder_idle = decoder.is_idle();
             if !decoder_idle || !stream_stats.stream_completed {
+                eprintln!(
+                    "{AI_STREAM_TRACE_DEBUG_TAG} provider_stream_incomplete model={} chunk_count={} decoded_event_count={} delta_count={} finish_count={} decoder_idle={} stream_completed={}",
+                    request.model,
+                    stream_stats.chunk_count,
+                    stream_stats.decoded_event_count,
+                    stream_stats.delta_count,
+                    stream_stats.finish_count,
+                    decoder_idle,
+                    stream_stats.stream_completed
+                );
                 OpenAiProviderDiagnostics::record_stream_incomplete(
                     request,
                     stream_stats,
@@ -474,6 +489,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                     "stream ended before completion marker",
                 ));
             } else {
+                eprintln!(
+                    "{AI_STREAM_TRACE_DEBUG_TAG} provider_stream_completed model={} chunk_count={} decoded_event_count={} delta_count={} tool_call_count={} finish_count={}",
+                    request.model,
+                    stream_stats.chunk_count,
+                    stream_stats.decoded_event_count,
+                    stream_stats.delta_count,
+                    stream_stats.tool_call_count,
+                    stream_stats.finish_count
+                );
                 OpenAiProviderDiagnostics::record_stream_completed(
                     request,
                     stream_stats,
@@ -483,6 +507,65 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         }
         .boxed()
     }
+}
+
+/// debug_provider_stream_event 输出 Provider 流式解析临时诊断事件
+/// 核心职责：
+/// - 标记 Provider 已解码的 delta、tool、finish 和 error
+/// - 只输出计数和长度，避免泄漏模型正文与鉴权信息
+fn debug_provider_stream_event(
+    request: &LlmChatRequest,
+    event: &LlmStreamEvent,
+    stats: ProviderStreamStats,
+) {
+    match event {
+        LlmStreamEvent::Delta { content } => {
+            if should_log_stream_count(stats.delta_count) {
+                eprintln!(
+                    "{AI_STREAM_TRACE_DEBUG_TAG} provider_decoded_delta model={} delta_index={} chunk_count={} decoded_event_count={} delta_chars={}",
+                    request.model,
+                    stats.delta_count,
+                    stats.chunk_count,
+                    stats.decoded_event_count,
+                    content.chars().count()
+                );
+            }
+        }
+        LlmStreamEvent::ToolCall { tool_call } => {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} provider_decoded_tool_call model={} tool_call_count={} tool_name={} arguments_chars={}",
+                request.model,
+                stats.tool_call_count,
+                tool_call.name,
+                tool_call.arguments.chars().count()
+            );
+        }
+        LlmStreamEvent::Finish {
+            finish_reason,
+            usage,
+        } => {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} provider_decoded_finish model={} finish_count={} finish_reason={finish_reason:?} output_tokens={} total_tokens={}",
+                request.model, stats.finish_count, usage.output_tokens, usage.total_tokens
+            );
+        }
+        LlmStreamEvent::Error { message } => {
+            eprintln!(
+                "{AI_STREAM_TRACE_DEBUG_TAG} provider_decoded_error model={} decoded_event_count={} message_chars={}",
+                request.model,
+                stats.decoded_event_count,
+                message.chars().count()
+            );
+        }
+    }
+}
+
+/// should_log_stream_count 控制高频流式日志采样
+/// 核心职责：
+/// - 保留前若干个关键分片
+/// - 对后续分片按固定间隔采样，降低控制台噪音
+fn should_log_stream_count(count: u32) -> bool {
+    count <= 10 || count.is_multiple_of(25)
 }
 
 /// openai_tool_call_json 序列化 OpenAI 兼容工具调用消息

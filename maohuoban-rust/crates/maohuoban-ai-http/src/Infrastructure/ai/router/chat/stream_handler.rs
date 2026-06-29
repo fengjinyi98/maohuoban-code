@@ -20,7 +20,11 @@ use maohuoban_ai_domain::ai::{
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
+use std::time::Instant;
 use uuid::Uuid;
 
 use super::super::AiHttpState;
@@ -46,6 +50,9 @@ use super::session_persistence::{PetSessionContext, persist_session_and_user_mes
 use super::title::build_title;
 use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::unauthorized_response;
+
+/// AI_STREAM_TRACE_DEBUG_TAG 流式链路临时诊断标识
+const AI_STREAM_TRACE_DEBUG_TAG: &str = "[DEBUG:AiStreamTrace]";
 
 /// handle_chat_stream 流式聊天 SSE handler
 /// 核心职责：
@@ -579,8 +586,11 @@ where
         + Send
         + 'static,
 {
+    let stream_started_at = Instant::now();
+    let event_index = Arc::new(AtomicU64::new(0));
     let sse_stream = stream.then(move |result| {
         let session_repo = session_repo.clone();
+        let event_index = event_index.clone();
         async move {
             let event = match result {
                 Ok(e) => e,
@@ -592,6 +602,14 @@ where
                     safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
                 },
             };
+            let event_number = event_index.fetch_add(1, Ordering::Relaxed) + 1;
+            debug_http_sse_event_emitted(
+                session_id,
+                message_id,
+                event_number,
+                stream_started_at.elapsed().as_millis(),
+                &event,
+            );
 
             if let AiStreamEvent::Error {
                 code,
@@ -653,6 +671,46 @@ where
     Sse::new(sse_stream)
         .keep_alive(KeepAlive::default())
         .into_response()
+}
+
+/// debug_http_sse_event_emitted 输出 HTTP SSE 临时诊断事件
+/// 核心职责：
+/// - 记录后端实际发给前端的 SSE 事件顺序
+/// - 只输出长度、状态和短 ID，避免泄漏正文与敏感数据
+fn debug_http_sse_event_emitted(
+    session_id: Uuid,
+    message_id: Uuid,
+    event_index: u64,
+    elapsed_ms: u128,
+    event: &AiStreamEvent,
+) {
+    let (delta_chars, final_chars, error_code) = match event {
+        AiStreamEvent::Delta { text } => (text.chars().count(), 0, "none"),
+        AiStreamEvent::MessageCompleted { final_text, .. } => {
+            (0, final_text.chars().count(), "none")
+        }
+        AiStreamEvent::Error { code, .. } => (0, 0, code.as_str()),
+        _ => (0, 0, "none"),
+    };
+    eprintln!(
+        "{AI_STREAM_TRACE_DEBUG_TAG} http_sse_emit session_id_prefix={} message_id_prefix={} event_index={} elapsed_ms={} event_name={} delta_chars={} final_chars={} error_code={}",
+        uuid_prefix(&session_id),
+        uuid_prefix(&message_id),
+        event_index,
+        elapsed_ms,
+        event.event_name(),
+        delta_chars,
+        final_chars,
+        error_code
+    );
+}
+
+/// uuid_prefix 生成临时诊断用短 ID
+/// 核心职责：
+/// - 缩短日志中的 session/message 标识
+/// - 避免输出完整业务 ID
+fn uuid_prefix(id: &Uuid) -> String {
+    id.to_string().chars().take(8).collect()
 }
 
 /// resolved_pet_snapshot 提取已解析宠物快照

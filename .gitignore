@@ -24,6 +24,8 @@ target/
 .playwright-cli/
 .maohuoban-diagnostics/
 output/
+!maohuoban-rust/crates/maohuoban-ai-application/src/ai/output/
+!maohuoban-rust/crates/maohuoban-ai-application/src/ai/output/mod.rs
 
 # External reference projects (独立 Git 仓库，主仓库不跟踪)
 references/projects/

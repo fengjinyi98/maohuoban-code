@@ -46,12 +46,14 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         store.handleStreamEvent(
             .agentActivity(displayText: "正在查看毛球近期饮食", status: "started")
         )
-        XCTAssertEqual(store.messages.last?.activityText, "正在查看毛球近期饮食")
+        XCTAssertEqual(store.activeAgentActivityText, "正在查看毛球近期饮食")
+        XCTAssertEqual(store.messages.last?.text, "")
 
         store.handleStreamEvent(
             .agentActivity(displayText: "正在查看毛球近期饮食", status: "completed")
         )
-        XCTAssertNil(store.messages.last?.activityText)
+        XCTAssertNil(store.activeAgentActivityText)
+        XCTAssertEqual(store.messages.last?.text, "")
     }
 
     func testAgentActivityClearsWhenAnswerDeltaArrives() async {
@@ -60,11 +62,11 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         store.handleStreamEvent(
             .agentActivity(displayText: "正在查看毛球近期饮食", status: "started")
         )
-        XCTAssertEqual(store.messages.last?.activityText, "正在查看毛球近期饮食")
+        XCTAssertEqual(store.activeAgentActivityText, "正在查看毛球近期饮食")
 
         store.handleStreamEvent(.delta(text: "先观察精神状态"))
 
-        XCTAssertNil(store.messages.last?.activityText)
+        XCTAssertNil(store.activeAgentActivityText)
         XCTAssertEqual(store.messages.last?.text, "先观察精神状态")
     }
 

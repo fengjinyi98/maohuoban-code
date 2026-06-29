@@ -7,6 +7,7 @@ extension AIAssistantStore {
         currentChatSessionID = history.id
         draftText = ""
         pendingAction = nil
+        activeAgentActivityText = nil
         clearAttachment()
         messages = history.messages
         Task { [weak self] in
@@ -20,6 +21,7 @@ extension AIAssistantStore {
         currentChatSessionID = nil
         draftText = ""
         pendingAction = nil
+        activeAgentActivityText = nil
         clearAttachment()
         messages = []
     }

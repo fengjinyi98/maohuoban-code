@@ -14,9 +14,6 @@ extension AIAssistantStore {
     func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
         guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
         messages[index].text = text
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
-            messages[index].activityText = nil
-        }
         messages[index].isStreaming = isStreaming
         streamingRevision += 1
     }
@@ -138,25 +135,13 @@ extension AIAssistantStore {
         }
         let trimmedText = displayText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedText.isEmpty == false else { return }
-
-        if let activeMessageID = streamingEngine.activeMessageID,
-           let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
-            messages[index].activityText = trimmedText
-            streamingRevision += 1
-        }
+        activeAgentActivityText = trimmedText
+        streamingRevision += 1
     }
 
     func clearActiveAgentActivity() {
-        let activeMessageID = streamingEngine.activeMessageID
-        let index: Int?
-        if let activeMessageID {
-            index = messages.firstIndex(where: { $0.id == activeMessageID })
-        } else {
-            index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming })
-        }
-
-        guard let index, messages[index].activityText != nil else { return }
-        messages[index].activityText = nil
+        guard activeAgentActivityText != nil else { return }
+        activeAgentActivityText = nil
         streamingRevision += 1
     }
 

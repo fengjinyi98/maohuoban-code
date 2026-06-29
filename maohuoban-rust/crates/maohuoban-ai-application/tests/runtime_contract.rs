@@ -121,6 +121,11 @@ async fn agent_session_emits_turn_events() {
 #[tokio::test]
 async fn agent_session_emits_tool_events() {
     let engine = FakeLoopEngine::new(vec![
+        LoopStep::call_tools(vec![LlmToolCall {
+            id: "call_1".to_owned(),
+            name: "load_pet_identity_context".to_owned(),
+            arguments: "{}".to_owned(),
+        }]),
         LoopStep::call_tool_results(vec![LoopToolResult::succeeded(
             LlmToolCall {
                 id: "call_1".to_owned(),

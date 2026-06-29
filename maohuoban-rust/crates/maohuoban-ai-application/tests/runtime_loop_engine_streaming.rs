@@ -126,7 +126,21 @@ fn response_to_stream_events(
     events
 }
 
-struct EchoIdentityTool;
+struct EchoIdentityTool {
+    delay: Duration,
+}
+
+impl EchoIdentityTool {
+    fn immediate() -> Self {
+        Self {
+            delay: Duration::ZERO,
+        }
+    }
+
+    fn delayed(delay: Duration) -> Self {
+        Self { delay }
+    }
+}
 
 #[async_trait]
 impl AiToolDefinition for EchoIdentityTool {
@@ -160,6 +174,10 @@ impl AiToolDefinition for EchoIdentityTool {
     }
 
     async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
+        if !self.delay.is_zero() {
+            tokio::time::sleep(self.delay).await;
+        }
+
         let pet_id = args
             .get("pet_id")
             .and_then(|value| value.as_str())
@@ -188,7 +206,7 @@ async fn agent_session_stream_yields_tool_progress_before_followup_model_finishe
         vec![Duration::ZERO, Duration::from_secs(5)],
     );
     let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool);
+    registry.register(EchoIdentityTool::immediate());
 
     let engine = runtime_engine(provider, registry);
     let session = AgentSession::new(
@@ -238,10 +256,62 @@ async fn agent_session_stream_yields_tool_progress_before_followup_model_finishe
 }
 
 #[tokio::test]
+async fn agent_session_stream_yields_tool_started_before_delayed_tool_finishes() {
+    let provider = StreamingScriptedProvider::new(vec![tool_response(), final_response()]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool::delayed(Duration::from_secs(5)));
+
+    let engine = runtime_engine(provider, registry);
+    let session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+    let mut stream = Box::pin(session.into_prompt_stream("查看毛球档案".to_owned()));
+
+    let mut names = Vec::new();
+    let tool_started = tokio::time::timeout(Duration::from_millis(200), async {
+        loop {
+            let event = stream
+                .next()
+                .await
+                .expect("runtime stream event")
+                .expect("runtime event ok");
+            names.push(event.event_name());
+            if event.event_name() == "tool_started" {
+                break;
+            }
+        }
+    })
+    .await;
+
+    assert!(
+        tool_started.is_ok(),
+        "tool_started should arrive before delayed tool execute finishes, got {names:?}"
+    );
+    assert_eq!(
+        names,
+        vec![
+            "turn_started",
+            "model_call_started",
+            "model_call_finished",
+            "tool_started",
+        ]
+    );
+
+    let tool_finished = tokio::time::timeout(Duration::from_millis(50), stream.next()).await;
+    assert!(
+        tool_finished.is_err(),
+        "tool_finished should still be pending while delayed tool is executing"
+    );
+}
+
+#[tokio::test]
 async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
     let provider = StreamingScriptedProvider::new(vec![tool_response(), final_response()]);
     let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool);
+    registry.register(EchoIdentityTool::immediate());
 
     let engine = runtime_engine(provider.clone(), registry);
     let mut session = AgentSession::new(
@@ -293,7 +363,7 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
 async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
     let provider = StreamingScriptedProvider::new(vec![tool_response(), final_response()]);
     let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool);
+    registry.register(EchoIdentityTool::immediate());
 
     let engine = runtime_engine(provider.clone(), registry);
     let mut session = AgentSession::new(

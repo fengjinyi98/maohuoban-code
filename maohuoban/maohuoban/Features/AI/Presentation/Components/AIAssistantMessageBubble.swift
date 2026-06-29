@@ -8,6 +8,15 @@ import MaohuobanDesignSystem
 // - 流式输出时展示打字光标
 struct AIAssistantMessageBubble: View {
     let message: AIAssistantMessage
+    let showsEmptyStreamingIndicator: Bool
+
+    init(
+        message: AIAssistantMessage,
+        showsEmptyStreamingIndicator: Bool = true
+    ) {
+        self.message = message
+        self.showsEmptyStreamingIndicator = showsEmptyStreamingIndicator
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s2) {
@@ -17,7 +26,9 @@ struct AIAssistantMessageBubble: View {
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
                 if message.text.isEmpty && message.isStreaming {
-                    AIAssistantThinkingStatus(displayText: message.activityText)
+                    if showsEmptyStreamingIndicator {
+                        AIAssistantThinkingStatus(displayText: nil)
+                    }
                 } else {
                     streamingText
                         .font(MHBTheme.Typography.headline.weight(.regular))
@@ -96,7 +107,7 @@ struct AIAssistantMessageBubble: View {
 // 核心职责：
 // - 展示轻量加载动画
 // - 消费后端提供的安全进度文案
-private struct AIAssistantThinkingStatus: View {
+struct AIAssistantThinkingStatus: View {
     let displayText: String?
 
     var body: some View {

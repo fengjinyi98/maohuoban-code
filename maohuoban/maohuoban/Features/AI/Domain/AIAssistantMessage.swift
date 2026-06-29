@@ -21,11 +21,6 @@ struct AIAssistantMessage: Identifiable, Hashable {
     }
     var referenceChips: [String]
     var isStreaming: Bool
-    var activityText: String? {
-        didSet {
-            streamingRevision += 1
-        }
-    }
     private(set) var streamingRevision: Int
 
     init(
@@ -34,7 +29,6 @@ struct AIAssistantMessage: Identifiable, Hashable {
         text: String,
         referenceChips: [String] = [],
         isStreaming: Bool = false,
-        activityText: String? = nil,
         streamingRevision: Int = 0
     ) {
         self.id = id
@@ -42,7 +36,6 @@ struct AIAssistantMessage: Identifiable, Hashable {
         self.text = text
         self.referenceChips = referenceChips
         self.isStreaming = isStreaming
-        self.activityText = activityText
         self.streamingRevision = streamingRevision
     }
 }
