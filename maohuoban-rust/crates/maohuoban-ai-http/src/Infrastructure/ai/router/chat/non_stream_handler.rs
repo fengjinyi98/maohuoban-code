@@ -167,7 +167,8 @@ async fn complete_with_runtime(
         req.surface,
         engine,
     );
-    let workbench = build_agent_session_workbench(req.surface, target_pet.as_ref());
+    let workbench =
+        build_agent_session_workbench(req.surface, target_pet.as_ref(), None, Vec::new());
     let events = session
         .prompt_with_workbench(req.message.clone(), workbench)
         .await?;

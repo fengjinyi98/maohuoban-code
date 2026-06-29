@@ -199,7 +199,8 @@ async fn provider_response_for_context(
         initial_events,
         fact_package: fact_package.clone(),
     };
-    let workbench = build_agent_session_workbench(req.surface, input.target_pet.as_ref());
+    let workbench =
+        build_agent_session_workbench(req.surface, input.target_pet.as_ref(), None, Vec::new());
     let stream = runtime_provider_stream(
         state,
         req,

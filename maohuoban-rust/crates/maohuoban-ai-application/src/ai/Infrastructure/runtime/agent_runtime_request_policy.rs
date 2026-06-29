@@ -65,7 +65,7 @@ impl AgentRuntimeRequestPolicy {
     }
 
     fn workbench_has_private_context(workbench: &AgentSessionWorkbench) -> bool {
-        workbench.context_pack.selected_pet.is_some()
+        workbench.context_pack.has_private_context()
     }
 
     fn is_private_pet_tool(tool: &ToolDefinitionInfo) -> bool {

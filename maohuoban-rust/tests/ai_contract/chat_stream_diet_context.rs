@@ -51,8 +51,8 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
 
     mock.assert();
     assert!(
-        text.contains("event: tool_call") && text.contains("load_pet_current_diet_context"),
-        "SSE should contain diet context tool_call, got: {text}"
+        text.contains("event: execution_trace_completed") && text.contains("正在查看毛球近期饮食"),
+        "SSE should contain diet context execution trace, got: {text}"
     );
     assert!(
         text.contains("event: citation") && text.contains(&assignment_id),

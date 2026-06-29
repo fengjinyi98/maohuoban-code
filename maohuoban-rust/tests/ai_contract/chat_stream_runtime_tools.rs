@@ -56,42 +56,54 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     first_mock.assert();
     second_mock.assert();
     assert!(
-        text.contains("event: tool_call") && text.contains("load_pet_identity_context"),
-        "SSE should contain runtime tool_call event, got: {text}"
+        text.contains("event: execution_trace_started")
+            && text.contains("event: execution_trace_completed")
+            && text.contains("正在查看毛球档案"),
+        "SSE should contain runtime execution trace events, got: {text}"
     );
-    let tool_call_events = sse_event_data_all(&text, "tool_call");
+    let started_events = sse_event_data_all(&text, "execution_trace_started");
     assert!(
-        tool_call_events.iter().any(|event| {
-            event["tool_name"] == "load_pet_identity_context" && event["status"] == "allowed"
-        }),
-        "SSE should keep runtime tool name on allowed tool_call event, got: {tool_call_events:?}"
-    );
-    assert!(
-        !text.contains("runtime_tool"),
-        "SSE should not expose runtime tool placeholder names, got: {text}"
-    );
-    let activity_events = sse_event_data_all(&text, "agent_activity");
-    assert!(
-        activity_events.iter().any(|event| {
+        started_events.iter().any(|event| {
             event["display_text"]
                 .as_str()
                 .is_some_and(|text| text.contains("正在查看毛球档案"))
         }),
-        "SSE should contain backend-provided safe activity text, got: {activity_events:?}"
+        "SSE should contain runtime execution trace start text, got: {started_events:?}"
+    );
+    let completed_events = sse_event_data_all(&text, "execution_trace_completed");
+    assert!(
+        completed_events.iter().any(|event| {
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("正在查看毛球档案"))
+                && event["status"] == "completed"
+        }),
+        "SSE should contain runtime execution trace completion text, got: {completed_events:?}"
     );
     assert!(
-        activity_events
+        !text.contains("runtime_tool") && !text.contains("load_pet_identity_context"),
+        "SSE should not expose internal runtime tool names, got: {text}"
+    );
+    assert!(
+        started_events
             .iter()
+            .chain(completed_events.iter())
             .all(|event| event.get("tool_name").is_none()),
-        "agent_activity should not expose internal tool names, got: {activity_events:?}"
+        "execution trace should not expose internal tool names"
+    );
+    assert!(
+        completed_events
+            .iter()
+            .all(|event| event.get("tool_call_id").is_none()),
+        "execution trace should not expose internal tool call ids"
     );
     assert!(
         text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
         "SSE should contain followup model final text, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
-        "SSE should contain message_completed event, got: {text}"
+        text.contains("event: answer_completed"),
+        "SSE should contain answer_completed event, got: {text}"
     );
 }
 
@@ -143,9 +155,9 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     let partial_text = read_sse_until_contains(
         &mut body_stream,
         &[
-            "event: agent_activity",
-            "\"status\":\"started\"",
-            "event: tool_call",
+            "event: execution_trace_started",
+            "正在查看毛球档案",
+            "event: execution_trace_completed",
             "\"status\":\"completed\"",
         ],
         Duration::from_millis(500),
@@ -153,33 +165,20 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     .await;
 
     first_mock.assert();
-    let tool_call_events = sse_event_data_all(&partial_text, "tool_call");
+    let started_events = sse_event_data_all(&partial_text, "execution_trace_started");
     assert!(
-        tool_call_events.iter().any(|event| {
-            event["tool_name"] == "load_pet_identity_context" && event["status"] == "started"
-        }),
-        "SSE should stream runtime tool start before followup model finishes, got: {tool_call_events:?}"
+        started_events
+            .iter()
+            .any(|event| event["display_text"] == "正在查看毛球档案"),
+        "SSE should stream runtime execution trace start before followup model finishes, got: {started_events:?}"
     );
+    let completed_events = sse_event_data_all(&partial_text, "execution_trace_completed");
     assert!(
-        tool_call_events.iter().any(|event| {
-            event["tool_name"] == "load_pet_identity_context" && event["status"] == "allowed"
-        }),
-        "SSE should stream runtime tool completion before followup model finishes, got: {tool_call_events:?}"
-    );
-    let activity_events = sse_event_data_all(&partial_text, "agent_activity");
-    assert!(
-        activity_events.iter().any(|event| {
-            event["display_text"] == "正在查看毛球档案" && event["status"] == "started"
-        }),
-        "SSE should stream backend-provided activity start text, got: {activity_events:?}"
-    );
-    assert!(
-        activity_events.iter().any(|event| {
+        completed_events.iter().any(|event| {
             event["display_text"] == "正在查看毛球档案" && event["status"] == "completed"
         }),
-        "SSE should stream backend-provided activity completion text, got: {activity_events:?}"
+        "SSE should stream backend-provided execution trace completion text, got: {completed_events:?}"
     );
-
     let mut full_text = partial_text;
     while let Some(chunk) = body_stream.next().await {
         let chunk = chunk.expect("read remaining SSE chunk");

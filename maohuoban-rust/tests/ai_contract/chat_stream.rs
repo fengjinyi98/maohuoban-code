@@ -194,8 +194,8 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
     assert_eq!(started["target_pet"]["pet_species"], "cat");
     assert_eq!(started["target_pet"]["profile_number"], profile_number);
     assert!(
-        text.contains("event: tool_call") && text.contains("list_authorized_pet_candidates"),
-        "SSE should contain authorized pet catalog tool_call, got: {text}"
+        text.contains("event: execution_trace_completed") && text.contains("正在确认宠物档案权限"),
+        "SSE should contain authorized pet catalog execution trace, got: {text}"
     );
 
     let row: (Option<uuid::Uuid>, Option<uuid::Uuid>, bool) = sqlx::query_as(

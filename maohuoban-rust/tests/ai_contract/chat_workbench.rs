@@ -65,7 +65,7 @@ async fn ai_chat_stream_identity_uses_workbench_runtime_without_private_tools() 
         "SSE should contain workbench runtime response, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
+        text.contains("event: answer_completed"),
         "SSE should complete through AgentSession Workbench, got: {text}"
     );
 }

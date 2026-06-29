@@ -65,8 +65,9 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
 
     mock.assert();
     assert!(
-        text.contains("event: tool_call") && text.contains("load_food_inventory_change_hints"),
-        "SSE should contain food inventory hints tool_call, got: {text}"
+        text.contains("event: execution_trace_completed")
+            && text.contains("正在检查毛球近期喂食线索"),
+        "SSE should contain food inventory hints execution trace, got: {text}"
     );
 
     let tool_log: (String, bool, Option<uuid::Uuid>, serde_json::Value) = sqlx::query_as(
@@ -153,7 +154,7 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
     assert!(
         text.contains("该信息尚为待确认线索")
             && text.contains("\"blocked_reason\":\"weak_hint_misuse\""),
-        "message_completed should include weak_hint_misuse block, got: {text}"
+        "answer_completed should include weak_hint_misuse block, got: {text}"
     );
 }
 

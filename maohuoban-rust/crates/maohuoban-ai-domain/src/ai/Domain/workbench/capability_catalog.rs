@@ -10,3 +10,16 @@ use super::AgentCapability;
 pub struct CapabilityCatalog {
     pub capabilities: Vec<AgentCapability>,
 }
+
+impl CapabilityCatalog {
+    /// has_private_capabilities 判断目录中是否包含私域能力
+    /// 核心职责：
+    /// - 检查是否有能力标记了 requires_private_context
+    /// - 供 TurnContextBuilder 决定是否向模型暴露私域工具
+    #[must_use]
+    pub fn has_private_capabilities(&self) -> bool {
+        self.capabilities
+            .iter()
+            .any(|capability| capability.requires_private_context)
+    }
+}

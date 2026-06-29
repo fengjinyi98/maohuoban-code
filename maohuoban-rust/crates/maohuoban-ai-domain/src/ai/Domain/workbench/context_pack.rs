@@ -20,3 +20,14 @@ pub struct ContextPack {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_summary: Option<String>,
 }
+
+impl ContextPack {
+    /// has_private_context 判断本轮是否携带私域宠物上下文
+    /// 核心职责：
+    /// - 基于 selected_pet 是否存在判断私域上下文可用性
+    /// - 供 TurnContextBuilder 和 RuntimeRequestPolicy 决定私域工具可见性
+    #[must_use]
+    pub fn has_private_context(&self) -> bool {
+        self.selected_pet.is_some()
+    }
+}

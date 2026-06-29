@@ -71,15 +71,15 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
 
     mock.assert();
     assert!(
-        text.contains("event: delta"),
-        "SSE should contain delta event, got: {text}"
+        text.contains("event: answer_delta"),
+        "SSE should contain answer_delta event, got: {text}"
     );
     assert!(
         text.contains("真实 Provider"),
         "SSE should contain configured provider content, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
+        text.contains("event: answer_completed"),
         "SSE should contain completion event, got: {text}"
     );
 
@@ -157,7 +157,7 @@ async fn ai_chat_stream_identity_enters_workbench() {
         "SSE should contain provider identity answer, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
+        text.contains("event: answer_completed"),
         "SSE should contain completion event, got: {text}"
     );
 
@@ -244,7 +244,7 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     assert!(
         text.contains("\"status\":\"blocked\"")
             && text.contains("\"blocked_reason\":\"medical_blocked\""),
-        "message_completed should include blocked verification, got: {text}"
+        "answer_completed should include blocked verification, got: {text}"
     );
 }
 
@@ -303,7 +303,7 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_enters_workbench() {
         "SSE should contain provider workbench response, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
+        text.contains("event: answer_completed"),
         "SSE should complete through workbench provider, got: {text}"
     );
 

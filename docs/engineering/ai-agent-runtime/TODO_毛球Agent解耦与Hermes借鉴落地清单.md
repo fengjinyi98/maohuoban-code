@@ -57,22 +57,27 @@
 
 ## P1：拆 Agent Turn 前置上下文
 
-- [ ] 新增 `TurnContextBuilder` 或等价 builder。
+- [x] 新增 `TurnContextBuilder` 或等价 builder。
   - 借鉴：Hermes `TurnContext`。
   - 交付物：把安全裁决、会话摘要、宠物上下文、工具目录、记忆包从 LoopEngine 中拆出。
   - 验证：LoopEngine 只负责模型循环和工具回灌。
+  - 完成证据：`maohuoban-ai-application/src/ai/turn_context/mod.rs` 新增 `TurnContextBuilder`，HTTP 层 `workbench_builder.rs` 透传 `session_summary`/`memory_entries` 并委托调用（`stream_handler.rs`/`non_stream_handler.rs` 已适配）；`turn_context_builder.rs` 9 个测试覆盖无宠物/有宠物/会话摘要/记忆按 pet_id 过滤场景。
+  - 已知边界：HTTP 生产路径当前传入 `session_summary=None`、`memory_entries=Vec::new()`，会话历史加载和记忆包组装属于 P2 交付范围。
 
-- [ ] 定义 `ContextPack`。
+- [x] 定义 `ContextPack`。
   - 交付物：只包含模型允许看到的上下文字段。
   - 验证：不包含数据库字段、权限字段、UI 展示字段、内部状态字段。
+  - 完成证据：`context_pack.rs` 新增 `has_private_context()`；`context_pack_boundary.rs` 4 个测试覆盖私域判断、禁止字段断言（database/permission/display/internal/profile_number/avatar_url/status）、roundtrip。
 
-- [ ] 定义 `MemoryPack`。
+- [x] 定义 `MemoryPack`。
   - 交付物：按 `user_id`、`pet_id`、`household_id` 区分记忆来源。
   - 验证：无宠物公共问答不加载私域宠物记忆。
+  - 完成证据：`memory_pack.rs` 新增 `filter_for_public_context()` 移除 Pet/Household scope；`filter_for_pet_context(pet_id)` 仅按 pet_id 过滤 Pet scope，无 household_id 时全部移除 Household scope（subject_id 是 household_id 而非 pet_id）；`memory_pack_isolation.rs` 8 个测试覆盖混合 scope 过滤、纯 Pet scope 过滤、按 pet_id 过滤其他宠物、Household 无 household_id 全移除、空包、User/Session 保留。后续 P2 接入 household_id 后扩展 `filter_for_private_context(pet_id, household_id)`。
 
-- [ ] 定义 `CapabilityCatalog`。
+- [x] 定义 `CapabilityCatalog`。
   - 交付物：告诉模型当前 turn 可用能力域和使用边界。
   - 验证：无宠物用户仍可进入公共宠物能力；私域工具按授权宠物启用。
+  - 完成证据：`capability_catalog.rs` 新增 `has_private_capabilities()`；`capability_catalog_boundary.rs` 4 个测试覆盖纯公共目录、含私域目录、空目录、公共能力不要求私域上下文；`turn_context_builder.rs` 验证无宠物不含 PrivatePetContext、有宠物追加 PrivatePetContext。
 
 ## P1：工具能力与进度文案标准化
 

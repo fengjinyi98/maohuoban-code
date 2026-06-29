@@ -64,8 +64,9 @@ async fn ai_chat_stream_loads_diet_confirmation_candidates_as_pending_context() 
 
     mock.assert();
     assert!(
-        text.contains("event: tool_call") && text.contains("load_pet_diet_confirmation_candidates"),
-        "SSE should contain diet confirmation candidates tool_call, got: {text}"
+        text.contains("event: execution_trace_completed")
+            && text.contains("正在查看饭团待确认喂食记录"),
+        "SSE should contain diet confirmation candidates execution trace, got: {text}"
     );
 
     let tool_log: (String, bool, Option<uuid::Uuid>, serde_json::Value) = sqlx::query_as(
