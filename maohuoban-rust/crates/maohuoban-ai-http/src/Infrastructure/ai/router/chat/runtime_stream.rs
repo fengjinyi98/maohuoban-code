@@ -9,8 +9,6 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-/// AI_STREAM_TRACE_DEBUG_TAG 流式链路临时诊断标识
-const AI_STREAM_TRACE_DEBUG_TAG: &str = "[DEBUG:AiStreamTrace]";
 
 /// AgentEventSseProjector Runtime 事件到 SSE 事件的增量投影器
 /// 核心职责：
@@ -157,67 +155,28 @@ impl AgentEventSseProjector {
     /// - 仅在当前可见文本通过本地校验时输出用户可见 delta
     fn project_message_delta(&mut self, output: &mut Vec<AiStreamEvent>, text: &str) {
         self.pending_delta_text.push_str(text);
-        eprintln!(
-            "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_received message_id_prefix={} raw_delta_chars={} pending_chars={} streamed_chars={}",
-            uuid_prefix(&self.message_id),
-            text.chars().count(),
-            self.pending_delta_text.chars().count(),
-            self.streamed_delta_text.chars().count()
-        );
         if self.suppress_model_delta {
-            eprintln!(
-                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_suppressed message_id_prefix={} reason=already_suppressed pending_chars={} streamed_chars={}",
-                uuid_prefix(&self.message_id),
-                self.pending_delta_text.chars().count(),
-                self.streamed_delta_text.chars().count()
-            );
             return;
         }
 
         let Some(visible_text) = visible_text_prefix_from_model_output(&self.pending_delta_text)
         else {
-            eprintln!(
-                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_buffered message_id_prefix={} reason=visible_text_pending pending_chars={} streamed_chars={}",
-                uuid_prefix(&self.message_id),
-                self.pending_delta_text.chars().count(),
-                self.streamed_delta_text.chars().count()
-            );
             return;
         };
         if visible_text == self.streamed_delta_text
             || !visible_text.starts_with(&self.streamed_delta_text)
         {
-            eprintln!(
-                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_buffered message_id_prefix={} reason=no_new_visible_text pending_chars={} visible_chars={} streamed_chars={}",
-                uuid_prefix(&self.message_id),
-                self.pending_delta_text.chars().count(),
-                visible_text.chars().count(),
-                self.streamed_delta_text.chars().count()
-            );
             return;
         }
 
         let verification = AiAnswerVerifier::new().verify(&visible_text, &self.package);
         if verification.is_blocked() {
             self.suppress_model_delta = true;
-            eprintln!(
-                "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_suppressed message_id_prefix={} reason=verification_blocked pending_chars={} visible_chars={}",
-                uuid_prefix(&self.message_id),
-                self.pending_delta_text.chars().count(),
-                visible_text.chars().count()
-            );
             return;
         }
 
         let delta_text = visible_text[self.streamed_delta_text.len()..].to_owned();
         self.streamed_delta_text.push_str(&delta_text);
-        eprintln!(
-            "{AI_STREAM_TRACE_DEBUG_TAG} projector_delta_emitted message_id_prefix={} emitted_chars={} streamed_chars={} pending_chars={}",
-            uuid_prefix(&self.message_id),
-            delta_text.chars().count(),
-            self.streamed_delta_text.chars().count(),
-            self.pending_delta_text.chars().count()
-        );
         output.push(AiStreamEvent::Delta { text: delta_text });
     }
 }
@@ -321,13 +280,6 @@ fn append_verified_completion(
     streamed_delta_text: &str,
 ) {
     let verification = AiAnswerVerifier::new().verify(&final_text, package);
-    eprintln!(
-        "{AI_STREAM_TRACE_DEBUG_TAG} projector_completion_checked message_id_prefix={} final_chars={} streamed_chars={} verification_blocked={}",
-        uuid_prefix(&message_id),
-        final_text.chars().count(),
-        streamed_delta_text.chars().count(),
-        verification.is_blocked()
-    );
 
     if verification.is_blocked() {
         let safe_text = verification
@@ -353,12 +305,6 @@ fn append_verified_completion(
     let citations = citations_for_answer(&final_text, package);
     append_citations(output, citations.clone());
     if streamed_delta_text != final_text {
-        eprintln!(
-            "{AI_STREAM_TRACE_DEBUG_TAG} projector_completion_delta_emitted message_id_prefix={} reason=streamed_text_mismatch final_chars={} streamed_chars={}",
-            uuid_prefix(&message_id),
-            final_text.chars().count(),
-            streamed_delta_text.chars().count()
-        );
         output.push(AiStreamEvent::Delta {
             text: final_text.clone(),
         });
@@ -382,13 +328,6 @@ fn append_citations(
     }
 }
 
-/// uuid_prefix 生成临时诊断用短 ID
-/// 核心职责：
-/// - 缩短日志中的 message 标识
-/// - 避免输出完整业务 ID
-fn uuid_prefix(id: &Uuid) -> String {
-    id.to_string().chars().take(8).collect()
-}
 
 #[cfg(test)]
 mod tests {

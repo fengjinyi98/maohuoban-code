@@ -2,7 +2,7 @@
 
 - 来源链接：https://tianpan.co/blog/2026-04-10-tool-result-validation-gap-agents-blindly-trust
 - 浏览器最终地址：about:blank
-- 原始收集：docs/agent/3.md:14
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：navigation_blank
 - 提取方式：浏览器可见正文提取

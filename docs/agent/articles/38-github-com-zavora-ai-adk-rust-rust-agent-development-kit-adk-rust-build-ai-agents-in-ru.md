@@ -2,7 +2,7 @@
 
 - 来源链接：https://github.com/zavora-ai/adk-rust
 - 浏览器最终地址：https://github.com/zavora-ai/adk-rust
-- 原始收集：docs/agent/4.md:8
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：success
 - 提取方式：浏览器可见正文提取

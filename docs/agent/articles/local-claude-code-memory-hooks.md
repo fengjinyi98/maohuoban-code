@@ -1,6 +1,6 @@
 # Claude Code 长期项目记忆：4 个 Markdown 文件 + 3 个 Hooks
 
-- 来源：docs/agent/1.md
+- 来源：已删除的资料草稿
 - 保存时间：2026-06-28
 - 类型：本地原始文章整理
 

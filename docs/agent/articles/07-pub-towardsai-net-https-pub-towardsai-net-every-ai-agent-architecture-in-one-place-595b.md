@@ -2,7 +2,7 @@
 
 - 来源链接：https://pub.towardsai.net/every-ai-agent-architecture-in-one-place-595ba68d49cd
 - 浏览器最终地址：about:blank
-- 原始收集：docs/agent/2.md:24
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：navigation_blank
 - 提取方式：浏览器可见正文提取

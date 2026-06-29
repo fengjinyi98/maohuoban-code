@@ -11,7 +11,6 @@
   - `references/agent/anda`：`ldclabs/anda` 本地克隆，工具发现 / 模型路由 / 上下文压缩 / Memory 重点参考
   - `references/agent/pi`：`earendil-works/pi` 本地克隆，SDK / RPC / JSON event stream / TUI 分层重点参考
   - [Pi 官方文档](https://pi.dev/docs/latest)：SDK 化运行时与多种消费端分层参考
-  - `docs/engineering/ai-llm-integration/00_毛球Agent后端LLM接入与前端流式聊天目标文档.md`
   - `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md`
   - `docs/product/strategy/04_宠物事实采集与毛球Agent记忆系统设计.md`
 

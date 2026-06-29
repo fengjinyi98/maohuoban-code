@@ -2,7 +2,7 @@
 
 - 来源链接：https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns
 - 浏览器最终地址：https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns
-- 原始收集：docs/agent/2.md:21
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：success
 - 提取方式：浏览器可见正文提取

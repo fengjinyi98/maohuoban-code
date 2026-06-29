@@ -3,16 +3,13 @@
 - 创建时间：2026-06-28
 - 文档类型：ADR / 架构决策记录
 - 当前状态：草案，待评审
-- 替代文档：`docs/engineering/ai-agent-runtime/01_毛球AgentTurnPlan与硬软边界分层ADR.md`
+- 替代说明：已替代过时的 TurnPlan ADR，旧 ADR 文件已清理
 - 决策范围：Rust AI Agent Runtime、AgentSession、LoopEngine、Tool Gateway、Context / Memory、Provider Adapter、SSE Adapter、Diagnostics / Eval
 - 关联 Issue：`docs/agent/Issue/2026-06-28_毛球Agent入口路由与硬软边界混淆Issue.md`
 - 关联文档：
   - `docs/engineering/ai-agent-runtime/00_毛球AgentRuntime架构讨论记录.md`
-  - `docs/engineering/ai-agent-runtime/worktree-goals/00_毛球AgentRuntime多Worktree总控目标文档.md`
-  - `docs/engineering/ai-llm-integration/00_毛球Agent后端LLM接入与前端流式聊天目标文档.md`
   - `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md`
   - `docs/product/strategy/04_宠物事实采集与毛球Agent记忆系统设计.md`
-  - `docs/design/01_毛伙伴AI入口与后端架构方案.md`
   - `docs/agent/articles/31-rig-rs-rig-build-powerful-llm-applications-in-rust.md`
   - `docs/agent/articles/32-adk-rust-com-adk-rust-用-rust-构建强大的-ai-代理.md`
   - `docs/agent/articles/34-github-com-ldclabs-anda-an-ai-agent-framework-built-with-rust.md`
@@ -215,32 +212,7 @@
   -> 用户确认后由后端确认接口执行真实写入
 ```
 
-## 7. Worktree 目标重排
-
-| Worktree | 原目标 | 新定位 |
-|---|---|---|
-| WT-01 Runtime 契约 | `AgentSession` / `LoopEngine` / `AgentEvent` | 保留，扩展为 `AgentSession Workbench` 契约，加入 `AgentDefinition`、`ContextPack`、`CapabilityCatalog` |
-| WT-02 Tool Gateway | 工具元数据、发现、Policy Guard | 保留，新增工具 progress 文案、工具能力说明、公共 / 私域工具分组 |
-| WT-03 Provider / ModelRouter | provider 错误分类、模型 label 路由 | 保留，Provider 错误作为运行时失败事件，不作为业务 route |
-| WT-04 Session Event Store | runtime event store / replay | 保留，记录 workbench context、tool decision、output guard 结果摘要 |
-| WT-05 SSE / iOS Adapter | 后端 SSE 和 iOS 消费协议 | 保留，iOS 只消费 `AgentActivity`、`ToolCall`、`Delta`、`Completed`、`Error`、`ConfirmationTask` |
-| WT-06 Eval / Diagnostics | eval 和诊断 | 保留，新增无宠物公共咨询、私域工具调用、内部字段泄露、软边界误伤 case |
-| Rig POC | 旧文档未单独拆 | 建议新增 WT-07 或 WT-01 子切片：`RigLoopEngineAdapter` POC |
-
-## 8. 文档修订要求
-
-| 文档 | 修订要求 |
-|---|---|
-| `01_毛球AgentTurnPlan与硬软边界分层ADR.md` | 标记为被本 ADR 替代，保留历史问题分析 |
-| `worktree-goals/00_毛球AgentRuntime多Worktree总控目标文档.md` | 把最终形态从“单主 Agent + 工具池 + Tool Discovery”升级为“AgentSession Workbench + Capability Catalog” |
-| `worktree-goals/01_WT01_Runtime契约与LoopEngine目标文档.md` | 增补 `AgentDefinition`、`ContextPack`、`CapabilityCatalog`、Rig adapter 边界 |
-| `worktree-goals/02_WT02_ToolGateway与PolicyGuard目标文档.md` | 增补工具进度文案、公共 / 私域工具能力说明、工具结果事实投影要求 |
-| `worktree-goals/05_WT05_HTTP_SSE_iOS协议Adapter目标文档.md` | 明确 iOS 只消费后端活动文案和完成状态，避免前端根据工具名自行映射 |
-| `worktree-goals/06_WT06_Eval与Diagnostics目标文档.md` | 移除 `off_topic=skip_main_agent` 旧断言，新增能力域和安全边界 eval |
-| `agent-memory-security` 目标文档 | 将“非宠物拒答 / 不进入主 Agent”改为“非私域不加载私域事实，公共宠物能力仍可回答” |
-| `ai-llm-integration` 目标文档 | 将“首版私域宠物助手”扩展为“宠物垂直公共能力 + 用户宠物私域能力” |
-
-## 9. 后续 TDD 任务拆分
+## 7. 后续 TDD 任务拆分
 
 ### Task 1：AgentSession Workbench 契约
 
@@ -358,7 +330,7 @@
 | 完成证据 | 记录同一 fake case 可由 adapter 输出相同 `AgentEvent` 顺序 |
 | 停止条件 | 需要让 Rig 直接访问 Tool Gateway 或 Provider 时停止并重新评审 |
 
-## 10. 验收门禁
+## 8. 验收门禁
 
 | 类型 | 命令 / 验收 |
 |---|---|
@@ -370,7 +342,7 @@
 | Rust 构建 | `cargo check -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-infrastructure -p maohuoban-ai-http` |
 | iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 
-## 11. 不变约束
+## 9. 不变约束
 
 | 约束 | 说明 |
 |---|---|
@@ -384,7 +356,7 @@
 | Provider 错误 | Provider 未配置、超时、限流、上游失败属于系统失败态，不伪装成普通助手拒答 |
 | Rig 主权 | Rig adapter 不接管业务权限、事实源、HTTP、SSE、审计和持久化 |
 
-## 12. 风险
+## 10. 风险
 
 | 风险 | 处理 |
 |---|---|

@@ -2,7 +2,7 @@
 
 - 来源链接：https://pr-peri.github.io/blogpost/2026/06/04/blogpost-ai-agent-memory.html
 - 浏览器最终地址：https://pr-peri.github.io/blogpost/2026/06/04/blogpost-ai-agent-memory.html
-- 原始收集：docs/agent/3.md:41
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：limited_or_low_text
 - 提取方式：浏览器可见正文提取

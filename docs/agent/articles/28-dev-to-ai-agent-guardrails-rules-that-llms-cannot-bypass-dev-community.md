@@ -2,7 +2,7 @@
 
 - 来源链接：https://dev.to/aws/ai-agent-guardrails-rules-that-llms-cannot-bypass-596d
 - 浏览器最终地址：https://dev.to/aws/ai-agent-guardrails-rules-that-llms-cannot-bypass-596d
-- 原始收集：docs/agent/3.md:53
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：success
 - 提取方式：浏览器可见正文提取

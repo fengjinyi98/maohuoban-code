@@ -2,7 +2,7 @@
 
 - 来源链接：https://www.deloitte.com/us/en/what-we-do/capabilities/applied-artificial-intelligence/articles/ai-agent-architecture-and-multiagent-systems.html
 - 浏览器最终地址：about:blank
-- 原始收集：docs/agent/2.md:38
+- 原始收集：已删除的资料草稿
 - 保存时间：2026-06-28
 - 访问状态：navigation_blank
 - 提取方式：浏览器可见正文提取

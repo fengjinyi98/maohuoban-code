@@ -62,7 +62,6 @@
 |---|---|
 | `docs/engineering/ai-agent-runtime/00_毛球AgentRuntime架构讨论记录.md` | 已记录“只靠代码关键词判断用户意图会越来越硬，无法覆盖真实用户语义” |
 | `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md` | 已定义 Agent Gateway、工具授权、事实白名单、prompt 不是安全边界等原则 |
-| `docs/engineering/ai-llm-integration/00_毛球Agent后端LLM接入与前端流式聊天目标文档.md` | 已定义 iOS 消费稳定 SSE、后端输出事实投影、工具进度由后端提供 |
 
 ## 4. 架构问题拆解
 
