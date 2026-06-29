@@ -12,6 +12,7 @@ pub mod llm;
 pub mod pet_catalog;
 pub mod session_event_repository;
 pub mod session_repository;
+pub mod session_summary_repository;
 
 pub use diet_confirmation_candidates::PetDietConfirmationCandidateProvider;
 pub use diet_context::{EmptyPetDietFactProvider, PetDietFactProvider};
@@ -21,3 +22,4 @@ pub use llm::{DisabledLlmProvider, FakeLlmProvider, LlmProvider};
 pub use pet_catalog::{AuthorizedPetCatalog, EmptyPetCatalog, InMemoryPetCatalog};
 pub use session_event_repository::SessionEventRepository;
 pub use session_repository::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
+pub use session_summary_repository::{NoopSessionSummaryRepository, SessionSummaryRepository};

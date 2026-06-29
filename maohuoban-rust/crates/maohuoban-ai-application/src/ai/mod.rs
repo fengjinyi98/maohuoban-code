@@ -14,6 +14,7 @@ pub mod policy;
 pub mod ports;
 pub mod prompt;
 pub mod runtime;
+pub mod session_summary;
 pub mod stream;
 pub mod tools;
 pub mod turn_context;

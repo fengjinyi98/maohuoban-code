@@ -13,6 +13,7 @@ use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
+use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
@@ -89,6 +90,7 @@ pub async fn handle_chat_stream(
         &req,
         actor_user_id,
         session_id,
+        message_id,
         title.clone(),
         pet_session_context,
         now,
@@ -201,8 +203,8 @@ async fn provider_response_for_context(
         initial_events,
         fact_package: fact_package.clone(),
     };
-    let recent_conversation = load_recent_conversation_pack(
-        &state.session_repository,
+    let (recent_conversation, session_summary) = load_history_and_summary(
+        state,
         input.actor_user_id,
         input.session_id,
         input.message_id,
@@ -212,7 +214,7 @@ async fn provider_response_for_context(
     let workbench = build_agent_session_workbench(
         req.surface,
         input.target_pet.as_ref(),
-        None,
+        session_summary,
         Vec::new(),
         recent_conversation,
     );
@@ -335,11 +337,13 @@ fn runtime_provider_stream(
 /// 核心职责：
 /// - 保存会话、用户消息和宠物展示快照
 /// - 保持 handler 主流程聚焦分支编排
+#[allow(clippy::too_many_arguments)]
 async fn persist_current_turn(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
     session_id: Uuid,
+    message_id: Uuid,
     title: String,
     pet_context: PetSessionContext,
     now: chrono::DateTime<Utc>,
@@ -349,6 +353,7 @@ async fn persist_current_turn(
         req,
         actor_user_id,
         session_id,
+        message_id,
         title,
         pet_context,
         now,
@@ -732,19 +737,26 @@ fn request_hash(message: &str) -> String {
     format!("{:016x}", hasher.finish())
 }
 
-/// load_recent_conversation_pack 加载并投影同会话最近历史
+/// load_history_and_summary 加载历史和会话摘要
 /// 核心职责：
-/// - 通过 RecentConversationLoader 加载历史（含归属校验）
-/// - 通过 ContextBudgetPolicy 裁剪预算
-/// - 加载失败时返回空历史，不阻塞主链路
-async fn load_recent_conversation_pack(
-    session_repo: &Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+/// - 加载同会话历史（含归属校验和预算裁剪）
+/// - 尝试压缩历史并生成摘要
+/// - 加载已有有效摘要
+/// - 任何步骤失败不阻塞主链路
+async fn load_history_and_summary(
+    state: &AiHttpState,
     actor_user_id: Uuid,
     session_id: Uuid,
     exclude_message_id: Uuid,
-) -> maohuoban_ai_domain::ai::RecentConversationPack {
-    let loader = RecentConversationLoader::new(session_repo.clone());
-    match loader
+) -> (
+    maohuoban_ai_domain::ai::RecentConversationPack,
+    Option<String>,
+) {
+    let session_repo = &state.session_repository;
+    let summary_repo = &state.session_summary_repository;
+    let loader = RecentConversationLoader::new(session_repo.clone(), summary_repo.clone());
+
+    let pack = match loader
         .load_recent_conversation(
             actor_user_id,
             session_id,
@@ -755,6 +767,46 @@ async fn load_recent_conversation_pack(
         .await
     {
         Ok(pack) => ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack),
-        Err(_) => maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+        Err(_) => {
+            return (
+                maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+                None,
+            );
+        }
+    };
+
+    // 尝试压缩（历史超过阈值时生成摘要）
+    let compressor = SessionSummaryCompressor::new(
+        state.llm_provider.clone(),
+        state.session_summary_repository.clone(),
+    );
+
+    // 加载原始消息用于压缩评估
+    let Ok(raw_messages) = session_repo.list_messages_by_session(session_id).await else {
+        return (pack, None);
+    };
+
+    if let Ok(Some(compressed)) = compressor
+        .try_compress(
+            session_id,
+            actor_user_id,
+            &raw_messages,
+            3,
+            Some(exclude_message_id),
+        )
+        .await
+    {
+        return (
+            compressed.retained_tail,
+            Some(compressed.summary.to_context_summary()),
+        );
     }
+
+    // 未触发压缩，加载已有摘要
+    let summary_text = match compressor.load_active_summary(session_id).await {
+        Ok(Some(s)) => Some(s.to_context_summary()),
+        _ => None,
+    };
+
+    (pack, summary_text)
 }

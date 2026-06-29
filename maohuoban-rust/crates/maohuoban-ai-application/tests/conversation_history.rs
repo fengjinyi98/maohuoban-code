@@ -9,7 +9,7 @@
 use maohuoban_ai_application::ai::conversation_history::{
     ConversationHistoryProjector, RecentConversationLoader, RecentConversationPack,
 };
-use maohuoban_ai_application::ai::ports::AiSessionRepository;
+use maohuoban_ai_application::ai::ports::{AiSessionRepository, NoopSessionSummaryRepository};
 use maohuoban_ai_application::ai::turn_context::{ContextBudgetPolicy, TurnContextBuilder};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiConversationSurface, AiMessage, AiMessageRole,
@@ -96,7 +96,7 @@ async fn loader_excludes_current_message_by_id() {
         actor_user_id(),
     ));
 
-    let loader = RecentConversationLoader::new(repo);
+    let loader = RecentConversationLoader::new(repo, Arc::new(NoopSessionSummaryRepository));
     let pack = loader
         .load_recent_conversation(actor_user_id(), session_id(), current_msg_id, 32_000, 2_048)
         .await
@@ -116,7 +116,7 @@ async fn loader_rejects_session_not_belonging_to_actor() {
         other_user_id(),
     ));
 
-    let loader = RecentConversationLoader::new(repo);
+    let loader = RecentConversationLoader::new(repo, Arc::new(NoopSessionSummaryRepository));
     let result = loader
         .load_recent_conversation(actor_user_id(), session_id(), Uuid::new_v4(), 32_000, 2_048)
         .await;
@@ -130,7 +130,7 @@ async fn loader_rejects_session_not_belonging_to_actor() {
 #[tokio::test]
 async fn loader_rejects_missing_session() {
     let repo = Arc::new(FakeSessionRepository::new(vec![], actor_user_id()));
-    let loader = RecentConversationLoader::new(repo);
+    let loader = RecentConversationLoader::new(repo, Arc::new(NoopSessionSummaryRepository));
     let result = loader
         .load_recent_conversation(
             actor_user_id(),

@@ -36,7 +36,9 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
-use maohuoban_ai_infrastructure::repository::PostgresAiSessionRepository;
+use maohuoban_ai_infrastructure::repository::{
+    PostgresAiSessionRepository, PostgresSessionSummaryRepository,
+};
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
 };
@@ -230,6 +232,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         &config.ai_llm_provider_config,
         pet_service.clone(),
         ai_session_repository.clone(),
+        pool.clone(),
         auth_service.clone(),
     );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
@@ -271,6 +274,7 @@ fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
     pet_service: Arc<PetService>,
     ai_session_repository: PostgresAiSessionRepository,
+    ai_session_pool: sqlx::PgPool,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
     let ai_llm_provider = ai_provider::build_ai_llm_provider_from_provider_config(provider_config);
@@ -284,6 +288,8 @@ fn build_ai_http_state(
         ai_llm_provider,
         Arc::new(ai_session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+        Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
+            as Arc<dyn maohuoban_ai_application::ai::ports::SessionSummaryRepository>,
         ai_pet_resolver,
         AiPetContextProviders::new(
             Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),

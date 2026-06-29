@@ -114,52 +114,63 @@
 | 历史输入原则 | 只把模型允许看到的会话内容投影进 messages；内部事件、执行轨迹、provider raw、reasoning、JSON 草稿不进入普通历史 |
 | 与长期记忆关系 | 同会话历史解决当前聊天连续性；跨会话记忆、用户偏好、用户画像走独立 MemoryPack / Workspace 机制 |
 
-- [ ] 新增 `RecentConversationLoader`。
+- [x] 新增 `RecentConversationLoader`。
   - 借鉴：Hermes `SessionStore.load_transcript()`。
   - 输入：`actor_user_id`、`chat_session_id`、provider context length、当前 turn token 预算。
   - 输出：当前会话内按时间升序排列的最近消息窗口。
   - 验证：新聊天第一轮历史为空；同一聊天第二轮能加载上一轮 user / assistant 正文。
+  - 完成证据：`conversation_history/mod.rs` 新增 `RecentConversationLoader`，加载前通过 `get_session(session_id)` 校验 `actor_user_id` 归属，按 `exclude_message_id` 排除当前轮用户消息；stream / non-stream HTTP 入口均调用 `load_recent_conversation_pack()` 注入历史；`conversation_history.rs` 覆盖按 message id 排除当前消息、拒绝非归属 session、拒绝缺失 session。
 
-- [ ] 新增 `ConversationHistoryProjector`。
+- [x] 新增 `ConversationHistoryProjector`。
   - 借鉴：Hermes `_build_gateway_agent_history()`。
   - 交付物：把持久化消息投影成模型可见历史。
   - 允许角色：`user` 最终输入、`assistant` 最终可见正文、必要的已完成工具协议消息。
   - 过滤内容：`execution_trace_*`、`tool progress UI`、`provider_raw`、`reasoning_content`、`JSON Output` 草稿、内部 fact package、错误堆栈、权限字段。
   - 验证：历史投影测试断言上述内部字段不会出现在 `LlmChatRequest.messages`。
+  - 完成证据：Domain 层新增 `RecentConversationEntry` / `RecentConversationPack`，类型层只保留 `role`、`content`、`tool_call_id`、`tool_calls`；`ConversationHistoryProjector::project_messages()` 从 `AiMessage` 投影历史，丢弃 provider/model/finish_reason/usage/verification/citations/status 等字段；`projector_strips_internal_fields_from_persisted_messages` 覆盖内部字段过滤。
 
-- [ ] 扩展 `TurnContextBuilder` 接收同会话最近历史。
+- [x] 扩展 `TurnContextBuilder` 接收同会话最近历史。
   - 交付物：新增 `RecentConversationPack` 或等价字段，和 `ContextPack`、`MemoryPack` 分层保存。
   - 验证：`TurnContextBuilder` 只接收已投影历史，不直接读数据库，不直接拼 provider raw。
+  - 完成证据：`AgentSessionWorkbench` 新增 `recent_conversation_pack: Option<RecentConversationPack>`；`TurnContextBuilder::with_recent_conversation(pack)` 只接收模型可见 pack；HTTP `workbench_builder.rs` 透传同会话历史，builder 本身不读数据库；`turn_context_builder_accepts_recent_history_pack` 覆盖 builder 接收路径。
 
-- [ ] 改造 `AgentRuntimeLoopEngine::build_messages`。
+- [x] 改造 `AgentRuntimeLoopEngine::build_messages`。
   - 当前差距：`build_messages` 只读取 `state.user_inputs.last()`，`AiPromptBuilder::build_messages(..., &[], ...)` 传入空历史。
   - 交付物：请求 messages 顺序固定为 `system/workbench context -> recent conversation history -> current user message -> 本轮 assistant tool call/result 回灌`。
   - 验证：连续追问 case 中第二轮请求包含上一轮主体和回答正文。
+  - 完成证据：`AgentRuntimeLoopEngine::build_messages` 在当前用户消息前插入 `workbench_context_prompt` 和 `recent_conversation_pack.to_messages()`；工具调用与工具结果仍追加在本轮消息之后；`build_messages_includes_recent_conversation_history` 验证第二轮“那要不要停罐头？”请求包含上一轮“豆包今天拉肚子怎么办”和助手回答，并且历史位于当前用户消息之前。
 
-- [ ] 新增 `ContextBudgetPolicy`。
+- [x] 新增 `ContextBudgetPolicy`。
   - 策略：按 provider `context_length` 推导历史预算；DeepSeek 1M 初期可使用较大最近窗口，保留 turn 数、token、字节数硬上限。
   - 裁剪顺序：优先保留当前用户消息、最近轮次、当前选中宠物相关轮次、已引用事实；较早普通闲聊先裁剪。
   - 验证：超预算时请求仍可构造，且不会把全量历史无界塞给模型。
+  - 完成证据：`turn_context/context_budget.rs` 新增 `ContextBudgetPolicy`，按 turn 数与字节数硬上限裁剪已投影历史；`default_for_deepseek_1m()` 提供当前 DeepSeek 1M 阶段的大窗口默认值；stream / non-stream HTTP 入口加载历史后统一执行 `ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack)`；`conversation_history.rs` 覆盖预算内保留、超 turn 裁剪、超字节裁剪、空包保持为空。
+  - 已知风险：当前 HTTP 入口采用 DeepSeek 1M 固定默认预算；后续接入多 provider 前，必须从 provider metadata 动态传入 `context_length` 和本轮 token 预算，并补充不同 provider 的预算裁剪测试。
 
-- [ ] 新增同会话连续性回归 case。
+- [x] 新增同会话连续性回归 case。
   - case：用户第一轮问“豆包今天拉肚子怎么办”，第二轮追问“那要不要停罐头？”。
   - 验证：第二轮能识别“它 / 豆包 / 拉肚子 / 罐头”来自同一会话历史，并按需要申请饮食或异常工具。
+  - 完成证据：`runtime_loop_engine.rs` 新增 `build_messages_includes_recent_conversation_history`，固定第二轮请求的模型输入包含上一轮 user / assistant 正文，确保模型具备解析“那”所需的同会话历史；工具申请仍由模型基于注入历史和工具目录决策，不在该单测中伪造确定性工具选择。
 
 ## P2：会话摘要与上下文压缩兜底
 
-- [ ] 新增会话摘要更新策略。
+- [x] 新增会话摘要更新策略。
   - 借鉴：Hermes `context_compressor.py` 和 `conversation_compression.py`。
   - 触发：请求接近预算阈值、同会话历史超过配置上限、用户主动继续很长旧会话。
   - 交付物：长会话超过阈值后生成结构化摘要，作为 `session_summary` 注入 `ContextPack`。
   - 验证：摘要保留宠物主体、事实引用、用户偏好、未完成确认动作。
+  - 完成证据：Domain 层新增 `CompressionThreshold` / `CompressionTrigger`，覆盖消息数超限、预算阈值、`LongSessionResumed` 三类触发；Application 层新增 `SessionSummaryCompressor`，压缩前通过 `ConversationHistoryProjector` 投影历史，生成摘要后经 stream / non-stream HTTP 入口注入 `ContextPack.session_summary`；`session_summary.rs` 覆盖阈值触发、旧会话恢复、当前轮消息已持久化时排除当前消息后触发恢复压缩、摘要生成和尾部保留。
 
-- [ ] 新增摘要安全边界。
+- [x] 新增摘要安全边界。
   - 交付物：摘要标记为“历史参考”，只辅助理解当前问题。
   - 验证：摘要不会把旧任务、旧工具调用、旧确认动作重新激活为当前任务。
+  - 完成证据：`SessionSummary::to_context_summary()` 为注入文本添加“历史参考·仅辅助理解当前问题，不激活旧任务或工具调用”前缀；摘要生成 prompt 明确禁止包含旧工具调用细节、内部执行轨迹或 provider 原始响应；`compressor_strips_internal_fields_before_llm`、`compressor_summary_contains_safety_prefix_when_injected` 覆盖内部字段清理和安全前缀。
 
-- [ ] 新增压缩后历史重写策略。
+- [x] 新增压缩后历史重写策略。
   - 交付物：压缩后的会话保留最近尾部消息和结构化摘要，写入 `chat_session_summaries` 或等价表。
   - 验证：压缩后继续追问仍能识别当前主体，旧内部事件不会被压缩摘要带回模型。
+  - 完成证据：新增 migration `0032_ai_chat_session_summaries.sql` 和 `PostgresSessionSummaryRepository`，生产装配接入 Postgres 摘要仓储；`SessionSummary` 新增 `compressed_until_message_id` 记录压缩边界，`RecentConversationLoader` 有活跃摘要时只加载边界之后的历史；`SessionSummaryCompressor::try_compress(..., exclude_message_id)` 基于排除当前轮消息后的历史生成 `retained_tail`，避免当前用户消息同时出现在历史和当前消息中；`compressor_persists_compression_boundary`、`compressor_retained_tail_excludes_current_message`、`compressor_retained_tail_excludes_current_message_on_resume` 覆盖边界持久化和当前消息去重。
+  - 已知风险：`SessionSummary::covers_message()` 当前未被生产路径使用；后续若用于过滤历史，应改成基于 message id / 压缩边界位置判断，避免仅按时间误判 retained tail。当前真实过滤路径使用 `compressed_until_message_id` 定位消息位置。
 
 ## P2：跨会话记忆与候选写入
 

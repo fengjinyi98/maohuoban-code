@@ -21,12 +21,14 @@ pub(super) struct PetSessionContext {
 /// persist_session_and_user_message 持久化会话和用户消息
 /// 核心职责：
 /// - 创建或更新 AI 会话记录
-/// - 保存本轮用户消息
+/// - 使用 handler 传入的 message_id 保存本轮用户消息
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn persist_session_and_user_message(
     repo: &std::sync::Arc<dyn AiSessionRepository>,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
     session_id: Uuid,
+    message_id: Uuid,
     title: String,
     pet_context: PetSessionContext,
     now: DateTime<Utc>,
@@ -48,7 +50,7 @@ pub(super) async fn persist_session_and_user_message(
     let session_persisted = repo.upsert_session(&session).await.is_ok();
 
     let user_message = AiMessage {
-        id: Uuid::new_v4(),
+        id: message_id,
         session_id,
         role: AiMessageRole::User,
         content: req.message.clone(),

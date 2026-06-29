@@ -18,6 +18,7 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, FoodInventoryHintProvider, LlmProvider,
     PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
+    SessionSummaryRepository,
 };
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_auth_application::auth::AuthService;
@@ -31,6 +32,7 @@ pub struct AiHttpState {
     pub stream_pipeline: Arc<AiStreamPipeline>,
     pub llm_provider: Arc<dyn LlmProvider>,
     pub session_repository: Arc<dyn AiSessionRepository>,
+    pub session_summary_repository: Arc<dyn SessionSummaryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
     pub auth: Arc<AuthService>,
@@ -73,6 +75,7 @@ impl AiHttpState {
         stream_pipeline: Arc<AiStreamPipeline>,
         llm_provider: Arc<dyn LlmProvider>,
         session_repository: Arc<dyn AiSessionRepository>,
+        session_summary_repository: Arc<dyn SessionSummaryRepository>,
         pet_resolver: Arc<AiPetResolver>,
         pet_context_providers: AiPetContextProviders,
         auth: Arc<AuthService>,
@@ -81,6 +84,7 @@ impl AiHttpState {
             stream_pipeline,
             llm_provider,
             session_repository,
+            session_summary_repository,
             pet_resolver,
             pet_context_providers,
             auth,
