@@ -5,7 +5,10 @@ use maohuoban_ai_application::ai::ports::{AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
-use maohuoban_ai_domain::ai::{AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult};
+use maohuoban_ai_domain::ai::{
+    AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFactSchema, ToolProgressText,
+    Toolset,
+};
 use uuid::Uuid;
 
 use super::super::{AiHttpState, AiPetContextProviders};
@@ -94,6 +97,48 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "diet_confirmation",
         }
     }
+
+    fn progress_text(self) -> ToolProgressText {
+        match self {
+            Self::Identity => ToolProgressText {
+                started: "正在加载宠物档案".to_owned(),
+                completed: "宠物档案加载完成".to_owned(),
+            },
+            Self::CurrentDiet => ToolProgressText {
+                started: "正在加载饮食上下文".to_owned(),
+                completed: "饮食上下文加载完成".to_owned(),
+            },
+            Self::FoodInventoryHints => ToolProgressText {
+                started: "正在加载储物柜线索".to_owned(),
+                completed: "储物柜线索加载完成".to_owned(),
+            },
+            Self::DietConfirmationCandidates => ToolProgressText {
+                started: "正在加载饮食待确认候选".to_owned(),
+                completed: "饮食待确认候选加载完成".to_owned(),
+            },
+        }
+    }
+
+    fn fact_schema(self) -> ToolFactSchema {
+        match self {
+            Self::Identity => ToolFactSchema {
+                fact_keys: vec!["pet_name".to_owned(), "pet_species".to_owned()],
+                description: "宠物身份事实".to_owned(),
+            },
+            Self::CurrentDiet => ToolFactSchema {
+                fact_keys: vec!["current_staple".to_owned(), "diet_status".to_owned()],
+                description: "宠物当前饮食事实".to_owned(),
+            },
+            Self::FoodInventoryHints => ToolFactSchema {
+                fact_keys: vec!["inventory_change_hint".to_owned()],
+                description: "储物柜变化弱线索".to_owned(),
+            },
+            Self::DietConfirmationCandidates => ToolFactSchema {
+                fact_keys: vec!["diet_confirmation_candidate".to_owned()],
+                description: "饮食待确认候选".to_owned(),
+            },
+        }
+    }
 }
 
 struct RuntimePetContextTool {
@@ -130,6 +175,9 @@ impl AiToolDefinition for RuntimePetContextTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec![self.kind.domain_tag().to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: self.kind.progress_text(),
+            result_fact_schema: Some(self.kind.fact_schema()),
         }
     }
 

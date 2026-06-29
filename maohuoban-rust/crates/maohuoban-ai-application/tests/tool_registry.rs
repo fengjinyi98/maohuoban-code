@@ -8,7 +8,9 @@ use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
-use maohuoban_ai_domain::ai::{AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength};
+use maohuoban_ai_domain::ai::{
+    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength, ToolProgressText, Toolset,
+};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -43,6 +45,9 @@ impl AiToolDefinition for FakePetTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec!["identity".to_owned(), "pet_profile".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 
@@ -92,6 +97,9 @@ impl AiToolDefinition for HighRiskWriteTool {
             risk_level: AiToolRiskLevel::High,
             requires_confirmation: false,
             domain_tags: vec!["reminder".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 

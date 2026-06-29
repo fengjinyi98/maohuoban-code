@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
+use maohuoban_ai_domain::ai::{ToolProgressText, Toolset};
 use serde_json::json;
 
 /// `TaggedTool` 测试用带标签工具
@@ -48,6 +49,9 @@ impl AiToolDefinition for TaggedTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: self.domain_tags.clone(),
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 

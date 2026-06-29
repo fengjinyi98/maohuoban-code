@@ -19,10 +19,43 @@ use maohuoban_ai_domain::ai::{
     AiConversationSurface, AiFactEntry, AiFactStrength, AiToolConfirmationRequirement,
     CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
     LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
-    ModelLabel,
+    ModelLabel, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
+
+/// `tool_call_response` 构造包含工具调用的脚本响应
+#[allow(clippy::needless_pass_by_value)]
+fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatResponse {
+    LlmChatResponse {
+        message: LlmMessage {
+            role: LlmRole::Assistant,
+            content: String::new(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        tool_calls: vec![LlmToolCall {
+            id: "call_1".to_owned(),
+            name: tool_name.to_owned(),
+            arguments: args.to_string(),
+        }],
+        usage: LlmUsage::default(),
+        finish_reason: LlmFinishReason::ToolCalls,
+        provider: "scripted".to_owned(),
+        model: "primary".to_owned(),
+    }
+}
+
+/// `find_tool_message` 从请求列表中找到 followup 请求的 tool role 消息
+fn find_tool_message(requests: &[LlmChatRequest]) -> &LlmMessage {
+    requests
+        .iter()
+        .find(|req| req.messages.iter().any(|m| m.role == LlmRole::Tool))
+        .and_then(|req| req.messages.iter().find(|m| m.role == LlmRole::Tool))
+        .expect("followup request should contain a tool message")
+}
+
+const AUTHORIZED_PET_ID: &str = "11111111-1111-1111-1111-111111111111";
 
 #[derive(Clone)]
 struct ScriptedProvider {
@@ -165,6 +198,9 @@ impl AiToolDefinition for EchoIdentityTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 
@@ -383,6 +419,9 @@ async fn agent_runtime_reports_confirmation_requests() {
                 risk_level: AiToolRiskLevel::High,
                 requires_confirmation: true,
                 domain_tags: vec!["reminder".to_owned()],
+                toolset: Toolset::Confirmation,
+                progress_text: ToolProgressText::default(),
+                result_fact_schema: None,
             }
         }
 
@@ -450,5 +489,163 @@ async fn agent_runtime_reports_confirmation_requests() {
             "tool_finished",
             "needs_confirmation",
         ]
+    );
+}
+
+// ===== ToolFactProjector 接入验证 =====
+
+/// 工具成功结果应通过 `ToolFactProjector` 投影，输出 `reference_ids` 并隐藏内部字段
+#[tokio::test]
+async fn tool_success_projects_reference_ids_and_hides_internal_fields() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response(
+            "load_pet_identity_context",
+            json!({ "pet_id": AUTHORIZED_PET_ID }),
+        ),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("毛球吃什么").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2, "should have initial + followup requests");
+
+    let tool_message = find_tool_message(&requests);
+    let content = &tool_message.content;
+
+    // 应包含 reference_ids（来自 ToolFactProjector）
+    assert!(
+        content.contains("reference_ids"),
+        "tool result should contain reference_ids, got: {content}"
+    );
+
+    // 不应暴露内部 key
+    assert!(
+        !content.contains("current_staple"),
+        "tool result should not expose internal key, got: {content}"
+    );
+
+    // 不应暴露 citation_id 字段名
+    assert!(
+        !content.contains("citation_id"),
+        "tool result should not expose citation_id field, got: {content}"
+    );
+}
+
+/// 工具拒绝结果应通过 `ToolFactProjector::project_denied` 投影为通用安全文案
+#[tokio::test]
+async fn tool_denied_projects_safe_message_not_raw_reason() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response(
+            "load_pet_identity_context",
+            json!({ "pet_id": "22222222-2222-2222-2222-222222222222" }),
+        ),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("毛球吃什么").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2);
+
+    let tool_message = find_tool_message(&requests);
+    let content = &tool_message.content;
+
+    // 应包含通用安全文案
+    assert!(
+        content.contains("工具无法执行"),
+        "denied tool result should contain safe message, got: {content}"
+    );
+
+    // 不应暴露原始拒绝原因
+    assert!(
+        !content.contains("pet not authorized"),
+        "denied tool result should not expose raw reason, got: {content}"
+    );
+}
+
+/// 工具失败结果应通过 `ToolFactProjector::project_failed` 投影为通用安全文案
+#[tokio::test]
+async fn tool_failed_projects_safe_message_not_raw_reason() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response("load_pet_identity_context", json!({})),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("毛球吃什么").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2);
+
+    let tool_message = find_tool_message(&requests);
+    let content = &tool_message.content;
+
+    // 应包含通用安全文案
+    assert!(
+        content.contains("工具执行失败"),
+        "failed tool result should contain safe message, got: {content}"
+    );
+
+    // 不应暴露原始失败原因
+    assert!(
+        !content.contains("missing pet_id"),
+        "failed tool result should not expose raw reason, got: {content}"
     );
 }

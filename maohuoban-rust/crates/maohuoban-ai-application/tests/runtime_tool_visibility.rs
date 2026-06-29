@@ -10,7 +10,7 @@ use maohuoban_ai_application::ai::tools::{
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel,
+    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -95,6 +95,9 @@ impl AiToolDefinition for PrivateIdentityTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 
@@ -134,6 +137,86 @@ async fn private_tools_hidden_without_selected_pet_even_if_catalog_mentions_priv
     assert!(
         requests[0].tools.is_empty(),
         "no selected pet means private tools must stay hidden, got {:?}",
+        requests[0]
+            .tools
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>()
+    );
+}
+
+/// `SneakyPrivateTool` scope 和 `domain_tags` 都不命中旧规则，但 toolset 是 `PrivatePetContext`
+/// 核心职责：
+/// - 验证 `toolset` 参与可见性决策，不能只靠 `scope`/`domain_tags`
+struct SneakyPrivateTool;
+
+#[async_trait]
+impl AiToolDefinition for SneakyPrivateTool {
+    fn name(&self) -> &'static str {
+        "load_health_summary"
+    }
+
+    fn description(&self) -> &'static str {
+        "加载宠物健康摘要"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "health.summary".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["health".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::failed("unexpected")
+    }
+}
+
+#[tokio::test]
+async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss_old_rules() {
+    // 旧规则只检查 scope.starts_with("pet.") 和 domain_tags in [identity, diet, inventory, diet_confirmation]
+    // SneakyPrivateTool 的 scope="health.summary"、domain_tags=["health"]，旧规则不会隐藏它
+    // 但 toolset=PrivatePetContext，应该被隐藏
+    let provider = RecordingStreamProvider::default();
+    let mut registry = ToolRegistry::new();
+    registry.register(SneakyPrivateTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", misleading_private_workbench())
+        .await
+        .expect("prompt workbench");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0].tools.is_empty(),
+        "toolset=PrivatePetContext must be hidden without selected pet even if scope/tags miss old rules, got {:?}",
         requests[0]
             .tools
             .iter()

@@ -6,11 +6,10 @@ use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
     AgentSessionState, AiFactPackage, AiResult, LlmChatRequest, LlmFinishReason, LlmMessage,
     LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, LoopStep, LoopToolResult, LoopToolStatus,
-    ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, ToolFactProjector,
 };
 use serde_json::Value;
 
-use crate::ai::fact_projection::AiFactProjection;
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
@@ -419,16 +418,18 @@ fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
             .output
             .clone()
             .unwrap_or_else(|| "{}".to_owned()),
-        LoopToolStatus::Denied => serde_json::json!({
-            "status": "denied",
-            "reason": tool_result.denied_reason.clone().unwrap_or_default(),
-        })
-        .to_string(),
-        LoopToolStatus::Failed => serde_json::json!({
-            "status": "failed",
-            "reason": tool_result.failed_reason.clone().unwrap_or_default(),
-        })
-        .to_string(),
+        LoopToolStatus::Denied => {
+            let projected = ToolFactProjector::project_denied(
+                tool_result.denied_reason.as_deref().unwrap_or_default(),
+            );
+            serde_json::to_string(&projected).unwrap_or_else(|_| "{}".to_owned())
+        }
+        LoopToolStatus::Failed => {
+            let projected = ToolFactProjector::project_failed(
+                tool_result.failed_reason.as_deref().unwrap_or_default(),
+            );
+            serde_json::to_string(&projected).unwrap_or_else(|_| "{}".to_owned())
+        }
         LoopToolStatus::RequiresConfirmation => serde_json::json!({
             "status": "requires_confirmation",
             "confirmation": tool_result.confirmation,
@@ -447,10 +448,11 @@ fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
 
 fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopToolResult {
     if result.allowed {
-        return LoopToolResult::succeeded(
-            tool_call,
-            AiFactProjection::build_tool_result_json(&result.facts),
-        );
+        let mut projected = ToolFactProjector::project_facts(&result.facts);
+        projected.reference_ids.extend(result.returned_ref_ids);
+        let json =
+            serde_json::to_string(&projected).unwrap_or_else(|_| "{\"facts\":[]}".to_owned());
+        return LoopToolResult::succeeded(tool_call, json);
     }
 
     if let Some(confirmation) = result.confirmation {

@@ -17,7 +17,7 @@ mod risk_level;
 pub use context::AiToolContext;
 pub use definition::AiToolDefinition;
 pub use definition_info::ToolDefinitionInfo;
-pub use discovery::{ToolGroupSchema, ToolGroupSummary};
+pub use discovery::{ToolGroupSchema, ToolGroupSummary, ToolsetGroupSummary};
 pub use metadata::AiToolMetadata;
 pub use registry::ToolRegistry;
 pub use result::AiToolResult;

@@ -17,6 +17,7 @@ use maohuoban_ai_application::ai::tools::{
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength, LlmChatRequest,
     LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage,
+    ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -170,6 +171,9 @@ impl AiToolDefinition for EchoIdentityTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 

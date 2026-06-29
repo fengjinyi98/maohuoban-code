@@ -16,6 +16,7 @@ use maohuoban_ai_application::ai::{
         ToolRegistry,
     },
 };
+use maohuoban_ai_domain::ai::{ToolProgressText, Toolset};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -53,6 +54,9 @@ impl AiToolDefinition for ReadonlyPetTool {
             risk_level: AiToolRiskLevel::Low,
             requires_confirmation: false,
             domain_tags: vec!["diet".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 
@@ -98,6 +102,9 @@ impl AiToolDefinition for ConfirmationTool {
             risk_level: AiToolRiskLevel::High,
             requires_confirmation: true,
             domain_tags: vec!["reminder".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
         }
     }
 

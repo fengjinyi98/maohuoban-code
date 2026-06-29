@@ -1,11 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
+use maohuoban_ai_domain::ai::Toolset;
+
 use crate::ai::policy::{PolicyDecision, PolicyGuard};
 
 use super::{
     AiToolContext, AiToolDefinition, AiToolResult, ToolDefinitionInfo, ToolGroupSchema,
-    ToolGroupSummary,
+    ToolGroupSummary, ToolsetGroupSummary,
 };
 
 /// ToolRegistry 工具注册表
@@ -82,6 +84,49 @@ impl ToolRegistry {
                     risk_level: metadata.risk_level,
                     requires_confirmation,
                     domain_tags: metadata.domain_tags,
+                    toolset: metadata.toolset,
+                    progress_text: metadata.progress_text,
+                    result_fact_schema: metadata.result_fact_schema,
+                }
+            })
+            .collect()
+    }
+
+    /// list_by_toolset 按 toolset 分组过滤工具
+    /// 核心职责：
+    /// - 返回指定 toolset 下的全部工具定义
+    /// - 供 TurnContextBuilder 按 toolset + 权限 + selected pet 组装工具清单
+    #[must_use]
+    pub fn list_by_toolset(&self, toolset: Toolset) -> Vec<ToolDefinitionInfo> {
+        self.list_definitions()
+            .into_iter()
+            .filter(|tool| tool.toolset == toolset)
+            .collect()
+    }
+
+    /// list_toolset_groups 返回按 toolset 分组的摘要
+    /// 核心职责：
+    /// - 汇总每个 toolset 下的工具数量和名称
+    /// - 供模型工具目录展示和调试
+    #[must_use]
+    pub fn list_toolset_groups(&self) -> Vec<ToolsetGroupSummary> {
+        let mut groups: BTreeMap<Toolset, Vec<String>> = BTreeMap::new();
+        for tool in self.tools.values() {
+            let toolset = tool.metadata().toolset;
+            groups
+                .entry(toolset)
+                .or_default()
+                .push(tool.name().to_owned());
+        }
+
+        groups
+            .into_iter()
+            .map(|(toolset, mut tool_names)| {
+                tool_names.sort();
+                ToolsetGroupSummary {
+                    toolset,
+                    tool_count: tool_names.len(),
+                    tool_names,
                 }
             })
             .collect()

@@ -81,41 +81,95 @@
 
 ## P1：工具能力与进度文案标准化
 
-- [ ] 扩展工具 metadata。
+- [x] 扩展工具 metadata。
   - 字段：`toolset`、`domain`、`scope`、`risk_level`、`progress_started_text`、`progress_completed_text`、`result_fact_schema`。
   - 验证：前端不需要根据工具名映射文案。
+  - 完成证据：`AiToolMetadata` 新增 `toolset: Toolset`、`progress_text: ToolProgressText`、`result_fact_schema: Option<ToolFactSchema>`；`ToolDefinitionInfo` 透传三个新字段；`ToolRegistry::list_definitions` 填充新字段；HTTP 层 `RuntimePetContextToolKind` 按 kind 提供进度文案和事实 schema；`toolset_metadata_boundary.rs` 10 个测试 + `tool_metadata_standardization.rs` 7 个测试覆盖全部边界。
 
-- [ ] 建立工具 toolset 分组。
+- [x] 建立工具 toolset 分组。
   - 借鉴：Hermes toolsets。
   - 初始分组：`public_pet_domain`、`private_pet_context`、`app_support`、`memory`、`confirmation`。
   - 验证：每个 turn 的模型工具清单由 toolset + 权限 + selected pet 共同决定。
+  - 完成证据：Domain 层新增 `Toolset` 枚举（5 个 variants，snake_case 序列化，Ord/Hash 可做 BTreeMap key）；`ToolRegistry` 新增 `list_by_toolset(toolset)` 按分组过滤和 `list_toolset_groups()` 按分组汇总；`ToolsetGroupSummary` 类型暴露分组摘要；`AgentRuntimeRequestPolicy` 新增 `is_private_toolset` 判断，`toolset=PrivatePetContext` 的工具在无已选宠物时被隐藏，优先于旧 `scope`/`domain_tags` 规则；`runtime_tool_visibility.rs` 新增 `SneakyPrivateTool` 测试验证 `scope`/`domain_tags` 不命中旧规则但 `toolset` 命中时仍被隐藏。
 
-- [ ] 工具结果统一进入事实投影。
+- [x] 工具结果统一进入事实投影。
   - 交付物：工具原始结果与模型可见事实包分离。
   - 验证：模型看不到业务内部字段，只看到裁剪后的事实和引用 ID。
+  - 完成证据：Domain 层新增 `ToolFactProjector` 投影器、`ModelVisibleToolResult` 和 `ModelVisibleFact` 类型；`ModelVisibleFact` 只有 `certainty` 和 `text` 两个字段，`citation_id` 已从结构体移除（编译期保证）；`project_facts` 过滤内部状态 key（status/life_status 等）、保留 `reference_ids` 列表、映射 `strength` 为确定性标签；`project_denied`/`project_failed` 只返回通用安全文案不暴露原始原因；`tool_fact_projection_boundary.rs` 8 个测试覆盖内部字段过滤、`citation_id` 字段不存在断言、JSON 不含 `citation_id`、安全文案、确定性标签、空包。
 
-- [ ] 工具执行审计与用户可见轨迹分离。
+- [x] 工具执行审计与用户可见轨迹分离。
   - 交付物：审计记录保留工具参数 hash、授权结果、风险标签；用户轨迹只保留展示文案和状态。
   - 验证：用户可见事件不携带敏感参数。
+  - 完成证据：Domain 层新增 `ToolExecutionAudit`（tool_name + tool_call_id + args_hash + allowed + risk_level + toolset）和 `ToolExecutionTrace`（display_text + status + citation_count）；`ToolExecutionTrace` 不携带 `tool_call_id`，JSON 序列化验证轨迹不含 `tool_call_id`/`args`/`hash`/`risk`/`toolset`/`allowed` 字段；`tool_audit_trace_separation.rs` 7 个测试覆盖审计字段完整性、轨迹字段最小化（无 `tool_call_id`）、JSON roundtrip、两者可从同一执行构建但携带不同信息。
 
-## P2：上下文记忆与会话连续性
+## P2：同会话上下文连续性
 
-- [ ] 新增会话历史加载策略。
-  - 交付物：新消息进入 turn 前加载最近对话、摘要或压缩上下文。
-  - 验证：新聊天内连续追问能识别上一轮主体和话题。
+### P2 边界修正
+
+| 项 | 本阶段口径 |
+|---|---|
+| 先解决的问题 | 同一个 `chat_session_id` 内的连续追问、代词承接、上一轮主题承接 |
+| 参考 Hermes | `SessionStore.load_transcript -> _build_gateway_agent_history -> run_conversation(conversation_history=...) -> build_turn_context` |
+| DeepSeek 1M 的影响 | 可以放宽最近历史预算和推迟压缩触发；仍需要后端受控投影历史 |
+| 历史输入原则 | 只把模型允许看到的会话内容投影进 messages；内部事件、执行轨迹、provider raw、reasoning、JSON 草稿不进入普通历史 |
+| 与长期记忆关系 | 同会话历史解决当前聊天连续性；跨会话记忆、用户偏好、用户画像走独立 MemoryPack / Workspace 机制 |
+
+- [ ] 新增 `RecentConversationLoader`。
+  - 借鉴：Hermes `SessionStore.load_transcript()`。
+  - 输入：`actor_user_id`、`chat_session_id`、provider context length、当前 turn token 预算。
+  - 输出：当前会话内按时间升序排列的最近消息窗口。
+  - 验证：新聊天第一轮历史为空；同一聊天第二轮能加载上一轮 user / assistant 正文。
+
+- [ ] 新增 `ConversationHistoryProjector`。
+  - 借鉴：Hermes `_build_gateway_agent_history()`。
+  - 交付物：把持久化消息投影成模型可见历史。
+  - 允许角色：`user` 最终输入、`assistant` 最终可见正文、必要的已完成工具协议消息。
+  - 过滤内容：`execution_trace_*`、`tool progress UI`、`provider_raw`、`reasoning_content`、`JSON Output` 草稿、内部 fact package、错误堆栈、权限字段。
+  - 验证：历史投影测试断言上述内部字段不会出现在 `LlmChatRequest.messages`。
+
+- [ ] 扩展 `TurnContextBuilder` 接收同会话最近历史。
+  - 交付物：新增 `RecentConversationPack` 或等价字段，和 `ContextPack`、`MemoryPack` 分层保存。
+  - 验证：`TurnContextBuilder` 只接收已投影历史，不直接读数据库，不直接拼 provider raw。
+
+- [ ] 改造 `AgentRuntimeLoopEngine::build_messages`。
+  - 当前差距：`build_messages` 只读取 `state.user_inputs.last()`，`AiPromptBuilder::build_messages(..., &[], ...)` 传入空历史。
+  - 交付物：请求 messages 顺序固定为 `system/workbench context -> recent conversation history -> current user message -> 本轮 assistant tool call/result 回灌`。
+  - 验证：连续追问 case 中第二轮请求包含上一轮主体和回答正文。
+
+- [ ] 新增 `ContextBudgetPolicy`。
+  - 策略：按 provider `context_length` 推导历史预算；DeepSeek 1M 初期可使用较大最近窗口，保留 turn 数、token、字节数硬上限。
+  - 裁剪顺序：优先保留当前用户消息、最近轮次、当前选中宠物相关轮次、已引用事实；较早普通闲聊先裁剪。
+  - 验证：超预算时请求仍可构造，且不会把全量历史无界塞给模型。
+
+- [ ] 新增同会话连续性回归 case。
+  - case：用户第一轮问“豆包今天拉肚子怎么办”，第二轮追问“那要不要停罐头？”。
+  - 验证：第二轮能识别“它 / 豆包 / 拉肚子 / 罐头”来自同一会话历史，并按需要申请饮食或异常工具。
+
+## P2：会话摘要与上下文压缩兜底
 
 - [ ] 新增会话摘要更新策略。
-  - 借鉴：Hermes context compression 思路。
-  - 交付物：长会话超过阈值后生成结构化摘要。
+  - 借鉴：Hermes `context_compressor.py` 和 `conversation_compression.py`。
+  - 触发：请求接近预算阈值、同会话历史超过配置上限、用户主动继续很长旧会话。
+  - 交付物：长会话超过阈值后生成结构化摘要，作为 `session_summary` 注入 `ContextPack`。
   - 验证：摘要保留宠物主体、事实引用、用户偏好、未完成确认动作。
 
+- [ ] 新增摘要安全边界。
+  - 交付物：摘要标记为“历史参考”，只辅助理解当前问题。
+  - 验证：摘要不会把旧任务、旧工具调用、旧确认动作重新激活为当前任务。
+
+- [ ] 新增压缩后历史重写策略。
+  - 交付物：压缩后的会话保留最近尾部消息和结构化摘要，写入 `chat_session_summaries` 或等价表。
+  - 验证：压缩后继续追问仍能识别当前主体，旧内部事件不会被压缩摘要带回模型。
+
+## P2：跨会话记忆与候选写入
+
 - [ ] 新增记忆候选写入流程。
-  - 交付物：把“可记忆信息”先写候选，不直接写强事实。
+  - 交付物：把“可记忆信息”先写候选，再由校验或用户确认升级。
   - 验证：宠物健康、饮食、档案事实必须经过用户确认或业务工具确认。
 
 - [ ] 新增私域记忆检索过滤。
-  - 交付物：检索条件必须带 scope metadata。
-  - 验证：不能裸搜全库记忆。
+  - 交付物：检索条件必须带 `scope_type`、`scope_id`、`actor_user_id`、可选 `pet_id` / `household_id`。
+  - 验证：公共问答不加载 pet 私域记忆；未授权 pet 记忆不可检索。
 
 ## P2：工具循环与失败恢复
 
@@ -182,6 +236,10 @@
 |---|---|
 | `references/agent/hermes-agent/AGENTS.md` | core narrow waist、能力放边缘、prompt caching 稳定 |
 | `references/agent/hermes-agent/agent/turn_context.py` | turn 前置上下文 builder |
+| `references/agent/hermes-agent/gateway/session.py` | session key、transcript 加载、会话生命周期 |
+| `references/agent/hermes-agent/gateway/run.py` | transcript -> agent history 投影、缓存 agent history 保护 |
+| `references/agent/hermes-agent/agent/conversation_loop.py` | conversation_history 进入模型请求前的最终清洗和临时上下文注入 |
+| `references/agent/hermes-agent/agent/context_compressor.py` | 长会话摘要压缩、历史参考边界、头尾保护 |
 | `references/agent/hermes-agent/tools/registry.py` | 工具注册、toolset、可用性检查 |
 | `references/agent/hermes-agent/tools/tool_search.py` | 渐进工具披露 |
 | `references/agent/hermes-agent/agent/think_scrubber.py` | 流式思考清理 |
