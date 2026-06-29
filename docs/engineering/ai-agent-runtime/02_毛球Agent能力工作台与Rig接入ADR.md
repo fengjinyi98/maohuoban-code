@@ -1,6 +1,7 @@
 # ADR：毛球 Agent 能力工作台与 Rig 接入架构决策
 
 - 创建时间：2026-06-28
+- 最近更新：2026-06-30
 - 文档类型：ADR / 架构决策记录
 - 当前状态：草案，待评审
 - 替代说明：已替代过时的 TurnPlan ADR，旧 ADR 文件已清理
@@ -147,6 +148,50 @@
 | POC 目标 | 验证 Rig 的 sans-IO step、工具调用状态、暂停恢复、审批流程是否适配毛球 |
 | 不接入范围 | 不让 Rig 直接访问业务服务，不让 Rig 替代 HTTP handler，不让 Rig 管理宠物事实权限 |
 | 成功标准 | 同一组 runtime contract case 在自有 engine 和 Rig adapter 下都能通过 |
+
+### 5.4 Rig POC 当前落地状态
+
+| 项 | 当前状态 |
+|---|---|
+| Adapter | `maohuoban-ai-application/src/ai/Infrastructure/runtime/rig_adapter/rig_loop_engine_adapter.rs` 已实现 `LoopEngine` |
+| Step source | `FakeRigState` 作为 sans-IO fake Rig step source，只产出 `FakeRigStep` |
+| 统一输出 | `CallModel / CallTools / CallToolResults / Done` 统一映射为自有 `LoopStep` |
+| 合同测试 | `rig_loop_engine.rs` 验证 step 映射；`runtime_regression_cases.rs` 对比自研 engine 与 Rig adapter 的用户可见事件顺序 |
+| 运行时选择 | `AgentRuntimeEngineFactory` 支持 `self_hosted` / `rig_poc`，HTTP 流式和非流式入口通过 factory 构造 engine |
+| 配置入口 | `MAOHUOBAN_AI_RUNTIME_ENGINE=self_hosted|rig_poc`，未知值回退 `self_hosted` |
+| POC 限制 | `rig_poc` 当前为 fake direct answer，用于验证 adapter 选择链路，不代表真实 Rig provider/tool calling 能力 |
+
+### 5.5 Rig 与 DeepSeek provider 兼容性记录
+
+| 能力 | 当前结论 | 验证状态 |
+|---|---|---|
+| OpenAI compatible tools | 自研 `AgentRuntimeLoopEngine` 已通过 `LlmChatRequest.tools` 走 OpenAI-compatible provider；Rig 真实 tool calling 尚未接入 | 待真实 Rig source POC |
+| Streaming | 自研 engine 已把 provider stream delta 先转 `LoopStep::MessageDelta`，再由 SSE projector 清洗 | 已在自研 engine 测试覆盖 |
+| JSON output | `visible_text_from_model_output` 已过滤 JSON `answer_text` 和 `<think>` 内容；Rig raw delta 必须同样先进入内部事件层 | fake adapter 已通过输出已清洗文本验证 |
+| Tool failure fallback | DeepSeek 工具调用失败属于 provider/runtime 错误分类；当前 `self_hosted` 是默认回退路径 | 待真实 Rig source 接入后补观测字段 |
+| 观测字段 | provider category、tool status、turn status 已在自研链路存在；Rig POC 需要补 `engine_mode` 维度 | 待诊断切片 |
+
+### 5.6 Codex 上下文压缩参考结论
+
+| Codex 机制 | 参考文件 | 毛球落点 |
+|---|---|---|
+| history 与当前上下文分离 | `references/agent/codex/codex-rs/core/src/context_manager/history.rs` | `RecentConversationPack`、`SessionSummary`、`AgentSessionWorkbench` 分层管理 |
+| compact lifecycle | `references/agent/codex/codex-rs/core/src/compact.rs` | 压缩应是显式生命周期，后续补 pre/post compact 诊断事件 |
+| replacement history | `compact.rs` 中 `replacement_history` | 压缩后应替换历史窗口，保留摘要 + tail，避免每轮重复旧前缀 |
+| initial context reinjection | `InitialContextInjection` | 摘要只作为历史参考；当前宠物、能力目录、memory、policy 每轮由 builder 重新注入 |
+| context diff update | `context_manager/updates.rs` | 后续可对 pet/context/memory 做差量注入，当前先保持每轮构建稳定 Workbench |
+| token-budget compact | `compact_token_budget.rs` | DeepSeek 1M 先用 `ContextBudgetPolicy` 控制 recent window，再由 `SessionSummaryCompressor` 写压缩边界 |
+
+### 5.7 上下文组装底层原则
+
+| 层 | 原则 |
+|---|---|
+| HTTP handler | 只负责认证、请求 DTO、SSE/JSON 响应和持久化编排 |
+| Turn preparation | 只生成 session、message id、gate、pet resolution、审计前置信息 |
+| Context manager | 后续下沉 `load_history_and_summary`，统一加载 recent history、active summary、压缩结果 |
+| TurnContextBuilder | 每轮重新组装 `AgentSessionWorkbench`，摘要是参考材料，当前轮能力和宠物上下文由代码决定 |
+| LoopEngine | 只消费 Workbench，不加载历史、不读数据库、不访问业务服务 |
+| Projector | Rig raw delta、provider delta、JSON draft、reasoning 都先转内部事件，再投影为 iOS 可见事件 |
 
 ## 6. 推荐数据流
 

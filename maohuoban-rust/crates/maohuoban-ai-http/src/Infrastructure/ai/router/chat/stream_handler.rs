@@ -9,7 +9,9 @@ use axum::{
 };
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
-use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
+use maohuoban_ai_application::ai::runtime::{
+    AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
+};
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
@@ -244,7 +246,12 @@ fn runtime_provider_stream(
             .map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
     let engine =
-        AgentRuntimeLoopEngine::new(provider, registry, tool_context, input.fact_package.clone());
+        AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
+            provider,
+            registry,
+            tool_context,
+            fact_package: input.fact_package.clone(),
+        });
     let session = AgentSession::new(
         input.session_id,
         AgentId::main_pet_care_agent(),

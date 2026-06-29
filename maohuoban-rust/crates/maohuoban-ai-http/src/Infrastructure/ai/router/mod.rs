@@ -20,6 +20,7 @@ use maohuoban_ai_application::ai::ports::{
     PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
     SessionSummaryRepository,
 };
+use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_auth_application::auth::AuthService;
 
@@ -31,6 +32,7 @@ use maohuoban_auth_application::auth::AuthService;
 pub struct AiHttpState {
     pub stream_pipeline: Arc<AiStreamPipeline>,
     pub llm_provider: Arc<dyn LlmProvider>,
+    pub runtime_engine_mode: AgentRuntimeEngineMode,
     pub session_repository: Arc<dyn AiSessionRepository>,
     pub session_summary_repository: Arc<dyn SessionSummaryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
@@ -64,30 +66,6 @@ impl AiPetContextProviders {
             diet_fact_provider,
             food_inventory_hint_provider,
             diet_confirmation_candidate_provider,
-        }
-    }
-}
-
-impl AiHttpState {
-    /// new 构造 AI HTTP 状态
-    #[must_use]
-    pub fn new(
-        stream_pipeline: Arc<AiStreamPipeline>,
-        llm_provider: Arc<dyn LlmProvider>,
-        session_repository: Arc<dyn AiSessionRepository>,
-        session_summary_repository: Arc<dyn SessionSummaryRepository>,
-        pet_resolver: Arc<AiPetResolver>,
-        pet_context_providers: AiPetContextProviders,
-        auth: Arc<AuthService>,
-    ) -> Self {
-        Self {
-            stream_pipeline,
-            llm_provider,
-            session_repository,
-            session_summary_repository,
-            pet_resolver,
-            pet_context_providers,
-            auth,
         }
     }
 }

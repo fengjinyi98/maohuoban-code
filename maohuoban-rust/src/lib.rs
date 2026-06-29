@@ -33,6 +33,7 @@ use diagnostics::{
 };
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
+use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
@@ -93,6 +94,7 @@ pub struct BackendConfig {
     pub refresh_token_ttl_seconds: i64,
     pub diagnostics_ingest_enabled: bool,
     pub ai_llm_provider_config: LlmProviderRegistryConfig,
+    pub ai_runtime_engine_mode: AgentRuntimeEngineMode,
 }
 
 impl BackendConfig {
@@ -119,6 +121,12 @@ impl BackendConfig {
                     .as_deref(),
             ),
             ai_llm_provider_config: LlmProviderRegistryConfig::from_env(),
+            ai_runtime_engine_mode: AgentRuntimeEngineMode::from_config_value(
+                env::var("MAOHUOBAN_AI_RUNTIME_ENGINE")
+                    .ok()
+                    .as_deref()
+                    .unwrap_or("self_hosted"),
+            ),
         }
     }
 
@@ -141,6 +149,7 @@ impl BackendConfig {
             refresh_token_ttl_seconds: 180 * 24 * 60 * 60,
             diagnostics_ingest_enabled: true,
             ai_llm_provider_config: LlmProviderRegistryConfig::default(),
+            ai_runtime_engine_mode: AgentRuntimeEngineMode::SelfHosted,
         }
     }
 }
@@ -230,6 +239,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
     let ai_http_state = build_ai_http_state(
         &config.ai_llm_provider_config,
+        config.ai_runtime_engine_mode,
         pet_service.clone(),
         ai_session_repository.clone(),
         pool.clone(),
@@ -272,6 +282,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
 /// - 保持 build_backend_app 的服务装配流程可读
 fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
+    runtime_engine_mode: AgentRuntimeEngineMode,
     pet_service: Arc<PetService>,
     ai_session_repository: PostgresAiSessionRepository,
     ai_session_pool: sqlx::PgPool,
@@ -283,15 +294,16 @@ fn build_ai_http_state(
         pet_service.clone(),
     )));
 
-    AiHttpState::new(
-        ai_stream_pipeline,
-        ai_llm_provider,
-        Arc::new(ai_session_repository)
+    AiHttpState {
+        stream_pipeline: ai_stream_pipeline,
+        llm_provider: ai_llm_provider,
+        runtime_engine_mode,
+        session_repository: Arc::new(ai_session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-        Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
+        session_summary_repository: Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionSummaryRepository>,
-        ai_pet_resolver,
-        AiPetContextProviders::new(
+        pet_resolver: ai_pet_resolver,
+        pet_context_providers: AiPetContextProviders::new(
             Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
             Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
             Arc::new(PetServiceFoodInventoryHintProvider::new(
@@ -301,8 +313,8 @@ fn build_ai_http_state(
                 pet_service,
             )),
         ),
-        auth_service,
-    )
+        auth: auth_service,
+    }
 }
 
 /// AuthProfileInitializer 认证资料初始化适配器

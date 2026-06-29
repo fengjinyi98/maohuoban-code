@@ -10,3 +10,10 @@ pub trait LoopEngine: Send {
     /// next 推进 Runtime loop 一步
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>>;
 }
+
+#[async_trait]
+impl<T: LoopEngine + ?Sized> LoopEngine for Box<T> {
+    async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
+        (**self).next(state).await
+    }
+}

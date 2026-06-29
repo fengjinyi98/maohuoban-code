@@ -2,7 +2,9 @@ use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
 use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
-use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
+use maohuoban_ai_application::ai::runtime::{
+    AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
+};
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
@@ -155,12 +157,13 @@ async fn complete_with_runtime(
         actor_user_id,
         authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),
     };
-    let engine = AgentRuntimeLoopEngine::new(
-        state.llm_provider.clone(),
-        registry,
-        tool_context,
-        fact_package.clone(),
-    );
+    let engine =
+        AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
+            provider: state.llm_provider.clone(),
+            registry,
+            tool_context,
+            fact_package: fact_package.clone(),
+        });
     let mut session = AgentSession::new(
         context.session_id,
         AgentId::main_pet_care_agent(),

@@ -5,6 +5,9 @@
 
 mod agent_runtime_loop_engine;
 mod engine;
+mod engine_factory;
+mod engine_input;
+mod engine_mode;
 mod fake_loop_engine;
 #[path = "../Infrastructure/runtime/rig_adapter/mod.rs"]
 mod rig_adapter;
@@ -15,6 +18,9 @@ mod workbench_prompt_projection;
 
 pub use agent_runtime_loop_engine::*;
 pub use engine::*;
+pub use engine_factory::*;
+pub use engine_input::*;
+pub use engine_mode::*;
 pub use fake_loop_engine::*;
 pub use rig_adapter::*;
 pub use session::*;
