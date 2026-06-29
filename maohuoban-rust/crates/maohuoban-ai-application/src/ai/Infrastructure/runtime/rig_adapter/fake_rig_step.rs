@@ -1,5 +1,5 @@
 use maohuoban_ai_domain::ai::{
-    AgentTurnStatus, LlmFinishReason, LlmToolCall, LlmUsage, ModelLabel,
+    AgentTurnStatus, LlmFinishReason, LlmToolCall, LlmUsage, LoopToolResult, ModelLabel,
 };
 use uuid::Uuid;
 
@@ -17,6 +17,13 @@ pub enum FakeRigStep {
     },
     CallTools {
         tool_calls: Vec<LlmToolCall>,
+    },
+    /// CallToolResults 工具执行结果 step
+    /// 核心职责：
+    /// - 承载工具执行后的状态和输出
+    /// - 映射为 LoopStep::call_tool_results
+    CallToolResults {
+        tool_results: Vec<LoopToolResult>,
     },
     Done {
         message_id: Uuid,

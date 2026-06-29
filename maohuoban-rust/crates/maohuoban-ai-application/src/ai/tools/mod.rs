@@ -8,6 +8,7 @@
 mod context;
 mod definition;
 mod definition_info;
+mod disclosure;
 mod discovery;
 mod metadata;
 mod registry;
@@ -17,6 +18,9 @@ mod risk_level;
 pub use context::AiToolContext;
 pub use definition::AiToolDefinition;
 pub use definition_info::ToolDefinitionInfo;
+pub use disclosure::{
+    DisclosureConfig, DisclosureDecision, DisclosureReason, ToolDisclosurePolicy,
+};
 pub use discovery::{ToolGroupSchema, ToolGroupSummary, ToolsetGroupSummary};
 pub use metadata::AiToolMetadata;
 pub use registry::ToolRegistry;

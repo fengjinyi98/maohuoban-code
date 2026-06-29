@@ -204,14 +204,16 @@
 
 ## P3：能力扩展机制
 
-- [ ] 评估渐进工具披露。
+- [x] 评估渐进工具披露。
   - 借鉴：Hermes `tool_search`、`tool_describe`、`tool_call`。
   - 触发条件：工具 schema 明显膨胀，影响模型选择和 token 成本。
   - 验证：核心工具常驻，长尾工具按需描述。
+  - 完成证据：Application 层新增 `ToolDisclosurePolicy`、`DisclosureConfig`、`DisclosureDecision`、`DisclosureReason`；`evaluate_disclosure()` 基于工具数量阈值和 schema token 估算预算判断是否激活渐进披露；`core_tool_schemas()` 保留核心工具常驻，`search_tools()` / `describe_tool()` 支持长尾工具按需发现和描述；`tool_disclosure.rs` 13 个测试覆盖核心常驻、长尾默认隐藏、关键词 / domain tag 搜索、describe、无匹配、工具数量超阈值、token 预算超限、双阈值超限、显式核心工具名和自定义 scope 后缀。
 
-- [ ] 建立 Agent runtime 回归 case。
+- [x] 建立 Agent runtime 回归 case。
   - case：无宠物公共问答、私域工具调用、工具进度、思考过滤、JSON 过滤、连续追问、越权拒绝、工具重复失败。
   - 验证：同一组 case 可覆盖自有 engine 和 Rig adapter。
+  - 完成证据：新增 `runtime_regression_cases.rs`，8 个 case 覆盖无宠物公共问答、私域工具调用、工具进度、思考过滤、JSON 过滤、连续追问、越权拒绝、工具重复失败；每个 case 同时运行 `AgentRuntimeLoopEngine` 和 `RigLoopEngineAdapter`，共享用户可见事件断言，并保留自有 engine 的请求 / 工具回灌特定断言；Rig adapter 新增 `FakeRigStep::CallToolResults`，映射到 `LoopStep::call_tool_results()`，使同一套回归可覆盖工具结果事件。
 
 ## P3：Rig 接入 POC
 

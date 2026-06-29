@@ -41,6 +41,7 @@ fn map_rig_step(step: FakeRigStep) -> LoopStep {
             usage,
         } => LoopStep::model_finished(model_label, tool_count, finish_reason, usage),
         FakeRigStep::CallTools { tool_calls } => LoopStep::call_tools(tool_calls),
+        FakeRigStep::CallToolResults { tool_results } => LoopStep::call_tool_results(tool_results),
         FakeRigStep::Done {
             message_id,
             final_text,
