@@ -174,13 +174,15 @@
 
 ## P2：跨会话记忆与候选写入
 
-- [ ] 新增记忆候选写入流程。
+- [x] 新增记忆候选写入流程。
   - 交付物：把“可记忆信息”先写候选，再由校验或用户确认升级。
   - 验证：宠物健康、饮食、档案事实必须经过用户确认或业务工具确认。
+  - 完成证据：Domain 层新增 `MemoryCandidate` 值对象（`MemoryCandidateKind` / `MemoryCandidateStatus`），`PetFactCandidate` 和 `RiskSignal` 标记 `requires_user_confirmation()` 为 true；Application 层新增 `MemoryCandidateService`（创建 Pending 候选 → 用户/工具确认 → Confirmed / Rejected）和 `MemoryCandidateRepository` 端口（含 Noop 默认实现）；确认 / 拒绝前在 Application 层校验 `actor_user_id`；`memory_candidate.rs` 覆盖候选创建、确认升级、拒绝流转、偏好类不需确认、宠物强事实需确认、风险信号需确认、跨用户确认 / 拒绝被拒绝。
 
-- [ ] 新增私域记忆检索过滤。
+- [x] 新增私域记忆检索过滤。
   - 交付物：检索条件必须带 `scope_type`、`scope_id`、`actor_user_id`、可选 `pet_id` / `household_id`。
   - 验证：公共问答不加载 pet 私域记忆；未授权 pet 记忆不可检索。
+  - 完成证据：Application 层新增 `MemoryQuery`（强制带 `scope_type` / `scope_id` / `actor_user_id`，可选 `pet_id` / `household_id`）和 `MemoryRetriever`；`MemoryQuery::is_valid()` 校验 Pet 作用域必须有 `pet_id`、Household 作用域必须有 `household_id`；`MemoryRetriever::retrieve()` 无私域 ID 时调用 `MemoryPack::filter_for_public_context()` 过滤所有私域记忆，有 `pet_id` 时调用 `filter_for_pet_context()` 只保留当前宠物记忆，有 `household_id` 时调用 `filter_for_household_context()` 只保留当前家庭记忆；`memory_retrieval.rs` 覆盖公共问答排除 Pet/Household 记忆、Pet 上下文只加载授权宠物、Household 上下文只加载授权家庭、非法查询被拒绝；`memory_pack_isolation.rs` 覆盖 Household 过滤投影。
 
 ## P2：工具循环与失败恢复
 

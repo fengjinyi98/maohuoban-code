@@ -106,6 +106,16 @@ pub fn ai_error_response(error: &AiError) -> Response {
             "ai.infrastructure",
             "AI 服务暂时不可用".to_owned(),
         ),
+        AiError::NotFound(_) => (
+            StatusCode::NOT_FOUND,
+            "ai.not_found",
+            "请求的资源不存在".to_owned(),
+        ),
+        AiError::Conflict(_) => (
+            StatusCode::CONFLICT,
+            "ai.conflict",
+            "操作冲突，请刷新后重试".to_owned(),
+        ),
     };
     api_response::<Value>(status, false, code, &message, None)
 }

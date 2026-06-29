@@ -50,4 +50,25 @@ impl MemoryPack {
                 .collect(),
         }
     }
+
+    /// filter_for_household_context 按目标家庭过滤私域记忆
+    /// 核心职责：
+    /// - Household scope：仅保留 subject_id 匹配当前 household_id 的条目
+    /// - Pet scope：全部移除（家庭上下文不直接加载宠物记忆）
+    /// - 保留 User 和 Session scope 的全部条目
+    /// - 防止其他家庭的记忆进入当前 turn
+    #[must_use]
+    pub fn filter_for_household_context(self, household_id: Uuid) -> Self {
+        Self {
+            entries: self
+                .entries
+                .into_iter()
+                .filter(|entry| match entry.scope {
+                    MemoryScope::Household => entry.subject_id == Some(household_id),
+                    MemoryScope::Pet => false,
+                    MemoryScope::User | MemoryScope::Session => true,
+                })
+                .collect(),
+        }
+    }
 }

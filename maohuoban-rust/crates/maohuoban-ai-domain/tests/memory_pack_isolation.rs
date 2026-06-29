@@ -19,6 +19,10 @@ fn user_id() -> Uuid {
     Uuid::parse_str("22222222-2222-2222-2222-222222222222").expect("user id")
 }
 
+fn household_id() -> Uuid {
+    Uuid::parse_str("55555555-5555-5555-5555-555555555555").expect("household id")
+}
+
 #[test]
 fn filter_for_public_context_removes_pet_and_household_scope_entries() {
     let pack = MemoryPack {
@@ -136,6 +140,61 @@ fn filter_for_pet_context_removes_all_household_scope_entries_without_household_
     assert!(
         filtered.entries.is_empty(),
         "Household scope must be removed entirely when no household_id is provided"
+    );
+}
+
+#[test]
+fn filter_for_household_context_only_preserves_matching_household_scope_entries() {
+    let pack = MemoryPack {
+        entries: vec![
+            MemoryEntry {
+                scope: MemoryScope::Household,
+                subject_id: Some(household_id()),
+                summary: "当前家庭喂食习惯".to_owned(),
+            },
+            MemoryEntry {
+                scope: MemoryScope::Household,
+                subject_id: Some(other_pet_id()),
+                summary: "其他家庭喂食习惯".to_owned(),
+            },
+            MemoryEntry {
+                scope: MemoryScope::Pet,
+                subject_id: Some(pet_id()),
+                summary: "豆包体重 5kg".to_owned(),
+            },
+            MemoryEntry {
+                scope: MemoryScope::User,
+                subject_id: Some(user_id()),
+                summary: "用户偏好简洁回答".to_owned(),
+            },
+        ],
+    };
+
+    let filtered = pack.filter_for_household_context(household_id());
+
+    assert!(
+        filtered
+            .entries
+            .iter()
+            .any(|entry| entry.summary == "当前家庭喂食习惯")
+    );
+    assert!(
+        !filtered
+            .entries
+            .iter()
+            .any(|entry| entry.summary == "其他家庭喂食习惯")
+    );
+    assert!(
+        !filtered
+            .entries
+            .iter()
+            .any(|entry| entry.summary == "豆包体重 5kg")
+    );
+    assert!(
+        filtered
+            .entries
+            .iter()
+            .any(|entry| entry.summary == "用户偏好简洁回答")
     );
 }
 

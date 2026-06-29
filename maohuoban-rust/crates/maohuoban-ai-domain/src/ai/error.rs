@@ -28,6 +28,10 @@ pub enum AiError {
     AnswerBlocked(String),
     #[error("ai infrastructure error: {0}")]
     Infrastructure(String),
+    #[error("resource not found: {0}")]
+    NotFound(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
 }
 
 impl AiError {
@@ -64,6 +68,8 @@ impl AiError {
             Self::ProviderStreamError(_) => "ai.provider_stream_error",
             Self::AnswerBlocked(_) => "ai.answer_blocked",
             Self::Infrastructure(_) => "ai.infrastructure",
+            Self::NotFound(_) => "ai.not_found",
+            Self::Conflict(_) => "ai.conflict",
         }
     }
 
@@ -82,6 +88,8 @@ impl AiError {
             Self::Unauthorized => "无权限访问该资源。",
             Self::AnswerBlocked(_) => "回答内容未通过安全校验。",
             Self::Infrastructure(_) => "AI 服务暂时不可用。",
+            Self::NotFound(_) => "请求的资源不存在。",
+            Self::Conflict(_) => "操作冲突，请刷新后重试。",
         }
     }
 }
