@@ -5,12 +5,76 @@
 
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
-    LlmFinishReason, LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory,
+    InternalTurnEvent, LlmFinishReason, LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory,
+    UserVisibleTurnEvent,
 };
 use uuid::Uuid;
 
 fn turn_id() -> AgentTurnId {
     AgentTurnId::from_uuid(Uuid::parse_str("018f4f21-9f44-7a62-a14d-4e7465726e31").unwrap())
+}
+
+#[test]
+fn turn_event_boundary_separates_internal_and_user_visible_events() {
+    let turn_id = turn_id();
+    let internal_events = vec![
+        InternalTurnEvent::ModelDelta {
+            turn_id,
+            text: "{\"answer_text\":\"毛球状态稳定\",\"memory_context\":{\"secret\":true}}"
+                .to_owned(),
+        },
+        InternalTurnEvent::ToolPlanning {
+            turn_id,
+            tool_call_id: "call_1".to_owned(),
+            tool_name: "load_pet_identity_context".to_owned(),
+            arguments: "{\"pet_id\":\"internal\"}".to_owned(),
+        },
+        InternalTurnEvent::ProviderJsonDraft {
+            turn_id,
+            text: "{\"provider\":\"deepseek\",\"choices\":[]}".to_owned(),
+        },
+    ];
+
+    assert_eq!(
+        internal_events
+            .iter()
+            .map(InternalTurnEvent::event_name)
+            .collect::<Vec<_>>(),
+        vec!["model_delta", "tool_planning", "provider_json_draft"]
+    );
+
+    let visible_events = vec![
+        UserVisibleTurnEvent::ExecutionTraceStarted {
+            turn_id,
+            display_text: "正在查看毛球档案".to_owned(),
+        },
+        UserVisibleTurnEvent::AnswerDelta {
+            turn_id,
+            text: "毛球状态稳定".to_owned(),
+        },
+    ];
+
+    assert_eq!(
+        visible_events
+            .iter()
+            .map(UserVisibleTurnEvent::event_name)
+            .collect::<Vec<_>>(),
+        vec!["execution_trace_started", "answer_delta"]
+    );
+
+    for event in internal_events {
+        let encoded = serde_json::to_string(&event).expect("serialize internal event");
+        let decoded: InternalTurnEvent =
+            serde_json::from_str(&encoded).expect("deserialize internal event");
+        assert_eq!(decoded, event);
+    }
+
+    for event in visible_events {
+        let encoded = serde_json::to_string(&event).expect("serialize visible event");
+        let decoded: UserVisibleTurnEvent =
+            serde_json::from_str(&encoded).expect("deserialize visible event");
+        assert_eq!(decoded, event);
+    }
 }
 
 #[test]

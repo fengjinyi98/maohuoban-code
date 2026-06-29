@@ -6,7 +6,6 @@ import Foundation
 // - 屏蔽后端枚举序列化差异，iOS 只消费自家事件协议
 enum AIStreamEventDTO {
     case messageStarted(chatSessionID: UUID, messageID: UUID, title: String)
-    case toolCall(toolName: String, status: String, citationCount: Int)
     case agentActivity(displayText: String, status: String)
     case confirmationTask(taskID: UUID, questionText: String)
     case delta(text: String)

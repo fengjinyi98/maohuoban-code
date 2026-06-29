@@ -1,15 +1,14 @@
 use maohuoban_ai_application::ai::ports::AiToolAccessLog;
-use maohuoban_ai_domain::ai::{
-    AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent, AiToolCallStatus,
-};
+use maohuoban_ai_domain::ai::{AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent};
 use uuid::Uuid;
 
 use super::super::AiHttpState;
+use super::runtime_stream::safe_execution_trace_completed_for_tool;
 
 /// load_diet_confirmation_candidate_package 加载饮食待确认候选事实包
 /// 核心职责：
 /// - 调用后端宠物饮食待确认候选读模型
-/// - 写入 load_pet_diet_confirmation_candidates 工具审计并返回 tool_call 事件
+/// - 写入 load_pet_diet_confirmation_candidates 工具审计并返回安全执行态事件
 pub(super) async fn load_diet_confirmation_candidate_package(
     state: &AiHttpState,
     session_id: Uuid,
@@ -51,11 +50,11 @@ pub(super) async fn load_diet_confirmation_candidate_package(
 
             (
                 Some(package),
-                vec![AiStreamEvent::ToolCall {
-                    tool_name: "load_pet_diet_confirmation_candidates".to_owned(),
-                    status: AiToolCallStatus::Allowed,
+                vec![safe_execution_trace_completed_for_tool(
+                    "load_pet_diet_confirmation_candidates",
+                    &target_pet.pet_name,
                     citation_count,
-                }],
+                )],
             )
         }
         Err(error) => {

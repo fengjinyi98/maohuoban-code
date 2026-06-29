@@ -1,15 +1,14 @@
 use maohuoban_ai_application::ai::ports::AiToolAccessLog;
-use maohuoban_ai_domain::ai::{
-    AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent, AiToolCallStatus,
-};
+use maohuoban_ai_domain::ai::{AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent};
 use uuid::Uuid;
 
 use super::super::AiHttpState;
+use super::runtime_stream::safe_execution_trace_completed_for_tool;
 
 /// load_identity_fact_package 加载宠物身份事实包
 /// 核心职责：
 /// - 调用后端宠物身份事实读模型
-/// - 写入 load_pet_identity_context 工具审计并返回 tool_call 事件
+/// - 写入 load_pet_identity_context 工具审计并返回安全执行态事件
 pub(super) async fn load_identity_fact_package(
     state: &AiHttpState,
     session_id: Uuid,
@@ -45,11 +44,11 @@ pub(super) async fn load_identity_fact_package(
 
             (
                 Some(package),
-                vec![AiStreamEvent::ToolCall {
-                    tool_name: "load_pet_identity_context".to_owned(),
-                    status: AiToolCallStatus::Allowed,
-                    citation_count: 0,
-                }],
+                vec![safe_execution_trace_completed_for_tool(
+                    "load_pet_identity_context",
+                    &target_pet.pet_name,
+                    0,
+                )],
             )
         }
         Err(error) => {

@@ -13,22 +13,27 @@ enum AIStreamEventDecoder {
         case "message_started":
             guard let payload = try? decoder.decode(AIStreamMessageStartedPayload.self, from: jsonData) else { return nil }
             return .messageStarted(chatSessionID: payload.chatSessionID, messageID: payload.messageID, title: payload.title)
-        case "delta":
+        case "delta", "answer_delta":
             guard let payload = try? decoder.decode(AIStreamDeltaPayload.self, from: jsonData) else { return nil }
             return .delta(text: payload.text)
         case "citation":
             guard let payload = try? decoder.decode(AIStreamCitationPayload.self, from: jsonData) else { return nil }
             return .citation(label: payload.citation.label)
         case "tool_call":
-            guard let payload = try? decoder.decode(AIStreamToolCallPayload.self, from: jsonData) else { return nil }
-            return .toolCall(toolName: payload.toolName, status: payload.status, citationCount: payload.citationCount)
+            return nil
         case "agent_activity":
+            guard let payload = try? decoder.decode(AIStreamAgentActivityPayload.self, from: jsonData) else { return nil }
+            return .agentActivity(displayText: payload.displayText, status: payload.status)
+        case "execution_trace_started":
+            guard let payload = try? decoder.decode(AIStreamAgentActivityPayload.self, from: jsonData) else { return nil }
+            return .agentActivity(displayText: payload.displayText, status: "started")
+        case "execution_trace_completed":
             guard let payload = try? decoder.decode(AIStreamAgentActivityPayload.self, from: jsonData) else { return nil }
             return .agentActivity(displayText: payload.displayText, status: payload.status)
         case "confirmation_task":
             guard let payload = try? decoder.decode(AIStreamConfirmationTaskPayload.self, from: jsonData) else { return nil }
             return .confirmationTask(taskID: payload.taskID, questionText: payload.questionText)
-        case "message_completed":
+        case "message_completed", "answer_completed":
             guard let payload = try? decoder.decode(AIStreamMessageCompletedPayload.self, from: jsonData) else { return nil }
             let chips = payload.citations?.map(\.label) ?? []
             return .messageCompleted(messageID: payload.messageID, finalText: payload.finalText, referenceChips: chips)

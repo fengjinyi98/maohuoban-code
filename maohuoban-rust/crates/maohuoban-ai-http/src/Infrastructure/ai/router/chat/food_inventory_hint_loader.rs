@@ -1,15 +1,14 @@
 use maohuoban_ai_application::ai::ports::AiToolAccessLog;
-use maohuoban_ai_domain::ai::{
-    AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent, AiToolCallStatus,
-};
+use maohuoban_ai_domain::ai::{AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent};
 use uuid::Uuid;
 
 use super::super::AiHttpState;
+use super::runtime_stream::safe_execution_trace_completed_for_tool;
 
 /// load_food_inventory_hint_package 加载储物柜变化弱线索包
 /// 核心职责：
 /// - 调用后端储物柜变化读模型
-/// - 写入 load_food_inventory_change_hints 工具审计并返回 tool_call 事件
+/// - 写入 load_food_inventory_change_hints 工具审计并返回安全执行态事件
 pub(super) async fn load_food_inventory_hint_package(
     state: &AiHttpState,
     session_id: Uuid,
@@ -51,11 +50,11 @@ pub(super) async fn load_food_inventory_hint_package(
 
             (
                 Some(package),
-                vec![AiStreamEvent::ToolCall {
-                    tool_name: "load_food_inventory_change_hints".to_owned(),
-                    status: AiToolCallStatus::Allowed,
+                vec![safe_execution_trace_completed_for_tool(
+                    "load_food_inventory_change_hints",
+                    &target_pet.pet_name,
                     citation_count,
-                }],
+                )],
             )
         }
         Err(error) => {

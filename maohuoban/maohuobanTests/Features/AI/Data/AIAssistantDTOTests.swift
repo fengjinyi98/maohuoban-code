@@ -34,6 +34,17 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(text, "你好")
     }
 
+    func testDecodeAnswerDeltaEvent() {
+        let json = #"{"text":"你好"}"#
+        let result = AIStreamEventDecoder.decode(event: "answer_delta", data: json)
+
+        guard case let .delta(text) = result else {
+            XCTFail("expected delta")
+            return
+        }
+        XCTAssertEqual(text, "你好")
+    }
+
     func testDecodeMessageCompletedEvent() {
         let json = """
         {"message_id":"\(UUID.zeroString)","final_text":"你好毛球","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15},"finish_reason":"stop","citations":[{"source_kind":"pet_event","source_id":"\(UUID.zeroString)","label":"疫苗记录"}],"verification":{"status":"passed"}}
@@ -46,6 +57,20 @@ final class AIAssistantDTOTests: XCTestCase {
         }
         XCTAssertEqual(finalText, "你好毛球")
         XCTAssertEqual(chips, ["疫苗记录"])
+    }
+
+    func testDecodeAnswerCompletedEvent() {
+        let json = """
+        {"message_id":"\(UUID.zeroString)","final_text":"你好毛球","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15},"finish_reason":"stop","citations":[],"verification":{"status":"passed"}}
+        """
+        let result = AIStreamEventDecoder.decode(event: "answer_completed", data: json)
+
+        guard case let .messageCompleted(_, finalText, chips) = result else {
+            XCTFail("expected messageCompleted")
+            return
+        }
+        XCTAssertEqual(finalText, "你好毛球")
+        XCTAssertTrue(chips.isEmpty)
     }
 
     func testDecodeMessageCompletedWithoutCitations() {
@@ -95,17 +120,11 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertTrue(action.payload?.deriveFeedingCorrection == false)
     }
 
-    func testDecodeToolCallEvent() {
+    func testDecodeLegacyToolCallEventReturnsNil() {
         let json = #"{"tool_name":"load_pet_identity_context","status":"allowed","citation_count":2}"#
         let result = AIStreamEventDecoder.decode(event: "tool_call", data: json)
 
-        guard case let .toolCall(toolName, status, citationCount) = result else {
-            XCTFail("expected toolCall")
-            return
-        }
-        XCTAssertEqual(toolName, "load_pet_identity_context")
-        XCTAssertEqual(status, "allowed")
-        XCTAssertEqual(citationCount, 2)
+        XCTAssertNil(result)
     }
 
     func testDecodeAgentActivityEvent() {
@@ -118,6 +137,28 @@ final class AIAssistantDTOTests: XCTestCase {
         }
         XCTAssertEqual(displayText, "正在查看毛球近期饮食")
         XCTAssertEqual(status, "started")
+    }
+
+    func testDecodeExecutionTraceEvents() {
+        let startedJson = #"{"display_text":"正在查看毛球档案"}"#
+        let started = AIStreamEventDecoder.decode(event: "execution_trace_started", data: startedJson)
+
+        guard case let .agentActivity(startedText, startedStatus) = started else {
+            XCTFail("expected started agentActivity")
+            return
+        }
+        XCTAssertEqual(startedText, "正在查看毛球档案")
+        XCTAssertEqual(startedStatus, "started")
+
+        let completedJson = #"{"display_text":"正在查看毛球档案","status":"completed","citation_count":2}"#
+        let completed = AIStreamEventDecoder.decode(event: "execution_trace_completed", data: completedJson)
+
+        guard case let .agentActivity(completedText, completedStatus) = completed else {
+            XCTFail("expected completed agentActivity")
+            return
+        }
+        XCTAssertEqual(completedText, "正在查看毛球档案")
+        XCTAssertEqual(completedStatus, "completed")
     }
 
     func testDecodeConfirmationTaskEvent() {

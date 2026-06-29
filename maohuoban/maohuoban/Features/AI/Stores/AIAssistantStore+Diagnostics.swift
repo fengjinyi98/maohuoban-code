@@ -5,8 +5,6 @@ extension AIAssistantStore {
         switch event {
         case .messageStarted:
             "message_started"
-        case .toolCall:
-            "tool_call"
         case .agentActivity:
             "agent_activity"
         case .confirmationTask:

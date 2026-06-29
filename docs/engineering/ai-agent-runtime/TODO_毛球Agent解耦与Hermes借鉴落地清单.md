@@ -15,27 +15,45 @@
 
 ## P0：先解决用户可见输出边界
 
-- [ ] 定义 `InternalTurnEvent` 与 `UserVisibleTurnEvent` 的最小事件枚举。
+- [x] 定义 `InternalTurnEvent` 与 `UserVisibleTurnEvent` 的最小事件枚举。
   - 交付物：domain/application 层事件类型草案。
   - 验证：内部模型 delta、工具规划、JSON 输出不能直接成为 SSE `delta`。
+  - 完成证据：`maohuoban-ai-domain/src/ai/model/runtime.rs` 已新增内部事件与用户可见事件；`runtime_event_roundtrip` 覆盖两类事件 roundtrip 和事件名。
 
-- [ ] 拆分后端 SSE 投影层，只允许 `UserVisibleTurnEvent` 进入 iOS 协议。
+- [x] 拆分后端 SSE 投影层，只允许 `UserVisibleTurnEvent` 进入 iOS 协议。
   - 交付物：SSE projector 只消费用户可见事件。
   - 验证：工具执行态、正文、确认卡片、错误分别进入独立事件。
+  - 完成证据：`runtime_stream.rs` 先把 `AgentEvent` 投影为 `UserVisibleTurnEvent`，再映射为 SSE；iOS decoder 支持 `execution_trace_*`、`answer_*` 新事件名。
 
-- [ ] 增加后端流式思考清理器。
+- [x] 增加后端流式思考清理器。
   - 借鉴：Hermes `StreamingThinkScrubber`。
   - 交付物：跨 chunk 过滤 `<think>`、`<thinking>`、`<reasoning>`、`<REASONING_SCRATCHPAD>`。
   - 验证：模型思考过程不会以正文流式渲染给用户。
+  - 完成证据：`visible_text_prefix_from_model_output` 增加思考标签清理；`projector_scrubs_cross_chunk_thinking_and_internal_context_before_sse_delta` 覆盖跨 chunk 场景。
 
-- [ ] 增加内部上下文 / JSON 输出清理器。
+- [x] 增加内部上下文 / JSON 输出清理器。
   - 借鉴：Hermes `StreamingContextScrubber`。
   - 交付物：过滤内部事实包、memory context、JSON Output 草稿、provider 原始结构。
   - 验证：流式过程中不会展示内部字段，完成后也不依赖前端覆盖隐藏。
+  - 完成证据：输出解析层保留 `answer_text` 提取并过滤 `memory_context`、`provider_raw` 等内部片段；completion 仍走后端校验与引用投影。
 
-- [ ] 固化“工具执行态在正文之前展示”的事件顺序。
+- [x] 固化“工具执行态在正文之前展示”的事件顺序。
   - 交付物：`execution_trace_started -> execution_trace_completed -> answer_delta -> answer_completed` 合同。
   - 验证：后端工具已完成时，前端不会继续展示“正在执行”。
+  - 完成证据：`projector_emits_execution_trace_completed_before_answer_delta` 固化事件顺序；stream handler 已在 `answer_completed` 持久化助手消息。
+
+### P0 完成验证
+
+| 验证项 | 命令 / 结果 |
+|---|---|
+| Domain 事件边界 | `cargo test -p maohuoban-ai-domain turn_event_boundary_separates_internal_and_user_visible_events` 通过 |
+| Runtime SSE projector | `cargo test -p maohuoban-ai-http runtime_stream` 通过 |
+| 受影响 Rust crates | `cargo test -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-http` 通过 |
+| Rust 格式 | `cargo fmt --all --check` 通过 |
+| Rust lint | `cargo clippy --workspace --all-targets` 通过，无新增 warning |
+| Rust 编译 | `cargo check -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-http` 通过 |
+| iOS 真机 Debug 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=00008120-0016704C0E9B401E' -configuration Debug build` 通过，`** BUILD SUCCEEDED **` |
+| iOS DTO 最小测试 | `xcodebuild test ... -only-testing:maohuobanTests/AIAssistantDTOTests/testDecodeAnswerDeltaEvent -only-testing:maohuobanTests/AIAssistantDTOTests/testDecodeAnswerCompletedEvent -only-testing:maohuobanTests/AIAssistantDTOTests/testDecodeExecutionTraceEvents` 通过，`** TEST SUCCEEDED **` |
 
 ## P1：拆 Agent Turn 前置上下文
 

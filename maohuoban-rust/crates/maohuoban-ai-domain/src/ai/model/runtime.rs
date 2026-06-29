@@ -119,6 +119,96 @@ pub enum AgentToolStatus {
     Denied,
 }
 
+/// InternalTurnEvent Agent turn 内部事件
+/// 核心职责：
+/// - 承载模型原始增量、工具规划和 Provider 草稿等内部信号
+/// - 作为运行时审计与调试输入，禁止直接投影到 iOS SSE 协议
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+pub enum InternalTurnEvent {
+    ModelDelta {
+        turn_id: AgentTurnId,
+        text: String,
+    },
+    ToolPlanning {
+        turn_id: AgentTurnId,
+        tool_call_id: String,
+        tool_name: String,
+        arguments: String,
+    },
+    ProviderJsonDraft {
+        turn_id: AgentTurnId,
+        text: String,
+    },
+}
+
+impl InternalTurnEvent {
+    /// event_name 返回内部事件冻结名称
+    #[must_use]
+    pub fn event_name(&self) -> &'static str {
+        match self {
+            Self::ModelDelta { .. } => "model_delta",
+            Self::ToolPlanning { .. } => "tool_planning",
+            Self::ProviderJsonDraft { .. } => "provider_json_draft",
+        }
+    }
+}
+
+/// UserVisibleTurnEvent Agent turn 用户可见事件
+/// 核心职责：
+/// - 只承载可以进入客户端协议的进度、正文、确认和错误事件
+/// - 隔离 Provider chunk、工具参数、内部上下文和 JSON 草稿
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+pub enum UserVisibleTurnEvent {
+    ExecutionTraceStarted {
+        turn_id: AgentTurnId,
+        display_text: String,
+    },
+    ExecutionTraceCompleted {
+        turn_id: AgentTurnId,
+        display_text: String,
+        status: AgentToolStatus,
+        citation_count: u32,
+    },
+    AnswerDelta {
+        turn_id: AgentTurnId,
+        text: String,
+    },
+    AnswerCompleted {
+        turn_id: AgentTurnId,
+        message_id: Uuid,
+        final_text: String,
+        status: AgentTurnStatus,
+    },
+    ConfirmationTask {
+        turn_id: AgentTurnId,
+        confirmation_task_id: Uuid,
+        question_text: String,
+    },
+    Error {
+        turn_id: AgentTurnId,
+        code: String,
+        message: String,
+        retryable: bool,
+    },
+}
+
+impl UserVisibleTurnEvent {
+    /// event_name 返回用户可见事件冻结名称
+    #[must_use]
+    pub fn event_name(&self) -> &'static str {
+        match self {
+            Self::ExecutionTraceStarted { .. } => "execution_trace_started",
+            Self::ExecutionTraceCompleted { .. } => "execution_trace_completed",
+            Self::AnswerDelta { .. } => "answer_delta",
+            Self::AnswerCompleted { .. } => "answer_completed",
+            Self::ConfirmationTask { .. } => "confirmation_task",
+            Self::Error { .. } => "error",
+        }
+    }
+}
+
 /// AgentSessionState Runtime session 内存状态
 /// 核心职责：
 /// - 保存 LoopEngine 推进时需要的最小 session 上下文

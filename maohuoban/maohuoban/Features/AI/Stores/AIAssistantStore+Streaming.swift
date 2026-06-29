@@ -81,13 +81,6 @@ extension AIAssistantStore {
             }
             ensureStreamingPlaceholderExists()
 
-        case .toolCall(let toolName, let status, let citationCount):
-            activeToolStatus = ActiveToolStatus(
-                toolName: toolName,
-                status: status,
-                citationCount: citationCount
-            )
-
         case .agentActivity(let displayText, let status):
             applyAgentActivity(displayText: displayText, status: status)
 

@@ -328,7 +328,24 @@ fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {
             display_text,
             status,
         } => agent_activity_metadata(display_text, *status),
-        AiStreamEvent::Delta { text } => delta_metadata(text),
+        AiStreamEvent::ExecutionTraceStarted { display_text, .. } => execution_trace_metadata(
+            "execution_trace_started",
+            AiAgentActivityStatus::Started,
+            display_text,
+            0,
+        ),
+        AiStreamEvent::ExecutionTraceCompleted {
+            display_text,
+            status,
+            citation_count,
+            ..
+        } => execution_trace_metadata(
+            "execution_trace_completed",
+            *status,
+            display_text,
+            *citation_count,
+        ),
+        AiStreamEvent::Delta { text } | AiStreamEvent::AnswerDelta { text } => delta_metadata(text),
         AiStreamEvent::Citation { citation } => citation_metadata(citation),
         AiStreamEvent::ProposedAction { action } => proposed_action_metadata(action),
         AiStreamEvent::ConfirmationTask {
@@ -336,6 +353,14 @@ fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {
             ..
         } => confirmation_task_metadata(*confirmation_task_id),
         AiStreamEvent::MessageCompleted {
+            message_id,
+            final_text,
+            usage,
+            finish_reason,
+            citations,
+            verification,
+        }
+        | AiStreamEvent::AnswerCompleted {
             message_id,
             final_text,
             usage,
@@ -357,6 +382,23 @@ fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {
             ..
         } => error_metadata(code, *retryable, safe_fallback_text.as_deref()),
     }
+}
+
+fn execution_trace_metadata(
+    event_name: &'static str,
+    status: AiAgentActivityStatus,
+    display_text: &str,
+    citation_count: u32,
+) -> Vec<(&'static str, Value)> {
+    vec![
+        ("event_name", json!(event_name)),
+        ("activity_status", json!(agent_activity_status_code(status))),
+        (
+            "display_text_present",
+            json!(!display_text.trim().is_empty()),
+        ),
+        ("citation_count", json!(citation_count)),
+    ]
 }
 
 fn agent_activity_metadata(

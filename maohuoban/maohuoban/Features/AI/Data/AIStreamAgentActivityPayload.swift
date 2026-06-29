@@ -12,4 +12,10 @@ struct AIStreamAgentActivityPayload: Decodable {
         case displayText = "display_text"
         case status
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        displayText = try container.decode(String.self, forKey: .displayText)
+        status = try container.decodeIfPresent(String.self, forKey: .status) ?? "started"
+    }
 }

@@ -32,7 +32,18 @@ pub enum AiStreamEvent {
         display_text: String,
         status: AiAgentActivityStatus,
     },
+    ExecutionTraceStarted {
+        display_text: String,
+    },
+    ExecutionTraceCompleted {
+        display_text: String,
+        status: AiAgentActivityStatus,
+        citation_count: u32,
+    },
     Delta {
+        text: String,
+    },
+    AnswerDelta {
         text: String,
     },
     Citation {
@@ -46,6 +57,14 @@ pub enum AiStreamEvent {
         question_text: String,
     },
     MessageCompleted {
+        message_id: Uuid,
+        final_text: String,
+        usage: LlmUsage,
+        finish_reason: LlmFinishReason,
+        citations: Vec<AiCitation>,
+        verification: AiAnswerVerification,
+    },
+    AnswerCompleted {
         message_id: Uuid,
         final_text: String,
         usage: LlmUsage,
@@ -91,11 +110,15 @@ impl AiStreamEvent {
             Self::PetResolution { .. } => "pet_resolution",
             Self::ToolCall { .. } => "tool_call",
             Self::AgentActivity { .. } => "agent_activity",
+            Self::ExecutionTraceStarted { .. } => "execution_trace_started",
+            Self::ExecutionTraceCompleted { .. } => "execution_trace_completed",
             Self::Delta { .. } => "delta",
+            Self::AnswerDelta { .. } => "answer_delta",
             Self::Citation { .. } => "citation",
             Self::ProposedAction { .. } => "proposed_action",
             Self::ConfirmationTask { .. } => "confirmation_task",
             Self::MessageCompleted { .. } => "message_completed",
+            Self::AnswerCompleted { .. } => "answer_completed",
             Self::Error { .. } => "error",
         }
     }

@@ -23,19 +23,16 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         XCTAssertTrue(store.canSendDraft)
     }
 
-    func testToolAndConfirmationEventsExposeAssistantStatus() async {
+    func testConfirmationEventExposesAssistantStatus() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
-            repository: RuntimeAdapterTestRepository(streamEvents: Self.toolAndConfirmationEvents())
+            repository: RuntimeAdapterTestRepository(streamEvents: Self.confirmationEvents())
         )
         store.draftText = "帮我确认换粮"
         store.submitDraft()
 
         try? await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(store.activeToolStatus?.toolName, "load_pet_diet_confirmation_candidates")
-        XCTAssertEqual(store.activeToolStatus?.status, "allowed")
-        XCTAssertEqual(store.activeToolStatus?.citationCount, 1)
         XCTAssertEqual(store.pendingConfirmationTask?.questionText, "是否确认把毛球的主粮改为鸡肉配方？")
         XCTAssertFalse(store.isStreaming)
     }
@@ -91,14 +88,10 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         ]
     }
 
-    private static func toolAndConfirmationEvents() -> [AIStreamEventDTO] {
+    private static func confirmationEvents() -> [AIStreamEventDTO] {
         [
             .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "换粮确认"),
-            .toolCall(
-                toolName: "load_pet_diet_confirmation_candidates",
-                status: "allowed",
-                citationCount: 1
-            ),
+            .agentActivity(displayText: "正在查看毛球待确认喂食记录", status: "completed"),
             .confirmationTask(
                 taskID: UUID(),
                 questionText: "是否确认把毛球的主粮改为鸡肉配方？"

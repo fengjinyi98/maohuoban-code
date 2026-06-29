@@ -16,7 +16,7 @@ use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_domain::ai::{
     AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot,
-    AiPetResolution, AiStreamEvent, AiToolCallStatus,
+    AiPetResolution, AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -40,13 +40,15 @@ use super::gated_stream_response::gated_stream_response;
 use super::identity_fact_loader::load_identity_fact_package;
 use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
-use super::runtime_stream::{AgentEventSseProjector, ai_error_to_sse_event};
+use super::runtime_stream::{
+    AgentEventSseProjector, ai_error_to_sse_event, safe_execution_trace_completed_for_tool,
+    sanitize_legacy_tool_call_event,
+};
 use super::runtime_tools::build_runtime_tool_registry;
 use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
 use super::title::build_title;
 use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::unauthorized_response;
-
 
 /// handle_chat_stream 流式聊天 SSE handler
 /// 核心职责：
@@ -291,7 +293,7 @@ fn runtime_provider_stream(
         });
 
         for event in initial_events {
-            yield Ok(event);
+            yield Ok(sanitize_legacy_tool_call_event(event, &activity_pet_name));
         }
 
         let mut projector = AgentEventSseProjector::new(message_id, fact_package, &activity_pet_name);
@@ -451,7 +453,7 @@ pub(super) async fn resolve_stream_target_pet(
 /// load_pet_catalog_initial_events 加载宠物候选工具初始事件
 /// 核心职责：
 /// - 只在需要上下文的请求中记录宠物候选工具审计
-/// - 返回可在 message_started 后输出的 tool_call 事件
+/// - 返回可在 message_started 后输出的安全执行态事件
 pub(super) async fn load_pet_catalog_initial_events(
     session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
@@ -507,7 +509,7 @@ pub(super) async fn insert_request_gate_log(
 /// insert_pet_catalog_tool_log 写入授权宠物候选工具审计
 /// 核心职责：
 /// - 记录 list_authorized_pet_candidates 工具读取
-/// - 为解析成功的请求返回 tool_call 初始事件
+/// - 为解析成功的请求返回不含内部工具名的初始执行态
 async fn insert_pet_catalog_tool_log(
     session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
@@ -543,11 +545,11 @@ async fn insert_pet_catalog_tool_log(
         .await;
 
     if allowed {
-        vec![AiStreamEvent::ToolCall {
-            tool_name: "list_authorized_pet_candidates".to_owned(),
-            status: AiToolCallStatus::Allowed,
-            citation_count: 0,
-        }]
+        vec![safe_execution_trace_completed_for_tool(
+            "list_authorized_pet_candidates",
+            "宠物",
+            0,
+        )]
     } else {
         Vec::new()
     }
@@ -615,6 +617,13 @@ where
                 finish_reason,
                 citations,
                 ..
+            }
+            | AiStreamEvent::AnswerCompleted {
+                final_text,
+                usage,
+                finish_reason,
+                citations,
+                ..
             } = &event
             {
                 persist_assistant_message(
@@ -655,7 +664,6 @@ where
         .keep_alive(KeepAlive::default())
         .into_response()
 }
-
 
 /// resolved_pet_snapshot 提取已解析宠物快照
 /// 核心职责：
