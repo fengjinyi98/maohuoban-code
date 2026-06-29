@@ -186,18 +186,21 @@
 
 ## P2：工具循环与失败恢复
 
-- [ ] 增加 per-turn 工具循环 guardrail。
+- [x] 增加 per-turn 工具循环 guardrail。
   - 借鉴：Hermes `ToolCallGuardrailController`。
   - 交付物：检测重复失败、同参重复、只读工具无进展。
   - 验证：模型不会反复调用同一个失败工具直到超时。
+  - 完成证据：Application 层新增 `ToolCallGuardrail`，跟踪 per-turn 工具调用历史；`AgentRuntimeLoopEngine::execute_tool_calls()` 在工具执行前调用 `evaluate()`、执行后调用 `record()`；同工具连续失败 ≥2 次 → HardStop、同工具同参数重复 ≥2 次 → SoftReminder、只读工具连续无事实产出 ≥3 次 → SoftReminder、denied 高风险工具重复尝试 → HardStop；`output_has_facts()` 按模型可见 JSON 的 `facts` 非空判断进展；`tool_guardrail.rs` 覆盖首次调用放行、重复失败硬停止、同参重复软提醒、只读无进展软提醒、不同参数放行、高风险 denied 硬停止、低风险 denied 软提醒、软提醒携带引导文案；`runtime_loop_engine.rs` 覆盖真实 runtime 中重复失败 HardStop 和空 facts 工具触发 SoftReminder。
 
-- [ ] 区分软提醒和硬停止。
+- [x] 区分软提醒和硬停止。
   - 交付物：普通无进展先给模型内部提醒；安全越界、重复危险写入进入硬停止。
   - 验证：普通失败不会直接变成用户硬拒答。
+  - 完成证据：`GuardrailDecision` 枚举区分 `Allow`（放行）、`SoftReminder { message }`（允许执行但给模型内部引导）、`HardStop { safe_user_message, internal_reason }`（终止 turn 返回安全文案）；同参重复和只读无进展触发 SoftReminder，不阻断 turn；SoftReminder 通过 `LoopToolResult.guardrail_message` 注入模型可见工具消息的 `_guardrail_reminder` 字段，保持原始 facts JSON 结构；重复失败和高风险安全越界触发 HardStop，返回安全用户文案和内部原因；`tool_guardrail.rs` 覆盖 SoftReminder 不阻断 turn 和 HardStop 终止并携带安全文案；`runtime_loop_engine.rs` 验证 SoftReminder 后工具消息仍是合法 JSON。
 
-- [ ] 工具失败结构化返回。
+- [x] 工具失败结构化返回。
   - 交付物：工具统一返回 `error_code`、`recoverable`、`safe_user_message`、`internal_reason`。
   - 验证：前端只展示安全文案，模型可根据 recoverable 决定追问或换工具。
+  - 完成证据：Domain 层新增 `ToolFailure` 值对象（`error_code` / `recoverable` / `safe_user_message` / `internal_reason`）；Application 层 `AiToolResult` 和 Runtime 层 `LoopToolResult` 新增 `failure: Option<ToolFailure>` 字段与 `failed_with_failure()` 构造方法；HTTP runtime pet context 工具失败使用 `ToolFailure` 返回稳定错误码、可恢复性和安全文案；`tool_result_to_message()` 只把 `error_code`、`recoverable`、`safe_user_message` 回灌给模型，不暴露 `internal_reason`；`tool_failure.rs` 覆盖结构化字段完整性、recoverable 语义、safe_user_message 不泄露 internal_reason、legacy `failed()` 兼容性；`runtime_loop_engine.rs` 覆盖结构化失败进入模型消息。
 
 ## P3：能力扩展机制
 

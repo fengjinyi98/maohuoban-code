@@ -1,6 +1,7 @@
 use maohuoban_ai_domain::ai::{AiCitation, AiFactEntry};
 
 use maohuoban_ai_domain::ai::AiToolConfirmationRequirement;
+use maohuoban_ai_domain::ai::ToolFailure;
 
 /// AiToolResult 工具执行结果
 /// 核心职责：
@@ -15,6 +16,8 @@ pub struct AiToolResult {
     pub facts: Vec<AiFactEntry>,
     pub citations: Vec<AiCitation>,
     pub returned_ref_ids: Vec<String>,
+    /// 结构化工具失败信息
+    pub failure: Option<ToolFailure>,
 }
 
 impl AiToolResult {
@@ -29,6 +32,7 @@ impl AiToolResult {
             facts: Vec::new(),
             citations: Vec::new(),
             returned_ref_ids: ref_ids,
+            failure: None,
         }
     }
 
@@ -44,6 +48,7 @@ impl AiToolResult {
             facts,
             citations,
             returned_ref_ids: ref_ids,
+            failure: None,
         }
     }
 
@@ -58,6 +63,7 @@ impl AiToolResult {
             facts: Vec::new(),
             citations: Vec::new(),
             returned_ref_ids: Vec::new(),
+            failure: None,
         }
     }
 
@@ -72,6 +78,27 @@ impl AiToolResult {
             facts: Vec::new(),
             citations: Vec::new(),
             returned_ref_ids: Vec::new(),
+            failure: None,
+        }
+    }
+
+    /// failed_with_failure 构造带结构化信息的工具失败结果
+    /// 核心职责：
+    /// - 携带 error_code、recoverable、safe_user_message、internal_reason
+    /// - 前端只展示 safe_user_message
+    /// - 模型可根据 recoverable 决定追问或换工具
+    #[must_use]
+    pub fn failed_with_failure(failure: ToolFailure) -> Self {
+        let reason = failure.safe_user_message.clone();
+        Self {
+            allowed: false,
+            denied_reason: None,
+            failed_reason: Some(reason),
+            confirmation: None,
+            facts: Vec::new(),
+            citations: Vec::new(),
+            returned_ref_ids: Vec::new(),
+            failure: Some(failure),
         }
     }
 
@@ -86,6 +113,7 @@ impl AiToolResult {
             facts: Vec::new(),
             citations: Vec::new(),
             returned_ref_ids: Vec::new(),
+            failure: None,
         }
     }
 }

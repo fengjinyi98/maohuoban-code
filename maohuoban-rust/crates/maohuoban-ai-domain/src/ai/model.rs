@@ -21,6 +21,7 @@ mod workbench;
 mod pet_resolution;
 mod pet_snapshot;
 mod provider_error;
+mod tool_failure;
 
 pub use fact_package::*;
 pub use intent::*;
@@ -34,6 +35,7 @@ pub use session::*;
 pub use session_event::*;
 pub use stream::*;
 pub use surface::*;
+pub use tool_failure::*;
 pub use turn_replay::*;
 pub use verification::*;
 pub use workbench::*;

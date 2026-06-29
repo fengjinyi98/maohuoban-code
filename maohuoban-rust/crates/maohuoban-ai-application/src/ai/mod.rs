@@ -6,6 +6,7 @@ pub mod citations;
 pub mod context;
 pub mod conversation_history;
 pub mod fact_projection;
+pub mod guardrail;
 pub mod intent;
 pub mod memory;
 pub mod model_router;

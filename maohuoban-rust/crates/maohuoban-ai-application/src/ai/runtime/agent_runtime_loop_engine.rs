@@ -10,6 +10,7 @@ use maohuoban_ai_domain::ai::{
 };
 use serde_json::Value;
 
+use crate::ai::guardrail::{GuardrailDecision, ToolCallGuardrail, ToolCallRecord};
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
@@ -29,11 +30,13 @@ use super::{LoopEngine, workbench_prompt_projection::workbench_context_prompt};
 /// 核心职责：
 /// - 组装模型请求、工具执行和结果回灌
 /// - 保持 Tool Gateway、Provider 和 Runtime 可替换
+/// - 集成 ToolCallGuardrail 防止工具循环
 pub struct AgentRuntimeLoopEngine {
     provider: Arc<dyn LlmProvider>,
     registry: Arc<ToolRegistry>,
     tool_context: AiToolContext,
     fact_package: Option<AiFactPackage>,
+    guardrail: ToolCallGuardrail,
     phase: RuntimePhase,
 }
 
@@ -82,6 +85,7 @@ impl AgentRuntimeLoopEngine {
             registry,
             tool_context,
             fact_package,
+            guardrail: ToolCallGuardrail::new(),
             phase: RuntimePhase::Model,
         }
     }
@@ -99,10 +103,8 @@ impl AgentRuntimeLoopEngine {
         if let Some(workbench) = state.workbench.as_ref() {
             let user_msg_index = messages.len().saturating_sub(1);
 
-            // 收集需要在用户消息之前插入的消息（workbench context + 同会话历史）
             let mut pre_user_messages: Vec<LlmMessage> = Vec::new();
 
-            // workbench context
             pre_user_messages.push(LlmMessage {
                 role: LlmRole::System,
                 content: workbench_context_prompt(workbench),
@@ -110,12 +112,10 @@ impl AgentRuntimeLoopEngine {
                 tool_calls: Vec::new(),
             });
 
-            // 同会话最近历史
             if let Some(pack) = workbench.recent_conversation_pack.as_ref() {
                 pre_user_messages.extend(pack.to_messages());
             }
 
-            // 在用户消息之前插入
             for (offset, msg) in pre_user_messages.into_iter().enumerate() {
                 messages.insert(user_msg_index + offset, msg);
             }
@@ -312,12 +312,26 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         return Ok(Some(LoopStep::call_tools(tool_calls)));
                     }
 
-                    let tool_results = execute_tool_calls(
+                    let (tool_results, hard_stop) = execute_tool_calls(
                         self.registry.clone(),
                         self.tool_context.clone(),
                         assistant_tool_calls.clone(),
+                        &mut self.guardrail,
                     )
                     .await;
+
+                    if let Some(GuardrailDecision::HardStop {
+                        safe_user_message, ..
+                    }) = hard_stop
+                    {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: safe_user_message,
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                        };
+                        return Ok(Some(LoopStep::CallTools { tool_results }));
+                    }
+
                     let needs_confirmation = tool_results.iter().any(|result| {
                         matches!(result.status, LoopToolStatus::RequiresConfirmation)
                     });
@@ -388,35 +402,112 @@ fn model_stream(
     })
 }
 
+/// execute_tool_calls 执行工具调用并接入 guardrail
+/// 核心职责：
+/// - 执行前通过 guardrail 评估是否允许调用
+/// - HardStop 时跳过执行，返回安全文案
+/// - SoftReminder 时仍执行但附加提醒
+/// - 执行后记录结果到 guardrail
 async fn execute_tool_calls(
     registry: Arc<ToolRegistry>,
     tool_context: AiToolContext,
     tool_calls: Vec<LlmToolCall>,
-) -> Vec<LoopToolResult> {
+    guardrail: &mut ToolCallGuardrail,
+) -> (Vec<LoopToolResult>, Option<GuardrailDecision>) {
     let mut results = Vec::with_capacity(tool_calls.len());
 
     for tool_call in tool_calls {
-        let args = serde_json::from_str::<Value>(&tool_call.arguments)
-            .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
-        let result = registry.call(&tool_call.name, &tool_context, &args).await;
-        results.push(to_loop_tool_result(tool_call, result));
+        let risk_level = registry
+            .get(&tool_call.name)
+            .map(|tool| tool.metadata().risk_level);
+
+        let decision = guardrail.evaluate(&tool_call, risk_level);
+
+        match decision {
+            GuardrailDecision::HardStop {
+                safe_user_message,
+                internal_reason,
+            } => {
+                let failure = maohuoban_ai_domain::ai::ToolFailure::new(
+                    "guardrail.hard_stop",
+                    false,
+                    &safe_user_message,
+                    &internal_reason,
+                );
+                let result = LoopToolResult::failed_with_failure(tool_call.clone(), failure);
+                guardrail.record(ToolCallRecord {
+                    tool_call: tool_call.clone(),
+                    status: LoopToolStatus::Failed,
+                    produced_facts: false,
+                    risk_level,
+                });
+                results.push(result);
+                return (
+                    results,
+                    Some(GuardrailDecision::HardStop {
+                        safe_user_message,
+                        internal_reason,
+                    }),
+                );
+            }
+            GuardrailDecision::SoftReminder { message } => {
+                let args = serde_json::from_str::<Value>(&tool_call.arguments)
+                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                let result = registry.call(&tool_call.name, &tool_context, &args).await;
+                let mut loop_result = to_loop_tool_result(tool_call.clone(), result);
+                let produced_facts = output_has_facts(loop_result.output.as_deref());
+                loop_result.guardrail_message = Some(message);
+                guardrail.record(ToolCallRecord {
+                    tool_call: tool_call.clone(),
+                    status: loop_result.status,
+                    produced_facts,
+                    risk_level,
+                });
+                results.push(loop_result);
+            }
+            GuardrailDecision::Allow => {
+                let args = serde_json::from_str::<Value>(&tool_call.arguments)
+                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                let result = registry.call(&tool_call.name, &tool_context, &args).await;
+                let loop_result = to_loop_tool_result(tool_call.clone(), result);
+                let produced_facts = output_has_facts(loop_result.output.as_deref());
+                guardrail.record(ToolCallRecord {
+                    tool_call: tool_call.clone(),
+                    status: loop_result.status,
+                    produced_facts,
+                    risk_level,
+                });
+                results.push(loop_result);
+            }
+        }
     }
 
-    results
+    (results, None)
 }
 
 /// request_tool_count 计算模型请求中的工具数量
-/// 核心职责：
-/// - 将集合长度转换为 Runtime 事件使用的稳定计数
-/// - 避免平台相关截断影响事件字段
 fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
 }
 
-/// streaming_model_purpose_code 返回诊断使用的阶段编码
+/// output_has_facts 判断工具输出是否包含非空事实
 /// 核心职责：
-/// - 稳定标记初始工具规划和工具回灌后的最终回答
-/// - 避免诊断包只能看到 provider 大类错误
+/// - 解析 output JSON，检查 facts 数组是否非空
+/// - 解析失败或 facts 为空时返回 false，确保无进展检测能正确触发
+fn output_has_facts(output: Option<&str>) -> bool {
+    let Some(json_str) = output else {
+        return false;
+    };
+    let Ok(parsed) = serde_json::from_str::<Value>(json_str) else {
+        return false;
+    };
+    parsed
+        .get("facts")
+        .and_then(Value::as_array)
+        .is_some_and(|facts| !facts.is_empty())
+}
+
+/// streaming_model_purpose_code 返回诊断使用的阶段编码
 fn streaming_model_purpose_code(purpose: &StreamingModelPurpose) -> &'static str {
     match purpose {
         StreamingModelPurpose::Initial => "initial",
@@ -424,12 +515,24 @@ fn streaming_model_purpose_code(purpose: &StreamingModelPurpose) -> &'static str
     }
 }
 
+/// tool_result_to_message 将工具结果转为模型可见消息
+/// 核心职责：
+/// - 成功结果直接回灌 output，guardrail_message 以结构化字段注入
+/// - 失败结果携带 error_code 和 recoverable，供模型决策追问或换工具
+/// - 不泄露 internal_reason
 fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
     let content = match tool_result.status {
-        LoopToolStatus::Succeeded => tool_result
-            .output
-            .clone()
-            .unwrap_or_else(|| "{}".to_owned()),
+        LoopToolStatus::Succeeded => {
+            let base = tool_result
+                .output
+                .clone()
+                .unwrap_or_else(|| "{}".to_owned());
+            if let Some(msg) = &tool_result.guardrail_message {
+                merge_guardrail_message(&base, msg)
+            } else {
+                base
+            }
+        }
         LoopToolStatus::Denied => {
             let projected = ToolFactProjector::project_denied(
                 tool_result.denied_reason.as_deref().unwrap_or_default(),
@@ -437,10 +540,20 @@ fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
             serde_json::to_string(&projected).unwrap_or_else(|_| "{}".to_owned())
         }
         LoopToolStatus::Failed => {
-            let projected = ToolFactProjector::project_failed(
-                tool_result.failed_reason.as_deref().unwrap_or_default(),
-            );
-            serde_json::to_string(&projected).unwrap_or_else(|_| "{}".to_owned())
+            if let Some(failure) = &tool_result.failure {
+                serde_json::json!({
+                    "status": "failed",
+                    "error_code": failure.error_code,
+                    "recoverable": failure.recoverable,
+                    "message": failure.safe_user_message,
+                })
+                .to_string()
+            } else {
+                let projected = ToolFactProjector::project_failed(
+                    tool_result.failed_reason.as_deref().unwrap_or_default(),
+                );
+                serde_json::to_string(&projected).unwrap_or_else(|_| "{}".to_owned())
+            }
         }
         LoopToolStatus::RequiresConfirmation => serde_json::json!({
             "status": "requires_confirmation",
@@ -458,6 +571,10 @@ fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
     }
 }
 
+/// to_loop_tool_result 将 AiToolResult 转为 LoopToolResult
+/// 核心职责：
+/// - 传播结构化失败信息
+/// - 保留 legacy 兼容
 fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopToolResult {
     if result.allowed {
         let mut projected = ToolFactProjector::project_facts(&result.facts);
@@ -471,6 +588,10 @@ fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopTool
         return LoopToolResult::requires_confirmation(tool_call, confirmation);
     }
 
+    if let Some(failure) = result.failure {
+        return LoopToolResult::failed_with_failure(tool_call, failure);
+    }
+
     if let Some(reason) = result.denied_reason {
         return LoopToolResult::denied(tool_call, reason);
     }
@@ -480,4 +601,28 @@ fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopTool
     }
 
     LoopToolResult::failed(tool_call, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned())
+}
+
+/// merge_guardrail_message 将 guardrail 提醒以结构化字段注入工具输出 JSON
+/// 核心职责：
+/// - 解析原始 output JSON，追加 `_guardrail_reminder` 字段
+/// - 解析失败时回退为包含原始 output 和 reminder 的 JSON 对象
+/// - 保持原始 facts/reference_ids 结构不变
+fn merge_guardrail_message(base_output: &str, message: &str) -> String {
+    match serde_json::from_str::<Value>(base_output) {
+        Ok(mut json) => {
+            if let Some(obj) = json.as_object_mut() {
+                obj.insert(
+                    "_guardrail_reminder".to_owned(),
+                    Value::String(message.to_owned()),
+                );
+            }
+            serde_json::to_string(&json).unwrap_or_else(|_| base_output.to_owned())
+        }
+        Err(_) => serde_json::json!({
+            "output": base_output,
+            "_guardrail_reminder": message,
+        })
+        .to_string(),
+    }
 }

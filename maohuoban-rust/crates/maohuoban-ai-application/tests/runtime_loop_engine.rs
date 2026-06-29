@@ -20,7 +20,7 @@ use maohuoban_ai_domain::ai::{
     AiToolConfirmationRequirement, CapabilityCatalog, CapabilityDomain, ContextPack,
     LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
     LlmToolCall, LlmUsage, MemoryPack, ModelLabel, RecentConversationEntry, RecentConversationPack,
-    ToolProgressText, Toolset,
+    ToolFailure, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -723,6 +723,263 @@ async fn build_messages_includes_recent_conversation_history() {
     assert!(
         history_index.expect("history index") < current_index.expect("current index"),
         "history must appear before current user message"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// guardrail 集成测试
+// ---------------------------------------------------------------------------
+
+/// `AlwaysFailTool` 总是返回结构化失败的工具
+struct AlwaysFailTool;
+
+#[async_trait]
+impl AiToolDefinition for AlwaysFailTool {
+    fn name(&self) -> &'static str {
+        "load_pet_identity_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "加载宠物身份上下文"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({"type": "object", "properties": {}, "required": []})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.identity.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::failed_with_failure(ToolFailure::new(
+            "tool.internal_error",
+            false,
+            "工具执行失败",
+            "upstream provider timeout",
+        ))
+    }
+}
+
+/// `multi_tool_call_response` 构造包含多个工具调用的脚本响应
+fn multi_tool_call_response(tool_name: &str, count: usize) -> LlmChatResponse {
+    let tool_calls = (0..count)
+        .map(|i| LlmToolCall {
+            id: format!("call_{i}"),
+            name: tool_name.to_owned(),
+            arguments: "{}".to_owned(),
+        })
+        .collect();
+    LlmChatResponse {
+        message: LlmMessage {
+            role: LlmRole::Assistant,
+            content: String::new(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        tool_calls,
+        usage: LlmUsage::default(),
+        finish_reason: LlmFinishReason::ToolCalls,
+        provider: "scripted".to_owned(),
+        model: "primary".to_owned(),
+    }
+}
+
+/// guardrail 在同工具连续失败 3 次时应 `HardStop` 终止 turn
+#[tokio::test]
+async fn guardrail_hard_stops_repeated_tool_failures() {
+    let provider = ScriptedProvider::new(vec![multi_tool_call_response(
+        "load_pet_identity_context",
+        3,
+    )]);
+    let mut registry = ToolRegistry::new();
+    registry.register(AlwaysFailTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session.prompt("毛球吃什么").await.expect("prompt");
+
+    let has_turn_failed = events
+        .iter()
+        .any(|event| matches!(event, AgentEvent::TurnFailed { .. }));
+    assert!(
+        has_turn_failed,
+        "guardrail hard stop should produce TurnFailed event"
+    );
+}
+
+/// 结构化失败信息应回灌到模型消息，包含 `error_code` 和 `recoverable`
+#[tokio::test]
+async fn structured_failure_propagates_to_model_message() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response("load_pet_identity_context", json!({})),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(AlwaysFailTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("毛球吃什么").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2);
+
+    let tool_message = find_tool_message(&requests);
+    let content = &tool_message.content;
+
+    assert!(
+        content.contains("error_code"),
+        "model message should contain error_code, got: {content}"
+    );
+    assert!(
+        content.contains("recoverable"),
+        "model message should contain recoverable, got: {content}"
+    );
+    assert!(
+        content.contains("tool.internal_error"),
+        "model message should contain structured error_code value, got: {content}"
+    );
+}
+
+/// `EmptyFactsTool` 成功返回但 `facts` 为空，用于验证 `produced_facts` 检测
+struct EmptyFactsTool;
+
+#[async_trait]
+impl AiToolDefinition for EmptyFactsTool {
+    fn name(&self) -> &'static str {
+        "load_pet_identity_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "加载宠物身份上下文"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({"type": "object", "properties": {}, "required": []})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.identity.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed_with_facts(Vec::new(), Vec::new())
+    }
+}
+
+/// 空事实成功工具连续调用 3 次后，guardrail 应检测到无进展并触发 `SoftReminder`；
+/// `SoftReminder` 注入的 `_guardrail_reminder` 字段不破坏原始 output JSON 结构。
+#[tokio::test]
+async fn empty_facts_tool_triggers_soft_reminder_with_valid_json() {
+    let provider = ScriptedProvider::new(vec![
+        multi_tool_call_response("load_pet_identity_context", 3),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EmptyFactsTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session.prompt("毛球吃什么").await.expect("prompt");
+
+    let requests = provider.take_requests();
+    assert!(
+        requests.len() >= 2,
+        "expected at least 2 requests, got {}",
+        requests.len()
+    );
+
+    // 收集 followup 请求中所有 tool role 消息
+    let tool_messages: Vec<&LlmMessage> = requests
+        .iter()
+        .flat_map(|req| req.messages.iter())
+        .filter(|m| m.role == LlmRole::Tool)
+        .collect();
+    assert!(
+        !tool_messages.is_empty(),
+        "followup request should contain tool messages"
+    );
+
+    // 每个 tool message 都必须是合法 JSON
+    for msg in &tool_messages {
+        serde_json::from_str::<serde_json::Value>(&msg.content).unwrap_or_else(|e| {
+            panic!("tool message must be valid JSON: {e}, got: {}", msg.content)
+        });
+    }
+
+    // 同参重复 ≥2 次后第 3 个工具调用应触发 SoftReminder，其 tool message 包含 _guardrail_reminder
+    let has_reminder = tool_messages
+        .iter()
+        .any(|msg| msg.content.contains("_guardrail_reminder"));
+    assert!(
+        has_reminder,
+        "at least one tool message should contain _guardrail_reminder after repeated empty-facts calls"
     );
 }
 

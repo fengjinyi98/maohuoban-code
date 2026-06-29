@@ -6,8 +6,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFactSchema, ToolProgressText,
-    Toolset,
+    AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFactSchema, ToolFailure,
+    ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -195,6 +195,8 @@ impl AiToolDefinition for RuntimePetContextTool {
             }
             Err(error) => {
                 let stable_code = error.stable_code().to_owned();
+                let recoverable = error.is_retryable();
+                let safe_message = error.user_visible_message().to_owned();
                 self.record_tool_access(
                     ctx.actor_user_id,
                     false,
@@ -202,7 +204,12 @@ impl AiToolDefinition for RuntimePetContextTool {
                     &AiFactPackage::empty(),
                 )
                 .await;
-                AiToolResult::failed(&stable_code)
+                AiToolResult::failed_with_failure(ToolFailure::new(
+                    &stable_code,
+                    recoverable,
+                    &safe_message,
+                    &stable_code,
+                ))
             }
         }
     }

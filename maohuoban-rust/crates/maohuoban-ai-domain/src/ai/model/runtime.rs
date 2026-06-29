@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::ToolFailure;
 use super::provider_error::ProviderErrorCategory;
 use super::{AgentSessionWorkbench, AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
 
@@ -371,6 +372,12 @@ pub struct LoopToolResult {
     pub failed_reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub confirmation: Option<AiToolConfirmationRequirement>,
+    /// 结构化工具失败信息
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure: Option<ToolFailure>,
+    /// guardrail 软提醒消息，不破坏 output JSON 结构
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guardrail_message: Option<String>,
 }
 
 impl LoopToolResult {
@@ -383,6 +390,8 @@ impl LoopToolResult {
             denied_reason: None,
             failed_reason: None,
             confirmation: None,
+            failure: None,
+            guardrail_message: None,
         }
     }
 
@@ -395,6 +404,8 @@ impl LoopToolResult {
             denied_reason: None,
             failed_reason: None,
             confirmation: None,
+            failure: None,
+            guardrail_message: None,
         }
     }
 
@@ -407,6 +418,8 @@ impl LoopToolResult {
             denied_reason: Some(reason.into()),
             failed_reason: None,
             confirmation: None,
+            failure: None,
+            guardrail_message: None,
         }
     }
 
@@ -419,6 +432,23 @@ impl LoopToolResult {
             denied_reason: None,
             failed_reason: Some(reason.into()),
             confirmation: None,
+            failure: None,
+            guardrail_message: None,
+        }
+    }
+
+    /// failed_with_failure 构造带结构化信息的失败工具结果
+    pub fn failed_with_failure(tool_call: LlmToolCall, failure: ToolFailure) -> Self {
+        let reason = failure.safe_user_message.clone();
+        Self {
+            tool_call,
+            status: LoopToolStatus::Failed,
+            output: None,
+            denied_reason: None,
+            failed_reason: Some(reason),
+            confirmation: None,
+            failure: Some(failure),
+            guardrail_message: None,
         }
     }
 
@@ -434,6 +464,8 @@ impl LoopToolResult {
             denied_reason: None,
             failed_reason: None,
             confirmation: Some(confirmation),
+            failure: None,
+            guardrail_message: None,
         }
     }
 }
