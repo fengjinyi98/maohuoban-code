@@ -7,22 +7,17 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
     },
 };
-use chrono::Utc;
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
-use maohuoban_ai_application::ai::intent::AiIntentGate;
-use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_domain::ai::{
-    AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot,
-    AiPetResolution, AiStreamEvent,
+    AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiPetDisplaySnapshot,
+    AiStreamEvent,
 };
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -44,12 +39,12 @@ use super::identity_fact_loader::load_identity_fact_package;
 use super::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::request::ChatStreamRequest;
 use super::runtime_stream::{
-    AgentEventSseProjector, ai_error_to_sse_event, safe_execution_trace_completed_for_tool,
-    sanitize_legacy_tool_call_event,
+    AgentEventSseProjector, ai_error_to_sse_event, sanitize_legacy_tool_call_event,
 };
 use super::runtime_tools::build_runtime_tool_registry;
-use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
-use super::title::build_title;
+use super::turn_preparation::{
+    load_pet_catalog_initial_events, persist_prepared_chat_turn, prepare_chat_turn_context,
+};
 use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::unauthorized_response;
 
@@ -66,77 +61,47 @@ pub async fn handle_chat_stream(
         return unauthorized_response();
     };
 
-    let session_id = req.chat_session_id.unwrap_or_else(Uuid::new_v4);
-    let message_id = Uuid::new_v4();
-    let now = Utc::now();
-    let title = build_title(&req.message);
-    let gate_decision = AiIntentGate::new().classify(&req.message);
-    record_stream_request_received(&req, actor_user_id, session_id);
-
-    let pet_resolution =
-        resolve_stream_target_pet(&state, &req, actor_user_id, &gate_decision).await;
-    let resolved_pet_id = pet_resolution
-        .as_ref()
-        .and_then(AiPetResolution::resolved_pet_id);
-    let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
-    record_stream_gate_decided(&req, session_id, resolved_pet_id, &gate_decision);
-
-    let pet_session_context = PetSessionContext {
-        primary_pet_id: resolved_pet_id.or(req.selected_pet_id),
-        pet_display_snapshot: target_pet.clone(),
-    };
-    persist_current_turn(
-        &state,
-        &req,
-        actor_user_id,
-        session_id,
-        message_id,
-        title.clone(),
-        pet_session_context,
-        now,
-    )
-    .await;
-
-    insert_request_gate_log(
-        &state.session_repository,
-        &req,
-        session_id,
-        actor_user_id,
-        resolved_pet_id,
-        &gate_decision,
-    )
-    .await;
+    let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
+    record_stream_request_received(&req, actor_user_id, context.session_id);
+    record_stream_gate_decided(
+        context.session_id,
+        context.effective_selected_pet_id,
+        context.resolved_pet_id,
+        &context.gate_decision,
+    );
+    persist_prepared_chat_turn(&state, &req, actor_user_id, &context).await;
 
     let initial_events = load_pet_catalog_initial_events(
         &state.session_repository,
-        session_id,
+        context.session_id,
         actor_user_id,
-        &gate_decision,
-        resolved_pet_id,
-        req.selected_pet_id,
-        pet_resolution.as_ref(),
+        &context.gate_decision,
+        context.resolved_pet_id,
+        context.effective_selected_pet_id,
+        context.pet_resolution.as_ref(),
     )
     .await;
 
-    if !gate_decision.enters_workbench() {
+    if !context.gate_decision.enters_workbench() {
         return gated_stream_response(
             state.session_repository.clone(),
-            session_id,
-            message_id,
-            title,
-            &gate_decision,
+            context.session_id,
+            context.assistant_message_id,
+            context.title,
+            &context.gate_decision,
         );
     }
 
-    if let Some(resolution) = pet_resolution
+    if let Some(resolution) = context
+        .pet_resolution
         .as_ref()
         .filter(|resolution| !resolution.is_resolved())
     {
         return pet_resolution_stream_response(
             state.session_repository.clone(),
-            session_id,
-            message_id,
-            title,
+            context.session_id,
+            context.assistant_message_id,
+            context.title,
             resolution.clone(),
         );
     }
@@ -145,12 +110,13 @@ pub async fn handle_chat_stream(
         &state,
         &req,
         ProviderResponseInput {
-            session_id,
-            message_id,
-            title,
+            session_id: context.session_id,
+            message_id: context.assistant_message_id,
+            title: context.title,
             actor_user_id,
-            target_pet,
+            target_pet: context.target_pet,
             initial_events,
+            user_message_id: context.user_message_id,
         },
     )
     .await
@@ -167,6 +133,7 @@ struct ProviderResponseInput {
     actor_user_id: Uuid,
     target_pet: Option<AiPetDisplaySnapshot>,
     initial_events: Vec<AiStreamEvent>,
+    user_message_id: Uuid,
 }
 
 /// provider_response_for_context 构建 Provider SSE 响应
@@ -207,7 +174,7 @@ async fn provider_response_for_context(
         state,
         input.actor_user_id,
         input.session_id,
-        input.message_id,
+        input.user_message_id,
     )
     .await;
 
@@ -333,34 +300,6 @@ fn runtime_provider_stream(
     .boxed()
 }
 
-/// persist_current_turn 持久化当前 stream 轮次
-/// 核心职责：
-/// - 保存会话、用户消息和宠物展示快照
-/// - 保持 handler 主流程聚焦分支编排
-#[allow(clippy::too_many_arguments)]
-async fn persist_current_turn(
-    state: &AiHttpState,
-    req: &ChatStreamRequest,
-    actor_user_id: Uuid,
-    session_id: Uuid,
-    message_id: Uuid,
-    title: String,
-    pet_context: PetSessionContext,
-    now: chrono::DateTime<Utc>,
-) {
-    persist_session_and_user_message(
-        &state.session_repository,
-        req,
-        actor_user_id,
-        session_id,
-        message_id,
-        title,
-        pet_context,
-        now,
-    )
-    .await;
-}
-
 /// record_stream_request_received 记录 stream 请求入口观测
 /// 核心职责：
 /// - 从请求体提取脱敏诊断字段
@@ -380,17 +319,12 @@ fn record_stream_request_received(req: &ChatStreamRequest, actor_user_id: Uuid, 
 /// - 关联会话、选择宠物和解析宠物
 /// - 保持 gate 诊断字段集中构造
 fn record_stream_gate_decided(
-    req: &ChatStreamRequest,
     session_id: Uuid,
+    selected_pet_id: Option<Uuid>,
     resolved_pet_id: Option<Uuid>,
     gate_decision: &AiGateDecision,
 ) {
-    record_chat_gate_decided(
-        session_id,
-        req.selected_pet_id,
-        resolved_pet_id,
-        gate_decision,
-    );
+    record_chat_gate_decided(session_id, selected_pet_id, resolved_pet_id, gate_decision);
 }
 
 /// record_provider_context_started 记录 Provider 分支上下文状态
@@ -448,144 +382,6 @@ pub(super) async fn load_fact_context_and_initial_events(
         ),
         initial_events,
     )
-}
-
-/// resolve_stream_target_pet 解析流式请求目标宠物
-/// 核心职责：
-/// - 只在 gate 要求加载上下文时调用后端授权宠物解析器
-/// - 将解析失败降级为无宠物上下文，保持 SSE 主链路可返回安全响应
-pub(super) async fn resolve_stream_target_pet(
-    state: &AiHttpState,
-    req: &ChatStreamRequest,
-    actor_user_id: Uuid,
-    gate_decision: &AiGateDecision,
-) -> Option<AiPetResolution> {
-    if gate_decision.context_loaded {
-        state
-            .pet_resolver
-            .resolve(&req.message, req.selected_pet_id, actor_user_id)
-            .await
-            .ok()
-    } else {
-        None
-    }
-}
-
-/// load_pet_catalog_initial_events 加载宠物候选工具初始事件
-/// 核心职责：
-/// - 只在需要上下文的请求中记录宠物候选工具审计
-/// - 返回可在 message_started 后输出的安全执行态事件
-pub(super) async fn load_pet_catalog_initial_events(
-    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    session_id: Uuid,
-    actor_user_id: Uuid,
-    gate_decision: &AiGateDecision,
-    resolved_pet_id: Option<Uuid>,
-    selected_pet_id: Option<Uuid>,
-    pet_resolution: Option<&AiPetResolution>,
-) -> Vec<AiStreamEvent> {
-    if gate_decision.context_loaded {
-        insert_pet_catalog_tool_log(
-            session_repo,
-            session_id,
-            actor_user_id,
-            resolved_pet_id,
-            selected_pet_id,
-            pet_resolution,
-        )
-        .await
-    } else {
-        Vec::new()
-    }
-}
-
-/// insert_request_gate_log 写入请求 gate 审计
-/// 核心职责：
-/// - 持久化意图、上下文加载状态和宠物解析结果
-/// - 避免在主 handler 中展开审计表字段细节
-pub(super) async fn insert_request_gate_log(
-    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    req: &ChatStreamRequest,
-    session_id: Uuid,
-    actor_user_id: Uuid,
-    resolved_pet_id: Option<Uuid>,
-    gate_decision: &AiGateDecision,
-) {
-    let _ = session_repo
-        .insert_request_gate_log(&AiRequestGateLog {
-            session_id: Some(session_id),
-            actor_user_id,
-            intent: intent_code(gate_decision.intent).to_owned(),
-            gate_decision: gate_decision_code(gate_decision).to_owned(),
-            context_loaded: gate_decision.context_loaded,
-            request_hash: request_hash(&req.message),
-            resolved_pet_id,
-            selected_pet_id: req.selected_pet_id,
-            risk_signal: gate_decision.risk_signal.clone(),
-            estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
-        })
-        .await;
-}
-
-/// insert_pet_catalog_tool_log 写入授权宠物候选工具审计
-/// 核心职责：
-/// - 记录 list_authorized_pet_candidates 工具读取
-/// - 为解析成功的请求返回不含内部工具名的初始执行态
-async fn insert_pet_catalog_tool_log(
-    session_repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    session_id: Uuid,
-    actor_user_id: Uuid,
-    resolved_pet_id: Option<Uuid>,
-    selected_pet_id: Option<Uuid>,
-    pet_resolution: Option<&AiPetResolution>,
-) -> Vec<AiStreamEvent> {
-    let allowed = pet_resolution.is_some_and(AiPetResolution::is_resolved);
-    let target_pet_id = resolved_pet_id.or(selected_pet_id);
-    let returned_ref_ids = if allowed {
-        target_pet_id
-            .map(|id| vec![id.to_string()])
-            .unwrap_or_default()
-    } else {
-        vec![]
-    };
-    let denied_reason = pet_resolution.and_then(pet_resolution_denied_reason);
-
-    let _ = session_repo
-        .insert_tool_access_log(&AiToolAccessLog {
-            session_id: Some(session_id),
-            actor_user_id,
-            tool_name: "list_authorized_pet_candidates".to_owned(),
-            requested_scope: "actor_pet_candidates".to_owned(),
-            target_pet_id,
-            allowed,
-            denied_reason,
-            returned_ref_ids,
-            duration_ms: 0,
-            risk_signal: None,
-        })
-        .await;
-
-    if allowed {
-        vec![safe_execution_trace_completed_for_tool(
-            "list_authorized_pet_candidates",
-            "宠物",
-            0,
-        )]
-    } else {
-        Vec::new()
-    }
-}
-
-/// pet_resolution_denied_reason 返回工具审计拒绝原因
-/// 核心职责：
-/// - 使用稳定原因码记录解析未完成原因
-fn pet_resolution_denied_reason(resolution: &AiPetResolution) -> Option<String> {
-    match resolution {
-        AiPetResolution::Resolved { .. } => None,
-        AiPetResolution::NeedsSelection { .. } => Some("needs_pet_selection".to_owned()),
-        AiPetResolution::UnauthorizedOrNotFound => Some("unauthorized_or_not_found".to_owned()),
-        AiPetResolution::NoPetContext => Some("no_pet_context".to_owned()),
-    }
 }
 
 /// provider_stream_response 构建 Provider 流式响应
@@ -684,57 +480,6 @@ where
     Sse::new(sse_stream)
         .keep_alive(KeepAlive::default())
         .into_response()
-}
-
-/// resolved_pet_snapshot 提取已解析宠物快照
-/// 核心职责：
-/// - 只在 AiPetResolution::Resolved 时返回后端宠物展示快照
-pub(super) fn resolved_pet_snapshot(
-    pet_resolution: Option<&AiPetResolution>,
-) -> Option<AiPetDisplaySnapshot> {
-    match pet_resolution {
-        Some(AiPetResolution::Resolved { snapshot, .. }) => Some(snapshot.clone()),
-        _ => None,
-    }
-}
-
-/// intent_code 返回审计用意图编码
-/// 核心职责：
-/// - 使用稳定 snake_case 字符串写入审计表
-fn intent_code(intent: AiIntent) -> &'static str {
-    match intent {
-        AiIntent::PetCare => "pet_care",
-        AiIntent::PetRecordQuery => "pet_record_query",
-        AiIntent::PetFood => "pet_food",
-        AiIntent::PetHealthRisk => "pet_health_risk",
-        AiIntent::EmotionalPetContext => "emotional_pet_context",
-        AiIntent::AppSupport => "app_support",
-        AiIntent::OffTopic => "off_topic",
-        AiIntent::PromptInjection => "prompt_injection",
-        AiIntent::CostAbuse => "cost_abuse",
-    }
-}
-
-/// gate_decision_code 返回审计用 gate 决策编码
-/// 核心职责：
-/// - 区分加载上下文、跳过主 Agent 和安全阻断
-fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.enters_workbench() {
-        "blocked"
-    } else if gate_decision.context_loaded {
-        "load_context"
-    } else {
-        "enter_workbench"
-    }
-}
-
-/// request_hash 生成审计用请求哈希
-/// 核心职责：
-/// - 避免审计表保存完整用户原文
-fn request_hash(message: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    message.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
 }
 
 /// load_history_and_summary 加载历史和会话摘要

@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use chrono::{TimeZone, Utc};
+use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::{AiSessionRepository, SessionEventRepository};
 use maohuoban_ai_domain::ai::{
     AgentSessionEventEntry, AiProposedAction, AiProposedActionKind, AiProposedActionRisk,
@@ -7,17 +8,44 @@ use maohuoban_ai_domain::ai::{
 use maohuoban_ai_infrastructure::repository::{
     PostgresAiSessionRepository, PostgresSessionEventRepository,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_text};
+use super::{authorized_json_request, login_and_get_token, response_json, response_text};
 
-/// AI chat stream 成功后 DB 中有 session 和 user message
+/// AI chat stream 成功后 DB 中有 session、user message 和 assistant message
 #[tokio::test]
 async fn ai_chat_stream_persists_session_and_user_message() {
-    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let server = MockServer::start();
+    let mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .body_contains("\"stream\":true");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"先观察精神、食欲和排便变化。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8,\"total_tokens\":13}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139003", "ios-ai-persist-test").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
 
     let response = app
         .router()
@@ -28,7 +56,8 @@ async fn ai_chat_stream_persists_session_and_user_message() {
             &access_token,
             json!({
                 "message": "毛球拉肚子了怎么办",
-                "surface": "home_private"
+                "surface": "home_private",
+                "selected_pet_id": pet_id
             }),
         ))
         .await
@@ -37,6 +66,7 @@ async fn ai_chat_stream_persists_session_and_user_message() {
     assert_eq!(response.status(), StatusCode::OK);
     // 消费完整响应体，确保 stream 结束
     let _ = response_text(response).await;
+    mock.assert();
 
     // 查询 DB 验证持久化
     let session_count: i64 =
@@ -56,6 +86,27 @@ async fn ai_chat_stream_persists_session_and_user_message() {
 
     assert_eq!(user_msg_count, 1, "should have 1 user message");
 
+    let assistant_msg_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM ai_messages WHERE role = 'assistant' AND content = '先观察精神、食欲和排便变化。'",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("count assistant messages");
+
+    assert_eq!(assistant_msg_count, 1, "should have 1 assistant message");
+
+    let total_msg_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM ai_messages WHERE session_id = (SELECT id FROM ai_chat_sessions WHERE title LIKE '%毛球拉肚子%' LIMIT 1)",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("count session messages");
+
+    assert_eq!(
+        total_msg_count, 2,
+        "should persist user and assistant messages"
+    );
+
     // 验证 session 的 actor_user_id 不为空
     let actor_id: uuid::Uuid = sqlx::query_scalar(
         "SELECT actor_user_id FROM ai_chat_sessions WHERE title LIKE '%毛球拉肚子%'",
@@ -65,6 +116,38 @@ async fn ai_chat_stream_persists_session_and_user_message() {
     .expect("get actor_user_id");
 
     assert!(!actor_id.is_nil(), "actor_user_id should not be nil");
+}
+
+/// `create_pet` 创建合同测试宠物
+/// 核心职责：
+/// - 为 AI 会话测试提供当前登录用户名下的授权宠物
+/// - 返回接口原始 data，供请求携带 `selected_pet_id`
+async fn create_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    access_token: &str,
+    name: &str,
+) -> Value {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/pets",
+            access_token,
+            json!({
+                "name": name,
+                "species": "cat",
+                "breed": "英短",
+                "sex": "male",
+                "birthday": "2024-01-01",
+                "arrival_date": "2024-03-01"
+            }),
+        ))
+        .await
+        .expect("create pet");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_json(response).await["data"].clone()
 }
 
 /// AI chat stream 不允许请求体传入 `actor_user_id`

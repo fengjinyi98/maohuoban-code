@@ -2,7 +2,6 @@ use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
 use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
-use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
@@ -10,9 +9,8 @@ use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiGateDecision,
-    AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution,
-    LlmFinishReason, LlmUsage,
+    AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiMessage,
+    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, LlmFinishReason, LlmUsage,
 };
 use serde::Serialize;
 use std::sync::Arc;
@@ -24,12 +22,11 @@ use super::gated_stream_response::gated_message_text;
 use super::pet_resolution_stream_response::pet_resolution_message_text;
 use super::request::ChatStreamRequest;
 use super::runtime_tools::build_runtime_tool_registry;
-use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
-use super::stream_handler::{
-    insert_request_gate_log, load_fact_context_and_initial_events, load_pet_catalog_initial_events,
-    resolve_stream_target_pet, resolved_pet_snapshot,
+use super::stream_handler::load_fact_context_and_initial_events;
+use super::turn_preparation::{
+    ChatTurnContext, load_pet_catalog_initial_events, persist_prepared_chat_turn,
+    prepare_chat_turn_context,
 };
-use super::title::build_title;
 use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
@@ -46,8 +43,8 @@ pub async fn handle_chat(
         return unauthorized_response();
     };
 
-    let context = prepare_non_stream_context(&state, &req, actor_user_id).await;
-    persist_initial_chat_records(&state, &req, actor_user_id, &context).await;
+    let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
+    persist_prepared_chat_turn(&state, &req, actor_user_id, &context).await;
 
     let _ = load_pet_catalog_initial_events(
         &state.session_repository,
@@ -55,7 +52,7 @@ pub async fn handle_chat(
         actor_user_id,
         &context.gate_decision,
         context.resolved_pet_id,
-        req.selected_pet_id,
+        context.effective_selected_pet_id,
         context.pet_resolution.as_ref(),
     )
     .await;
@@ -63,7 +60,7 @@ pub async fn handle_chat(
     if !context.gate_decision.enters_workbench() {
         return persist_and_respond_boundary_message(
             &state.session_repository,
-            context.message_id,
+            context.assistant_message_id,
             context.session_id,
             context.title,
             context.target_pet,
@@ -80,7 +77,7 @@ pub async fn handle_chat(
     {
         return persist_and_respond_boundary_message(
             &state.session_repository,
-            context.message_id,
+            context.assistant_message_id,
             context.session_id,
             context.title,
             context.target_pet,
@@ -115,7 +112,7 @@ pub async fn handle_chat(
 
     persist_assistant_message(
         &state.session_repository,
-        context.message_id,
+        context.assistant_message_id,
         context.session_id,
         &complete,
     )
@@ -126,7 +123,7 @@ pub async fn handle_chat(
         "AI 回答已完成",
         ChatCompleteResponse {
             chat_session_id: context.session_id,
-            message_id: context.message_id,
+            message_id: context.assistant_message_id,
             title: context.title,
             target_pet: context.target_pet,
             final_text: complete.final_text,
@@ -146,7 +143,7 @@ async fn complete_with_runtime(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
-    context: &NonStreamChatContext,
+    context: &ChatTurnContext,
     target_pet: Option<AiPetDisplaySnapshot>,
     fact_package: Option<AiFactPackage>,
 ) -> Result<AiCompleteResult, AiError> {
@@ -174,7 +171,7 @@ async fn complete_with_runtime(
         state,
         actor_user_id,
         context.session_id,
-        context.message_id,
+        context.user_message_id,
     )
     .await;
 
@@ -261,83 +258,6 @@ fn complete_from_runtime_events(
         citations,
         verification,
     })
-}
-
-/// NonStreamChatContext 非流式请求运行上下文
-/// 核心职责：
-/// - 汇总会话、消息、gate 和宠物解析结果
-/// - 作为后续持久化、边界分支和 Provider 调用的输入
-struct NonStreamChatContext {
-    session_id: Uuid,
-    message_id: Uuid,
-    title: String,
-    gate_decision: AiGateDecision,
-    pet_resolution: Option<AiPetResolution>,
-    resolved_pet_id: Option<Uuid>,
-    target_pet: Option<AiPetDisplaySnapshot>,
-}
-
-/// prepare_non_stream_context 准备非流式运行上下文
-/// 核心职责：
-/// - 创建会话和消息 ID
-/// - 完成意图闸门和授权宠物解析
-async fn prepare_non_stream_context(
-    state: &AiHttpState,
-    req: &ChatStreamRequest,
-    actor_user_id: Uuid,
-) -> NonStreamChatContext {
-    let gate_decision = AiIntentGate::new().classify(&req.message);
-    let pet_resolution = resolve_stream_target_pet(state, req, actor_user_id, &gate_decision).await;
-    let resolved_pet_id = pet_resolution
-        .as_ref()
-        .and_then(AiPetResolution::resolved_pet_id);
-    let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
-
-    NonStreamChatContext {
-        session_id: req.chat_session_id.unwrap_or_else(Uuid::new_v4),
-        message_id: Uuid::new_v4(),
-        title: build_title(&req.message),
-        gate_decision,
-        pet_resolution,
-        resolved_pet_id,
-        target_pet,
-    }
-}
-
-/// persist_initial_chat_records 写入会话、用户消息和 gate 日志
-/// 核心职责：
-/// - 保持非流式与流式入口的初始持久化一致
-/// - 避免 handler 展开数据库写入参数
-async fn persist_initial_chat_records(
-    state: &AiHttpState,
-    req: &ChatStreamRequest,
-    actor_user_id: Uuid,
-    context: &NonStreamChatContext,
-) {
-    persist_session_and_user_message(
-        &state.session_repository,
-        req,
-        actor_user_id,
-        context.session_id,
-        context.message_id,
-        context.title.clone(),
-        PetSessionContext {
-            primary_pet_id: context.resolved_pet_id.or(req.selected_pet_id),
-            pet_display_snapshot: context.target_pet.clone(),
-        },
-        Utc::now(),
-    )
-    .await;
-
-    insert_request_gate_log(
-        &state.session_repository,
-        req,
-        context.session_id,
-        actor_user_id,
-        context.resolved_pet_id,
-        &context.gate_decision,
-    )
-    .await;
 }
 
 /// ChatCompleteResponse 非流式聊天完成响应

@@ -253,6 +253,88 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
     assert_eq!(snapshot["profile_number"], profile_number);
 }
 
+/// 历史会话续聊会从 session 恢复目标宠物
+/// 核心职责：
+/// - 验证第二轮请求只传 `chat_session_id` 时仍能恢复 `primary_pet_id`
+/// - 防止历史会话继续对话时回退到未选择宠物边界响应
+#[tokio::test]
+async fn ai_chat_stream_restores_selected_pet_from_existing_session() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139021", "ios-ai-session-pet").await;
+
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let first_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天拉肚子了怎么办",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send first selected pet chat stream request");
+
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_text = response_text(first_response).await;
+    let first_started = sse_event_data(&first_text, "message_started");
+    let chat_session_id = first_started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
+
+    let second_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "今天拉肚子还没好怎么办",
+                "surface": "home_private",
+                "chat_session_id": chat_session_id
+            }),
+        ))
+        .await
+        .expect("send follow-up chat stream request");
+
+    assert_eq!(second_response.status(), StatusCode::OK);
+    let second_text = response_text(second_response).await;
+    let second_started = sse_event_data(&second_text, "message_started");
+
+    assert_eq!(second_started["target_pet"]["pet_id"], pet_id);
+    assert!(
+        !second_text.contains("需要先选择宠物"),
+        "follow-up should restore session pet instead of asking for selection, got: {second_text}"
+    );
+
+    let row: (Option<uuid::Uuid>, Option<uuid::Uuid>, bool) = sqlx::query_as(
+        r"
+        SELECT selected_pet_id, resolved_pet_id, context_loaded
+        FROM ai_request_gate_logs
+        WHERE session_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse session id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest follow-up gate log");
+
+    let pet_uuid = uuid::Uuid::parse_str(pet_id).expect("parse pet id");
+    assert_eq!(row.0, Some(pet_uuid));
+    assert_eq!(row.1, Some(pet_uuid));
+    assert!(row.2);
+}
+
 async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,

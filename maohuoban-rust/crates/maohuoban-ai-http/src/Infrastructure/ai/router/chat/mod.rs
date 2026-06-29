@@ -18,6 +18,7 @@ mod runtime_tools;
 mod session_persistence;
 mod stream_handler;
 mod title;
+mod turn_preparation;
 mod workbench_builder;
 
 pub use non_stream_handler::handle_chat;
