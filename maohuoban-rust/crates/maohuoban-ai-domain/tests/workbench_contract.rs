@@ -70,6 +70,7 @@ fn workbench_contract_roundtrip_preserves_agent_context_and_capabilities() {
                 summary: "豆包对突然换粮比较敏感".to_owned(),
             }],
         },
+        recent_conversation_pack: None,
     };
 
     let encoded = serde_json::to_string(&workbench).expect("serialize workbench");
@@ -112,6 +113,7 @@ fn workbench_contract_does_not_expose_internal_fields() {
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
+        recent_conversation_pack: None,
     };
 
     let encoded = serde_json::to_string(&workbench).expect("serialize workbench");

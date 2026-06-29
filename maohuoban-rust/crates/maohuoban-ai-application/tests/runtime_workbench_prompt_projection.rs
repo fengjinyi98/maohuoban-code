@@ -151,5 +151,6 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
+        recent_conversation_pack: None,
     }
 }

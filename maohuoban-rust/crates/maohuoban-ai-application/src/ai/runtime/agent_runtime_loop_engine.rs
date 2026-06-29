@@ -97,16 +97,28 @@ impl AgentRuntimeLoopEngine {
             AiPromptBuilder::new().build_messages(&user_message, &[], self.fact_package.as_ref());
 
         if let Some(workbench) = state.workbench.as_ref() {
-            let insert_index = messages.len().saturating_sub(1);
-            messages.insert(
-                insert_index,
-                LlmMessage {
-                    role: LlmRole::System,
-                    content: workbench_context_prompt(workbench),
-                    tool_call_id: None,
-                    tool_calls: Vec::new(),
-                },
-            );
+            let user_msg_index = messages.len().saturating_sub(1);
+
+            // 收集需要在用户消息之前插入的消息（workbench context + 同会话历史）
+            let mut pre_user_messages: Vec<LlmMessage> = Vec::new();
+
+            // workbench context
+            pre_user_messages.push(LlmMessage {
+                role: LlmRole::System,
+                content: workbench_context_prompt(workbench),
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            });
+
+            // 同会话最近历史
+            if let Some(pack) = workbench.recent_conversation_pack.as_ref() {
+                pre_user_messages.extend(pack.to_messages());
+            }
+
+            // 在用户消息之前插入
+            for (offset, msg) in pre_user_messages.into_iter().enumerate() {
+                messages.insert(user_msg_index + offset, msg);
+            }
         }
 
         if !assistant_tool_calls.is_empty() {

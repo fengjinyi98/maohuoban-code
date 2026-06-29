@@ -257,5 +257,6 @@ fn misleading_private_workbench() -> AgentSessionWorkbench {
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
+        recent_conversation_pack: None,
     }
 }

@@ -1,10 +1,12 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
 use maohuoban_ai_application::ai::citations::citations_for_answer;
+use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiGateDecision,
@@ -167,8 +169,21 @@ async fn complete_with_runtime(
         req.surface,
         engine,
     );
-    let workbench =
-        build_agent_session_workbench(req.surface, target_pet.as_ref(), None, Vec::new());
+    let recent_conversation = load_recent_conversation_pack(
+        &state.session_repository,
+        actor_user_id,
+        context.session_id,
+        context.message_id,
+    )
+    .await;
+
+    let workbench = build_agent_session_workbench(
+        req.surface,
+        target_pet.as_ref(),
+        None,
+        Vec::new(),
+        recent_conversation,
+    );
     let events = session
         .prompt_with_workbench(req.message.clone(), workbench)
         .await?;
@@ -463,4 +478,31 @@ async fn persist_assistant_message_from_parts(
     let _ = repo
         .insert_message_citations(record.message_id, record.session_id, &record.citations)
         .await;
+}
+
+/// load_recent_conversation_pack 加载并投影同会话最近历史
+/// 核心职责：
+/// - 通过 RecentConversationLoader 加载历史（含归属校验）
+/// - 通过 ContextBudgetPolicy 裁剪预算
+/// - 加载失败时返回空历史，不阻塞主链路
+async fn load_recent_conversation_pack(
+    session_repo: &Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    actor_user_id: Uuid,
+    session_id: Uuid,
+    exclude_message_id: Uuid,
+) -> maohuoban_ai_domain::ai::RecentConversationPack {
+    let loader = RecentConversationLoader::new(session_repo.clone());
+    match loader
+        .load_recent_conversation(
+            actor_user_id,
+            session_id,
+            exclude_message_id,
+            1_000_000,
+            200_000,
+        )
+        .await
+    {
+        Ok(pack) => ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack),
+        Err(_) => maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+    }
 }

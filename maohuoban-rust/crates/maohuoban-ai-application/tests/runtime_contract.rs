@@ -53,6 +53,7 @@ fn workbench_with_capabilities(capability_count: usize) -> AgentSessionWorkbench
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
+        recent_conversation_pack: None,
     }
 }
 

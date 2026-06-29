@@ -16,10 +16,11 @@ use maohuoban_ai_application::ai::tools::{
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
-    AiConversationSurface, AiFactEntry, AiFactStrength, AiToolConfirmationRequirement,
-    CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
-    ModelLabel, ToolProgressText, Toolset,
+    AiConversationSurface, AiFactEntry, AiFactStrength, AiMessageRole,
+    AiToolConfirmationRequirement, CapabilityCatalog, CapabilityDomain, ContextPack,
+    LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
+    LlmToolCall, LlmUsage, MemoryPack, ModelLabel, RecentConversationEntry, RecentConversationPack,
+    ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -306,6 +307,7 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
+        recent_conversation_pack: None,
     }
 }
 
@@ -648,4 +650,127 @@ async fn tool_failed_projects_safe_message_not_raw_reason() {
         !content.contains("missing pet_id"),
         "failed tool result should not expose raw reason, got: {content}"
     );
+}
+
+#[tokio::test]
+async fn build_messages_includes_recent_conversation_history() {
+    let provider = ScriptedProvider::new(vec![final_response()]);
+    let registry = ToolRegistry::new();
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let workbench = workbench_with_recent_history();
+
+    session
+        .prompt_with_workbench("那要不要停罐头？", workbench)
+        .await
+        .expect("prompt with history");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+
+    let messages = &requests[0].messages;
+
+    // 历史用户消息必须出现在请求中
+    let history_user = messages
+        .iter()
+        .find(|m| m.role == LlmRole::User && m.content == "豆包今天拉肚子怎么办");
+    assert!(
+        history_user.is_some(),
+        "request must include previous user message from history"
+    );
+
+    // 历史助手消息必须出现在请求中
+    let history_assistant = messages
+        .iter()
+        .find(|m| m.role == LlmRole::Assistant && m.content.contains("先观察精神和食欲"));
+    assert!(
+        history_assistant.is_some(),
+        "request must include previous assistant message from history"
+    );
+
+    // 当前用户消息必须出现在请求中
+    let current_msg = messages
+        .iter()
+        .find(|m| m.role == LlmRole::User && m.content == "那要不要停罐头？");
+    assert!(
+        current_msg.is_some(),
+        "request must include current user message"
+    );
+
+    // 历史消息必须出现在当前用户消息之前
+    let history_index = messages
+        .iter()
+        .position(|m| m.role == LlmRole::User && m.content == "豆包今天拉肚子怎么办");
+    let current_index = messages
+        .iter()
+        .position(|m| m.role == LlmRole::User && m.content == "那要不要停罐头？");
+    assert!(
+        history_index.expect("history index") < current_index.expect("current index"),
+        "history must appear before current user message"
+    );
+}
+
+/// `workbench_with_recent_history` 构造带同会话历史的 workbench
+fn workbench_with_recent_history() -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![CapabilityDomain::PublicPetDomain],
+        },
+        capability_catalog: CapabilityCatalog {
+            capabilities: vec![AgentCapability {
+                code: "public_pet_care".to_owned(),
+                domain: CapabilityDomain::PublicPetDomain,
+                title: "公共养宠咨询".to_owned(),
+                when_to_use: "用户咨询通用照护、饮食、行为或常见症状观察时使用".to_owned(),
+                requires_private_context: false,
+            }],
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            selected_pet: None,
+            authorized_pets: Vec::new(),
+            session_summary: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
+        recent_conversation_pack: Some(RecentConversationPack {
+            entries: vec![
+                RecentConversationEntry {
+                    role: AiMessageRole::User,
+                    content: "豆包今天拉肚子怎么办".to_owned(),
+                    tool_call_id: None,
+                    tool_calls: Vec::new(),
+                },
+                RecentConversationEntry {
+                    role: AiMessageRole::Assistant,
+                    content: "先观察精神和食欲，如果持续超过24小时需要就医".to_owned(),
+                    tool_call_id: None,
+                    tool_calls: Vec::new(),
+                },
+            ],
+        }),
+    }
 }

@@ -9,11 +9,13 @@ use axum::{
 };
 use chrono::Utc;
 use futures_util::StreamExt;
+use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiToolAccessLog};
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_domain::ai::{
     AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiIntent, AiPetDisplaySnapshot,
     AiPetResolution, AiStreamEvent,
@@ -199,8 +201,21 @@ async fn provider_response_for_context(
         initial_events,
         fact_package: fact_package.clone(),
     };
-    let workbench =
-        build_agent_session_workbench(req.surface, input.target_pet.as_ref(), None, Vec::new());
+    let recent_conversation = load_recent_conversation_pack(
+        &state.session_repository,
+        input.actor_user_id,
+        input.session_id,
+        input.message_id,
+    )
+    .await;
+
+    let workbench = build_agent_session_workbench(
+        req.surface,
+        input.target_pet.as_ref(),
+        None,
+        Vec::new(),
+        recent_conversation,
+    );
     let stream = runtime_provider_stream(
         state,
         req,
@@ -715,4 +730,31 @@ fn request_hash(message: &str) -> String {
     let mut hasher = DefaultHasher::new();
     message.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
+}
+
+/// load_recent_conversation_pack 加载并投影同会话最近历史
+/// 核心职责：
+/// - 通过 RecentConversationLoader 加载历史（含归属校验）
+/// - 通过 ContextBudgetPolicy 裁剪预算
+/// - 加载失败时返回空历史，不阻塞主链路
+async fn load_recent_conversation_pack(
+    session_repo: &Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    actor_user_id: Uuid,
+    session_id: Uuid,
+    exclude_message_id: Uuid,
+) -> maohuoban_ai_domain::ai::RecentConversationPack {
+    let loader = RecentConversationLoader::new(session_repo.clone());
+    match loader
+        .load_recent_conversation(
+            actor_user_id,
+            session_id,
+            exclude_message_id,
+            1_000_000,
+            200_000,
+        )
+        .await
+    {
+        Ok(pack) => ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack),
+        Err(_) => maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+    }
 }

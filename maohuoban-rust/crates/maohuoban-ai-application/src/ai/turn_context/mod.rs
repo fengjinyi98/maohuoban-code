@@ -3,10 +3,14 @@
 //! - 把安全裁决、会话摘要、宠物上下文、能力目录、记忆包从 LoopEngine 中拆出
 //! - 让 LoopEngine 只负责模型循环和工具回灌
 
+pub mod context_budget;
+
+pub use context_budget::ContextBudgetPolicy;
+
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     AiPetDisplaySnapshot, CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary,
-    MemoryEntry, MemoryPack, ModelLabel,
+    MemoryEntry, MemoryPack, ModelLabel, RecentConversationPack,
 };
 
 /// TurnContextBuilder Turn 前置上下文构建器
@@ -19,6 +23,7 @@ pub struct TurnContextBuilder {
     target_pet: Option<AiPetDisplaySnapshot>,
     session_summary: Option<String>,
     memory_entries: Vec<MemoryEntry>,
+    recent_conversation: Option<RecentConversationPack>,
 }
 
 impl TurnContextBuilder {
@@ -30,6 +35,7 @@ impl TurnContextBuilder {
             target_pet: None,
             session_summary: None,
             memory_entries: Vec::new(),
+            recent_conversation: None,
         }
     }
 
@@ -51,6 +57,13 @@ impl TurnContextBuilder {
     #[must_use]
     pub fn with_memory_entries(mut self, entries: Vec<MemoryEntry>) -> Self {
         self.memory_entries = entries;
+        self
+    }
+
+    /// with_recent_conversation 设置同会话最近历史
+    #[must_use]
+    pub fn with_recent_conversation(mut self, pack: RecentConversationPack) -> Self {
+        self.recent_conversation = Some(pack);
         self
     }
 
@@ -107,6 +120,7 @@ impl TurnContextBuilder {
         };
 
         AgentSessionWorkbench {
+            recent_conversation_pack: self.recent_conversation,
             agent_definition: AgentDefinition {
                 agent_id: AgentId::main_pet_care_agent(),
                 name: "毛球".to_owned(),
