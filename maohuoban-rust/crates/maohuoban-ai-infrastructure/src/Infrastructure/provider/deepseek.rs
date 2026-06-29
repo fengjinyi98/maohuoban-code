@@ -16,8 +16,6 @@ use serde_json::Value;
 use super::config::OpenAiCompatibleConfig;
 use super::openai_compatible::OpenAiCompatibleLlmProvider;
 
-const DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
-
 /// DeepSeekConfig DeepSeek Provider 配置
 /// 核心职责：
 /// - 承载 DeepSeek 厂商运行参数
@@ -67,8 +65,8 @@ impl DeepSeekConfig {
 
     /// into_openai_compatible_config 转换为协议客户端配置
     /// 核心职责：
-    /// - 注入 DeepSeek JSON Output 默认响应格式
-    /// - 设置足够的默认输出 token，降低 JSON 截断概率
+    /// - 保持 DeepSeek 厂商配置类型独立
+    /// - 只传递运营显式配置，不在 Provider 内强制阶段策略
     #[must_use]
     pub fn into_openai_compatible_config(self) -> OpenAiCompatibleConfig {
         OpenAiCompatibleConfig {
@@ -77,14 +75,8 @@ impl DeepSeekConfig {
             model: self.model,
             timeout_secs: self.timeout_secs,
             temperature: self.temperature,
-            max_output_tokens: Some(
-                self.max_output_tokens
-                    .unwrap_or(DEEPSEEK_DEFAULT_MAX_OUTPUT_TOKENS),
-            ),
-            response_format: Some(
-                self.response_format
-                    .unwrap_or_else(|| serde_json::json!({ "type": "json_object" })),
-            ),
+            max_output_tokens: self.max_output_tokens,
+            response_format: self.response_format,
         }
     }
 }

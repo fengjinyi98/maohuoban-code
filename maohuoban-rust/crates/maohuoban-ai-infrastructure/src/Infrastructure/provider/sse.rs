@@ -4,6 +4,8 @@
 //! - 支持 delta、finish、usage、error 和 [DONE] 标记
 
 use std::collections::BTreeMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use maohuoban_ai_domain::ai::{
     AiError, AiResult, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError,
@@ -39,27 +41,16 @@ impl SseStreamDecoder {
     /// push_str 追加 SSE 文本并返回已完成事件
     pub(crate) fn push_str(&mut self, input: &str) -> Vec<AiResult<LlmStreamEvent>> {
         self.buffer.push_str(input);
-        let buffer = std::mem::take(&mut self.buffer);
         let mut events = Vec::new();
-        let mut remaining = String::new();
-        let mut event_lines: Vec<&str> = Vec::new();
 
-        for line in buffer.split('\n') {
-            if line.is_empty() {
-                if !event_lines.is_empty() {
-                    events.extend(self.parse_sse_event(&event_lines));
-                    event_lines.clear();
-                }
-            } else {
-                event_lines.push(line);
+        while let Some((event_end, delimiter_len)) = next_sse_event_boundary(&self.buffer) {
+            let event_text = self.buffer[..event_end].to_owned();
+            self.buffer.drain(..event_end + delimiter_len);
+            let event_lines: Vec<&str> = event_text.lines().collect();
+            if !event_lines.is_empty() {
+                events.extend(self.parse_sse_event(&event_lines));
             }
         }
-
-        for line in event_lines {
-            remaining.push_str(line);
-            remaining.push('\n');
-        }
-        self.buffer = remaining;
 
         events
     }
@@ -103,7 +94,7 @@ impl SseStreamDecoder {
             Err(error) => {
                 return vec![Err(AiError::Provider(ProviderError::new(
                     ProviderErrorCategory::InvalidResponse,
-                    format!("invalid sse json: {error}"),
+                    invalid_sse_json_message(&data, &error),
                 )))];
             }
         };
@@ -209,6 +200,53 @@ impl SseStreamDecoder {
                 }))
             })
             .collect()
+    }
+}
+
+/// next_sse_event_boundary 查找完整 SSE event 边界
+/// 核心职责：
+/// - 只以空行作为事件完成标记
+/// - 保留网络 chunk 中未完成的最后一行
+fn next_sse_event_boundary(buffer: &str) -> Option<(usize, usize)> {
+    let lf = buffer.find("\n\n").map(|index| (index, 2));
+    let crlf = buffer.find("\r\n\r\n").map(|index| (index, 4));
+
+    match (lf, crlf) {
+        (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
+        (Some(boundary), None) | (None, Some(boundary)) => Some(boundary),
+        (None, None) => None,
+    }
+}
+
+/// invalid_sse_json_message 构造脱敏 SSE 解析错误
+/// 核心职责：
+/// - 保留解析器错误、数据长度和哈希
+/// - 避免把上游原始内容写入诊断或日志
+fn invalid_sse_json_message(data: &str, error: &serde_json::Error) -> String {
+    format!(
+        "invalid sse json: parser={error}; data_len={}; data_hash={}; first_char_kind={}; line_count={}",
+        data.chars().count(),
+        stable_hash(data),
+        first_char_kind(data),
+        data.lines().count()
+    )
+}
+
+fn stable_hash(value: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+fn first_char_kind(value: &str) -> &'static str {
+    match value.chars().next() {
+        None => "empty",
+        Some('{') => "object",
+        Some('[') => "array",
+        Some(ch) if ch.is_ascii_alphabetic() => "alpha",
+        Some(ch) if ch.is_ascii_digit() => "digit",
+        Some(ch) if ch.is_whitespace() => "whitespace",
+        Some(_) => "other",
     }
 }
 

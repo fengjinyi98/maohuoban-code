@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -31,6 +31,27 @@ struct Finding {
     message: String,
 }
 
+/// TouchedPath 本次工具触碰的文件
+/// 核心职责：
+/// - 携带文件路径和变更类型
+/// - 支持新增文件与既有文件采用不同门禁强度
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TouchedPath {
+    path: PathBuf,
+    kind: ChangeKind,
+}
+
+/// ChangeKind 文件变更类型
+/// 核心职责：
+/// - 标记新增文件需要严格阻断
+/// - 标记既有文件更新以提示为主
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChangeKind {
+    Added,
+    Updated,
+    Deleted,
+}
+
 /// Severity 检查结果严重程度
 /// 核心职责：
 /// - 标记可继续的建议项
@@ -49,26 +70,51 @@ fn main() {
     let mut input = String::new();
     let _ = io::stdin().read_to_string(&mut input);
     let root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let paths = extract_touched_paths(&input);
+    let paths = extract_touched_files(&input);
 
     if paths.is_empty() {
         return;
     }
 
     let mut findings = Vec::new();
-    for path in paths {
-        let absolute = if path.is_absolute() {
-            path
+    for touched_path in paths {
+        let absolute = if touched_path.path.is_absolute() {
+            touched_path.path
         } else {
-            root.join(path)
+            root.join(touched_path.path)
         };
-        findings.extend(evaluate_file(&root, &absolute));
+        findings.extend(evaluate_file(&root, &absolute, touched_path.kind));
     }
 
     let violations: Vec<&Finding> = findings
         .iter()
         .filter(|finding| finding.severity == Severity::Violation)
         .collect();
+    let warnings: Vec<&Finding> = findings
+        .iter()
+        .filter(|finding| finding.severity == Severity::Warning)
+        .collect();
+    if violations.is_empty() && warnings.is_empty() {
+        return;
+    }
+
+    if !warnings.is_empty() {
+        eprintln!("[{ERROR_CODE}] 项目目录与文件规则提示");
+        eprintln!(
+            "原因：本次 Codex 触碰的代码文件存在 {} 个提示项。",
+            warnings.len()
+        );
+        for warning in warnings.iter().take(8) {
+            eprintln!(
+                "- path={} rule={} reason={}",
+                warning.path, warning.rule, warning.message
+            );
+        }
+        if warnings.len() > 8 {
+            eprintln!("- 其余 {} 个提示项已省略。", warnings.len() - 8);
+        }
+    }
+
     if violations.is_empty() {
         return;
     }
@@ -96,37 +142,76 @@ fn main() {
 /// 核心职责：
 /// - 支持 Write/Edit 类事件的 file_path 字段
 /// - 支持 apply_patch 文本中的文件路径
+#[cfg(test)]
 fn extract_touched_paths(input: &str) -> Vec<PathBuf> {
-    let mut paths = BTreeSet::new();
+    extract_touched_files(input)
+        .into_iter()
+        .map(|touched_path| touched_path.path)
+        .collect()
+}
+
+/// extract_touched_files 提取本次工具触碰文件
+/// 核心职责：
+/// - 识别 apply_patch 的新增、更新和删除
+/// - 为 Write/Edit 类事件补充保守变更类型
+fn extract_touched_files(input: &str) -> Vec<TouchedPath> {
+    let mut paths = BTreeMap::new();
+    let tool_name = values_after_json_key(input, "tool_name")
+        .into_iter()
+        .next()
+        .unwrap_or_default();
+    let file_path_kind = match tool_name.as_str() {
+        "Write" => ChangeKind::Added,
+        "Edit" | "MultiEdit" => ChangeKind::Updated,
+        _ => ChangeKind::Updated,
+    };
 
     for value in values_after_json_key(input, "file_path") {
-        paths.insert(PathBuf::from(value));
+        insert_touched_path(&mut paths, PathBuf::from(value), file_path_kind);
     }
 
     for line in decoded_json_text(input).lines() {
-        for marker in [
-            "*** Add File: ",
-            "*** Update File: ",
-            "*** Delete File: ",
-            "*** Move to: ",
+        for (marker, kind) in [
+            ("*** Add File: ", ChangeKind::Added),
+            ("*** Update File: ", ChangeKind::Updated),
+            ("*** Delete File: ", ChangeKind::Deleted),
+            ("*** Move to: ", ChangeKind::Updated),
         ] {
             if let Some(path) = line.strip_prefix(marker) {
                 let trimmed = path.trim();
                 if !trimmed.is_empty() {
-                    paths.insert(PathBuf::from(trimmed));
+                    insert_touched_path(&mut paths, PathBuf::from(trimmed), kind);
                 }
             }
         }
     }
 
-    paths.into_iter().collect()
+    paths
+        .into_iter()
+        .map(|(path, kind)| TouchedPath { path, kind })
+        .collect()
+}
+
+/// insert_touched_path 合并触碰文件记录
+/// 核心职责：
+/// - 保持路径去重
+/// - 新增文件语义优先于更新语义
+fn insert_touched_path(paths: &mut BTreeMap<PathBuf, ChangeKind>, path: PathBuf, kind: ChangeKind) {
+    paths
+        .entry(path)
+        .and_modify(|existing| {
+            if kind == ChangeKind::Added {
+                *existing = kind;
+            }
+        })
+        .or_insert(kind);
 }
 
 /// evaluate_file 检查单个代码文件
 /// 核心职责：
 /// - 执行 Swift 与 Rust 文件行数门禁
 /// - 执行职责目录和单文件单职责基础检查
-fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
+fn evaluate_file(repo_root: &Path, path: &Path, change_kind: ChangeKind) -> Vec<Finding> {
     let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
         return Vec::new();
     };
@@ -155,6 +240,7 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
     }
 
     let mut findings = Vec::new();
+    let strict = change_kind == ChangeKind::Added;
     let line_count = content.lines().count();
     match extension {
         "swift" => add_line_limit_findings(
@@ -166,6 +252,7 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
             "swift_file_should_split",
             "swift_file_too_large",
             "Swift",
+            strict,
         ),
         "rs" => add_line_limit_findings(
             &mut findings,
@@ -176,6 +263,7 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
             "rust_file_should_split",
             "rust_file_too_large",
             "Rust",
+            strict,
         ),
         _ => {}
     }
@@ -184,7 +272,7 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
         findings.push(Finding {
             path: display_path.clone(),
             rule: "missing_responsibility_directory",
-            severity: Severity::Violation,
+            severity: strict_severity(strict),
             message: format!(
                 "代码文件未落在明确职责目录中；允许职责目录：{}",
                 RESPONSIBILITY_DIRS.join(", ")
@@ -197,7 +285,7 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
         findings.push(Finding {
             path: display_path,
             rule: "multiple_primary_types",
-            severity: Severity::Violation,
+            severity: strict_severity(strict),
             message: format!(
                 "一个文件包含多个顶层主要类型：{}；一个类型优先一个文件。",
                 declarations.join(", ")
@@ -206,6 +294,18 @@ fn evaluate_file(repo_root: &Path, path: &Path) -> Vec<Finding> {
     }
 
     findings
+}
+
+/// strict_severity 生成当前变更强度下的严重程度
+/// 核心职责：
+/// - 新增文件保持阻断
+/// - 更新既有文件降级为提示
+fn strict_severity(strict: bool) -> Severity {
+    if strict {
+        Severity::Violation
+    } else {
+        Severity::Warning
+    }
 }
 
 /// has_structure_exemption_reason 判断是否存在明确结构豁免理由
@@ -233,12 +333,13 @@ fn add_line_limit_findings(
     warning_rule: &'static str,
     violation_rule: &'static str,
     language: &str,
+    strict: bool,
 ) {
     if line_count > hard_limit {
         findings.push(Finding {
             path: path.to_owned(),
             rule: violation_rule,
-            severity: Severity::Violation,
+            severity: strict_severity(strict),
             message: format!(
                 "{language} 文件 {line_count} 行，超过硬上限 {hard_limit} 行，必须拆分或给出明确理由。"
             ),
@@ -275,10 +376,48 @@ fn has_responsibility_directory(repo_root: &Path, path: &Path) -> bool {
         return true;
     }
 
+    if is_rust_workspace_layer_path(&parts) {
+        return true;
+    }
+
     parts
         .iter()
         .take(parts.len().saturating_sub(1))
         .any(|part| RESPONSIBILITY_DIRS.contains(&part.as_str()))
+}
+
+/// is_rust_workspace_layer_path 判断 Rust workspace 分层路径
+/// 核心职责：
+/// - 认可 crate 名中的 domain/application/infrastructure/http 分层
+/// - 认可既有 Rust 模块目录中的职责命名
+fn is_rust_workspace_layer_path(parts: &[String]) -> bool {
+    let has_rust_workspace = parts.iter().any(|part| part == "maohuoban-rust");
+    if !has_rust_workspace {
+        return false;
+    }
+
+    parts.iter().any(|part| {
+        part.ends_with("-domain")
+            || part.ends_with("-application")
+            || part.ends_with("-infrastructure")
+            || part.ends_with("-http")
+            || matches!(
+                part.as_str(),
+                "domain"
+                    | "application"
+                    | "infrastructure"
+                    | "http"
+                    | "ports"
+                    | "repository"
+                    | "repositories"
+                    | "router"
+                    | "routes"
+                    | "model"
+                    | "models"
+                    | "service"
+                    | "services"
+            )
+    })
 }
 
 /// primary_declarations 提取顶层主要类型
@@ -339,7 +478,7 @@ fn rust_declaration_name(line: &str) -> Option<String> {
     } else {
         return None;
     }
-    declaration_name_after_keywords(rest, &["async"], &["struct", "enum", "trait", "type", "fn"])
+    declaration_name_after_keywords(rest, &[], &["struct", "enum", "trait", "type"])
 }
 
 /// declaration_name_after_keywords 提取关键字后的标识符

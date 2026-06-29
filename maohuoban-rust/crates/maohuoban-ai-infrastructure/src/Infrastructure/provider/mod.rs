@@ -8,6 +8,8 @@ pub mod config;
 pub mod deepseek;
 pub mod factory;
 pub mod openai_compatible;
+mod openai_diagnostics;
+mod openai_stream_stats;
 pub mod sse;
 
 pub use config::{

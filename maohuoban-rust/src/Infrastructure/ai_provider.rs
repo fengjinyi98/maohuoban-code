@@ -152,8 +152,7 @@ mod tests {
             when.method(httpmock::Method::POST)
                 .path("/v1/chat/completions")
                 .header("authorization", "Bearer deepseek-test-key")
-                .body_contains("\"model\":\"deepseek-v4-flash\"")
-                .body_contains("\"response_format\":{\"type\":\"json_object\"}");
+                .body_contains("\"model\":\"deepseek-v4-flash\"");
             then.status(200)
                 .header("content-type", "text/event-stream")
                 .body(

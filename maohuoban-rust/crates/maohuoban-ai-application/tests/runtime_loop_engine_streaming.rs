@@ -274,6 +274,19 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
     assert!(requests.iter().all(|request| request.stream));
     assert_eq!(requests[0].tools.len(), 1);
     assert_eq!(requests[0].tools[0].name, "load_pet_identity_context");
+    assert!(
+        requests[0].response_format.is_none(),
+        "initial tool planning request must keep native tool calling unconstrained"
+    );
+    assert!(
+        requests[1].tools.is_empty(),
+        "followup final answer request should not expose private tools again"
+    );
+    assert_eq!(
+        requests[1].response_format,
+        Some(json!({ "type": "json_object" })),
+        "followup final answer request should opt into structured JSON output"
+    );
 }
 
 #[tokio::test]

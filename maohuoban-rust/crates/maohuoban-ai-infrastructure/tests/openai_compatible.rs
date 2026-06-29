@@ -165,7 +165,7 @@ async fn non_stream_request_serializes_correctly() {
 }
 
 #[tokio::test]
-async fn non_stream_request_applies_configured_json_response_format() {
+async fn non_stream_request_applies_request_json_response_format_and_token_limit() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -206,7 +206,8 @@ async fn non_stream_request_applies_configured_json_response_format() {
     let provider = OpenAiCompatibleLlmProvider::new(config);
     let mut request = sample_request();
     request.model = "primary".to_owned();
-    request.max_output_tokens = None;
+    request.max_output_tokens = Some(4096);
+    request.response_format = Some(json!({ "type": "json_object" }));
 
     let response = provider
         .complete(&request)

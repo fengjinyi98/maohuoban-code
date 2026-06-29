@@ -18,6 +18,8 @@ use maohuoban_ai_domain::ai::{
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap};
 
 use super::OpenAiCompatibleConfig;
+use super::openai_diagnostics::OpenAiProviderDiagnostics;
+use super::openai_stream_stats::ProviderStreamStats;
 
 /// OpenAiCompatibleLlmProvider OpenAI 兼容 Provider
 /// 核心职责：
@@ -82,7 +84,7 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// build_body 构造 OpenAI 兼容请求体
-    fn build_body(&self, request: &LlmChatRequest, model: &str) -> serde_json::Value {
+    fn build_body(request: &LlmChatRequest, model: &str) -> serde_json::Value {
         let messages: Vec<serde_json::Value> = request
             .messages
             .iter()
@@ -126,7 +128,7 @@ impl OpenAiCompatibleLlmProvider {
         let mut body = serde_json::json!({
             "model": model,
             "messages": messages,
-            "temperature": self.config.temperature,
+            "temperature": request.temperature,
             "stream": request.stream,
         });
 
@@ -136,14 +138,10 @@ impl OpenAiCompatibleLlmProvider {
         if let Some(choice) = &request.tool_choice {
             body["tool_choice"] = serde_json::Value::String(choice.clone());
         }
-        if let Some(max) = request.max_output_tokens.or(self.config.max_output_tokens) {
+        if let Some(max) = request.max_output_tokens {
             body["max_tokens"] = serde_json::Value::Number(max.into());
         }
-        if let Some(fmt) = request
-            .response_format
-            .clone()
-            .or_else(|| self.config.response_format.clone())
-        {
+        if let Some(fmt) = request.response_format.clone() {
             body["response_format"] = fmt;
         }
 
@@ -177,6 +175,47 @@ impl OpenAiCompatibleLlmProvider {
     /// provider_error 构造 Provider 分类错误
     fn provider_error(category: ProviderErrorCategory, message: impl Into<String>) -> AiError {
         AiError::Provider(ProviderError::new(category, message))
+    }
+
+    /// record_request_prepared 记录 Provider 请求摘要
+    /// 核心职责：
+    /// - 复用 diagnostics 记录实际发出的 OpenAI 兼容请求体
+    /// - 避免 stream / complete 路径散写同类诊断字段
+    fn record_request_prepared(
+        &self,
+        mode: &'static str,
+        request: &LlmChatRequest,
+        body: &serde_json::Value,
+        model: &str,
+    ) {
+        OpenAiProviderDiagnostics::record_request_prepared(
+            mode,
+            request,
+            body,
+            model,
+            &self.config.base_url,
+        );
+    }
+
+    /// record_http_response_started 记录 Provider HTTP 响应摘要
+    /// 核心职责：
+    /// - 记录状态码和内容类型族
+    /// - 不读取或记录响应 body
+    fn record_http_response_started(
+        mode: &'static str,
+        request: &LlmChatRequest,
+        status: u16,
+        headers: &HeaderMap,
+    ) {
+        let content_type = headers
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok());
+        OpenAiProviderDiagnostics::record_http_response_started(
+            mode,
+            request,
+            status,
+            content_type,
+        );
     }
 
     /// resolve_request_model 解析请求模型 label
@@ -315,7 +354,8 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             let url = self.completions_url();
             let headers = self.build_headers();
             let model = self.resolve_request_model(request)?;
-            let body = self.build_body(request, &model);
+            let body = Self::build_body(request, &model);
+            self.record_request_prepared("complete", request, &body, &model);
 
             let response = self
                 .client
@@ -327,6 +367,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 .map_err(|error| Self::map_request_error(&error))?;
 
             let status = response.status().as_u16();
+            Self::record_http_response_started("complete", request, status, response.headers());
             let text = response
                 .text()
                 .await
@@ -350,8 +391,9 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             Ok(model) => model,
             Err(error) => return futures_util::stream::once(async { Err(error) }).boxed(),
         };
-        let mut body = self.build_body(request, &model);
+        let mut body = Self::build_body(request, &model);
         body["stream"] = serde_json::Value::Bool(true);
+        self.record_request_prepared("stream", request, &body, &model);
 
         let client = self.client.clone();
 
@@ -371,6 +413,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             };
 
             let status = response.status().as_u16();
+            Self::record_http_response_started("stream", request, status, response.headers());
             if status >= 400 {
                 let text = response.text().await.unwrap_or_default();
                 yield Err(Self::map_status_error(status, &text));
@@ -380,24 +423,29 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             use futures_util::StreamExt as _;
             let mut stream = response.bytes_stream();
             let mut decoder = crate::provider::sse::SseStreamDecoder::new();
-            let mut stream_completed = false;
+            let mut stream_stats = ProviderStreamStats::default();
 
             while let Some(chunk_result) = stream.next().await {
                 match chunk_result {
                     Ok(bytes) => {
+                        stream_stats.chunk_count = stream_stats.chunk_count.saturating_add(1);
                         let chunk = String::from_utf8_lossy(&bytes);
                         if chunk.contains("[DONE]") {
-                            stream_completed = true;
+                            stream_stats.stream_completed = true;
                         }
                         for event in decoder.push_str(&chunk) {
                             match event {
                                 Ok(e) => {
-                                    if matches!(e, LlmStreamEvent::Finish { .. }) {
-                                        stream_completed = true;
-                                    }
+                                    stream_stats.observe_event(&e);
                                     yield Ok(e);
                                 }
                                 Err(e) => {
+                                    OpenAiProviderDiagnostics::record_stream_decode_error(
+                                        request,
+                                        &e,
+                                        stream_stats,
+                                        decoder.is_idle(),
+                                    );
                                     yield Err(e);
                                     return;
                                 }
@@ -414,11 +462,23 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 }
             }
 
-            if !decoder.is_idle() || !stream_completed {
+            let decoder_idle = decoder.is_idle();
+            if !decoder_idle || !stream_stats.stream_completed {
+                OpenAiProviderDiagnostics::record_stream_incomplete(
+                    request,
+                    stream_stats,
+                    decoder_idle,
+                );
                 yield Err(Self::provider_error(
                     ProviderErrorCategory::StreamInterrupted,
                     "stream ended before completion marker",
                 ));
+            } else {
+                OpenAiProviderDiagnostics::record_stream_completed(
+                    request,
+                    stream_stats,
+                    decoder_idle,
+                );
             }
         }
         .boxed()

@@ -1,0 +1,255 @@
+// agent_runtime_diagnostics Runtime 模型调用诊断
+// 核心职责：
+// - 记录 Runtime 阶段、请求策略和 provider 错误归因
+// - 保证诊断事件只包含脱敏计数、开关和哈希
+
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmRole};
+use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
+use serde_json::Value;
+use uuid::Uuid;
+
+const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
+
+/// AgentRuntimeDiagnostics Runtime 模型调用诊断
+/// 核心职责：
+/// - 记录模型请求和模型流错误摘要
+/// - 保持诊断字段脱敏且可关联 Runtime 阶段
+pub(super) struct AgentRuntimeDiagnostics;
+
+impl AgentRuntimeDiagnostics {
+    /// record_model_request_prepared 记录 Runtime 模型请求摘要
+    /// 核心职责：
+    /// - 标记本轮模型阶段和请求策略
+    /// - 只记录角色、计数和开关，不记录正文、工具结果和密钥
+    pub(super) fn record_model_request_prepared(
+        chat_session_id: Uuid,
+        phase: &'static str,
+        request: &LlmChatRequest,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Debug,
+            "ai.runtime.model.request.prepared",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        .metadata(
+            "chat_session_id_prefix",
+            serde_json::json!(uuid_prefix(chat_session_id)),
+        )
+        .metadata("phase", serde_json::json!(phase))
+        .metadata("stream", serde_json::json!(request.stream))
+        .metadata("tool_count", serde_json::json!(request.tools.len()))
+        .metadata(
+            "response_format_present",
+            serde_json::json!(request.response_format.is_some()),
+        )
+        .metadata(
+            "response_format_type",
+            serde_json::json!(response_format_type(request.response_format.as_ref())),
+        )
+        .metadata(
+            "max_output_tokens_present",
+            serde_json::json!(request.max_output_tokens.is_some()),
+        )
+        .metadata("temperature", serde_json::json!(request.temperature))
+        .metadata(
+            "message_roles",
+            serde_json::json!(request_message_roles(request)),
+        )
+        .metadata("message_count", serde_json::json!(request.messages.len()))
+        .metadata(
+            "assistant_tool_call_message_count",
+            serde_json::json!(assistant_tool_call_message_count(request)),
+        )
+        .metadata(
+            "tool_result_message_count",
+            serde_json::json!(tool_result_message_count(request)),
+        )
+        .metadata(
+            "has_json_instruction",
+            serde_json::json!(request_has_json_instruction(request)),
+        )
+        .metadata(
+            "content_length_bucket",
+            serde_json::json!(length_bucket(total_message_chars(request))),
+        );
+        diagnostics.record(event);
+    }
+
+    /// record_model_stream_error 记录 Runtime 模型流错误摘要
+    /// 核心职责：
+    /// - 将 provider 失败关联到 initial / followup 阶段
+    /// - 输出脱敏错误分类，支撑下一轮诊断定位
+    pub(super) fn record_model_stream_error(
+        chat_session_id: Uuid,
+        phase: &'static str,
+        tool_count: u32,
+        error: &AiError,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Error,
+            "ai.runtime.model.stream.error",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        .metadata(
+            "chat_session_id_prefix",
+            serde_json::json!(uuid_prefix(chat_session_id)),
+        )
+        .metadata("phase", serde_json::json!(phase))
+        .metadata("tool_count", serde_json::json!(tool_count))
+        .metadata("stable_code", serde_json::json!(error.stable_code()))
+        .metadata("retryable", serde_json::json!(error.is_retryable()))
+        .metadata(
+            "provider_category",
+            serde_json::json!(provider_category(error)),
+        )
+        .metadata(
+            "error_detail_kind",
+            serde_json::json!(error_detail_kind(error)),
+        )
+        .metadata(
+            "diagnostic_message_present",
+            serde_json::json!(sanitized_provider_message(error).is_some()),
+        )
+        .metadata(
+            "diagnostic_message",
+            serde_json::json!(sanitized_provider_message(error).unwrap_or_default()),
+        )
+        .metadata(
+            "error_message_hash",
+            serde_json::json!(stable_hash(&error.to_string())),
+        )
+        .metadata(
+            "error_message_length",
+            serde_json::json!(error.to_string().chars().count()),
+        );
+        diagnostics.record(event);
+    }
+}
+
+fn uuid_prefix(id: Uuid) -> String {
+    id.to_string().chars().take(8).collect()
+}
+
+fn response_format_type(value: Option<&Value>) -> String {
+    value
+        .and_then(|format| format.get("type"))
+        .and_then(Value::as_str)
+        .map_or_else(|| "none".to_owned(), str::to_owned)
+}
+
+fn request_message_roles(request: &LlmChatRequest) -> String {
+    request
+        .messages
+        .iter()
+        .map(|message| match message.role {
+            LlmRole::System => "system",
+            LlmRole::User => "user",
+            LlmRole::Assistant => "assistant",
+            LlmRole::Tool => "tool",
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn assistant_tool_call_message_count(request: &LlmChatRequest) -> usize {
+    request
+        .messages
+        .iter()
+        .filter(|message| message.role == LlmRole::Assistant && !message.tool_calls.is_empty())
+        .count()
+}
+
+fn tool_result_message_count(request: &LlmChatRequest) -> usize {
+    request
+        .messages
+        .iter()
+        .filter(|message| message.role == LlmRole::Tool)
+        .count()
+}
+
+fn request_has_json_instruction(request: &LlmChatRequest) -> bool {
+    request.messages.iter().any(|message| {
+        matches!(message.role, LlmRole::System | LlmRole::User)
+            && message.content.to_ascii_lowercase().contains("json")
+    })
+}
+
+fn total_message_chars(request: &LlmChatRequest) -> usize {
+    request
+        .messages
+        .iter()
+        .map(|message| message.content.chars().count())
+        .sum()
+}
+
+fn length_bucket(length: usize) -> &'static str {
+    match length {
+        0..=128 => "0-128",
+        129..=512 => "129-512",
+        513..=2048 => "513-2048",
+        2049..=8192 => "2049-8192",
+        _ => "8193+",
+    }
+}
+
+fn provider_category(error: &AiError) -> &'static str {
+    match error {
+        AiError::Provider(provider_error) => provider_error.category().as_str(),
+        _ => "none",
+    }
+}
+
+fn error_detail_kind(error: &AiError) -> &'static str {
+    match error {
+        AiError::Provider(provider_error) => {
+            let message = provider_error.message();
+            if message.contains("invalid sse json") {
+                "invalid_sse_json"
+            } else if message.contains("empty assistant content without tool calls") {
+                "empty_assistant_content_without_tool_calls"
+            } else if message.contains("stream ended before completion marker") {
+                "stream_ended_before_completion_marker"
+            } else if message.starts_with("http ") {
+                "http_status_error"
+            } else {
+                provider_error.category().as_str()
+            }
+        }
+        AiError::Infrastructure(_) => "infrastructure",
+        AiError::ProviderRequestFailed(_) => "provider_request_failed",
+        AiError::ProviderStreamError(_) => "provider_stream_error",
+        _ => "other",
+    }
+}
+
+fn sanitized_provider_message(error: &AiError) -> Option<String> {
+    let AiError::Provider(provider_error) = error else {
+        return None;
+    };
+    let message = provider_error.message();
+    if message.contains("data_hash=")
+        || message.contains("stream ended before completion marker")
+        || message.contains("empty assistant content without tool calls")
+    {
+        Some(message.to_owned())
+    } else {
+        None
+    }
+}
+
+fn stable_hash(value: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}

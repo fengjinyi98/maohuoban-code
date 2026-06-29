@@ -33,15 +33,13 @@ fn sample_request() -> LlmChatRequest {
 }
 
 #[tokio::test]
-async fn deepseek_provider_uses_openai_compatible_protocol_with_json_output_default() {
+async fn deepseek_provider_uses_openai_compatible_protocol_without_forcing_json_output() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer deepseek-test-key")
-            .body_contains("\"model\":\"deepseek-v4-flash\"")
-            .body_contains("\"response_format\":{\"type\":\"json_object\"}")
-            .body_contains("\"max_tokens\":4096");
+            .body_contains("\"model\":\"deepseek-v4-flash\"");
         then.status(200)
             .header("content-type", "application/json")
             .json_body(serde_json::json!({
@@ -82,4 +80,21 @@ async fn deepseek_provider_uses_openai_compatible_protocol_with_json_output_defa
     assert_eq!(response.model, "deepseek-v4-flash");
     assert_eq!(response.finish_reason, LlmFinishReason::Stop);
     assert!(response.message.content.contains("\"answer_text\""));
+}
+
+#[test]
+fn deepseek_config_does_not_inject_json_output_or_token_limit() {
+    let config = DeepSeekConfig {
+        base_url: "https://api.deepseek.com".to_owned(),
+        api_key: "deepseek-test-key".to_owned(),
+        model: "deepseek-v4-flash".to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into_openai_compatible_config();
+
+    assert_eq!(config.max_output_tokens, None);
+    assert_eq!(config.response_format, None);
 }

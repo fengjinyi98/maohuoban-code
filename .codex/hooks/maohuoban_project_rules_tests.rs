@@ -50,7 +50,7 @@ fn blocks_swift_file_over_hard_limit() {
     let path = root.join("maohuoban/maohuoban/Features/Pet/Presentation/LargeView.swift");
     write_lines(&path, 401);
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Added);
 
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Violation && finding.rule == "swift_file_too_large"
@@ -63,7 +63,7 @@ fn warns_swift_file_over_guideline_limit() {
     let path = root.join("maohuoban/maohuoban/Features/Pet/Presentation/MediumView.swift");
     write_lines(&path, 251);
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Added);
 
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Warning && finding.rule == "swift_file_should_split"
@@ -76,11 +76,62 @@ fn blocks_rust_file_over_hard_limit() {
     let path = root.join("maohuoban-rust/crates/maohuoban-pet-domain/src/pet/profile.rs");
     write_lines(&path, 501);
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Added);
 
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Violation && finding.rule == "rust_file_too_large"
     }));
+}
+
+#[test]
+fn allows_rust_workspace_layer_directories() {
+    let root = temp_repo();
+    let path =
+        root.join("maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/diet_context.rs");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "pub trait DietContextPort {}\n").unwrap();
+
+    let findings = evaluate_file(&root, &path, ChangeKind::Updated);
+
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.rule == "missing_responsibility_directory")
+    );
+}
+
+#[test]
+fn allows_multiple_public_rust_functions_in_module_file() {
+    let root = temp_repo();
+    let path = root.join("maohuoban-rust/crates/maohuoban-pet-http/src/pet/router/mod.rs");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, "pub fn route_a() {}\npub fn route_b() {}\n").unwrap();
+
+    let findings = evaluate_file(&root, &path, ChangeKind::Updated);
+
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.rule == "multiple_primary_types")
+    );
+}
+
+#[test]
+fn downgrades_updated_file_hard_limit_to_warning() {
+    let root = temp_repo();
+    let path = root.join("maohuoban/maohuoban/Features/Pet/Presentation/ExistingView.swift");
+    write_lines(&path, 401);
+
+    let findings = evaluate_file(&root, &path, ChangeKind::Updated);
+
+    assert!(findings.iter().any(|finding| {
+        finding.severity == Severity::Warning && finding.rule == "swift_file_too_large"
+    }));
+    assert!(
+        !findings
+            .iter()
+            .any(|finding| finding.severity == Severity::Violation)
+    );
 }
 
 #[test]
@@ -90,7 +141,7 @@ fn blocks_multiple_swift_primary_types() {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, "struct PetProfile {}\nfinal class PetMapper {}\n").unwrap();
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Added);
 
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Violation && finding.rule == "multiple_primary_types"
@@ -104,7 +155,7 @@ fn blocks_new_file_without_responsibility_directory() {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(&path, "struct NewPetView {}\n").unwrap();
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Added);
 
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Violation
@@ -126,9 +177,11 @@ fn allows_file_with_explicit_structure_exemption_reason() {
     }
     fs::write(&path, content).unwrap();
 
-    let findings = evaluate_file(&root, &path);
+    let findings = evaluate_file(&root, &path, ChangeKind::Updated);
 
-    assert!(findings
-        .iter()
-        .all(|finding| finding.severity != Severity::Violation));
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding.severity != Severity::Violation)
+    );
 }

@@ -6,6 +6,7 @@
 
 use maohuoban_ai_domain::ai::{LlmFinishReason, LlmStreamEvent};
 use maohuoban_ai_infrastructure::provider::parse_sse_stream;
+use maohuoban_ai_infrastructure::provider::sse::parse_sse_buffer;
 
 #[test]
 fn parse_delta_sequence_in_order() {
@@ -139,6 +140,29 @@ fn parse_incomplete_buffer_returns_no_events() {
     let sse = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}";
     let events = parse_sse_stream(sse);
     assert!(events.is_empty());
+}
+
+#[test]
+fn parse_buffer_preserves_partial_json_line_across_chunks() {
+    let (events, remaining) = parse_sse_buffer("data: {\"choices\":[{\"delta\":{\"content\":\"par");
+    assert!(events.is_empty());
+    assert!(
+        !remaining.ends_with('\n'),
+        "partial line must not be turned into a complete SSE line"
+    );
+
+    let completed = format!("{remaining}{}", "tial\"}}]}\n\n");
+    let (events, remaining) = parse_sse_buffer(&completed);
+    assert!(remaining.is_empty());
+
+    let deltas: Vec<&str> = events
+        .iter()
+        .filter_map(|event| match event {
+            Ok(LlmStreamEvent::Delta { content }) => Some(content.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(deltas, vec!["partial"]);
 }
 
 #[test]

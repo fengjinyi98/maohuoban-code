@@ -1,12 +1,12 @@
+// MHB_STRUCTURE_EXEMPTION: ai/runtime 为既有 Agent Runtime 目录；本次只追加可观测点，后续 code-structure P1 统一迁移到 Infrastructure/Services 分层目录。
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AgentSessionWorkbench, AiFactPackage, AiResult, LlmChatRequest,
-    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmToolSchema, LlmUsage,
-    LoopStep, LoopToolResult, LoopToolStatus, ModelCallOutcome, ModelLabel,
-    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    AgentSessionState, AiFactPackage, AiResult, LlmChatRequest, LlmFinishReason, LlmMessage,
+    LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, LoopStep, LoopToolResult, LoopToolStatus,
+    ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use serde_json::Value;
 
@@ -14,7 +14,15 @@ use crate::ai::fact_projection::AiFactProjection;
 use crate::ai::output::visible_text_from_model_output;
 use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
-use crate::ai::tools::{AiToolContext, AiToolResult, ToolDefinitionInfo, ToolRegistry};
+use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
+
+#[path = "../Infrastructure/runtime/agent_runtime_diagnostics.rs"]
+mod agent_runtime_diagnostics;
+#[path = "../Infrastructure/runtime/agent_runtime_request_policy.rs"]
+mod agent_runtime_request_policy;
+
+use agent_runtime_diagnostics::AgentRuntimeDiagnostics;
+use agent_runtime_request_policy::AgentRuntimeRequestPolicy;
 
 use super::{LoopEngine, workbench_prompt_projection::workbench_context_prompt};
 
@@ -123,17 +131,16 @@ impl AgentRuntimeLoopEngine {
         assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
     ) -> LlmChatRequest {
-        let tools: Vec<LlmToolSchema> = self
-            .registry
-            .list_definitions()
-            .into_iter()
-            .filter(|tool| tool_visible_for_workbench(tool, state.workbench.as_ref()))
-            .map(|tool| LlmToolSchema {
-                name: tool.name,
-                description: tool.description,
-                parameters: tool.parameters,
-            })
-            .collect();
+        let is_followup_answer = !assistant_tool_calls.is_empty() || !tool_results.is_empty();
+        let tools = if is_followup_answer {
+            Vec::new()
+        } else {
+            AgentRuntimeRequestPolicy::visible_tool_schemas(self.registry.as_ref(), state)
+        };
+        let response_format = AgentRuntimeRequestPolicy::response_format_for_model_phase(
+            is_followup_answer,
+            tools.is_empty(),
+        );
 
         LlmChatRequest {
             model: "primary".to_owned(),
@@ -143,7 +150,7 @@ impl AgentRuntimeLoopEngine {
             temperature: 0.2,
             stream: false,
             max_output_tokens: None,
-            response_format: None,
+            response_format,
         }
     }
 }
@@ -159,6 +166,11 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     let mut request = self.build_request(state, &[], &[]);
                     request.stream = true;
                     let tool_count = request_tool_count(&request);
+                    AgentRuntimeDiagnostics::record_model_request_prepared(
+                        state.chat_session_id,
+                        "initial",
+                        &request,
+                    );
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Initial,
@@ -179,7 +191,19 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     tool_count,
                 } => {
                     if let Some(event) = stream.next().await {
-                        match event? {
+                        let event = match event {
+                            Ok(event) => event,
+                            Err(error) => {
+                                AgentRuntimeDiagnostics::record_model_stream_error(
+                                    state.chat_session_id,
+                                    streaming_model_purpose_code(&purpose),
+                                    tool_count,
+                                    &error,
+                                );
+                                return Err(error);
+                            }
+                        };
+                        match event {
                             LlmStreamEvent::Delta { content } => {
                                 accumulated_text.push_str(&content);
                                 self.phase = RuntimePhase::StreamingModel {
@@ -298,6 +322,11 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         self.build_request(state, &assistant_tool_calls, &tool_results);
                     request.stream = true;
                     let tool_count = request_tool_count(&request);
+                    AgentRuntimeDiagnostics::record_model_request_prepared(
+                        state.chat_session_id,
+                        "followup",
+                        &request,
+                    );
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Followup,
@@ -361,44 +390,15 @@ fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
 }
 
-/// tool_visible_for_workbench 判断工具是否应投影给本轮模型
+/// streaming_model_purpose_code 返回诊断使用的阶段编码
 /// 核心职责：
-/// - 无私域上下文时隐藏宠物私域读取工具
-/// - 保留未携带 Workbench 的旧路径兼容行为
-fn tool_visible_for_workbench(
-    tool: &ToolDefinitionInfo,
-    workbench: Option<&AgentSessionWorkbench>,
-) -> bool {
-    let Some(workbench) = workbench else {
-        return true;
-    };
-
-    if workbench_has_private_context(workbench) {
-        return true;
+/// - 稳定标记初始工具规划和工具回灌后的最终回答
+/// - 避免诊断包只能看到 provider 大类错误
+fn streaming_model_purpose_code(purpose: &StreamingModelPurpose) -> &'static str {
+    match purpose {
+        StreamingModelPurpose::Initial => "initial",
+        StreamingModelPurpose::Followup => "followup",
     }
-
-    !is_private_pet_tool(tool)
-}
-
-/// workbench_has_private_context 判断本轮是否具备私域宠物能力
-/// 核心职责：
-/// - 只以已解析 selected_pet 作为私域工具可见依据
-/// - 避免能力声明或工具目录摘要绕过宠物授权上下文
-fn workbench_has_private_context(workbench: &AgentSessionWorkbench) -> bool {
-    workbench.context_pack.selected_pet.is_some()
-}
-
-/// is_private_pet_tool 判断工具是否读取宠物私域事实
-/// 核心职责：
-/// - 依据 scope 和 domain tag 识别当前私域工具组
-fn is_private_pet_tool(tool: &ToolDefinitionInfo) -> bool {
-    tool.scope.starts_with("pet.")
-        || tool.domain_tags.iter().any(|tag| {
-            matches!(
-                tag.as_str(),
-                "identity" | "diet" | "inventory" | "diet_confirmation"
-            )
-        })
 }
 
 fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
