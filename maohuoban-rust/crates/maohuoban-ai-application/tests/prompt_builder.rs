@@ -197,7 +197,7 @@ fn prompt_includes_missing_info() {
 }
 
 #[test]
-fn prompt_includes_json_output_contract() {
+fn prompt_uses_plain_text_output_contract() {
     let pet = pet_candidate("毛球");
     let package = fact_package(&pet);
     let builder = AiPromptBuilder::new();
@@ -207,17 +207,19 @@ fn prompt_includes_json_output_contract() {
         .iter()
         .map(|message| message.content.as_str())
         .collect();
+    assert!(all_content.contains("只输出用户可见自然语言"));
+    assert!(all_content.contains("不要输出结构化对象"));
     assert!(
-        all_content.to_ascii_lowercase().contains("json"),
-        "DeepSeek JSON Output requires the prompt to mention json"
+        !all_content.to_ascii_lowercase().contains("json"),
+        "prompt must not contain json instruction after removing response_format=json_object"
     );
     assert!(
-        all_content.contains("\"answer_text\""),
-        "prompt should include a stable JSON response example for frontend rendering"
+        !all_content.contains("\"answer_text\""),
+        "prompt must not teach the model to emit internal DTO fields"
     );
     assert!(
-        all_content.contains("\"display_blocks\""),
-        "prompt should describe structured blocks for frontend rendering"
+        !all_content.contains("\"display_blocks\""),
+        "prompt must not teach the model to emit frontend DTO blocks"
     );
 }
 
@@ -244,7 +246,7 @@ fn prompt_keeps_assistant_identity_out_of_default_answer_style() {
     );
     assert!(
         !system_prompt.contains("毛球当前记录显示"),
-        "JSON example should not teach the model to treat 毛球 as a pet name"
+        "prompt should not teach the model to treat 毛球 as a pet name"
     );
 }
 
@@ -267,11 +269,11 @@ fn prompt_keeps_internal_fact_keys_out_of_visible_answer_text() {
     );
     assert!(
         !system_prompt.contains("附带引用标签"),
-        "prompt should not ask the model to put citation labels in answer_text or blocks"
+        "prompt should not ask the model to put citation labels in visible text"
     );
     assert!(
         !system_prompt.contains("[当前档案]"),
-        "JSON example should not teach bracketed citation labels in visible text"
+        "prompt should not teach bracketed citation labels in visible text"
     );
 
     let all_content: String = messages

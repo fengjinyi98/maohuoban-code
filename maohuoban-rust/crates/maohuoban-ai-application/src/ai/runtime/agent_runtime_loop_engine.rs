@@ -327,6 +327,8 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     let (tool_results, hard_stop) = execute_tool_calls(
+                        self.engine_mode(),
+                        state.chat_session_id,
                         self.registry.clone(),
                         self.tool_context.clone(),
                         assistant_tool_calls.clone(),
@@ -423,6 +425,8 @@ pub(crate) fn model_stream(
 /// - SoftReminder 时仍执行但附加提醒
 /// - 执行后记录结果到 guardrail
 pub(crate) async fn execute_tool_calls(
+    engine_mode: &'static str,
+    chat_session_id: uuid::Uuid,
     registry: Arc<ToolRegistry>,
     tool_context: AiToolContext,
     tool_calls: Vec<LlmToolCall>,
@@ -455,6 +459,18 @@ pub(crate) async fn execute_tool_calls(
                     produced_facts: false,
                     risk_level,
                 });
+                record_rig_tool_call_probe(
+                    "tool_gateway.execute.completed",
+                    engine_mode,
+                    chat_session_id,
+                    Some(&tool_call),
+                    &[
+                        ("decision", "hard_stop".to_owned()),
+                        ("status", loop_tool_status_code(result.status).to_owned()),
+                        ("produced_facts", false.to_string()),
+                        ("risk_level_present", risk_level.is_some().to_string()),
+                    ],
+                );
                 results.push(result);
                 return (
                     results,
@@ -467,6 +483,20 @@ pub(crate) async fn execute_tool_calls(
             GuardrailDecision::SoftReminder { message } => {
                 let args = serde_json::from_str::<Value>(&tool_call.arguments)
                     .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                record_rig_tool_call_probe(
+                    "tool_gateway.execute.start",
+                    engine_mode,
+                    chat_session_id,
+                    Some(&tool_call),
+                    &[
+                        ("decision", "soft_reminder".to_owned()),
+                        (
+                            "args_chars",
+                            tool_call.arguments.chars().count().to_string(),
+                        ),
+                        ("risk_level_present", risk_level.is_some().to_string()),
+                    ],
+                );
                 let result = registry.call(&tool_call.name, &tool_context, &args).await;
                 let mut loop_result = to_loop_tool_result(tool_call.clone(), result);
                 let produced_facts = output_has_facts(loop_result.output.as_deref());
@@ -477,11 +507,48 @@ pub(crate) async fn execute_tool_calls(
                     produced_facts,
                     risk_level,
                 });
+                record_rig_tool_call_probe(
+                    "tool_gateway.execute.completed",
+                    engine_mode,
+                    chat_session_id,
+                    Some(&tool_call),
+                    &[
+                        ("decision", "soft_reminder".to_owned()),
+                        (
+                            "status",
+                            loop_tool_status_code(loop_result.status).to_owned(),
+                        ),
+                        ("produced_facts", produced_facts.to_string()),
+                        (
+                            "output_chars",
+                            loop_result
+                                .output
+                                .as_deref()
+                                .map(|output| output.chars().count())
+                                .unwrap_or_default()
+                                .to_string(),
+                        ),
+                    ],
+                );
                 results.push(loop_result);
             }
             GuardrailDecision::Allow => {
                 let args = serde_json::from_str::<Value>(&tool_call.arguments)
                     .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
+                record_rig_tool_call_probe(
+                    "tool_gateway.execute.start",
+                    engine_mode,
+                    chat_session_id,
+                    Some(&tool_call),
+                    &[
+                        ("decision", "allow".to_owned()),
+                        (
+                            "args_chars",
+                            tool_call.arguments.chars().count().to_string(),
+                        ),
+                        ("risk_level_present", risk_level.is_some().to_string()),
+                    ],
+                );
                 let result = registry.call(&tool_call.name, &tool_context, &args).await;
                 let loop_result = to_loop_tool_result(tool_call.clone(), result);
                 let produced_facts = output_has_facts(loop_result.output.as_deref());
@@ -491,6 +558,29 @@ pub(crate) async fn execute_tool_calls(
                     produced_facts,
                     risk_level,
                 });
+                record_rig_tool_call_probe(
+                    "tool_gateway.execute.completed",
+                    engine_mode,
+                    chat_session_id,
+                    Some(&tool_call),
+                    &[
+                        ("decision", "allow".to_owned()),
+                        (
+                            "status",
+                            loop_tool_status_code(loop_result.status).to_owned(),
+                        ),
+                        ("produced_facts", produced_facts.to_string()),
+                        (
+                            "output_chars",
+                            loop_result
+                                .output
+                                .as_deref()
+                                .map(|output| output.chars().count())
+                                .unwrap_or_default()
+                                .to_string(),
+                        ),
+                    ],
+                );
                 results.push(loop_result);
             }
         }
@@ -534,6 +624,88 @@ fn empty_assistant_content_error() -> AiError {
         ProviderErrorCategory::InvalidResponse,
         "empty assistant content without tool calls",
     ))
+}
+
+/// record_rig_tool_call_probe 记录 Rig 工具调用临时链路
+/// 核心职责：
+/// - 串联 provider tool_call、Rig CallTools 和 Tool Gateway 执行证据
+/// - 只记录脱敏 ID、工具名、长度和状态，不写正文或工具输出
+pub(crate) fn record_rig_tool_call_probe(
+    stage: &str,
+    engine_mode: &'static str,
+    chat_session_id: uuid::Uuid,
+    tool_call: Option<&LlmToolCall>,
+    fields: &[(&str, String)],
+) {
+    use std::io::Write;
+
+    let path = std::env::var("MHB_BACKEND_RIG_TOOL_CALL_LOG")
+        .unwrap_or_else(|_| "work/debug/RigToolCallProbe.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    else {
+        return;
+    };
+
+    let mut line = format!(
+        "ts={} tag=RigToolCallProbe stage={} engine_mode={} session_id_prefix={}",
+        chrono::Utc::now().to_rfc3339(),
+        stage,
+        engine_mode,
+        uuid_prefix(chat_session_id),
+    );
+
+    if let Some(tool_call) = tool_call {
+        line.push_str(&format!(
+            " tool_call_id_prefix={} tool_name={} arguments_chars={}",
+            string_prefix(&tool_call.id),
+            sanitize_log_value(&tool_call.name),
+            tool_call.arguments.chars().count(),
+        ));
+    }
+
+    for (key, value) in fields {
+        line.push_str(&format!(" {}={}", key, sanitize_log_value(value)));
+    }
+
+    let _ = writeln!(file, "{line}");
+}
+
+/// loop_tool_status_code 返回临时日志使用的工具状态编码
+fn loop_tool_status_code(status: LoopToolStatus) -> &'static str {
+    match status {
+        LoopToolStatus::Requested => "requested",
+        LoopToolStatus::Succeeded => "succeeded",
+        LoopToolStatus::Denied => "denied",
+        LoopToolStatus::Failed => "failed",
+        LoopToolStatus::RequiresConfirmation => "requires_confirmation",
+    }
+}
+
+/// uuid_prefix 返回 UUID 脱敏前缀
+fn uuid_prefix(value: uuid::Uuid) -> String {
+    string_prefix(&value.to_string())
+}
+
+/// string_prefix 返回通用 ID 脱敏前缀
+fn string_prefix(value: &str) -> String {
+    value.chars().take(8).collect()
+}
+
+/// sanitize_log_value 清理临时日志 key=value 值
+fn sanitize_log_value(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            ' ' | '\n' | '\r' | '\t' | '=' => '_',
+            _ => ch,
+        })
+        .collect()
 }
 
 /// tool_result_to_message 将工具结果转为模型可见消息

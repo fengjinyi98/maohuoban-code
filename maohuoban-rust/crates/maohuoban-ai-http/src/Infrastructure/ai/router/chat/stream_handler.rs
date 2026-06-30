@@ -27,7 +27,8 @@ use super::super::AiHttpState;
 use super::super::auth::current_user_id;
 use super::super::diagnostics::{
     record_chat_gate_decided, record_chat_provider_error, record_chat_provider_started,
-    record_chat_stream_event_emitted, record_chat_stream_request_received,
+    record_chat_runtime_engine_selected, record_chat_stream_event_emitted,
+    record_chat_stream_request_received,
 };
 use super::assistant_message_persistence::{
     AssistantMessagePersistRequest, persist_assistant_message,
@@ -161,6 +162,7 @@ async fn provider_response_for_context(
     record_provider_context_started(
         input.session_id,
         input.message_id,
+        state.runtime_engine_mode.as_str(),
         input.target_pet.as_ref(),
         &initial_events,
         fact_package.as_ref(),
@@ -241,6 +243,16 @@ fn runtime_provider_stream(
         Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
         None => ToolRegistry::new(),
     });
+    let tool_count = registry.list_definitions().len();
+    record_chat_runtime_engine_selected(
+        input.session_id,
+        input.message_id,
+        state.runtime_engine_mode.as_str(),
+        "stream",
+        true,
+        input.target_pet.is_some(),
+        tool_count,
+    );
     let tool_context = AiToolContext {
         actor_user_id: input.actor_user_id,
         authorized_pet_id: input
@@ -344,6 +356,7 @@ fn record_stream_gate_decided(
 fn record_provider_context_started(
     session_id: Uuid,
     message_id: Uuid,
+    engine_mode: &str,
     target_pet: Option<&AiPetDisplaySnapshot>,
     initial_events: &[AiStreamEvent],
     fact_package: Option<&AiFactPackage>,
@@ -351,6 +364,7 @@ fn record_provider_context_started(
     record_chat_provider_started(
         session_id,
         message_id,
+        engine_mode,
         target_pet.is_some(),
         initial_events.len(),
         fact_package.is_some(),

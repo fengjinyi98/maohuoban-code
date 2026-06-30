@@ -119,6 +119,7 @@ pub(crate) fn record_chat_session_persisted(
 pub(crate) fn record_chat_provider_started(
     session_id: Uuid,
     message_id: Uuid,
+    engine_mode: &str,
     target_pet_present: bool,
     initial_event_count: usize,
     fact_package_present: bool,
@@ -132,10 +133,51 @@ pub(crate) fn record_chat_provider_started(
                 json!(uuid_prefix(Some(session_id))),
             ),
             ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
+            ("engine_mode", json!(engine_mode)),
             ("target_pet_present", json!(target_pet_present)),
             ("initial_event_count", json!(initial_event_count)),
             ("fact_package_present", json!(fact_package_present)),
         ],
+    );
+}
+
+/// record_chat_runtime_engine_selected 记录 Runtime engine 选择结果
+/// 核心职责：
+/// - 在成功链路显式暴露 self_hosted / rig_poc
+/// - 关联 route、stream、工具数量和目标宠物状态
+pub(crate) fn record_chat_runtime_engine_selected(
+    session_id: Uuid,
+    message_id: Uuid,
+    engine_mode: &str,
+    route: &str,
+    stream: bool,
+    target_pet_present: bool,
+    tool_count: usize,
+) {
+    record_ai_event(
+        "ai.chat.runtime.engine.selected",
+        Severity::Info,
+        vec![
+            (
+                "chat_session_id_prefix",
+                json!(uuid_prefix(Some(session_id))),
+            ),
+            ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
+            ("engine_mode", json!(engine_mode)),
+            ("route", json!(route)),
+            ("stream", json!(stream)),
+            ("target_pet_present", json!(target_pet_present)),
+            ("tool_count", json!(tool_count)),
+        ],
+    );
+    mhb_temp_rig_engine_mode_probe(
+        session_id,
+        message_id,
+        engine_mode,
+        route,
+        stream,
+        target_pet_present,
+        tool_count,
     );
 }
 
@@ -310,6 +352,43 @@ fn record_ai_event(name: &str, severity: Severity, metadata: Vec<(&str, Value)>)
         event = event.metadata(key, value);
     }
     diagnostics.record(event);
+}
+
+// MHB_TEMP_BACKEND_LOG: RigEngineModeProbe 临时后端日志，真机确认后删除。
+fn mhb_temp_rig_engine_mode_probe(
+    session_id: Uuid,
+    message_id: Uuid,
+    engine_mode: &str,
+    route: &str,
+    stream: bool,
+    target_pet_present: bool,
+    tool_count: usize,
+) {
+    use std::io::Write;
+
+    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
+        .unwrap_or_else(|_| "work/debug/RigEngineModeProbe.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(
+            file,
+            "ts={} tag=RigEngineModeProbe stage=runtime.engine.selected session_id_prefix={} message_id_prefix={} engine_mode={} route={} stream={} target_pet_present={} tool_count={}",
+            chrono::Utc::now().to_rfc3339(),
+            uuid_prefix(Some(session_id)),
+            uuid_prefix(Some(message_id)),
+            engine_mode,
+            route,
+            stream,
+            target_pet_present,
+            tool_count
+        );
+    }
 }
 
 fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str, Value)> {

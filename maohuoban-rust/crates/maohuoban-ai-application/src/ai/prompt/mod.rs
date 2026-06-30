@@ -1,6 +1,6 @@
 //! prompt Prompt 构建器
 //! 核心职责：
-//! - 把系统规则、用户问题、宠物候选、目标宠物事实包和输出格式拼成 LLM messages
+//! - 把系统规则、用户问题、宠物候选和目标宠物事实包拼成 LLM messages
 //! - 不包含 API key、Authorization、actor token、审计表原文
 
 use maohuoban_ai_domain::ai::{AiFactPackage, AiPetCandidate, LlmMessage, LlmRole};
@@ -22,7 +22,7 @@ impl AiPromptBuilder {
 
     /// build_messages 构建 LLM messages
     /// 核心职责：
-    /// - system message 包含毛球助手规则、医疗安全和输出格式
+    /// - system message 包含毛球助手规则和医疗安全
     /// - context message 包含宠物候选、强事实、弱线索和缺失信息
     /// - user message 包含用户原始问题
     #[must_use]
@@ -91,22 +91,12 @@ impl AiPromptBuilder {
         prompt.push_str("- 不要输出内部事实 key，例如 `pet_identity.name`、`diet.recent_feeding` 或任何方括号形式的内部标识。\n");
         prompt.push_str("- 引用只能绑定回答中实际使用的事实；引用由后端事件提供，正文和 blocks 只输出自然语言。\n");
         prompt.push_str("- 没有工具调用成功结果或事实包依据时，不能声称已修改、已更新、已保存、已记录或已设置任何用户数据。\n");
-        prompt.push_str(
-            "- 如果需要调用工具，先返回工具调用；工具结果回灌后的最终回答再按 JSON 输出。\n",
-        );
+        prompt.push_str("- 如果需要调用工具，先返回工具调用；工具结果回灌后的最终回答只输出用户可见自然语言。\n");
         prompt.push_str("\n## 输出格式\n");
-        prompt.push_str(
-            "- 必须输出合法 JSON 对象，不要使用 Markdown 代码块，不要输出 JSON 之外的额外文本。\n",
-        );
-        prompt.push_str("- `answer_text` 是给用户直接阅读的中文回答。\n");
-        prompt.push_str("- `display_blocks` 是给前端渲染的结构化块数组，当前只使用 paragraph / bullet_list / warning / question。\n");
-        prompt.push_str(
-            "- 如果需要用户确认，在 `answer_text` 中明确提出确认问题，并追加 question block。\n",
-        );
-        prompt.push_str("- JSON 示例:\n");
-        prompt.push_str(
-            "{\"answer_text\":\"当前记录显示精神和食欲正常。\",\"display_blocks\":[{\"type\":\"paragraph\",\"text\":\"当前记录显示精神和食欲正常。\"}],\"follow_up_questions\":[],\"safety_notes\":[]}\n",
-        );
+        prompt.push_str("- 直接输出给用户阅读的中文正文。\n");
+        prompt.push_str("- 不要输出结构化对象、字段名、代码块、DTO、工具参数或内部结构。\n");
+        prompt.push_str("- 前端结构化展示由后端和客户端 DTO 生成，模型正文只负责自然语言解释。\n");
+        prompt.push_str("- 如果需要用户确认，直接用自然语言提出确认问题。\n");
         prompt
     }
 

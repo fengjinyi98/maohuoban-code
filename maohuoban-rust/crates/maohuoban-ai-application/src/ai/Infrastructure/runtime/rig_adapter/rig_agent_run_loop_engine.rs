@@ -20,7 +20,8 @@ use crate::ai::prompt::AiPromptBuilder;
 use crate::ai::runtime::LoopEngine;
 
 use super::super::agent_runtime_loop_engine::{
-    execute_tool_calls, model_stream, request_tool_count, tool_result_to_message,
+    execute_tool_calls, model_stream, record_rig_tool_call_probe, request_tool_count,
+    tool_result_to_message,
 };
 use super::super::agent_runtime_request_policy::AgentRuntimeRequestPolicy;
 use super::super::workbench_prompt_projection::workbench_context_prompt;
@@ -205,6 +206,28 @@ impl LoopEngine for RigAgentRunLoopEngine {
                             let tool_count = request_tool_count(&request);
                             let tool_names =
                                 request.tools.iter().map(|tool| tool.name.clone()).collect();
+                            record_rig_tool_call_probe(
+                                "rig.step.call_model",
+                                self.engine_mode(),
+                                state.chat_session_id,
+                                None,
+                                &[
+                                    (
+                                        "phase",
+                                        if assistant_tool_calls.is_empty() {
+                                            "initial".to_owned()
+                                        } else {
+                                            "followup".to_owned()
+                                        },
+                                    ),
+                                    ("visible_tool_count", tool_count.to_string()),
+                                    (
+                                        "assistant_tool_call_count",
+                                        assistant_tool_calls.len().to_string(),
+                                    ),
+                                    ("tool_result_count", tool_results.len().to_string()),
+                                ],
+                            );
                             self.phase = RigAgentRunPhase::StreamingModel {
                                 run,
                                 stream: model_stream(self.provider.clone(), request),
@@ -217,12 +240,27 @@ impl LoopEngine for RigAgentRunLoopEngine {
                             };
                         }
                         AgentRunStep::CallTools { calls } => {
+                            record_rig_tool_call_probe(
+                                "rig.step.call_tools",
+                                self.engine_mode(),
+                                state.chat_session_id,
+                                None,
+                                &[("pending_count", calls.len().to_string())],
+                            );
                             self.phase = RigAgentRunPhase::ToolRequest { run, calls };
                         }
                         AgentRunStep::Done(response) => {
+                            let final_text = visible_text_from_model_output(&response.output);
+                            record_rig_tool_call_probe(
+                                "rig.step.done",
+                                self.engine_mode(),
+                                state.chat_session_id,
+                                None,
+                                &[("final_text_chars", final_text.chars().count().to_string())],
+                            );
                             self.phase = RigAgentRunPhase::Done {
                                 message_id: uuid::Uuid::new_v4(),
-                                final_text: visible_text_from_model_output(&response.output),
+                                final_text,
                                 status: AgentTurnStatus::Completed,
                             };
                         }
@@ -256,6 +294,13 @@ impl LoopEngine for RigAgentRunLoopEngine {
                                 return Ok(Some(LoopStep::MessageDelta { text: content }));
                             }
                             LlmStreamEvent::ToolCall { tool_call } => {
+                                record_rig_tool_call_probe(
+                                    "provider.stream.tool_call",
+                                    self.engine_mode(),
+                                    state.chat_session_id,
+                                    Some(&tool_call),
+                                    &[("seen_tool_call_count", (tool_calls.len() + 1).to_string())],
+                                );
                                 tool_calls.push(tool_call);
                                 self.phase = RigAgentRunPhase::StreamingModel {
                                     run,
@@ -273,6 +318,17 @@ impl LoopEngine for RigAgentRunLoopEngine {
                                 finish_reason: fr,
                                 usage: u,
                             } => {
+                                record_rig_tool_call_probe(
+                                    "provider.stream.finish",
+                                    self.engine_mode(),
+                                    state.chat_session_id,
+                                    None,
+                                    &[
+                                        ("finish_reason", format!("{fr:?}")),
+                                        ("tool_call_count", tool_calls.len().to_string()),
+                                        ("output_tokens", u.output_tokens.to_string()),
+                                    ],
+                                );
                                 finish_reason = fr;
                                 usage = u;
                                 self.phase = RigAgentRunPhase::StreamingModel {
@@ -295,6 +351,19 @@ impl LoopEngine for RigAgentRunLoopEngine {
                         }
                     }
 
+                    record_rig_tool_call_probe(
+                        "provider.stream.completed",
+                        self.engine_mode(),
+                        state.chat_session_id,
+                        None,
+                        &[
+                            (
+                                "accumulated_text_chars",
+                                accumulated_text.chars().count().to_string(),
+                            ),
+                            ("tool_call_count", tool_calls.len().to_string()),
+                        ],
+                    );
                     let assistant_content =
                         assistant_content_from_stream(&accumulated_text, &tool_calls);
                     let outcome = run
@@ -338,6 +407,13 @@ impl LoopEngine for RigAgentRunLoopEngine {
                     tool_calls,
                 } => {
                     if !tool_calls.is_empty() {
+                        record_rig_tool_call_probe(
+                            "loop.step.call_tools",
+                            self.engine_mode(),
+                            state.chat_session_id,
+                            None,
+                            &[("requested_count", tool_calls.len().to_string())],
+                        );
                         self.phase = RigAgentRunPhase::ToolExecution {
                             run,
                             assistant_tool_calls,
@@ -347,6 +423,8 @@ impl LoopEngine for RigAgentRunLoopEngine {
                     }
 
                     let (tool_results, hard_stop) = execute_tool_calls(
+                        self.engine_mode(),
+                        state.chat_session_id,
                         self.registry.clone(),
                         self.tool_context.clone(),
                         assistant_tool_calls.clone(),
@@ -377,6 +455,16 @@ impl LoopEngine for RigAgentRunLoopEngine {
                             status: AgentTurnStatus::AwaitingConfirmation,
                         };
                     } else {
+                        record_rig_tool_call_probe(
+                            "rig.tool_results.feedback",
+                            self.engine_mode(),
+                            state.chat_session_id,
+                            None,
+                            &[
+                                ("tool_result_count", tool_results.len().to_string()),
+                                ("needs_confirmation", needs_confirmation.to_string()),
+                            ],
+                        );
                         run.tool_results(rig_tool_results(&tool_results))
                             .map_err(rig_error)?;
                         self.phase = RigAgentRunPhase::Preparing {

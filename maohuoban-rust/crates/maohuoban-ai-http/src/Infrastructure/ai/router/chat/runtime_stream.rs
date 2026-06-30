@@ -466,6 +466,39 @@ mod tests {
     }
 
     #[test]
+    fn projector_scrubs_embedded_json_dto_fields_from_mixed_model_output() {
+        let message_id = Uuid::new_v4();
+        let turn_id = AgentTurnId::new();
+        let mut projector = AgentEventSseProjector::new(message_id, None, "梅录");
+
+        let chunks = [
+            "好的，这是梅录的档案信息：",
+            "{\"answer_text\":\"梅录的档案信息如下：\\n\\n名字：梅录\",",
+            "\"display_blocks\":[],\"follow_up_questions\":[],\"safety_notes\":[]}",
+        ];
+
+        let deltas: Vec<String> = chunks
+            .into_iter()
+            .flat_map(|text| {
+                projector.project(AgentEvent::MessageDelta {
+                    turn_id,
+                    text: text.to_owned(),
+                })
+            })
+            .filter_map(|event| match event {
+                AiStreamEvent::AnswerDelta { text } => Some(text),
+                _ => None,
+            })
+            .collect();
+        let visible_text = deltas.concat();
+
+        assert!(!visible_text.contains("answer_text"));
+        assert!(!visible_text.contains("display_blocks"));
+        assert!(!visible_text.contains("follow_up_questions"));
+        assert!(!visible_text.contains("safety_notes"));
+    }
+
+    #[test]
     fn projector_scrubs_cross_chunk_thinking_and_internal_context_before_sse_delta() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();

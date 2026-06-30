@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
+use super::super::diagnostics::record_chat_runtime_engine_selected;
 use super::gated_stream_response::gated_message_text;
 use super::pet_resolution_stream_response::pet_resolution_message_text;
 use super::request::ChatStreamRequest;
@@ -153,6 +154,16 @@ async fn complete_with_runtime(
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
         None => ToolRegistry::new(),
     });
+    let tool_count = registry.list_definitions().len();
+    record_chat_runtime_engine_selected(
+        context.session_id,
+        context.assistant_message_id,
+        state.runtime_engine_mode.as_str(),
+        "non_stream",
+        false,
+        target_pet.is_some(),
+        tool_count,
+    );
     let tool_context = AiToolContext {
         actor_user_id,
         authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),

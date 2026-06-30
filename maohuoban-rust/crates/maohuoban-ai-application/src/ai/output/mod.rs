@@ -11,6 +11,12 @@
 pub fn visible_text_from_model_output(content: &str) -> String {
     let scrubbed = scrub_model_output(content);
     let Ok(value) = serde_json::from_str::<serde_json::Value>(scrubbed.trim()) else {
+        if let Some(text) = extract_json_string_field_prefix(&scrubbed, "answer_text")
+            .map(|text| scrub_internal_plain_output(&text))
+            .filter(|text| !text.trim().is_empty())
+        {
+            return text;
+        }
         return scrub_internal_plain_output(&scrubbed);
     };
 
@@ -31,6 +37,15 @@ pub fn visible_text_prefix_from_model_output(content: &str) -> Option<String> {
     let scrubbed = scrub_model_output_prefix(content);
     let trimmed = scrubbed.trim_start();
     if !(trimmed.starts_with('{') || trimmed.starts_with('[')) {
+        if let Some(text) = extract_json_string_field_prefix(trimmed, "answer_text")
+            .map(|text| scrub_internal_plain_output(&text))
+            .filter(|text| !text.trim().is_empty())
+        {
+            return Some(text);
+        }
+        if let Some(json_start) = trimmed.find('{') {
+            return Some(scrub_internal_plain_output(&trimmed[..json_start]));
+        }
         return Some(scrub_internal_plain_output(&scrubbed));
     }
 
@@ -261,5 +276,26 @@ mod tests {
         );
 
         assert_eq!(output, "");
+    }
+
+    #[test]
+    fn complete_output_extracts_embedded_answer_text_json() {
+        let output = visible_text_from_model_output(
+            r#"好的，这是梅录的档案信息：{"answer_text":"梅录的档案信息如下：\n\n名字：梅录","display_blocks":[]}"#,
+        );
+
+        assert_eq!(output, "梅录的档案信息如下：\n\n名字：梅录");
+    }
+
+    #[test]
+    fn prefix_output_does_not_leak_embedded_json_fields() {
+        let output = visible_text_prefix_from_model_output(
+            r#"好的，这是梅录的档案信息：{"answer_text":"梅录的档案信息如下：\n\n名字：梅录","display_blocks":[]}"#,
+        )
+        .expect("visible prefix");
+
+        assert!(!output.contains("answer_text"));
+        assert!(!output.contains("display_blocks"));
+        assert_eq!(output, "梅录的档案信息如下：\n\n名字：梅录");
     }
 }
