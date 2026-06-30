@@ -5,14 +5,22 @@
 
 use axum::http::StatusCode;
 use httpmock::MockServer;
+use maohuoban_diagnostics::{
+    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy,
+};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_json, response_text};
+use super::{
+    authorized_json_request, diagnostics_test_lock, login_and_get_token, response_json,
+    response_text,
+};
 
 /// 配置 `OpenAI` 兼容 Provider 后 `/api/v1/ai/chat/stream` 返回真实 Provider delta
 #[tokio::test]
 async fn ai_chat_stream_uses_configured_openai_provider() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let diagnostics = install_provider_test_diagnostics();
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -82,6 +90,37 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         text.contains("event: answer_completed"),
         "SSE should contain completion event, got: {text}"
     );
+    diagnostics.flush().expect("flush diagnostics");
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.request.prepared"
+            && event.metadata["request_body_text"]
+                .as_str()
+                .is_some_and(|body| {
+                    body.contains("\"message\":\"毛球今天怎么样\"")
+                        || body.contains("毛球今天怎么样")
+                })
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.stream.chunk"
+            && event.metadata["chunk_text"]
+                .as_str()
+                .is_some_and(|body| body.contains("真实 Provider"))
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.stream.event"
+            && event.metadata["event_name"] == json!("delta")
+            && event.metadata["payload"]["content"] == json!("真实 Provider")
+    }));
+    for event in &events {
+        let metadata = serde_json::to_string(&event.metadata).expect("serialize metadata");
+        assert!(
+            !metadata.contains("Bearer contract-api-key")
+                && !metadata.contains("\"api_key\"")
+                && !metadata.contains("contract-api-key"),
+            "provider diagnostics leaked auth secret: {event:?}"
+        );
+    }
 
     let identity_log_count: i64 = sqlx::query_scalar(
         r"
@@ -98,6 +137,23 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     .expect("count identity tool log");
 
     assert_eq!(identity_log_count, 1);
+}
+
+fn install_provider_test_diagnostics() -> Diagnostics {
+    let root = std::env::temp_dir().join(format!(
+        "maohuoban-ai-provider-diagnostics-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
+    Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_owned(),
+        environment: "test".to_owned(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics")
 }
 
 /// 助手身份问题没有私域宠物上下文时仍进入后端工作台和 Provider

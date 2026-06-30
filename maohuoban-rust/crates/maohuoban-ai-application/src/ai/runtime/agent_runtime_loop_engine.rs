@@ -226,13 +226,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "initial",
                         &request,
                     );
-                    mhb_temp_backend_log(format!(
-                        "tag=AgentFallbackRegression stage=self_hosted.model_request session_id={} purpose=initial messages={} tools={} response_format_present={} stream=true",
-                        state.chat_session_id,
-                        request.messages.len(),
-                        request.tools.len(),
-                        request.response_format.is_some(),
-                    ));
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Initial,
@@ -264,14 +257,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     tool_count,
                                     &error,
                                 );
-                                mhb_temp_backend_log(format!(
-                                    "tag=AgentFallbackRegression stage=self_hosted.provider_error session_id={} purpose={} code={} retryable={} message={}",
-                                    state.chat_session_id,
-                                    streaming_model_purpose_code(&purpose),
-                                    error.stable_code(),
-                                    error.is_retryable(),
-                                    temp_sanitize_error(&error.to_string()),
-                                ));
                                 return Err(error);
                             }
                         };
@@ -280,28 +265,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 accumulated_text.push_str(&content);
                                 let suppress_visible_delta =
                                     accumulated_text.trim().is_empty() && content.trim().is_empty();
-                                let purpose_code = streaming_model_purpose_code(&purpose);
-                                let content_chars = content.chars().count();
-                                let content_trimmed_empty = content.trim().is_empty();
-                                let accumulated_chars = accumulated_text.chars().count();
-                                if suppress_visible_delta {
-                                    mhb_temp_backend_log(format!(
-                                        "tag=AgentFallbackRegression stage=self_hosted.provider_delta_suppressed session_id={} purpose={} chunk_chars={} accumulated_chars={}",
-                                        state.chat_session_id,
-                                        purpose_code,
-                                        content_chars,
-                                        accumulated_chars,
-                                    ));
-                                } else {
-                                    mhb_temp_backend_log(format!(
-                                        "tag=AgentFallbackRegression stage=self_hosted.provider_delta session_id={} purpose={} chunk_chars={} chunk_trimmed_empty={} accumulated_chars={}",
-                                        state.chat_session_id,
-                                        purpose_code,
-                                        content_chars,
-                                        content_trimmed_empty,
-                                        accumulated_chars,
-                                    ));
-                                }
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
@@ -332,13 +295,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 continue;
                             }
                             LlmStreamEvent::ToolCall { tool_call } => {
-                                mhb_temp_backend_log(format!(
-                                    "tag=AgentFallbackRegression stage=self_hosted.provider_tool_call session_id={} purpose={} name={} args_chars={}",
-                                    state.chat_session_id,
-                                    streaming_model_purpose_code(&purpose),
-                                    tool_call.name,
-                                    tool_call.arguments.chars().count(),
-                                ));
                                 tool_calls.push(tool_call);
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
@@ -356,15 +312,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 finish_reason: fr,
                                 usage: u,
                             } => {
-                                mhb_temp_backend_log(format!(
-                                    "tag=AgentFallbackRegression stage=self_hosted.provider_finish session_id={} purpose={} finish_reason={fr:?} input_tokens={} output_tokens={} accumulated_chars={} tool_calls={}",
-                                    state.chat_session_id,
-                                    streaming_model_purpose_code(&purpose),
-                                    u.input_tokens,
-                                    u.output_tokens,
-                                    accumulated_text.chars().count(),
-                                    tool_calls.len(),
-                                ));
                                 finish_reason = fr;
                                 usage = u;
                                 self.phase = RuntimePhase::StreamingModel {
@@ -380,12 +327,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 continue;
                             }
                             LlmStreamEvent::Error { message } => {
-                                mhb_temp_backend_log(format!(
-                                    "tag=AgentFallbackRegression stage=self_hosted.provider_stream_error_event session_id={} purpose={} message={}",
-                                    state.chat_session_id,
-                                    streaming_model_purpose_code(&purpose),
-                                    temp_sanitize_error(&message),
-                                ));
                                 return Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
                                     message,
                                 ));
@@ -395,15 +336,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 
                     if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
                         let visible_text = visible_text_from_model_output(&accumulated_text);
-                        mhb_temp_backend_log(format!(
-                            "tag=AgentFallbackRegression stage=self_hosted.stream_end session_id={} purpose={} accumulated_chars={} visible_chars={} visible_trimmed_empty={} tool_calls={}",
-                            state.chat_session_id,
-                            streaming_model_purpose_code(&purpose),
-                            accumulated_text.chars().count(),
-                            visible_text.chars().count(),
-                            visible_text.trim().is_empty(),
-                            tool_calls.len(),
-                        ));
                         if visible_text.trim().is_empty() {
                             return Err(empty_assistant_content_error());
                         }
@@ -566,14 +498,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "followup",
                         &request,
                     );
-                    mhb_temp_backend_log(format!(
-                        "tag=AgentFallbackRegression stage=self_hosted.model_request session_id={} purpose=followup messages={} tools={} response_format_present={} tool_results={}",
-                        state.chat_session_id,
-                        request.messages.len(),
-                        request.tools.len(),
-                        request.response_format.is_some(),
-                        tool_results.len(),
-                    ));
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Followup,
@@ -731,32 +655,6 @@ fn empty_assistant_content_error() -> AiError {
         ProviderErrorCategory::InvalidResponse,
         "empty assistant content without tool calls",
     ))
-}
-
-// MHB_TEMP_BACKEND_LOG: AgentFallbackRegression 临时后端日志，确认修复后删除。
-fn mhb_temp_backend_log(line: impl AsRef<str>) {
-    use std::io::Write;
-
-    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
-        .unwrap_or_else(|_| "work/debug/AgentFallbackRegression.log".to_owned());
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-    {
-        let _ = writeln!(file, "{}", line.as_ref());
-    }
-}
-
-fn temp_sanitize_error(message: &str) -> String {
-    message
-        .chars()
-        .take(160)
-        .map(|ch| if ch.is_control() { ' ' } else { ch })
-        .collect()
 }
 
 /// tool_result_to_message 将工具结果转为模型可见消息

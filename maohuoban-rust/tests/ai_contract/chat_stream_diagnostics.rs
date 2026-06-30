@@ -8,7 +8,7 @@ use tower::ServiceExt;
 
 use super::{authorized_json_request, diagnostics_test_lock, login_and_get_token, response_text};
 
-/// 流式聊天诊断事件不包含敏感原文和密钥
+/// 流式聊天诊断事件允许开发期正文观测，但不能泄露认证敏感字段
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     let _guard = diagnostics_test_lock().lock_owned().await;
@@ -40,13 +40,7 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     diagnostics.flush().expect("flush diagnostics");
 
     let events = diagnostics.read_events().expect("diagnostics events");
-    let sensitive_fields = [
-        "毛球今天拉肚子了怎么办",
-        "contract-api-key",
-        "api_key",
-        "authorization",
-        "Bearer",
-    ];
+    let forbidden_fields = ["contract-api-key", "api_key", "authorization", "Bearer"];
 
     let ai_events: Vec<_> = events
         .iter()
@@ -57,7 +51,7 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     for event in &ai_events {
         let metadata = serde_json::to_string(&event.metadata).expect("serialize metadata");
         assert!(
-            !sensitive_fields
+            !forbidden_fields
                 .iter()
                 .any(|needle| { event.message.contains(needle) || metadata.contains(needle) }),
             "diagnostics leaked sensitive text in event: {event:?}"
@@ -69,7 +63,7 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
             && event.message == "ai.chat.stream.request.received"
             && event.metadata["surface"] == json!("home_private")
             && event.metadata["message_length_bucket"] == json!("1_32")
-            && event.metadata.get("message").is_none()
+            && event.metadata["message"] == json!("毛球今天拉肚子了怎么办")
     }));
 }
 

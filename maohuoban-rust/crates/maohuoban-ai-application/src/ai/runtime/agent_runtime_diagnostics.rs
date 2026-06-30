@@ -75,6 +75,18 @@ impl AgentRuntimeDiagnostics {
         .metadata(
             "content_length_bucket",
             serde_json::json!(length_bucket(total_message_chars(request))),
+        )
+        .metadata(
+            "message_contents",
+            serde_json::json!(request_message_contents(request)),
+        )
+        .metadata(
+            "message_reasoning_contents",
+            serde_json::json!(request_reasoning_contents(request)),
+        )
+        .metadata(
+            "tool_schemas",
+            serde_json::json!(request_tool_schemas(request)),
         );
         diagnostics.record(event);
     }
@@ -154,6 +166,36 @@ fn request_message_roles(request: &LlmChatRequest) -> String {
         })
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn request_message_contents(request: &LlmChatRequest) -> Vec<String> {
+    request
+        .messages
+        .iter()
+        .map(|message| message.content.clone())
+        .collect()
+}
+
+fn request_reasoning_contents(request: &LlmChatRequest) -> Vec<String> {
+    request
+        .messages
+        .iter()
+        .map(|message| message.reasoning_content.clone().unwrap_or_default())
+        .collect()
+}
+
+fn request_tool_schemas(request: &LlmChatRequest) -> Vec<serde_json::Value> {
+    request
+        .tools
+        .iter()
+        .map(|tool| {
+            serde_json::json!({
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.parameters,
+            })
+        })
+        .collect()
 }
 
 fn assistant_tool_call_message_count(request: &LlmChatRequest) -> usize {

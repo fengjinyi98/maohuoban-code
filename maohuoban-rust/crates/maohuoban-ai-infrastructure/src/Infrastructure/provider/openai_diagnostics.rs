@@ -1,7 +1,7 @@
 // OpenAiProviderDiagnostics OpenAI 兼容 Provider 诊断
 // 核心职责：
-// - 记录实际发给上游的请求策略摘要
-// - 记录 SSE 解码阶段的脱敏失败证据
+// - 记录实际发给上游的请求摘要
+// - 开发阶段记录完整请求体、响应体和流事件
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -16,15 +16,11 @@ const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 
 /// OpenAiProviderDiagnostics OpenAI 兼容 Provider 诊断
 /// 核心职责：
-/// - 只记录协议层计数、开关、阶段推断和哈希
-/// - 避免记录用户正文、工具结果、Authorization 和原始上游响应
+/// - 记录协议层计数、阶段推断和开发期完整载荷
+/// - 避免记录 Authorization 等敏感认证字段
 pub(crate) struct OpenAiProviderDiagnostics;
 
 impl OpenAiProviderDiagnostics {
-    /// record_request_prepared 记录实际 Provider 请求体摘要
-    /// 核心职责：
-    /// - 确认 Runtime 策略进入 provider 后是否被配置覆盖
-    /// - 标记工具、JSON Output、stream 和 max_tokens 等关键开关
     pub(crate) fn record_request_prepared(
         mode: &'static str,
         request: &LlmChatRequest,
@@ -82,19 +78,29 @@ impl OpenAiProviderDiagnostics {
         .metadata(
             "has_json_instruction",
             serde_json::json!(request_has_json_instruction(request)),
+        )
+        .metadata(
+            "request_messages",
+            serde_json::json!(request_messages(request)),
+        )
+        .metadata(
+            "request_tool_schemas",
+            serde_json::json!(request_tool_schemas(request)),
+        )
+        .metadata("request_body", serde_json::json!(body))
+        .metadata(
+            "request_body_text",
+            serde_json::json!(serde_json::to_string(body).unwrap_or_default()),
         );
         diagnostics.record(event);
     }
 
-    /// record_http_response_started 记录上游 HTTP 响应入口
-    /// 核心职责：
-    /// - 标记 HTTP 状态和内容类型族
-    /// - 不记录响应 body
     pub(crate) fn record_http_response_started(
         mode: &'static str,
         request: &LlmChatRequest,
         status: u16,
         content_type: Option<&str>,
+        header_summary: &str,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
@@ -111,14 +117,71 @@ impl OpenAiProviderDiagnostics {
         .metadata(
             "content_type_kind",
             serde_json::json!(content_type_kind(content_type)),
-        );
+        )
+        .metadata("header_summary", serde_json::json!(header_summary));
         diagnostics.record(event);
     }
 
-    /// record_stream_decode_error 记录 SSE 解码失败
-    /// 核心职责：
-    /// - 捕获解码器看到的错误分类和流计数
-    /// - 只记录脱敏错误摘要
+    pub(crate) fn record_http_response_body(
+        mode: &'static str,
+        request: &LlmChatRequest,
+        status: u16,
+        response_body: &str,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            severity_from_status(status),
+            "ai.provider.openai.http.response.body",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        .metadata("mode", serde_json::json!(mode))
+        .metadata("phase_guess", serde_json::json!(phase_guess(request)))
+        .metadata("http_status", serde_json::json!(status))
+        .metadata("response_body", serde_json::json!(response_body));
+        diagnostics.record(event);
+    }
+
+    pub(crate) fn record_stream_chunk(
+        request: &LlmChatRequest,
+        chunk_index: u32,
+        byte_len: usize,
+        chunk_text: &str,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Debug,
+            "ai.provider.openai.stream.chunk",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        .metadata("phase_guess", serde_json::json!(phase_guess(request)))
+        .metadata("chunk_index", serde_json::json!(chunk_index))
+        .metadata("byte_len", serde_json::json!(byte_len))
+        .metadata("chunk_text", serde_json::json!(chunk_text));
+        diagnostics.record(event);
+    }
+
+    pub(crate) fn record_stream_event(request: &LlmChatRequest, event_name: &str, payload: Value) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Debug,
+            "ai.provider.openai.stream.event",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        .metadata("phase_guess", serde_json::json!(phase_guess(request)))
+        .metadata("event_name", serde_json::json!(event_name))
+        .metadata("payload", payload);
+        diagnostics.record(event);
+    }
+
     pub(crate) fn record_stream_decode_error(
         request: &LlmChatRequest,
         error: &AiError,
@@ -135,10 +198,6 @@ impl OpenAiProviderDiagnostics {
         );
     }
 
-    /// record_stream_completed 记录 SSE 正常结束
-    /// 核心职责：
-    /// - 输出 chunk 和事件计数
-    /// - 区分 finish 与 DONE 标记是否到达
     pub(crate) fn record_stream_completed(
         request: &LlmChatRequest,
         stats: ProviderStreamStats,
@@ -154,10 +213,6 @@ impl OpenAiProviderDiagnostics {
         );
     }
 
-    /// record_stream_incomplete 记录 SSE 非正常结束
-    /// 核心职责：
-    /// - 标记 completion marker 或 decoder idle 缺失
-    /// - 支撑 stream_interrupted 与 invalid_response 分流
     pub(crate) fn record_stream_incomplete(
         request: &LlmChatRequest,
         stats: ProviderStreamStats,
@@ -259,6 +314,41 @@ fn request_message_roles(request: &LlmChatRequest) -> String {
         })
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn request_messages(request: &LlmChatRequest) -> Vec<Value> {
+    request
+        .messages
+        .iter()
+        .map(|message| {
+            serde_json::json!({
+                "role": match message.role {
+                    LlmRole::System => "system",
+                    LlmRole::User => "user",
+                    LlmRole::Assistant => "assistant",
+                    LlmRole::Tool => "tool",
+                },
+                "content": message.content,
+                "reasoning_content": message.reasoning_content,
+                "tool_call_id": message.tool_call_id,
+                "tool_calls": message.tool_calls,
+            })
+        })
+        .collect()
+}
+
+fn request_tool_schemas(request: &LlmChatRequest) -> Vec<Value> {
+    request
+        .tools
+        .iter()
+        .map(|tool| {
+            serde_json::json!({
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.parameters,
+            })
+        })
+        .collect()
 }
 
 fn assistant_tool_call_message_count(request: &LlmChatRequest) -> usize {

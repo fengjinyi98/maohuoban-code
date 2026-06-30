@@ -35,6 +35,7 @@ pub(crate) fn record_chat_stream_request_received(
                 json!(uuid_prefix(selected_pet_id)),
             ),
             ("surface", json!(surface_code(surface))),
+            ("message", json!(message)),
             (
                 "message_length_bucket",
                 json!(length_bucket(message.chars().count())),
@@ -189,6 +190,27 @@ pub(crate) fn record_chat_stream_event_emitted(session_id: Uuid, event: &AiStrea
         "ai.chat.stream.event.emitted",
         stream_event_severity(event),
         metadata,
+    );
+}
+
+pub(crate) fn record_chat_runtime_agent_event(
+    session_id: Uuid,
+    message_id: Uuid,
+    event_name: &str,
+    payload: Value,
+) {
+    record_ai_event(
+        "ai.chat.runtime.agent_event",
+        Severity::Debug,
+        vec![
+            (
+                "chat_session_id_prefix",
+                json!(uuid_prefix(Some(session_id))),
+            ),
+            ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
+            ("event_name", json!(event_name)),
+            ("payload", payload),
+        ],
     );
 }
 
@@ -488,10 +510,13 @@ fn tool_call_metadata(
 }
 
 fn delta_metadata(text: &str) -> Vec<(&'static str, Value)> {
-    vec![(
-        "delta_length_bucket",
-        json!(length_bucket(text.chars().count())),
-    )]
+    vec![
+        (
+            "delta_length_bucket",
+            json!(length_bucket(text.chars().count())),
+        ),
+        ("delta_text", json!(text)),
+    ]
 }
 
 fn citation_metadata(citation: &AiCitation) -> Vec<(&'static str, Value)> {
@@ -540,6 +565,7 @@ fn message_completed_metadata(
             "final_text_length_bucket",
             json!(length_bucket(final_text.chars().count())),
         ),
+        ("final_text", json!(final_text)),
         ("input_tokens", json!(usage.input_tokens)),
         ("output_tokens", json!(usage.output_tokens)),
         ("finish_reason", json!(finish_reason_code(finish_reason))),

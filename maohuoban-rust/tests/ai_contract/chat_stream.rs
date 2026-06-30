@@ -135,7 +135,7 @@ async fn ai_chat_stream_records_backend_diagnostics_chain() {
             && event.message == "ai.chat.stream.request.received"
             && event.metadata["surface"] == json!("home_private")
             && event.metadata["message_length_bucket"] == json!("1_32")
-            && event.metadata.get("message").is_none()
+            && event.metadata["message"] == json!("毛球今天拉肚子了怎么办")
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.gate.decided"
@@ -156,6 +156,16 @@ async fn ai_chat_stream_records_backend_diagnostics_chain() {
             && event.metadata["error_code"] == json!("ai.provider.not_configured")
             && event.metadata["engine_mode"] == json!("self_hosted")
             && event.metadata["retryable"] == json!(false)
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.runtime.model.request.prepared"
+            && event.metadata["message_contents"]
+                .as_array()
+                .is_some_and(|contents| {
+                    contents
+                        .iter()
+                        .any(|value| value == "毛球今天拉肚子了怎么办")
+                })
     }));
 }
 
