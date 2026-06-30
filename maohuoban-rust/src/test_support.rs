@@ -45,6 +45,10 @@ impl AuthTestApp {
         sqlx::query(
             r#"
             TRUNCATE TABLE
+                agent_memory_candidates,
+                agent_memory_items,
+                agent_profile_items,
+                agent_preferences,
                 ai_request_gate_logs,
                 ai_tool_access_logs,
                 ai_messages,

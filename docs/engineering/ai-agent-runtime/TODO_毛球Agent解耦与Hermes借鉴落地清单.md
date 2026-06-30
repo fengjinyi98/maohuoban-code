@@ -184,6 +184,17 @@
   - 验证：公共问答不加载 pet 私域记忆；未授权 pet 记忆不可检索。
   - 完成证据：Application 层新增 `MemoryQuery`（强制带 `scope_type` / `scope_id` / `actor_user_id`，可选 `pet_id` / `household_id`）和 `MemoryRetriever`；`MemoryQuery::is_valid()` 校验 Pet 作用域必须有 `pet_id`、Household 作用域必须有 `household_id`；`MemoryRetriever::retrieve()` 无私域 ID 时调用 `MemoryPack::filter_for_public_context()` 过滤所有私域记忆，有 `pet_id` 时调用 `filter_for_pet_context()` 只保留当前宠物记忆，有 `household_id` 时调用 `filter_for_household_context()` 只保留当前家庭记忆；`memory_retrieval.rs` 覆盖公共问答排除 Pet/Household 记忆、Pet 上下文只加载授权宠物、Household 上下文只加载授权家庭、非法查询被拒绝；`memory_pack_isolation.rs` 覆盖 Household 过滤投影。
 
+- [x] 接入 Postgres 记忆权威存储基础仓储。
+  - 交付物：后端记忆使用 Postgres 作为权威存储，不引入 SQLite；候选记忆和活跃记忆检索有真实 infrastructure repository。
+  - 验证：Postgres contract test 能覆盖候选 Pending -> Confirmed 流转，以及 `agent_memory_items` 按 scope / actor / pet / active 状态过滤。
+  - 完成证据：新增 migration `0033_agent_memory_postgres.sql`，定义 `agent_preferences`、`agent_memory_candidates`、`agent_profile_items`、`agent_memory_items`；`PostgresMemoryCandidateRepository` 实现 `MemoryCandidateRepository`；`PostgresMemoryRepository` 实现 `MemoryRepository`；`memory_postgres.rs` 覆盖候选持久化确认和活跃记忆隔离过滤；`test_support.rs` reset 已纳入四张 memory 表，避免测试污染。
+  - 剩余边界：偏好 CRUD、画像升级、记忆写入 / stale / fact_reference、TurnFinalizer、语义向量召回仍在 `TODO_毛球Agent用户Workspace记忆与首轮上下文组装清单.md` 继续拆分。
+
+- [ ] 接入 Postgres 向量检索增强。
+  - 决策：采用 `pgvector + pgvector-rust/sqlx`，保持 Postgres 单一权威存储；`pgvectorscale` 作为规模化索引增强备选；Qdrant / LanceDB 作为后续独立服务备选。
+  - 交付物：独立 migration 启用 `vector` extension，写入 embedding，按 metadata filter + vector distance 检索。
+  - 验证：未带 scope metadata 的向量检索拒绝执行；跨用户同名宠物不召回；extension 不可用时有可观测诊断。
+
 ## P2：工具循环与失败恢复
 
 - [x] 增加 per-turn 工具循环 guardrail。

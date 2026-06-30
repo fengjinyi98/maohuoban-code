@@ -1,6 +1,6 @@
 # 毛球 Agent 记忆隔离与工具安全目标文档
 
-- 更新时间：2026-06-25
+- 更新时间：2026-06-30
 - Goal：定义毛球 Agent 的记忆系统、领域意图闸门、上下文沙箱、工具鉴权、缓存隔离、越权诱导防护、安全审计、风险评分和分级处置，让毛球只服务宠物照护、宠物记录、食品、健康风险、宠物相关陪伴和 App 帮助场景，并且让所有 Agent 读取、拒绝、写入、成本控制和处置都可追溯、可复核、可回滚。
 - 执行方式：先目标文档后实现；后端按 TDD 小切片推进；iOS 只负责传递当前选中宠物和展示授权失败状态；Agent 调用链必须通过后端 Agent Gateway。
 - 架构修订：`docs/engineering/ai-agent-runtime/02_毛球Agent能力工作台与Rig接入ADR.md` 已将入口 Gate 收敛为硬安全边界；本文中早期“非宠物请求不进入主 Agent”的表达，统一修订为“非私域请求不加载私域宠物事实，公共宠物能力、App 帮助和助手身份仍可进入 AgentSession Workbench”。
@@ -18,7 +18,8 @@
 | 聊天边界 | `chat_messages` 是真实聊天记录，不自动承载后台 hint、task 或候选事实 |
 | 写入边界 | 聊天抽取、Agent 猜测、弱线索都不能直接写强事实；用户确认后才写 `pet_events` 或领域事实表 |
 | 缓存边界 | 任何 Agent 上下文缓存 key 必须包含授权主体、scope、`pet_id` 和上下文版本 |
-| 向量检索边界 | embedding 搜索必须带 metadata filter，禁止裸搜全库记忆 |
+| 记忆存储决策 | 后端记忆以 Postgres 为权威存储，不引入 SQLite；Markdown 只作为调试导出和人工查看视图 |
+| 向量检索边界 | 后续采用 `pgvector + pgvector-rust/sqlx` 增强语义召回；embedding 搜索必须带 metadata filter，禁止裸搜全库记忆 |
 | 自定义毛球 | 毛球名字、语气、回复长度属于 `agent_preferences`，不是宠物事实 |
 | 领域边界 | 毛球是宠物垂直领域 + 用户宠物私域 Agent；非私域请求不加载宠物事实和私有记忆，公共宠物能力、App 帮助和助手身份仍可进入 AgentSession Workbench |
 | 成本控制 | 所有请求先过轻量意图闸门；只有宠物领域意图才读取 `pet_identity_context`、领域读模型和向量记忆 |
@@ -261,18 +262,38 @@ Agent Gateway 收到工具调用申请
 | 字段 | 要求 |
 |---|---|
 | `id` | UUID 主键 |
-| `scope_type` | `user`、`pet`、`household` |
+| `scope_type` | `user`、`pet`、`household`、`session` |
 | `scope_id` | 对应 scope ID |
 | `pet_id` | 宠物级记忆必须填写；用户级偏好可空 |
-| `memory_kind` | `pet_fact`、`user_preference`、`household_setting`、`interaction_summary`、`pending_hypothesis` |
-| `content` | 结构化 jsonb 或摘要文本 |
-| `source_ref_type` / `source_ref_id` | 来源 chat、event、task、hint 等 |
-| `confidence` | `low`、`medium`、`high` |
-| `visibility` | `private`、`guardian_visible`、`household_visible` |
-| `embedding_id` | 向量索引引用，可空 |
+| `household_id` | 家庭级记忆必须填写；其他 scope 可空 |
+| `memory_kind` | `preference`、`profile`、`weak_memory`、`fact_reference`、`summary` |
+| `content` | 原始可审计内容或结构化文本 |
+| `summary` | 模型可见的裁剪摘要 |
+| `source_ref` | 来源 chat、event、task、hint 等 JSON 引用 |
+| `confidence` | `0.0` 到 `1.0` |
+| `status` | `active`、`stale`、`deleted`、`pending_review` |
+| `embedding` / `embedding_ref` | 后续 `pgvector` 切片增加，可空 |
 | `created_at` / `updated_at` / `expires_at` | 生命周期 |
 
 规则：领域强事实优先写领域表和 `pet_events`；通用记忆只存偏好、摘要、低风险补充和待确认假设。
+
+当前落地状态：`0033_agent_memory_postgres.sql` 已定义 Postgres 表结构和 active scope / pet / household 索引；`PostgresMemoryRepository` 已实现 active 记忆按 scope、actor、pet / household 过滤；向量列和 embedding 刷新队列在后续独立切片中实现。
+
+#### `agent_memory_candidates`
+
+| 字段 | 要求 |
+|---|---|
+| `id` | UUID 主键 |
+| `scope_type` / `scope_id` | `user`、`pet`、`household`、`session` 四类作用域 |
+| `actor_user_id` | 创建候选的用户 |
+| `candidate_kind` | `preference_candidate`、`profile_candidate`、`pet_fact_candidate`、`session_summary_candidate`、`risk_signal` |
+| `summary` | 候选摘要 |
+| `source_message_id` | 来源消息，可空 |
+| `confidence` | `0.0` 到 `1.0` |
+| `status` | `pending`、`confirmed`、`rejected`、`expired` |
+| `created_at` / `confirmed_at` | 生命周期 |
+
+当前落地状态：`PostgresMemoryCandidateRepository` 已实现候选插入、pending 查询、状态更新和按 ID 查询；候选升级到偏好、画像、记忆或宠物强事实仍由后续 `TurnFinalizer` / verifier 切片完成。
 
 #### `agent_tool_access_logs`
 
@@ -494,28 +515,32 @@ Prompt 只承担行为约束，安全由工具层执行。
 
 | 步骤 | 内容 |
 |---|---|
-| 1 | 写用户级毛球名字和回复风格 CRUD 测试 |
-| 2 | 写家庭级偏好只对家庭成员可见测试 |
-| 3 | 实现 `agent_preferences` migration、domain、repository、HTTP DTO |
-| 4 | 验证偏好不会写入宠物事实账本 |
+| 1 | 已完成：`0033_agent_memory_postgres.sql` 定义 `agent_preferences` 表结构、scope 约束和唯一索引 |
+| 2 | 待完成：写用户级毛球名字和回复风格 CRUD 测试 |
+| 3 | 待完成：写家庭级偏好只对家庭成员可见测试 |
+| 4 | 待完成：实现 domain、repository、HTTP DTO 和 ContextPack 注入 |
+| 5 | 待完成：验证偏好不会写入宠物事实账本 |
 
 ### Task 3：会话摘要与记忆分区
 
 | 步骤 | 内容 |
 |---|---|
-| 1 | 写 `chat_sessions` 绑定 `actor_user_id` / `primary_pet_id` 测试 |
-| 2 | 写 `chat_session_summaries` 不作为强事实使用的用例测试 |
-| 3 | 实现用户、宠物、家庭 scope 的记忆写入和读取 |
-| 4 | 写跨 scope 读取被拒绝测试 |
+| 1 | 已完成：`chat_sessions` / `ai_messages` 归属和历史读取合同已覆盖 |
+| 2 | 已完成：`chat_session_summaries` 已落 Postgres，并覆盖摘要注入、压缩边界和 retained tail |
+| 3 | 已完成：`agent_memory_items` 基础 active 读取按 user / pet / household / session scope 过滤 |
+| 4 | 已完成：`memory_postgres.rs` 覆盖跨 actor、跨 pet、deleted 状态过滤 |
+| 5 | 待完成：实现记忆写入 / upsert / stale / fact_reference 生命周期 |
 
 ### Task 4：向量检索过滤
 
 | 步骤 | 内容 |
 |---|---|
-| 1 | 写未带 metadata filter 的检索端口测试，断言拒绝执行 |
-| 2 | 写跨用户同名宠物记忆不会召回测试 |
-| 3 | 实现检索前 filter 和返回后二次鉴权 |
-| 4 | 公共知识库和私有记忆使用不同 scope |
+| 1 | 已完成：GitHub 方案评估后选定 `pgvector + pgvector-rust/sqlx`，保持 Postgres 单一权威存储；`pgvectorscale` 作为规模化增强备选 |
+| 2 | 待完成：新增独立 migration 启用 `vector` extension，并为记忆 embedding 建模 |
+| 3 | 待完成：写未带 metadata filter 的检索端口测试，断言拒绝执行 |
+| 4 | 待完成：写跨用户同名宠物记忆不会召回测试 |
+| 5 | 待完成：实现检索前 filter、返回后二次鉴权和 extension 不可用诊断 |
+| 6 | 待完成：公共知识库和私有记忆使用不同 scope |
 
 ### Task 5：缓存隔离
 

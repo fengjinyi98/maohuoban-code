@@ -5,11 +5,15 @@
 //! - 查询会话列表和消息详情
 // MHB_STRUCTURE_EXEMPTION: 既有 AI infrastructure repository 聚合入口。
 
+mod memory;
+mod memory_candidate;
 mod session;
 mod session_event;
 mod session_rows;
 mod session_summary;
 
+pub use memory::PostgresMemoryRepository;
+pub use memory_candidate::PostgresMemoryCandidateRepository;
 pub use session::PostgresAiSessionRepository;
 pub use session_event::PostgresSessionEventRepository;
 pub use session_summary::PostgresSessionSummaryRepository;

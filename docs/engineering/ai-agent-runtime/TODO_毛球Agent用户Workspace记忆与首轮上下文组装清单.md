@@ -1,6 +1,7 @@
 # TODO：毛球 Agent 用户 Workspace 记忆与首轮上下文组装清单
 
 - 创建时间：2026-06-29
+- 最近更新：2026-06-30
 - 文档类型：TODO
 - 关联文档：
   - `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md`
@@ -14,6 +15,7 @@
 | 本文是什么 | 用户个性化、记忆、会话上下文、首轮 ContextPack 组装的待办清单 |
 | 本文不是什么 | 不是目标文档、不是 ADR、不是数据库最终设计 |
 | 核心判断 | 生产记忆以数据库结构化存储为权威，Markdown 只作为调试导出和人工查看视图 |
+| 当前实现状态 | Postgres 已作为记忆权威存储底座；SQLite 路径不进入后端记忆方案；向量检索后续基于 `pgvector + pgvector-rust/sqlx` 接入 |
 
 ## P0：Workspace Scope 与隔离底座
 
@@ -36,26 +38,37 @@
 
 ## P0：数据库记忆对象拆分
 
-- [ ] 定义 `agent_preferences`。
+- [ ] 完成 `agent_preferences` 全链路。
   - 用途：保存用户明确偏好，例如回复长度、语气、称呼、禁忌表达、毛球自定义名称。
-  - 验证：偏好可查看、可修改、可删除，有 `source` 和 `updated_at`。
+  - 当前状态：部分完成。
+  - 已完成证据：`0033_agent_memory_postgres.sql` 已定义 Postgres 表结构、scope 约束和唯一索引。
+  - 剩余切片：补 domain/application repository、Postgres repository、HTTP / 管理入口、偏好注入 ContextPack。
+  - 验证：偏好可查看、可修改、可删除，有 `source_ref` 和 `updated_at`。
 
-- [ ] 定义 `agent_profile_items`。
+- [ ] 完成 `agent_profile_items` 全链路。
   - 用途：保存系统归纳的用户画像，例如记录时间习惯、照护关注点、表达偏好趋势。
+  - 当前状态：部分完成。
+  - 已完成证据：`0033_agent_memory_postgres.sql` 已定义 Postgres 表结构、scope / status / confidence 约束和 active scope 索引。
+  - 剩余切片：补画像候选升级策略、降权 / 过期策略、ContextPack 注入排序和诊断输出。
   - 验证：画像带 `confidence`，只作为辅助上下文，不能覆盖用户明确偏好。
 
-- [ ] 定义 `agent_memory_items`。
+- [x] 定义并接入 `agent_memory_items` 基础检索。
   - 用途：保存跨会话弱记忆和长期线索。
   - 必备字段：`scope_type`、`scope_id`、`pet_id`、`memory_kind`、`content`、`confidence`、`source_ref`、`status`。
   - 验证：检索必须按 scope metadata 过滤。
+  - 完成证据：`0033_agent_memory_postgres.sql` 已定义 Postgres 表结构；`PostgresMemoryRepository` 已实现 `MemoryRepository::find_memories`；`memory_postgres.rs` 覆盖 `scope_type` / `scope_id` / `actor_user_id` / `pet_id` / `status=active` 过滤。
+  - 剩余切片：补写入 / upsert / stale / fact_reference 引用型记忆升级流程。
 
-- [ ] 定义 `agent_memory_candidates`。
+- [x] 定义并接入 `agent_memory_candidates` 候选仓储。
   - 用途：保存从会话、工具结果、用户确认动作中抽取出的候选记忆。
   - 验证：候选通过校验或确认后才能升级为偏好、画像、记忆或宠物事实。
+  - 完成证据：`0033_agent_memory_postgres.sql` 已定义 Postgres 表结构；`PostgresMemoryCandidateRepository` 已实现候选插入、pending 查询、状态更新、按 ID 查询；`memory_postgres.rs` 覆盖 Pending 候选持久化和 Confirmed 流转。
+  - 剩余切片：补 `TurnFinalizer` / `MemoryCandidateExtractor` 生产入口。
 
-- [ ] 定义 `chat_session_summaries`。
+- [x] 定义并接入 `chat_session_summaries`。
   - 用途：保存当前会话摘要、未完成事项、宠物主体、事实引用、确认动作。
   - 验证：继续旧会话时注入摘要，新会话默认不加载旧会话摘要。
+  - 完成证据：`0032_ai_chat_session_summaries.sql`、`PostgresSessionSummaryRepository`、`SessionSummaryCompressor` 已接入；`session_summary.rs` 覆盖摘要生成、注入、压缩边界和 retained tail。
 
 - [ ] 明确宠物强事实存储位置。
   - 交付物：宠物年龄、主粮、症状、用药、异常、健康时间线仍以宠物领域表和 `pet_events` 为权威。
@@ -106,11 +119,40 @@
 - [ ] 新增跨会话记忆检索器。
   - 输入：用户问题、WorkspaceScope、目标 pet、memory_kind。
   - 输出：少量可注入 memory snippets。
+  - 当前状态：部分完成。
+  - 已完成证据：`MemoryRetriever` 与 `PostgresMemoryRepository` 已完成 scope / actor / pet / household 基础过滤。
+  - 剩余切片：补相关性排序、来源引用、置信度投影、按问题语义召回。
   - 验证：检索结果必须带来源、置信度和状态。
 
 - [ ] 新增记忆注入格式。
   - 交付物：`MemoryPack` 明确区分 preference、profile、memory、session_summary、fact_reference。
   - 验证：模型能区分“明确偏好”和“系统推断画像”。
+
+## P1：Postgres 向量检索增强
+
+- [ ] 接入 `pgvector` migration。
+  - 决策：当前项目采用 `pgvector + pgvector-rust/sqlx`，保持 Postgres 为权威存储；后续规模化再评估 `pgvectorscale`。
+  - 不采用：后端记忆不引入 SQLite；当前阶段不引入 Qdrant / LanceDB 作为第二套权威存储。
+  - 交付物：新增独立 migration，启用 `vector` extension，为 `agent_memory_items` 增加 embedding 字段或独立 embedding 表。
+  - 验证：本地 / CI / 部署数据库都能明确检测 extension 可用性；extension 不可用时启动诊断可观测。
+
+- [ ] 接入 Rust `pgvector` 类型。
+  - 交付物：`maohuoban-ai-infrastructure` 增加 `pgvector = { features = ["sqlx"] }` 依赖，repository 可写入 / 读取 embedding。
+  - 验证：contract test 写入固定维度 embedding，按 cosine / L2 查询可返回预期记忆。
+
+- [ ] 实现 metadata-filtered vector search。
+  - 输入：query embedding、`actor_user_id`、`scope_type`、`scope_id`、可选 `pet_id` / `household_id`、`memory_kind`。
+  - 输出：按相似度排序的 `MemoryEntry` / 扩展记忆片段。
+  - 验证：未带 metadata filter 的检索端口拒绝执行；跨用户同名宠物不会召回；返回前做二次 scope 校验。
+
+- [ ] 建立 embedding 生成与刷新队列。
+  - 输入：新增 / 更新 / stale 的偏好、画像、记忆、摘要候选。
+  - 输出：embedding 状态、模型版本、刷新时间、失败原因。
+  - 验证：文本变更后 embedding 失效并重建；embedding 失败不影响结构化事实读取。
+
+- [ ] 增加 hybrid ranking。
+  - 做法：先用 scope filter 缩小候选，再结合 recency、confidence、memory_kind、vector distance 排序。
+  - 验证：明确偏好优先于低置信画像；近期确认记忆优先于旧弱记忆；强宠物事实仍来自工具读模型。
 
 ## P1：自进化流水线
 
@@ -229,4 +271,3 @@
 | `references/agent/hermes-agent/website/docs/developer-guide/memory-provider-plugin.md` | memory provider 生命周期 |
 | `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md` | scope、权限、候选事实、安全审计 |
 | `docs/product/strategy/04_宠物事实采集与毛球Agent记忆系统设计.md` | 宠物事实账本和 Agent 事实工具边界 |
-

@@ -231,3 +231,6 @@ mod replay;
 
 #[path = "ai_contract/history.rs"]
 mod history;
+
+#[path = "ai_contract/memory_postgres.rs"]
+mod memory_postgres;
