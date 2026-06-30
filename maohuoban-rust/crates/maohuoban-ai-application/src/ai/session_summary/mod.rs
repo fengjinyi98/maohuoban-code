@@ -60,12 +60,14 @@ impl SummaryPromptTemplate {
                 LlmMessage {
                     role: LlmRole::System,
                     content: Self::system_prompt().to_owned(),
+                    reasoning_content: None,
                     tool_call_id: None,
                     tool_calls: Vec::new(),
                 },
                 LlmMessage {
                     role: LlmRole::User,
                     content: format!("请压缩以下对话历史：\n\n{history_text}"),
+                    reasoning_content: None,
                     tool_call_id: None,
                     tool_calls: Vec::new(),
                 },

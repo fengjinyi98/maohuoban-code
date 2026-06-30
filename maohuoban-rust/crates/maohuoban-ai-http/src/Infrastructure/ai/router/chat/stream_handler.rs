@@ -17,8 +17,8 @@ use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_domain::ai::{
-    AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision, AiPetDisplaySnapshot,
-    AiStreamEvent,
+    AgentEvent, AgentId, AgentSessionWorkbench, AiFactPackage, AiGateDecision,
+    AiPetDisplaySnapshot, AiStreamEvent,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -67,6 +67,25 @@ pub async fn handle_chat_stream(
     };
 
     let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
+    mhb_temp_backend_log(format!(
+        "tag=AgentFallbackRegression stage=http.request session_id={} user_message_id={} assistant_message_id={} message_len={} selected_pet_present={} body_session_present={} engine_mode={}",
+        context.session_id,
+        context.user_message_id,
+        context.assistant_message_id,
+        req.message.chars().count(),
+        req.selected_pet_id.is_some(),
+        req.chat_session_id.is_some(),
+        state.runtime_engine_mode.as_str(),
+    ));
+    mhb_temp_backend_log(format!(
+        "tag=AgentFallbackRegression stage=http.request_body session_id={} assistant_message_id={} message={:?} surface={:?} selected_pet_id={:?} chat_session_id={:?}",
+        context.session_id,
+        context.assistant_message_id,
+        req.message,
+        req.surface,
+        req.selected_pet_id,
+        req.chat_session_id,
+    ));
     record_stream_request_received(&req, actor_user_id, context.session_id);
     record_stream_gate_decided(
         context.session_id,
@@ -88,6 +107,10 @@ pub async fn handle_chat_stream(
     .await;
 
     if !context.gate_decision.enters_workbench() {
+        mhb_temp_backend_log(format!(
+            "tag=AgentFallbackRegression stage=http.gated session_id={} assistant_message_id={} decision={:?}",
+            context.session_id, context.assistant_message_id, context.gate_decision
+        ));
         return gated_stream_response(
             state.session_repository.clone(),
             context.session_id,
@@ -102,6 +125,10 @@ pub async fn handle_chat_stream(
         .as_ref()
         .filter(|resolution| !resolution.is_resolved())
     {
+        mhb_temp_backend_log(format!(
+            "tag=AgentFallbackRegression stage=http.pet_resolution session_id={} assistant_message_id={} resolved=false",
+            context.session_id, context.assistant_message_id
+        ));
         return pet_resolution_stream_response(
             state.session_repository.clone(),
             context.session_id,
@@ -183,6 +210,13 @@ async fn provider_response_for_context(
         input.user_message_id,
     )
     .await;
+    mhb_temp_backend_log(format!(
+        "tag=AgentFallbackRegression stage=http.history_loaded session_id={} assistant_message_id={} recent_entries={} summary_present={}",
+        input.session_id,
+        input.message_id,
+        recent_conversation.entries.len(),
+        session_summary.is_some(),
+    ));
 
     let workbench = build_agent_session_workbench(
         req.surface,
@@ -244,6 +278,15 @@ fn runtime_provider_stream(
         None => ToolRegistry::new(),
     });
     let tool_count = registry.list_definitions().len();
+    mhb_temp_backend_log(format!(
+        "tag=AgentFallbackRegression stage=runtime.prepare session_id={} assistant_message_id={} engine_mode={} target_pet_present={} tool_count={} fact_package_present={}",
+        input.session_id,
+        input.message_id,
+        state.runtime_engine_mode.as_str(),
+        input.target_pet.is_some(),
+        tool_count,
+        input.fact_package.is_some(),
+    ));
     record_chat_runtime_engine_selected(
         input.session_id,
         input.message_id,
@@ -314,11 +357,28 @@ fn runtime_provider_stream(
         while let Some(result) = agent_stream.next().await {
             match result {
                 Ok(agent_event) => {
-                    for event in projector.project(agent_event) {
+                    let agent_event_summary = temp_agent_event_summary(&agent_event);
+                    let projected_events = projector.project(agent_event);
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=runtime.agent_event session_id={} assistant_message_id={} agent_event={} projected_count={}",
+                        chat_session_id,
+                        message_id,
+                        agent_event_summary,
+                        projected_events.len(),
+                    ));
+                    for event in projected_events {
                         yield Ok(event);
                     }
                 }
                 Err(error) => {
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=runtime.error session_id={} assistant_message_id={} code={} retryable={} message={}",
+                        chat_session_id,
+                        message_id,
+                        error.stable_code(),
+                        error.is_retryable(),
+                        temp_sanitize_error(&error.to_string()),
+                    ));
                     yield Ok(ai_error_to_sse_event(&error));
                     break;
                 }
@@ -402,16 +462,35 @@ pub(super) async fn load_fact_context_and_initial_events(
     initial_events.extend(food_inventory_hint_events);
     initial_events.extend(diet_confirmation_candidate_events);
 
-    (
+    let merged = merge_fact_packages(
+        merge_fact_packages(identity_fact_package, diet_fact_package),
         merge_fact_packages(
-            merge_fact_packages(identity_fact_package, diet_fact_package),
-            merge_fact_packages(
-                food_inventory_hint_package,
-                diet_confirmation_candidate_package,
-            ),
+            food_inventory_hint_package,
+            diet_confirmation_candidate_package,
         ),
-        initial_events,
-    )
+    );
+    let fact_summary = merged
+        .as_ref()
+        .map(|package| {
+            format!(
+                "facts={} computed={} weak_hints={} missing={} citations={}",
+                package.facts.len(),
+                package.computed.len(),
+                package.weak_hints.len(),
+                package.missing_info.len(),
+                package.citations.len(),
+            )
+        })
+        .unwrap_or_else(|| "none".to_owned());
+    mhb_temp_backend_log(format!(
+        "tag=AgentFallbackRegression stage=http.fact_context session_id={} target_pet_present={} initial_events={} fact_summary={}",
+        session_id,
+        target_pet.is_some(),
+        initial_events.len(),
+        fact_summary,
+    ));
+
+    (merged, initial_events)
 }
 
 /// provider_stream_response 构建 Provider 流式响应
@@ -444,6 +523,12 @@ where
                 },
             };
             let event = normalize_stream_completion_event(session_id, message_id, event);
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=sse.emit session_id={} assistant_message_id={} event={}",
+                session_id,
+                message_id,
+                temp_sse_event_summary(&event),
+            ));
 
             if let AiStreamEvent::Error {
                 code,
@@ -520,8 +605,8 @@ where
 /// - 拦截模型空白完成，避免空白 assistant 入库
 /// - 将空白完成转换成用户可见错误事件
 fn normalize_stream_completion_event(
-    _session_id: Uuid,
-    _message_id: Uuid,
+    session_id: Uuid,
+    message_id: Uuid,
     event: AiStreamEvent,
 ) -> AiStreamEvent {
     let (AiStreamEvent::MessageCompleted { final_text, .. }
@@ -531,6 +616,12 @@ fn normalize_stream_completion_event(
     };
 
     if final_text.trim().is_empty() {
+        mhb_temp_backend_log(format!(
+            "tag=AgentFallbackRegression stage=sse.normalize_empty_completion session_id={} assistant_message_id={} event={}",
+            session_id,
+            message_id,
+            temp_sse_event_summary(&event),
+        ));
         return AiStreamEvent::Error {
             code: "ai.provider.invalid_response".to_owned(),
             message: EMPTY_MODEL_OUTPUT_FALLBACK_TEXT.to_owned(),
@@ -614,4 +705,151 @@ async fn load_history_and_summary(
     };
 
     (pack, summary_text)
+}
+
+// MHB_TEMP_BACKEND_LOG: AgentFallbackRegression 临时后端日志，确认修复后删除。
+fn mhb_temp_backend_log(line: impl AsRef<str>) {
+    use std::io::Write;
+
+    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
+        .unwrap_or_else(|_| "work/debug/AgentFallbackRegression.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(file, "{}", line.as_ref());
+    }
+}
+
+fn temp_agent_event_summary(event: &AgentEvent) -> String {
+    match event {
+        AgentEvent::TurnStarted { .. } => "turn_started".to_owned(),
+        AgentEvent::PolicyChecked { decision, .. } => format!("policy_checked decision={decision}"),
+        AgentEvent::ModelCallStarted { tool_count, .. } => {
+            format!("model_call_started tool_count={tool_count}")
+        }
+        AgentEvent::ModelCallFinished {
+            finish_reason,
+            usage,
+            ..
+        } => format!(
+            "model_call_finished finish_reason={finish_reason:?} input_tokens={} output_tokens={}",
+            usage.input_tokens, usage.output_tokens
+        ),
+        AgentEvent::ToolStarted { tool_name, .. } => {
+            format!("tool_started name={tool_name}")
+        }
+        AgentEvent::ToolFinished {
+            status,
+            citation_count,
+            ..
+        } => format!("tool_finished status={status:?} citation_count={citation_count}"),
+        AgentEvent::MessageDelta { text, .. } => {
+            format!("message_delta chars={}", text.chars().count())
+        }
+        AgentEvent::NeedsConfirmation { .. } => "needs_confirmation".to_owned(),
+        AgentEvent::NeedsClarification { .. } => "needs_clarification".to_owned(),
+        AgentEvent::ProviderError {
+            category,
+            retryable,
+            ..
+        } => format!("provider_error category={category:?} retryable={retryable}"),
+        AgentEvent::TurnFailed {
+            error_code,
+            retryable,
+            ..
+        } => format!("turn_failed code={error_code} retryable={retryable}"),
+        AgentEvent::TurnFinished {
+            final_text, status, ..
+        } => format!(
+            "turn_finished status={status:?} final_chars={} final_trimmed_empty={}",
+            final_text.chars().count(),
+            final_text.trim().is_empty()
+        ),
+    }
+}
+
+fn temp_sse_event_summary(event: &AiStreamEvent) -> String {
+    match event {
+        AiStreamEvent::MessageStarted {
+            chat_session_id,
+            message_id,
+            target_pet,
+            ..
+        } => format!(
+            "message_started chat_session_id={chat_session_id} message_id={message_id} target_pet_present={}",
+            target_pet.is_some()
+        ),
+        AiStreamEvent::PetResolution { .. } => "pet_resolution".to_owned(),
+        AiStreamEvent::ToolCall {
+            tool_name,
+            status,
+            citation_count,
+        } => {
+            format!("tool_call name={tool_name} status={status:?} citation_count={citation_count}")
+        }
+        AiStreamEvent::AgentActivity {
+            status,
+            display_text,
+        } => format!(
+            "agent_activity status={status:?} display_chars={}",
+            display_text.chars().count()
+        ),
+        AiStreamEvent::ExecutionTraceStarted { display_text } => format!(
+            "execution_trace_started display_chars={}",
+            display_text.chars().count()
+        ),
+        AiStreamEvent::ExecutionTraceCompleted {
+            status,
+            citation_count,
+            ..
+        } => format!("execution_trace_completed status={status:?} citation_count={citation_count}"),
+        AiStreamEvent::Delta { text } | AiStreamEvent::AnswerDelta { text } => {
+            format!(
+                "answer_delta chars={} trimmed_empty={}",
+                text.chars().count(),
+                text.trim().is_empty()
+            )
+        }
+        AiStreamEvent::Citation { .. } => "citation".to_owned(),
+        AiStreamEvent::ProposedAction { .. } => "proposed_action".to_owned(),
+        AiStreamEvent::ConfirmationTask { .. } => "confirmation_task".to_owned(),
+        AiStreamEvent::MessageCompleted {
+            final_text,
+            finish_reason,
+            ..
+        }
+        | AiStreamEvent::AnswerCompleted {
+            final_text,
+            finish_reason,
+            ..
+        } => format!(
+            "answer_completed final_chars={} final_trimmed_empty={} finish_reason={finish_reason:?}",
+            final_text.chars().count(),
+            final_text.trim().is_empty()
+        ),
+        AiStreamEvent::Error {
+            code,
+            retryable,
+            safe_fallback_text,
+            ..
+        } => format!(
+            "error code={code} retryable={retryable} safe_fallback_present={}",
+            safe_fallback_text
+                .as_ref()
+                .is_some_and(|text| !text.trim().is_empty())
+        ),
+    }
+}
+
+fn temp_sanitize_error(message: &str) -> String {
+    message
+        .chars()
+        .take(160)
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect()
 }

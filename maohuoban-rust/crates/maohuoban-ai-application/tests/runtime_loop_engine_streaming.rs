@@ -431,6 +431,7 @@ fn tool_response() -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -458,6 +459,7 @@ fn final_response() -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: "毛球当前状态正常".to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },

@@ -51,6 +51,7 @@ mod tests {
             messages: vec![LlmMessage {
                 role: LlmRole::User,
                 content: "毛球今天怎么样".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             }],

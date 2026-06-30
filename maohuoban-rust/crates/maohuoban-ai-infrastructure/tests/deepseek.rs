@@ -17,6 +17,7 @@ fn sample_request() -> LlmChatRequest {
         messages: vec![LlmMessage {
             role: LlmRole::User,
             content: "请用 json 回答毛球今天怎么样".to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
@@ -97,7 +98,8 @@ async fn deepseek_provider_streams_openai_compatible_tool_calls_without_json_out
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
-                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_deepseek_1\",\"type\":\"function\",\"function\":{\"name\":\"load_pet_identity_context\",\"arguments\":\"\"}}]}}]}\n\n\
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"需要先读取宠物档案\"}}]}\n\n\
+                 data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_deepseek_1\",\"type\":\"function\",\"function\":{\"name\":\"load_pet_identity_context\",\"arguments\":\"\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"pet_id\\\":\\\"11111111-1111-1111-1111-111111111111\\\"}\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":5,\"total_tokens\":17}}\n\n\
                  data: [DONE]\n\n",
@@ -121,6 +123,10 @@ async fn deepseek_provider_streams_openai_compatible_tool_calls_without_json_out
         Ok(LlmStreamEvent::ToolCall { tool_call }) => Some(tool_call),
         _ => None,
     });
+    let reasoning = events.iter().find_map(|event| match event {
+        Ok(LlmStreamEvent::ReasoningDelta { content }) => Some(content.as_str()),
+        _ => None,
+    });
     let finish = events.iter().find_map(|event| match event {
         Ok(LlmStreamEvent::Finish {
             finish_reason,
@@ -130,6 +136,7 @@ async fn deepseek_provider_streams_openai_compatible_tool_calls_without_json_out
     });
 
     let tool_call = tool_call.expect("deepseek stream should produce tool call");
+    assert_eq!(reasoning, Some("需要先读取宠物档案"));
     assert_eq!(tool_call.id, "call_deepseek_1");
     assert_eq!(tool_call.name, "load_pet_identity_context");
     assert_eq!(

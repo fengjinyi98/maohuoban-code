@@ -468,11 +468,29 @@ async fn rig_poc_prefetches_private_fact_tool_before_model() {
 
     let requests = observed_provider.requests();
     assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .all(|message| message.role != LlmRole::Tool),
+        "prefetched evidence must not be sent as OpenAI tool-role history"
+    );
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .all(|message| message.tool_calls.is_empty()),
+        "prefetched evidence must not be sent as assistant tool_calls"
+    );
     let tool_message = requests[0]
         .messages
         .iter()
-        .find(|message| message.role == LlmRole::Tool)
-        .expect("prefetched tool result should be injected before rig model call");
+        .find(|message| {
+            message.role == LlmRole::System && message.content.contains("prefetched_tool_context")
+        })
+        .expect(
+            "prefetched tool result should be injected as system context before rig model call",
+        );
     assert!(
         tool_message.content.contains("梅录") && tool_message.content.contains("420"),
         "rig prefetch tool result should contain identity facts, got: {}",

@@ -32,6 +32,7 @@ fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatRespon
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -280,6 +281,7 @@ fn final_response() -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: "毛球当前状态正常".to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -311,6 +313,7 @@ fn json_final_response() -> LlmChatResponse {
                 "safety_notes": []
             })
             .to_string(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -479,11 +482,27 @@ async fn private_identity_question_prefetches_fact_tool_before_model() {
         1,
         "prefetch should call provider once after tool evidence is available"
     );
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .all(|message| message.role != LlmRole::Tool),
+        "prefetched evidence must not be sent as OpenAI tool-role history"
+    );
+    assert!(
+        requests[0]
+            .messages
+            .iter()
+            .all(|message| message.tool_calls.is_empty()),
+        "prefetched evidence must not be sent as assistant tool_calls"
+    );
     let tool_message = requests[0]
         .messages
         .iter()
-        .find(|msg| msg.role == LlmRole::Tool)
-        .expect("model request should include prefetched tool result");
+        .find(|message| {
+            message.role == LlmRole::System && message.content.contains("prefetched_tool_context")
+        })
+        .expect("model request should include prefetched tool result as system context");
     assert!(
         tool_message.content.contains("梅录"),
         "prefetched tool result should include identity facts, got: {}",
@@ -584,6 +603,7 @@ async fn agent_runtime_reports_confirmation_requests() {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -927,6 +947,7 @@ fn multi_tool_call_response(tool_name: &str, count: usize) -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },

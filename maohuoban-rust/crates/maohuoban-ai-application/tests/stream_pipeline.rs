@@ -42,6 +42,7 @@ fn dummy_request() -> LlmChatRequest {
         messages: vec![LlmMessage {
             role: LlmRole::User,
             content: "test".to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
@@ -61,6 +62,7 @@ async fn stream_pipeline_emits_stable_events() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: "你好，毛球很好".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -170,6 +172,7 @@ async fn stream_pipeline_preserves_event_order() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: "AB".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -229,6 +232,7 @@ async fn stream_pipeline_uses_answer_text_from_json_output() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: json_output.clone(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -302,6 +306,7 @@ async fn stream_pipeline_filters_citations_to_facts_used_in_answer() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: "目前记录中没有疫苗接种信息。".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -373,6 +378,7 @@ async fn stream_pipeline_keeps_citation_when_answer_uses_fact_value() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: "最近一次喂食记录显示为未知食品。".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -441,6 +447,7 @@ async fn complete_with_context_uses_answer_text_from_json_output() {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: json_output,
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },

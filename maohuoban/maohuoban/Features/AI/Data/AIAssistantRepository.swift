@@ -51,6 +51,9 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
+                    mhbTempFrontendLog(
+                        "stage=repo.stream.start message_len=\(message.count) selected_pet_present=\(selectedPetID != nil) chat_session_present=\(chatSessionID != nil) surface=\(surface)"
+                    )
                     await AIAssistantDiagnostics.recordStreamRequestStarted(
                         surface: surface,
                         selectedPetID: selectedPetID,
@@ -65,11 +68,18 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                     let (bytes, response) = try await session.bytes(for: request)
 
                     guard let httpResponse = response as? HTTPURLResponse else {
+                        mhbTempFrontendLog("stage=repo.stream.invalid_response")
                         continuation.finish(throwing: MHBAPIError.invalidResponse)
                         return
                     }
+                    mhbTempFrontendLog(
+                        "stage=repo.stream.opened status=\(httpResponse.statusCode)"
+                    )
                     await AIAssistantDiagnostics.recordStreamResponseOpened(statusCode: httpResponse.statusCode)
                     guard httpResponse.statusCode == 200 else {
+                        mhbTempFrontendLog(
+                            "stage=repo.stream.non_200 status=\(httpResponse.statusCode)"
+                        )
                         continuation.finish(throwing: MHBAPIError.business(
                             code: "ai.stream_failed",
                             message: "流式连接失败",
@@ -88,6 +98,9 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                                 eventName: parsedEvent.eventName,
                                 event: parsedEvent.event
                             )
+                            mhbTempFrontendLog(
+                                "stage=repo.sse.event event_name=\(parsedEvent.eventName) decoded=\(parsedEvent.event != nil) data_len=\(parsedEvent.data.count) summary=\(parsedEvent.event?.mhbTempSummary ?? "nil")"
+                            )
                             if let event = parsedEvent.event {
                                 continuation.yield(event)
                             }
@@ -99,13 +112,20 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                             eventName: parsedEvent.eventName,
                             event: parsedEvent.event
                         )
+                        mhbTempFrontendLog(
+                            "stage=repo.sse.finish_event event_name=\(parsedEvent.eventName) decoded=\(parsedEvent.event != nil) data_len=\(parsedEvent.data.count) summary=\(parsedEvent.event?.mhbTempSummary ?? "nil")"
+                        )
                         if let event = parsedEvent.event {
                             continuation.yield(event)
                         }
                     }
 
+                    mhbTempFrontendLog("stage=repo.stream.finish")
                     continuation.finish()
                 } catch {
+                    mhbTempFrontendLog(
+                        "stage=repo.stream.catch error_type=\(String(describing: type(of: error)))"
+                    )
                     continuation.finish(throwing: error)
                 }
             }
@@ -206,10 +226,42 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         )
         do {
             request.httpBody = try JSONEncoder().encode(body)
+            let bodyText = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? "<invalid-utf8>"
+            mhbTempFrontendLog(
+                "stage=repo.request.body url=\(url.absoluteString) body=\(bodyText)"
+            )
         } catch {
             throw .decoding(error.localizedDescription)
         }
         return request
+    }
+}
+
+// MHB_TEMP_FRONTEND_LOG: AgentFallbackRegression 临时前端日志，确认修复后删除。
+private func mhbTempFrontendLog(_ message: String) {
+    print("[DEBUG:AgentFallbackRegression] \(message)")
+}
+
+extension AIStreamEventDTO {
+    var mhbTempSummary: String {
+        switch self {
+        case .messageStarted(let chatSessionID, let messageID, let title):
+            return "message_started chat_session_id=\(chatSessionID) message_id=\(messageID) title_len=\(title.count)"
+        case .agentActivity(_, let status):
+            return "agent_activity status=\(status)"
+        case .confirmationTask:
+            return "confirmation_task"
+        case .delta(let text):
+            return "delta chars=\(text.count) trimmed_empty=\(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)"
+        case .citation(let label):
+            return "citation label_len=\(label.count)"
+        case .messageCompleted(let messageID, let finalText, let referenceChips):
+            return "message_completed message_id=\(messageID) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(referenceChips.count)"
+        case .proposedAction:
+            return "proposed_action"
+        case .error(let code, _, let retryable, let safeFallbackText):
+            return "error code=\(code) retryable=\(retryable) safe_present=\(safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)"
+        }
     }
 }
 

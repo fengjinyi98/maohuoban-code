@@ -136,6 +136,7 @@ fn final_text_response(text: &str) -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: text.to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -153,6 +154,7 @@ fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatRespon
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -174,6 +176,7 @@ fn json_response(answer_text: &str) -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content,
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -191,6 +194,7 @@ fn think_response(inner: &str, visible: &str) -> LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content,
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },
@@ -782,6 +786,7 @@ async fn case_repeated_tool_failure_guardrail() {
         message: LlmMessage {
             role: LlmRole::Assistant,
             content: String::new(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         },

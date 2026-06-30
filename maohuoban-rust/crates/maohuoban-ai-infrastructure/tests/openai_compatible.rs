@@ -76,12 +76,14 @@ fn sample_request() -> LlmChatRequest {
             LlmMessage {
                 role: LlmRole::System,
                 content: "你是毛球助手".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
             LlmMessage {
                 role: LlmRole::User,
                 content: "毛球怎么样了".to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -230,6 +232,7 @@ async fn non_stream_request_serializes_assistant_tool_calls_for_followup() {
             .body_contains("\"type\":\"function\"")
             .body_contains("\"function\"")
             .body_contains("\"name\":\"load_pet_identity_context\"")
+            .body_contains("\"reasoning_content\":\"需要先读档案\"")
             .body_contains(
                 "\"arguments\":\"{\\\"pet_id\\\":\\\"11111111-1111-1111-1111-111111111111\\\"}\"",
             )
@@ -269,6 +272,7 @@ async fn non_stream_request_serializes_assistant_tool_calls_for_followup() {
     request.messages.push(LlmMessage {
         role: LlmRole::Assistant,
         content: String::new(),
+        reasoning_content: Some("需要先读档案".to_owned()),
         tool_call_id: None,
         tool_calls: vec![LlmToolCall {
             id: "call_1".to_owned(),
@@ -282,6 +286,7 @@ async fn non_stream_request_serializes_assistant_tool_calls_for_followup() {
     request.messages.push(LlmMessage {
         role: LlmRole::Tool,
         content: "{\"facts\":[]}".to_owned(),
+        reasoning_content: None,
         tool_call_id: Some("call_1".to_owned()),
         tool_calls: Vec::new(),
     });

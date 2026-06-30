@@ -5,6 +5,7 @@
 //! - 密钥只在 Bearer header 中使用，不进入日志
 
 use std::future::Future;
+use std::io::Write;
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -100,6 +101,9 @@ impl OpenAiCompatibleLlmProvider {
                 });
                 if let Some(id) = &m.tool_call_id {
                     msg["tool_call_id"] = serde_json::Value::String(id.clone());
+                }
+                if let Some(reasoning_content) = &m.reasoning_content {
+                    msg["reasoning_content"] = serde_json::Value::String(reasoning_content.clone());
                 }
                 if !m.tool_calls.is_empty() {
                     msg["tool_calls"] = serde_json::Value::Array(
@@ -262,6 +266,11 @@ impl OpenAiCompatibleLlmProvider {
             .and_then(|c| c.as_str())
             .unwrap_or("")
             .to_owned();
+        let reasoning_content = message
+            .get("reasoning_content")
+            .and_then(|c| c.as_str())
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
 
         let finish_reason_str = choice
             .get("finish_reason")
@@ -333,6 +342,7 @@ impl OpenAiCompatibleLlmProvider {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content,
+                reasoning_content,
                 tool_call_id: None,
                 tool_calls: tool_calls.clone(),
             },
@@ -356,6 +366,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             let model = self.resolve_request_model(request)?;
             let body = Self::build_body(request, &model);
             self.record_request_prepared("complete", request, &body, &model);
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=provider.request mode=complete url={} model={} base_url={} api_key_present={} api_key_len={} body={}",
+                url,
+                model,
+                self.config.base_url,
+                !self.config.api_key.is_empty(),
+                self.config.api_key.chars().count(),
+                temp_json_line(&body),
+            ));
 
             let response = self
                 .client
@@ -364,14 +383,36 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|error| Self::map_request_error(&error))?;
+                .map_err(|error| {
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=provider.send_error mode=complete url={} error={:?}",
+                        url, error
+                    ));
+                    Self::map_request_error(&error)
+                })?;
 
             let status = response.status().as_u16();
             Self::record_http_response_started("complete", request, status, response.headers());
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=provider.http_response mode=complete url={} status={} headers={}",
+                url,
+                status,
+                temp_header_summary(response.headers()),
+            ));
             let text = response
                 .text()
                 .await
-                .map_err(|error| Self::map_request_error(&error))?;
+                .map_err(|error| {
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=provider.read_body_error mode=complete url={} status={} error={:?}",
+                        url, status, error
+                    ));
+                    Self::map_request_error(&error)
+                })?;
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=provider.response_body mode=complete status={} body={:?}",
+                status, text
+            ));
 
             if status >= 400 {
                 return Err(Self::map_status_error(status, &text));
@@ -395,6 +436,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         let mut body = Self::build_body(request, &model);
         body["stream"] = serde_json::Value::Bool(true);
         self.record_request_prepared("stream", request, &body, &model);
+        mhb_temp_backend_log(format!(
+            "tag=AgentFallbackRegression stage=provider.request mode=stream url={} model={} base_url={} api_key_present={} api_key_len={} body={}",
+            url,
+            model,
+            self.config.base_url,
+            !self.config.api_key.is_empty(),
+            self.config.api_key.chars().count(),
+            temp_json_line(&body),
+        ));
 
         let client = self.client.clone();
 
@@ -408,6 +458,10 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             {
                 Ok(r) => r,
                 Err(e) => {
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=provider.send_error mode=stream url={} error={:?}",
+                        url, e
+                    ));
                     yield Err(Self::map_request_error(&e));
                     return;
                 }
@@ -415,8 +469,18 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
 
             let status = response.status().as_u16();
             Self::record_http_response_started("stream", request, status, response.headers());
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=provider.http_response mode=stream url={} status={} headers={}",
+                url,
+                status,
+                temp_header_summary(response.headers()),
+            ));
             if status >= 400 {
                 let text = response.text().await.unwrap_or_default();
+                mhb_temp_backend_log(format!(
+                    "tag=AgentFallbackRegression stage=provider.response_body mode=stream status={} body={:?}",
+                    status, text
+                ));
                 yield Err(Self::map_status_error(status, &text));
                 return;
             }
@@ -431,6 +495,12 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                     Ok(bytes) => {
                         stream_stats.chunk_count = stream_stats.chunk_count.saturating_add(1);
                         let chunk = String::from_utf8_lossy(&bytes);
+                        mhb_temp_backend_log(format!(
+                            "tag=AgentFallbackRegression stage=provider.stream_chunk mode=stream index={} bytes={} text={:?}",
+                            stream_stats.chunk_count,
+                            bytes.len(),
+                            chunk
+                        ));
                         if chunk.contains("[DONE]") {
                             stream_stats.stream_completed = true;
                         }
@@ -438,9 +508,18 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                             match event {
                                 Ok(e) => {
                                     stream_stats.observe_event(&e);
+                                    mhb_temp_backend_log(format!(
+                                        "tag=AgentFallbackRegression stage=provider.stream_event mode=stream event={}",
+                                        temp_llm_stream_event_summary(&e)
+                                    ));
                                     yield Ok(e);
                                 }
                                 Err(e) => {
+                                    mhb_temp_backend_log(format!(
+                                        "tag=AgentFallbackRegression stage=provider.decode_error mode=stream error={:?} decoder_idle={}",
+                                        e,
+                                        decoder.is_idle()
+                                    ));
                                     OpenAiProviderDiagnostics::record_stream_decode_error(
                                         request,
                                         &e,
@@ -454,6 +533,10 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                         }
                     }
                     Err(e) => {
+                        mhb_temp_backend_log(format!(
+                            "tag=AgentFallbackRegression stage=provider.stream_read_error mode=stream error={:?}",
+                            e
+                        ));
                         yield Err(Self::provider_error(
                             ProviderErrorCategory::StreamInterrupted,
                             e.to_string(),
@@ -465,6 +548,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
 
             let decoder_idle = decoder.is_idle();
             if !decoder_idle || !stream_stats.stream_completed {
+                mhb_temp_backend_log(format!(
+                    "tag=AgentFallbackRegression stage=provider.stream_incomplete mode=stream decoder_idle={} completed={} chunk_count={} delta_count={} tool_call_count={} finish_count={}",
+                    decoder_idle,
+                    stream_stats.stream_completed,
+                    stream_stats.chunk_count,
+                    stream_stats.delta_count,
+                    stream_stats.tool_call_count,
+                    stream_stats.finish_count,
+                ));
                 OpenAiProviderDiagnostics::record_stream_incomplete(
                     request,
                     stream_stats,
@@ -475,6 +567,14 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                     "stream ended before completion marker",
                 ));
             } else {
+                mhb_temp_backend_log(format!(
+                    "tag=AgentFallbackRegression stage=provider.stream_completed mode=stream decoder_idle={} chunk_count={} delta_count={} tool_call_count={} finish_count={}",
+                    decoder_idle,
+                    stream_stats.chunk_count,
+                    stream_stats.delta_count,
+                    stream_stats.tool_call_count,
+                    stream_stats.finish_count,
+                ));
                 OpenAiProviderDiagnostics::record_stream_completed(
                     request,
                     stream_stats,
@@ -483,6 +583,67 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             }
         }
         .boxed()
+    }
+}
+
+// MHB_TEMP_BACKEND_LOG: AgentFallbackRegression 临时 Provider 链路日志，确认修复后删除。
+fn mhb_temp_backend_log(line: impl AsRef<str>) {
+    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
+        .unwrap_or_else(|_| "work/debug/AgentFallbackRegression.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(file, "{}", line.as_ref());
+    }
+}
+
+fn temp_json_line(value: &serde_json::Value) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "<json-encode-failed>".to_owned())
+}
+
+fn temp_header_summary(headers: &HeaderMap) -> String {
+    headers
+        .iter()
+        .filter_map(|(name, value)| {
+            let name = name.as_str();
+            if name.eq_ignore_ascii_case("authorization") || name.eq_ignore_ascii_case("cookie") {
+                return None;
+            }
+            Some(format!(
+                "{}={:?}",
+                name,
+                value.to_str().unwrap_or("<non-utf8>")
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn temp_llm_stream_event_summary(event: &LlmStreamEvent) -> String {
+    match event {
+        LlmStreamEvent::Delta { content } => {
+            format!("delta chars={} text={content:?}", content.chars().count())
+        }
+        LlmStreamEvent::ReasoningDelta { content } => {
+            format!("reasoning_delta chars={} text={content:?}", content.chars().count())
+        }
+        LlmStreamEvent::ToolCall { tool_call } => format!(
+            "tool_call id={:?} name={} args={:?}",
+            tool_call.id, tool_call.name, tool_call.arguments
+        ),
+        LlmStreamEvent::Finish {
+            finish_reason,
+            usage,
+        } => format!(
+            "finish reason={finish_reason:?} input_tokens={} output_tokens={} total_tokens={}",
+            usage.input_tokens, usage.output_tokens, usage.total_tokens
+        ),
+        LlmStreamEvent::Error { message } => format!("error message={message:?}"),
     }
 }
 

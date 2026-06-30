@@ -49,16 +49,23 @@ enum RuntimePhase {
         stream: BoxStream<'static, AiResult<LlmStreamEvent>>,
         purpose: StreamingModelPurpose,
         accumulated_text: String,
+        accumulated_reasoning_content: String,
         tool_calls: Vec<LlmToolCall>,
         usage: LlmUsage,
         finish_reason: LlmFinishReason,
         tool_count: u32,
     },
     ToolExecution {
+        assistant_reasoning_content: Option<String>,
+        assistant_tool_calls: Vec<LlmToolCall>,
+        tool_calls: Vec<LlmToolCall>,
+    },
+    EvidenceToolExecution {
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_calls: Vec<LlmToolCall>,
     },
     FollowupModel {
+        assistant_reasoning_content: Option<String>,
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_results: Vec<LoopToolResult>,
     },
@@ -97,6 +104,7 @@ impl AgentRuntimeLoopEngine {
     fn build_messages(
         &self,
         state: &AgentSessionState,
+        assistant_reasoning_content: Option<&str>,
         assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
         visible_tools: &[maohuoban_ai_domain::ai::LlmToolSchema],
@@ -113,6 +121,7 @@ impl AgentRuntimeLoopEngine {
             pre_user_messages.push(LlmMessage {
                 role: LlmRole::System,
                 content: workbench_context_prompt(workbench, visible_tools),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -130,13 +139,18 @@ impl AgentRuntimeLoopEngine {
             messages.push(LlmMessage {
                 role: LlmRole::Assistant,
                 content: String::new(),
+                reasoning_content: assistant_reasoning_content.map(str::to_owned),
                 tool_call_id: None,
                 tool_calls: assistant_tool_calls.to_vec(),
             });
+        } else if !tool_results.is_empty() {
+            messages.push(prefetched_tool_context_message(tool_results));
         }
 
-        for tool_result in tool_results {
-            messages.push(tool_result_to_message(tool_result));
+        if !assistant_tool_calls.is_empty() {
+            for tool_result in tool_results {
+                messages.push(tool_result_to_message(tool_result));
+            }
         }
 
         messages
@@ -145,6 +159,7 @@ impl AgentRuntimeLoopEngine {
     fn build_request(
         &self,
         state: &AgentSessionState,
+        assistant_reasoning_content: Option<&str>,
         assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
     ) -> LlmChatRequest {
@@ -158,7 +173,13 @@ impl AgentRuntimeLoopEngine {
             is_followup_answer,
             tools.is_empty(),
         );
-        let messages = self.build_messages(state, assistant_tool_calls, tool_results, &tools);
+        let messages = self.build_messages(
+            state,
+            assistant_reasoning_content,
+            assistant_tool_calls,
+            tool_results,
+            &tools,
+        );
 
         LlmChatRequest {
             model: "primary".to_owned(),
@@ -194,14 +215,14 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     };
                     if !evidence_tool_calls.is_empty() {
                         self.evidence_prefetched_turn_id = state.current_turn_id;
-                        self.phase = RuntimePhase::ToolExecution {
+                        self.phase = RuntimePhase::EvidenceToolExecution {
                             assistant_tool_calls: evidence_tool_calls.clone(),
                             tool_calls: evidence_tool_calls,
                         };
                         continue;
                     }
 
-                    let mut request = self.build_request(state, &[], &[]);
+                    let mut request = self.build_request(state, None, &[], &[]);
                     request.stream = true;
                     let tool_count = request_tool_count(&request);
                     AgentRuntimeDiagnostics::record_model_request_prepared(
@@ -209,10 +230,18 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "initial",
                         &request,
                     );
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=self_hosted.model_request session_id={} purpose=initial messages={} tools={} response_format_present={} stream=true",
+                        state.chat_session_id,
+                        request.messages.len(),
+                        request.tools.len(),
+                        request.response_format.is_some(),
+                    ));
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Initial,
                         accumulated_text: String::new(),
+                        accumulated_reasoning_content: String::new(),
                         tool_calls: Vec::new(),
                         usage: LlmUsage::default(),
                         finish_reason: LlmFinishReason::Stop,
@@ -223,6 +252,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     mut stream,
                     purpose,
                     mut accumulated_text,
+                    mut accumulated_reasoning_content,
                     mut tool_calls,
                     mut usage,
                     mut finish_reason,
@@ -238,6 +268,14 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     tool_count,
                                     &error,
                                 );
+                                mhb_temp_backend_log(format!(
+                                    "tag=AgentFallbackRegression stage=self_hosted.provider_error session_id={} purpose={} code={} retryable={} message={}",
+                                    state.chat_session_id,
+                                    streaming_model_purpose_code(&purpose),
+                                    error.stable_code(),
+                                    error.is_retryable(),
+                                    temp_sanitize_error(&error.to_string()),
+                                ));
                                 return Err(error);
                             }
                         };
@@ -246,10 +284,33 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 accumulated_text.push_str(&content);
                                 let suppress_visible_delta =
                                     accumulated_text.trim().is_empty() && content.trim().is_empty();
+                                let purpose_code = streaming_model_purpose_code(&purpose);
+                                let content_chars = content.chars().count();
+                                let content_trimmed_empty = content.trim().is_empty();
+                                let accumulated_chars = accumulated_text.chars().count();
+                                if suppress_visible_delta {
+                                    mhb_temp_backend_log(format!(
+                                        "tag=AgentFallbackRegression stage=self_hosted.provider_delta_suppressed session_id={} purpose={} chunk_chars={} accumulated_chars={}",
+                                        state.chat_session_id,
+                                        purpose_code,
+                                        content_chars,
+                                        accumulated_chars,
+                                    ));
+                                } else {
+                                    mhb_temp_backend_log(format!(
+                                        "tag=AgentFallbackRegression stage=self_hosted.provider_delta session_id={} purpose={} chunk_chars={} chunk_trimmed_empty={} accumulated_chars={}",
+                                        state.chat_session_id,
+                                        purpose_code,
+                                        content_chars,
+                                        content_trimmed_empty,
+                                        accumulated_chars,
+                                    ));
+                                }
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
                                     accumulated_text,
+                                    accumulated_reasoning_content,
                                     tool_calls,
                                     usage,
                                     finish_reason,
@@ -260,12 +321,34 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 }
                                 return Ok(Some(LoopStep::MessageDelta { text: content }));
                             }
+                            LlmStreamEvent::ReasoningDelta { content } => {
+                                accumulated_reasoning_content.push_str(&content);
+                                self.phase = RuntimePhase::StreamingModel {
+                                    stream,
+                                    purpose,
+                                    accumulated_text,
+                                    accumulated_reasoning_content,
+                                    tool_calls,
+                                    usage,
+                                    finish_reason,
+                                    tool_count,
+                                };
+                                continue;
+                            }
                             LlmStreamEvent::ToolCall { tool_call } => {
+                                mhb_temp_backend_log(format!(
+                                    "tag=AgentFallbackRegression stage=self_hosted.provider_tool_call session_id={} purpose={} name={} args_chars={}",
+                                    state.chat_session_id,
+                                    streaming_model_purpose_code(&purpose),
+                                    tool_call.name,
+                                    tool_call.arguments.chars().count(),
+                                ));
                                 tool_calls.push(tool_call);
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
                                     accumulated_text,
+                                    accumulated_reasoning_content,
                                     tool_calls,
                                     usage,
                                     finish_reason,
@@ -277,12 +360,22 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 finish_reason: fr,
                                 usage: u,
                             } => {
+                                mhb_temp_backend_log(format!(
+                                    "tag=AgentFallbackRegression stage=self_hosted.provider_finish session_id={} purpose={} finish_reason={fr:?} input_tokens={} output_tokens={} accumulated_chars={} tool_calls={}",
+                                    state.chat_session_id,
+                                    streaming_model_purpose_code(&purpose),
+                                    u.input_tokens,
+                                    u.output_tokens,
+                                    accumulated_text.chars().count(),
+                                    tool_calls.len(),
+                                ));
                                 finish_reason = fr;
                                 usage = u;
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
                                     accumulated_text,
+                                    accumulated_reasoning_content,
                                     tool_calls,
                                     usage,
                                     finish_reason,
@@ -291,6 +384,12 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 continue;
                             }
                             LlmStreamEvent::Error { message } => {
+                                mhb_temp_backend_log(format!(
+                                    "tag=AgentFallbackRegression stage=self_hosted.provider_stream_error_event session_id={} purpose={} message={}",
+                                    state.chat_session_id,
+                                    streaming_model_purpose_code(&purpose),
+                                    temp_sanitize_error(&message),
+                                ));
                                 return Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
                                     message,
                                 ));
@@ -300,6 +399,15 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 
                     if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
                         let visible_text = visible_text_from_model_output(&accumulated_text);
+                        mhb_temp_backend_log(format!(
+                            "tag=AgentFallbackRegression stage=self_hosted.stream_end session_id={} purpose={} accumulated_chars={} visible_chars={} visible_trimmed_empty={} tool_calls={}",
+                            state.chat_session_id,
+                            streaming_model_purpose_code(&purpose),
+                            accumulated_text.chars().count(),
+                            visible_text.chars().count(),
+                            visible_text.trim().is_empty(),
+                            tool_calls.len(),
+                        ));
                         if visible_text.trim().is_empty() {
                             return Err(empty_assistant_content_error());
                         }
@@ -321,6 +429,9 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     self.phase = RuntimePhase::ToolExecution {
+                        assistant_reasoning_content: non_empty_string(
+                            accumulated_reasoning_content,
+                        ),
                         assistant_tool_calls: tool_calls.clone(),
                         tool_calls: tool_calls.clone(),
                     };
@@ -336,11 +447,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }));
                 }
                 RuntimePhase::ToolExecution {
+                    assistant_reasoning_content,
                     assistant_tool_calls,
                     tool_calls,
                 } => {
                     if !tool_calls.is_empty() {
                         self.phase = RuntimePhase::ToolExecution {
+                            assistant_reasoning_content,
                             assistant_tool_calls,
                             tool_calls: Vec::new(),
                         };
@@ -379,6 +492,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         };
                     } else {
                         self.phase = RuntimePhase::FollowupModel {
+                            assistant_reasoning_content,
                             assistant_tool_calls,
                             tool_results: tool_results.clone(),
                         };
@@ -386,12 +500,69 @@ impl LoopEngine for AgentRuntimeLoopEngine {
 
                     return Ok(Some(LoopStep::CallTools { tool_results }));
                 }
+                RuntimePhase::EvidenceToolExecution {
+                    assistant_tool_calls,
+                    tool_calls,
+                } => {
+                    if !tool_calls.is_empty() {
+                        self.phase = RuntimePhase::EvidenceToolExecution {
+                            assistant_tool_calls,
+                            tool_calls: Vec::new(),
+                        };
+                        return Ok(Some(LoopStep::call_tools(tool_calls)));
+                    }
+
+                    let (tool_results, hard_stop) = execute_tool_calls(
+                        self.registry.clone(),
+                        self.tool_context.clone(),
+                        assistant_tool_calls,
+                        &mut self.guardrail,
+                    )
+                    .await;
+
+                    if let Some(GuardrailDecision::HardStop {
+                        safe_user_message, ..
+                    }) = hard_stop
+                    {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: safe_user_message,
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                        };
+                        return Ok(Some(LoopStep::CallTools { tool_results }));
+                    }
+
+                    let needs_confirmation = tool_results.iter().any(|result| {
+                        matches!(result.status, LoopToolStatus::RequiresConfirmation)
+                    });
+
+                    if needs_confirmation {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
+                        };
+                    } else {
+                        self.phase = RuntimePhase::FollowupModel {
+                            assistant_reasoning_content: None,
+                            assistant_tool_calls: Vec::new(),
+                            tool_results: tool_results.clone(),
+                        };
+                    }
+
+                    return Ok(Some(LoopStep::CallTools { tool_results }));
+                }
                 RuntimePhase::FollowupModel {
+                    assistant_reasoning_content,
                     assistant_tool_calls,
                     tool_results,
                 } => {
-                    let mut request =
-                        self.build_request(state, &assistant_tool_calls, &tool_results);
+                    let mut request = self.build_request(
+                        state,
+                        assistant_reasoning_content.as_deref(),
+                        &assistant_tool_calls,
+                        &tool_results,
+                    );
                     request.stream = true;
                     let tool_count = request_tool_count(&request);
                     AgentRuntimeDiagnostics::record_model_request_prepared(
@@ -399,10 +570,19 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "followup",
                         &request,
                     );
+                    mhb_temp_backend_log(format!(
+                        "tag=AgentFallbackRegression stage=self_hosted.model_request session_id={} purpose=followup messages={} tools={} response_format_present={} tool_results={}",
+                        state.chat_session_id,
+                        request.messages.len(),
+                        request.tools.len(),
+                        request.response_format.is_some(),
+                        tool_results.len(),
+                    ));
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Followup,
                         accumulated_text: String::new(),
+                        accumulated_reasoning_content: String::new(),
                         tool_calls: Vec::new(),
                         usage: LlmUsage::default(),
                         finish_reason: LlmFinishReason::Stop,
@@ -557,6 +737,32 @@ fn empty_assistant_content_error() -> AiError {
     ))
 }
 
+// MHB_TEMP_BACKEND_LOG: AgentFallbackRegression 临时后端日志，确认修复后删除。
+fn mhb_temp_backend_log(line: impl AsRef<str>) {
+    use std::io::Write;
+
+    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
+        .unwrap_or_else(|_| "work/debug/AgentFallbackRegression.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(file, "{}", line.as_ref());
+    }
+}
+
+fn temp_sanitize_error(message: &str) -> String {
+    message
+        .chars()
+        .take(160)
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect()
+}
+
 /// tool_result_to_message 将工具结果转为模型可见消息
 /// 核心职责：
 /// - 成功结果直接回灌 output，guardrail_message 以结构化字段注入
@@ -608,8 +814,45 @@ pub(crate) fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage
     LlmMessage {
         role: LlmRole::Tool,
         content,
+        reasoning_content: None,
         tool_call_id: Some(tool_result.tool_call.id.clone()),
         tool_calls: Vec::new(),
+    }
+}
+
+/// prefetched_tool_context_message 将证据预取结果注入模型可见 system 上下文
+/// 核心职责：
+/// - 避免把系统预取伪装成 assistant tool_call 历史
+/// - 保留工具投影后的模型可见事实
+pub(crate) fn prefetched_tool_context_message(tool_results: &[LoopToolResult]) -> LlmMessage {
+    let payload: Vec<serde_json::Value> = tool_results
+        .iter()
+        .map(|result| {
+            serde_json::json!({
+                "tool": result.tool_call.name,
+                "status": format!("{:?}", result.status),
+                "content": result.output.as_deref().unwrap_or("{}"),
+            })
+        })
+        .collect();
+    LlmMessage {
+        role: LlmRole::System,
+        content: serde_json::json!({
+            "prefetched_tool_context": payload,
+            "instruction": "这些是系统在回答前预取的可信宠物上下文，只用于回答当前用户问题。",
+        })
+        .to_string(),
+        reasoning_content: None,
+        tool_call_id: None,
+        tool_calls: Vec::new(),
+    }
+}
+
+pub(crate) fn non_empty_string(value: String) -> Option<String> {
+    if value.trim().is_empty() {
+        None
+    } else {
+        Some(value)
     }
 }
 
@@ -683,6 +926,7 @@ mod tests {
             message: LlmMessage {
                 role: LlmRole::Assistant,
                 content: String::new(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },

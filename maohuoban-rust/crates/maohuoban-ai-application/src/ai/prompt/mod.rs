@@ -38,6 +38,7 @@ impl AiPromptBuilder {
         messages.push(LlmMessage {
             role: LlmRole::System,
             content: Self::build_system_prompt(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         });
@@ -47,6 +48,7 @@ impl AiPromptBuilder {
             messages.push(LlmMessage {
                 role: LlmRole::System,
                 content: AiFactProjection::build_context_prompt(pet_candidates, pkg),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -54,6 +56,7 @@ impl AiPromptBuilder {
             messages.push(LlmMessage {
                 role: LlmRole::System,
                 content: Self::build_candidates_prompt(pet_candidates),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -63,6 +66,7 @@ impl AiPromptBuilder {
         messages.push(LlmMessage {
             role: LlmRole::User,
             content: user_message.to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         });

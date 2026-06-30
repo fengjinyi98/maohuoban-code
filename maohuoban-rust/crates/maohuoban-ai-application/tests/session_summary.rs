@@ -87,6 +87,7 @@ fn fake_llm(summary_text: &str) -> FakeLlmProvider {
             message: maohuoban_ai_domain::ai::LlmMessage {
                 role: maohuoban_ai_domain::ai::LlmRole::Assistant,
                 content: summary_text.to_owned(),
+                reasoning_content: None,
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
@@ -672,6 +673,7 @@ impl CapturingLlmProvider {
                 message: maohuoban_ai_domain::ai::LlmMessage {
                     role: maohuoban_ai_domain::ai::LlmRole::Assistant,
                     content: summary_text.to_owned(),
+                    reasoning_content: None,
                     tool_call_id: None,
                     tool_calls: Vec::new(),
                 },

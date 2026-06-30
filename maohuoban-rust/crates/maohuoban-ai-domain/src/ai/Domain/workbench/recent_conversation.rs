@@ -25,6 +25,7 @@ impl From<&RecentConversationEntry> for LlmMessage {
                 AiMessageRole::System => LlmRole::System,
             },
             content: entry.content.clone(),
+            reasoning_content: None,
             tool_call_id: entry.tool_call_id.clone(),
             tool_calls: entry.tool_calls.clone(),
         }

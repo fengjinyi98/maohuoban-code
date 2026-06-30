@@ -174,6 +174,9 @@ impl AiStreamPipeline {
                     Ok(LlmStreamEvent::Delta { content }) => {
                         delta_chunks.push(content);
                     }
+                    Ok(LlmStreamEvent::ReasoningDelta { .. }) => {
+                        // reasoning_content 只用于 provider 同轮上下文回传，不进入用户可见流。
+                    }
                     Ok(LlmStreamEvent::ToolCall { tool_call: _ }) => {
                         // 工具调用事件暂不转发到 iOS
                     }

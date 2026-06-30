@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 
 use maohuoban_ai_domain::ai::{
     AiError, AiResult, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError,
@@ -84,14 +85,26 @@ impl SseStreamDecoder {
         }
 
         let data = data_parts.join("\n");
+        mhb_temp_backend_log(format!(
+            "tag=AgentFallbackRegression stage=provider.sse_data lines={} data={:?}",
+            lines.len(),
+            data
+        ));
 
         if data.trim() == "[DONE]" {
+            mhb_temp_backend_log(
+                "tag=AgentFallbackRegression stage=provider.sse_done".to_owned(),
+            );
             return self.flush_tool_calls();
         }
 
         let json: serde_json::Value = match serde_json::from_str(&data) {
             Ok(j) => j,
             Err(error) => {
+                mhb_temp_backend_log(format!(
+                    "tag=AgentFallbackRegression stage=provider.sse_json_error error={error} data={:?}",
+                    data
+                ));
                 return vec![Err(AiError::Provider(ProviderError::new(
                     ProviderErrorCategory::InvalidResponse,
                     invalid_sse_json_message(&data, &error),
@@ -100,6 +113,10 @@ impl SseStreamDecoder {
         };
 
         if let Some(error) = json.get("error") {
+            mhb_temp_backend_log(format!(
+                "tag=AgentFallbackRegression stage=provider.sse_error_payload error={}",
+                serde_json::to_string(error).unwrap_or_else(|_| "<json-encode-failed>".to_owned())
+            ));
             return vec![parse_error_event(error)];
         }
 
@@ -113,6 +130,15 @@ impl SseStreamDecoder {
         let mut events = Vec::new();
         if let Some(delta) = choice.get("delta") {
             self.merge_tool_call_delta(delta);
+            if let Some(reasoning_content) = delta
+                .get("reasoning_content")
+                .and_then(serde_json::Value::as_str)
+                && !reasoning_content.is_empty()
+            {
+                events.push(Ok(LlmStreamEvent::ReasoningDelta {
+                    content: reasoning_content.to_owned(),
+                }));
+            }
             if let Some(content) = delta.get("content").and_then(serde_json::Value::as_str)
                 && !content.is_empty()
             {
@@ -200,6 +226,22 @@ impl SseStreamDecoder {
                 }))
             })
             .collect()
+    }
+}
+
+// MHB_TEMP_BACKEND_LOG: AgentFallbackRegression 临时 SSE 解码日志，确认修复后删除。
+fn mhb_temp_backend_log(line: impl AsRef<str>) {
+    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
+        .unwrap_or_else(|_| "work/debug/AgentFallbackRegression.log".to_owned());
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        let _ = writeln!(file, "{}", line.as_ref());
     }
 }
 

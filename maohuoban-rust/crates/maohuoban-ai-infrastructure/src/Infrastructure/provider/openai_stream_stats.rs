@@ -30,6 +30,7 @@ impl ProviderStreamStats {
             LlmStreamEvent::Delta { .. } => {
                 self.delta_count = self.delta_count.saturating_add(1);
             }
+            LlmStreamEvent::ReasoningDelta { .. } => {}
             LlmStreamEvent::ToolCall { .. } => {
                 self.tool_call_count = self.tool_call_count.saturating_add(1);
             }

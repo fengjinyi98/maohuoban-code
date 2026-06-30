@@ -16,6 +16,7 @@ fn sample_request_with_model(model: &str) -> LlmChatRequest {
         messages: vec![LlmMessage {
             role: LlmRole::User,
             content: "毛球怎么样了".to_owned(),
+            reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
