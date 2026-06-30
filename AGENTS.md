@@ -138,6 +138,16 @@
 9. 公共能力进入共享 crate，业务能力进入对应业务 crate。
 10. 跨业务域调用必须通过 application 端口或明确的共享模型，禁止直接读取其他业务域的 infrastructure。
 
+### 9.1 Agent 底层重构纪律
+
+1. AI / Agent Runtime 开发阶段禁止写任何兼容旧模式、旧协议、旧 engine、旧 prompt、旧 SSE 事件、旧 tool schema 的兜底逻辑。
+2. 禁止用 fallback、best-effort、legacy adapter、dual path、silent migration、auto-downgrade 掩盖底层契约缺陷；发现契约缺失时补 domain 类型、端口、合同测试和失败诊断。
+3. 底层重构以自研 Agent 核心为目标，按 `domain -> runtime -> provider -> context -> tool -> finalizer -> http` 分层推进，每层只能依赖下层稳定契约。
+4. 底层单元必须先写失败测试再实现，domain / runtime / provider / context / tool / finalizer 的边界测试必须稳定后再接上层联调。
+5. 上层 UI、真机体验、SSE 展示可以后置联调；底层模型协议、上下文组装、工具调用、事实投影、输出终止条件必须在单元测试和合同测试中闭环。
+6. Provider 差异必须进入显式能力模型，例如上下文长度、reasoning 字段、tool-call delta、stream 格式和错误分类；禁止在调用现场散写模型专用分支。
+7. 临时调试打印只能用于定位当前问题，必须带固定诊断标识、覆盖请求正文和上游响应边界；问题确认后按用户确认清理。
+
 ## 10. 前后端联调规则
 
 1. 每个联调问题必须先判断归属。

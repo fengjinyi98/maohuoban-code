@@ -6,7 +6,6 @@
 - 关联文档：
   - `docs/engineering/agent-memory-security/00_毛球Agent记忆隔离与工具安全目标文档.md`
   - `docs/product/strategy/04_宠物事实采集与毛球Agent记忆系统设计.md`
-  - `docs/engineering/ai-agent-runtime/TODO_毛球Agent解耦与Hermes借鉴落地清单.md`
 
 ## 0. 文档边界
 
