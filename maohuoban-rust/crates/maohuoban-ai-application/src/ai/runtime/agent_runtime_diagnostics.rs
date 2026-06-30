@@ -21,9 +21,6 @@ pub(super) struct AgentRuntimeDiagnostics;
 
 impl AgentRuntimeDiagnostics {
     /// record_model_request_prepared 记录 Runtime 模型请求摘要
-    /// 核心职责：
-    /// - 标记本轮模型阶段和请求策略
-    /// - 只记录角色、计数和开关，不记录正文、工具结果和密钥
     pub(super) fn record_model_request_prepared(
         chat_session_id: Uuid,
         phase: &'static str,
@@ -83,9 +80,6 @@ impl AgentRuntimeDiagnostics {
     }
 
     /// record_model_stream_error 记录 Runtime 模型流错误摘要
-    /// 核心职责：
-    /// - 将 provider 失败关联到 initial / followup 阶段
-    /// - 输出脱敏错误分类，支撑下一轮诊断定位
     pub(super) fn record_model_stream_error(
         chat_session_id: Uuid,
         phase: &'static str,

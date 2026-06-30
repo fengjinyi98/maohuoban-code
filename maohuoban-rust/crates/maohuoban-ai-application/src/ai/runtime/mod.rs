@@ -3,19 +3,17 @@
 //! - 暴露自研 LoopEngine 边界
 //! - 暴露 in-memory AgentSession 与 FakeLoopEngine 测试实现
 
+mod agent_runtime_diagnostics;
 mod agent_runtime_loop_engine;
-#[path = "../Infrastructure/runtime/agent_runtime_request_policy.rs"]
 mod agent_runtime_request_policy;
 mod engine;
 mod engine_factory;
 mod engine_input;
 mod engine_mode;
-#[path = "../Infrastructure/runtime/evidence_planner.rs"]
 mod evidence_planner;
 mod fake_loop_engine;
 mod session;
 mod session_runtime;
-#[path = "../Infrastructure/runtime/workbench_prompt_projection.rs"]
 mod workbench_prompt_projection;
 
 pub use agent_runtime_loop_engine::*;

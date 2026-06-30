@@ -62,12 +62,10 @@ impl AgentRuntimeRequestPolicy {
             return true;
         }
 
-        // 优先按 toolset 判断：PrivatePetContext 工具在无私域上下文时隐藏
         if Self::is_private_toolset(tool) {
             return false;
         }
 
-        // 兼容旧路径：scope/domain_tags 仍可过滤未声明 toolset 的工具
         !Self::is_private_pet_tool(tool)
     }
 
@@ -85,10 +83,6 @@ impl AgentRuntimeRequestPolicy {
             })
     }
 
-    /// is_private_toolset 按 toolset 枚举判断是否私域工具
-    /// 核心职责：
-    /// - PrivatePetContext 分组在无已选宠物时全部隐藏
-    /// - Memory 和 Confirmation 分组在有宠物上下文时由上层控制
     fn is_private_toolset(tool: &ToolDefinitionInfo) -> bool {
         matches!(tool.toolset, Toolset::PrivatePetContext)
     }

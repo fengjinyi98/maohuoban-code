@@ -17,12 +17,8 @@ use crate::ai::ports::LlmProvider;
 use crate::ai::prompt::AiPromptBuilder;
 use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
 
-#[path = "../Infrastructure/runtime/agent_runtime_diagnostics.rs"]
-mod agent_runtime_diagnostics;
-
+use super::agent_runtime_diagnostics::AgentRuntimeDiagnostics;
 use super::agent_runtime_request_policy::AgentRuntimeRequestPolicy;
-use agent_runtime_diagnostics::AgentRuntimeDiagnostics;
-
 use super::{
     LoopEngine, evidence_planner::EvidencePlanner,
     workbench_prompt_projection::workbench_context_prompt,

@@ -114,10 +114,6 @@ pub(super) fn workbench_context_prompt(
     prompt
 }
 
-/// display_capability_domain 返回模型可读能力域名称
-/// 核心职责：
-/// - 避免把领域枚举名直接暴露给模型
-/// - 保留能力边界的自然语言含义
 fn display_capability_domain(domain: CapabilityDomain) -> &'static str {
     match domain {
         CapabilityDomain::PublicPetDomain => "公共宠物照护咨询",
@@ -128,9 +124,6 @@ fn display_capability_domain(domain: CapabilityDomain) -> &'static str {
     }
 }
 
-/// display_surface 返回模型可读入口名称
-/// 核心职责：
-/// - 将产品入口枚举转换为自然语言场景
 fn display_surface(surface: AiConversationSurface) -> &'static str {
     match surface {
         AiConversationSurface::HomePrivate => "首页私域对话",
@@ -141,9 +134,6 @@ fn display_surface(surface: AiConversationSurface) -> &'static str {
     }
 }
 
-/// display_memory_scope 返回模型可读记忆作用域
-/// 核心职责：
-/// - 用自然语言表达记忆归属范围
 fn display_memory_scope(scope: MemoryScope) -> &'static str {
     match scope {
         MemoryScope::User => "用户记忆",
@@ -153,9 +143,6 @@ fn display_memory_scope(scope: MemoryScope) -> &'static str {
     }
 }
 
-/// display_species 返回模型可读宠物物种
-/// 核心职责：
-/// - 将常见物种编码转换为中文语义
 fn display_species(species: &str) -> &str {
     match species {
         "cat" => "猫",
