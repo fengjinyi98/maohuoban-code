@@ -5,7 +5,7 @@
 // - 验证医疗诊断被拦截
 // - 遵循 TDD：先写失败测试（red），再实现校验器（green）
 
-use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
+use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{AiBlockedReason, AiFactEntry, AiFactPackage, AiFactStrength};
 
 fn package_with_only_weak_hint() -> AiFactPackage {
@@ -25,6 +25,24 @@ fn package_with_strong_staple() -> AiFactPackage {
     package.facts.push(AiFactEntry {
         key: "current_staple".to_owned(),
         value: "渴望六种鱼".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    package.fact_strength = AiFactStrength::Strong;
+    package
+}
+
+fn package_with_pet_age_facts() -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "pet_identity.birthday".to_owned(),
+        value: "2025-05-06".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    package.facts.push(AiFactEntry {
+        key: "pet_identity.world_days".to_owned(),
+        value: "420".to_owned(),
         strength: AiFactStrength::Strong,
         citation_id: None,
     });
@@ -127,5 +145,40 @@ fn pet_profile_update_claim_without_tool_success_blocked() {
     assert_eq!(
         result.blocked_reason,
         Some(AiBlockedReason::UnconfirmedWrite)
+    );
+}
+
+#[test]
+fn missing_age_or_birthday_claim_conflicts_with_identity_facts() {
+    let package = package_with_pet_age_facts();
+    let verifier = AiAnswerVerifier::new();
+    let result = verifier.verify("目前档案里没有生日记录，所以还不知道梅录多大。", &package);
+
+    assert!(result.is_blocked());
+    assert_eq!(
+        result.blocked_reason,
+        Some(AiBlockedReason::UnsupportedFact)
+    );
+}
+
+#[test]
+fn missing_age_or_birthday_claim_without_identity_tool_success_blocked() {
+    let package = AiFactPackage::empty();
+    let verifier = AiAnswerVerifier::new();
+    let context = AiAnswerVerificationContext {
+        identity_context_tool_required: true,
+        identity_context_tool_succeeded: false,
+    };
+
+    let result = verifier.verify_with_context(
+        "目前档案里没有生日记录，所以还不知道梅录多大。",
+        &package,
+        context,
+    );
+
+    assert!(result.is_blocked());
+    assert_eq!(
+        result.blocked_reason,
+        Some(AiBlockedReason::UnsupportedFact)
     );
 }

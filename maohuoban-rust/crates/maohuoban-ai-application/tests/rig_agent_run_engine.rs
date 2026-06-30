@@ -16,9 +16,11 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentToolStatus, AiConversationSurface, AiResult, LlmChatRequest,
-    LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage,
-    ToolProgressText, Toolset,
+    AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench, AgentToolStatus,
+    AiConversationSurface, AiFactEntry, AiFactStrength, AiResult, CapabilityCatalog,
+    CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest, LlmChatResponse,
+    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
+    ModelLabel, ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -108,6 +110,124 @@ struct RecordingTool {
     calls: Arc<Mutex<u32>>,
 }
 
+#[derive(Clone)]
+struct FinalOnlyRigProvider {
+    requests: Arc<Mutex<Vec<LlmChatRequest>>>,
+}
+
+impl FinalOnlyRigProvider {
+    fn new() -> Self {
+        Self {
+            requests: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn requests(&self) -> Vec<LlmChatRequest> {
+        self.requests.lock().expect("requests").clone()
+    }
+}
+
+impl LlmProvider for FinalOnlyRigProvider {
+    fn complete<'a>(
+        &'a self,
+        _request: &'a LlmChatRequest,
+    ) -> Pin<Box<dyn Future<Output = AiResult<LlmChatResponse>> + Send + 'a>> {
+        Box::pin(async {
+            Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                "rig engine test uses stream".to_owned(),
+            ))
+        })
+    }
+
+    fn stream<'a>(
+        &'a self,
+        request: &'a LlmChatRequest,
+    ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
+        self.requests
+            .lock()
+            .expect("requests")
+            .push(request.clone());
+        futures_util::stream::iter(vec![
+            Ok(LlmStreamEvent::Delta {
+                content: "梅录出生至今 420 天。".to_owned(),
+            }),
+            Ok(LlmStreamEvent::Finish {
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+            }),
+        ])
+        .boxed()
+    }
+}
+
+struct PrivateIdentityTool;
+
+#[async_trait]
+impl AiToolDefinition for PrivateIdentityTool {
+    fn name(&self) -> &'static str {
+        "load_pet_identity_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "读取目标宠物基础档案事实"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "pet_id": { "type": "string", "format": "uuid" }
+            },
+            "required": ["pet_id"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.identity.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: Some(ToolFactSchema {
+                fact_keys: vec!["pet_identity.world_days".to_owned()],
+                description: "宠物基础档案事实".to_owned(),
+                natural_language_summary: "可回答宠物多大了、几岁了、来到世界多少天等问题"
+                    .to_owned(),
+                fields: vec![ToolFactField {
+                    key: "pet_identity.world_days".to_owned(),
+                    label: "年龄/出生至今天数".to_owned(),
+                    meaning: "宠物从出生到今天经过的天数，可用于回答多大了、几岁了".to_owned(),
+                    example_queries: vec!["多大了".to_owned(), "几岁了".to_owned()],
+                }],
+            }),
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed_with_facts(
+            vec![
+                AiFactEntry {
+                    key: "pet_identity.name".to_owned(),
+                    value: "梅录".to_owned(),
+                    strength: AiFactStrength::Strong,
+                    citation_id: None,
+                },
+                AiFactEntry {
+                    key: "pet_identity.world_days".to_owned(),
+                    value: "420".to_owned(),
+                    strength: AiFactStrength::Strong,
+                    citation_id: None,
+                },
+            ],
+            Vec::new(),
+        )
+    }
+}
+
 impl RecordingTool {
     fn new() -> Self {
         Self {
@@ -172,6 +292,47 @@ fn build_input(
             authorized_pet_id: Uuid::new_v4(),
         },
         fact_package: None,
+    }
+}
+
+fn private_pet_context_workbench() -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![
+                CapabilityDomain::PublicPetDomain,
+                CapabilityDomain::PrivatePetContext,
+            ],
+        },
+        capability_catalog: CapabilityCatalog {
+            capabilities: vec![AgentCapability {
+                code: "private_pet_context".to_owned(),
+                domain: CapabilityDomain::PrivatePetContext,
+                title: "授权宠物私域上下文".to_owned(),
+                when_to_use: "用户询问已选宠物的档案、年龄、生日、陪伴、饮食或记录事实时使用"
+                    .to_owned(),
+                requires_private_context: true,
+            }],
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            selected_pet: Some(ContextPetSummary {
+                pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+                name: "梅录".to_owned(),
+                species: "cat".to_owned(),
+            }),
+            authorized_pets: Vec::new(),
+            session_summary: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
+        recent_conversation_pack: None,
     }
 }
 
@@ -259,6 +420,64 @@ async fn rig_poc_engine_drives_agent_run_with_provider_and_tool_registry() {
             ..
         } if tool_call_id == "call_rig_fact"
     )));
+}
+
+#[tokio::test]
+async fn rig_poc_prefetches_private_fact_tool_before_model() {
+    let provider = FinalOnlyRigProvider::new();
+    let observed_provider = provider.clone();
+    let mut registry = ToolRegistry::new();
+    registry.register(PrivateIdentityTool);
+
+    let engine = AgentRuntimeEngineFactory::new(AgentRuntimeEngineMode::RigPoc).build(
+        AgentRuntimeEngineInput {
+            provider: Arc::new(provider),
+            registry: Arc::new(registry),
+            tool_context: AiToolContext {
+                actor_user_id: Uuid::new_v4(),
+                authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                    .expect("pet id"),
+            },
+            fact_package: None,
+        },
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("梅录多大了？", private_pet_context_workbench())
+        .await
+        .expect("rig prefetch run");
+
+    assert_eq!(
+        event_names(&events),
+        vec![
+            "turn_started",
+            "tool_started",
+            "tool_finished",
+            "message_delta",
+            "model_call_started",
+            "model_call_finished",
+            "turn_finished",
+        ]
+    );
+
+    let requests = observed_provider.requests();
+    assert_eq!(requests.len(), 1);
+    let tool_message = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.role == LlmRole::Tool)
+        .expect("prefetched tool result should be injected before rig model call");
+    assert!(
+        tool_message.content.contains("梅录") && tool_message.content.contains("420"),
+        "rig prefetch tool result should contain identity facts, got: {}",
+        tool_message.content
+    );
 }
 
 #[tokio::test]

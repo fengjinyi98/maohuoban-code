@@ -5,7 +5,7 @@
 // - 验证 ToolFactSchema 描述工具事实输出结构
 // - 验证禁止字段不进入模型可见 metadata
 
-use maohuoban_ai_domain::ai::{ToolFactSchema, ToolProgressText, Toolset};
+use maohuoban_ai_domain::ai::{ToolFactField, ToolFactSchema, ToolProgressText, Toolset};
 
 #[test]
 fn toolset_has_all_initial_variants() {
@@ -67,9 +67,26 @@ fn tool_fact_schema_describes_fact_keys_and_types() {
     let schema = ToolFactSchema {
         fact_keys: vec!["current_staple".to_owned(), "diet_status".to_owned()],
         description: "宠物饮食事实".to_owned(),
+        natural_language_summary: "可回答当前吃什么、主粮状态等饮食事实问题".to_owned(),
+        fields: vec![ToolFactField {
+            key: "current_staple".to_owned(),
+            label: "当前主粮".to_owned(),
+            meaning: "宠物当前正在吃的主粮或主食".to_owned(),
+            example_queries: vec!["现在吃什么".to_owned(), "当前主粮是什么".to_owned()],
+        }],
     };
     assert_eq!(schema.fact_keys.len(), 2);
     assert_eq!(schema.description, "宠物饮食事实");
+    assert_eq!(
+        schema.natural_language_summary,
+        "可回答当前吃什么、主粮状态等饮食事实问题"
+    );
+    assert_eq!(schema.fields[0].label, "当前主粮");
+    assert!(
+        schema.fields[0]
+            .example_queries
+            .contains(&"现在吃什么".to_owned())
+    );
 }
 
 #[test]
@@ -77,6 +94,13 @@ fn tool_fact_schema_roundtrips_through_json() {
     let schema = ToolFactSchema {
         fact_keys: vec!["weight".to_owned()],
         description: "宠物体重".to_owned(),
+        natural_language_summary: "可回答体重、体型变化等问题".to_owned(),
+        fields: vec![ToolFactField {
+            key: "weight".to_owned(),
+            label: "体重".to_owned(),
+            meaning: "宠物最近记录的体重".to_owned(),
+            example_queries: vec!["多重".to_owned(), "体重多少".to_owned()],
+        }],
     };
     let json = serde_json::to_string(&schema).unwrap();
     let restored: ToolFactSchema = serde_json::from_str(&json).unwrap();
@@ -95,6 +119,8 @@ fn tool_fact_schema_default_is_empty() {
     let schema = ToolFactSchema::default();
     assert!(schema.fact_keys.is_empty());
     assert!(schema.description.is_empty());
+    assert!(schema.natural_language_summary.is_empty());
+    assert!(schema.fields.is_empty());
 }
 
 #[test]

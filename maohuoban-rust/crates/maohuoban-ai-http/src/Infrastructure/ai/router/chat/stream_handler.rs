@@ -291,6 +291,7 @@ fn runtime_provider_stream(
         let activity_pet_name = target_pet
             .as_ref()
             .map_or_else(|| "宠物".to_owned(), |pet| pet.pet_name.clone());
+        let identity_context_tool_required = target_pet.is_some();
 
         yield Ok(AiStreamEvent::MessageStarted {
             chat_session_id,
@@ -303,7 +304,12 @@ fn runtime_provider_stream(
             yield Ok(sanitize_legacy_tool_call_event(event, &activity_pet_name));
         }
 
-        let mut projector = AgentEventSseProjector::new(message_id, fact_package, &activity_pet_name);
+        let mut projector = AgentEventSseProjector::new(
+            message_id,
+            fact_package,
+            &activity_pet_name,
+            identity_context_tool_required,
+        );
         let mut agent_stream = session.into_prompt_stream_with_workbench(user_message, workbench);
         while let Some(result) = agent_stream.next().await {
             match result {

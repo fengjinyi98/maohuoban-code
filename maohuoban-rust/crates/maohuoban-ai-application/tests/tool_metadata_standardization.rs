@@ -42,6 +42,7 @@ impl AiToolDefinition for FakeKnowledgeTool {
             result_fact_schema: Some(ToolFactSchema {
                 fact_keys: vec!["knowledge_summary".to_owned()],
                 description: "公共宠物知识摘要".to_owned(),
+                ..Default::default()
             }),
         }
     }
@@ -80,6 +81,7 @@ impl AiToolDefinition for FakePrivatePetTool {
             result_fact_schema: Some(ToolFactSchema {
                 fact_keys: vec!["pet_name".to_owned(), "pet_species".to_owned()],
                 description: "宠物身份事实".to_owned(),
+                ..Default::default()
             }),
         }
     }

@@ -18,9 +18,9 @@ use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
     AiConversationSurface, AiFactEntry, AiFactStrength, AiMessageRole,
     AiToolConfirmationRequirement, CapabilityCatalog, CapabilityDomain, ContextPack,
-    LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
-    LlmToolCall, LlmUsage, MemoryPack, ModelLabel, RecentConversationEntry, RecentConversationPack,
-    ToolFailure, ToolProgressText, Toolset,
+    ContextPetSummary, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
+    LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack, ModelLabel, RecentConversationEntry,
+    RecentConversationPack, ToolFactField, ToolFactSchema, ToolFailure, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -201,7 +201,35 @@ impl AiToolDefinition for EchoIdentityTool {
             domain_tags: vec!["identity".to_owned()],
             toolset: Toolset::PrivatePetContext,
             progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
+            result_fact_schema: Some(ToolFactSchema {
+                fact_keys: vec![
+                    "pet_identity.name".to_owned(),
+                    "pet_identity.world_days".to_owned(),
+                    "pet_identity.companionship_days".to_owned(),
+                ],
+                description: "宠物基础档案事实".to_owned(),
+                natural_language_summary:
+                    "可回答宠物多大了、几岁了、来到世界多少天、生日、陪伴多久等问题".to_owned(),
+                fields: vec![
+                    ToolFactField {
+                        key: "pet_identity.world_days".to_owned(),
+                        label: "年龄/出生至今天数".to_owned(),
+                        meaning: "宠物从出生到今天经过的天数，可用于回答多大了、几岁了、出生多久了"
+                            .to_owned(),
+                        example_queries: vec![
+                            "多大了".to_owned(),
+                            "几岁了".to_owned(),
+                            "出生多久了".to_owned(),
+                        ],
+                    },
+                    ToolFactField {
+                        key: "pet_identity.companionship_days".to_owned(),
+                        label: "陪伴天数".to_owned(),
+                        meaning: "宠物从到家日期到今天陪伴用户的天数".to_owned(),
+                        example_queries: vec!["陪伴我多久了".to_owned(), "到家多久了".to_owned()],
+                    },
+                ],
+            }),
         }
     }
 
@@ -213,12 +241,32 @@ impl AiToolDefinition for EchoIdentityTool {
 
         match pet_id {
             Some(id) if id == ctx.authorized_pet_id => AiToolResult::allowed_with_facts(
-                vec![AiFactEntry {
-                    key: "current_staple".to_owned(),
-                    value: "渴望六种鱼".to_owned(),
-                    strength: AiFactStrength::Strong,
-                    citation_id: Some(Uuid::new_v4()),
-                }],
+                vec![
+                    AiFactEntry {
+                        key: "current_staple".to_owned(),
+                        value: "渴望六种鱼".to_owned(),
+                        strength: AiFactStrength::Strong,
+                        citation_id: Some(Uuid::new_v4()),
+                    },
+                    AiFactEntry {
+                        key: "pet_identity.name".to_owned(),
+                        value: "梅录".to_owned(),
+                        strength: AiFactStrength::Strong,
+                        citation_id: None,
+                    },
+                    AiFactEntry {
+                        key: "pet_identity.world_days".to_owned(),
+                        value: "420".to_owned(),
+                        strength: AiFactStrength::Strong,
+                        citation_id: None,
+                    },
+                    AiFactEntry {
+                        key: "pet_identity.companionship_days".to_owned(),
+                        value: "378".to_owned(),
+                        strength: AiFactStrength::Strong,
+                        citation_id: None,
+                    },
+                ],
                 Vec::new(),
             ),
             Some(_) => AiToolResult::denied("pet not authorized"),
@@ -311,6 +359,31 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
     }
 }
 
+fn private_pet_context_workbench() -> AgentSessionWorkbench {
+    let mut workbench = public_pet_domain_workbench();
+    workbench
+        .agent_definition
+        .capability_domains
+        .push(CapabilityDomain::PrivatePetContext);
+    workbench
+        .capability_catalog
+        .capabilities
+        .push(AgentCapability {
+            code: "private_pet_context".to_owned(),
+            domain: CapabilityDomain::PrivatePetContext,
+            title: "授权宠物私域上下文".to_owned(),
+            when_to_use: "用户询问已选宠物的档案、年龄、生日、陪伴、饮食或记录事实时使用"
+                .to_owned(),
+            requires_private_context: true,
+        });
+    workbench.context_pack.selected_pet = Some(ContextPetSummary {
+        pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        name: "梅录".to_owned(),
+        species: "cat".to_owned(),
+    });
+    workbench
+}
+
 #[tokio::test]
 async fn public_pet_domain_without_private_tools() {
     let provider = ScriptedProvider::new(vec![final_response()]);
@@ -354,6 +427,72 @@ async fn public_pet_domain_without_private_tools() {
     assert!(
         requests[0].response_format.is_none(),
         "direct answer request should avoid DeepSeek JSON Output empty content risk"
+    );
+}
+
+#[tokio::test]
+async fn private_identity_question_prefetches_fact_tool_before_model() {
+    let provider = ScriptedProvider::new(vec![final_response()]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool);
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        },
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("梅录多大了？", private_pet_context_workbench())
+        .await
+        .expect("prompt with private context");
+
+    let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
+    assert_eq!(
+        names,
+        vec![
+            "turn_started",
+            "tool_started",
+            "tool_finished",
+            "message_delta",
+            "model_call_started",
+            "model_call_finished",
+            "turn_finished",
+        ],
+        "private fact question should execute evidence tool before model"
+    );
+
+    let requests = provider.take_requests();
+    assert_eq!(
+        requests.len(),
+        1,
+        "prefetch should call provider once after tool evidence is available"
+    );
+    let tool_message = requests[0]
+        .messages
+        .iter()
+        .find(|msg| msg.role == LlmRole::Tool)
+        .expect("model request should include prefetched tool result");
+    assert!(
+        tool_message.content.contains("梅录"),
+        "prefetched tool result should include identity facts, got: {}",
+        tool_message.content
+    );
+    assert!(
+        tool_message.content.contains("420"),
+        "prefetched tool result should include age/world-days fact, got: {}",
+        tool_message.content
     );
 }
 

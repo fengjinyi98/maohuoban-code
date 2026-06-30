@@ -79,6 +79,24 @@ fn identity_facts_for_prompt(identity: &IdentitySummary) -> Vec<AiFactEntry> {
     if let Some(birthday) = &identity.birthday {
         facts.push(identity_fact("pet_identity.birthday", birthday.clone()));
     }
+    if let Some(arrival_date) = &identity.arrival_date {
+        facts.push(identity_fact(
+            "pet_identity.arrival_date",
+            arrival_date.clone(),
+        ));
+    }
+    if let Some(world_days) = identity.world_days {
+        facts.push(identity_fact(
+            "pet_identity.world_days",
+            format!("来到世界的第 {world_days} 天"),
+        ));
+    }
+    if let Some(companionship_days) = identity.companionship_days {
+        facts.push(identity_fact(
+            "pet_identity.companionship_days",
+            format!("已陪伴 {companionship_days} 天"),
+        ));
+    }
 
     facts
 }
@@ -138,6 +156,9 @@ mod tests {
             breed: Some("英短".to_owned()),
             sex: "female".to_owned(),
             birthday: Some("2024-06-17".to_owned()),
+            arrival_date: Some("2024-08-01".to_owned()),
+            world_days: Some(379),
+            companionship_days: Some(334),
             life_status: "alive".to_owned(),
         }
     }
@@ -167,6 +188,15 @@ mod tests {
         assert_eq!(value_for("pet_identity.species"), Some("猫"));
         assert_eq!(value_for("pet_identity.sex"), Some("母猫"));
         assert_eq!(value_for("pet_identity.birthday"), Some("2024-06-17"));
+        assert_eq!(value_for("pet_identity.arrival_date"), Some("2024-08-01"));
+        assert_eq!(
+            value_for("pet_identity.world_days"),
+            Some("来到世界的第 379 天")
+        );
+        assert_eq!(
+            value_for("pet_identity.companionship_days"),
+            Some("已陪伴 334 天")
+        );
         assert!(facts.iter().all(|fact| fact.value != "cat"));
         assert!(facts.iter().all(|fact| fact.value != "female"));
     }

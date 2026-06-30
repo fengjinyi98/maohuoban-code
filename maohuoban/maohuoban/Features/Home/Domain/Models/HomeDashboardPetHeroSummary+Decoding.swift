@@ -29,6 +29,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         case externalIdentifiers = "external_identifiers"
         case birthday
         case arrivalDate = "arrival_date"
+        case worldDays = "world_days"
         case weightGrams = "weight_grams"
         case neuterStatus = "neuter_status"
         case personalityTags = "personality_tags"
@@ -74,6 +75,7 @@ extension HomeDashboardSnapshot.PetHeroSummary: Decodable {
         externalIdentifiers = try container.decodeIfPresent([PetExternalIdentifierSummary].self, forKey: .externalIdentifiers) ?? []
         birthday = try container.decodeIfPresent(String.self, forKey: .birthday)
         arrivalDate = try container.decodeIfPresent(String.self, forKey: .arrivalDate)
+        worldDays = try container.decodeIfPresent(Int.self, forKey: .worldDays)
         weightGrams = try container.decodeIfPresent(Int.self, forKey: .weightGrams)
         neuterStatus = try container.decodeIfPresent(PetNeuterStatus.self, forKey: .neuterStatus)
         personalityTags = try container.decodeIfPresent([String].self, forKey: .personalityTags) ?? []

@@ -10,6 +10,8 @@ mod engine;
 mod engine_factory;
 mod engine_input;
 mod engine_mode;
+#[path = "../Infrastructure/runtime/evidence_planner.rs"]
+mod evidence_planner;
 mod fake_loop_engine;
 #[path = "../Infrastructure/runtime/rig_adapter/mod.rs"]
 mod rig_adapter;

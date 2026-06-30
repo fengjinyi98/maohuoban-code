@@ -9,12 +9,13 @@ use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
-use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
+use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiMessage,
-    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, LlmFinishReason, LlmUsage,
+    AgentEvent, AgentId, AgentToolStatus, AiAnswerVerification, AiCitation, AiError, AiFactPackage,
+    AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, LlmFinishReason, LlmUsage,
 };
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -199,7 +200,7 @@ async fn complete_with_runtime(
     let events = session
         .prompt_with_workbench(req.message.clone(), workbench)
         .await?;
-    complete_from_runtime_events(events, fact_package)
+    complete_from_runtime_events(events, fact_package, target_pet.is_some())
 }
 
 /// complete_from_runtime_events 聚合 Runtime 事件
@@ -209,6 +210,7 @@ async fn complete_with_runtime(
 fn complete_from_runtime_events(
     events: Vec<AgentEvent>,
     fact_package: Option<AiFactPackage>,
+    identity_context_tool_required: bool,
 ) -> Result<AiCompleteResult, AiError> {
     let package = fact_package.unwrap_or_else(AiFactPackage::empty);
     let mut usage = LlmUsage::default();
@@ -216,9 +218,30 @@ fn complete_from_runtime_events(
     let mut provider = "runtime".to_owned();
     let mut model = "primary".to_owned();
     let mut completed_text = None;
+    let mut tool_names_by_call_id = HashMap::<String, String>::new();
+    let mut identity_context_tool_succeeded = false;
 
     for event in events {
         match event {
+            AgentEvent::ToolStarted {
+                tool_call_id,
+                tool_name,
+                ..
+            } => {
+                tool_names_by_call_id.insert(tool_call_id, tool_name);
+            }
+            AgentEvent::ToolFinished {
+                tool_call_id,
+                status,
+                ..
+            } => {
+                let tool_name = tool_names_by_call_id.remove(&tool_call_id);
+                if tool_name.as_deref() == Some("load_pet_identity_context")
+                    && status == AgentToolStatus::Succeeded
+                {
+                    identity_context_tool_succeeded = true;
+                }
+            }
             AgentEvent::ModelCallFinished {
                 finish_reason: event_finish_reason,
                 usage: event_usage,
@@ -243,7 +266,12 @@ fn complete_from_runtime_events(
 
     let final_text = completed_text
         .ok_or_else(|| AiError::Infrastructure("runtime turn did not finish".to_owned()))?;
-    let verification = AiAnswerVerifier::new().verify(&final_text, &package);
+    let verification_context = AiAnswerVerificationContext {
+        identity_context_tool_required,
+        identity_context_tool_succeeded,
+    };
+    let verification =
+        AiAnswerVerifier::new().verify_with_context(&final_text, &package, verification_context);
 
     if verification.is_blocked() {
         let safe_text = verification
@@ -487,4 +515,39 @@ async fn load_history_and_summary_non_stream(
     };
 
     (pack, summary_text)
+}
+
+#[cfg(test)]
+mod tests {
+    use maohuoban_ai_domain::ai::{AgentTurnId, AgentTurnStatus, LlmFinishReason, ModelLabel};
+
+    use super::*;
+
+    #[test]
+    fn non_stream_completion_blocks_missing_identity_claim_without_tool_success() {
+        let turn_id = AgentTurnId::new();
+        let message_id = Uuid::new_v4();
+        let events = vec![
+            AgentEvent::ModelCallFinished {
+                turn_id,
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+                provider: "test".to_owned(),
+                model: ModelLabel::Primary.as_str().to_owned(),
+                engine_mode: "self_hosted".to_owned(),
+            },
+            AgentEvent::TurnFinished {
+                turn_id,
+                message_id,
+                final_text: "目前档案里没有生日记录，所以还不知道梅录多大。".to_owned(),
+                status: AgentTurnStatus::Completed,
+            },
+        ];
+
+        let complete = complete_from_runtime_events(events, None, true).expect("complete result");
+
+        assert_eq!(complete.finish_reason, LlmFinishReason::ContentFilter);
+        assert!(complete.verification.is_blocked());
+        assert!(!complete.final_text.contains("没有生日记录"));
+    }
 }

@@ -40,14 +40,16 @@ impl ToolFactProjector {
     /// - 将 strength 映射为确定性标签
     #[must_use]
     pub fn project_facts(facts: &[AiFactEntry]) -> ModelVisibleToolResult {
-        let visible_facts: Vec<ModelVisibleFact> = facts
-            .iter()
-            .filter(|entry| !is_internal_status_key(&entry.key))
-            .map(|entry| ModelVisibleFact {
-                certainty: certainty_label(entry.strength).to_owned(),
-                text: entry.value.clone(),
-            })
-            .collect();
+        let mut visible_facts = project_natural_identity_facts(facts);
+        visible_facts.extend(
+            facts
+                .iter()
+                .filter(|entry| !is_internal_status_key(&entry.key))
+                .map(|entry| ModelVisibleFact {
+                    certainty: certainty_label(entry.strength).to_owned(),
+                    text: entry.value.clone(),
+                }),
+        );
 
         let reference_ids: Vec<String> = facts
             .iter()
@@ -85,6 +87,63 @@ impl ToolFactProjector {
             reference_ids: Vec::new(),
             safe_message: "工具执行失败".to_owned(),
         }
+    }
+}
+
+/// project_natural_identity_facts 投影宠物身份自然事实句
+/// 核心职责：
+/// - 将年龄天数和陪伴天数合并为模型容易理解的事实
+/// - 避免模型只看到分散数字后无法理解字段含义
+fn project_natural_identity_facts(facts: &[AiFactEntry]) -> Vec<ModelVisibleFact> {
+    let name = fact_value(facts, "pet_identity.name").unwrap_or("该宠物");
+    let world_days = fact_value(facts, "pet_identity.world_days").and_then(extract_first_number);
+    let companionship_days =
+        fact_value(facts, "pet_identity.companionship_days").and_then(extract_first_number);
+
+    let (Some(world_days), Some(companionship_days)) = (world_days, companionship_days) else {
+        return Vec::new();
+    };
+
+    let certainty = facts
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.key.as_str(),
+                "pet_identity.world_days" | "pet_identity.companionship_days"
+            )
+        })
+        .map(|entry| entry.strength)
+        .min_by_key(|strength| strength_rank(*strength))
+        .map_or("已确认", certainty_label)
+        .to_owned();
+
+    vec![ModelVisibleFact {
+        certainty,
+        text: format!("{name}出生至今 {world_days} 天，到家陪伴 {companionship_days} 天"),
+    }]
+}
+
+fn fact_value<'a>(facts: &'a [AiFactEntry], key: &str) -> Option<&'a str> {
+    facts
+        .iter()
+        .find(|entry| entry.key == key)
+        .map(|entry| entry.value.as_str())
+}
+
+fn extract_first_number(text: &str) -> Option<String> {
+    let digits: String = text.chars().filter(char::is_ascii_digit).collect();
+    if digits.is_empty() {
+        None
+    } else {
+        Some(digits)
+    }
+}
+
+fn strength_rank(strength: AiFactStrength) -> u8 {
+    match strength {
+        AiFactStrength::Weak => 0,
+        AiFactStrength::PendingConfirmation => 1,
+        AiFactStrength::Strong => 2,
     }
 }
 

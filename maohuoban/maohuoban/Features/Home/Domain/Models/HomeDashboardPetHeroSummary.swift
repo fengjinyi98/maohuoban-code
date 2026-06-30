@@ -33,6 +33,7 @@ extension HomeDashboardSnapshot {
         let externalIdentifiers: [PetExternalIdentifierSummary]
         let birthday: String?
         let arrivalDate: String?
+        let worldDays: Int?
         let weightGrams: Int?
         let neuterStatus: PetNeuterStatus?
         let personalityTags: [String]
@@ -103,6 +104,7 @@ extension HomeDashboardSnapshot {
             externalIdentifiers: [PetExternalIdentifierSummary] = [],
             birthday: String? = nil,
             arrivalDate: String? = nil,
+            worldDays: Int? = nil,
             weightGrams: Int? = nil,
             neuterStatus: PetNeuterStatus? = nil,
             personalityTags: [String] = [],
@@ -139,6 +141,7 @@ extension HomeDashboardSnapshot {
             self.externalIdentifiers = externalIdentifiers
             self.birthday = birthday
             self.arrivalDate = arrivalDate
+            self.worldDays = worldDays
             self.weightGrams = weightGrams
             self.neuterStatus = neuterStatus
             self.personalityTags = personalityTags
@@ -176,6 +179,7 @@ extension HomeDashboardSnapshot {
             externalIdentifiers: [PetExternalIdentifierSummary] = [],
             birthday: String? = nil,
             arrivalDate: String? = nil,
+            worldDays: Int? = nil,
             weightGrams: Int? = nil,
             neuterStatus: PetNeuterStatus? = nil,
             personalityTags: [String] = [],
@@ -210,6 +214,7 @@ extension HomeDashboardSnapshot {
                 externalIdentifiers: externalIdentifiers,
                 birthday: birthday,
                 arrivalDate: arrivalDate,
+                worldDays: worldDays,
                 weightGrams: weightGrams,
                 neuterStatus: neuterStatus,
                 personalityTags: personalityTags,

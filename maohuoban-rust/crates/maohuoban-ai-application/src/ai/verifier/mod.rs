@@ -13,6 +13,16 @@ use maohuoban_ai_domain::ai::{
 /// - 违规时返回阻断结果和安全回退文案
 pub struct AiAnswerVerifier;
 
+/// AiAnswerVerificationContext 回答校验运行时上下文
+/// 核心职责：
+/// - 标记本轮是否需要身份事实工具作为证据
+/// - 标记身份事实工具是否已成功执行
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct AiAnswerVerificationContext {
+    pub identity_context_tool_required: bool,
+    pub identity_context_tool_succeeded: bool,
+}
+
 impl AiAnswerVerifier {
     /// new 构造回答校验器
     #[must_use]
@@ -25,6 +35,20 @@ impl AiAnswerVerifier {
     /// - 按优先级检查：未确认写入 > 医疗诊断 > 弱线索误用 > 无来源事实
     #[must_use]
     pub fn verify(&self, answer: &str, package: &AiFactPackage) -> AiAnswerVerification {
+        self.verify_with_context(answer, package, AiAnswerVerificationContext::default())
+    }
+
+    /// verify_with_context 携带运行时上下文校验回答
+    /// 核心职责：
+    /// - 在事实包校验之外，结合本轮工具执行证据拦截无依据缺失声明
+    /// - 保持旧 verify 入口兼容纯事实包校验
+    #[must_use]
+    pub fn verify_with_context(
+        &self,
+        answer: &str,
+        package: &AiFactPackage,
+        context: AiAnswerVerificationContext,
+    ) -> AiAnswerVerification {
         // 1. 检查未确认写操作
         if Self::detect_unconfirmed_write(answer) {
             return AiAnswerVerification::blocked(
@@ -49,7 +73,23 @@ impl AiAnswerVerifier {
             );
         }
 
-        // 4. 检查无来源事实
+        // 4. 检查未执行身份工具时的缺失声明
+        if Self::detect_identity_missing_claim_without_tool_evidence(answer, context) {
+            return AiAnswerVerification::blocked(
+                AiBlockedReason::UnsupportedFact,
+                "回答声称档案缺少生日或年龄信息，但本轮尚未成功读取宠物身份档案。".to_owned(),
+            );
+        }
+
+        // 5. 检查身份事实缺失误判
+        if Self::detect_identity_missing_claim_conflict(answer, package) {
+            return AiAnswerVerification::blocked(
+                AiBlockedReason::UnsupportedFact,
+                "档案中已有宠物生日或年龄事实，请基于已确认事实回答。".to_owned(),
+            );
+        }
+
+        // 6. 检查无来源事实
         if Self::detect_unsupported_fact(answer, package) {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::UnsupportedFact,
@@ -133,6 +173,54 @@ impl AiAnswerVerifier {
         }
 
         false
+    }
+
+    /// detect_identity_missing_claim_without_tool_evidence 检测未查档案时的缺失声明
+    fn detect_identity_missing_claim_without_tool_evidence(
+        answer: &str,
+        context: AiAnswerVerificationContext,
+    ) -> bool {
+        context.identity_context_tool_required
+            && !context.identity_context_tool_succeeded
+            && Self::detect_identity_missing_claim(answer)
+    }
+
+    /// detect_identity_missing_claim_conflict 检测身份事实缺失误判
+    fn detect_identity_missing_claim_conflict(answer: &str, package: &AiFactPackage) -> bool {
+        if !Self::detect_identity_missing_claim(answer) {
+            return false;
+        }
+
+        package.facts.iter().any(|fact| {
+            fact.strength == AiFactStrength::Strong
+                && matches!(
+                    fact.key.as_str(),
+                    "pet_identity.birthday"
+                        | "pet_identity.world_days"
+                        | "pet_identity.companionship_days"
+                )
+        })
+    }
+
+    fn detect_identity_missing_claim(answer: &str) -> bool {
+        const MISSING_PATTERNS: &[&str] = &[
+            "没有生日",
+            "没有记录",
+            "未记录",
+            "暂无记录",
+            "不知道",
+            "无法确定",
+            "查不到",
+            "没查到",
+        ];
+        const IDENTITY_PATTERNS: &[&str] = &["生日", "年龄", "多大", "几岁", "来到世界"];
+
+        MISSING_PATTERNS
+            .iter()
+            .any(|pattern| answer.contains(pattern))
+            && IDENTITY_PATTERNS
+                .iter()
+                .any(|pattern| answer.contains(pattern))
     }
 
     /// detect_unsupported_fact 检测无来源事实

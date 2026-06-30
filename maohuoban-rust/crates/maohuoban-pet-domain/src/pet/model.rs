@@ -6,6 +6,7 @@ mod external_identifier;
 mod food_event_payloads;
 mod food_inventory_item;
 mod identity_context;
+mod life_days;
 mod lifecycle_event;
 mod media;
 mod pet_guardian;
@@ -33,6 +34,7 @@ pub use identity_context::{
     ExternalIdentifierSummary, GuardianSummary, IdentitySummary, LifecycleSummary, OriginSummary,
     PetIdentityContext,
 };
+pub use life_days::days_since_date;
 pub use lifecycle_event::{LifecycleEventKind, PetLifecycleEvent};
 pub use media::{
     MediaAsset, MediaAssetComponent, MediaAssetComponentKind, MediaAssetStatus, MediaBinding,

@@ -6,8 +6,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFactSchema, ToolFailure,
-    ToolProgressText, Toolset,
+    AiFactEntry, AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFactField, ToolFactSchema,
+    ToolFailure, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -122,20 +122,67 @@ impl RuntimePetContextToolKind {
     fn fact_schema(self) -> ToolFactSchema {
         match self {
             Self::Identity => ToolFactSchema {
-                fact_keys: vec!["pet_name".to_owned(), "pet_species".to_owned()],
+                fact_keys: vec![
+                    "pet_identity.name".to_owned(),
+                    "pet_identity.species".to_owned(),
+                    "pet_identity.sex".to_owned(),
+                    "pet_identity.breed".to_owned(),
+                    "pet_identity.birthday".to_owned(),
+                    "pet_identity.arrival_date".to_owned(),
+                    "pet_identity.world_days".to_owned(),
+                    "pet_identity.companionship_days".to_owned(),
+                ],
                 description: "宠物身份事实".to_owned(),
+                natural_language_summary:
+                    "可回答目标宠物的名字、物种、性别、品种、生日、年龄/来到世界天数、到家时间、陪伴天数等基础档案问题"
+                        .to_owned(),
+                fields: vec![
+                    ToolFactField {
+                        key: "pet_identity.birthday".to_owned(),
+                        label: "生日".to_owned(),
+                        meaning: "宠物出生日期，可用于回答生日、出生日期、年龄相关问题".to_owned(),
+                        example_queries: vec!["生日是什么时候".to_owned(), "哪天出生的".to_owned()],
+                    },
+                    ToolFactField {
+                        key: "pet_identity.world_days".to_owned(),
+                        label: "年龄/出生至今天数".to_owned(),
+                        meaning: "宠物从生日到今天经过的天数，可用于回答多大了、几岁了、出生多久了、来到世界多少天"
+                            .to_owned(),
+                        example_queries: vec![
+                            "多大了".to_owned(),
+                            "几岁了".to_owned(),
+                            "出生多久了".to_owned(),
+                            "来到世界多少天".to_owned(),
+                        ],
+                    },
+                    ToolFactField {
+                        key: "pet_identity.arrival_date".to_owned(),
+                        label: "到家时间".to_owned(),
+                        meaning: "宠物来到用户身边或到家的日期".to_owned(),
+                        example_queries: vec!["什么时候到家的".to_owned(), "什么时候来我身边的".to_owned()],
+                    },
+                    ToolFactField {
+                        key: "pet_identity.companionship_days".to_owned(),
+                        label: "陪伴天数".to_owned(),
+                        meaning: "宠物从到家日期到今天陪伴用户的天数".to_owned(),
+                        example_queries: vec!["陪伴我多久了".to_owned(), "到家多久了".to_owned()],
+                    },
+                ],
             },
             Self::CurrentDiet => ToolFactSchema {
                 fact_keys: vec!["current_staple".to_owned(), "diet_status".to_owned()],
                 description: "宠物当前饮食事实".to_owned(),
+                ..Default::default()
             },
             Self::FoodInventoryHints => ToolFactSchema {
                 fact_keys: vec!["inventory_change_hint".to_owned()],
                 description: "储物柜变化弱线索".to_owned(),
+                ..Default::default()
             },
             Self::DietConfirmationCandidates => ToolFactSchema {
                 fact_keys: vec!["diet_confirmation_candidate".to_owned()],
                 description: "饮食待确认候选".to_owned(),
+                ..Default::default()
             },
         }
     }
@@ -441,6 +488,25 @@ mod tests {
                 "properties": {},
                 "required": []
             })
+        );
+    }
+
+    #[test]
+    fn runtime_identity_tool_schema_declares_life_day_facts() {
+        let schema = RuntimePetContextToolKind::Identity.fact_schema();
+
+        assert_eq!(
+            schema.fact_keys,
+            vec![
+                "pet_identity.name",
+                "pet_identity.species",
+                "pet_identity.sex",
+                "pet_identity.breed",
+                "pet_identity.birthday",
+                "pet_identity.arrival_date",
+                "pet_identity.world_days",
+                "pet_identity.companionship_days",
+            ]
         );
     }
 

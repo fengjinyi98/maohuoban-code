@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::output::visible_text_prefix_from_model_output;
-use maohuoban_ai_application::ai::verifier::AiAnswerVerifier;
+use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentToolStatus, AgentTurnId, AiAgentActivityStatus, AiError, AiFactPackage,
     AiStreamEvent, AiToolCallStatus, LlmFinishReason, LlmUsage,
@@ -23,6 +23,8 @@ pub(super) struct AgentEventSseProjector {
     pending_delta_text: String,
     streamed_delta_text: String,
     suppress_model_delta: bool,
+    identity_context_tool_required: bool,
+    identity_context_tool_succeeded: bool,
 }
 
 impl AgentEventSseProjector {
@@ -32,6 +34,7 @@ impl AgentEventSseProjector {
         _message_id: Uuid,
         fact_package: Option<AiFactPackage>,
         pet_name: &str,
+        identity_context_tool_required: bool,
     ) -> Self {
         Self {
             package: fact_package.unwrap_or_else(AiFactPackage::empty),
@@ -42,6 +45,8 @@ impl AgentEventSseProjector {
             pending_delta_text: String::new(),
             streamed_delta_text: String::new(),
             suppress_model_delta: false,
+            identity_context_tool_required,
+            identity_context_tool_succeeded: false,
         }
     }
 
@@ -154,6 +159,9 @@ impl AgentEventSseProjector {
             .tool_names_by_call_id
             .remove(tool_call_id)
             .unwrap_or_else(|| "runtime_tool".to_owned());
+        if tool_name == "load_pet_identity_context" && status == AgentToolStatus::Succeeded {
+            self.identity_context_tool_succeeded = true;
+        }
         let display_text = activity_text_for_tool(&tool_name, &self.pet_name);
         vec![UserVisibleTurnEvent::ExecutionTraceCompleted {
             turn_id,
@@ -200,13 +208,16 @@ impl AgentEventSseProjector {
                 final_text,
                 ..
             } => append_verified_completion(
+                VerifiedCompletionInput {
+                    message_id,
+                    final_text,
+                    usage: self.latest_usage,
+                    finish_reason: self.finish_reason,
+                    package: &self.package,
+                    verification_context: self.verification_context(),
+                    streamed_delta_text: &self.streamed_delta_text,
+                },
                 &mut output,
-                message_id,
-                final_text,
-                self.latest_usage,
-                self.finish_reason,
-                &self.package,
-                &self.streamed_delta_text,
             ),
             UserVisibleTurnEvent::ConfirmationTask {
                 confirmation_task_id,
@@ -259,7 +270,11 @@ impl AgentEventSseProjector {
             return Vec::new();
         }
 
-        let verification = AiAnswerVerifier::new().verify(&visible_text, &self.package);
+        let verification = AiAnswerVerifier::new().verify_with_context(
+            &visible_text,
+            &self.package,
+            self.verification_context(),
+        );
         if verification.is_blocked() {
             self.suppress_model_delta = true;
             return Vec::new();
@@ -271,6 +286,13 @@ impl AgentEventSseProjector {
             turn_id,
             text: delta_text,
         }]
+    }
+
+    fn verification_context(&self) -> AiAnswerVerificationContext {
+        AiAnswerVerificationContext {
+            identity_context_tool_required: self.identity_context_tool_required,
+            identity_context_tool_succeeded: self.identity_context_tool_succeeded,
+        }
     }
 }
 
@@ -345,31 +367,37 @@ fn map_activity_status(status: AgentToolStatus) -> AiAgentActivityStatus {
     }
 }
 
-fn append_verified_completion(
-    output: &mut Vec<AiStreamEvent>,
+struct VerifiedCompletionInput<'a> {
     message_id: Uuid,
     final_text: String,
     usage: LlmUsage,
     finish_reason: LlmFinishReason,
-    package: &AiFactPackage,
-    streamed_delta_text: &str,
-) {
-    let verification = AiAnswerVerifier::new().verify(&final_text, package);
+    package: &'a AiFactPackage,
+    verification_context: AiAnswerVerificationContext,
+    streamed_delta_text: &'a str,
+}
+
+fn append_verified_completion(input: VerifiedCompletionInput<'_>, output: &mut Vec<AiStreamEvent>) {
+    let verification = AiAnswerVerifier::new().verify_with_context(
+        &input.final_text,
+        input.package,
+        input.verification_context,
+    );
 
     if verification.is_blocked() {
         let safe_text = verification
             .safe_fallback_text
             .clone()
             .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
-        let citations = citations_for_answer(&safe_text, package);
+        let citations = citations_for_answer(&safe_text, input.package);
         append_citations(output, citations.clone());
         output.push(AiStreamEvent::AnswerDelta {
             text: safe_text.clone(),
         });
         output.push(AiStreamEvent::AnswerCompleted {
-            message_id,
+            message_id: input.message_id,
             final_text: safe_text,
-            usage,
+            usage: input.usage,
             finish_reason: LlmFinishReason::ContentFilter,
             citations,
             verification,
@@ -377,18 +405,18 @@ fn append_verified_completion(
         return;
     }
 
-    let citations = citations_for_answer(&final_text, package);
+    let citations = citations_for_answer(&input.final_text, input.package);
     append_citations(output, citations.clone());
-    if streamed_delta_text != final_text {
+    if input.streamed_delta_text != input.final_text {
         output.push(AiStreamEvent::AnswerDelta {
-            text: final_text.clone(),
+            text: input.final_text.clone(),
         });
     }
     output.push(AiStreamEvent::AnswerCompleted {
-        message_id,
-        final_text,
-        usage,
-        finish_reason,
+        message_id: input.message_id,
+        final_text: input.final_text,
+        usage: input.usage,
+        finish_reason: input.finish_reason,
         citations,
         verification,
     });
@@ -415,7 +443,7 @@ mod tests {
     fn projector_streams_json_answer_text_incrementally_without_json_fields() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
-        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
 
         let first_events = projector.project(AgentEvent::MessageDelta {
             turn_id,
@@ -469,7 +497,7 @@ mod tests {
     fn projector_scrubs_embedded_json_dto_fields_from_mixed_model_output() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
-        let mut projector = AgentEventSseProjector::new(message_id, None, "梅录");
+        let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", false);
 
         let chunks = [
             "好的，这是梅录的档案信息：",
@@ -502,7 +530,7 @@ mod tests {
     fn projector_scrubs_cross_chunk_thinking_and_internal_context_before_sse_delta() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
-        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
 
         let chunks = [
             "<think>先看内部推理",
@@ -532,7 +560,7 @@ mod tests {
     fn projector_scrubs_rig_raw_delta_reasoning_tool_planning_and_json_draft_before_sse_delta() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
-        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
 
         let chunks = [
             "<reasoning>Rig internal plan: call load_pet_identity_context</reasoning>",
@@ -568,7 +596,7 @@ mod tests {
     fn projector_emits_execution_trace_completed_before_answer_delta() {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
-        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包");
+        let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
 
         let mut events = Vec::new();
         events.extend(projector.project(AgentEvent::ToolStarted {
@@ -652,5 +680,45 @@ mod tests {
             !payload.contains("load_pet_identity_context"),
             "safe execution trace must not expose internal tool identifier: {payload}"
         );
+    }
+
+    #[test]
+    fn projector_blocks_missing_identity_claim_when_identity_tool_not_called() {
+        let message_id = Uuid::new_v4();
+        let turn_id = AgentTurnId::new();
+        let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+
+        let delta_events = projector.project(AgentEvent::MessageDelta {
+            turn_id,
+            text: "目前档案里没有生日记录，所以还不知道梅录多大。".to_owned(),
+        });
+        assert!(
+            delta_events.is_empty(),
+            "unsupported missing identity claim must not stream as answer delta"
+        );
+
+        let completed_events = projector.project(AgentEvent::TurnFinished {
+            turn_id,
+            message_id,
+            final_text: "目前档案里没有生日记录，所以还不知道梅录多大。".to_owned(),
+            status: AgentTurnStatus::Completed,
+        });
+
+        let completed = completed_events
+            .iter()
+            .find_map(|event| match event {
+                AiStreamEvent::AnswerCompleted {
+                    final_text,
+                    finish_reason,
+                    verification,
+                    ..
+                } => Some((final_text, finish_reason, verification)),
+                _ => None,
+            })
+            .expect("blocked completion should emit answer_completed");
+
+        assert_eq!(*completed.1, LlmFinishReason::ContentFilter);
+        assert!(completed.2.is_blocked());
+        assert!(!completed.0.contains("没有生日记录"));
     }
 }

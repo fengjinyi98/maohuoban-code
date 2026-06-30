@@ -29,6 +29,9 @@ pub struct IdentitySummary {
     pub breed: Option<String>,
     pub sex: String,
     pub birthday: Option<String>,
+    pub arrival_date: Option<String>,
+    pub world_days: Option<i64>,
+    pub companionship_days: Option<i64>,
     pub life_status: String,
 }
 
@@ -82,6 +85,9 @@ mod tests {
                 breed: Some("金毛".into()),
                 sex: "male".into(),
                 birthday: None,
+                arrival_date: None,
+                world_days: None,
+                companionship_days: None,
                 life_status: "alive".into(),
             },
             origin: OriginSummary {
@@ -98,6 +104,24 @@ mod tests {
     fn identity_context_has_pet_id_in_identity() {
         let ctx = sample_context();
         assert!(!ctx.identity.pet_id.is_nil());
+    }
+
+    #[test]
+    fn identity_context_exposes_pet_life_days_and_companionship_days() {
+        let ctx = PetIdentityContext {
+            identity: IdentitySummary {
+                birthday: Some("2024-01-01".into()),
+                arrival_date: Some("2024-03-01".into()),
+                world_days: Some(100),
+                companionship_days: Some(40),
+                ..sample_context().identity
+            },
+            ..sample_context()
+        };
+
+        assert_eq!(ctx.identity.arrival_date.as_deref(), Some("2024-03-01"));
+        assert_eq!(ctx.identity.world_days, Some(100));
+        assert_eq!(ctx.identity.companionship_days, Some(40));
     }
 
     #[test]

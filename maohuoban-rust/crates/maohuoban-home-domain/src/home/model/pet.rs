@@ -46,6 +46,8 @@ pub struct PetHeroSummary {
     #[serde(default)]
     pub arrival_date: Option<chrono::NaiveDate>,
     #[serde(default)]
+    pub world_days: Option<i32>,
+    #[serde(default)]
     pub weight_grams: Option<i32>,
     #[serde(default)]
     pub neuter_status: Option<PetNeuterStatus>,

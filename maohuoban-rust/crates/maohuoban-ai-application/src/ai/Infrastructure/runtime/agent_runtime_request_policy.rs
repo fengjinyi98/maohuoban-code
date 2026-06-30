@@ -3,7 +3,9 @@
 // - 根据 Workbench 决定本轮可见工具集合
 // - 根据模型阶段选择 Provider 兼容的输出约束
 
-use maohuoban_ai_domain::ai::{AgentSessionState, AgentSessionWorkbench, LlmToolSchema, Toolset};
+use maohuoban_ai_domain::ai::{
+    AgentSessionState, AgentSessionWorkbench, LlmToolSchema, ToolFactSchema, Toolset,
+};
 
 use crate::ai::tools::{ToolDefinitionInfo, ToolRegistry};
 
@@ -28,7 +30,10 @@ impl AgentRuntimeRequestPolicy {
             .filter(|tool| Self::tool_visible_for_workbench(tool, state.workbench.as_ref()))
             .map(|tool| LlmToolSchema {
                 name: tool.name,
-                description: tool.description,
+                description: Self::model_visible_tool_description(
+                    &tool.description,
+                    tool.result_fact_schema.as_ref(),
+                ),
                 parameters: tool.parameters,
             })
             .collect()
@@ -86,5 +91,31 @@ impl AgentRuntimeRequestPolicy {
     /// - Memory 和 Confirmation 分组在有宠物上下文时由上层控制
     fn is_private_toolset(tool: &ToolDefinitionInfo) -> bool {
         matches!(tool.toolset, Toolset::PrivatePetContext)
+    }
+
+    fn model_visible_tool_description(
+        description: &str,
+        fact_schema: Option<&ToolFactSchema>,
+    ) -> String {
+        let Some(schema) = fact_schema else {
+            return description.to_owned();
+        };
+
+        let mut parts = vec![description.to_owned()];
+        if !schema.description.is_empty() {
+            parts.push(format!("可返回事实: {}", schema.description));
+        }
+        if !schema.natural_language_summary.is_empty() {
+            parts.push(schema.natural_language_summary.clone());
+        }
+        for field in &schema.fields {
+            let mut field_text = format!("{}: {}", field.label, field.meaning);
+            if !field.example_queries.is_empty() {
+                field_text.push_str("；典型问法: ");
+                field_text.push_str(&field.example_queries.join("、"));
+            }
+            parts.push(field_text);
+        }
+        parts.join("。")
     }
 }

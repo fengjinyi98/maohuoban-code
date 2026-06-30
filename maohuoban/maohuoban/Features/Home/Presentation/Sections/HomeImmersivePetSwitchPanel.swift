@@ -46,8 +46,6 @@ struct HomeImmersivePetSwitchPanel: View {
                         Text("查看更多")
                             .font(MHBTheme.Typography.footnote)
                             .foregroundStyle(.white.opacity(0.96))
-
-                        Spacer(minLength: MHBTheme.Spacing.s2)
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s2)
                     .padding(.vertical, MHBTheme.Spacing.s2)
@@ -58,7 +56,7 @@ struct HomeImmersivePetSwitchPanel: View {
             }
         }
         .padding(MHBTheme.Spacing.s2)
-        .frame(width: 190)
+        .frame(maxWidth: 190)
         .background {
             Color.black.opacity(0.16)
                 .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
@@ -90,8 +88,6 @@ private struct HomeImmersivePetSwitchRow: View {
                 .foregroundStyle(.white.opacity(pet.isSelected ? 1 : 0.88))
                 .lineLimit(1)
                 .truncationMode(.tail)
-
-            Spacer(minLength: MHBTheme.Spacing.s2)
 
             if pet.isSelected {
                 Image(systemName: "checkmark")

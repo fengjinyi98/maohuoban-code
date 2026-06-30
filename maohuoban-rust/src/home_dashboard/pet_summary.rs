@@ -10,7 +10,7 @@ use maohuoban_pet_application::pet::MediaAssetDisplayMetadata;
 use maohuoban_pet_domain::pet::{
     PetBackgroundMediaKind, PetNameEditPolicy as DomainPetNameEditPolicy,
     PetNeuterStatus as DomainPetNeuterStatus, PetProfile, PetSex as DomainPetSex,
-    PetSpecies as DomainPetSpecies,
+    PetSpecies as DomainPetSpecies, days_since_date,
 };
 use uuid::Uuid;
 
@@ -37,7 +37,11 @@ pub(super) fn pet_hero_summary(
     let companionship_start_date = pet
         .arrival_date
         .unwrap_or_else(|| pet.created_at.date_naive());
-    let companionship_days = Some(companionship_days_since(companionship_start_date));
+    let today = Utc::now().date_naive();
+    let companionship_days = Some(days_since_for_home(companionship_start_date, today));
+    let world_days = pet
+        .birthday
+        .map(|birthday| days_since_for_home(birthday, today));
     let avatar_metadata = pet
         .avatar_asset_id
         .and_then(|asset_id| media_metadata.get(&asset_id));
@@ -80,6 +84,7 @@ pub(super) fn pet_hero_summary(
         microchip_number: pet.microchip_number.clone(),
         birthday: pet.birthday,
         arrival_date: pet.arrival_date,
+        world_days,
         weight_grams: pet.weight_grams,
         neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
         personality_tags: pet.personality_tags.clone(),
@@ -89,12 +94,12 @@ pub(super) fn pet_hero_summary(
     }
 }
 
-/// `companionship_days_since` 计算宠物陪伴天数
+/// `days_since_for_home` 转换宠物领域天数为首页 DTO 数值
 /// 核心职责：
-/// - 按业务起始日期派生首页陪伴天数
-/// - 保证未来日期不会产生负数展示
-fn companionship_days_since(start_date: chrono::NaiveDate) -> i32 {
-    let days = (Utc::now().date_naive() - start_date).num_days().max(0);
+/// - 复用宠物领域统一天数口径
+/// - 保证首页 DTO 的 i32 边界稳定
+fn days_since_for_home(start_date: chrono::NaiveDate, today: chrono::NaiveDate) -> i32 {
+    let days = days_since_date(start_date, today);
     i32::try_from(days).unwrap_or(i32::MAX)
 }
 

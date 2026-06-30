@@ -14,8 +14,9 @@ use maohuoban_ai_application::ai::tools::{
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
-    CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel, ToolProgressText, Toolset,
+    CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest,
+    LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel,
+    ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -109,6 +110,73 @@ impl AiToolDefinition for AppHelpTool {
             toolset: Toolset::AppSupport,
             progress_text: ToolProgressText::default(),
             result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(Vec::new())
+    }
+}
+
+struct PetIdentityFactTool;
+
+#[async_trait]
+impl AiToolDefinition for PetIdentityFactTool {
+    fn name(&self) -> &'static str {
+        "load_pet_identity_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "读取目标宠物基础档案事实"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.identity.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["identity".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: Some(ToolFactSchema {
+                fact_keys: vec![
+                    "pet_identity.birthday".to_owned(),
+                    "pet_identity.world_days".to_owned(),
+                    "pet_identity.companionship_days".to_owned(),
+                ],
+                description: "宠物基础档案事实".to_owned(),
+                natural_language_summary:
+                    "可回答宠物多大了、几岁了、生日、来到世界多少天、陪伴多久等问题".to_owned(),
+                fields: vec![
+                    ToolFactField {
+                        key: "pet_identity.world_days".to_owned(),
+                        label: "年龄/出生至今天数".to_owned(),
+                        meaning: "宠物从生日到今天经过的天数，可用于回答多大了、几岁了、出生多久了"
+                            .to_owned(),
+                        example_queries: vec![
+                            "多大了".to_owned(),
+                            "几岁了".to_owned(),
+                            "出生多久了".to_owned(),
+                        ],
+                    },
+                    ToolFactField {
+                        key: "pet_identity.companionship_days".to_owned(),
+                        label: "陪伴天数".to_owned(),
+                        meaning: "宠物从到家日期到今天陪伴用户的天数".to_owned(),
+                        example_queries: vec!["陪伴我多久了".to_owned(), "到家多久了".to_owned()],
+                    },
+                ],
+            }),
         }
     }
 
@@ -249,6 +317,62 @@ async fn workbench_prompt_discloses_visible_runtime_tools() {
     assert_eq!(requests[0].tools[0].name, "explain_app_feature");
 }
 
+#[tokio::test]
+async fn workbench_prompt_discloses_tool_fact_schema_in_natural_language() {
+    let provider = CapturingProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(PetIdentityFactTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
+                .expect("pet id"),
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("工具说明", private_pet_context_workbench())
+        .await
+        .expect("prompt private workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(
+        workbench_prompt.contains("可返回事实: 宠物基础档案事实"),
+        "workbench prompt should disclose fact schema description: {workbench_prompt}"
+    );
+    assert!(
+        workbench_prompt.contains("年龄/出生至今天数"),
+        "workbench prompt should disclose natural fact labels: {workbench_prompt}"
+    );
+    assert!(
+        workbench_prompt.contains("多大了") && workbench_prompt.contains("陪伴我多久了"),
+        "workbench prompt should disclose example queries from the tool protocol: {workbench_prompt}"
+    );
+    assert!(
+        requests[0].tools[0].description.contains("多大了")
+            && requests[0].tools[0].description.contains("陪伴多久"),
+        "model-visible tool description should include natural fact schema: {:?}",
+        requests[0].tools[0]
+    );
+}
+
 fn public_pet_domain_workbench() -> AgentSessionWorkbench {
     AgentSessionWorkbench {
         agent_definition: AgentDefinition {
@@ -280,4 +404,29 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
         },
         recent_conversation_pack: None,
     }
+}
+
+fn private_pet_context_workbench() -> AgentSessionWorkbench {
+    let mut workbench = public_pet_domain_workbench();
+    workbench
+        .agent_definition
+        .capability_domains
+        .push(CapabilityDomain::PrivatePetContext);
+    workbench
+        .capability_catalog
+        .capabilities
+        .push(AgentCapability {
+            code: "private_pet_context".to_owned(),
+            domain: CapabilityDomain::PrivatePetContext,
+            title: "授权宠物私域上下文".to_owned(),
+            when_to_use: "用户询问已选宠物的档案、年龄、生日、陪伴、饮食或记录事实时使用"
+                .to_owned(),
+            requires_private_context: true,
+        });
+    workbench.context_pack.selected_pet = Some(ContextPetSummary {
+        pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+        name: "梅录".to_owned(),
+        species: "cat".to_owned(),
+    });
+    workbench
 }

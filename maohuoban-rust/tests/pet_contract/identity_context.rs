@@ -104,6 +104,58 @@ async fn pet_profile_create_marks_shared_microchip_as_disputed() {
 }
 
 #[tokio::test]
+async fn pet_identity_context_returns_arrival_date_and_derived_life_days() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let owner_user_id = login_user_id(&app, "13800138248").await;
+    let birthday = chrono::Utc::now().date_naive() - chrono::Duration::days(60);
+    let arrival_date = chrono::Utc::now().date_naive() - chrono::Duration::days(12);
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶糕",
+                "species": "cat",
+                "sex": "female",
+                "birthday": birthday.to_string(),
+                "arrival_date": arrival_date.to_string()
+            }),
+            Some(&owner_user_id),
+        ))
+        .await
+        .expect("create pet with birthday and arrival date");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let context_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/identity-context"),
+            Some(&owner_user_id),
+        ))
+        .await
+        .expect("load identity context");
+    assert_eq!(context_response.status(), StatusCode::OK);
+    let context_body = response_json(context_response).await;
+
+    assert_eq!(
+        context_body["data"]["identity"]["birthday"],
+        birthday.to_string()
+    );
+    assert_eq!(
+        context_body["data"]["identity"]["arrival_date"],
+        arrival_date.to_string()
+    );
+    assert_eq!(context_body["data"]["identity"]["world_days"], 60);
+    assert_eq!(context_body["data"]["identity"]["companionship_days"], 12);
+}
+
+#[tokio::test]
 async fn pet_profile_detail_returns_external_identifier_summary_for_disputed_microchip() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

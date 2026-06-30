@@ -138,3 +138,44 @@ fn model_visible_tool_result_from_empty_facts() {
     assert!(visible.facts.is_empty());
     assert!(visible.reference_ids.is_empty());
 }
+
+#[test]
+fn pet_identity_days_project_to_natural_fact_sentence() {
+    let facts = vec![
+        AiFactEntry {
+            key: "pet_identity.name".to_owned(),
+            value: "梅录".to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
+        },
+        AiFactEntry {
+            key: "pet_identity.world_days".to_owned(),
+            value: "420".to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
+        },
+        AiFactEntry {
+            key: "pet_identity.companionship_days".to_owned(),
+            value: "378".to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
+        },
+    ];
+
+    let visible = ToolFactProjector::project_facts(&facts);
+    let texts: Vec<&str> = visible
+        .facts
+        .iter()
+        .map(|fact| fact.text.as_str())
+        .collect();
+
+    assert!(
+        texts.contains(&"梅录出生至今 420 天，到家陪伴 378 天"),
+        "identity day facts should include natural sentence, got: {texts:?}"
+    );
+    let encoded = serde_json::to_string(&visible).expect("serialize visible facts");
+    assert!(
+        !encoded.contains("pet_identity.world_days"),
+        "projected tool result must not expose internal fact key: {encoded}"
+    );
+}

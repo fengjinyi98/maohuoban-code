@@ -3,9 +3,10 @@
 // - 聚合同一 pet_id 的身份、关系、外部标识、生命周期摘要
 // - 只输出可解释字段，不暴露底层兼容字段
 
+use chrono::{NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
     ExternalIdentifierSummary, GuardianSummary, IdentitySummary, LifecycleSummary, OriginSummary,
-    PetError, PetIdentityContext, PetResult,
+    PetError, PetIdentityContext, PetResult, days_since_date,
 };
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -21,7 +22,8 @@ struct IdentityRow {
     species: String,
     breed: Option<String>,
     sex: String,
-    birthday: Option<String>,
+    birthday: Option<NaiveDate>,
+    arrival_date: Option<NaiveDate>,
     life_status: String,
     origin_kind: String,
     created_at: chrono::DateTime<chrono::Utc>,
@@ -54,7 +56,8 @@ impl PostgresPetRepository {
                 species,
                 breed,
                 sex,
-                birthday::text AS birthday,
+                birthday,
+                arrival_date,
                 life_status,
                 origin_kind,
                 created_at
@@ -68,6 +71,9 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?
         .ok_or(PetError::PetNotFound)?;
 
+        let today = Utc::now().date_naive();
+        let birthday = identity_row.birthday;
+        let arrival_date = identity_row.arrival_date;
         let identity = IdentitySummary {
             pet_id: identity_row.id,
             profile_number: identity_row.profile_number,
@@ -75,7 +81,10 @@ impl PostgresPetRepository {
             species: identity_row.species,
             breed: identity_row.breed,
             sex: identity_row.sex,
-            birthday: identity_row.birthday,
+            birthday: birthday.map(|date| date.to_string()),
+            arrival_date: arrival_date.map(|date| date.to_string()),
+            world_days: birthday.map(|date| days_since_date(date, today)),
+            companionship_days: arrival_date.map(|date| days_since_date(date, today)),
             life_status: identity_row.life_status,
         };
 

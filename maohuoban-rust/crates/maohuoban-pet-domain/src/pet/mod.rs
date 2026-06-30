@@ -20,5 +20,5 @@ pub use model::{
     OriginSummary, PetBackgroundMediaKind, PetDietAssignment, PetEvent, PetExternalIdentifier,
     PetGuardian, PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy,
     PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline, Severity,
-    SymptomKind, VerifiedStatus,
+    SymptomKind, VerifiedStatus, days_since_date,
 };

@@ -69,6 +69,7 @@ async fn home_dashboard_derives_companionship_days_from_arrival_date() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138228").await;
+    let birthday = chrono::Utc::now().date_naive() - chrono::Duration::days(30);
     let arrival_date = chrono::Utc::now().date_naive() - chrono::Duration::days(5);
 
     let create_response = app
@@ -81,7 +82,7 @@ async fn home_dashboard_derives_companionship_days_from_arrival_date() {
                 "species": "cat",
                 "breed": "布偶",
                 "sex": "female",
-                "birthday": "2024-03-20",
+                "birthday": birthday.to_string(),
                 "arrival_date": arrival_date.to_string()
             }),
             Some(&user_id),
@@ -99,6 +100,7 @@ async fn home_dashboard_derives_companionship_days_from_arrival_date() {
         dashboard_body["data"]["selected_pet"]["companionship_days"],
         5
     );
+    assert_eq!(dashboard_body["data"]["selected_pet"]["world_days"], 30);
 }
 
 #[tokio::test]
