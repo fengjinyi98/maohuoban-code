@@ -8,8 +8,8 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::super::diagnostics::record_chat_stream_event_emitted;
-use super::assistant_message_persistence::{
+use super::super::super::diagnostics::record_chat_stream_event_emitted;
+use super::super::persistence::assistant_message_persistence::{
     AssistantMessagePersistRequest, spawn_assistant_message_persist,
 };
 
@@ -17,7 +17,7 @@ use super::assistant_message_persistence::{
 /// 核心职责：
 /// - 返回 pet_resolution 事件帮助前端展示选择或缺失信息
 /// - 跳过主 Provider，避免在没有唯一宠物事实根时调用 LLM
-pub(super) fn pet_resolution_stream_response(
+pub(crate) fn pet_resolution_stream_response(
     session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
     message_id: Uuid,
@@ -69,7 +69,7 @@ pub(super) fn pet_resolution_stream_response(
 /// pet_resolution_message_text 返回宠物解析分支安全提示
 /// 核心职责：
 /// - 为无宠物、歧义和未授权场景提供不泄漏隐私的文案
-pub(super) fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
+pub(crate) fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'static str {
     match resolution {
         AiPetResolution::NeedsSelection { .. } => "我需要先确认你想问哪只宠物。",
         AiPetResolution::UnauthorizedOrNotFound => "我没有找到你有权限访问的这只宠物。",

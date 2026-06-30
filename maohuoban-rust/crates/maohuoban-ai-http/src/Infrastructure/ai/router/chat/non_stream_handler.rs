@@ -22,16 +22,16 @@ use uuid::Uuid;
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
 use super::super::diagnostics::record_chat_runtime_engine_selected;
-use super::gated_stream_response::gated_message_text;
-use super::pet_resolution_stream_response::pet_resolution_message_text;
-use super::request::ChatStreamRequest;
+use super::composition::request::ChatStreamRequest;
+use super::composition::workbench_builder::build_agent_session_workbench;
+use super::responses::gated_stream_response::gated_message_text;
+use super::responses::pet_resolution_stream_response::pet_resolution_message_text;
 use super::runtime_tools::build_runtime_tool_registry;
 use super::stream_handler::load_fact_context_and_initial_events;
 use super::turn_preparation::{
     ChatTurnContext, load_pet_catalog_initial_events, persist_prepared_chat_turn,
     prepare_chat_turn_context,
 };
-use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 /// handle_chat 非流式聊天 handler

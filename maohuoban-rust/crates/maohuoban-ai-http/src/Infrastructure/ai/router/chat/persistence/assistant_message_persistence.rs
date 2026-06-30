@@ -3,13 +3,13 @@ use maohuoban_ai_application::ai::ports::AiSessionRepository;
 use maohuoban_ai_domain::ai::{AiCitation, AiMessage, AiMessageRole, AiMessageStatus};
 use uuid::Uuid;
 
-use super::super::diagnostics::record_chat_assistant_persisted;
+use super::super::super::diagnostics::record_chat_assistant_persisted;
 
 /// spawn_assistant_message_persist 异步持久化助手消息
 /// 核心职责：
 /// - 在流式完成后保存助手最终消息
 /// - 记录 token usage 和完成原因
-pub(super) fn spawn_assistant_message_persist(
+pub(crate) fn spawn_assistant_message_persist(
     repo: std::sync::Arc<dyn AiSessionRepository>,
     request: AssistantMessagePersistRequest,
 ) {
@@ -22,7 +22,7 @@ pub(super) fn spawn_assistant_message_persist(
 /// 核心职责：
 /// - 承载助手最终消息、引用和 usage
 /// - 统一异步 spawn 与 await 持久化入口
-pub(super) struct AssistantMessagePersistRequest {
+pub(crate) struct AssistantMessagePersistRequest {
     message_id: Uuid,
     session_id: Uuid,
     final_text: String,
@@ -35,7 +35,7 @@ pub(super) struct AssistantMessagePersistRequest {
 impl AssistantMessagePersistRequest {
     /// new 构造助手消息持久化请求
     #[must_use]
-    pub(super) fn new(
+    pub(crate) fn new(
         message_id: Uuid,
         session_id: Uuid,
         final_text: String,
@@ -60,7 +60,7 @@ impl AssistantMessagePersistRequest {
 /// 核心职责：
 /// - 保存助手最终文本和 token usage
 /// - 将回答引用写入独立引用表
-pub(super) async fn persist_assistant_message(
+pub(crate) async fn persist_assistant_message(
     repo: &std::sync::Arc<dyn AiSessionRepository>,
     request: AssistantMessagePersistRequest,
 ) {

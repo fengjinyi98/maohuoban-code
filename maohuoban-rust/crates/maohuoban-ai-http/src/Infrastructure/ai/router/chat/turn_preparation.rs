@@ -10,10 +10,12 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::super::AiHttpState;
-use super::request::ChatStreamRequest;
-use super::runtime_stream::safe_execution_trace_completed_for_tool;
-use super::session_persistence::{PetSessionContext, persist_session_and_user_message};
-use super::title::build_title;
+use super::composition::request::ChatStreamRequest;
+use super::composition::title::build_title;
+use super::persistence::session_persistence::{
+    PetSessionContext, persist_session_and_user_message,
+};
+use super::runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 
 /// ChatTurnContext 聊天轮次准备结果
 /// 核心职责：

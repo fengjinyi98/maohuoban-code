@@ -6,16 +6,16 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::super::diagnostics::record_chat_session_persisted;
-use super::request::ChatStreamRequest;
+use super::super::super::diagnostics::record_chat_session_persisted;
+use super::super::composition::request::ChatStreamRequest;
 
 /// PetSessionContext AI 会话宠物上下文
 /// 核心职责：
 /// - 承载后端解析后的主宠物 ID
 /// - 承载用于历史展示的宠物快照
-pub(super) struct PetSessionContext {
-    pub(super) primary_pet_id: Option<Uuid>,
-    pub(super) pet_display_snapshot: Option<AiPetDisplaySnapshot>,
+pub(crate) struct PetSessionContext {
+    pub(crate) primary_pet_id: Option<Uuid>,
+    pub(crate) pet_display_snapshot: Option<AiPetDisplaySnapshot>,
 }
 
 /// persist_session_and_user_message 持久化会话和用户消息
@@ -23,7 +23,7 @@ pub(super) struct PetSessionContext {
 /// - 创建或更新 AI 会话记录
 /// - 使用 handler 传入的 message_id 保存本轮用户消息
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn persist_session_and_user_message(
+pub(crate) async fn persist_session_and_user_message(
     repo: &std::sync::Arc<dyn AiSessionRepository>,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,

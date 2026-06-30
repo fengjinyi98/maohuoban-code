@@ -6,7 +6,9 @@
 mod auth;
 mod chat;
 mod diagnostics;
+mod diagnostics_common;
 mod history;
+mod history_diagnostics;
 
 use std::sync::Arc;
 

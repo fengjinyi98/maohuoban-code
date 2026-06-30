@@ -2,14 +2,14 @@ use maohuoban_ai_application::ai::ports::AiToolAccessLog;
 use maohuoban_ai_domain::ai::{AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent};
 use uuid::Uuid;
 
-use super::super::AiHttpState;
-use super::runtime_stream::safe_execution_trace_completed_for_tool;
+use super::super::super::AiHttpState;
+use super::super::runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 
-/// load_diet_confirmation_candidate_package 加载饮食待确认候选事实包
+/// load_current_diet_fact_package 加载宠物当前饮食事实包
 /// 核心职责：
-/// - 调用后端宠物饮食待确认候选读模型
-/// - 写入 load_pet_diet_confirmation_candidates 工具审计并返回安全执行态事件
-pub(super) async fn load_diet_confirmation_candidate_package(
+/// - 调用后端宠物饮食上下文读模型
+/// - 写入 load_pet_current_diet_context 工具审计并返回安全执行态事件
+pub(crate) async fn load_current_diet_fact_package(
     state: &AiHttpState,
     session_id: Uuid,
     actor_user_id: Uuid,
@@ -21,8 +21,8 @@ pub(super) async fn load_diet_confirmation_candidate_package(
 
     match state
         .pet_context_providers
-        .diet_confirmation_candidate_provider
-        .load_diet_confirmation_candidate_package(actor_user_id, target_pet)
+        .diet_fact_provider
+        .load_current_diet_fact_package(actor_user_id, target_pet)
         .await
     {
         Ok(package) => {
@@ -37,8 +37,8 @@ pub(super) async fn load_diet_confirmation_candidate_package(
                 .insert_tool_access_log(&AiToolAccessLog {
                     session_id: Some(session_id),
                     actor_user_id,
-                    tool_name: "load_pet_diet_confirmation_candidates".to_owned(),
-                    requested_scope: "pet_diet_confirmation_candidates".to_owned(),
+                    tool_name: "load_pet_current_diet_context".to_owned(),
+                    requested_scope: "pet_current_diet".to_owned(),
                     target_pet_id: Some(target_pet.pet_id),
                     allowed: true,
                     denied_reason: None,
@@ -51,7 +51,7 @@ pub(super) async fn load_diet_confirmation_candidate_package(
             (
                 Some(package),
                 vec![safe_execution_trace_completed_for_tool(
-                    "load_pet_diet_confirmation_candidates",
+                    "load_pet_current_diet_context",
                     &target_pet.pet_name,
                     citation_count,
                 )],
@@ -63,8 +63,8 @@ pub(super) async fn load_diet_confirmation_candidate_package(
                 .insert_tool_access_log(&AiToolAccessLog {
                     session_id: Some(session_id),
                     actor_user_id,
-                    tool_name: "load_pet_diet_confirmation_candidates".to_owned(),
-                    requested_scope: "pet_diet_confirmation_candidates".to_owned(),
+                    tool_name: "load_pet_current_diet_context".to_owned(),
+                    requested_scope: "pet_current_diet".to_owned(),
                     target_pet_id: Some(target_pet.pet_id),
                     allowed: false,
                     denied_reason: Some(error.stable_code().to_owned()),

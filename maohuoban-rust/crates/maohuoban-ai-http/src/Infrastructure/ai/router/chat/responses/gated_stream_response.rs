@@ -8,8 +8,8 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::super::diagnostics::record_chat_stream_event_emitted;
-use super::assistant_message_persistence::{
+use super::super::super::diagnostics::record_chat_stream_event_emitted;
+use super::super::persistence::assistant_message_persistence::{
     AssistantMessagePersistRequest, spawn_assistant_message_persist,
 };
 
@@ -17,7 +17,7 @@ use super::assistant_message_persistence::{
 /// 核心职责：
 /// - 对 off-topic、app support 和风险请求跳过 Provider
 /// - 输出稳定 message_started/message_completed 事件
-pub(super) fn gated_stream_response(
+pub(crate) fn gated_stream_response(
     session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
     message_id: Uuid,
@@ -68,7 +68,7 @@ pub(super) fn gated_stream_response(
 /// gated_message_text 返回 gate 分支安全提示
 /// 核心职责：
 /// - 为非宠物和风险请求提供明确边界文案
-pub(super) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
+pub(crate) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
     match gate_decision.intent {
         AiIntent::AppSupport => {
             "这个问题属于毛伙伴 App 使用帮助，我先不读取宠物事实。你可以描述遇到的页面或操作，我会按应用功能边界说明。"

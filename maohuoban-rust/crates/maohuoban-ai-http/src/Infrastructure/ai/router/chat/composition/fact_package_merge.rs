@@ -4,7 +4,7 @@ use maohuoban_ai_domain::ai::{AiFactPackage, AiFactStrength};
 /// 核心职责：
 /// - 保留同一目标宠物下的事实、弱线索、引用和缺失信息
 /// - 重新计算合并后事实强度，保证 Prompt 使用完整事实包
-pub(super) fn merge_fact_packages(
+pub(crate) fn merge_fact_packages(
     base: Option<AiFactPackage>,
     addition: Option<AiFactPackage>,
 ) -> Option<AiFactPackage> {

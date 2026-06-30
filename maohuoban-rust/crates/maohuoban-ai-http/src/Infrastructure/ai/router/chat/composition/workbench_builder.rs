@@ -9,7 +9,7 @@ use maohuoban_ai_domain::ai::{
 /// - 委托 application 层 TurnContextBuilder 组装工作台上下文
 /// - 透传会话摘要、记忆条目和同会话最近历史
 /// - 只在已解析目标宠物时暴露私域宠物能力
-pub(super) fn build_agent_session_workbench(
+pub(crate) fn build_agent_session_workbench(
     surface: AiConversationSurface,
     target_pet: Option<&AiPetDisplaySnapshot>,
     session_summary: Option<String>,

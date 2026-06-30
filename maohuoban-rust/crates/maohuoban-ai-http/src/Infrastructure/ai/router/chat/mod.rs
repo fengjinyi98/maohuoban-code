@@ -3,23 +3,36 @@
 //! - 汇聚流式与非流式聊天 handler
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
-mod assistant_message_persistence;
-mod diet_confirmation_candidate_loader;
-mod diet_fact_loader;
-mod fact_package_merge;
-mod food_inventory_hint_loader;
-mod gated_stream_response;
-mod identity_fact_loader;
+mod persistence {
+    pub(super) mod assistant_message_persistence;
+    pub(super) mod session_persistence;
+}
+mod composition {
+    pub(super) mod fact_package_merge;
+    pub(super) mod request;
+    pub(super) mod title;
+    pub(super) mod workbench_builder;
+}
+mod loaders {
+    pub(super) mod diet_confirmation_candidate_loader;
+    pub(super) mod diet_fact_loader;
+    pub(super) mod food_inventory_hint_loader;
+    pub(super) mod history_summary_loader;
+    pub(super) mod identity_fact_loader;
+}
+mod responses {
+    pub(super) mod gated_stream_response;
+    pub(super) mod pet_resolution_stream_response;
+    pub(super) mod stream_response;
+}
 mod non_stream_handler;
-mod pet_resolution_stream_response;
-mod request;
 mod runtime_stream;
+mod runtime_stream_bridge;
+mod runtime_stream_helpers;
+mod runtime_stream_projector;
 mod runtime_tools;
-mod session_persistence;
 mod stream_handler;
-mod title;
 mod turn_preparation;
-mod workbench_builder;
 
 pub use non_stream_handler::handle_chat;
 pub use stream_handler::handle_chat_stream;
