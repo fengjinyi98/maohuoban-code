@@ -2,21 +2,24 @@
 //! 核心职责：
 //! - 声明 AI 领域全部 struct / enum 子模块并统一导出
 //! - 保持领域层无基础设施依赖
-// MHB_STRUCTURE_EXEMPTION: 既有 AI domain 聚合入口；本次仅追加 Domain/workbench 分层模块导出，具体类型已按一文件一类型拆分。
 
 mod fact_package;
 mod intent;
 mod llm;
 mod proposed_action;
 mod runtime;
+mod runtime_agent_id;
+mod runtime_agent_turn_id;
+mod runtime_model_label;
+mod runtime_tool_confirmation_requirement;
+mod runtime_tool_status;
+mod runtime_turn_status;
 mod session;
 mod session_event;
 mod stream;
 mod surface;
 mod turn_replay;
 mod verification;
-#[path = "Domain/workbench/mod.rs"]
-mod workbench;
 
 mod pet_resolution;
 mod pet_snapshot;
@@ -31,6 +34,12 @@ pub use pet_snapshot::*;
 pub use proposed_action::*;
 pub use provider_error::*;
 pub use runtime::*;
+pub use runtime_agent_id::*;
+pub use runtime_agent_turn_id::*;
+pub use runtime_model_label::*;
+pub use runtime_tool_confirmation_requirement::*;
+pub use runtime_tool_status::*;
+pub use runtime_turn_status::*;
 pub use session::*;
 pub use session_event::*;
 pub use stream::*;
@@ -38,4 +47,3 @@ pub use surface::*;
 pub use tool_failure::*;
 pub use turn_replay::*;
 pub use verification::*;
-pub use workbench::*;

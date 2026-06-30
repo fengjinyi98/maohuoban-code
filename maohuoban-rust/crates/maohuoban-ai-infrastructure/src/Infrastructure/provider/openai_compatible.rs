@@ -12,13 +12,16 @@ use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_application::ai::model_router::{ModelRouteConfig, ModelRouter};
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
-    AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
-    LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError, ProviderErrorCategory,
+    AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent, ProviderError,
+    ProviderErrorCategory,
 };
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap};
 
 use super::OpenAiCompatibleConfig;
+use super::openai_body::build_openai_body;
 use super::openai_diagnostics::OpenAiProviderDiagnostics;
+use super::openai_response::parse_openai_response;
+use super::openai_stream_event::{header_summary, stream_event_name, stream_event_payload};
 use super::openai_stream_stats::ProviderStreamStats;
 
 /// OpenAiCompatibleLlmProvider OpenAI 兼容 Provider
@@ -81,74 +84,6 @@ impl OpenAiCompatibleLlmProvider {
             format!("Bearer {}", self.config.api_key).parse().unwrap(),
         );
         headers
-    }
-
-    /// build_body 构造 OpenAI 兼容请求体
-    fn build_body(request: &LlmChatRequest, model: &str) -> serde_json::Value {
-        let messages: Vec<serde_json::Value> = request
-            .messages
-            .iter()
-            .map(|m| {
-                let mut msg = serde_json::json!({
-                    "role": match m.role {
-                        LlmRole::System => "system",
-                        LlmRole::User => "user",
-                        LlmRole::Assistant => "assistant",
-                        LlmRole::Tool => "tool",
-                    },
-                    "content": m.content,
-                });
-                if let Some(id) = &m.tool_call_id {
-                    msg["tool_call_id"] = serde_json::Value::String(id.clone());
-                }
-                if let Some(reasoning_content) = &m.reasoning_content {
-                    msg["reasoning_content"] = serde_json::Value::String(reasoning_content.clone());
-                }
-                if !m.tool_calls.is_empty() {
-                    msg["tool_calls"] = serde_json::Value::Array(
-                        m.tool_calls.iter().map(openai_tool_call_json).collect(),
-                    );
-                }
-                msg
-            })
-            .collect();
-
-        let tools: Vec<serde_json::Value> = request
-            .tools
-            .iter()
-            .map(|t| {
-                serde_json::json!({
-                    "type": "function",
-                    "function": {
-                        "name": t.name,
-                        "description": t.description,
-                        "parameters": t.parameters,
-                    }
-                })
-            })
-            .collect();
-
-        let mut body = serde_json::json!({
-            "model": model,
-            "messages": messages,
-            "temperature": request.temperature,
-            "stream": request.stream,
-        });
-
-        if !tools.is_empty() {
-            body["tools"] = serde_json::Value::Array(tools);
-        }
-        if let Some(choice) = &request.tool_choice {
-            body["tool_choice"] = serde_json::Value::String(choice.clone());
-        }
-        if let Some(max) = request.max_output_tokens {
-            body["max_tokens"] = serde_json::Value::Number(max.into());
-        }
-        if let Some(fmt) = request.response_format.clone() {
-            body["response_format"] = fmt;
-        }
-
-        body
     }
 
     /// map_status_error 将 HTTP 状态码映射为稳定错误
@@ -238,122 +173,6 @@ impl OpenAiCompatibleLlmProvider {
                 )
             })
     }
-
-    /// parse_response 解析 OpenAI 兼容非流式响应
-    fn parse_response(body: &str) -> AiResult<LlmChatResponse> {
-        let json: serde_json::Value = serde_json::from_str(body).map_err(|error| {
-            Self::provider_error(
-                ProviderErrorCategory::InvalidResponse,
-                format!("invalid json: {error}"),
-            )
-        })?;
-
-        let choice = json.get("choices").and_then(|c| c.get(0)).ok_or_else(|| {
-            Self::provider_error(
-                ProviderErrorCategory::InvalidResponse,
-                "no choices in response",
-            )
-        })?;
-
-        let message = choice.get("message").ok_or_else(|| {
-            Self::provider_error(
-                ProviderErrorCategory::InvalidResponse,
-                "no message in choice",
-            )
-        })?;
-
-        let content = message
-            .get("content")
-            .and_then(|c| c.as_str())
-            .unwrap_or("")
-            .to_owned();
-        let reasoning_content = message
-            .get("reasoning_content")
-            .and_then(|c| c.as_str())
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned);
-
-        let finish_reason_str = choice
-            .get("finish_reason")
-            .and_then(|f| f.as_str())
-            .unwrap_or("stop");
-        let finish_reason = match finish_reason_str {
-            "length" => LlmFinishReason::Length,
-            "tool_calls" => LlmFinishReason::ToolCalls,
-            "content_filter" => LlmFinishReason::ContentFilter,
-            _ => LlmFinishReason::Stop,
-        };
-
-        let tool_calls: Vec<LlmToolCall> = message
-            .get("tool_calls")
-            .and_then(|tc| tc.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|tc| {
-                        let id = tc.get("id")?.as_str()?.to_owned();
-                        let function = tc.get("function")?;
-                        let name = function.get("name")?.as_str()?.to_owned();
-                        let arguments = function
-                            .get("arguments")
-                            .and_then(|a| a.as_str())
-                            .unwrap_or("{}")
-                            .to_owned();
-                        Some(LlmToolCall {
-                            id,
-                            name,
-                            arguments,
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        if tool_calls.is_empty() && content.trim().is_empty() {
-            return Err(Self::provider_error(
-                ProviderErrorCategory::InvalidResponse,
-                "empty assistant content without tool calls",
-            ));
-        }
-
-        let usage = json
-            .get("usage")
-            .map(|u| LlmUsage {
-                input_tokens: u
-                    .get("prompt_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-                output_tokens: u
-                    .get("completion_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-                total_tokens: u
-                    .get("total_tokens")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(0) as u32,
-            })
-            .unwrap_or_default();
-
-        let model = json
-            .get("model")
-            .and_then(|m| m.as_str())
-            .unwrap_or("")
-            .to_owned();
-
-        Ok(LlmChatResponse {
-            message: LlmMessage {
-                role: LlmRole::Assistant,
-                content,
-                reasoning_content,
-                tool_call_id: None,
-                tool_calls: tool_calls.clone(),
-            },
-            tool_calls,
-            usage,
-            finish_reason,
-            provider: "openai_compatible".to_owned(),
-            model,
-        })
-    }
 }
 
 impl LlmProvider for OpenAiCompatibleLlmProvider {
@@ -365,7 +184,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             let url = self.completions_url();
             let headers = self.build_headers();
             let model = self.resolve_request_model(request)?;
-            let body = Self::build_body(request, &model);
+            let body = build_openai_body(request, &model);
             self.record_request_prepared("complete", request, &body, &model);
 
             let response = self
@@ -391,7 +210,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 return Err(Self::map_status_error(status, &text));
             }
 
-            Self::parse_response(&text)
+            parse_openai_response(&text)
         })
     }
 
@@ -406,7 +225,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             Ok(model) => model,
             Err(error) => return futures_util::stream::once(async { Err(error) }).boxed(),
         };
-        let mut body = Self::build_body(request, &model);
+        let mut body = build_openai_body(request, &model);
         body["stream"] = serde_json::Value::Bool(true);
         self.record_request_prepared("stream", request, &body, &model);
 
@@ -515,73 +334,4 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
         }
         .boxed()
     }
-}
-
-fn header_summary(headers: &HeaderMap) -> String {
-    headers
-        .iter()
-        .filter_map(|(name, value)| {
-            let name = name.as_str();
-            if name.eq_ignore_ascii_case("authorization") || name.eq_ignore_ascii_case("cookie") {
-                return None;
-            }
-            Some(format!(
-                "{}={:?}",
-                name,
-                value.to_str().unwrap_or("<non-utf8>")
-            ))
-        })
-        .collect::<Vec<_>>()
-        .join(";")
-}
-
-fn stream_event_name(event: &LlmStreamEvent) -> &'static str {
-    match event {
-        LlmStreamEvent::Delta { .. } => "delta",
-        LlmStreamEvent::ReasoningDelta { .. } => "reasoning_delta",
-        LlmStreamEvent::ToolCall { .. } => "tool_call",
-        LlmStreamEvent::Finish { .. } => "finish",
-        LlmStreamEvent::Error { .. } => "error",
-    }
-}
-
-fn stream_event_payload(event: &LlmStreamEvent) -> serde_json::Value {
-    match event {
-        LlmStreamEvent::Delta { content } => serde_json::json!({ "content": content }),
-        LlmStreamEvent::ReasoningDelta { content } => {
-            serde_json::json!({ "content": content })
-        }
-        LlmStreamEvent::ToolCall { tool_call } => serde_json::json!({
-            "id": tool_call.id,
-            "name": tool_call.name,
-            "arguments": tool_call.arguments,
-        }),
-        LlmStreamEvent::Finish {
-            finish_reason,
-            usage,
-        } => serde_json::json!({
-            "finish_reason": format!("{finish_reason:?}"),
-            "usage": {
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "total_tokens": usage.total_tokens,
-            }
-        }),
-        LlmStreamEvent::Error { message } => serde_json::json!({ "message": message }),
-    }
-}
-
-/// openai_tool_call_json 序列化 OpenAI 兼容工具调用消息
-/// 核心职责：
-/// - 将内部工具调用意图转换为 Chat Completions function tool call
-/// - 保持 assistant tool_calls 与后续 tool result 可通过 id 配对
-fn openai_tool_call_json(tool_call: &LlmToolCall) -> serde_json::Value {
-    serde_json::json!({
-        "id": tool_call.id.clone(),
-        "type": "function",
-        "function": {
-            "name": tool_call.name.clone(),
-            "arguments": tool_call.arguments.clone(),
-        }
-    })
 }

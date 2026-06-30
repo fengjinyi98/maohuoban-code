@@ -7,8 +7,11 @@
 pub mod config;
 pub mod deepseek;
 pub mod factory;
+mod openai_body;
 pub mod openai_compatible;
 mod openai_diagnostics;
+mod openai_response;
+mod openai_stream_event;
 mod openai_stream_stats;
 pub mod sse;
 

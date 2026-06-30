@@ -5,6 +5,8 @@
 
 mod error;
 mod model;
+mod workbench;
 
 pub use error::{AiError, AiResult};
 pub use model::*;
+pub use workbench::*;

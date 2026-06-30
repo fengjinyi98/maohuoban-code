@@ -12,8 +12,13 @@ mod engine_input;
 mod engine_mode;
 mod evidence_planner;
 mod fake_loop_engine;
+mod runtime_phase;
+mod runtime_request;
 mod session;
 mod session_runtime;
+mod streaming_model_purpose;
+mod tool_executor;
+mod tool_messages;
 mod workbench_prompt_projection;
 
 pub use agent_runtime_loop_engine::*;

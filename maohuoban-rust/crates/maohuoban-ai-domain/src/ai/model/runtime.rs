@@ -1,124 +1,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::ai::AgentSessionWorkbench;
+
 use super::ToolFailure;
 use super::provider_error::ProviderErrorCategory;
-use super::{AgentSessionWorkbench, AiConversationSurface, LlmFinishReason, LlmToolCall, LlmUsage};
-
-/// MAIN_PET_CARE_AGENT_ID 首期主 Agent 标识
-/// 核心职责：
-/// - 固定 WT01 冻结的主 Agent 名称
-/// - 供 Runtime 事件、Session 和后续 Adapter 共享
-pub const MAIN_PET_CARE_AGENT_ID: &str = "main_pet_care_agent";
-
-/// AgentTurnId Runtime turn 标识
-/// 核心职责：
-/// - 包装单轮对话 ID，避免与 chat session / message ID 混用
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AgentTurnId(Uuid);
-
-impl AgentTurnId {
-    /// new 创建新的 turn id
-    pub fn new() -> Self {
-        Self(Uuid::new_v4())
-    }
-
-    /// from_uuid 从既有 UUID 构造 turn id
-    pub fn from_uuid(id: Uuid) -> Self {
-        Self(id)
-    }
-
-    /// as_uuid 返回内部 UUID
-    pub fn as_uuid(self) -> Uuid {
-        self.0
-    }
-}
-
-impl Default for AgentTurnId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// AgentId Runtime agent 标识
-/// 核心职责：
-/// - 表达当前 session 由哪个 Agent 定义驱动
-/// - 首期只提供 main_pet_care_agent，预留多 Agent 扩展
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AgentId(String);
-
-impl AgentId {
-    /// main_pet_care_agent 返回首期主 Agent 标识
-    pub fn main_pet_care_agent() -> Self {
-        Self(MAIN_PET_CARE_AGENT_ID.to_owned())
-    }
-
-    /// as_str 返回稳定字符串
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-/// ModelLabel Runtime 模型标签
-/// 核心职责：
-/// - 使用毛伙伴稳定 label 屏蔽 Provider 真实模型名
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModelLabel {
-    Lite,
-    Primary,
-    Pro,
-    Memory,
-}
-
-impl ModelLabel {
-    /// as_str 返回稳定模型标签
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Lite => "lite",
-            Self::Primary => "primary",
-            Self::Pro => "pro",
-            Self::Memory => "memory",
-        }
-    }
-}
-
-/// AgentTurnStatus Runtime turn 结束状态
-/// 核心职责：
-/// - 表达单轮对话完成、等待或失败状态
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentTurnStatus {
-    Completed,
-    Failed,
-    AwaitingConfirmation,
-    AwaitingClarification,
-}
-
-/// AiToolConfirmationRequirement 工具确认需求
-/// 核心职责：
-/// - 表达确认前不得执行的工具调用
-/// - 保留确认任务、工具名、问题文案和原始参数
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AiToolConfirmationRequirement {
-    pub confirmation_task_id: String,
-    pub tool_name: String,
-    pub question_text: String,
-    pub args: serde_json::Value,
-}
-
-/// AgentToolStatus Runtime 工具执行状态
-/// 核心职责：
-/// - 表达工具调用在 Runtime 内部的完成结果
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AgentToolStatus {
-    Succeeded,
-    Failed,
-    Denied,
-}
+use super::{
+    AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
+    AiToolConfirmationRequirement, LlmFinishReason, LlmToolCall, LlmUsage, ModelLabel,
+};
 
 /// InternalTurnEvent Agent turn 内部事件
 /// 核心职责：
