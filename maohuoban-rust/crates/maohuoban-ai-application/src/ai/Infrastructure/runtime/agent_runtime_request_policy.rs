@@ -1,7 +1,7 @@
 // AgentRuntimeRequestPolicy Runtime 请求策略
 // 核心职责：
 // - 根据 Workbench 决定本轮可见工具集合
-// - 根据模型阶段选择结构化输出约束
+// - 根据模型阶段选择 Provider 兼容的输出约束
 
 use maohuoban_ai_domain::ai::{AgentSessionState, AgentSessionWorkbench, LlmToolSchema, Toolset};
 
@@ -11,14 +11,14 @@ use crate::ai::tools::{ToolDefinitionInfo, ToolRegistry};
 /// 核心职责：
 /// - 隔离工具可见性和 response_format 选择规则
 /// - 避免 LoopEngine 主流程继续膨胀
-pub(super) struct AgentRuntimeRequestPolicy;
+pub(crate) struct AgentRuntimeRequestPolicy;
 
 impl AgentRuntimeRequestPolicy {
     /// visible_tool_schemas 返回本轮可投影给模型的工具 schema
     /// 核心职责：
     /// - 无私域上下文时隐藏宠物私域读取工具
     /// - 保留未携带 Workbench 的旧路径兼容行为
-    pub(super) fn visible_tool_schemas(
+    pub(crate) fn visible_tool_schemas(
         registry: &ToolRegistry,
         state: &AgentSessionState,
     ) -> Vec<LlmToolSchema> {
@@ -37,16 +37,12 @@ impl AgentRuntimeRequestPolicy {
     /// response_format_for_model_phase 选择本轮模型输出约束
     /// 核心职责：
     /// - 工具规划阶段保留模型原生 tool calling 能力
-    /// - 最终回答阶段才要求结构化 JSON，供 UI 稳定消费
-    pub(super) fn response_format_for_model_phase(
-        is_followup_answer: bool,
-        no_visible_tools: bool,
+    /// - 最终回答阶段避免触发 DeepSeek JSON Output 空 content 风险
+    pub(crate) fn response_format_for_model_phase(
+        _is_followup_answer: bool,
+        _no_visible_tools: bool,
     ) -> Option<serde_json::Value> {
-        if is_followup_answer || no_visible_tools {
-            Some(serde_json::json!({ "type": "json_object" }))
-        } else {
-            None
-        }
+        None
     }
 
     fn tool_visible_for_workbench(

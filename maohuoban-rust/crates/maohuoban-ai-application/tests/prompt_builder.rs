@@ -171,6 +171,18 @@ fn prompt_allows_public_pet_care_without_private_fact_package() {
 }
 
 #[test]
+fn prompt_forbids_claiming_data_change_without_tool_or_fact_basis() {
+    let builder = AiPromptBuilder::new();
+    let messages = builder.build_messages("帮我把宠物名字改成梅鹿", &[], None);
+    let system_prompt = &messages[0].content;
+
+    assert!(
+        system_prompt.contains("没有工具调用成功结果或事实包依据时"),
+        "system prompt should forbid claiming data changes without tool or fact basis: {system_prompt}"
+    );
+}
+
+#[test]
 fn prompt_includes_missing_info() {
     let pet = pet_candidate("毛球");
     let package = fact_package(&pet);

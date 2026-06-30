@@ -42,7 +42,7 @@ fn workbench_contract_roundtrip_preserves_agent_context_and_capabilities() {
                     code: "private_pet_context".to_owned(),
                     domain: CapabilityDomain::PrivatePetContext,
                     title: "授权宠物上下文".to_owned(),
-                    when_to_use: "用户询问自己宠物档案、饮食、异常、提醒或记录时使用".to_owned(),
+                    when_to_use: "用户询问自己宠物档案、饮食或已授权上下文时使用".to_owned(),
                     requires_private_context: true,
                 },
             ],

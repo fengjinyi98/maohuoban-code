@@ -250,6 +250,9 @@ impl AgentEventSseProjector {
         else {
             return Vec::new();
         };
+        if visible_text.trim().is_empty() {
+            return Vec::new();
+        }
         if visible_text == self.streamed_delta_text
             || !visible_text.starts_with(&self.streamed_delta_text)
         {

@@ -130,15 +130,12 @@ async fn self_hosted_engine_uses_runtime_provider() {
 }
 
 #[tokio::test]
-async fn rig_poc_engine_stays_inside_loop_engine_boundary() {
+async fn rig_poc_engine_uses_runtime_provider_inside_loop_engine_boundary() {
     let provider = RecordingProvider::new();
     let observed = provider.clone();
 
     let events = run_selected_engine(AgentRuntimeEngineMode::RigPoc, provider).await;
 
-    assert_eq!(
-        finished_text(&events).as_deref(),
-        Some("Rig POC 引擎已接入，当前仅验证 LoopEngine adapter 边界。")
-    );
-    assert_eq!(observed.request_count(), 0);
+    assert_eq!(finished_text(&events).as_deref(), Some("自研引擎回答"));
+    assert_eq!(observed.request_count(), 1);
 }

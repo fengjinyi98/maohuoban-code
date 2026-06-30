@@ -55,7 +55,10 @@ impl LlmProvider for ScriptedRigProvider {
         })
     }
 
-    fn stream<'a>(&'a self, request: &'a LlmChatRequest) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
+    fn stream<'a>(
+        &'a self,
+        request: &'a LlmChatRequest,
+    ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
         let request_index = {
             let mut requests = self.requests.lock().expect("requests");
             requests.push(request.clone());
@@ -119,11 +122,11 @@ impl RecordingTool {
 
 #[async_trait]
 impl AiToolDefinition for RecordingTool {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "test.pet_fact"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "读取测试宠物事实"
     }
 
@@ -157,7 +160,10 @@ impl AiToolDefinition for RecordingTool {
     }
 }
 
-fn build_input(provider: Arc<dyn LlmProvider>, registry: Arc<ToolRegistry>) -> AgentRuntimeEngineInput {
+fn build_input(
+    provider: Arc<dyn LlmProvider>,
+    registry: Arc<ToolRegistry>,
+) -> AgentRuntimeEngineInput {
     AgentRuntimeEngineInput {
         provider,
         registry,

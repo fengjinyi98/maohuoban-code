@@ -6,15 +6,21 @@ import Foundation
 // - 忽略前端不关注的事件类型
 enum AIStreamEventDecoder {
     static func decode(event: String, data: String) -> AIStreamEventDTO? {
-        guard let jsonData = data.data(using: .utf8) else { return nil }
+        guard let jsonData = data.data(using: .utf8) else {
+            return nil
+        }
         let decoder = JSONDecoder()
 
         switch event {
         case "message_started":
-            guard let payload = try? decoder.decode(AIStreamMessageStartedPayload.self, from: jsonData) else { return nil }
+            guard let payload = try? decoder.decode(AIStreamMessageStartedPayload.self, from: jsonData) else {
+                return nil
+            }
             return .messageStarted(chatSessionID: payload.chatSessionID, messageID: payload.messageID, title: payload.title)
         case "delta", "answer_delta":
-            guard let payload = try? decoder.decode(AIStreamDeltaPayload.self, from: jsonData) else { return nil }
+            guard let payload = try? decoder.decode(AIStreamDeltaPayload.self, from: jsonData) else {
+                return nil
+            }
             return .delta(text: payload.text)
         case "citation":
             guard let payload = try? decoder.decode(AIStreamCitationPayload.self, from: jsonData) else { return nil }
@@ -34,7 +40,9 @@ enum AIStreamEventDecoder {
             guard let payload = try? decoder.decode(AIStreamConfirmationTaskPayload.self, from: jsonData) else { return nil }
             return .confirmationTask(taskID: payload.taskID, questionText: payload.questionText)
         case "message_completed", "answer_completed":
-            guard let payload = try? decoder.decode(AIStreamMessageCompletedPayload.self, from: jsonData) else { return nil }
+            guard let payload = try? decoder.decode(AIStreamMessageCompletedPayload.self, from: jsonData) else {
+                return nil
+            }
             let chips = payload.citations?.map(\.label) ?? []
             return .messageCompleted(messageID: payload.messageID, finalText: payload.finalText, referenceChips: chips)
         case "proposed_action":

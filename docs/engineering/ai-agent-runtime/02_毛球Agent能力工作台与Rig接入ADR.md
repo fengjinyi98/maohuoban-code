@@ -153,22 +153,22 @@
 
 | 项 | 当前状态 |
 |---|---|
-| Adapter | `maohuoban-ai-application/src/ai/Infrastructure/runtime/rig_adapter/rig_loop_engine_adapter.rs` 已实现 `LoopEngine` |
-| Step source | `FakeRigState` 作为 sans-IO fake Rig step source，只产出 `FakeRigStep` |
-| 统一输出 | `CallModel / CallTools / CallToolResults / Done` 统一映射为自有 `LoopStep` |
-| 合同测试 | `rig_loop_engine.rs` 验证 step 映射；`runtime_regression_cases.rs` 对比自研 engine 与 Rig adapter 的用户可见事件顺序 |
+| Adapter | `RigLoopEngineAdapter` 保留为 fake step adapter 合同测试；`RigAgentRunLoopEngine` 已接入真实 `rig-core::agent::run::AgentRun` |
+| Step source | `AgentRun` 作为 sans-IO state machine 决定 `CallModel / CallTools / Done`，真实 IO 由自有 driver 完成 |
+| 统一输出 | Rig model/tool/done 步骤统一映射为自有 `LoopStep`，再由 `AgentSession` 投影为 `AgentEvent` |
+| 合同测试 | `rig_agent_run_engine.rs` 验证 provider -> tool -> followup 闭环；`runtime_engine_selector.rs` 验证 engine 选择链路 |
 | 运行时选择 | `AgentRuntimeEngineFactory` 支持 `self_hosted` / `rig_poc`，HTTP 流式和非流式入口通过 factory 构造 engine |
 | 配置入口 | `MAOHUOBAN_AI_RUNTIME_ENGINE=self_hosted|rig_poc`，未知值回退 `self_hosted` |
-| POC 限制 | `rig_poc` 当前为 fake direct answer，用于验证 adapter 选择链路，不代表真实 Rig provider/tool calling 能力 |
+| POC 限制 | `rig_poc` 当前使用 Rig `AgentRun` 管状态机，provider、Tool Gateway、Policy Guard、context 组装仍由毛伙伴自有代码掌握 |
 
 ### 5.5 Rig 与 DeepSeek provider 兼容性记录
 
 | 能力 | 当前结论 | 验证状态 |
 |---|---|---|
-| OpenAI compatible tools | 自研 `AgentRuntimeLoopEngine` 已通过 `LlmChatRequest.tools` 走 OpenAI-compatible provider；Rig 真实 tool calling 尚未接入 | 待真实 Rig source POC |
-| Streaming | 自研 engine 已把 provider stream delta 先转 `LoopStep::MessageDelta`，再由 SSE projector 清洗 | 已在自研 engine 测试覆盖 |
-| JSON output | `visible_text_from_model_output` 已过滤 JSON `answer_text` 和 `<think>` 内容；Rig raw delta 必须同样先进入内部事件层 | fake adapter 已通过输出已清洗文本验证 |
-| Tool failure fallback | DeepSeek 工具调用失败属于 provider/runtime 错误分类；当前 `self_hosted` 是默认回退路径 | 待真实 Rig source 接入后补观测字段 |
+| OpenAI compatible tools | `RigAgentRunLoopEngine` 复用自有 `LlmChatRequest.tools` 和 `LlmProvider`，工具执行继续走 `ToolRegistry` | fake provider + fake tool 已覆盖；DeepSeek 实机待联调 |
+| Streaming | Rig driver 先消费自有 provider stream，`Delta` 转 `LoopStep::MessageDelta`，stream 完成后把累计内容 / tool call 喂回 `AgentRun` | `rig_agent_run_engine.rs` 已覆盖 |
+| JSON output | `visible_text_from_model_output` 已过滤 JSON `answer_text` 和 `<think>` 内容；Rig delta 同样先进入内部事件层 | 已在 Rig followup 输出路径复用 |
+| Tool failure fallback | DeepSeek 工具调用失败属于 provider/runtime 错误分类；当前 `self_hosted` 是默认回退路径 | DeepSeek 实机失败分类待补观测字段 |
 | 观测字段 | provider category、tool status、turn status 已在自研链路存在；Rig POC 需要补 `engine_mode` 维度 | 待诊断切片 |
 
 ### 5.6 Codex 上下文压缩参考结论

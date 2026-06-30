@@ -4,6 +4,8 @@
 //! - 暴露 in-memory AgentSession 与 FakeLoopEngine 测试实现
 
 mod agent_runtime_loop_engine;
+#[path = "../Infrastructure/runtime/agent_runtime_request_policy.rs"]
+mod agent_runtime_request_policy;
 mod engine;
 mod engine_factory;
 mod engine_input;

@@ -90,7 +90,7 @@ impl AiPromptBuilder {
         prompt.push_str("- 对于健康问题，提供观察要点和就医建议，不要诊断、开药或给剂量。\n");
         prompt.push_str("- 不要输出内部事实 key，例如 `pet_identity.name`、`diet.recent_feeding` 或任何方括号形式的内部标识。\n");
         prompt.push_str("- 引用只能绑定回答中实际使用的事实；引用由后端事件提供，正文和 blocks 只输出自然语言。\n");
-        prompt.push_str("- 写操作（换粮、喂食修正、提醒创建）必须生成待确认动作，不能直接执行。\n");
+        prompt.push_str("- 没有工具调用成功结果或事实包依据时，不能声称已修改、已更新、已保存、已记录或已设置任何用户数据。\n");
         prompt.push_str(
             "- 如果需要调用工具，先返回工具调用；工具结果回灌后的最终回答再按 JSON 输出。\n",
         );

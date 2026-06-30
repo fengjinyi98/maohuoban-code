@@ -356,10 +356,9 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         requests[1].tools.is_empty(),
         "followup final answer request should not expose private tools again"
     );
-    assert_eq!(
-        requests[1].response_format,
-        Some(json!({ "type": "json_object" })),
-        "followup final answer request should opt into structured JSON output"
+    assert!(
+        requests[1].response_format.is_none(),
+        "followup final answer request should avoid DeepSeek JSON Output empty content risk"
     );
 }
 

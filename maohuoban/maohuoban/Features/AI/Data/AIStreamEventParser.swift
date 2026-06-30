@@ -6,6 +6,7 @@ import Foundation
 // - 承载前端已识别的稳定流式事件
 struct AIStreamParsedEvent {
     let eventName: String
+    let data: String
     let event: AIStreamEventDTO?
 }
 
@@ -67,6 +68,7 @@ struct AIStreamEventParser {
         return [
             AIStreamParsedEvent(
                 eventName: currentEventName,
+                data: data,
                 event: event
             ),
         ]

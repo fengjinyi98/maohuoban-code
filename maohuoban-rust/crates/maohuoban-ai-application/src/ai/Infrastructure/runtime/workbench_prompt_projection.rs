@@ -1,14 +1,17 @@
 use std::fmt::Write as _;
 
 use maohuoban_ai_domain::ai::{
-    AgentSessionWorkbench, AiConversationSurface, CapabilityDomain, MemoryScope,
+    AgentSessionWorkbench, AiConversationSurface, CapabilityDomain, LlmToolSchema, MemoryScope,
 };
 
 /// workbench_context_prompt 构建模型可见工作台上下文
 /// 核心职责：
 /// - 将 Workbench 投影为受控自然语言上下文
 /// - 避免 domain struct 字段和新增内部字段自动进入模型输入
-pub(super) fn workbench_context_prompt(workbench: &AgentSessionWorkbench) -> String {
+pub(super) fn workbench_context_prompt(
+    workbench: &AgentSessionWorkbench,
+    visible_tools: &[LlmToolSchema],
+) -> String {
     let mut prompt = String::new();
     prompt.push_str("## AgentSession Workbench\n");
     prompt.push_str("这是本轮可见能力、上下文和记忆摘要。只能在这些边界内回答、追问或申请工具。\n");
@@ -94,8 +97,19 @@ pub(super) fn workbench_context_prompt(workbench: &AgentSessionWorkbench) -> Str
             .expect("write workbench prompt");
         }
     }
+    prompt.push_str("本轮可执行工具:\n");
+    if visible_tools.is_empty() {
+        prompt.push_str("- 无。\n");
+    } else {
+        for tool in visible_tools {
+            writeln!(prompt, "- {}：{}", tool.name, tool.description)
+                .expect("write workbench prompt");
+        }
+    }
     prompt.push_str("执行边界:\n");
     prompt.push_str("- 工具只能由 Runtime Gateway 执行；模型只申请工具或基于已投影信息回答。\n");
+    prompt.push_str("- 用户询问工具或可执行能力时，只能基于“本轮可执行工具”回答；工具列表为无时，说明本轮没有可执行工具。\n");
+    prompt.push_str("- 没有工具成功结果时，不能声称已执行数据变更。\n");
 
     prompt
 }

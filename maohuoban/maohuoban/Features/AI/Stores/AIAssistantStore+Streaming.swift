@@ -12,7 +12,9 @@ extension AIAssistantStore {
     }
 
     func applyStreamingFlush(messageID: UUID, text: String, isStreaming: Bool) {
-        guard let index = messages.firstIndex(where: { $0.id == messageID }) else { return }
+        guard let index = messages.firstIndex(where: { $0.id == messageID }) else {
+            return
+        }
         messages[index].text = text
         messages[index].isStreaming = isStreaming
         streamingRevision += 1
@@ -43,6 +45,8 @@ extension AIAssistantStore {
         streamingTask?.cancel()
         streamingTask = Task { [weak self] in
             guard let self else { return }
+            let completionSequenceBeforeStream = self.assistantReplyCompletionSequence
+            var didReceiveAssistantReply = false
             let stream = self.repository.openChatStream(
                 message: text,
                 selectedPetID: self.context.selectedPetID,
@@ -53,9 +57,18 @@ extension AIAssistantStore {
                 for try await event in stream {
                     if Task.isCancelled { return }
                     self.handleStreamEvent(event)
+                    if self.streamEventCompletesAssistantReply(event) {
+                        didReceiveAssistantReply = true
+                    }
                 }
                 if Task.isCancelled { return }
-                self.finishStreamIfAssistantReplyMissing(after: assistantReplyStartIndex)
+                let didCompleteAssistantReply = didReceiveAssistantReply
+                    || self.assistantReplyCompletionSequence > completionSequenceBeforeStream
+                self.finishStreamIfAssistantReplyMissing(
+                    after: assistantReplyStartIndex,
+                    placeholderID: placeholder.id,
+                    didReceiveAssistantReply: didCompleteAssistantReply
+                )
             } catch {
                 self.handleStreamError(error)
             }
@@ -99,10 +112,11 @@ extension AIAssistantStore {
         case .citation(let label):
             appendPendingReferenceChip(label)
 
-        case .messageCompleted(_, let finalText, let chips):
+        case .messageCompleted(let messageID, let finalText, let chips):
             clearActiveAgentActivity()
             let resolvedChips = chips.isEmpty ? pendingReferenceChips : chips
             applyCompletedAssistantMessage(finalText: finalText, referenceChips: resolvedChips)
+            markAssistantReplyCompletedIfVisible(finalText)
             pendingReferenceChips = []
 
         case .proposedAction(let action):
@@ -118,6 +132,7 @@ extension AIAssistantStore {
                 hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
             )
             finishBackendError(safeFallbackText: safeFallbackText)
+            markAssistantReplyCompletedIfVisible(safeFallbackText ?? "")
         }
     }
 
@@ -181,6 +196,11 @@ extension AIAssistantStore {
         streamingRevision += 1
     }
 
+    func markAssistantReplyCompletedIfVisible(_ text: String) {
+        guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else { return }
+        assistantReplyCompletionSequence += 1
+    }
+
     func handleStreamError(_ error: Error) {
         if error is CancellationError { return }
         pendingReferenceChips = []
@@ -212,7 +232,17 @@ extension AIAssistantStore {
         streamingRevision += 1
     }
 
-    func finishStreamIfAssistantReplyMissing(after startIndex: Int) {
+    func finishStreamIfAssistantReplyMissing(
+        after startIndex: Int,
+        placeholderID: UUID? = nil,
+        didReceiveAssistantReply: Bool = false
+    ) {
+        if let placeholderID, hasCompletedAssistantReply(messageID: placeholderID) {
+            return
+        }
+        if didReceiveAssistantReply {
+            return
+        }
         guard hasCompletedAssistantReply(after: startIndex) == false else { return }
         pendingReferenceChips = []
         recordStreamIssue(
@@ -221,6 +251,31 @@ extension AIAssistantStore {
             hasStreamingPlaceholder: messages.contains(where: \.isStreaming)
         )
         discardIncompleteAssistantReplies(after: startIndex)
+    }
+
+    func streamEventCompletesAssistantReply(_ event: AIStreamEventDTO) -> Bool {
+        switch event {
+        case .messageCompleted(_, let finalText, _):
+            return finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .error(_, _, _, let safeFallbackText):
+            return safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        case .messageStarted,
+             .agentActivity,
+             .confirmationTask,
+             .delta,
+             .citation,
+             .proposedAction:
+            return false
+        }
+    }
+
+    func hasCompletedAssistantReply(messageID: UUID) -> Bool {
+        messages.contains { message in
+            message.id == messageID
+                && message.role == .assistant
+                && message.isStreaming == false
+                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        }
     }
 
     func hasCompletedAssistantReply(after startIndex: Int) -> Bool {

@@ -351,6 +351,10 @@ async fn public_pet_domain_without_private_tools() {
             .map(|tool| tool.name.as_str())
             .collect::<Vec<_>>()
     );
+    assert!(
+        requests[0].response_format.is_none(),
+        "direct answer request should avoid DeepSeek JSON Output empty content risk"
+    );
 }
 
 #[tokio::test]

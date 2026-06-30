@@ -144,6 +144,45 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(store.messages[0].role, .user)
     }
 
+    func testLoopEndDoesNotDiscardReplyAfterTerminalAssistantEvent() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        store.messages = [
+            AIAssistantMessage(role: .user, text: "继续"),
+            AIAssistantMessage(role: .assistant, text: "这是已经完成的回复", isStreaming: false),
+        ]
+
+        store.finishStreamIfAssistantReplyMissing(after: 1, didReceiveAssistantReply: true)
+
+        XCTAssertEqual(store.messages.count, 2)
+        XCTAssertEqual(store.messages[1].role, .assistant)
+        XCTAssertFalse(store.messages[1].isStreaming)
+        XCTAssertEqual(store.messages[1].text, "这是已经完成的回复")
+    }
+
+    func testLoopEndUsesCompletionSequenceWhenLocalTerminalFlagIsLost() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let completionSequenceBeforeStream = store.assistantReplyCompletionSequence
+        store.messages = [
+            AIAssistantMessage(role: .user, text: "继续"),
+        ]
+        store.ensureStreamingPlaceholderExists()
+        store.handleStreamEvent(.messageCompleted(
+            messageID: UUID(),
+            finalText: "这是第二轮已经完成的回复",
+            referenceChips: []
+        ))
+
+        store.finishStreamIfAssistantReplyMissing(
+            after: 1,
+            didReceiveAssistantReply: store.assistantReplyCompletionSequence > completionSequenceBeforeStream
+        )
+
+        XCTAssertEqual(store.messages.count, 2)
+        XCTAssertEqual(store.messages[1].role, .assistant)
+        XCTAssertFalse(store.messages[1].isStreaming)
+        XCTAssertEqual(store.messages[1].text, "这是第二轮已经完成的回复")
+    }
+
     func testProposedActionSetsPendingAction() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),

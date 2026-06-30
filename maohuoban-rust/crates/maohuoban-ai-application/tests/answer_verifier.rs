@@ -113,3 +113,19 @@ fn unconfirmed_write_blocked() {
         Some(AiBlockedReason::UnconfirmedWrite)
     );
 }
+
+#[test]
+fn pet_profile_update_claim_without_tool_success_blocked() {
+    let package = package_with_strong_staple();
+    let verifier = AiAnswerVerifier::new();
+    let result = verifier.verify(
+        "宠物名已成功更新为梅鹿，现在档案中记录的是正确版本。",
+        &package,
+    );
+
+    assert!(result.is_blocked());
+    assert_eq!(
+        result.blocked_reason,
+        Some(AiBlockedReason::UnconfirmedWrite)
+    );
+}

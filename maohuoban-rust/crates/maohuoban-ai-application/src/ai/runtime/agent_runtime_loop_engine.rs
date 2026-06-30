@@ -4,9 +4,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AiFactPackage, AiResult, LlmChatRequest, LlmFinishReason, LlmMessage,
-    LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, LoopStep, LoopToolResult, LoopToolStatus,
-    ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, ToolFactProjector,
+    AgentSessionState, AiError, AiFactPackage, AiResult, LlmChatRequest, LlmFinishReason,
+    LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, LoopStep, LoopToolResult,
+    LoopToolStatus, ModelCallOutcome, ModelLabel, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    ProviderError, ProviderErrorCategory, ToolFactProjector,
 };
 use serde_json::Value;
 
@@ -18,11 +19,9 @@ use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
 
 #[path = "../Infrastructure/runtime/agent_runtime_diagnostics.rs"]
 mod agent_runtime_diagnostics;
-#[path = "../Infrastructure/runtime/agent_runtime_request_policy.rs"]
-mod agent_runtime_request_policy;
 
+use super::agent_runtime_request_policy::AgentRuntimeRequestPolicy;
 use agent_runtime_diagnostics::AgentRuntimeDiagnostics;
-use agent_runtime_request_policy::AgentRuntimeRequestPolicy;
 
 use super::{LoopEngine, workbench_prompt_projection::workbench_context_prompt};
 
@@ -95,6 +94,7 @@ impl AgentRuntimeLoopEngine {
         state: &AgentSessionState,
         assistant_tool_calls: &[LlmToolCall],
         tool_results: &[LoopToolResult],
+        visible_tools: &[maohuoban_ai_domain::ai::LlmToolSchema],
     ) -> Vec<LlmMessage> {
         let user_message = state.user_inputs.last().cloned().unwrap_or_default();
         let mut messages =
@@ -107,7 +107,7 @@ impl AgentRuntimeLoopEngine {
 
             pre_user_messages.push(LlmMessage {
                 role: LlmRole::System,
-                content: workbench_context_prompt(workbench),
+                content: workbench_context_prompt(workbench, visible_tools),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -153,10 +153,11 @@ impl AgentRuntimeLoopEngine {
             is_followup_answer,
             tools.is_empty(),
         );
+        let messages = self.build_messages(state, assistant_tool_calls, tool_results, &tools);
 
         LlmChatRequest {
             model: "primary".to_owned(),
-            messages: self.build_messages(state, assistant_tool_calls, tool_results),
+            messages,
             tools,
             tool_choice: None,
             temperature: 0.2,
@@ -218,6 +219,8 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         match event {
                             LlmStreamEvent::Delta { content } => {
                                 accumulated_text.push_str(&content);
+                                let suppress_visible_delta =
+                                    accumulated_text.trim().is_empty() && content.trim().is_empty();
                                 self.phase = RuntimePhase::StreamingModel {
                                     stream,
                                     purpose,
@@ -227,6 +230,9 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     finish_reason,
                                     tool_count,
                                 };
+                                if suppress_visible_delta {
+                                    continue;
+                                }
                                 return Ok(Some(LoopStep::MessageDelta { text: content }));
                             }
                             LlmStreamEvent::ToolCall { tool_call } => {
@@ -268,9 +274,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
+                        let visible_text = visible_text_from_model_output(&accumulated_text);
+                        if visible_text.trim().is_empty() {
+                            return Err(empty_assistant_content_error());
+                        }
                         self.phase = RuntimePhase::Done {
                             message_id: uuid::Uuid::new_v4(),
-                            final_text: visible_text_from_model_output(&accumulated_text),
+                            final_text: visible_text,
                             status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
                         };
                         return Ok(Some(LoopStep::CallModel {
@@ -390,7 +400,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
     }
 }
 
-fn model_stream(
+pub(crate) fn model_stream(
     provider: Arc<dyn LlmProvider>,
     request: LlmChatRequest,
 ) -> BoxStream<'static, AiResult<LlmStreamEvent>> {
@@ -408,7 +418,7 @@ fn model_stream(
 /// - HardStop 时跳过执行，返回安全文案
 /// - SoftReminder 时仍执行但附加提醒
 /// - 执行后记录结果到 guardrail
-async fn execute_tool_calls(
+pub(crate) async fn execute_tool_calls(
     registry: Arc<ToolRegistry>,
     tool_context: AiToolContext,
     tool_calls: Vec<LlmToolCall>,
@@ -486,7 +496,7 @@ async fn execute_tool_calls(
 }
 
 /// request_tool_count 计算模型请求中的工具数量
-fn request_tool_count(request: &LlmChatRequest) -> u32 {
+pub(crate) fn request_tool_count(request: &LlmChatRequest) -> u32 {
     u32::try_from(request.tools.len()).unwrap_or(u32::MAX)
 }
 
@@ -515,12 +525,19 @@ fn streaming_model_purpose_code(purpose: &StreamingModelPurpose) -> &'static str
     }
 }
 
+fn empty_assistant_content_error() -> AiError {
+    AiError::Provider(ProviderError::new(
+        ProviderErrorCategory::InvalidResponse,
+        "empty assistant content without tool calls",
+    ))
+}
+
 /// tool_result_to_message 将工具结果转为模型可见消息
 /// 核心职责：
 /// - 成功结果直接回灌 output，guardrail_message 以结构化字段注入
 /// - 失败结果携带 error_code 和 recoverable，供模型决策追问或换工具
 /// - 不泄露 internal_reason
-fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
+pub(crate) fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage {
     let content = match tool_result.status {
         LoopToolStatus::Succeeded => {
             let base = tool_result
@@ -624,5 +641,72 @@ fn merge_guardrail_message(base_output: &str, message: &str) -> String {
             "_guardrail_reminder": message,
         })
         .to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ai::ports::FakeLlmProvider;
+    use maohuoban_ai_domain::ai::{
+        AgentId, AiConversationSurface, LlmChatResponse, LlmMessage, LlmRole, LlmStreamEvent,
+    };
+
+    #[tokio::test]
+    async fn whitespace_only_stream_returns_invalid_response_error() {
+        let response = LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: String::new(),
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: Vec::new(),
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            provider: "fake".to_owned(),
+            model: "fake".to_owned(),
+        };
+        let provider = Arc::new(FakeLlmProvider::new(
+            response,
+            vec![
+                LlmStreamEvent::Delta {
+                    content: "                                               ".to_owned(),
+                },
+                LlmStreamEvent::Finish {
+                    finish_reason: LlmFinishReason::Stop,
+                    usage: LlmUsage {
+                        input_tokens: 10,
+                        output_tokens: 71,
+                        total_tokens: 81,
+                    },
+                },
+            ],
+        ));
+        let registry = Arc::new(ToolRegistry::new());
+        let tool_context = AiToolContext {
+            actor_user_id: uuid::Uuid::new_v4(),
+            authorized_pet_id: uuid::Uuid::nil(),
+        };
+        let mut engine = AgentRuntimeLoopEngine::new(provider, registry, tool_context, None);
+        let mut state = AgentSessionState::new(
+            uuid::Uuid::new_v4(),
+            AgentId::main_pet_care_agent(),
+            AiConversationSurface::HomePrivate,
+        );
+        state.begin_turn("我问你的第一个问题是什么".to_owned());
+
+        let error = loop {
+            match engine.next(&mut state).await {
+                Ok(Some(LoopStep::MessageDelta { text })) => {
+                    panic!("空白流不应输出可见 delta: {text:?}");
+                }
+                Ok(Some(_)) => {}
+                Ok(None) => panic!("空白流不应正常结束"),
+                Err(error) => break error,
+            }
+        };
+
+        assert_eq!(error.stable_code(), "ai.provider.invalid_response");
     }
 }

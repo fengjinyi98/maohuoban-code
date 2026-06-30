@@ -5,14 +5,17 @@
 
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
-use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::tools::{
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+};
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel,
+    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -75,6 +78,45 @@ impl LlmProvider for CapturingProvider {
     }
 }
 
+struct AppHelpTool;
+
+#[async_trait]
+impl AiToolDefinition for AppHelpTool {
+    fn name(&self) -> &'static str {
+        "explain_app_feature"
+    }
+
+    fn description(&self) -> &'static str {
+        "解释毛伙伴 App 页面和流程"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "app.help.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["app_help".to_owned()],
+            toolset: Toolset::AppSupport,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(Vec::new())
+    }
+}
+
 #[tokio::test]
 async fn workbench_prompt_hides_domain_struct_field_names() {
     let provider = CapturingProvider::new();
@@ -120,6 +162,91 @@ async fn workbench_prompt_hides_domain_struct_field_names() {
             "workbench prompt must not expose domain struct field {forbidden}: {workbench_prompt}"
         );
     }
+}
+
+#[tokio::test]
+async fn workbench_prompt_discloses_empty_visible_tool_list() {
+    let provider = CapturingProvider::new();
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(ToolRegistry::new()),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::nil(),
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("帮我把宠物名字改成梅鹿", public_pet_domain_workbench())
+        .await
+        .expect("prompt public workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(
+        workbench_prompt.contains("本轮可执行工具:\n- 无。"),
+        "workbench prompt should disclose empty runtime tool list: {workbench_prompt}"
+    );
+    assert!(
+        workbench_prompt.contains("用户询问工具或可执行能力时，只能基于“本轮可执行工具”回答"),
+        "workbench prompt should bind tool disclosure to visible runtime tools: {workbench_prompt}"
+    );
+}
+
+#[tokio::test]
+async fn workbench_prompt_discloses_visible_runtime_tools() {
+    let provider = CapturingProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(AppHelpTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::nil(),
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("你有哪些工具", public_pet_domain_workbench())
+        .await
+        .expect("prompt public workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(
+        workbench_prompt.contains("- explain_app_feature：解释毛伙伴 App 页面和流程"),
+        "workbench prompt should list visible runtime tool schemas: {workbench_prompt}"
+    );
+    assert_eq!(requests[0].tools[0].name, "explain_app_feature");
 }
 
 fn public_pet_domain_workbench() -> AgentSessionWorkbench {

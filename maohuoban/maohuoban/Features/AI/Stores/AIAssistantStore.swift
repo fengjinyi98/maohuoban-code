@@ -27,6 +27,7 @@ final class AIAssistantStore {
     var streamingTask: Task<Void, Never>?
     var currentChatSessionID: String?
     var pendingReferenceChips: [String] = []
+    @ObservationIgnored var assistantReplyCompletionSequence = 0
 
     static let networkFailureFallbackText = "网络连接失败，请检查网络后重试。"
 

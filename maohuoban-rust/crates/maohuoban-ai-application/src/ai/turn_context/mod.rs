@@ -165,7 +165,7 @@ fn private_pet_context_capability() -> AgentCapability {
         code: "private_pet_context".to_owned(),
         domain: CapabilityDomain::PrivatePetContext,
         title: "授权宠物上下文".to_owned(),
-        when_to_use: "用户询问自己宠物档案、饮食、异常、提醒或记录时使用".to_owned(),
+        when_to_use: "用户询问自己宠物档案、饮食或已授权上下文时使用".to_owned(),
         requires_private_context: true,
     }
 }
@@ -175,7 +175,7 @@ fn app_product_support_capability() -> AgentCapability {
         code: "app_product_support".to_owned(),
         domain: CapabilityDomain::AppProductSupport,
         title: "毛伙伴 App 使用帮助".to_owned(),
-        when_to_use: "用户询问添加宠物、记录、提醒、历史和 App 操作时使用".to_owned(),
+        when_to_use: "用户询问 App 页面、流程、入口和操作指引时使用".to_owned(),
         requires_private_context: false,
     }
 }

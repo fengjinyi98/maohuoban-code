@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use maohuoban_ai_domain::ai::{AiError, AiMessage, AiResult, SessionSummary};
+use maohuoban_ai_domain::ai::{AiError, AiMessage, AiMessageRole, AiResult, SessionSummary};
 pub use maohuoban_ai_domain::ai::{RecentConversationEntry, RecentConversationPack};
 use uuid::Uuid;
 
@@ -130,6 +130,7 @@ impl RecentConversationLoader {
         let history_messages: Vec<&AiMessage> = filtered_messages
             .into_iter()
             .filter(|m| m.id != exclude_message_id)
+            .filter(|m| !is_blank_assistant_message(m))
             .collect();
 
         let entries = history_messages
@@ -165,4 +166,8 @@ impl RecentConversationLoader {
             }
         }
     }
+}
+
+fn is_blank_assistant_message(message: &AiMessage) -> bool {
+    matches!(message.role, AiMessageRole::Assistant) && message.content.trim().is_empty()
 }

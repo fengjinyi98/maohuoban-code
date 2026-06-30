@@ -50,6 +50,8 @@ use super::turn_preparation::{
 use super::workbench_builder::build_agent_session_workbench;
 use crate::ai::response::unauthorized_response;
 
+const EMPTY_MODEL_OUTPUT_FALLBACK_TEXT: &str = "暂时无法获取回答，请稍后重试。";
+
 /// handle_chat_stream 流式聊天 SSE handler
 /// 核心职责：
 /// - 校验登录态并从 token 注入 actor
@@ -419,6 +421,7 @@ where
                     safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
                 },
             };
+            let event = normalize_stream_completion_event(session_id, message_id, event);
 
             if let AiStreamEvent::Error {
                 code,
@@ -489,6 +492,34 @@ where
         .into_response()
 }
 
+/// normalize_stream_completion_event 归一化流式完成事件
+/// 核心职责：
+/// - 拦截模型空白完成，避免空白 assistant 入库
+/// - 将空白完成转换成用户可见错误事件
+fn normalize_stream_completion_event(
+    _session_id: Uuid,
+    _message_id: Uuid,
+    event: AiStreamEvent,
+) -> AiStreamEvent {
+    let (AiStreamEvent::MessageCompleted { final_text, .. }
+    | AiStreamEvent::AnswerCompleted { final_text, .. }) = &event
+    else {
+        return event;
+    };
+
+    if final_text.trim().is_empty() {
+        return AiStreamEvent::Error {
+            code: "ai.provider.invalid_response".to_owned(),
+            message: EMPTY_MODEL_OUTPUT_FALLBACK_TEXT.to_owned(),
+            retryable: true,
+            blocked_reason: None,
+            safe_fallback_text: Some(EMPTY_MODEL_OUTPUT_FALLBACK_TEXT.to_owned()),
+        };
+    }
+
+    event
+}
+
 /// load_history_and_summary 加载历史和会话摘要
 /// 核心职责：
 /// - 加载同会话历史（含归属校验和预算裁剪）
@@ -508,7 +539,7 @@ async fn load_history_and_summary(
     let summary_repo = &state.session_summary_repository;
     let loader = RecentConversationLoader::new(session_repo.clone(), summary_repo.clone());
 
-    let pack = match loader
+    let pack = if let Ok(pack) = loader
         .load_recent_conversation(
             actor_user_id,
             session_id,
@@ -518,13 +549,12 @@ async fn load_history_and_summary(
         )
         .await
     {
-        Ok(pack) => ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack),
-        Err(_) => {
-            return (
-                maohuoban_ai_domain::ai::RecentConversationPack::empty(),
-                None,
-            );
-        }
+        ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack)
+    } else {
+        return (
+            maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+            None,
+        );
     };
 
     // 尝试压缩（历史超过阈值时生成摘要）

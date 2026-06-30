@@ -424,7 +424,7 @@ async fn load_history_and_summary_non_stream(
     let summary_repo = &state.session_summary_repository;
     let loader = RecentConversationLoader::new(session_repo.clone(), summary_repo.clone());
 
-    let pack = match loader
+    let pack = if let Ok(pack) = loader
         .load_recent_conversation(
             actor_user_id,
             session_id,
@@ -434,13 +434,12 @@ async fn load_history_and_summary_non_stream(
         )
         .await
     {
-        Ok(pack) => ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack),
-        Err(_) => {
-            return (
-                maohuoban_ai_domain::ai::RecentConversationPack::empty(),
-                None,
-            );
-        }
+        ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack)
+    } else {
+        return (
+            maohuoban_ai_domain::ai::RecentConversationPack::empty(),
+            None,
+        );
     };
 
     // 尝试压缩（历史超过阈值时生成摘要）
