@@ -159,7 +159,7 @@ fn runtime_event_roundtrip_covers_tool_finished_and_provider_error() {
             turn_id: turn_id(),
             category: ProviderErrorCategory::NotConfigured,
             retryable: false,
-            engine_mode: "rig_poc".to_owned(),
+            engine_mode: "self_hosted".to_owned(),
         },
         AgentEvent::ModelCallFinished {
             turn_id: turn_id(),

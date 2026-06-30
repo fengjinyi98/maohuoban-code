@@ -126,7 +126,8 @@ impl BackendConfig {
                     .ok()
                     .as_deref()
                     .unwrap_or("self_hosted"),
-            ),
+            )
+            .expect("MAOHUOBAN_AI_RUNTIME_ENGINE must be `self_hosted`"),
         }
     }
 

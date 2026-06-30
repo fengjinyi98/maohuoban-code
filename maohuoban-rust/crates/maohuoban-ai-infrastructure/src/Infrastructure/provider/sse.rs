@@ -92,9 +92,7 @@ impl SseStreamDecoder {
         ));
 
         if data.trim() == "[DONE]" {
-            mhb_temp_backend_log(
-                "tag=AgentFallbackRegression stage=provider.sse_done".to_owned(),
-            );
+            mhb_temp_backend_log("tag=AgentFallbackRegression stage=provider.sse_done".to_owned());
             return self.flush_tool_calls();
         }
 

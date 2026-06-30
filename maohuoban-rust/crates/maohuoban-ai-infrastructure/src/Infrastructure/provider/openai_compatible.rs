@@ -630,7 +630,10 @@ fn temp_llm_stream_event_summary(event: &LlmStreamEvent) -> String {
             format!("delta chars={} text={content:?}", content.chars().count())
         }
         LlmStreamEvent::ReasoningDelta { content } => {
-            format!("reasoning_delta chars={} text={content:?}", content.chars().count())
+            format!(
+                "reasoning_delta chars={} text={content:?}",
+                content.chars().count()
+            )
         }
         LlmStreamEvent::ToolCall { tool_call } => format!(
             "tool_call id={:?} name={} args={:?}",

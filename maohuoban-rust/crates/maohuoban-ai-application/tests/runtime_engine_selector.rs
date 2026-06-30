@@ -1,7 +1,7 @@
 // runtime_engine_selector Runtime 引擎选择测试
 // 核心职责：
-// - 验证运行时可在 self_hosted 与 rig_poc 间切换
-// - 固定 HTTP 外层无需感知具体 LoopEngine 实现的契约
+// - 验证运行时只接受 self_hosted 引擎配置
+// - 固定 HTTP 外层无需感知 LoopEngine 装配细节
 
 use std::sync::{Arc, Mutex};
 
@@ -117,19 +117,12 @@ fn observed_engine_modes(events: &[AgentEvent]) -> Vec<&str> {
 #[test]
 fn engine_mode_parses_runtime_config_values() {
     assert_eq!(AgentRuntimeEngineMode::SelfHosted.as_str(), "self_hosted");
-    assert_eq!(AgentRuntimeEngineMode::RigPoc.as_str(), "rig_poc");
     assert_eq!(
         AgentRuntimeEngineMode::from_config_value("self_hosted"),
-        AgentRuntimeEngineMode::SelfHosted
+        Ok(AgentRuntimeEngineMode::SelfHosted)
     );
-    assert_eq!(
-        AgentRuntimeEngineMode::from_config_value("rig_poc"),
-        AgentRuntimeEngineMode::RigPoc
-    );
-    assert_eq!(
-        AgentRuntimeEngineMode::from_config_value("unknown"),
-        AgentRuntimeEngineMode::SelfHosted
-    );
+    assert!(AgentRuntimeEngineMode::from_config_value("rig_poc").is_err());
+    assert!(AgentRuntimeEngineMode::from_config_value("unknown").is_err());
 }
 
 #[tokio::test]
@@ -143,21 +136,6 @@ async fn self_hosted_engine_uses_runtime_provider() {
     assert_eq!(
         observed_engine_modes(&events),
         vec!["self_hosted", "self_hosted", "self_hosted"]
-    );
-    assert_eq!(observed.request_count(), 1);
-}
-
-#[tokio::test]
-async fn rig_poc_engine_uses_runtime_provider_inside_loop_engine_boundary() {
-    let provider = RecordingProvider::new();
-    let observed = provider.clone();
-
-    let events = run_selected_engine(AgentRuntimeEngineMode::RigPoc, provider).await;
-
-    assert_eq!(finished_text(&events).as_deref(), Some("自研引擎回答"));
-    assert_eq!(
-        observed_engine_modes(&events),
-        vec!["rig_poc", "rig_poc", "rig_poc"]
     );
     assert_eq!(observed.request_count(), 1);
 }

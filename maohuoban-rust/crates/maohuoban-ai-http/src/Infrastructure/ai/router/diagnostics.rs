@@ -143,7 +143,7 @@ pub(crate) fn record_chat_provider_started(
 
 /// record_chat_runtime_engine_selected 记录 Runtime engine 选择结果
 /// 核心职责：
-/// - 在成功链路显式暴露 self_hosted / rig_poc
+/// - 在成功链路显式暴露 self_hosted
 /// - 关联 route、stream、工具数量和目标宠物状态
 pub(crate) fn record_chat_runtime_engine_selected(
     session_id: Uuid,

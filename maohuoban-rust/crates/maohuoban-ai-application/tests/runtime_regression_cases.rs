@@ -1,10 +1,9 @@
 // runtime_regression_cases Agent Runtime 回归 case 套件
 // 核心职责：
 // - 覆盖 8 类核心 runtime 场景
-// - 每个 case 参数化运行 AgentRuntimeLoopEngine 和 RigLoopEngineAdapter
-// - 共享断言验证用户可见事件顺序，引擎特定断言验证内部逻辑
+// - 固定自研 AgentRuntimeLoopEngine 的用户可见事件顺序和内部请求边界
 //
-// 文件超 500 行原因：8 个 case × 2 引擎 + 共享测试基础设施（ScriptedProvider、
+// 文件超 500 行原因：8 个 case + 共享测试基础设施（ScriptedProvider、
 // 工具桩、workbench 构造器），拆分需引入 common 模块且破坏 case 内聚性。
 
 use std::collections::VecDeque;
@@ -13,20 +12,16 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
-use maohuoban_ai_application::ai::runtime::{
-    AgentRuntimeLoopEngine, AgentSession, FakeRigState, FakeRigStep, LoopEngine,
-    RigLoopEngineAdapter,
-};
+use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession, LoopEngine};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench, AgentToolStatus,
-    AgentTurnStatus, AiConversationSurface, AiFactEntry, AiFactStrength, AiMessageRole,
-    CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest,
-    LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage,
-    LoopToolResult, MemoryPack, ModelLabel, RecentConversationEntry, RecentConversationPack,
-    ToolProgressText, Toolset,
+    AiConversationSurface, AiFactEntry, AiFactStrength, AiMessageRole, CapabilityCatalog,
+    CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest, LlmChatResponse,
+    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
+    ModelLabel, RecentConversationEntry, RecentConversationPack, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -350,36 +345,6 @@ fn build_engine(
     AgentRuntimeLoopEngine::new(provider, Arc::new(registry), ctx, None)
 }
 
-// ---- Rig adapter 辅助构造器 ----
-
-/// `rig_model` 构造模型完成型 `FakeRigStep`
-fn rig_model(tool_count: u32, finish_reason: LlmFinishReason) -> FakeRigStep {
-    FakeRigStep::CallModel {
-        model_label: ModelLabel::Primary,
-        tool_count,
-        finish_reason,
-        usage: LlmUsage::default(),
-    }
-}
-
-/// `rig_done` 构造终止型 `FakeRigStep`
-fn rig_done(text: &str, status: AgentTurnStatus) -> FakeRigStep {
-    FakeRigStep::Done {
-        message_id: Uuid::new_v4(),
-        final_text: text.to_owned(),
-        status,
-    }
-}
-
-/// `rig_tool_call` 构造工具调用桩
-fn rig_tool_call(id: &str) -> LlmToolCall {
-    LlmToolCall {
-        id: id.to_owned(),
-        name: "load_pet_identity_context".to_owned(),
-        arguments: "{}".to_owned(),
-    }
-}
-
 // ---- 通用 prompt runner ----
 
 /// `run_prompt` 使用任意 `LoopEngine` 运行 prompt 并收集事件
@@ -451,7 +416,6 @@ fn has_tool_finished(events: &[AgentEvent], status: AgentToolStatus) -> bool {
 
 #[tokio::test]
 async fn case_public_qa_without_pet() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![final_text_response("猫拉肚子要观察精神和食欲")]);
     let real_engine = build_engine(
         Arc::new(provider.clone()),
@@ -460,20 +424,9 @@ async fn case_public_qa_without_pet() {
     );
     let real_events = run_prompt(real_engine, "猫拉肚子怎么办", None).await;
 
-    // --- Rig adapter 引擎 ---
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(0, LlmFinishReason::Stop),
-        rig_done("猫拉肚子要观察精神和食欲", AgentTurnStatus::Completed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "猫拉肚子怎么办", None).await;
+    assert_has_turn_finished(&real_events);
+    assert_eq!(final_text(&real_events), "猫拉肚子要观察精神和食欲");
 
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_finished(events);
-        assert_eq!(final_text(events), "猫拉肚子要观察精神和食欲");
-    }
-
-    // --- 引擎特定断言 ---
     let requests = provider.take_requests();
     assert_eq!(requests.len(), 1);
     assert!(
@@ -488,7 +441,6 @@ async fn case_public_qa_without_pet() {
 
 #[tokio::test]
 async fn case_private_tool_call_with_authorized_pet() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![
         tool_call_response("load_pet_identity_context", json!({})),
         final_text_response("饭团是一只猫"),
@@ -498,30 +450,8 @@ async fn case_private_tool_call_with_authorized_pet() {
     let real_engine = build_engine(Arc::new(provider.clone()), registry, authorized_context());
     let real_events = run_prompt(real_engine, "毛球是谁", Some(private_pet_workbench())).await;
 
-    // --- Rig adapter 引擎 ---
-    let call = rig_tool_call("call_1");
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(1, LlmFinishReason::ToolCalls),
-        FakeRigStep::CallTools {
-            tool_calls: vec![call.clone()],
-        },
-        FakeRigStep::CallToolResults {
-            tool_results: vec![LoopToolResult::succeeded(
-                call,
-                "{\"facts\":[{\"key\":\"pet_name\",\"value\":\"饭团\"}]}",
-            )],
-        },
-        rig_model(0, LlmFinishReason::Stop),
-        rig_done("饭团是一只猫", AgentTurnStatus::Completed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "毛球是谁", None).await;
+    assert_has_turn_finished(&real_events);
 
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_finished(events);
-    }
-
-    // --- 引擎特定断言 ---
     let requests = provider.take_requests();
     assert_eq!(requests.len(), 2);
     let tool_msg = requests[1]
@@ -542,7 +472,6 @@ async fn case_private_tool_call_with_authorized_pet() {
 
 #[tokio::test]
 async fn case_tool_progress_events() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![
         tool_call_response("load_pet_identity_context", json!({})),
         final_text_response("饭团档案已加载"),
@@ -552,27 +481,9 @@ async fn case_tool_progress_events() {
     let real_engine = build_engine(Arc::new(provider), registry, authorized_context());
     let real_events = run_prompt(real_engine, "毛球是谁", Some(private_pet_workbench())).await;
 
-    // --- Rig adapter 引擎 ---
-    let call = rig_tool_call("call_1");
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(1, LlmFinishReason::ToolCalls),
-        FakeRigStep::CallTools {
-            tool_calls: vec![call.clone()],
-        },
-        FakeRigStep::CallToolResults {
-            tool_results: vec![LoopToolResult::succeeded(call, "{}")],
-        },
-        rig_model(0, LlmFinishReason::Stop),
-        rig_done("饭团档案已加载", AgentTurnStatus::Completed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "毛球是谁", None).await;
-
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert!(has_tool_started(events, "load_pet_identity_context"));
-        assert!(has_tool_finished(events, AgentToolStatus::Succeeded));
-        assert_has_turn_finished(events);
-    }
+    assert!(has_tool_started(&real_events, "load_pet_identity_context"));
+    assert!(has_tool_finished(&real_events, AgentToolStatus::Succeeded));
+    assert_has_turn_finished(&real_events);
 }
 
 // ===========================================================================
@@ -581,7 +492,6 @@ async fn case_tool_progress_events() {
 
 #[tokio::test]
 async fn case_thinking_content_filtered() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![think_response(
         "internal reasoning about pet diet",
         "建议减少零食，观察食欲",
@@ -593,26 +503,16 @@ async fn case_thinking_content_filtered() {
     );
     let real_events = run_prompt(real_engine, "毛球不吃饭", None).await;
 
-    // --- Rig adapter 引擎（输出已过滤文本） ---
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![rig_done(
-        "建议减少零食，观察食欲",
-        AgentTurnStatus::Completed,
-    )]));
-    let rig_events = run_prompt(rig_engine, "毛球不吃饭", None).await;
-
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_finished(events);
-        let text = final_text(events);
-        assert!(
-            !text.contains("internal reasoning"),
-            "thinking content should be filtered, got: {text}"
-        );
-        assert!(
-            text.contains("建议减少零食"),
-            "visible content should be preserved, got: {text}"
-        );
-    }
+    assert_has_turn_finished(&real_events);
+    let text = final_text(&real_events);
+    assert!(
+        !text.contains("internal reasoning"),
+        "thinking content should be filtered, got: {text}"
+    );
+    assert!(
+        text.contains("建议减少零食"),
+        "visible content should be preserved, got: {text}"
+    );
 }
 
 // ===========================================================================
@@ -621,7 +521,6 @@ async fn case_thinking_content_filtered() {
 
 #[tokio::test]
 async fn case_json_output_filtered() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![json_response("猫粮换粮需要7天过渡期")]);
     let real_engine = build_engine(
         Arc::new(provider),
@@ -630,26 +529,16 @@ async fn case_json_output_filtered() {
     );
     let real_events = run_prompt(real_engine, "怎么换粮", None).await;
 
-    // --- Rig adapter 引擎（输出已提取 answer_text） ---
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![rig_done(
-        "猫粮换粮需要7天过渡期",
-        AgentTurnStatus::Completed,
-    )]));
-    let rig_events = run_prompt(rig_engine, "怎么换粮", None).await;
-
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_finished(events);
-        let text = final_text(events);
-        assert_eq!(
-            text, "猫粮换粮需要7天过渡期",
-            "should extract answer_text from JSON output"
-        );
-        assert!(
-            !text.contains("answer_text"),
-            "JSON field name should not appear in visible text"
-        );
-    }
+    assert_has_turn_finished(&real_events);
+    let text = final_text(&real_events);
+    assert_eq!(
+        text, "猫粮换粮需要7天过渡期",
+        "should extract answer_text from JSON output"
+    );
+    assert!(
+        !text.contains("answer_text"),
+        "JSON field name should not appear in visible text"
+    );
 }
 
 // ===========================================================================
@@ -658,7 +547,6 @@ async fn case_json_output_filtered() {
 
 #[tokio::test]
 async fn case_followup_question_with_history() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![final_text_response("可以适当减少罐头")]);
     let real_engine = build_engine(
         Arc::new(provider.clone()),
@@ -688,19 +576,8 @@ async fn case_followup_question_with_history() {
     )
     .await;
 
-    // --- Rig adapter 引擎 ---
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(0, LlmFinishReason::Stop),
-        rig_done("可以适当减少罐头", AgentTurnStatus::Completed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "那要不要停罐头", None).await;
+    assert_has_turn_finished(&real_events);
 
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_finished(events);
-    }
-
-    // --- 引擎特定断言 ---
     let requests = provider.take_requests();
     assert_eq!(requests.len(), 1);
     let messages = &requests[0].messages;
@@ -724,7 +601,6 @@ async fn case_followup_question_with_history() {
 
 #[tokio::test]
 async fn case_unauthorized_pet_denied() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![
         tool_call_response("load_pet_identity_context", json!({})),
         final_text_response("无法获取宠物信息"),
@@ -734,30 +610,11 @@ async fn case_unauthorized_pet_denied() {
     let real_engine = build_engine(Arc::new(provider.clone()), registry, unauthorized_context());
     let real_events = run_prompt(real_engine, "毛球是谁", Some(private_pet_workbench())).await;
 
-    // --- Rig adapter 引擎 ---
-    let call = rig_tool_call("call_1");
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(1, LlmFinishReason::ToolCalls),
-        FakeRigStep::CallTools {
-            tool_calls: vec![call.clone()],
-        },
-        FakeRigStep::CallToolResults {
-            tool_results: vec![LoopToolResult::denied(call, "pet not authorized")],
-        },
-        rig_model(0, LlmFinishReason::Stop),
-        rig_done("无法获取宠物信息", AgentTurnStatus::Completed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "毛球是谁", None).await;
+    assert!(
+        has_tool_finished(&real_events, AgentToolStatus::Denied),
+        "should emit ToolFinished with Denied status"
+    );
 
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert!(
-            has_tool_finished(events, AgentToolStatus::Denied),
-            "should emit ToolFinished with Denied status"
-        );
-    }
-
-    // --- 引擎特定断言 ---
     let requests = provider.take_requests();
     assert!(requests.len() >= 2);
     let tool_msg = requests[1]
@@ -781,7 +638,6 @@ async fn case_unauthorized_pet_denied() {
 
 #[tokio::test]
 async fn case_repeated_tool_failure_guardrail() {
-    // --- 自有引擎 ---
     let provider = ScriptedProvider::new(vec![LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
@@ -807,28 +663,5 @@ async fn case_repeated_tool_failure_guardrail() {
     let real_engine = build_engine(Arc::new(provider), registry, authorized_context());
     let real_events = run_prompt(real_engine, "毛球是谁", None).await;
 
-    // --- Rig adapter 引擎 ---
-    let calls: Vec<LlmToolCall> = (0..3)
-        .map(|i| rig_tool_call(&format!("call_{i}")))
-        .collect();
-    let failed_results: Vec<LoopToolResult> = calls
-        .iter()
-        .map(|c| LoopToolResult::failed(c.clone(), "upstream_timeout"))
-        .collect();
-    let rig_engine = RigLoopEngineAdapter::new(FakeRigState::new(vec![
-        rig_model(3, LlmFinishReason::ToolCalls),
-        FakeRigStep::CallTools {
-            tool_calls: calls.clone(),
-        },
-        FakeRigStep::CallToolResults {
-            tool_results: failed_results,
-        },
-        rig_done("", AgentTurnStatus::Failed),
-    ]));
-    let rig_events = run_prompt(rig_engine, "毛球是谁", None).await;
-
-    // --- 共享断言 ---
-    for events in [&real_events, &rig_events] {
-        assert_has_turn_failed(events);
-    }
+    assert_has_turn_failed(&real_events);
 }

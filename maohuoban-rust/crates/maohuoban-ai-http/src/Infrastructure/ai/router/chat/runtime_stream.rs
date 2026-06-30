@@ -557,13 +557,14 @@ mod tests {
     }
 
     #[test]
-    fn projector_scrubs_rig_raw_delta_reasoning_tool_planning_and_json_draft_before_sse_delta() {
+    fn projector_scrubs_provider_raw_delta_reasoning_tool_planning_and_json_draft_before_sse_delta()
+    {
         let message_id = Uuid::new_v4();
         let turn_id = AgentTurnId::new();
         let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
 
         let chunks = [
-            "<reasoning>Rig internal plan: call load_pet_identity_context</reasoning>",
+            "<reasoning>Provider internal plan: call load_pet_identity_context</reasoning>",
             "{\"tool_planning\":{\"tool_name\":\"load_pet_identity_context\",\"arguments\":{\"pet_id\":\"hidden\"}},",
             "\"json_draft\":{\"internal\":\"provider raw draft\"},\"answer_text\":\"",
             "豆包档案可先看精神、食欲和排便变化。",
@@ -586,7 +587,7 @@ mod tests {
         let visible_text = deltas.concat();
 
         assert_eq!(visible_text, "豆包档案可先看精神、食欲和排便变化。");
-        assert!(!visible_text.contains("Rig internal plan"));
+        assert!(!visible_text.contains("Provider internal plan"));
         assert!(!visible_text.contains("tool_planning"));
         assert!(!visible_text.contains("json_draft"));
         assert!(!visible_text.contains("load_pet_identity_context"));
