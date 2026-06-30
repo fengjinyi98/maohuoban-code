@@ -23,6 +23,10 @@ impl<S> RigLoopEngineAdapter<S> {
 
 #[async_trait]
 impl<S: RigStepSource> LoopEngine for RigLoopEngineAdapter<S> {
+    fn engine_mode(&self) -> &'static str {
+        "rig_poc"
+    }
+
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         Ok(self.source.next_rig_step(state).await?.map(map_rig_step))
     }

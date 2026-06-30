@@ -26,6 +26,10 @@ impl FakeLoopEngine {
 
 #[async_trait]
 impl LoopEngine for FakeLoopEngine {
+    fn engine_mode(&self) -> &'static str {
+        "fake"
+    }
+
     async fn next(&mut self, _state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         Ok(self.steps.pop_front())
     }

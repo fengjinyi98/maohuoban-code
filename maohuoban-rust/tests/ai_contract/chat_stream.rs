@@ -154,6 +154,7 @@ async fn ai_chat_stream_records_backend_diagnostics_chain() {
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.provider.error"
             && event.metadata["error_code"] == json!("ai.provider.not_configured")
+            && event.metadata["engine_mode"] == json!("self_hosted")
             && event.metadata["retryable"] == json!(false)
     }));
 }

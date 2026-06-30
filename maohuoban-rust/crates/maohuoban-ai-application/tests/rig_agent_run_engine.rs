@@ -86,7 +86,7 @@ impl LlmProvider for ScriptedRigProvider {
         } else {
             vec![
                 Ok(LlmStreamEvent::Delta {
-                    content: "Rig followup answer".to_owned(),
+                    content: "<think>internal rig reasoning</think>{\"answer_text\":\"Rig followup answer\",\"json_draft\":{\"internal\":true}}".to_owned(),
                 }),
                 Ok(LlmStreamEvent::Finish {
                     finish_reason: LlmFinishReason::Stop,
@@ -225,10 +225,24 @@ async fn rig_poc_engine_drives_agent_run_with_provider_and_tool_registry() {
     assert_eq!(observed_tool.call_count(), 1);
 
     let first_request = observed_provider.request_at(0);
+    assert!(first_request.stream);
     assert_eq!(first_request.tools.len(), 1);
     assert_eq!(first_request.tools[0].name, "test.pet_fact");
+    assert!(
+        first_request.response_format.is_none(),
+        "Rig + DeepSeek compatible tool planning must not force JSON output"
+    );
 
     let second_request = observed_provider.request_at(1);
+    assert!(second_request.stream);
+    assert!(
+        second_request.tools.is_empty(),
+        "followup answer must not keep tool calling enabled"
+    );
+    assert!(
+        second_request.response_format.is_none(),
+        "Rig + DeepSeek compatible followup must not force JSON output"
+    );
     assert!(second_request.messages.iter().any(|message| matches!(
         message,
         LlmMessage {
@@ -245,4 +259,37 @@ async fn rig_poc_engine_drives_agent_run_with_provider_and_tool_registry() {
             ..
         } if tool_call_id == "call_rig_fact"
     )));
+}
+
+#[tokio::test]
+async fn rig_poc_events_expose_engine_mode_for_runtime_observability() {
+    let provider = ScriptedRigProvider::new();
+    let tool = RecordingTool::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(tool);
+
+    let engine = AgentRuntimeEngineFactory::new(AgentRuntimeEngineMode::RigPoc)
+        .build(build_input(Arc::new(provider), Arc::new(registry)));
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session.prompt("查一下毛毛的状态").await.expect("rig run");
+    let engine_modes: Vec<&str> = events
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::TurnStarted { engine_mode, .. }
+            | AgentEvent::ModelCallStarted { engine_mode, .. }
+            | AgentEvent::ModelCallFinished { engine_mode, .. } => Some(engine_mode.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    assert!(
+        engine_modes.iter().all(|mode| *mode == "rig_poc"),
+        "all runtime observable events should carry rig_poc engine mode: {engine_modes:?}"
+    );
 }

@@ -173,6 +173,10 @@ impl RigAgentRunLoopEngine {
 
 #[async_trait]
 impl LoopEngine for RigAgentRunLoopEngine {
+    fn engine_mode(&self) -> &'static str {
+        "rig_poc"
+    }
+
     #[allow(clippy::too_many_lines)]
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         loop {

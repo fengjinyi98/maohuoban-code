@@ -7,12 +7,21 @@ use maohuoban_ai_domain::ai::{AgentSessionState, AiResult, LoopStep};
 /// - 让 FakeLoopEngine、Rig adapter 或其他实现可替换
 #[async_trait]
 pub trait LoopEngine: Send {
+    /// engine_mode 返回当前 LoopEngine 的稳定诊断标识
+    fn engine_mode(&self) -> &'static str {
+        "custom"
+    }
+
     /// next 推进 Runtime loop 一步
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>>;
 }
 
 #[async_trait]
 impl<T: LoopEngine + ?Sized> LoopEngine for Box<T> {
+    fn engine_mode(&self) -> &'static str {
+        (**self).engine_mode()
+    }
+
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         (**self).next(state).await
     }

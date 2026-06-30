@@ -53,15 +53,17 @@ impl<E: LoopEngine> AgentSession<E> {
     ) -> AiResult<Vec<AgentEvent>> {
         self.state.attach_workbench(workbench);
         let turn_id = self.state.begin_turn(user_input);
+        let engine_mode = self.engine.engine_mode().to_owned();
         let mut events = vec![AgentEvent::TurnStarted {
             turn_id,
             chat_session_id: self.state.chat_session_id,
             agent_id: self.state.agent_id.clone(),
             surface: self.state.surface,
+            engine_mode: engine_mode.clone(),
         }];
 
         while let Some(step) = self.engine.next(&mut self.state).await? {
-            if append_step_events(turn_id, step, &mut events) == StepFlow::Stop {
+            if append_step_events(turn_id, step, &engine_mode, &mut events) == StepFlow::Stop {
                 break;
             }
         }
@@ -110,16 +112,18 @@ impl<E: LoopEngine> AgentSession<E> {
         Box::pin(async_stream::try_stream! {
             self.state.attach_workbench(workbench);
             let turn_id = self.state.begin_turn(user_input);
+            let engine_mode = self.engine.engine_mode().to_owned();
             yield AgentEvent::TurnStarted {
                 turn_id,
                 chat_session_id: self.state.chat_session_id,
                 agent_id: self.state.agent_id.clone(),
                 surface: self.state.surface,
+                engine_mode: engine_mode.clone(),
             };
 
             while let Some(step) = self.engine.next(&mut self.state).await? {
                 let mut step_events = Vec::new();
-                let flow = append_step_events(turn_id, step, &mut step_events);
+                let flow = append_step_events(turn_id, step, &engine_mode, &mut step_events);
                 for event in step_events {
                     yield event;
                 }
@@ -144,6 +148,7 @@ enum StepFlow {
 fn append_step_events(
     turn_id: maohuoban_ai_domain::ai::AgentTurnId,
     step: LoopStep,
+    engine_mode: &str,
     events: &mut Vec<AgentEvent>,
 ) -> StepFlow {
     match step {
@@ -151,7 +156,14 @@ fn append_step_events(
             model_label,
             tool_count,
             outcome,
-        } => append_model_events(turn_id, model_label, tool_count, outcome, events),
+        } => append_model_events(
+            turn_id,
+            model_label,
+            tool_count,
+            outcome,
+            engine_mode,
+            events,
+        ),
         LoopStep::MessageDelta { text } => {
             events.push(AgentEvent::MessageDelta { turn_id, text });
             StepFlow::Continue
@@ -161,7 +173,7 @@ fn append_step_events(
             message_id,
             final_text,
             status,
-        } => append_done_event(turn_id, message_id, final_text, status, events),
+        } => append_done_event(turn_id, message_id, final_text, status, engine_mode, events),
     }
 }
 
@@ -174,12 +186,14 @@ fn append_model_events(
     model_label: maohuoban_ai_domain::ai::ModelLabel,
     tool_count: u32,
     outcome: ModelCallOutcome,
+    engine_mode: &str,
     events: &mut Vec<AgentEvent>,
 ) -> StepFlow {
     events.push(AgentEvent::ModelCallStarted {
         turn_id,
         model_label,
         tool_count,
+        engine_mode: engine_mode.to_owned(),
     });
 
     match outcome {
@@ -195,6 +209,7 @@ fn append_model_events(
                 usage,
                 provider,
                 model,
+                engine_mode: engine_mode.to_owned(),
             });
             StepFlow::Continue
         }
@@ -207,11 +222,13 @@ fn append_model_events(
                 turn_id,
                 category,
                 retryable,
+                engine_mode: engine_mode.to_owned(),
             });
             events.push(AgentEvent::TurnFailed {
                 turn_id,
                 error_code,
                 retryable,
+                engine_mode: engine_mode.to_owned(),
             });
             StepFlow::Stop
         }
@@ -303,6 +320,7 @@ fn append_done_event(
     message_id: Uuid,
     final_text: String,
     status: AgentTurnStatus,
+    engine_mode: &str,
     events: &mut Vec<AgentEvent>,
 ) -> StepFlow {
     if status == AgentTurnStatus::Failed {
@@ -310,6 +328,7 @@ fn append_done_event(
             turn_id,
             error_code: "ai.runtime_failed".to_owned(),
             retryable: false,
+            engine_mode: engine_mode.to_owned(),
         });
     } else {
         events.push(AgentEvent::TurnFinished {

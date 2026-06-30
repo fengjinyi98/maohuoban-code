@@ -165,11 +165,11 @@
 
 | 能力 | 当前结论 | 验证状态 |
 |---|---|---|
-| OpenAI compatible tools | `RigAgentRunLoopEngine` 复用自有 `LlmChatRequest.tools` 和 `LlmProvider`，工具执行继续走 `ToolRegistry` | fake provider + fake tool 已覆盖；DeepSeek 实机待联调 |
-| Streaming | Rig driver 先消费自有 provider stream，`Delta` 转 `LoopStep::MessageDelta`，stream 完成后把累计内容 / tool call 喂回 `AgentRun` | `rig_agent_run_engine.rs` 已覆盖 |
-| JSON output | `visible_text_from_model_output` 已过滤 JSON `answer_text` 和 `<think>` 内容；Rig delta 同样先进入内部事件层 | 已在 Rig followup 输出路径复用 |
-| Tool failure fallback | DeepSeek 工具调用失败属于 provider/runtime 错误分类；当前 `self_hosted` 是默认回退路径 | DeepSeek 实机失败分类待补观测字段 |
-| 观测字段 | provider category、tool status、turn status 已在自研链路存在；Rig POC 需要补 `engine_mode` 维度 | 待诊断切片 |
+| OpenAI compatible tools | `RigAgentRunLoopEngine` 复用自有 `LlmChatRequest.tools` 和 `LlmProvider`，工具执行继续走 `ToolRegistry` | fake provider + fake tool 已覆盖；DeepSeek provider SSE tool-call delta 已用 httpmock 覆盖 |
+| Streaming | Rig driver 先消费自有 provider stream，`Delta` 转 `LoopStep::MessageDelta`，stream 完成后把累计内容 / tool call 喂回 `AgentRun` | `rig_agent_run_engine.rs` 已覆盖 streaming + tool + followup |
+| JSON output | `visible_text_from_model_output` 已过滤 JSON `answer_text` 和 `<think>` 内容；Rig delta 同样先进入内部事件层 | Rig followup 测试覆盖 `<think>` + JSON draft + `answer_text` 提取 |
+| Tool failure fallback | DeepSeek 工具调用失败属于 provider/runtime 错误分类；当前 `self_hosted` 是默认生产路径，`rig_poc` 可通过 `MAOHUOBAN_AI_RUNTIME_ENGINE` 显式开启或关闭 | provider error 诊断保留 stable code、retryable、safe fallback 和 engine mode |
+| 观测字段 | runtime 事件和 HTTP provider error 诊断可区分 `self_hosted` / `rig_poc` | `runtime_engine_selector.rs`、`rig_agent_run_engine.rs`、`chat_stream::ai_chat_stream_records_backend_diagnostics_chain` 覆盖 |
 
 ### 5.6 Codex 上下文压缩参考结论
 

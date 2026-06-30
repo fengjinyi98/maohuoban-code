@@ -100,11 +100,13 @@ fn runtime_event_roundtrip_preserves_frozen_event_names() {
             chat_session_id,
             agent_id: AgentId::main_pet_care_agent(),
             surface: AiConversationSurface::HomePrivate,
+            engine_mode: "self_hosted".to_owned(),
         },
         AgentEvent::ModelCallStarted {
             turn_id: turn_id(),
             model_label: ModelLabel::Primary,
             tool_count: 2,
+            engine_mode: "self_hosted".to_owned(),
         },
         AgentEvent::ToolStarted {
             turn_id: turn_id(),
@@ -157,6 +159,7 @@ fn runtime_event_roundtrip_covers_tool_finished_and_provider_error() {
             turn_id: turn_id(),
             category: ProviderErrorCategory::NotConfigured,
             retryable: false,
+            engine_mode: "rig_poc".to_owned(),
         },
         AgentEvent::ModelCallFinished {
             turn_id: turn_id(),
@@ -168,6 +171,7 @@ fn runtime_event_roundtrip_covers_tool_finished_and_provider_error() {
             },
             provider: "openai_compatible".to_owned(),
             model: "contract-model".to_owned(),
+            engine_mode: "self_hosted".to_owned(),
         },
     ];
 

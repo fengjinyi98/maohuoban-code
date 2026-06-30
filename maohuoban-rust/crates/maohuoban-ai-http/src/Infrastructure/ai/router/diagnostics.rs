@@ -165,6 +165,7 @@ pub(crate) fn record_chat_stream_event_emitted(session_id: Uuid, event: &AiStrea
 /// - 保留前端可展示安全文案是否存在
 pub(crate) fn record_chat_provider_error(
     session_id: Uuid,
+    engine_mode: &str,
     code: &str,
     retryable: bool,
     safe_fallback_text: Option<&str>,
@@ -177,6 +178,7 @@ pub(crate) fn record_chat_provider_error(
                 "chat_session_id_prefix",
                 json!(uuid_prefix(Some(session_id))),
             ),
+            ("engine_mode", json!(engine_mode)),
             ("error_code", json!(code)),
             ("retryable", json!(retryable)),
             (

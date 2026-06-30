@@ -9,6 +9,15 @@ pub enum AgentRuntimeEngineMode {
 }
 
 impl AgentRuntimeEngineMode {
+    /// as_str 返回配置和诊断使用的稳定编码
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SelfHosted => "self_hosted",
+            Self::RigPoc => "rig_poc",
+        }
+    }
+
     /// from_config_value 解析配置字符串
     /// 核心职责：
     /// - 支持 self_hosted / rig_poc 两种稳定配置值

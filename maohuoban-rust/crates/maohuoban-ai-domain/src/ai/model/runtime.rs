@@ -514,6 +514,7 @@ pub enum AgentEvent {
         chat_session_id: Uuid,
         agent_id: AgentId,
         surface: AiConversationSurface,
+        engine_mode: String,
     },
     PolicyChecked {
         turn_id: AgentTurnId,
@@ -524,6 +525,7 @@ pub enum AgentEvent {
         turn_id: AgentTurnId,
         model_label: ModelLabel,
         tool_count: u32,
+        engine_mode: String,
     },
     ModelCallFinished {
         turn_id: AgentTurnId,
@@ -531,6 +533,7 @@ pub enum AgentEvent {
         usage: LlmUsage,
         provider: String,
         model: String,
+        engine_mode: String,
     },
     ToolStarted {
         turn_id: AgentTurnId,
@@ -561,6 +564,7 @@ pub enum AgentEvent {
         turn_id: AgentTurnId,
         category: ProviderErrorCategory,
         retryable: bool,
+        engine_mode: String,
     },
     TurnFinished {
         turn_id: AgentTurnId,
@@ -572,6 +576,7 @@ pub enum AgentEvent {
         turn_id: AgentTurnId,
         error_code: String,
         retryable: bool,
+        engine_mode: String,
     },
 }
 

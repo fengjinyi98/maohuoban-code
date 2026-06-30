@@ -217,36 +217,57 @@
 
 ## P3：Rig 接入 POC
 
-- [ ] 明确 Rig 接入边界。
+- 当前提交：`085515ce2 接入 Rig POC 并修复 Agent 流式响应`
+- 当前结论：Rig 已进入 `LoopEngine` POC 边界；自研 `AgentSession Workbench`、`Tool Gateway`、`Policy Guard`、`SSE Adapter`、`SessionEventStore` 继续保持主权。
+- 剩余重点：需要确认合同测试、Rig `AgentRun` 真实 adapter 与自研 engine 的严格用户可见事件顺序对齐。
+
+- [x] 明确 Rig 接入边界。
   - 决策：Rig 只作为 `LoopEngine` adapter POC。
   - 保留自研主权：`AgentSession Workbench`、`Tool Gateway`、`Policy Guard`、`UserVisibleTurnEvent`、`SSE Adapter`、`SessionEventStore`。
   - 验证：Rig 不能直接访问业务服务、数据库、宠物事实源和 HTTP handler。
+  - 完成证据：ADR `02_毛球Agent能力工作台与Rig接入ADR.md` 已记录 Rig 接入边界；`AgentRuntimeEngineFactory` 只在 `LoopEngine` 后面选择 `self_hosted` / `rig_poc`；Rig POC 仍通过自有 provider、tool registry、policy 和 projector 运行。
 
-- [ ] 新增 `RigLoopEngineAdapter` 骨架。
+- [x] 新增 `RigLoopEngineAdapter` 骨架。
   - 交付物：实现现有 `LoopEngine` trait。
   - 输入：`TurnContext`、`CapabilityCatalog`、模型配置、工具目录。
   - 输出：统一转换为自有 `InternalTurnEvent` / `LoopStep`。
   - 验证：fake Rig state 可产出 model call、tool request、tool result、done。
+  - 完成证据：`RigLoopEngineAdapter` 保留 fake step 合同；`RigAgentRunLoopEngine` 已接入 `rig-core::agent::run::AgentRun`，将 Rig `CallModel / CallTools / Done` 统一转换为自有 `LoopStep`；`rig_loop_engine.rs` 和 `rig_agent_run_engine.rs` 覆盖 fake 与真实 AgentRun POC。
 
 - [ ] 建立 Rig 与自研 engine 的合同测试。
   - case：直接回答、单工具调用、工具失败、工具后 followup、需要确认、流式正文、思考过滤。
   - 验证：同一输入下，两种 engine 产出相同用户可见事件顺序。
+  - 当前状态：部分完成。
+  - 已完成证据：`runtime_regression_cases.rs` 覆盖无宠物公共问答、私域工具调用、工具进度、思考过滤、JSON 过滤、连续追问、越权拒绝、工具重复失败；同一组 case 同时运行自研 engine 和 fake Rig adapter。
+  - 剩余切片：补 `NeedsConfirmation` 严格事件顺序合同；补 Rig `AgentRun` 真实 adapter 与自研 engine 的用户可见事件顺序对齐测试。
 
-- [ ] 增加 engine 选择配置。
+- [x] 增加 engine 选择配置。
   - 交付物：运行时可配置 `self_hosted` / `rig_poc`。
   - 验证：切换 engine 不影响 HTTP、SSE、iOS DTO、Tool Gateway、Policy Guard。
+  - 完成证据：`AgentRuntimeEngineMode` 支持 `self_hosted` / `rig_poc`；`AgentRuntimeEngineFactory` 统一构造自研 engine 或 Rig POC engine；HTTP 流式和非流式入口通过 factory 创建 engine；`runtime_engine_selector.rs` 覆盖配置解析和 engine 选择链路。
 
-- [ ] 验证 Rig tool calling 与 DeepSeek provider 的兼容性。
+- [x] 验证 Rig tool calling 与 DeepSeek provider 的兼容性。
   - 交付物：记录 Rig 对 OpenAI compatible tools、streaming、JSON output 的实际支持差异。
   - 验证：DeepSeek 工具调用失败时可回落到自研 engine，错误分类可观测。
+  - 完成证据：`RigAgentRunLoopEngine` 复用自有 `LlmChatRequest.tools` 和 `LlmProvider`；`rig_agent_run_engine.rs` 验证 Rig POC 首轮请求保持 streaming + tools + 不强制 `response_format`，followup 关闭 tools 且不强制 JSON output，并从带 `<think>` / JSON draft 的输出中提取 `answer_text`；`deepseek.rs` 验证 DeepSeek provider 按 OpenAI compatible SSE 解析 tool-call delta；DeepSeek provider 已取消强制 `response_format=json_object`，空白输出归类为 `ai.provider.invalid_response`；provider error 诊断新增 `engine_mode`，`chat_stream::ai_chat_stream_records_backend_diagnostics_chain` 覆盖 `engine_mode=self_hosted`。
+  - 回落方式：生产默认仍为 `self_hosted`；`rig_poc` 通过 `MAOHUOBAN_AI_RUNTIME_ENGINE` 显式开启，出现 DeepSeek 兼容问题时可切回 `self_hosted`，错误事件保留 provider category、retryable、safe fallback 和 engine mode。
 
-- [ ] 验证 Rig 流式事件清洗位置。
+- [x] 验证 Rig 流式事件清洗位置。
   - 交付物：Rig raw delta 必须先进入内部事件层，再由自有 Projector 清洗。
   - 验证：Rig 输出的 reasoning、tool planning、JSON draft 不会进入 iOS 正文流。
+  - 完成证据：Rig POC 输出统一进入 `LoopStep` / `AgentEvent`，再由 HTTP `AgentEventSseProjector` 映射为 iOS SSE；`projector_scrubs_rig_raw_delta_reasoning_tool_planning_and_json_draft_before_sse_delta` 覆盖 Rig raw delta 中的 reasoning、tool planning、JSON draft 清洗；既有 `runtime_stream` 测试继续覆盖跨 chunk thinking 清洗和 JSON answer_text 增量投影；前端流式 store 保持只消费后端稳定 SSE。
 
-- [ ] 设定 Rig POC 停止条件。
+- [x] 设定 Rig POC 停止条件。
   - 条件：需要让 Rig 直接管理宠物权限、事实裁剪、SSE 协议、会话存储或工具真实执行时暂停接入。
   - 处理：保留自研 engine，重新评审接入边界。
+  - 完成证据：ADR 已记录停止条件；当前实现中 Rig 只驱动 loop state，真实 provider 调用、工具执行、权限、事实裁剪、SSE 投影和会话存储仍由毛伙伴自有代码执行。
+
+### P3 剩余切片
+
+| 切片 | 目标 | 验证 |
+|---|---|---|
+| Rig confirmation contract | 补齐 `NeedsConfirmation` 在自研 engine 与 Rig adapter 下的用户可见事件顺序一致性 | `cargo test -p maohuoban-ai-application --test runtime_regression_cases --test rig_agent_run_engine` |
+| Rig AgentRun 严格事件对齐 | 让真实 `RigAgentRunLoopEngine` 与自研 engine 在同一输入下产出相同用户可见事件顺序 | `cargo test -p maohuoban-ai-application --test rig_agent_run_engine --test runtime_regression_cases` |
 
 ## 参考点
 

@@ -208,6 +208,7 @@ async fn provider_response_for_context(
         state.session_repository.clone(),
         input.session_id,
         input.message_id,
+        state.runtime_engine_mode.as_str(),
     )
 }
 
@@ -402,6 +403,7 @@ fn provider_stream_response<S>(
     session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     session_id: Uuid,
     message_id: Uuid,
+    engine_mode: &'static str,
 ) -> Response
 where
     S: futures_util::Stream<Item = Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
@@ -432,6 +434,7 @@ where
             {
                 record_chat_provider_error(
                     session_id,
+                    engine_mode,
                     code,
                     *retryable,
                     safe_fallback_text.as_deref(),

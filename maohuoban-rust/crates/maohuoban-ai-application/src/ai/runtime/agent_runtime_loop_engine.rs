@@ -172,6 +172,10 @@ impl AgentRuntimeLoopEngine {
 #[allow(clippy::too_many_lines)]
 #[async_trait]
 impl LoopEngine for AgentRuntimeLoopEngine {
+    fn engine_mode(&self) -> &'static str {
+        "self_hosted"
+    }
+
     async fn next(&mut self, state: &mut AgentSessionState) -> AiResult<Option<LoopStep>> {
         loop {
             match std::mem::replace(&mut self.phase, RuntimePhase::Model) {

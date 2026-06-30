@@ -102,8 +102,22 @@ fn finished_text(events: &[AgentEvent]) -> Option<String> {
     })
 }
 
+fn observed_engine_modes(events: &[AgentEvent]) -> Vec<&str> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::TurnStarted { engine_mode, .. }
+            | AgentEvent::ModelCallStarted { engine_mode, .. }
+            | AgentEvent::ModelCallFinished { engine_mode, .. } => Some(engine_mode.as_str()),
+            _ => None,
+        })
+        .collect()
+}
+
 #[test]
 fn engine_mode_parses_runtime_config_values() {
+    assert_eq!(AgentRuntimeEngineMode::SelfHosted.as_str(), "self_hosted");
+    assert_eq!(AgentRuntimeEngineMode::RigPoc.as_str(), "rig_poc");
     assert_eq!(
         AgentRuntimeEngineMode::from_config_value("self_hosted"),
         AgentRuntimeEngineMode::SelfHosted
@@ -126,6 +140,10 @@ async fn self_hosted_engine_uses_runtime_provider() {
     let events = run_selected_engine(AgentRuntimeEngineMode::SelfHosted, provider).await;
 
     assert_eq!(finished_text(&events).as_deref(), Some("自研引擎回答"));
+    assert_eq!(
+        observed_engine_modes(&events),
+        vec!["self_hosted", "self_hosted", "self_hosted"]
+    );
     assert_eq!(observed.request_count(), 1);
 }
 
@@ -137,5 +155,9 @@ async fn rig_poc_engine_uses_runtime_provider_inside_loop_engine_boundary() {
     let events = run_selected_engine(AgentRuntimeEngineMode::RigPoc, provider).await;
 
     assert_eq!(finished_text(&events).as_deref(), Some("自研引擎回答"));
+    assert_eq!(
+        observed_engine_modes(&events),
+        vec!["rig_poc", "rig_poc", "rig_poc"]
+    );
     assert_eq!(observed.request_count(), 1);
 }
