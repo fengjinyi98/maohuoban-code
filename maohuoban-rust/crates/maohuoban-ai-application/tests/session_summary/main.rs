@@ -4,6 +4,8 @@
 // - 验证 SessionSummary 安全前缀和压缩边界
 // - 验证 SessionSummaryCompressor 压缩流程（投影后送 LLM、持久化边界）
 // - 验证压缩后保留尾部消息和摘要写入
+//
+// MHB_STRUCTURE_EXEMPTION: session summary compressor contract 保持单入口，domain 阈值、压缩流程和 fake repository/provider 共用同一组消息 fixture；拆散会增加重复测试夹具。
 
 use std::future::Future;
 use std::pin::Pin;

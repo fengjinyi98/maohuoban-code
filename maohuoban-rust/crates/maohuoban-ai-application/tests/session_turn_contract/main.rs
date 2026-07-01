@@ -4,6 +4,8 @@
 // - 验证 Turn Replay 事件序列按写入顺序返回
 // - 验证 session_id / turn_id / message_id 在 domain 模型间的关联一致性
 // - 验证 AgentSessionState.begin_turn_with_id 使 Runtime turn_id 与外部注入 ID 一致
+//
+// MHB_STRUCTURE_EXEMPTION: session/turn repository contract 保持单入口，turn ledger、event replay 和 domain 关联一致性共享固定 ID 与内存仓储夹具；拆散会增加重复仓储实现。
 
 use std::sync::Mutex;
 

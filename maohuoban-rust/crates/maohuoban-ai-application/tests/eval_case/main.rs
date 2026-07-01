@@ -8,7 +8,7 @@ use maohuoban_ai_domain::ai::{AiGateDecision, AiIntent};
 use serde::Deserialize;
 
 const EVAL_CASES_JSON: &str = include_str!(
-    "../../../../docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/ai_eval_cases.json"
+    "../../../../../docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/ai_eval_cases.json"
 );
 
 #[derive(Debug, Deserialize)]

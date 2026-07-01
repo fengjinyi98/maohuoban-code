@@ -3,7 +3,7 @@
 // - 覆盖 8 类核心 runtime 场景
 // - 固定自研 AgentRuntimeLoopEngine 的用户可见事件顺序和内部请求边界
 //
-// 文件超 500 行原因：8 个 case + 共享测试基础设施（ScriptedProvider、
+// MHB_STRUCTURE_EXEMPTION: 文件超 500 行原因：8 个 case + 共享测试基础设施（ScriptedProvider、
 // 工具桩、workbench 构造器），拆分需引入 common 模块且破坏 case 内聚性。
 
 use std::collections::VecDeque;

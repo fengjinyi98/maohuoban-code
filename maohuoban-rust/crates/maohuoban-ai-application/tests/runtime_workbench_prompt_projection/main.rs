@@ -2,6 +2,8 @@
 // 核心职责：
 // - 验证 Runtime 给模型的 Workbench prompt 使用受控文本投影
 // - 防止 domain struct 字段名和未来新增字段自动进入模型输入
+//
+// MHB_STRUCTURE_EXEMPTION: workbench prompt projection contract 保持单入口，测试共享 CapturingProvider、工具定义和 workbench fixture；拆散会重复 prompt 捕获夹具并降低投影合同可读性。
 
 use std::sync::{Arc, Mutex};
 

@@ -2,6 +2,8 @@
 // 核心职责：
 // - 验证工具调用后的二次模型也走 Provider stream
 // - 验证工具进度先于延迟的二次模型内容到达
+//
+// MHB_STRUCTURE_EXEMPTION: streaming runtime integration test 保持单入口，多个用例共享脚本 provider、工具和会话 fixture；拆散会显著增加重复夹具和事件时序理解成本。
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
