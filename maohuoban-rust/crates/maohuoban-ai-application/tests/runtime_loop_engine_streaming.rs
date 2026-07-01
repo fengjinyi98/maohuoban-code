@@ -360,6 +360,11 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         requests[1].response_format.is_none(),
         "followup final answer request should avoid DeepSeek JSON Output empty content risk"
     );
+    assert_eq!(
+        requests[1].diagnostics_correlation.tool_call_id.as_deref(),
+        Some("call_1"),
+        "followup request diagnostics must correlate back to the executed tool call"
+    );
 }
 
 #[tokio::test]
@@ -407,6 +412,42 @@ async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
     assert!(
         !tool_result_content.contains("current_staple"),
         "tool result content sent back to model must not expose internal fact keys"
+    );
+}
+
+#[tokio::test]
+async fn agent_session_refreshes_diagnostics_message_id_per_turn() {
+    let provider = StreamingScriptedProvider::new(vec![final_response(), final_response()]);
+    let engine = runtime_engine(provider.clone(), ToolRegistry::new());
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+    let first_message_id =
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("first message id");
+    let second_message_id =
+        Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("second message id");
+
+    session
+        .prompt_with_diagnostics_message_id("第一轮", first_message_id)
+        .await
+        .expect("first prompt");
+    session
+        .prompt_with_diagnostics_message_id("第二轮", second_message_id)
+        .await
+        .expect("second prompt");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests[0].diagnostics_correlation.message_id,
+        Some(first_message_id)
+    );
+    assert_eq!(
+        requests[1].diagnostics_correlation.message_id,
+        Some(second_message_id)
     );
 }
 

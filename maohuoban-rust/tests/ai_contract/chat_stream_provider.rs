@@ -90,10 +90,53 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         text.contains("event: answer_completed"),
         "SSE should contain completion event, got: {text}"
     );
+    let started = sse_event_data(&text, "message_started");
+    let chat_session_id_prefix = uuid_prefix_from_sse(&started, "chat_session_id");
+    let message_id_prefix = uuid_prefix_from_sse(&started, "message_id");
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
+    for event_name in [
+        "ai.provider.openai.request.prepared",
+        "ai.provider.openai.http.response.started",
+        "ai.provider.openai.stream.chunk",
+        "ai.provider.openai.stream.event",
+    ] {
+        let event = events
+            .iter()
+            .find(|event| {
+                event.message == event_name
+                    && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+                    && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            })
+            .unwrap_or_else(|| panic!("missing provider diagnostics event {event_name}"));
+        assert_eq!(
+            event.metadata["chat_session_id_prefix"],
+            json!(chat_session_id_prefix)
+        );
+        assert_eq!(
+            event.metadata["message_id_prefix"],
+            json!(message_id_prefix)
+        );
+        assert!(
+            event.metadata["turn_id_prefix"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty()),
+            "missing turn correlation in {event:?}"
+        );
+        assert!(
+            event.metadata["tool_call_id"].is_string(),
+            "missing tool correlation field in {event:?}"
+        );
+        assert_eq!(event.metadata["provider"], json!("openai_compatible"));
+        assert_eq!(event.metadata["model"], json!("contract-model"));
+    }
     assert!(events.iter().any(|event| {
         event.message == "ai.provider.openai.request.prepared"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["provider"] == json!("openai_compatible")
+            && event.metadata["model_route"] == json!("primary")
+            && event.metadata["model"] == json!("contract-model")
             && event.metadata["request_body_text"]
                 .as_str()
                 .is_some_and(|body| {
@@ -102,13 +145,39 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
                 })
     }));
     assert!(events.iter().any(|event| {
+        event.message == "ai.chat.workbench.built"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["capability_catalog"]
+                .as_array()
+                .is_some_and(|capabilities| {
+                    capabilities
+                        .iter()
+                        .any(|value| value == "private_pet_context")
+                })
+            && event.metadata["visible_tools"]
+                .as_array()
+                .is_some_and(|tools| {
+                    tools
+                        .iter()
+                        .any(|value| value == "load_pet_identity_context")
+                })
+            && event.metadata["memory_count"] == json!(0)
+            && event.metadata["recent_conversation_count"] == json!(0)
+            && event.metadata["context_summary_present"] == json!(false)
+    }));
+    assert!(events.iter().any(|event| {
         event.message == "ai.provider.openai.stream.chunk"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
             && event.metadata["chunk_text"]
                 .as_str()
                 .is_some_and(|body| body.contains("真实 Provider"))
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.provider.openai.stream.event"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
             && event.metadata["event_name"] == json!("delta")
             && event.metadata["payload"]["content"] == json!("真实 Provider")
     }));
@@ -117,7 +186,8 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         assert!(
             !metadata.contains("Bearer contract-api-key")
                 && !metadata.contains("\"api_key\"")
-                && !metadata.contains("contract-api-key"),
+                && !metadata.contains("contract-api-key")
+                && !metadata.contains("Cookie"),
             "provider diagnostics leaked auth secret: {event:?}"
         );
     }
@@ -216,15 +286,21 @@ async fn ai_chat_stream_identity_enters_workbench() {
         text.contains("event: answer_completed"),
         "SSE should contain completion event, got: {text}"
     );
+    let started = sse_event_data(&text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
 
     let row: (String, bool, Option<String>) = sqlx::query_as(
         r"
         SELECT gate_decision, context_loaded, risk_signal
         FROM ai_request_gate_logs
+        WHERE session_id = $1
         ORDER BY created_at DESC
         LIMIT 1
         ",
     )
+    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse chat session id"))
     .fetch_one(app.pool())
     .await
     .expect("read latest gate log");
@@ -362,15 +438,21 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_enters_workbench() {
         text.contains("event: answer_completed"),
         "SSE should complete through workbench provider, got: {text}"
     );
+    let started = sse_event_data(&text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
 
     let row: (String, String, bool, Option<String>) = sqlx::query_as(
         r"
         SELECT intent, gate_decision, context_loaded, risk_signal
         FROM ai_request_gate_logs
+        WHERE session_id = $1
         ORDER BY created_at DESC
         LIMIT 1
         ",
     )
+    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse chat session id"))
     .fetch_one(app.pool())
     .await
     .expect("read latest gate log");
@@ -379,6 +461,30 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_enters_workbench() {
     assert_eq!(row.1, "enter_workbench");
     assert!(!row.2);
     assert_eq!(row.3, None);
+}
+
+fn sse_event_data(text: &str, event_name: &str) -> Value {
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == format!("event: {event_name}") {
+            for data_line in lines.by_ref() {
+                if let Some(data) = data_line.strip_prefix("data: ") {
+                    return serde_json::from_str(data).expect("parse sse data");
+                }
+            }
+        }
+    }
+
+    panic!("missing SSE event {event_name}, got: {text}");
+}
+
+fn uuid_prefix_from_sse(event: &Value, field: &str) -> String {
+    event[field]
+        .as_str()
+        .expect("uuid field")
+        .chars()
+        .take(8)
+        .collect()
 }
 
 async fn create_pet(

@@ -42,6 +42,22 @@ pub struct LlmToolSchema {
     pub parameters: serde_json::Value,
 }
 
+/// LlmDiagnosticsCorrelation LLM 请求诊断关联上下文
+/// 核心职责：
+/// - 承载 Runtime 到 Provider 的 session、turn、message 和 tool 关联键
+/// - 只服务 diagnostics 链路，不进入上游 Provider 请求体
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LlmDiagnosticsCorrelation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+}
+
 /// LlmChatRequest 内部稳定 LLM 请求
 /// 核心职责：
 /// - 屏蔽厂商差异，由 Provider 适配为 OpenAI 兼容格式
@@ -59,6 +75,8 @@ pub struct LlmChatRequest {
     pub max_output_tokens: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_format: Option<serde_json::Value>,
+    #[serde(default, skip_serializing)]
+    pub diagnostics_correlation: LlmDiagnosticsCorrelation,
 }
 
 /// LlmUsage token 用量

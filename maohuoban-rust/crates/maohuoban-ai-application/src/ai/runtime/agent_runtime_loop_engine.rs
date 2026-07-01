@@ -103,6 +103,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "initial",
                         &request,
                     );
+                    let diagnostics_correlation = request.diagnostics_correlation.clone();
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Initial,
@@ -112,6 +113,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         usage: LlmUsage::default(),
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
+                        diagnostics_correlation,
                     };
                 }
                 RuntimePhase::StreamingModel {
@@ -123,6 +125,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     mut usage,
                     mut finish_reason,
                     tool_count,
+                    diagnostics_correlation,
                 } => {
                     if let Some(event) = stream.next().await {
                         let event = match event {
@@ -130,6 +133,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             Err(error) => {
                                 AgentRuntimeDiagnostics::record_model_stream_error(
                                     state.chat_session_id,
+                                    &diagnostics_correlation,
                                     streaming_model_purpose_code(&purpose),
                                     tool_count,
                                     &error,
@@ -151,6 +155,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     usage,
                                     finish_reason,
                                     tool_count,
+                                    diagnostics_correlation,
                                 };
                                 if suppress_visible_delta {
                                     continue;
@@ -168,6 +173,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     usage,
                                     finish_reason,
                                     tool_count,
+                                    diagnostics_correlation,
                                 };
                                 continue;
                             }
@@ -182,6 +188,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     usage,
                                     finish_reason,
                                     tool_count,
+                                    diagnostics_correlation,
                                 };
                                 continue;
                             }
@@ -200,6 +207,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     usage,
                                     finish_reason,
                                     tool_count,
+                                    diagnostics_correlation,
                                 };
                                 continue;
                             }
@@ -377,6 +385,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         "followup",
                         &request,
                     );
+                    let diagnostics_correlation = request.diagnostics_correlation.clone();
                     self.phase = RuntimePhase::StreamingModel {
                         stream: model_stream(self.provider.clone(), request),
                         purpose: StreamingModelPurpose::Followup,
@@ -386,6 +395,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         usage: LlmUsage::default(),
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
+                        diagnostics_correlation,
                     };
                 }
                 RuntimePhase::Done {

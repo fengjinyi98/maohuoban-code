@@ -6,15 +6,23 @@
 use axum::http::StatusCode;
 use futures_util::StreamExt;
 use httpmock::{Mock, MockServer, prelude::HttpMockRequest};
+use maohuoban_diagnostics::{
+    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy,
+};
 use serde_json::{Value, json};
 use std::time::Duration;
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_json, response_text};
+use super::{
+    authorized_json_request, diagnostics_test_lock, login_and_get_token, response_json,
+    response_text,
+};
 
 /// Provider 返回工具调用时 `/api/v1/ai/chat/stream` 通过自有 Agent Runtime 执行工具并回灌
 #[tokio::test]
 async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let diagnostics = install_runtime_tool_test_diagnostics();
     let server = MockServer::start();
     let mut config = maohuoban_rust::BackendConfig::local_test();
     config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
@@ -105,6 +113,18 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
         text.contains("event: answer_completed"),
         "SSE should contain answer_completed event, got: {text}"
     );
+    diagnostics.flush().expect("flush diagnostics");
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.tool_gateway.completed"
+            && event.metadata["tool_name"] == json!("load_pet_identity_context")
+            && event.metadata["policy_decision"] == json!("allowed")
+            && event.metadata["fact_count"]
+                .as_u64()
+                .is_some_and(|count| count > 0)
+            && event.metadata["citation_ids"].is_array()
+            && event.metadata["failure_code"].is_null()
+    }));
 }
 
 /// Runtime 工具进度在二次模型完成前通过 SSE 到达
@@ -268,6 +288,23 @@ fn install_runtime_tool_call_mocks<'a>(
     pet_id: &str,
 ) -> (Mock<'a>, Mock<'a>) {
     install_runtime_tool_call_mocks_with_followup_delay(server, pet_id, Duration::ZERO)
+}
+
+fn install_runtime_tool_test_diagnostics() -> Diagnostics {
+    let root = std::env::temp_dir().join(format!(
+        "maohuoban-ai-runtime-tool-diagnostics-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
+    Diagnostics::install(DiagnosticsConfig {
+        service_name: "maohuoban-rust".to_owned(),
+        environment: "test".to_owned(),
+        privacy: PrivacyPolicy::default(),
+        capture: CapturePolicy::default(),
+        cleanup: CleanupPolicy::default(),
+        store: Box::new(store),
+    })
+    .expect("install diagnostics")
 }
 
 fn install_runtime_tool_call_mocks_with_followup_delay<'a>(

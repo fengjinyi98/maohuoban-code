@@ -78,6 +78,7 @@ impl SummaryPromptTemplate {
             stream: false,
             max_output_tokens: Some(1024),
             response_format: None,
+            diagnostics_correlation: Default::default(),
         }
     }
 }

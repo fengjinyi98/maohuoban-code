@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
-use super::super::diagnostics::record_chat_runtime_engine_selected;
+use super::super::diagnostics::{record_chat_runtime_engine_selected, record_chat_workbench_built};
 use super::composition::request::ChatStreamRequest;
 use super::composition::workbench_builder::build_agent_session_workbench;
 use super::responses::gated_stream_response::gated_message_text;
@@ -151,11 +151,37 @@ async fn complete_with_runtime(
     target_pet: Option<AiPetDisplaySnapshot>,
     fact_package: Option<AiFactPackage>,
 ) -> Result<AiCompleteResult, AiError> {
+    let (recent_conversation, session_summary) = load_history_and_summary_non_stream(
+        state,
+        actor_user_id,
+        context.session_id,
+        context.user_message_id,
+    )
+    .await;
+
+    let workbench = build_agent_session_workbench(
+        req.surface,
+        target_pet.as_ref(),
+        session_summary,
+        Vec::new(),
+        recent_conversation,
+    );
     let registry = Arc::new(match target_pet.as_ref() {
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
         None => ToolRegistry::new(),
     });
-    let tool_count = registry.list_definitions().len();
+    let visible_tool_names = registry
+        .list_definitions()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect::<Vec<_>>();
+    let tool_count = visible_tool_names.len();
+    record_chat_workbench_built(
+        context.session_id,
+        context.assistant_message_id,
+        &workbench,
+        &visible_tool_names,
+    );
     record_chat_runtime_engine_selected(
         context.session_id,
         context.assistant_message_id,
@@ -182,23 +208,12 @@ async fn complete_with_runtime(
         req.surface,
         engine,
     );
-    let (recent_conversation, session_summary) = load_history_and_summary_non_stream(
-        state,
-        actor_user_id,
-        context.session_id,
-        context.user_message_id,
-    )
-    .await;
-
-    let workbench = build_agent_session_workbench(
-        req.surface,
-        target_pet.as_ref(),
-        session_summary,
-        Vec::new(),
-        recent_conversation,
-    );
     let events = session
-        .prompt_with_workbench(req.message.clone(), workbench)
+        .prompt_with_workbench_diagnostics_message_id(
+            req.message.clone(),
+            workbench,
+            context.assistant_message_id,
+        )
         .await?;
     complete_from_runtime_events(events, fact_package, target_pet.is_some())
 }
