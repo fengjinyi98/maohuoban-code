@@ -1,20 +1,13 @@
-//! deepseek DeepSeek 厂商 Provider
+//! config DeepSeek Provider 配置
 //! 核心职责：
-//! - 封装 DeepSeek 的默认模型调用策略
-//! - 复用 OpenAI 兼容协议客户端完成 HTTP 调用
-//! - 为后续 DeepSeek 专属 JSON、工具调用差异预留入口
+//! - 承载 DeepSeek 厂商运行参数
+//! - 将密钥限制在 infrastructure Provider 内使用
 
 use std::fmt;
-use std::future::Future;
-use std::pin::Pin;
 
-use futures_util::stream::BoxStream;
-use maohuoban_ai_application::ai::ports::LlmProvider;
-use maohuoban_ai_domain::ai::{AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent};
 use serde_json::Value;
 
-use super::config::OpenAiCompatibleConfig;
-use super::openai_compatible::OpenAiCompatibleLlmProvider;
+use crate::provider::OpenAiCompatibleConfig;
 
 /// DeepSeekConfig DeepSeek Provider 配置
 /// 核心职责：
@@ -78,39 +71,5 @@ impl DeepSeekConfig {
             max_output_tokens: self.max_output_tokens,
             response_format: self.response_format,
         }
-    }
-}
-
-/// DeepSeekLlmProvider DeepSeek 厂商 Provider
-/// 核心职责：
-/// - 对外实现统一 LlmProvider 端口
-/// - 内部委托 OpenAI 兼容协议客户端执行 HTTP 调用
-pub struct DeepSeekLlmProvider {
-    inner: OpenAiCompatibleLlmProvider,
-}
-
-impl DeepSeekLlmProvider {
-    /// new 构造 DeepSeek Provider
-    #[must_use]
-    pub fn new(config: DeepSeekConfig) -> Self {
-        Self {
-            inner: OpenAiCompatibleLlmProvider::new(config.into_openai_compatible_config()),
-        }
-    }
-}
-
-impl LlmProvider for DeepSeekLlmProvider {
-    fn complete<'a>(
-        &'a self,
-        request: &'a LlmChatRequest,
-    ) -> Pin<Box<dyn Future<Output = AiResult<LlmChatResponse>> + Send + 'a>> {
-        self.inner.complete(request)
-    }
-
-    fn stream<'a>(
-        &'a self,
-        request: &'a LlmChatRequest,
-    ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
-        self.inner.stream(request)
     }
 }

@@ -5,6 +5,11 @@
 // - 确认日志不包含 API key
 // - 遵循 TDD：先写失败测试（red），再实现 Provider（green）
 
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::sync::mpsc;
+use std::time::Duration;
+
 use futures_util::StreamExt;
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
@@ -14,7 +19,6 @@ use maohuoban_ai_domain::ai::{
 };
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
 use serde_json::json;
-use std::time::Duration;
 
 #[test]
 fn provider_config_from_env_values_requires_base_url_key_and_model() {
@@ -632,4 +636,129 @@ async fn stream_maps_missing_done_marker_to_stream_interrupted_category() {
         }
         other => panic!("expected stream interrupted provider error, got {other:?}"),
     }
+}
+
+// ── 新增错误分类可达性测试 ──
+
+#[tokio::test]
+async fn provider_maps_connection_refused_to_provider_request_failed() {
+    // 使用无效端口触发连接拒绝 → ProviderRequestFailed
+    let config = OpenAiCompatibleConfig {
+        base_url: "http://127.0.0.1:1".to_owned(),
+        api_key: "test-key".to_owned(),
+        model: "test-model".to_owned(),
+        timeout_secs: 2,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    };
+    let provider = OpenAiCompatibleLlmProvider::new(config);
+
+    let result = provider.complete(&sample_request()).await;
+    assert!(result.is_err());
+    assert_provider_category(
+        result.unwrap_err(),
+        ProviderErrorCategory::ProviderRequestFailed,
+    );
+}
+
+// ── supports_json_output 生产裁剪验证 ──
+
+#[tokio::test]
+async fn deepseek_body_strips_json_object_response_format() {
+    // 验证 DeepSeek (supports_json_output=false) 不会发送 json_object response_format
+    let (base_url, body_rx) = spawn_body_capture_server();
+    let profile = maohuoban_ai_application::ai::provider_capability::ProviderProfile::deepseek(
+        "deepseek-v4-flash",
+    );
+    let config = OpenAiCompatibleConfig {
+        base_url,
+        api_key: "test-key".to_owned(),
+        model: "deepseek-v4-flash".to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    };
+    let provider = OpenAiCompatibleLlmProvider::new_with_profile(config, profile);
+
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+    request.response_format = Some(serde_json::json!({"type": "json_object"}));
+
+    provider
+        .complete(&request)
+        .await
+        .expect("complete should succeed");
+
+    let body = body_rx
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .expect("captured request body");
+    assert!(
+        !body.contains("json_object"),
+        "DeepSeek must strip json_object response_format, got: {body}"
+    );
+}
+
+// body_capture_server 的副本（复用 openai_request_policy 中的实现）
+fn spawn_body_capture_server() -> (String, mpsc::Receiver<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let (body_tx, body_rx) = mpsc::channel();
+
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept request");
+        let mut buffer = Vec::new();
+        let mut chunk = [0_u8; 1024];
+        let header_end = loop {
+            let read = stream.read(&mut chunk).expect("read request");
+            assert!(read > 0, "request closed before headers");
+            buffer.extend_from_slice(&chunk[..read]);
+            if let Some(index) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
+                break index + 4;
+            }
+        };
+
+        let headers = String::from_utf8_lossy(&buffer[..header_end]);
+        let content_length = headers
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("content-length: ")
+                    .or_else(|| line.strip_prefix("Content-Length: "))
+            })
+            .and_then(|value| value.parse::<usize>().ok())
+            .expect("content-length header");
+
+        while buffer.len() < header_end + content_length {
+            let read = stream.read(&mut chunk).expect("read body");
+            assert!(read > 0, "request closed before body");
+            buffer.extend_from_slice(&chunk[..read]);
+        }
+
+        let body = String::from_utf8(buffer[header_end..header_end + content_length].to_vec())
+            .expect("body utf8");
+        body_tx.send(body).expect("send captured body");
+
+        let response_body = serde_json::json!({
+            "id": "chatcmpl-1",
+            "model": "test-model",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": "ok"},
+                "finish_reason": "stop"
+            }],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+        })
+        .to_string();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("write response");
+    });
+
+    (format!("http://{addr}"), body_rx)
 }

@@ -174,3 +174,61 @@ fn deepseek_config_does_not_inject_json_output_or_token_limit() {
     assert_eq!(config.max_output_tokens, None);
     assert_eq!(config.response_format, None);
 }
+
+// ── DeepSeek ProviderCapability 合同验证 ──
+
+#[test]
+fn deepseek_provider_uses_correct_capability_profile() {
+    use maohuoban_ai_domain::ai::ProviderCapability;
+
+    let cap = ProviderCapability::deepseek("deepseek-v4-flash");
+    assert_eq!(cap.provider_name, "deepseek");
+    assert_eq!(cap.model_route, "deepseek-v4-flash");
+    assert_eq!(cap.context_window, 128_000);
+    assert!(cap.supports_stream);
+    assert!(cap.supports_reasoning_content);
+    assert!(cap.supports_tool_calls);
+    // DeepSeek 能力差异
+    assert!(!cap.supports_parallel_tool_calls);
+    assert!(!cap.supports_json_output);
+    assert!(cap.supports_response_format);
+    assert!(cap.supports_system_prompt);
+}
+
+#[test]
+fn deepseek_request_policy_respects_capability() {
+    use maohuoban_ai_application::ai::provider_capability::ProviderRequestPolicy;
+    use maohuoban_ai_domain::ai::{
+        LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole, ProviderCapability,
+    };
+
+    let cap = ProviderCapability::deepseek("deepseek-v4-flash");
+    let req = LlmChatRequest {
+        model: "primary".into(),
+        messages: vec![LlmMessage {
+            role: LlmRole::User,
+            content: "test".into(),
+            reasoning_content: None,
+            tool_call_id: None,
+            tool_calls: vec![],
+        }],
+        tools: vec![],
+        tool_choice: None,
+        temperature: 0.2,
+        stream: false,
+        max_output_tokens: None,
+        response_format: Some(serde_json::json!({"type": "json_object"})),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
+    };
+
+    // DeepSeek 不支持 JSON 输出
+    assert!(!ProviderRequestPolicy::should_send_json_output(&cap, &req));
+    // 但 response_format 字段可以发送（标记支持但策略保护）
+    assert!(ProviderRequestPolicy::should_send_response_format(
+        &cap, &req
+    ));
+    // 不支持并行工具调用
+    assert!(!ProviderRequestPolicy::should_send_parallel_tool_calls(
+        &cap
+    ));
+}

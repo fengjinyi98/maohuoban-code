@@ -5,8 +5,8 @@
 // - 遵循 TDD：先写失败测试（red），再实现解析器（green）
 
 use maohuoban_ai_domain::ai::{LlmFinishReason, LlmStreamEvent};
+use maohuoban_ai_infrastructure::provider::openai::sse::parse_sse_buffer;
 use maohuoban_ai_infrastructure::provider::parse_sse_stream;
-use maohuoban_ai_infrastructure::provider::sse::parse_sse_buffer;
 
 #[test]
 fn parse_delta_sequence_in_order() {

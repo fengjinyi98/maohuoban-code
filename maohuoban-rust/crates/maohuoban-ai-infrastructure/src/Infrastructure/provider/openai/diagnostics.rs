@@ -13,7 +13,7 @@ use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmRole};
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use serde_json::Value;
 
-use super::openai_stream_stats::ProviderStreamStats;
+use super::stream_stats::ProviderStreamStats;
 
 const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 

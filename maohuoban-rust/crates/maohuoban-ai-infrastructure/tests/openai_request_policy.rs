@@ -168,3 +168,178 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .windows(needle.len())
         .position(|window| window == needle)
 }
+
+// ── ProviderCapability 与 RequestPolicy 合同测试 ──
+
+use maohuoban_ai_application::ai::provider_capability::{ProviderProfile, ProviderRequestPolicy};
+use maohuoban_ai_domain::ai::ProviderCapability;
+
+#[test]
+fn openai_compatible_capability_declares_full_feature_set() {
+    let cap = ProviderCapability::openai_compatible("test-model");
+    assert_eq!(cap.provider_name, "openai_compatible");
+    assert!(cap.supports_stream);
+    assert!(cap.supports_reasoning_content);
+    assert!(cap.supports_tool_calls);
+    assert!(cap.supports_parallel_tool_calls);
+    assert!(cap.supports_response_format);
+    assert!(cap.supports_json_output);
+    assert!(cap.supports_system_prompt);
+    assert_eq!(cap.context_window, 128_000);
+}
+
+#[test]
+fn deepseek_capability_declares_known_differences() {
+    let cap = ProviderCapability::deepseek("deepseek-v4-flash");
+    assert_eq!(cap.provider_name, "deepseek");
+    assert!(cap.supports_stream);
+    assert!(cap.supports_reasoning_content);
+    assert!(cap.supports_tool_calls);
+    // DeepSeek 已知差异
+    assert!(!cap.supports_parallel_tool_calls);
+    assert!(!cap.supports_json_output);
+    // response_format 标记支持但需策略保护
+    assert!(cap.supports_response_format);
+}
+
+#[test]
+fn openai_compatible_profile_binds_capability() {
+    let profile = ProviderProfile::openai_compatible("gpt-5");
+    assert_eq!(profile.provider_name(), "openai_compatible");
+    assert!(profile.capability.supports_json_output);
+}
+
+#[test]
+fn deepseek_profile_binds_capability() {
+    let profile = ProviderProfile::deepseek("deepseek-v4-flash");
+    assert_eq!(profile.provider_name(), "deepseek");
+    assert!(!profile.capability.supports_json_output);
+}
+
+#[test]
+fn request_policy_gates_response_format_by_capability() {
+    let cap = ProviderCapability::openai_compatible("m");
+
+    // 请求不携带 response_format → 不发送
+    let req = request_with_temperature(0.2);
+    assert!(!ProviderRequestPolicy::should_send_response_format(
+        &cap, &req
+    ));
+
+    // 请求携带 response_format + capability 支持 → 发送
+    let mut req = request_with_temperature(0.2);
+    req.response_format = Some(serde_json::json!({"type": "json_object"}));
+    assert!(ProviderRequestPolicy::should_send_response_format(
+        &cap, &req
+    ));
+}
+
+#[test]
+fn request_policy_gates_json_output_by_capability() {
+    let openai_cap = ProviderCapability::openai_compatible("m");
+    let deepseek_cap = ProviderCapability::deepseek("m");
+
+    let mut req = request_with_temperature(0.2);
+    req.response_format = Some(serde_json::json!({"type": "json_object"}));
+
+    // OpenAI 兼容支持 JSON 输出
+    assert!(ProviderRequestPolicy::should_send_json_output(
+        &openai_cap,
+        &req
+    ));
+    // DeepSeek 不支持 JSON 输出
+    assert!(!ProviderRequestPolicy::should_send_json_output(
+        &deepseek_cap,
+        &req
+    ));
+}
+
+#[test]
+fn request_policy_gates_tools_and_tool_choice_by_capability() {
+    let cap = ProviderCapability::openai_compatible("m");
+
+    let mut req = request_with_temperature(0.2);
+    req.tools = vec![maohuoban_ai_domain::ai::LlmToolSchema {
+        name: "test_tool".into(),
+        description: "test".into(),
+        parameters: serde_json::json!({}),
+    }];
+    req.tool_choice = Some("auto".into());
+
+    assert!(ProviderRequestPolicy::should_send_tools(&cap, &req));
+    assert!(ProviderRequestPolicy::should_send_tool_choice(&cap, &req));
+    assert!(ProviderRequestPolicy::should_send_parallel_tool_calls(&cap));
+}
+
+#[test]
+fn request_policy_gates_reasoning_content() {
+    assert!(ProviderRequestPolicy::should_send_reasoning_content(
+        &ProviderCapability::openai_compatible("m")
+    ));
+    assert!(ProviderRequestPolicy::should_send_reasoning_content(
+        &ProviderCapability::deepseek("m")
+    ));
+}
+
+#[test]
+fn deepseek_policy_denies_parallel_tool_calls() {
+    let deepseek_cap = ProviderCapability::deepseek("m");
+    assert!(!ProviderRequestPolicy::should_send_parallel_tool_calls(
+        &deepseek_cap
+    ));
+}
+
+// ── 错误分类映射合同测试 ──
+
+use maohuoban_ai_domain::ai::ProviderErrorCategory;
+
+#[test]
+fn error_category_mapping_covers_all_eight_categories() {
+    let categories = [
+        ProviderErrorCategory::NotConfigured,
+        ProviderErrorCategory::Timeout,
+        ProviderErrorCategory::RateLimited,
+        ProviderErrorCategory::Upstream,
+        ProviderErrorCategory::InvalidResponse,
+        ProviderErrorCategory::StreamInterrupted,
+        ProviderErrorCategory::ProviderRequestFailed,
+        ProviderErrorCategory::ProviderStreamError,
+    ];
+    for cat in categories {
+        let name = cat.as_str();
+        assert!(!name.is_empty());
+        // 验证每种分类都有明确的 snake_case 名
+        match cat {
+            ProviderErrorCategory::NotConfigured => assert_eq!(name, "not_configured"),
+            ProviderErrorCategory::Timeout => assert_eq!(name, "timeout"),
+            ProviderErrorCategory::RateLimited => assert_eq!(name, "rate_limited"),
+            ProviderErrorCategory::Upstream => assert_eq!(name, "upstream"),
+            ProviderErrorCategory::StreamInterrupted => assert_eq!(name, "stream_interrupted"),
+            ProviderErrorCategory::InvalidResponse => assert_eq!(name, "invalid_response"),
+            ProviderErrorCategory::ProviderRequestFailed => {
+                assert_eq!(name, "provider_request_failed")
+            }
+            ProviderErrorCategory::ProviderStreamError => {
+                assert_eq!(name, "provider_stream_error")
+            }
+        }
+    }
+}
+
+#[test]
+fn retryable_categories_include_transient_failures() {
+    // 瞬时故障可重试
+    assert!(ProviderErrorCategory::Timeout.is_retryable());
+    assert!(ProviderErrorCategory::RateLimited.is_retryable());
+    assert!(ProviderErrorCategory::Upstream.is_retryable());
+    assert!(ProviderErrorCategory::StreamInterrupted.is_retryable());
+    assert!(ProviderErrorCategory::ProviderRequestFailed.is_retryable());
+    assert!(ProviderErrorCategory::ProviderStreamError.is_retryable());
+}
+
+#[test]
+fn non_retryable_categories_are_deterministic() {
+    // 确定性失败不应重试
+    assert!(!ProviderErrorCategory::NotConfigured.is_retryable());
+    assert!(!ProviderErrorCategory::InvalidResponse.is_retryable());
+}

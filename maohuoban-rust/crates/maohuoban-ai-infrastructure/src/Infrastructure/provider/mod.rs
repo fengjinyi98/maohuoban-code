@@ -1,3 +1,4 @@
+// MHB_STRUCTURE_EXEMPTION: provider mod.rs 是模块聚合与重导出文件，必须位于 provider 目录根
 //! provider AI 基础设施 Provider 实现
 //! 核心职责：
 //! - 实现厂商 LLM Provider 与 OpenAI 兼容协议客户端
@@ -7,13 +8,7 @@
 pub mod config;
 pub mod deepseek;
 pub mod factory;
-mod openai_body;
-pub mod openai_compatible;
-mod openai_diagnostics;
-mod openai_response;
-mod openai_stream_event;
-mod openai_stream_stats;
-pub mod sse;
+pub mod openai;
 
 pub use config::{
     LlmProviderEnvValues, LlmProviderKind, LlmProviderOperationalConfig, LlmProviderPublicSettings,
@@ -23,5 +18,5 @@ pub use deepseek::{DeepSeekConfig, DeepSeekLlmProvider};
 pub use factory::{
     build_llm_provider_from_registry_config, build_llm_provider_from_runtime_config,
 };
-pub use openai_compatible::OpenAiCompatibleLlmProvider;
-pub use sse::parse_sse_stream;
+pub use openai::OpenAiCompatibleLlmProvider;
+pub use openai::sse::{parse_sse_buffer, parse_sse_stream};

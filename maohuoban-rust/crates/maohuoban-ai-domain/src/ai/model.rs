@@ -24,6 +24,7 @@ mod verification;
 
 mod pet_resolution;
 mod pet_snapshot;
+mod provider_capability;
 mod provider_error;
 mod tool_failure;
 
@@ -33,6 +34,7 @@ pub use llm::*;
 pub use pet_resolution::*;
 pub use pet_snapshot::*;
 pub use proposed_action::*;
+pub use provider_capability::*;
 pub use provider_error::*;
 pub use runtime::*;
 pub use runtime_agent_id::*;

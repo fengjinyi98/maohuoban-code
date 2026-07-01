@@ -1,8 +1,9 @@
-//! openai_compatible OpenAI 兼容 Provider 实现
+//! provider OpenAI 兼容 Provider 实现
 //! 核心职责：
 //! - 将内部 LlmChatRequest 转换为 OpenAI 兼容 HTTP 请求
 //! - 解析非流式响应为内部 LlmChatResponse
 //! - 密钥只在 Bearer header 中使用，不进入日志
+//! - 通过 ProviderProfile 收口所有 Provider 差异
 
 use std::future::Future;
 use std::pin::Pin;
@@ -11,33 +12,46 @@ use std::time::Duration;
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_application::ai::model_router::{ModelRouteConfig, ModelRouter};
 use maohuoban_ai_application::ai::ports::LlmProvider;
+use maohuoban_ai_application::ai::provider_capability::ProviderProfile;
 use maohuoban_ai_domain::ai::{
-    AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent, ProviderError,
-    ProviderErrorCategory,
+    AiError, AiResult, LlmChatRequest, LlmChatResponse, LlmStreamEvent, ProviderCapability,
+    ProviderError, ProviderErrorCategory,
 };
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap};
 
-use super::OpenAiCompatibleConfig;
-use super::openai_body::build_openai_body;
-use super::openai_diagnostics::OpenAiProviderDiagnostics;
-use super::openai_response::parse_openai_response;
-use super::openai_stream_event::{header_summary, stream_event_name, stream_event_payload};
-use super::openai_stream_stats::ProviderStreamStats;
+use super::body::build_openai_body;
+use super::diagnostics::OpenAiProviderDiagnostics;
+use super::response::parse_openai_response;
+use super::stream_event::{header_summary, stream_event_name, stream_event_payload};
+use super::stream_stats::ProviderStreamStats;
+use crate::provider::OpenAiCompatibleConfig;
 
 /// OpenAiCompatibleLlmProvider OpenAI 兼容 Provider
 /// 核心职责：
 /// - 将内部请求适配为 OpenAI 兼容 HTTP 调用
 /// - 处理 base_url 归一化、Bearer 认证和错误映射
+/// - 持有 ProviderProfile 驱动请求裁剪，Provider 差异只通过 profile 表达
 pub struct OpenAiCompatibleLlmProvider {
     config: OpenAiCompatibleConfig,
     client: reqwest::Client,
     model_router: ModelRouter,
+    profile: ProviderProfile,
 }
 
 impl OpenAiCompatibleLlmProvider {
-    /// new 构造 Provider
+    /// new 构造 Provider，使用标准 OpenAI 兼容能力画像
     #[must_use]
     pub fn new(config: OpenAiCompatibleConfig) -> Self {
+        let profile = ProviderProfile::openai_compatible(&config.model);
+        Self::new_with_profile(config, profile)
+    }
+
+    /// new_with_profile 使用显式能力画像构造 Provider
+    /// 核心职责：
+    /// - 所有 Provider 差异统一通过 ProviderProfile 收口
+    /// - 禁止绕过 profile 直接构造 capability
+    #[must_use]
+    pub fn new_with_profile(config: OpenAiCompatibleConfig, profile: ProviderProfile) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout_secs))
             .build()
@@ -47,13 +61,16 @@ impl OpenAiCompatibleLlmProvider {
             config,
             client,
             model_router,
+            profile,
         }
     }
 
+    /// capability 返回当前 Provider 的能力声明
+    fn capability(&self) -> &ProviderCapability {
+        &self.profile.capability
+    }
+
     /// build_model_router 构造首期内存模型路由
-    /// 核心职责：
-    /// - 将冻结模型 label 映射到当前 provider 配置模型
-    /// - 保留直接传入配置模型名的兼容路径
     fn build_model_router(model: &str) -> ModelRouter {
         ModelRouter::new([
             ModelRouteConfig::new("lite", model),
@@ -101,11 +118,14 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// map_request_error 将 reqwest 错误映射为 Provider 分类
+    /// 核心职责：
+    /// - 超时 → Timeout（可重试）
+    /// - 其他请求级错误 → ProviderRequestFailed（网络/DNS/连接拒绝等）
     fn map_request_error(error: &reqwest::Error) -> AiError {
         let category = if error.is_timeout() {
             ProviderErrorCategory::Timeout
         } else {
-            ProviderErrorCategory::Upstream
+            ProviderErrorCategory::ProviderRequestFailed
         };
         AiError::Provider(ProviderError::new(category, error.to_string()))
     }
@@ -116,9 +136,6 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// record_request_prepared 记录 Provider 请求摘要
-    /// 核心职责：
-    /// - 复用 diagnostics 记录实际发出的 OpenAI 兼容请求体
-    /// - 避免 stream / complete 路径散写同类诊断字段
     fn record_request_prepared(
         &self,
         mode: &'static str,
@@ -136,9 +153,6 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// record_http_response_started 记录 Provider HTTP 响应摘要
-    /// 核心职责：
-    /// - 记录状态码和内容类型族
-    /// - 不读取或记录响应 body
     fn record_http_response_started(
         mode: &'static str,
         request: &LlmChatRequest,
@@ -161,9 +175,6 @@ impl OpenAiCompatibleLlmProvider {
     }
 
     /// resolve_request_model 解析请求模型 label
-    /// 核心职责：
-    /// - 将业务请求中的模型 label 转换为 provider model
-    /// - 未配置或未知 label 不发起上游 HTTP 调用
     fn resolve_request_model(&self, request: &LlmChatRequest) -> AiResult<String> {
         self.model_router
             .resolve(&request.model)
@@ -186,7 +197,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             let url = self.completions_url();
             let headers = self.build_headers();
             let model = self.resolve_request_model(request)?;
-            let body = build_openai_body(request, &model);
+            let body = build_openai_body(request, &model, self.capability());
             self.record_request_prepared("complete", request, &body, &model);
 
             let response = self
@@ -233,7 +244,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             Ok(model) => model,
             Err(error) => return futures_util::stream::once(async { Err(error) }).boxed(),
         };
-        let mut body = build_openai_body(request, &model);
+        let mut body = build_openai_body(request, &model, self.capability());
         body["stream"] = serde_json::Value::Bool(true);
         self.record_request_prepared("stream", request, &body, &model);
 
@@ -273,7 +284,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
 
             use futures_util::StreamExt as _;
             let mut stream = response.bytes_stream();
-            let mut decoder = crate::provider::sse::SseStreamDecoder::new();
+            let mut decoder = crate::provider::openai::sse::SseStreamDecoder::new();
             let mut stream_stats = ProviderStreamStats::default();
 
             while let Some(chunk_result) = stream.next().await {
@@ -318,8 +329,9 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                         }
                     }
                     Err(e) => {
+                        // 流传输级错误（网络中断等）→ ProviderStreamError
                         yield Err(Self::provider_error(
-                            ProviderErrorCategory::StreamInterrupted,
+                            ProviderErrorCategory::ProviderStreamError,
                             e.to_string(),
                         ));
                         return;
@@ -335,6 +347,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                     stream_stats,
                     decoder_idle,
                 );
+                // 流逻辑中断（提前关闭、缺 [DONE]）→ StreamInterrupted
                 yield Err(Self::provider_error(
                     ProviderErrorCategory::StreamInterrupted,
                     "stream ended before completion marker",

@@ -77,6 +77,12 @@ pub fn ai_error_response(error: &AiError) -> Response {
                     maohuoban_ai_domain::ai::ProviderErrorCategory::InvalidResponse => {
                         "ai.provider.invalid_response"
                     }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::ProviderRequestFailed => {
+                        "ai.provider.request_failed"
+                    }
+                    maohuoban_ai_domain::ai::ProviderErrorCategory::ProviderStreamError => {
+                        "ai.provider.stream_error"
+                    }
                 },
                 PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned(),
             )

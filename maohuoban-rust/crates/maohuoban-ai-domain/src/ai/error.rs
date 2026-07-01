@@ -61,6 +61,8 @@ impl AiError {
                 "upstream" => "ai.provider.upstream",
                 "stream_interrupted" => "ai.provider.stream_interrupted",
                 "invalid_response" => "ai.provider.invalid_response",
+                "provider_request_failed" => "ai.provider.request_failed",
+                "provider_stream_error" => "ai.provider.stream_error",
                 _ => "ai.provider",
             },
             Self::ProviderNotConfigured => "ai.provider_not_configured",

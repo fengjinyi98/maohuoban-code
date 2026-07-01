@@ -9,7 +9,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::deepseek::DeepSeekConfig;
+use super::DeepSeekConfig;
 
 /// OpenAiCompatibleConfig OpenAI 兼容 Provider 配置
 /// 核心职责：
