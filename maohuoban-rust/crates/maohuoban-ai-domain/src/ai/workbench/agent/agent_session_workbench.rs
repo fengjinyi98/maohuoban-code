@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::{AgentDefinition, CapabilityCatalog, ContextPack, MemoryPack, RecentConversationPack};
+use crate::ai::{
+    AgentDefinition, CapabilityCatalog, ContextPack, MemoryPack, RecentConversationPack,
+};
 
 /// AgentSessionWorkbench Agent 单轮工作台
 /// 核心职责：

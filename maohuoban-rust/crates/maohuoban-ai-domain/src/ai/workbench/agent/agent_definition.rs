@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::ai::{AgentId, ModelLabel};
-
-use super::CapabilityDomain;
+use crate::ai::{AgentId, CapabilityDomain, ModelLabel};
 
 /// AgentDefinition Agent 基础定义
 /// 核心职责：
