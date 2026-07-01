@@ -126,6 +126,36 @@ async fn postgres_memory_repository_filters_by_scope_actor_pet_and_status() {
     assert_eq!(memories[0].summary, "豆包喜欢低脂主粮");
 }
 
+/// User scope 记忆带宠物上下文检索时仍必须保留用户记忆
+#[tokio::test]
+async fn postgres_memory_repository_does_not_apply_pet_filter_to_user_scope() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let actor_user_id = fixed_uuid("77777777-7777-7777-7777-777777777777");
+    let pet_id = fixed_uuid("88888888-8888-8888-8888-888888888888");
+
+    insert_memory_item(
+        app.pool(),
+        actor_user_id,
+        MemoryScope::User,
+        actor_user_id,
+        None,
+        "用户偏好简短回答",
+        "active",
+    )
+    .await;
+
+    let repo = PostgresMemoryRepository::new(app.pool().clone());
+    let query =
+        MemoryQuery::new(MemoryScope::User, actor_user_id, actor_user_id).with_pet_id(pet_id);
+    let memories = repo.find_memories(&query).await.expect("find memories");
+
+    assert_eq!(memories.len(), 1);
+    assert_eq!(memories[0].scope, MemoryScope::User);
+    assert_eq!(memories[0].summary, "用户偏好简短回答");
+}
+
 async fn insert_memory_item(
     pool: &sqlx::PgPool,
     actor_user_id: Uuid,

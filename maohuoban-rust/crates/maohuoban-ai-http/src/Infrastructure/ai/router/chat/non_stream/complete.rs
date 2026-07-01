@@ -21,7 +21,9 @@ use uuid::Uuid;
 
 use super::super::super::AiHttpState;
 use super::super::composition::request::ChatStreamRequest;
-use super::super::composition::workbench_builder::build_agent_session_workbench;
+use super::super::composition::workbench_builder::{
+    build_agent_session_workbench, load_memory_entries_for_workbench,
+};
 use super::super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::super::runtime_tools::build_runtime_tool_registry;
 use super::super::turn_preparation::ChatTurnContext;
@@ -46,13 +48,20 @@ pub(super) async fn complete_with_runtime(
         context.session_id,
         context.user_message_id,
     )
-    .await;
+    .await?;
+    let memory_entries = load_memory_entries_for_workbench(
+        state,
+        actor_user_id,
+        context.session_id,
+        target_pet.as_ref(),
+    )
+    .await?;
 
     let workbench = build_agent_session_workbench(
         req.surface,
         target_pet.as_ref(),
         session_summary,
-        Vec::new(),
+        memory_entries,
         recent_conversation,
     );
     let registry = Arc::new(match target_pet.as_ref() {
@@ -67,6 +76,7 @@ pub(super) async fn complete_with_runtime(
     let tool_count = visible_tool_names.len();
     record_chat_workbench_built(
         context.session_id,
+        context.turn_id.as_uuid(),
         context.assistant_message_id,
         &workbench,
         &visible_tool_names,

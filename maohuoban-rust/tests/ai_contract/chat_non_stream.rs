@@ -72,7 +72,8 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains("只能基于提供的事实包")
-            .body_contains("## 目标宠物");
+            .body_contains("## 目标宠物")
+            .body_contains("用户喜欢先给照护检查清单");
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
@@ -95,7 +96,10 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
     .into();
     let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
     app.reset().await;
-    let access_token = login_and_get_token(&app, "13800139017", "ios-ai-chat-non-stream").await;
+    let phone = "13800139017";
+    let access_token = login_and_get_token(&app, phone, "ios-ai-chat-non-stream").await;
+    let actor_user_id = load_actor_user_id_by_phone(&app, phone).await;
+    insert_user_memory(&app, actor_user_id, "用户喜欢先给照护检查清单").await;
     let pet = create_pet(&app, &access_token, "毛球").await;
     let pet_id = pet["id"].as_str().expect("pet id");
 
@@ -441,6 +445,44 @@ fn runtime_first_model_request(req: &HttpMockRequest) -> bool {
 fn runtime_followup_model_request(req: &HttpMockRequest) -> bool {
     let body = request_body(req);
     body.contains("\"role\":\"tool\"") && body.contains("\"tool_call_id\":\"call_1\"")
+}
+
+async fn load_actor_user_id_by_phone(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    phone: &str,
+) -> uuid::Uuid {
+    sqlx::query_scalar(
+        r"
+        SELECT user_id
+        FROM user_identities
+        WHERE provider = 'phone' AND identifier = $1
+        ",
+    )
+    .bind(phone)
+    .fetch_one(app.pool())
+    .await
+    .expect("load actor user id")
+}
+
+async fn insert_user_memory(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    actor_user_id: uuid::Uuid,
+    summary: &str,
+) {
+    sqlx::query(
+        r"
+        INSERT INTO agent_memory_items
+            (id, scope_type, scope_id, actor_user_id, memory_kind,
+             content, summary, source_ref, confidence, status)
+        VALUES ($1, 'user', $2, $2, 'preference', $3, $3, '{}'::jsonb, 0.95, 'active')
+        ",
+    )
+    .bind(uuid::Uuid::new_v4())
+    .bind(actor_user_id)
+    .bind(summary)
+    .execute(app.pool())
+    .await
+    .expect("insert user memory");
 }
 
 fn request_body(req: &HttpMockRequest) -> String {

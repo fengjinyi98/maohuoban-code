@@ -1,6 +1,6 @@
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
-use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
+use maohuoban_ai_domain::ai::{AiResult, RecentConversationPack};
 use uuid::Uuid;
 
 use super::super::super::AiHttpState;
@@ -15,42 +15,23 @@ pub(crate) async fn load_history_and_summary(
     actor_user_id: Uuid,
     session_id: Uuid,
     exclude_message_id: Uuid,
-) -> (
-    maohuoban_ai_domain::ai::RecentConversationPack,
-    Option<String>,
-) {
+) -> AiResult<(RecentConversationPack, Option<String>)> {
     let session_repo = &state.session_repository;
     let summary_repo = &state.session_summary_repository;
     let loader = RecentConversationLoader::new(session_repo.clone(), summary_repo.clone());
 
-    let pack = if let Ok(pack) = loader
-        .load_recent_conversation(
-            actor_user_id,
-            session_id,
-            exclude_message_id,
-            1_000_000,
-            200_000,
-        )
-        .await
-    {
-        ContextBudgetPolicy::default_for_deepseek_1m().trim(&pack)
-    } else {
-        return (
-            maohuoban_ai_domain::ai::RecentConversationPack::empty(),
-            None,
-        );
-    };
+    let pack = loader
+        .load_recent_conversation(actor_user_id, session_id, exclude_message_id, 20, 200_000)
+        .await?;
 
     let compressor = SessionSummaryCompressor::new(
         state.llm_provider.clone(),
         state.session_summary_repository.clone(),
     );
 
-    let Ok(raw_messages) = session_repo.list_messages_by_session(session_id).await else {
-        return (pack, None);
-    };
+    let raw_messages = session_repo.list_messages_by_session(session_id).await?;
 
-    if let Ok(Some(compressed)) = compressor
+    if let Some(compressed) = compressor
         .try_compress(
             session_id,
             actor_user_id,
@@ -58,18 +39,18 @@ pub(crate) async fn load_history_and_summary(
             3,
             Some(exclude_message_id),
         )
-        .await
+        .await?
     {
-        return (
+        return Ok((
             compressed.retained_tail,
             Some(compressed.summary.to_context_summary()),
-        );
+        ));
     }
 
-    let summary_text = match compressor.load_active_summary(session_id).await {
-        Ok(Some(summary)) => Some(summary.to_context_summary()),
-        _ => None,
-    };
+    let summary_text = compressor
+        .load_active_summary(session_id)
+        .await?
+        .map(|summary| summary.to_context_summary());
 
-    (pack, summary_text)
+    Ok((pack, summary_text))
 }

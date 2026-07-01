@@ -11,6 +11,7 @@ pub use maohuoban_ai_domain::ai::{RecentConversationEntry, RecentConversationPac
 use uuid::Uuid;
 
 use crate::ai::ports::{AiSessionRepository, SessionSummaryRepository};
+use crate::ai::turn_context::ContextBudgetPolicy;
 
 /// ConversationHistoryProjector 历史投影器
 /// 核心职责：
@@ -96,8 +97,8 @@ impl RecentConversationLoader {
         actor_user_id: Uuid,
         session_id: Uuid,
         exclude_message_id: Uuid,
-        _context_length: u32,
-        _token_budget: u32,
+        context_length: u32,
+        token_budget: u32,
     ) -> AiResult<RecentConversationPack> {
         // 归属校验：session 必须归属当前用户
         let session = self.repo.get_session(session_id).await?;
@@ -138,7 +139,8 @@ impl RecentConversationLoader {
             .map(|m| ConversationHistoryProjector::project_message(m))
             .collect();
 
-        Ok(RecentConversationPack { entries })
+        let pack = RecentConversationPack { entries };
+        Ok(ContextBudgetPolicy::new(context_length as usize, token_budget as usize).trim(&pack))
     }
 
     /// filter_after_compression_boundary 过滤出压缩边界之后的消息

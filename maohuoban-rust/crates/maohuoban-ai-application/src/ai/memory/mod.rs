@@ -7,4 +7,4 @@ mod candidate_service;
 mod retriever;
 
 pub use candidate_service::MemoryCandidateService;
-pub use retriever::MemoryRetriever;
+pub use retriever::{MemoryRecallBudget, MemoryRetriever};

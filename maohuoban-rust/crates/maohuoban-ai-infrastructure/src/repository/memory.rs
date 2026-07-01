@@ -44,8 +44,8 @@ impl MemoryRepository for PostgresMemoryRepository {
               AND scope_id = $2
               AND actor_user_id = $3
               AND status = 'active'
-              AND ($4::uuid IS NULL OR pet_id = $4)
-              AND ($5::uuid IS NULL OR household_id = $5)
+              AND ($1 <> 'pet' OR $4::uuid IS NULL OR pet_id = $4)
+              AND ($1 <> 'household' OR $5::uuid IS NULL OR household_id = $5)
             ORDER BY updated_at DESC, created_at DESC
             ",
         )

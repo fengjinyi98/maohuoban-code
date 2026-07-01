@@ -140,6 +140,7 @@ fn record_runtime_stream_selection(
         .collect::<Vec<_>>();
     record_chat_workbench_built(
         input.session_id,
+        input.turn_id.as_uuid(),
         input.message_id,
         &input.workbench,
         &visible_tool_names,

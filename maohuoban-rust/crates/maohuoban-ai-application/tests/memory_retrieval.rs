@@ -6,7 +6,7 @@
 // - 验证 Pet 作用域必须有 pet_id
 // - 验证 Household 作用域必须有 household_id
 
-use maohuoban_ai_application::ai::memory::MemoryRetriever;
+use maohuoban_ai_application::ai::memory::{MemoryRecallBudget, MemoryRetriever};
 use maohuoban_ai_application::ai::ports::{MemoryQuery, MemoryRepository};
 use maohuoban_ai_domain::ai::{AiResult, MemoryEntry, MemoryScope};
 use std::sync::Arc;
@@ -200,6 +200,40 @@ async fn retriever_household_context_loads_authorized_memories() {
     );
     // User 作用域记忆保留
     assert!(pack.entries.iter().any(|e| e.summary == "用户偏好简短回答"));
+}
+
+#[tokio::test]
+async fn retriever_applies_memory_budget_after_scope_filtering() {
+    let repo = Arc::new(FakeMemoryRepo::new(vec![
+        memory_entry(MemoryScope::User, None, "用户偏好简短回答"),
+        memory_entry(MemoryScope::Pet, Some(pet_id()), "豆包对换粮敏感"),
+        memory_entry(MemoryScope::Pet, Some(pet_id()), "豆包喜欢低脂主粮"),
+        memory_entry(
+            MemoryScope::Pet,
+            Some(other_pet_id()),
+            "其他宠物记忆不能进入",
+        ),
+    ]));
+    let retriever = MemoryRetriever::new(repo);
+
+    let query = MemoryQuery::new(MemoryScope::Pet, pet_id(), actor_user_id()).with_pet_id(pet_id());
+    let pack = retriever
+        .retrieve_with_budget(query, MemoryRecallBudget::new(2, 64))
+        .await
+        .expect("retrieve");
+
+    assert_eq!(pack.entries.len(), 2);
+    assert!(pack.entries.iter().any(|e| e.summary == "用户偏好简短回答"));
+    assert!(pack.entries.iter().any(|e| e.summary == "豆包对换粮敏感"));
+    assert!(
+        !pack
+            .entries
+            .iter()
+            .any(|e| e.summary == "其他宠物记忆不能进入"),
+        "budget trim must happen after scope filtering"
+    );
+    let total_bytes: usize = pack.entries.iter().map(|e| e.summary.len()).sum();
+    assert!(total_bytes <= 64);
 }
 
 // === Fake 实现 ===

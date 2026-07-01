@@ -113,6 +113,31 @@ async fn loader_excludes_current_message_by_id() {
 }
 
 #[tokio::test]
+async fn loader_applies_explicit_recent_conversation_budget() {
+    let current_msg_id = Uuid::new_v4();
+    let repo = Arc::new(FakeSessionRepository::new(
+        vec![
+            user_message("第一轮用户问题", 1),
+            assistant_message("第一轮助手回答", 2),
+            user_message("第二轮用户问题", 3),
+            assistant_message("第二轮助手回答", 4),
+            user_message_with_id(current_msg_id, "第三轮追问", 5),
+        ],
+        actor_user_id(),
+    ));
+
+    let loader = RecentConversationLoader::new(repo, Arc::new(NoopSessionSummaryRepository));
+    let pack = loader
+        .load_recent_conversation(actor_user_id(), session_id(), current_msg_id, 1, 10_000)
+        .await
+        .expect("load history");
+
+    assert_eq!(pack.entries.len(), 2);
+    assert_eq!(pack.entries[0].content, "第二轮用户问题");
+    assert_eq!(pack.entries[1].content, "第二轮助手回答");
+}
+
+#[tokio::test]
 async fn loader_rejects_session_not_belonging_to_actor() {
     let repo = Arc::new(FakeSessionRepository::new(
         vec![user_message("test", 1)],

@@ -140,6 +140,7 @@ pub(crate) fn record_chat_runtime_engine_selected(
 /// - 支撑后续 planner、skill 和 memory worktree 复用同一观测边界
 pub(crate) fn record_chat_workbench_built(
     session_id: Uuid,
+    turn_id: Uuid,
     message_id: Uuid,
     workbench: &AgentSessionWorkbench,
     visible_tool_names: &[String],
@@ -149,6 +150,7 @@ pub(crate) fn record_chat_workbench_built(
         .as_ref()
         .map_or(0, |pack| pack.entries.len());
     let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_turn_id(turn_id)
         .with_message_id(message_id)
         .to_metadata();
     metadata.extend(vec![

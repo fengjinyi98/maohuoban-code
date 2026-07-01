@@ -19,8 +19,8 @@ use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
-    PostgresAiSessionRepository, PostgresChatTurnTransaction, PostgresSessionSummaryRepository,
-    PostgresSessionTurnRepository,
+    PostgresAiSessionRepository, PostgresChatTurnTransaction, PostgresMemoryRepository,
+    PostgresSessionSummaryRepository, PostgresSessionTurnRepository,
 };
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
@@ -240,7 +240,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
             session_turn_repository: ai_session_turn_repository.clone(),
             chat_turn_transaction: ai_chat_turn_transaction,
         },
-        pool.clone(),
+        &pool,
         auth_service.clone(),
     );
     let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
@@ -294,7 +294,7 @@ fn build_ai_http_state(
     runtime_engine_mode: AgentRuntimeEngineMode,
     pet_service: Arc<PetService>,
     repos: AiHttpRepositories,
-    ai_session_pool: sqlx::PgPool,
+    ai_session_pool: &sqlx::PgPool,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
     let ai_llm_provider =
@@ -314,8 +314,12 @@ fn build_ai_http_state(
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
         chat_turn_transaction: Arc::new(repos.chat_turn_transaction)
             as Arc<dyn maohuoban_ai_application::ai::ports::ChatTurnTransactionPort>,
-        session_summary_repository: Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
+        session_summary_repository: Arc::new(PostgresSessionSummaryRepository::new(
+            ai_session_pool.clone(),
+        ))
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionSummaryRepository>,
+        memory_repository: Arc::new(PostgresMemoryRepository::new(ai_session_pool.clone()))
+            as Arc<dyn maohuoban_ai_application::ai::ports::MemoryRepository>,
         pet_resolver: ai_pet_resolver,
         pet_context_providers: AiPetContextProviders::new(
             Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),

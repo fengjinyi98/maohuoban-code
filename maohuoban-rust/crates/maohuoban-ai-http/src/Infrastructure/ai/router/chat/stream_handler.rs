@@ -10,7 +10,9 @@ use super::super::diagnostics::{
 };
 use super::composition::fact_package_merge::merge_fact_packages;
 use super::composition::request::ChatStreamRequest;
-use super::composition::workbench_builder::build_agent_session_workbench;
+use super::composition::workbench_builder::{
+    build_agent_session_workbench, load_memory_entries_for_workbench,
+};
 use super::loaders::diet_confirmation_candidate_loader::load_diet_confirmation_candidate_package;
 use super::loaders::diet_fact_loader::load_current_diet_fact_package;
 use super::loaders::food_inventory_hint_loader::load_food_inventory_hint_package;
@@ -152,19 +154,52 @@ async fn provider_response_for_context(
         initial_events,
         fact_package: fact_package.clone(),
     };
-    let (recent_conversation, session_summary) = load_history_and_summary(
+    let (recent_conversation, session_summary) = match load_history_and_summary(
         state,
         input.actor_user_id,
         input.session_id,
         input.user_message_id,
     )
-    .await;
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            return provider_stream_response(
+                futures_util::stream::iter(vec![Err(error)]),
+                state.chat_turn_transaction.clone(),
+                input.session_id,
+                input.message_id,
+                input.turn_id.as_uuid(),
+                state.runtime_engine_mode.as_str(),
+            );
+        }
+    };
+    let memory_entries = match load_memory_entries_for_workbench(
+        state,
+        input.actor_user_id,
+        input.session_id,
+        input.target_pet.as_ref(),
+    )
+    .await
+    {
+        Ok(entries) => entries,
+        Err(error) => {
+            return provider_stream_response(
+                futures_util::stream::iter(vec![Err(error)]),
+                state.chat_turn_transaction.clone(),
+                input.session_id,
+                input.message_id,
+                input.turn_id.as_uuid(),
+                state.runtime_engine_mode.as_str(),
+            );
+        }
+    };
 
     let workbench = build_agent_session_workbench(
         req.surface,
         input.target_pet.as_ref(),
         session_summary,
-        Vec::new(),
+        memory_entries,
         recent_conversation,
     );
     let stream = runtime_provider_stream(
