@@ -10,7 +10,8 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
+    ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
@@ -76,6 +77,15 @@ impl LlmProvider for CapturingProvider {
             }),
         ])
         .boxed()
+    }
+}
+
+fn test_tool_context(pet_id: Uuid) -> AiToolContext {
+    AiToolContext {
+        actor_user_id: Uuid::new_v4(),
+        authorized_pet_id: pet_id,
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: None,
     }
 }
 
@@ -191,10 +201,7 @@ async fn workbench_prompt_hides_domain_struct_field_names() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(ToolRegistry::new()),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::nil(),
-        },
+        test_tool_context(Uuid::nil()),
         None,
     );
     let mut session = AgentSession::new(
@@ -238,10 +245,7 @@ async fn workbench_prompt_discloses_empty_visible_tool_list() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(ToolRegistry::new()),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::nil(),
-        },
+        test_tool_context(Uuid::nil()),
         None,
     );
     let mut session = AgentSession::new(
@@ -283,10 +287,7 @@ async fn workbench_prompt_discloses_visible_runtime_tools() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::nil(),
-        },
+        test_tool_context(Uuid::nil()),
         None,
     );
     let mut session = AgentSession::new(
@@ -325,11 +326,7 @@ async fn workbench_prompt_discloses_tool_fact_schema_in_natural_language() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
         None,
     );
     let mut session = AgentSession::new(

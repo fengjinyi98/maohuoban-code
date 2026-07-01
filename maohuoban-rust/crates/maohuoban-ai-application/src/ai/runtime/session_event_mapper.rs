@@ -126,18 +126,21 @@ fn append_tool_events(
                 turn_id,
                 tool_result.tool_call.id,
                 AgentToolStatus::Succeeded,
+                tool_result.citation_count,
                 events,
             ),
             LoopToolStatus::Denied => append_tool_finished(
                 turn_id,
                 tool_result.tool_call.id,
                 AgentToolStatus::Denied,
+                tool_result.citation_count,
                 events,
             ),
             LoopToolStatus::Failed => append_tool_finished(
                 turn_id,
                 tool_result.tool_call.id,
                 AgentToolStatus::Failed,
+                tool_result.citation_count,
                 events,
             ),
             LoopToolStatus::RequiresConfirmation => {
@@ -145,6 +148,7 @@ fn append_tool_events(
                     turn_id,
                     tool_result.tool_call.id,
                     AgentToolStatus::Succeeded,
+                    tool_result.citation_count,
                     events,
                 );
                 if let Some(confirmation) = tool_result.confirmation {
@@ -170,13 +174,14 @@ fn append_tool_finished(
     turn_id: maohuoban_ai_domain::ai::AgentTurnId,
     tool_call_id: String,
     status: AgentToolStatus,
+    citation_count: u32,
     events: &mut Vec<AgentEvent>,
 ) {
     events.push(AgentEvent::ToolFinished {
         turn_id,
         tool_call_id,
         status,
-        citation_count: 0,
+        citation_count,
     });
 }
 

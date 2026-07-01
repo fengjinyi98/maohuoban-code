@@ -14,7 +14,8 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession, LoopEngine};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
+    ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench, AgentToolStatus,
@@ -327,6 +328,8 @@ fn authorized_context() -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
         authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: None,
     }
 }
 
@@ -334,6 +337,8 @@ fn unauthorized_context() -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
         authorized_pet_id: Uuid::nil(),
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: None,
     }
 }
 

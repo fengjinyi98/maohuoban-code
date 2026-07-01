@@ -3,15 +3,26 @@
 // - 验证模型工具调用经 Tool Gateway 执行后回灌到二次模型
 // - 验证工具进度在二次模型完成前通过 SSE 到达
 
+use async_trait::async_trait;
 use axum::http::StatusCode;
 use futures_util::StreamExt;
 use httpmock::{Mock, MockServer, prelude::HttpMockRequest};
+use maohuoban_ai_application::ai::tools::{
+    AiToolContext, AiToolDefinition, AiToolGatewayObserver, AiToolMetadata, AiToolResult,
+    AiToolRiskLevel, ToolGatewayExecutionContext, ToolRegistry,
+};
+use maohuoban_ai_domain::ai::{
+    AiToolConfirmationRequirement, LlmToolCall, ToolExecutionAudit, ToolFailure, ToolProgressText,
+    Toolset,
+};
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy,
 };
 use serde_json::{Value, json};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 use super::{
     authorized_json_request, diagnostics_test_lock, login_and_get_token, response_json,
@@ -139,6 +150,106 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     assert!(
         full_text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
         "SSE should still complete with followup model answer, got: {full_text}"
+    );
+}
+
+/// Tool Gateway 合同记录未知工具拒绝态
+#[tokio::test]
+async fn ai_contract_tool_gateway_records_denied_diagnostics() {
+    let audits = Arc::new(Mutex::new(Vec::new()));
+    let registry = ToolRegistry::new();
+    let ctx = test_gateway_context_with_audits(audits.clone());
+
+    let result = registry
+        .execute_tool_call(
+            &ctx,
+            &LlmToolCall {
+                id: "call_denied".to_owned(),
+                name: "missing_runtime_tool".to_owned(),
+                arguments: "{}".to_owned(),
+            },
+        )
+        .await
+        .audit;
+
+    assert_eq!(result.tool_name, "missing_runtime_tool");
+    assert_eq!(result.policy_decision, "denied");
+    assert!(result.failure_code.is_none());
+    assert_eq!(result.risk_level, "low");
+    assert_eq!(result.toolset, "unknown");
+    assert!(result.session_id.is_some());
+    assert!(result.turn_id.is_some());
+    assert!(result.message_id.is_some());
+    assert_recorded_audit(&audits, "missing_runtime_tool", "denied", None);
+}
+
+/// Tool Gateway 合同记录工具执行失败态
+#[tokio::test]
+async fn ai_contract_tool_gateway_records_failed_diagnostics() {
+    let audits = Arc::new(Mutex::new(Vec::new()));
+    let mut registry = ToolRegistry::new();
+    registry.register(FailedContractTool);
+    let ctx = test_gateway_context_with_audits(audits.clone());
+
+    let result = registry
+        .execute_tool_call(
+            &ctx,
+            &LlmToolCall {
+                id: "call_failed".to_owned(),
+                name: "load_pet_current_diet_context".to_owned(),
+                arguments: "{}".to_owned(),
+            },
+        )
+        .await
+        .audit;
+
+    assert_eq!(result.tool_name, "load_pet_current_diet_context");
+    assert_eq!(result.policy_decision, "failed");
+    assert_eq!(
+        result.failure_code.as_deref(),
+        Some("ai.provider_not_configured")
+    );
+    assert_eq!(result.risk_level, "low");
+    assert_eq!(result.toolset, "private_pet_context");
+    assert!(result.session_id.is_some());
+    assert!(result.turn_id.is_some());
+    assert!(result.message_id.is_some());
+    assert_recorded_audit(
+        &audits,
+        "load_pet_current_diet_context",
+        "failed",
+        Some("ai.provider_not_configured"),
+    );
+}
+
+/// Tool Gateway diagnostics 记录确认需求态
+#[tokio::test]
+async fn ai_contract_tool_gateway_records_requires_confirmation_diagnostics() {
+    let audits = Arc::new(Mutex::new(Vec::new()));
+    let mut registry = ToolRegistry::new();
+    registry.register(ConfirmationContractTool);
+    let ctx = test_gateway_context_with_audits(audits.clone());
+
+    let result = registry
+        .execute_tool_call(
+            &ctx,
+            &LlmToolCall {
+                id: "call_requires_confirmation".to_owned(),
+                name: "create_pet_reminder".to_owned(),
+                arguments: json!({ "title": "吃药" }).to_string(),
+            },
+        )
+        .await;
+
+    assert_eq!(result.audit.policy_decision, "requires_confirmation");
+    assert!(result.audit.failure_code.is_none());
+    assert_eq!(result.audit.risk_level, "high");
+    assert_eq!(result.audit.toolset, "confirmation");
+    assert_recorded_audit(
+        &audits,
+        "create_pet_reminder",
+        "requires_confirmation",
+        None,
     );
 }
 
@@ -292,15 +403,32 @@ fn assert_runtime_tool_stream_contract(text: &str) {
 }
 
 fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
+    assert_tool_gateway_diagnostic(events, "load_pet_identity_context", "success", None);
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.tool_gateway.completed"
             && event.metadata["tool_name"] == json!("load_pet_identity_context")
-            && event.metadata["policy_decision"] == json!("allowed")
             && event.metadata["fact_count"]
                 .as_u64()
                 .is_some_and(|count| count > 0)
             && event.metadata["citation_ids"].is_array()
-            && event.metadata["failure_code"].is_null()
+    }));
+}
+
+fn assert_tool_gateway_diagnostic(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    tool_name: &str,
+    policy_decision: &str,
+    failure_code: Option<&str>,
+) {
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.tool_gateway.completed"
+            && event.metadata["session_id"].is_string()
+            && event.metadata["turn_id"].is_string()
+            && event.metadata["message_id"].is_string()
+            && event.metadata["tool_name"] == json!(tool_name)
+            && event.metadata["policy_decision"] == json!(policy_decision)
+            && event.metadata["duration_ms"].as_u64().is_some()
+            && event.metadata["failure_code"] == json!(failure_code)
     }));
 }
 
@@ -326,7 +454,7 @@ fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
     pet_id: &str,
     followup_delay: Duration,
 ) -> (Mock<'a>, Mock<'a>) {
-    let first_body = runtime_tool_call_response_body(pet_id);
+    let first_body = runtime_tool_call_response_body(pet_id, "load_pet_identity_context");
     let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
@@ -355,10 +483,10 @@ fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
     (first_mock, second_mock)
 }
 
-fn runtime_tool_call_response_body(pet_id: &str) -> String {
+fn runtime_tool_call_response_body(pet_id: &str, tool_name: &str) -> String {
     let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
     format!(
-        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":\"load_pet_identity_context\",\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":{tool_name:?},\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
          data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
          data: [DONE]\n\n"
     )
@@ -387,4 +515,138 @@ fn request_body(req: &HttpMockRequest) -> String {
         .as_ref()
         .map(|body| String::from_utf8_lossy(body).into_owned())
         .unwrap_or_default()
+}
+
+struct CapturingGatewayObserver {
+    audits: Arc<Mutex<Vec<ToolExecutionAudit>>>,
+}
+
+#[async_trait]
+impl AiToolGatewayObserver for CapturingGatewayObserver {
+    async fn record(&self, audit: &ToolExecutionAudit) {
+        self.audits.lock().expect("audits").push(audit.clone());
+    }
+}
+
+fn test_gateway_context_with_audits(audits: Arc<Mutex<Vec<ToolExecutionAudit>>>) -> AiToolContext {
+    AiToolContext {
+        actor_user_id: Uuid::new_v4(),
+        authorized_pet_id: Uuid::new_v4(),
+        gateway_context: ToolGatewayExecutionContext {
+            session_id: Some(Uuid::new_v4()),
+            turn_id: Some(Uuid::new_v4()),
+            message_id: Some(Uuid::new_v4()),
+        },
+        gateway_observer: Some(Arc::new(CapturingGatewayObserver { audits })),
+    }
+}
+
+fn assert_recorded_audit(
+    audits: &Arc<Mutex<Vec<ToolExecutionAudit>>>,
+    tool_name: &str,
+    policy_decision: &str,
+    failure_code: Option<&str>,
+) {
+    let recorded = audits.lock().expect("audits");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].tool_name, tool_name);
+    assert_eq!(recorded[0].policy_decision, policy_decision);
+    assert_eq!(recorded[0].failure_code.as_deref(), failure_code);
+    assert!(recorded[0].session_id.is_some());
+    assert!(recorded[0].turn_id.is_some());
+    assert!(recorded[0].message_id.is_some());
+}
+
+/// `FailedContractTool` 合同测试用失败工具
+/// 核心职责：
+/// - 固定返回结构化失败
+/// - 验证 Tool Gateway 失败审计字段
+struct FailedContractTool;
+
+#[async_trait]
+impl AiToolDefinition for FailedContractTool {
+    fn name(&self) -> &'static str {
+        "load_pet_current_diet_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "加载宠物饮食上下文"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({"type": "object", "properties": {}, "required": []})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.diet.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["diet".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::failed_with_failure(ToolFailure::new(
+            "ai.provider_not_configured",
+            false,
+            "工具执行失败",
+            "provider is not configured",
+        ))
+    }
+}
+
+/// `ConfirmationContractTool` 合同测试用确认工具
+/// 核心职责：
+/// - 固定返回确认需求
+/// - 验证 Tool Gateway 确认审计字段
+struct ConfirmationContractTool;
+
+#[async_trait]
+impl AiToolDefinition for ConfirmationContractTool {
+    fn name(&self) -> &'static str {
+        "create_pet_reminder"
+    }
+
+    fn description(&self) -> &'static str {
+        "创建宠物提醒"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "title": { "type": "string" }
+            },
+            "required": ["title"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.reminder.write".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: true,
+            domain_tags: vec!["reminder".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::requires_confirmation(AiToolConfirmationRequirement {
+            confirmation_task_id: "confirmation-contract".to_owned(),
+            tool_name: "create_pet_reminder".to_owned(),
+            question_text: "是否确认创建提醒？".to_owned(),
+            args: json!({ "title": "吃药" }),
+        })
+    }
 }

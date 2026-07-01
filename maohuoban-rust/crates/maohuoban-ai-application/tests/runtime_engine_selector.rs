@@ -10,7 +10,9 @@ use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentRuntimeEngineMode, AgentSession,
 };
-use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::tools::{
+    AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
+};
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AiConversationSurface, AiResult, LlmChatRequest, LlmChatResponse,
     LlmFinishReason, LlmStreamEvent, LlmUsage,
@@ -75,6 +77,8 @@ fn engine_input(provider: Arc<dyn LlmProvider>) -> AgentRuntimeEngineInput {
         tool_context: AiToolContext {
             actor_user_id: Uuid::new_v4(),
             authorized_pet_id: Uuid::nil(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
         },
         fact_package: None,
     }

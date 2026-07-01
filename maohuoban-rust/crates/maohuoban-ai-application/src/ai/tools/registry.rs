@@ -1,13 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
+use std::time::Instant;
 
-use maohuoban_ai_domain::ai::Toolset;
+use maohuoban_ai_domain::ai::{LlmToolCall, ToolExecutionAudit, ToolFailure, Toolset};
+use serde_json::Value;
 
 use crate::ai::policy::{PolicyDecision, PolicyGuard};
 
 use super::{
-    AiToolContext, AiToolDefinition, AiToolResult, ToolDefinitionInfo, ToolGroupSchema,
-    ToolGroupSummary, ToolsetGroupSummary,
+    AiToolContext, AiToolDefinition, AiToolResult, ToolDefinitionInfo, ToolGatewayResult,
+    ToolGroupSchema, ToolGroupSummary, ToolsetGroupSummary,
 };
 
 /// ToolRegistry 工具注册表
@@ -38,10 +40,102 @@ impl ToolRegistry {
         self.tools.get(tool_name).cloned()
     }
 
-    /// call 调用已注册工具
+    /// execute_tool_call 通过标准 Tool Gateway 执行工具调用
     /// 核心职责：
-    /// - 未注册工具返回 denied
-    /// - 已注册工具先通过 PolicyGuard 裁决，再执行或返回确认需求
+    /// - 参数解析、权限校验、确认判定、执行和审计全部收口
+    /// - Runtime 只通过该入口执行标准 tool call
+    #[must_use]
+    pub async fn execute_tool_call(
+        &self,
+        ctx: &AiToolContext,
+        tool_call: &LlmToolCall,
+    ) -> ToolGatewayResult {
+        let started_at = Instant::now();
+        let Some(tool) = self.tools.get(&tool_call.name) else {
+            let result = AiToolResult::denied("unknown tool");
+            return self
+                .gateway_result(
+                    ctx,
+                    tool_call,
+                    result,
+                    None,
+                    "unknown",
+                    started_at.elapsed().as_millis(),
+                )
+                .await;
+        };
+        let metadata = tool.metadata();
+        let Ok(args) = serde_json::from_str::<Value>(&tool_call.arguments) else {
+            let result = AiToolResult::invalid_arguments_failure();
+            return self
+                .gateway_result(
+                    ctx,
+                    tool_call,
+                    result,
+                    Some(metadata.risk_level),
+                    metadata.toolset.as_str(),
+                    started_at.elapsed().as_millis(),
+                )
+                .await;
+        };
+
+        let result = match PolicyGuard.evaluate_tool(&tool_call.name, &metadata, ctx, &args) {
+            PolicyDecision::Allow => tool.execute(ctx, &args).await,
+            PolicyDecision::Deny { reason } => AiToolResult::denied(&reason),
+            PolicyDecision::Transform { args } => tool.execute(ctx, &args).await,
+            PolicyDecision::RequireConfirmation { confirmation } => {
+                AiToolResult::requires_confirmation(confirmation)
+            }
+            PolicyDecision::Terminate { reason } => AiToolResult::failed(&reason),
+        };
+
+        self.gateway_result(
+            ctx,
+            tool_call,
+            result,
+            Some(metadata.risk_level),
+            metadata.toolset.as_str(),
+            started_at.elapsed().as_millis(),
+        )
+        .await
+    }
+
+    /// record_guardrail_hard_stop 记录 guardrail 硬停审计
+    /// 核心职责：
+    /// - 不执行工具，仅为 Runtime 硬停路径生成统一 Tool Gateway 审计
+    /// - 让失败结果、failure_code、风险和 toolset 字段仍从 Gateway 出口产出
+    #[must_use]
+    pub async fn record_guardrail_hard_stop(
+        &self,
+        ctx: &AiToolContext,
+        tool_call: &LlmToolCall,
+        safe_user_message: &str,
+        internal_reason: &str,
+    ) -> ToolGatewayResult {
+        let (risk_level, toolset) =
+            self.tools
+                .get(&tool_call.name)
+                .map_or((None, "unknown".to_owned()), |tool| {
+                    let metadata = tool.metadata();
+                    (
+                        Some(metadata.risk_level),
+                        metadata.toolset.as_str().to_owned(),
+                    )
+                });
+        let result = AiToolResult::failed_with_failure(ToolFailure::new(
+            "guardrail.hard_stop",
+            false,
+            safe_user_message,
+            internal_reason,
+        ));
+        self.gateway_result(ctx, tool_call, result, risk_level, &toolset, 0)
+            .await
+    }
+
+    /// call 测试辅助入口
+    /// 核心职责：
+    /// - 保留现有按工具名调用的单元测试入口
+    /// - 复用与 Gateway 一致的参数解析和策略裁决
     #[must_use]
     pub async fn call(
         &self,
@@ -50,10 +144,10 @@ impl ToolRegistry {
         args: &serde_json::Value,
     ) -> AiToolResult {
         let Some(tool) = self.tools.get(tool_name) else {
-            return AiToolResult::denied(&format!("unknown tool: {tool_name}"));
+            return AiToolResult::denied("unknown tool");
         };
-
-        match PolicyGuard.evaluate_tool(tool_name, &tool.metadata(), ctx, args) {
+        let metadata = tool.metadata();
+        match PolicyGuard.evaluate_tool(tool_name, &metadata, ctx, args) {
             PolicyDecision::Allow => tool.execute(ctx, args).await,
             PolicyDecision::Deny { reason } => AiToolResult::denied(&reason),
             PolicyDecision::Transform { args } => tool.execute(ctx, &args).await,
@@ -174,6 +268,46 @@ impl ToolRegistry {
             group: group.to_owned(),
             tools,
         })
+    }
+}
+
+impl ToolRegistry {
+    async fn gateway_result(
+        &self,
+        ctx: &AiToolContext,
+        tool_call: &LlmToolCall,
+        result: AiToolResult,
+        risk_level: Option<super::AiToolRiskLevel>,
+        toolset: &str,
+        duration_ms: u128,
+    ) -> ToolGatewayResult {
+        let policy_decision = result.policy_decision().to_owned();
+        let loop_result = result.to_loop_tool_result(tool_call.clone());
+        let audit = ToolExecutionAudit {
+            session_id: ctx.gateway_context.session_id,
+            turn_id: ctx.gateway_context.turn_id,
+            message_id: ctx.gateway_context.message_id,
+            tool_name: tool_call.name.clone(),
+            args: serde_json::from_str(&tool_call.arguments)
+                .unwrap_or_else(|_| Value::Object(serde_json::Map::new())),
+            policy_decision,
+            duration_ms,
+            fact_count: result.fact_count(),
+            citation_ids: result.citation_ids(),
+            failure_code: result.failure_code().map(str::to_owned),
+            risk_level: match risk_level.unwrap_or(super::AiToolRiskLevel::Low) {
+                super::AiToolRiskLevel::Low => "low",
+                super::AiToolRiskLevel::Medium => "medium",
+                super::AiToolRiskLevel::High => "high",
+                super::AiToolRiskLevel::Critical => "critical",
+            }
+            .to_owned(),
+            toolset: toolset.to_owned(),
+        };
+        if let Some(observer) = ctx.gateway_observer.as_ref() {
+            observer.record(&audit).await;
+        }
+        ToolGatewayResult { loop_result, audit }
     }
 }
 

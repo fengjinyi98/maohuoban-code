@@ -5,7 +5,8 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
+    ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
@@ -117,6 +118,8 @@ async fn private_tools_hidden_without_selected_pet_even_if_catalog_mentions_priv
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
             authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
         },
         None,
     );
@@ -197,6 +200,8 @@ async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
             authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
         },
         None,
     );

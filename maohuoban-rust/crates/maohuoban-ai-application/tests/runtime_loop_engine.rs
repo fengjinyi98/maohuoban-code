@@ -12,7 +12,8 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolGatewayObserver, AiToolMetadata, AiToolResult,
+    AiToolRiskLevel, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
@@ -20,7 +21,8 @@ use maohuoban_ai_domain::ai::{
     AiToolConfirmationRequirement, CapabilityCatalog, CapabilityDomain, ContextPack,
     ContextPetSummary, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole,
     LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack, ModelLabel, RecentConversationEntry,
-    RecentConversationPack, ToolFactField, ToolFactSchema, ToolFailure, ToolProgressText, Toolset,
+    RecentConversationPack, ToolExecutionAudit, ToolFactField, ToolFactSchema, ToolFailure,
+    ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -58,6 +60,42 @@ fn find_tool_message(requests: &[LlmChatRequest]) -> &LlmMessage {
 }
 
 const AUTHORIZED_PET_ID: &str = "11111111-1111-1111-1111-111111111111";
+
+fn test_tool_context(pet_id: Uuid) -> AiToolContext {
+    AiToolContext {
+        actor_user_id: Uuid::new_v4(),
+        authorized_pet_id: pet_id,
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: None,
+    }
+}
+
+/// `CapturingGatewayObserver` 测试用 Gateway 审计观察者
+/// 核心职责：
+/// - 收集 Runtime loop 经 Tool Gateway 产出的审计记录
+/// - 验证 guardrail 等失败路径也进入统一审计出口
+struct CapturingGatewayObserver {
+    audits: Arc<Mutex<Vec<ToolExecutionAudit>>>,
+}
+
+#[async_trait]
+impl AiToolGatewayObserver for CapturingGatewayObserver {
+    async fn record(&self, audit: &ToolExecutionAudit) {
+        self.audits.lock().expect("audits").push(audit.clone());
+    }
+}
+
+fn test_tool_context_with_audits(
+    pet_id: Uuid,
+    audits: Arc<Mutex<Vec<ToolExecutionAudit>>>,
+) -> AiToolContext {
+    AiToolContext {
+        actor_user_id: Uuid::new_v4(),
+        authorized_pet_id: pet_id,
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: Some(Arc::new(CapturingGatewayObserver { audits })),
+    }
+}
 
 #[derive(Clone)]
 struct ScriptedProvider {
@@ -396,11 +434,7 @@ async fn public_pet_domain_without_private_tools() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
         None,
     );
 
@@ -442,10 +476,7 @@ async fn private_identity_question_prefetches_fact_tool_before_model() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -523,11 +554,7 @@ async fn agent_runtime_uses_answer_text_from_json_output() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
         None,
     );
 
@@ -626,11 +653,7 @@ async fn agent_runtime_reports_confirmation_requests() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
-                .expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
         None,
     );
 
@@ -675,10 +698,7 @@ async fn tool_success_projects_reference_ids_and_hides_internal_fields() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -732,10 +752,7 @@ async fn tool_denied_projects_safe_message_not_raw_reason() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -767,7 +784,7 @@ async fn tool_denied_projects_safe_message_not_raw_reason() {
     );
 }
 
-/// 工具失败结果应通过 `ToolFactProjector::project_failed` 投影为通用安全文案
+/// 工具失败结果应投影为结构化安全失败 JSON
 #[tokio::test]
 async fn tool_failed_projects_safe_message_not_raw_reason() {
     let provider = ScriptedProvider::new(vec![
@@ -780,10 +797,7 @@ async fn tool_failed_projects_safe_message_not_raw_reason() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -802,17 +816,15 @@ async fn tool_failed_projects_safe_message_not_raw_reason() {
     let tool_message = find_tool_message(&requests);
     let content = &tool_message.content;
 
-    // 应包含通用安全文案
+    // 应包含结构化安全失败字段
     assert!(
-        content.contains("工具执行失败"),
-        "failed tool result should contain safe message, got: {content}"
+        content.contains("\"status\":\"failed\"")
+            && content.contains("\"error_code\":\"tool.execution_failed\"")
+            && content.contains("\"message\":\"missing pet_id\""),
+        "failed tool result should contain structured safe failure payload, got: {content}"
     );
 
-    // 不应暴露原始失败原因
-    assert!(
-        !content.contains("missing pet_id"),
-        "failed tool result should not expose raw reason, got: {content}"
-    );
+    assert!(!content.contains("internal_reason"));
 }
 
 #[tokio::test]
@@ -823,10 +835,7 @@ async fn build_messages_includes_recent_conversation_history() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -968,14 +977,15 @@ async fn guardrail_hard_stops_repeated_tool_failures() {
     )]);
     let mut registry = ToolRegistry::new();
     registry.register(AlwaysFailTool);
+    let audits = Arc::new(Mutex::new(Vec::new()));
 
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context_with_audits(
+            Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
+            audits.clone(),
+        ),
         None,
     );
 
@@ -995,6 +1005,13 @@ async fn guardrail_hard_stops_repeated_tool_failures() {
         has_turn_failed,
         "guardrail hard stop should produce TurnFailed event"
     );
+    let audits = audits.lock().expect("audits");
+    assert!(
+        audits.iter().any(|audit| audit.policy_decision == "failed"
+            && audit.failure_code.as_deref() == Some("guardrail.hard_stop")
+            && audit.tool_name == "load_pet_identity_context"),
+        "guardrail hard stop should produce Tool Gateway audit, got: {audits:?}"
+    );
 }
 
 /// 结构化失败信息应回灌到模型消息，包含 `error_code` 和 `recoverable`
@@ -1010,10 +1027,7 @@ async fn structured_failure_propagates_to_model_message() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 
@@ -1096,10 +1110,7 @@ async fn empty_facts_tool_triggers_soft_reminder_with_valid_json() {
     let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider.clone()),
         Arc::new(registry),
-        AiToolContext {
-            actor_user_id: Uuid::new_v4(),
-            authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
-        },
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
 

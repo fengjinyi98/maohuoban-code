@@ -10,10 +10,14 @@ mod definition;
 mod definition_info;
 mod disclosure;
 mod discovery;
+mod gateway_execution_context;
+mod gateway_observer;
+mod gateway_result;
 mod metadata;
 mod registry;
 mod result;
 mod risk_level;
+mod shared_gateway_observer;
 
 pub use context::AiToolContext;
 pub use definition::AiToolDefinition;
@@ -22,7 +26,11 @@ pub use disclosure::{
     DisclosureConfig, DisclosureDecision, DisclosureReason, ToolDisclosurePolicy,
 };
 pub use discovery::{ToolGroupSchema, ToolGroupSummary, ToolsetGroupSummary};
+pub use gateway_execution_context::ToolGatewayExecutionContext;
+pub use gateway_observer::AiToolGatewayObserver;
+pub use gateway_result::ToolGatewayResult;
 pub use metadata::AiToolMetadata;
 pub use registry::ToolRegistry;
 pub use result::AiToolResult;
 pub use risk_level::AiToolRiskLevel;
+pub use shared_gateway_observer::SharedToolGatewayObserver;

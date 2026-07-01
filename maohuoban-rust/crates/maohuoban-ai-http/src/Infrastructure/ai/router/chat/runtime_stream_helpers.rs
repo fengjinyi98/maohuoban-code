@@ -18,10 +18,7 @@ pub(super) fn safe_execution_trace_completed_for_tool(
     }
 }
 
-pub(super) fn sanitize_legacy_tool_call_event(
-    event: AiStreamEvent,
-    pet_name: &str,
-) -> AiStreamEvent {
+pub(super) fn sanitize_tool_call_event(event: AiStreamEvent, pet_name: &str) -> AiStreamEvent {
     match event {
         AiStreamEvent::ToolCall {
             tool_name,
@@ -29,7 +26,7 @@ pub(super) fn sanitize_legacy_tool_call_event(
             citation_count,
         } => AiStreamEvent::ExecutionTraceCompleted {
             display_text: activity_text_for_tool(&tool_name, pet_name),
-            status: map_legacy_tool_call_status(status),
+            status: map_tool_call_status(status),
             citation_count,
         },
         event => event,
@@ -133,7 +130,7 @@ fn activity_text_for_tool(tool_name: &str, pet_name: &str) -> String {
     }
 }
 
-fn map_legacy_tool_call_status(status: AiToolCallStatus) -> AiAgentActivityStatus {
+fn map_tool_call_status(status: AiToolCallStatus) -> AiAgentActivityStatus {
     match status {
         AiToolCallStatus::Started => AiAgentActivityStatus::Started,
         AiToolCallStatus::Allowed | AiToolCallStatus::Denied => AiAgentActivityStatus::Completed,

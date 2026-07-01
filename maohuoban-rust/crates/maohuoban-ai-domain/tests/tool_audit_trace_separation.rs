@@ -10,35 +10,54 @@ use uuid::Uuid;
 #[test]
 fn audit_record_carries_args_hash_and_authorization() {
     let audit = ToolExecutionAudit {
+        session_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+        turn_id: Some(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
+        message_id: Some(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
         tool_name: "load_pet_identity_context".to_owned(),
-        tool_call_id: "call_1".to_owned(),
-        args_hash: "sha256:abc123".to_owned(),
-        allowed: true,
+        args: serde_json::json!({ "pet_id": "11111111-1111-1111-1111-111111111111" }),
+        policy_decision: "success".to_owned(),
+        duration_ms: 18,
+        fact_count: 2,
+        citation_ids: vec!["citation-1".to_owned(), "citation-2".to_owned()],
+        failure_code: None,
         risk_level: "low".to_owned(),
         toolset: "private_pet_context".to_owned(),
     };
 
     assert_eq!(audit.tool_name, "load_pet_identity_context");
-    assert_eq!(audit.args_hash, "sha256:abc123");
-    assert!(audit.allowed);
+    assert_eq!(audit.args["pet_id"], "11111111-1111-1111-1111-111111111111");
+    assert_eq!(audit.policy_decision, "success");
+    assert_eq!(audit.duration_ms, 18);
+    assert_eq!(audit.fact_count, 2);
+    assert_eq!(audit.citation_ids.len(), 2);
     assert_eq!(audit.risk_level, "low");
     assert_eq!(audit.toolset, "private_pet_context");
 }
 
 #[test]
-fn audit_record_does_not_carry_raw_args() {
+fn audit_record_carries_gateway_diagnostics_fields() {
     let audit = ToolExecutionAudit {
+        session_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+        turn_id: Some(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
+        message_id: Some(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
         tool_name: "create_pet_reminder".to_owned(),
-        tool_call_id: "call_2".to_owned(),
-        args_hash: "sha256:def456".to_owned(),
-        allowed: false,
+        args: serde_json::json!({ "title": "补水" }),
+        policy_decision: "requires_confirmation".to_owned(),
+        duration_ms: 0,
+        fact_count: 0,
+        citation_ids: Vec::new(),
+        failure_code: Some("tool.requires_confirmation".to_owned()),
         risk_level: "high".to_owned(),
         toolset: "confirmation".to_owned(),
     };
 
-    // 审计记录只有 hash，没有原始参数
-    assert!(!audit.args_hash.is_empty());
-    // 不存在 args 字段
+    assert_eq!(audit.policy_decision, "requires_confirmation");
+    assert_eq!(
+        audit.failure_code.as_deref(),
+        Some("tool.requires_confirmation")
+    );
+    assert_eq!(audit.fact_count, 0);
+    assert!(audit.citation_ids.is_empty());
 }
 
 #[test]
@@ -67,19 +86,27 @@ fn execution_trace_does_not_carry_tool_call_id() {
     assert!(!json.contains("tool_call_id"));
     assert!(!json.contains("call_"));
     assert!(!json.contains("args"));
-    assert!(!json.contains("hash"));
     assert!(!json.contains("risk"));
     assert!(!json.contains("toolset"));
-    assert!(!json.contains("allowed"));
+    assert!(!json.contains("policy_decision"));
+    assert!(!json.contains("duration_ms"));
+    assert!(!json.contains("fact_count"));
+    assert!(!json.contains("failure_code"));
 }
 
 #[test]
 fn audit_record_roundtrips_through_json() {
     let audit = ToolExecutionAudit {
+        session_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+        turn_id: Some(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
+        message_id: Some(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
         tool_name: "load_pet_diet_context".to_owned(),
-        tool_call_id: "call_4".to_owned(),
-        args_hash: "sha256:xyz789".to_owned(),
-        allowed: true,
+        args: serde_json::json!({ "pet_id": "11111111-1111-1111-1111-111111111111" }),
+        policy_decision: "success".to_owned(),
+        duration_ms: 22,
+        fact_count: 1,
+        citation_ids: vec!["citation-1".to_owned()],
+        failure_code: None,
         risk_level: "low".to_owned(),
         toolset: "private_pet_context".to_owned(),
     };
@@ -107,10 +134,16 @@ fn audit_and_trace_can_be_built_from_tool_execution() {
     let _turn_id = Uuid::new_v4();
 
     let audit = ToolExecutionAudit {
+        session_id: Some(Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap()),
+        turn_id: Some(Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap()),
+        message_id: Some(Uuid::parse_str("33333333-3333-3333-3333-333333333333").unwrap()),
         tool_name: "load_pet_identity_context".to_owned(),
-        tool_call_id: "call_6".to_owned(),
-        args_hash: "sha256:hash001".to_owned(),
-        allowed: true,
+        args: serde_json::json!({ "pet_id": "11111111-1111-1111-1111-111111111111" }),
+        policy_decision: "success".to_owned(),
+        duration_ms: 19,
+        fact_count: 3,
+        citation_ids: vec!["citation-1".to_owned(), "citation-2".to_owned()],
+        failure_code: None,
         risk_level: "low".to_owned(),
         toolset: "private_pet_context".to_owned(),
     };
@@ -121,10 +154,10 @@ fn audit_and_trace_can_be_built_from_tool_execution() {
         citation_count: 3,
     };
 
-    // 审计保留 tool_call_id 供内部追踪；轨迹不携带 tool_call_id
-    assert!(!audit.tool_call_id.is_empty());
-    // 审计有 args_hash，轨迹没有
-    assert!(!audit.args_hash.is_empty());
+    assert!(audit.session_id.is_some());
+    assert!(audit.turn_id.is_some());
+    assert!(audit.message_id.is_some());
+    assert_eq!(audit.fact_count, 3);
     // 轨迹有 display_text，审计没有
     assert!(!trace.display_text.is_empty());
 }

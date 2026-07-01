@@ -294,6 +294,7 @@ impl LoopStep {
 pub struct LoopToolResult {
     pub tool_call: LlmToolCall,
     pub status: LoopToolStatus,
+    pub citation_count: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -316,6 +317,7 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::Requested,
+            citation_count: 0,
             output: None,
             denied_reason: None,
             failed_reason: None,
@@ -330,6 +332,26 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::Succeeded,
+            citation_count: 0,
+            output: Some(output.into()),
+            denied_reason: None,
+            failed_reason: None,
+            confirmation: None,
+            failure: None,
+            guardrail_message: None,
+        }
+    }
+
+    /// succeeded_with_citations 构造带引用计数的成功工具结果
+    pub fn succeeded_with_citations(
+        tool_call: LlmToolCall,
+        output: impl Into<String>,
+        citation_count: u32,
+    ) -> Self {
+        Self {
+            tool_call,
+            status: LoopToolStatus::Succeeded,
+            citation_count,
             output: Some(output.into()),
             denied_reason: None,
             failed_reason: None,
@@ -344,6 +366,7 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::Denied,
+            citation_count: 0,
             output: None,
             denied_reason: Some(reason.into()),
             failed_reason: None,
@@ -358,6 +381,7 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::Failed,
+            citation_count: 0,
             output: None,
             denied_reason: None,
             failed_reason: Some(reason.into()),
@@ -373,6 +397,7 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::Failed,
+            citation_count: 0,
             output: None,
             denied_reason: None,
             failed_reason: Some(reason),
@@ -390,6 +415,7 @@ impl LoopToolResult {
         Self {
             tool_call,
             status: LoopToolStatus::RequiresConfirmation,
+            citation_count: 0,
             output: None,
             denied_reason: None,
             failed_reason: None,

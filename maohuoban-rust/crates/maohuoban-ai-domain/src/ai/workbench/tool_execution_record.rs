@@ -1,18 +1,30 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use uuid::Uuid;
 
 use crate::ai::AgentToolStatus;
 
 /// ToolExecutionAudit 工具执行审计记录
 /// 核心职责：
-/// - 保留工具名、参数 hash、授权结果、风险等级和分组
-/// - 不保留原始参数明文，只保留 hash 供审计追踪
-/// - 供审计日志和调试使用，不进入用户可见事件
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// - 保留工具网关统一审计字段和 session/turn/message 关联键
+/// - 保留原始参数、策略决策、耗时、事实数量、引用和失败码
+/// - 供 diagnostics 与回放使用，不进入用户可见事件
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolExecutionAudit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<Uuid>,
     pub tool_name: String,
-    pub tool_call_id: String,
-    pub args_hash: String,
-    pub allowed: bool,
+    pub args: Value,
+    pub policy_decision: String,
+    pub duration_ms: u128,
+    pub fact_count: usize,
+    pub citation_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_code: Option<String>,
     pub risk_level: String,
     pub toolset: String,
 }

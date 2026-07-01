@@ -483,6 +483,8 @@ mod tests {
         let tool_context = AiToolContext {
             actor_user_id: uuid::Uuid::new_v4(),
             authorized_pet_id: uuid::Uuid::nil(),
+            gateway_context: crate::ai::tools::ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
         };
         let mut engine = AgentRuntimeLoopEngine::new(provider, registry, tool_context, None);
         let mut state = AgentSessionState::new(

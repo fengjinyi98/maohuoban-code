@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Instant;
 
 use async_trait::async_trait;
 use maohuoban_ai_application::ai::ports::{AiSessionRepository, AiToolAccessLog};
@@ -12,7 +11,6 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
-use super::super::diagnostics::{ToolGatewayCompletionDiagnostics, record_tool_gateway_completed};
 use super::super::{AiHttpState, AiPetContextProviders};
 
 /// build_runtime_tool_registry 构建当前请求的 Runtime Tool Gateway
@@ -230,47 +228,14 @@ impl AiToolDefinition for RuntimePetContextTool {
         }
     }
 
-    async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
-        let started_at = Instant::now();
-        if ctx.authorized_pet_id != self.target_pet.pet_id {
-            record_tool_gateway_completed(
-                self.session_id,
-                self.kind.name(),
-                args,
-                &ToolGatewayCompletionDiagnostics {
-                    policy_decision: "denied",
-                    duration_ms: started_at.elapsed().as_millis(),
-                    fact_count: 0,
-                    citation_ids: &[],
-                    failure_code: Some("pet_not_authorized"),
-                },
-            );
-            return AiToolResult::denied("pet not authorized");
-        }
-
+    async fn execute(&self, ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
         let result = self.load_package(ctx.actor_user_id).await;
         match result {
             Ok(package) => {
                 let facts = package_entries(&package);
                 let citations = package.citations.clone();
-                let citation_ids: Vec<String> = citations
-                    .iter()
-                    .map(|citation| citation.source_id.to_string())
-                    .collect();
                 self.record_tool_access(ctx.actor_user_id, true, None, &package)
                     .await;
-                record_tool_gateway_completed(
-                    self.session_id,
-                    self.kind.name(),
-                    args,
-                    &ToolGatewayCompletionDiagnostics {
-                        policy_decision: "allowed",
-                        duration_ms: started_at.elapsed().as_millis(),
-                        fact_count: facts.len(),
-                        citation_ids: &citation_ids,
-                        failure_code: None,
-                    },
-                );
                 AiToolResult::allowed_with_facts(facts, citations)
             }
             Err(error) => {
@@ -284,18 +249,6 @@ impl AiToolDefinition for RuntimePetContextTool {
                     &AiFactPackage::empty(),
                 )
                 .await;
-                record_tool_gateway_completed(
-                    self.session_id,
-                    self.kind.name(),
-                    args,
-                    &ToolGatewayCompletionDiagnostics {
-                        policy_decision: "failed",
-                        duration_ms: started_at.elapsed().as_millis(),
-                        fact_count: 0,
-                        citation_ids: &[],
-                        failure_code: Some(&stable_code),
-                    },
-                );
                 AiToolResult::failed_with_failure(ToolFailure::new(
                     &stable_code,
                     recoverable,
@@ -567,15 +520,18 @@ mod tests {
                 &AiToolContext {
                     actor_user_id: Uuid::new_v4(),
                     authorized_pet_id: tool.target_pet.pet_id,
+                    gateway_context:
+                        maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
+                    gateway_observer: None,
                 },
                 &json!({}),
             )
             .await;
 
-        assert!(result.allowed);
-        assert!(result.denied_reason.is_none());
-        assert!(result.failed_reason.is_none());
-        assert_eq!(result.facts[0].value, "当前目标宠物事实");
+        assert!(result.is_success());
+        assert!(result.denied_reason().is_none());
+        assert!(result.failed_reason().is_none());
+        assert_eq!(result.facts()[0].value, "当前目标宠物事实");
     }
 
     fn runtime_identity_tool() -> RuntimePetContextTool {

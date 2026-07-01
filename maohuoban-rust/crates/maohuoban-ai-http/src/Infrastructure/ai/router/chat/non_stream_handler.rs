@@ -8,7 +8,9 @@ use maohuoban_ai_application::ai::runtime::{
 };
 use maohuoban_ai_application::ai::session_summary::SessionSummaryCompressor;
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
-use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::tools::{
+    AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
+};
 use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
@@ -28,6 +30,7 @@ use super::composition::request::ChatStreamRequest;
 use super::composition::workbench_builder::build_agent_session_workbench;
 use super::responses::gated_stream_response::gated_message_text;
 use super::responses::pet_resolution_stream_response::pet_resolution_message_text;
+use super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::runtime_tools::build_runtime_tool_registry;
 use super::stream_handler::load_fact_context_and_initial_events;
 use super::turn_preparation::{
@@ -191,6 +194,12 @@ async fn complete_with_runtime(
     let tool_context = AiToolContext {
         actor_user_id,
         authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),
+        gateway_context: ToolGatewayExecutionContext {
+            session_id: Some(context.session_id),
+            turn_id: Some(context.turn_id.as_uuid()),
+            message_id: Some(context.assistant_message_id),
+        },
+        gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
     };
     let engine =
         AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {

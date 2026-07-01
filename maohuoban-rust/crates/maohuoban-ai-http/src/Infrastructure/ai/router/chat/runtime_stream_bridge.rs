@@ -5,7 +5,9 @@ use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
 };
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
-use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
+use maohuoban_ai_application::ai::tools::{
+    AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
+};
 use maohuoban_ai_domain::ai::{
     AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent,
 };
@@ -18,7 +20,8 @@ use super::super::diagnostics::{
 };
 use super::composition::request::ChatStreamRequest;
 use super::runtime_stream::AgentEventSseProjector;
-use super::runtime_stream_helpers::{ai_error_to_sse_event, sanitize_legacy_tool_call_event};
+use super::runtime_stream_helpers::{ai_error_to_sse_event, sanitize_tool_call_event};
+use super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::runtime_tools::build_runtime_tool_registry;
 
 pub(super) struct RuntimeProviderStreamInput {
@@ -72,7 +75,7 @@ pub(super) fn runtime_provider_stream(
         });
 
         for event in initial_events {
-            yield Ok(sanitize_legacy_tool_call_event(event, &activity_pet_name));
+            yield Ok(sanitize_tool_call_event(event, &activity_pet_name));
         }
 
         let mut projector = AgentEventSseProjector::new(
@@ -163,6 +166,12 @@ fn build_runtime_engine(
             .target_pet
             .as_ref()
             .map_or_else(Uuid::nil, |pet| pet.pet_id),
+        gateway_context: ToolGatewayExecutionContext {
+            session_id: Some(input.session_id),
+            turn_id: Some(input.turn_id.as_uuid()),
+            message_id: Some(input.message_id),
+        },
+        gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
     };
     AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
         provider: state.llm_provider.clone(),

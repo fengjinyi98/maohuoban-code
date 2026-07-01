@@ -9,8 +9,8 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::diagnostics_common::{
-    gate_decision_code, intent_code, length_bucket, record_ai_event, severity,
-    stream_event_metadata, stream_event_severity, surface_code, uuid_prefix,
+    gate_decision_code, intent_code, length_bucket, record_ai_event, stream_event_metadata,
+    stream_event_severity, surface_code, uuid_prefix,
 };
 pub(crate) use super::history_diagnostics::{
     record_history_messages_loaded, record_history_mutation_completed,
@@ -233,45 +233,6 @@ pub(crate) fn record_chat_runtime_agent_event(
             ("event_name", json!(event_name)),
             ("payload", redact_ai_diagnostics_value(payload)),
         ],
-    );
-}
-
-/// ToolGatewayCompletionDiagnostics 工具网关完成态诊断参数
-/// 核心职责：
-/// - 聚合策略决策、耗时、事实数量、引用和失败码
-/// - 缩小记录函数参数数量并复用借用数据
-pub(crate) struct ToolGatewayCompletionDiagnostics<'a> {
-    pub policy_decision: &'a str,
-    pub duration_ms: u128,
-    pub fact_count: usize,
-    pub citation_ids: &'a [String],
-    pub failure_code: Option<&'a str>,
-}
-
-/// record_tool_gateway_completed 记录 Tool Gateway 执行结果
-/// 核心职责：
-/// - 固定工具名、参数、策略决策、耗时、事实数量和引用 ID 字段
-/// - 复用正式 diagnostics 链路观察工具成功、拒绝和失败
-pub(crate) fn record_tool_gateway_completed(
-    session_id: Uuid,
-    tool_name: &str,
-    args: &Value,
-    diagnostics: &ToolGatewayCompletionDiagnostics<'_>,
-) {
-    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
-    metadata.extend(vec![
-        ("tool_name", json!(tool_name)),
-        ("args", redact_ai_diagnostics_value(args)),
-        ("policy_decision", json!(diagnostics.policy_decision)),
-        ("duration_ms", json!(diagnostics.duration_ms)),
-        ("fact_count", json!(diagnostics.fact_count)),
-        ("citation_ids", json!(diagnostics.citation_ids)),
-        ("failure_code", json!(diagnostics.failure_code)),
-    ]);
-    record_ai_event(
-        "ai.chat.tool_gateway.completed",
-        severity(diagnostics.policy_decision == "allowed"),
-        metadata,
     );
 }
 

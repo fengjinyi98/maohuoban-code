@@ -71,22 +71,24 @@ fn tool_result_failed_with_structured_failure() {
 
     let result = AiToolResult::failed_with_failure(failure);
 
-    assert!(!result.allowed);
-    assert!(result.failed_reason.is_some());
-    assert!(result.failure.is_some());
+    assert!(!result.is_success());
+    assert!(result.failed_reason().is_some());
+    assert!(result.failure().is_some());
 
-    let f = result.failure.as_ref().expect("failure exists");
+    let f = result.failure().expect("failure exists");
     assert_eq!(f.error_code, "tool.permission_denied");
     assert!(!f.recoverable);
     assert_eq!(f.safe_user_message, "无权限执行此操作");
 }
 
 #[test]
-fn tool_result_failed_legacy_still_works() {
-    let result = AiToolResult::failed("legacy reason");
+fn tool_result_failed_default_constructor_uses_structured_failure() {
+    let result = AiToolResult::failed("default failure reason");
 
-    assert!(!result.allowed);
-    assert!(result.failed_reason.is_some());
-    // legacy failed() 不带结构化 failure
-    assert!(result.failure.is_none());
+    assert!(!result.is_success());
+    assert!(result.failed_reason().is_some());
+    assert_eq!(
+        result.failure().map(|failure| failure.error_code.as_str()),
+        Some("tool.execution_failed")
+    );
 }

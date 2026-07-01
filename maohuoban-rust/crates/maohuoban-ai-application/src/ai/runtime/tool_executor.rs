@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use maohuoban_ai_domain::ai::{
-    LlmToolCall, LoopToolResult, LoopToolStatus, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
-    ToolFactProjector,
-};
+use maohuoban_ai_domain::ai::{LlmToolCall, LoopToolResult};
 use serde_json::Value;
 
 use crate::ai::guardrail::{GuardrailDecision, ToolCallGuardrail, ToolCallRecord};
-use crate::ai::tools::{AiToolContext, AiToolResult, ToolRegistry};
+use crate::ai::tools::{AiToolContext, ToolRegistry};
 
 pub(crate) async fn execute_tool_calls(
     registry: Arc<ToolRegistry>,
@@ -29,16 +26,18 @@ pub(crate) async fn execute_tool_calls(
                 safe_user_message,
                 internal_reason,
             } => {
-                let failure = maohuoban_ai_domain::ai::ToolFailure::new(
-                    "guardrail.hard_stop",
-                    false,
-                    &safe_user_message,
-                    &internal_reason,
-                );
-                let result = LoopToolResult::failed_with_failure(tool_call.clone(), failure);
+                let gateway_result = registry
+                    .record_guardrail_hard_stop(
+                        &tool_context,
+                        &tool_call,
+                        &safe_user_message,
+                        &internal_reason,
+                    )
+                    .await;
+                let result = gateway_result.loop_result;
                 guardrail.record(ToolCallRecord {
                     tool_call: tool_call.clone(),
-                    status: LoopToolStatus::Failed,
+                    status: result.status,
                     produced_facts: false,
                     risk_level,
                 });
@@ -52,10 +51,8 @@ pub(crate) async fn execute_tool_calls(
                 );
             }
             GuardrailDecision::SoftReminder { message } => {
-                let args = serde_json::from_str::<Value>(&tool_call.arguments)
-                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
-                let result = registry.call(&tool_call.name, &tool_context, &args).await;
-                let mut loop_result = to_loop_tool_result(tool_call.clone(), result);
+                let gateway_result = registry.execute_tool_call(&tool_context, &tool_call).await;
+                let mut loop_result = gateway_result.loop_result;
                 let produced_facts = output_has_facts(loop_result.output.as_deref());
                 loop_result.guardrail_message = Some(message);
                 guardrail.record(ToolCallRecord {
@@ -67,10 +64,8 @@ pub(crate) async fn execute_tool_calls(
                 results.push(loop_result);
             }
             GuardrailDecision::Allow => {
-                let args = serde_json::from_str::<Value>(&tool_call.arguments)
-                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()));
-                let result = registry.call(&tool_call.name, &tool_context, &args).await;
-                let loop_result = to_loop_tool_result(tool_call.clone(), result);
+                let gateway_result = registry.execute_tool_call(&tool_context, &tool_call).await;
+                let loop_result = gateway_result.loop_result;
                 let produced_facts = output_has_facts(loop_result.output.as_deref());
                 guardrail.record(ToolCallRecord {
                     tool_call: tool_call.clone(),
@@ -97,32 +92,4 @@ fn output_has_facts(output: Option<&str>) -> bool {
         .get("facts")
         .and_then(Value::as_array)
         .is_some_and(|facts| !facts.is_empty())
-}
-
-fn to_loop_tool_result(tool_call: LlmToolCall, result: AiToolResult) -> LoopToolResult {
-    if result.allowed {
-        let mut projected = ToolFactProjector::project_facts(&result.facts);
-        projected.reference_ids.extend(result.returned_ref_ids);
-        let json =
-            serde_json::to_string(&projected).unwrap_or_else(|_| "{\"facts\":[]}".to_owned());
-        return LoopToolResult::succeeded(tool_call, json);
-    }
-
-    if let Some(confirmation) = result.confirmation {
-        return LoopToolResult::requires_confirmation(tool_call, confirmation);
-    }
-
-    if let Some(failure) = result.failure {
-        return LoopToolResult::failed_with_failure(tool_call, failure);
-    }
-
-    if let Some(reason) = result.denied_reason {
-        return LoopToolResult::denied(tool_call, reason);
-    }
-
-    if let Some(reason) = result.failed_reason {
-        return LoopToolResult::failed(tool_call, reason);
-    }
-
-    LoopToolResult::failed(tool_call, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned())
 }

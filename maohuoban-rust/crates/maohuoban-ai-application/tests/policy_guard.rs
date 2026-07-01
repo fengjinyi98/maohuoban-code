@@ -13,12 +13,21 @@ use maohuoban_ai_application::ai::{
     policy::{PolicyDecision, PolicyGuard},
     tools::{
         AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
-        ToolRegistry,
+        ToolGatewayExecutionContext, ToolRegistry,
     },
 };
 use maohuoban_ai_domain::ai::{ToolProgressText, Toolset};
 use serde_json::json;
 use uuid::Uuid;
+
+fn test_tool_context(pet_id: Uuid) -> AiToolContext {
+    AiToolContext {
+        actor_user_id: Uuid::new_v4(),
+        authorized_pet_id: pet_id,
+        gateway_context: ToolGatewayExecutionContext::default(),
+        gateway_observer: None,
+    }
+}
 
 /// `ReadonlyPetTool` 测试用只读工具
 /// 核心职责：
@@ -119,10 +128,7 @@ async fn policy_guard_allows_readonly_tool() {
     let mut registry = ToolRegistry::new();
     registry.register(ReadonlyPetTool);
     let pet_id = Uuid::new_v4();
-    let ctx = AiToolContext {
-        actor_user_id: Uuid::new_v4(),
-        authorized_pet_id: pet_id,
-    };
+    let ctx = test_tool_context(pet_id);
 
     let decision = PolicyGuard.evaluate_registry(
         &registry,
@@ -142,10 +148,7 @@ async fn policy_guard_requires_confirmation() {
         execute_count: execute_count.clone(),
     });
     let pet_id = Uuid::new_v4();
-    let ctx = AiToolContext {
-        actor_user_id: Uuid::new_v4(),
-        authorized_pet_id: pet_id,
-    };
+    let ctx = test_tool_context(pet_id);
 
     let result = registry
         .call(
@@ -155,8 +158,8 @@ async fn policy_guard_requires_confirmation() {
         )
         .await;
 
-    assert!(!result.allowed);
-    assert!(result.confirmation.is_some());
+    assert!(!result.is_success());
+    assert!(result.confirmation().is_some());
     assert_eq!(execute_count.load(Ordering::SeqCst), 0);
 }
 
@@ -164,10 +167,7 @@ async fn policy_guard_requires_confirmation() {
 async fn policy_guard_denies_unknown_or_unauthorized() {
     let mut registry = ToolRegistry::new();
     registry.register(ReadonlyPetTool);
-    let ctx = AiToolContext {
-        actor_user_id: Uuid::new_v4(),
-        authorized_pet_id: Uuid::new_v4(),
-    };
+    let ctx = test_tool_context(Uuid::new_v4());
     let other_pet_id = Uuid::new_v4();
 
     let unknown = PolicyGuard.evaluate_registry(
@@ -185,7 +185,7 @@ async fn policy_guard_denies_unknown_or_unauthorized() {
         .await;
 
     assert!(matches!(unknown, PolicyDecision::Deny { .. }));
-    assert!(!unauthorized.allowed);
-    assert!(unauthorized.facts.is_empty());
-    assert!(unauthorized.citations.is_empty());
+    assert!(!unauthorized.is_success());
+    assert!(unauthorized.facts().is_empty());
+    assert!(unauthorized.citations().is_empty());
 }

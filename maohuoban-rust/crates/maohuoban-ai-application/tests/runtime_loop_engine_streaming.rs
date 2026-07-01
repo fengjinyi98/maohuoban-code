@@ -12,7 +12,8 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
+    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
+    ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength, LlmChatRequest,
@@ -462,6 +463,8 @@ fn runtime_engine(
             actor_user_id: Uuid::new_v4(),
             authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
                 .expect("pet id"),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
         },
         None,
     )
