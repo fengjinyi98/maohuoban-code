@@ -15,6 +15,8 @@ pub(crate) fn merge_fact_packages(
             }
             base.facts.extend(addition.facts);
             base.computed.extend(addition.computed);
+            base.pending_confirmations
+                .extend(addition.pending_confirmations);
             base.weak_hints.extend(addition.weak_hints);
             base.citations.extend(addition.citations);
             base.missing_info.extend(addition.missing_info);
@@ -38,11 +40,7 @@ fn merged_fact_strength(package: &AiFactPackage) -> AiFactStrength {
         .any(|fact| fact.strength == AiFactStrength::Strong)
     {
         AiFactStrength::Strong
-    } else if package
-        .facts
-        .iter()
-        .any(|fact| fact.strength == AiFactStrength::PendingConfirmation)
-    {
+    } else if !package.pending_confirmations.is_empty() {
         AiFactStrength::PendingConfirmation
     } else {
         AiFactStrength::Weak

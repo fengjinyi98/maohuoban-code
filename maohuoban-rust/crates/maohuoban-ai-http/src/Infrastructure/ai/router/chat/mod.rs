@@ -21,7 +21,7 @@ mod responses {
     pub(super) mod pet_resolution_stream_response;
     pub(super) mod stream_response;
 }
-mod non_stream_handler;
+mod non_stream;
 mod runtime_stream;
 mod runtime_stream_bridge;
 mod runtime_stream_helpers;
@@ -31,5 +31,5 @@ mod runtime_tools;
 mod stream_handler;
 mod turn_preparation;
 
-pub use non_stream_handler::handle_chat;
+pub use non_stream::handle_chat;
 pub use stream_handler::handle_chat_stream;

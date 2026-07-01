@@ -46,6 +46,7 @@ fn package_facts(package: &AiFactPackage) -> impl Iterator<Item = &AiFactEntry> 
         .facts
         .iter()
         .chain(package.computed.iter())
+        .chain(package.pending_confirmations.iter())
         .chain(package.weak_hints.iter())
 }
 

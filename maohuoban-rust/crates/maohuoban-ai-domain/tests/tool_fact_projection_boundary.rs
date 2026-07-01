@@ -6,8 +6,8 @@
 // - 验证 ModelVisibleFact 不存在 citation_id 字段
 
 use maohuoban_ai_domain::ai::{
-    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength, ModelVisibleToolResult,
-    ToolFactProjector,
+    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactPackage, AiFactStrength,
+    AiPetDisplaySnapshot, ModelVisibleToolResult, ToolFactProjector,
 };
 use uuid::Uuid;
 
@@ -177,5 +177,169 @@ fn pet_identity_days_project_to_natural_fact_sentence() {
     assert!(
         !encoded.contains("pet_identity.world_days"),
         "projected tool result must not expose internal fact key: {encoded}"
+    );
+}
+
+// ── project_package 分层投影测试 ──
+
+#[test]
+fn project_package_separates_weak_hints_with_correct_certainty() {
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "diet.current_staple".to_owned(),
+        value: "渴望六种鱼".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    package.weak_hints.push(AiFactEntry {
+        key: "food_inventory.change_hint".to_owned(),
+        value: "新增: 巅峰牛肉罐头".to_owned(),
+        strength: AiFactStrength::Weak,
+        citation_id: None,
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    // 强事实和弱线索都在投影中，但 certainty 不同
+    assert_eq!(visible.facts.len(), 2);
+    let staple = visible
+        .facts
+        .iter()
+        .find(|f| f.text == "渴望六种鱼")
+        .expect("strong fact should be present");
+    assert_eq!(staple.certainty, "已确认");
+
+    let hint = visible
+        .facts
+        .iter()
+        .find(|f| f.text.contains("巅峰牛肉罐头"))
+        .expect("weak hint should be present");
+    assert_eq!(hint.certainty, "弱线索");
+}
+
+#[test]
+fn project_package_marks_pending_confirmations_as_tbd() {
+    let mut package = AiFactPackage::empty();
+    package.pending_confirmations.push(AiFactEntry {
+        key: "diet.confirmation_candidate".to_owned(),
+        value: "待确认: 最近换粮为渴望".to_owned(),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    assert_eq!(visible.facts.len(), 1);
+    assert_eq!(visible.facts[0].certainty, "待确认");
+    assert!(
+        visible.facts[0].text.contains("待确认"),
+        "pending confirmation fact should be in projection"
+    );
+}
+
+#[test]
+fn project_package_inventory_hint_cannot_be_confirmed() {
+    // 弱线索投影后 certainty 必须是 "弱线索"，不能是 "已确认"
+    let mut package = AiFactPackage::empty();
+    package.weak_hints.push(AiFactEntry {
+        key: "food_inventory.change_hint".to_owned(),
+        value: "消耗: 皇家奶糕".to_owned(),
+        strength: AiFactStrength::Weak,
+        citation_id: None,
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    assert!(
+        visible.facts.iter().all(|f| f.certainty != "已确认"),
+        "inventory hints must NOT be projected as confirmed facts"
+    );
+    assert!(
+        visible.facts.iter().any(|f| f.certainty == "弱线索"),
+        "inventory hints must be projected as weak hints"
+    );
+}
+
+#[test]
+fn project_package_collects_all_citation_reference_ids() {
+    let citation_id = Uuid::new_v4();
+    let mut package = AiFactPackage::empty();
+    package.citations.push(AiCitation {
+        source_kind: AiCitationSourceKind::DietAssignment,
+        source_id: citation_id,
+        label: "当前主粮: 渴望".to_owned(),
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    assert_eq!(visible.reference_ids.len(), 1);
+    assert_eq!(visible.reference_ids[0], citation_id.to_string());
+}
+
+#[test]
+fn project_package_preserves_bucket_integrity() {
+    // 强事实桶和待确认桶投影后通过 certainty 区分
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "diet.current_staple".to_owned(),
+        value: "皇家".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    package.pending_confirmations.push(AiFactEntry {
+        key: "diet.confirmation_candidate".to_owned(),
+        value: "候选: 换渴望".to_owned(),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    let strong: Vec<_> = visible
+        .facts
+        .iter()
+        .filter(|f| f.certainty == "已确认")
+        .collect();
+    let pending: Vec<_> = visible
+        .facts
+        .iter()
+        .filter(|f| f.certainty == "待确认")
+        .collect();
+
+    assert_eq!(strong.len(), 1);
+    assert_eq!(strong[0].text, "皇家");
+    assert_eq!(pending.len(), 1);
+    assert!(pending[0].text.contains("候选"));
+}
+
+#[test]
+fn project_package_excludes_target_pet_from_facts() {
+    // target_pet 本身不作为事实投影
+    let mut package = AiFactPackage::empty();
+    package.target_pet = Some(AiPetDisplaySnapshot {
+        pet_id: Uuid::new_v4(),
+        pet_name: "毛球".to_owned(),
+        pet_avatar_url: None,
+        pet_species: "cat".to_owned(),
+        profile_number: "MHB001".to_owned(),
+    });
+    package.facts.push(AiFactEntry {
+        key: "pet_identity.name".to_owned(),
+        value: "毛球".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+
+    let visible = ToolFactProjector::project_package(&package);
+
+    // 投影不应包含 target_pet 的内部字段
+    let json = serde_json::to_string(&visible).expect("serialize");
+    assert!(
+        !json.contains("profile_number"),
+        "projected result must not expose target_pet fields: {json}"
+    );
+    assert!(
+        !json.contains("pet_id"),
+        "projected result must not expose pet_id: {json}"
     );
 }

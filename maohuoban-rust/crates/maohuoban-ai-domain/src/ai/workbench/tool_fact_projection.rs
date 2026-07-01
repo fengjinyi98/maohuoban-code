@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::ai::{AiFactEntry, AiFactStrength};
+use crate::ai::{AiFactEntry, AiFactPackage, AiFactStrength};
 
 /// ModelVisibleFact 单条模型可见事实
 /// 核心职责：
@@ -16,6 +16,8 @@ pub struct ModelVisibleFact {
 /// 核心职责：
 /// - 承载裁剪后的事实和引用 ID
 /// - 不包含内部 key、denied_reason、failed_reason 原文
+/// - 强事实、待确认、弱线索通过 certainty 标签区分，
+///   不暴露内部 bucket 名称
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelVisibleToolResult {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -30,6 +32,7 @@ pub struct ModelVisibleToolResult {
 /// 核心职责：
 /// - 将内部事实条目裁剪为模型可见结果
 /// - 阻断内部 key、citation_id 和敏感拒绝原因进入模型输入
+/// - 按 package 分层投影，确保弱线索和待确认事实携带正确确定性标签
 pub struct ToolFactProjector;
 
 impl ToolFactProjector {
@@ -87,6 +90,72 @@ impl ToolFactProjector {
             reference_ids: Vec::new(),
             safe_message: "工具执行失败".to_owned(),
         }
+    }
+
+    /// project_package 将完整事实包按分层投影为模型可见结果
+    /// 核心职责：
+    /// - 按四个事实桶分别投影，保留每条条目的 strength → certainty 映射
+    /// - 弱线索和待确认事实显式标注，确保模型不会将它们当作已确认事实
+    /// - 收集所有 citation 的 source_id 作为 reference_ids
+    #[must_use]
+    pub fn project_package(package: &AiFactPackage) -> ModelVisibleToolResult {
+        let mut visible_facts: Vec<ModelVisibleFact> = Vec::new();
+
+        // 强事实桶：可直接支撑回答
+        visible_facts.extend(Self::project_bucket_facts(&package.facts));
+
+        // 计算事实桶：基于强事实派生，可回答但须保留来源链
+        visible_facts.extend(Self::project_bucket_facts(&package.computed));
+
+        // 待确认事实桶：不可直接当真，只能以"待确认"表述
+        visible_facts.extend(Self::project_bucket_facts(&package.pending_confirmations));
+
+        // 弱线索桶：只能辅助推理，不可当结论
+        visible_facts.extend(Self::project_bucket_facts(&package.weak_hints));
+
+        // 合并身份自然句投影
+        let identity_facts: Vec<AiFactEntry> = package
+            .facts
+            .iter()
+            .filter(|entry| entry.key.starts_with("pet_identity."))
+            .cloned()
+            .collect();
+        if !identity_facts.is_empty() {
+            let natural = project_natural_identity_facts(&identity_facts);
+            // 去重：避免自然句与已有事实重复
+            for nf in natural {
+                if !visible_facts.iter().any(|vf| vf.text == nf.text) {
+                    visible_facts.push(nf);
+                }
+            }
+        }
+
+        let reference_ids: Vec<String> = package
+            .citations
+            .iter()
+            .map(|citation| citation.source_id.to_string())
+            .collect();
+
+        ModelVisibleToolResult {
+            facts: visible_facts,
+            reference_ids,
+            safe_message: String::new(),
+        }
+    }
+
+    /// project_bucket_facts 投影单个事实桶的条目
+    /// 核心职责：
+    /// - 过滤内部状态 key
+    /// - 将每条条目的 strength 映射为 certainty 标签
+    fn project_bucket_facts(entries: &[AiFactEntry]) -> Vec<ModelVisibleFact> {
+        entries
+            .iter()
+            .filter(|entry| !is_internal_status_key(&entry.key))
+            .map(|entry| ModelVisibleFact {
+                certainty: certainty_label(entry.strength).to_owned(),
+                text: entry.value.clone(),
+            })
+            .collect()
     }
 }
 

@@ -1,6 +1,7 @@
 // fact_package_diet_hints 饮食事实包强弱分离测试
 // 核心职责：
-// - 验证当前主粮/喂食/确认事实进入 strong facts
+// - 验证当前主粮/喂食进入 strong facts
+// - 验证待确认事实进入 pending_confirmations，不与强事实混合
 // - 验证储物柜变化只进入 weak_hints / missing_info，不进入 strong facts
 // - 遵循 TDD：先写失败测试（red），再实现事实包构建器（green）
 
@@ -108,7 +109,8 @@ fn mixed_strong_and_weak_facts_separate_correctly() {
 
     assert_eq!(package.strong_fact_values(), vec!["渴望六种鱼"]);
     assert_eq!(package.weak_hint_values(), vec!["新增零食"]);
-    assert_eq!(package.facts.len(), 2); // strong + pending
+    assert_eq!(package.facts.len(), 1); // 只有强事实在 facts 桶
+    assert_eq!(package.pending_confirmations.len(), 1); // 待确认在独立桶
     assert_eq!(package.weak_hints.len(), 1);
     // 整体强度为强（有强事实时提升）
     assert_eq!(package.fact_strength, AiFactStrength::Strong);

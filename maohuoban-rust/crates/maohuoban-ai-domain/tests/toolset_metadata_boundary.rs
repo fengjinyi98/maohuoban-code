@@ -74,6 +74,7 @@ fn tool_fact_schema_describes_fact_keys_and_types() {
             meaning: "宠物当前正在吃的主粮或主食".to_owned(),
             example_queries: vec!["现在吃什么".to_owned(), "当前主粮是什么".to_owned()],
         }],
+        default_strength: None,
     };
     assert_eq!(schema.fact_keys.len(), 2);
     assert_eq!(schema.description, "宠物饮食事实");
@@ -101,6 +102,7 @@ fn tool_fact_schema_roundtrips_through_json() {
             meaning: "宠物最近记录的体重".to_owned(),
             example_queries: vec!["多重".to_owned(), "体重多少".to_owned()],
         }],
+        default_strength: None,
     };
     let json = serde_json::to_string(&schema).unwrap();
     let restored: ToolFactSchema = serde_json::from_str(&json).unwrap();

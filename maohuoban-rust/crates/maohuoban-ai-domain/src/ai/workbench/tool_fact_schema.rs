@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+use crate::ai::AiFactStrength;
+
 /// ToolFactSchema 工具事实输出 schema
 /// 核心职责：
-/// - 声明工具返回的事实 key、自然语言含义和典型问法
+/// - 声明工具返回的事实 key、自然语言含义、默认强度和典型问法
 /// - 供 Workbench、Planner 和事实投影层理解工具能力
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ToolFactSchema {
@@ -18,6 +20,12 @@ pub struct ToolFactSchema {
     /// 工具事实字段的自然语言协议
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<ToolFactField>,
+    /// 工具返回事实的默认强度
+    /// - Strong: 已确认结构化事实（如宠物档案、当前饮食配置）
+    /// - Weak: 弱线索（如储物柜变化）
+    /// - PendingConfirmation: 待确认候选
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_strength: Option<AiFactStrength>,
 }
 
 /// ToolFactField 工具事实字段协议
@@ -40,6 +48,7 @@ impl Default for ToolFactSchema {
             description: String::new(),
             natural_language_summary: String::new(),
             fields: Vec::new(),
+            default_strength: None,
         }
     }
 }

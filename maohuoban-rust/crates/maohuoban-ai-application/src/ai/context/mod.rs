@@ -9,11 +9,12 @@ use maohuoban_ai_domain::ai::{
 
 /// AiFactPackageBuilder 事实包构建器
 /// 核心职责：
-/// - 按强度分类收集事实条目，确保弱线索不混入强事实
+/// - 按强度分类收集事实条目，确保弱线索和待确认事实不混入强事实
 /// - 构建完整事实包供 Prompt 构建和回答校验使用
 pub struct AiFactPackageBuilder {
     target_pet: AiPetDisplaySnapshot,
     facts: Vec<AiFactEntry>,
+    pending_confirmations: Vec<AiFactEntry>,
     weak_hints: Vec<AiFactEntry>,
     citations: Vec<AiCitation>,
     missing_info: Vec<String>,
@@ -26,6 +27,7 @@ impl AiFactPackageBuilder {
         Self {
             target_pet: AiPetDisplaySnapshot::from(pet),
             facts: Vec::new(),
+            pending_confirmations: Vec::new(),
             weak_hints: Vec::new(),
             citations: Vec::new(),
             missing_info: Vec::new(),
@@ -38,8 +40,11 @@ impl AiFactPackageBuilder {
     }
 
     /// add_pending_confirmation 添加待确认事实
+    /// 核心职责：
+    /// - 进入 pending_confirmations 桶，与强事实严格分离
+    /// - 禁止直接被当作已发生事实回答
     pub fn add_pending_confirmation(&mut self, entry: AiFactEntry) {
-        self.facts.push(entry);
+        self.pending_confirmations.push(entry);
     }
 
     /// add_weak_hint 添加弱线索（储物柜变化、推断）
@@ -60,7 +65,7 @@ impl AiFactPackageBuilder {
     /// build 构建最终事实包
     /// 核心职责：
     /// - 根据强事实是否存在决定整体事实强度
-    /// - 弱线索始终独立存放，不进入 facts
+    /// - 弱线索和待确认事实始终独立存放，不进入强事实桶
     #[must_use]
     pub fn build(self) -> AiFactPackage {
         let has_strong = self
@@ -78,6 +83,7 @@ impl AiFactPackageBuilder {
             target_pet: Some(self.target_pet),
             facts: self.facts,
             computed: Vec::new(),
+            pending_confirmations: self.pending_confirmations,
             weak_hints: self.weak_hints,
             citations: self.citations,
             missing_info: self.missing_info,

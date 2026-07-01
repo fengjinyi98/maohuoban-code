@@ -37,6 +37,9 @@ pub struct AiCitation {
 }
 
 /// AiFactEntry 单条事实条目
+/// 核心职责：
+/// - 承载事实 key、值、强度、引用 ID
+/// - citation_id 关联回答中的引用 chip，溯源到原始数据行
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiFactEntry {
     pub key: String,
@@ -48,13 +51,21 @@ pub struct AiFactEntry {
 
 /// AiFactPackage 事实包
 /// 核心职责：
-/// - 聚合目标宠物、强事实、弱线索、引用和缺失信息
+/// - 聚合目标宠物、强事实、计算事实、待确认事实、弱线索、引用和缺失信息
 /// - 作为 Prompt 构建和回答校验的唯一事实依据
+/// - 四个事实桶严格分离：强事实可直接回答，待确认事实不可直接当真，
+///   弱线索只能辅助推理，计算事实可回答但须保留来源链
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiFactPackage {
     pub target_pet: Option<AiPetDisplaySnapshot>,
+    /// 强事实主集合：已确认、可追溯、当前有效的结构化事实
     pub facts: Vec<AiFactEntry>,
+    /// 基于强事实派生的计算结果
     pub computed: Vec<AiFactEntry>,
+    /// 待确认事实：已抽取但未确认的候选事实，禁止直接当作已发生事实
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pending_confirmations: Vec<AiFactEntry>,
+    /// 弱线索集合：只能暗示可能性，不可直接当结论
     pub weak_hints: Vec<AiFactEntry>,
     pub citations: Vec<AiCitation>,
     pub missing_info: Vec<String>,
@@ -68,6 +79,7 @@ impl AiFactPackage {
             target_pet: None,
             facts: Vec::new(),
             computed: Vec::new(),
+            pending_confirmations: Vec::new(),
             weak_hints: Vec::new(),
             citations: Vec::new(),
             missing_info: Vec::new(),

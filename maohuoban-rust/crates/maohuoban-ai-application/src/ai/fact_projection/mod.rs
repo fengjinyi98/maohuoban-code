@@ -145,7 +145,10 @@ fn append_missing_info(prompt: &mut String, missing_info: &[String]) {
 }
 
 fn package_entries(pkg: &AiFactPackage) -> impl Iterator<Item = &AiFactEntry> {
-    pkg.facts.iter().chain(pkg.computed.iter())
+    pkg.facts
+        .iter()
+        .chain(pkg.computed.iter())
+        .chain(pkg.pending_confirmations.iter())
 }
 
 fn is_model_visible_fact(entry: &AiFactEntry) -> bool {

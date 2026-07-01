@@ -186,6 +186,7 @@ impl AiToolDefinition for PetIdentityFactTool {
                         example_queries: vec!["陪伴我多久了".to_owned(), "到家多久了".to_owned()],
                     },
                 ],
+                default_strength: None,
             }),
         }
     }
