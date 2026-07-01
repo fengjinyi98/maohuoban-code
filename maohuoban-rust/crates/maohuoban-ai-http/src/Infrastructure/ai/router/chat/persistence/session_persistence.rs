@@ -22,6 +22,7 @@ pub(crate) struct PetSessionContext {
 /// 核心职责：
 /// - 创建或更新 AI 会话记录
 /// - 使用 handler 传入的 message_id 保存本轮用户消息
+/// - 绑定 turn_id 到用户消息
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn persist_session_and_user_message(
     repo: &std::sync::Arc<dyn AiSessionRepository>,
@@ -29,6 +30,7 @@ pub(crate) async fn persist_session_and_user_message(
     actor_user_id: Uuid,
     session_id: Uuid,
     message_id: Uuid,
+    _turn_id: Uuid,
     title: String,
     pet_context: PetSessionContext,
     now: DateTime<Utc>,
@@ -52,6 +54,7 @@ pub(crate) async fn persist_session_and_user_message(
     let user_message = AiMessage {
         id: message_id,
         session_id,
+        turn_id: None,
         role: AiMessageRole::User,
         content: req.message.clone(),
         status: AiMessageStatus::Completed,

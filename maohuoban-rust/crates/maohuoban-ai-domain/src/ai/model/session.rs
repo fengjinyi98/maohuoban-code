@@ -29,6 +29,8 @@ pub enum AiMessageStatus {
 pub struct AiMessage {
     pub id: Uuid,
     pub session_id: Uuid,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<Uuid>,
     pub role: AiMessageRole,
     pub content: String,
     pub status: AiMessageStatus,

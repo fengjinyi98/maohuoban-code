@@ -7,7 +7,7 @@ use maohuoban_ai_application::ai::runtime::{
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_domain::ai::{
-    AgentId, AgentSessionWorkbench, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent,
+    AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent,
 };
 use uuid::Uuid;
 
@@ -23,6 +23,7 @@ use super::runtime_tools::build_runtime_tool_registry;
 
 pub(super) struct RuntimeProviderStreamInput {
     pub session_id: Uuid,
+    pub turn_id: AgentTurnId,
     pub message_id: Uuid,
     pub actor_user_id: Uuid,
     pub target_pet: Option<AiPetDisplaySnapshot>,
@@ -120,11 +121,13 @@ pub(super) fn runtime_provider_stream(
             &activity_pet_name,
             identity_context_tool_required,
         );
-        let mut agent_stream = session.into_prompt_stream_with_workbench_diagnostics_message_id(
-            user_message,
-            workbench,
-            message_id,
-        );
+        let mut agent_stream =
+            session.into_prompt_stream_with_workbench_turn_and_diagnostics_message_id(
+                user_message,
+                workbench,
+                input.turn_id,
+                message_id,
+            );
         while let Some(result) = agent_stream.next().await {
             match result {
                 Ok(agent_event) => {

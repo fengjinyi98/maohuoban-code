@@ -1,12 +1,12 @@
 use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentSessionState, AgentSessionWorkbench, AgentToolStatus,
-    AgentTurnStatus, AiConversationSurface, AiResult, LoopStep, LoopToolResult, LoopToolStatus,
-    ModelCallOutcome,
+    AgentEvent, AgentId, AgentSessionState, AgentSessionWorkbench, AgentTurnId,
+    AiConversationSurface, AiResult,
 };
 use uuid::Uuid;
 
 use super::LoopEngine;
+use super::session_event_mapper::{StepFlow, append_step_events};
 
 /// AgentSession in-memory Runtime 会话
 /// 核心职责：
@@ -46,8 +46,12 @@ impl<E: LoopEngine> AgentSession<E> {
         user_input: impl Into<String>,
         diagnostics_message_id: Uuid,
     ) -> AiResult<Vec<AgentEvent>> {
-        self.prompt_inner(user_input.into(), None, Some(diagnostics_message_id))
-            .await
+        self.prompt_inner(
+            user_input.into(),
+            None,
+            Some(TurnContext::new(AgentTurnId::new(), diagnostics_message_id)),
+        )
+        .await
     }
 
     /// prompt_with_workbench 提交用户输入和本轮工作台上下文
@@ -60,20 +64,21 @@ impl<E: LoopEngine> AgentSession<E> {
             .await
     }
 
-    /// prompt_with_workbench_diagnostics_message_id 提交带工作台和诊断 message 关联键的输入
+    /// prompt_with_workbench_turn_and_diagnostics_message_id 提交工作台、外部 turn_id 和诊断 message 关联键
     /// 核心职责：
-    /// - 将 HTTP 已分配的 assistant message_id 绑定到当前 turn
-    /// - 避免复用 Runtime session 时串用上一轮 message 关联键
-    pub async fn prompt_with_workbench_diagnostics_message_id(
+    /// - 合并 WT01 turn 主链和 WT00 diagnostics 关联要求
+    /// - 保持 Runtime 事件、turn 行和 provider diagnostics 同轮一致
+    pub async fn prompt_with_workbench_turn_and_diagnostics_message_id(
         &mut self,
         user_input: impl Into<String>,
         workbench: AgentSessionWorkbench,
+        turn_id: AgentTurnId,
         diagnostics_message_id: Uuid,
     ) -> AiResult<Vec<AgentEvent>> {
         self.prompt_inner(
             user_input.into(),
             Some(workbench),
-            Some(diagnostics_message_id),
+            Some(TurnContext::new(turn_id, diagnostics_message_id)),
         )
         .await
     }
@@ -82,12 +87,10 @@ impl<E: LoopEngine> AgentSession<E> {
         &mut self,
         user_input: String,
         workbench: Option<AgentSessionWorkbench>,
-        diagnostics_message_id: Option<Uuid>,
+        turn_context: Option<TurnContext>,
     ) -> AiResult<Vec<AgentEvent>> {
         self.state.attach_workbench(workbench);
-        let turn_id = self
-            .state
-            .begin_turn_with_diagnostics_message_id(user_input, diagnostics_message_id);
+        let turn_id = begin_turn(&mut self.state, user_input, turn_context);
         let engine_mode = self.engine.engine_mode().to_owned();
         let mut events = vec![AgentEvent::TurnStarted {
             turn_id,
@@ -120,21 +123,6 @@ impl<E: LoopEngine> AgentSession<E> {
         self.into_prompt_stream_inner(user_input, None, None)
     }
 
-    /// into_prompt_stream_with_diagnostics_message_id 提交带诊断 message 关联键的流式输入
-    /// 核心职责：
-    /// - 将本轮 assistant message_id 写入当前 turn 诊断上下文
-    /// - 保持 Runtime 事件流输出顺序不变
-    pub fn into_prompt_stream_with_diagnostics_message_id(
-        self,
-        user_input: impl Into<String> + Send + 'static,
-        diagnostics_message_id: Uuid,
-    ) -> BoxStream<'static, AiResult<AgentEvent>>
-    where
-        E: 'static,
-    {
-        self.into_prompt_stream_inner(user_input, None, Some(diagnostics_message_id))
-    }
-
     /// into_prompt_stream_with_workbench 提交用户输入和工作台并逐步产出事件
     /// 核心职责：
     /// - 在流式 Runtime 路径中携带本轮 Workbench
@@ -150,27 +138,32 @@ impl<E: LoopEngine> AgentSession<E> {
         self.into_prompt_stream_inner(user_input, Some(workbench), None)
     }
 
-    /// into_prompt_stream_with_workbench_diagnostics_message_id 提交流式工作台输入
+    /// into_prompt_stream_with_workbench_turn_and_diagnostics_message_id 提交流式工作台输入
     /// 核心职责：
-    /// - 将工作台上下文和本轮 assistant message_id 同步绑定到 turn
-    /// - 让 Provider diagnostics 稳定关联到当前 HTTP message
-    pub fn into_prompt_stream_with_workbench_diagnostics_message_id(
+    /// - 同时绑定外部 turn_id 和 diagnostics message_id
+    /// - 让流式 Runtime 路径完整继承 WT01 + WT00 双契约
+    pub fn into_prompt_stream_with_workbench_turn_and_diagnostics_message_id(
         self,
         user_input: impl Into<String> + Send + 'static,
         workbench: AgentSessionWorkbench,
+        turn_id: AgentTurnId,
         diagnostics_message_id: Uuid,
     ) -> BoxStream<'static, AiResult<AgentEvent>>
     where
         E: 'static,
     {
-        self.into_prompt_stream_inner(user_input, Some(workbench), Some(diagnostics_message_id))
+        self.into_prompt_stream_inner(
+            user_input,
+            Some(workbench),
+            Some(TurnContext::new(turn_id, diagnostics_message_id)),
+        )
     }
 
     fn into_prompt_stream_inner(
         mut self,
         user_input: impl Into<String> + Send + 'static,
         workbench: Option<AgentSessionWorkbench>,
-        diagnostics_message_id: Option<Uuid>,
+        turn_context: Option<TurnContext>,
     ) -> BoxStream<'static, AiResult<AgentEvent>>
     where
         E: 'static,
@@ -178,9 +171,7 @@ impl<E: LoopEngine> AgentSession<E> {
         let user_input = user_input.into();
         Box::pin(async_stream::try_stream! {
             self.state.attach_workbench(workbench);
-            let turn_id = self
-                .state
-                .begin_turn_with_diagnostics_message_id(user_input, diagnostics_message_id);
+            let turn_id = begin_turn(&mut self.state, user_input, turn_context);
             let engine_mode = self.engine.engine_mode().to_owned();
             yield AgentEvent::TurnStarted {
                 turn_id,
@@ -204,209 +195,33 @@ impl<E: LoopEngine> AgentSession<E> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum StepFlow {
-    Continue,
-    Stop,
+#[derive(Debug, Clone, Copy)]
+struct TurnContext {
+    turn_id: AgentTurnId,
+    diagnostics_message_id: Uuid,
 }
 
-/// append_step_events 将 LoopStep 映射为 AgentEvent
-/// 核心职责：
-/// - 保持 Runtime 内部事件顺序稳定
-/// - 返回当前 turn 是否需要停止推进
-fn append_step_events(
-    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
-    step: LoopStep,
-    engine_mode: &str,
-    events: &mut Vec<AgentEvent>,
-) -> StepFlow {
-    match step {
-        LoopStep::CallModel {
-            model_label,
-            tool_count,
-            outcome,
-        } => append_model_events(
+impl TurnContext {
+    fn new(turn_id: AgentTurnId, diagnostics_message_id: Uuid) -> Self {
+        Self {
             turn_id,
-            model_label,
-            tool_count,
-            outcome,
-            engine_mode,
-            events,
-        ),
-        LoopStep::MessageDelta { text } => {
-            events.push(AgentEvent::MessageDelta { turn_id, text });
-            StepFlow::Continue
-        }
-        LoopStep::CallTools { tool_results } => append_tool_events(turn_id, tool_results, events),
-        LoopStep::Done {
-            message_id,
-            final_text,
-            status,
-        } => append_done_event(turn_id, message_id, final_text, status, engine_mode, events),
-    }
-}
-
-/// append_model_events 追加模型调用事件
-/// 核心职责：
-/// - 记录模型调用开始和完成事件
-/// - 将 Provider 错误转换为 turn_failed 终态
-fn append_model_events(
-    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
-    model_label: maohuoban_ai_domain::ai::ModelLabel,
-    tool_count: u32,
-    outcome: ModelCallOutcome,
-    engine_mode: &str,
-    events: &mut Vec<AgentEvent>,
-) -> StepFlow {
-    events.push(AgentEvent::ModelCallStarted {
-        turn_id,
-        model_label,
-        tool_count,
-        engine_mode: engine_mode.to_owned(),
-    });
-
-    match outcome {
-        ModelCallOutcome::Finished {
-            finish_reason,
-            usage,
-            provider,
-            model,
-        } => {
-            events.push(AgentEvent::ModelCallFinished {
-                turn_id,
-                finish_reason,
-                usage,
-                provider,
-                model,
-                engine_mode: engine_mode.to_owned(),
-            });
-            StepFlow::Continue
-        }
-        ModelCallOutcome::ProviderError {
-            category,
-            retryable,
-            error_code,
-        } => {
-            events.push(AgentEvent::ProviderError {
-                turn_id,
-                category,
-                retryable,
-                engine_mode: engine_mode.to_owned(),
-            });
-            events.push(AgentEvent::TurnFailed {
-                turn_id,
-                error_code,
-                retryable,
-                engine_mode: engine_mode.to_owned(),
-            });
-            StepFlow::Stop
+            diagnostics_message_id,
         }
     }
 }
 
-/// append_tool_events 追加工具调用事件
-/// 核心职责：
-/// - 记录工具开始和执行结果
-/// - 遇到确认需求时停止当前 turn 推进
-fn append_tool_events(
-    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
-    tool_results: Vec<LoopToolResult>,
-    events: &mut Vec<AgentEvent>,
-) -> StepFlow {
-    let mut flow = StepFlow::Continue;
-
-    for tool_result in tool_results {
-        match tool_result.status {
-            LoopToolStatus::Requested => events.push(AgentEvent::ToolStarted {
-                turn_id,
-                tool_call_id: tool_result.tool_call.id,
-                tool_name: tool_result.tool_call.name,
-            }),
-            LoopToolStatus::Succeeded => append_tool_finished(
-                turn_id,
-                tool_result.tool_call.id,
-                AgentToolStatus::Succeeded,
-                events,
-            ),
-            LoopToolStatus::Denied => append_tool_finished(
-                turn_id,
-                tool_result.tool_call.id,
-                AgentToolStatus::Denied,
-                events,
-            ),
-            LoopToolStatus::Failed => append_tool_finished(
-                turn_id,
-                tool_result.tool_call.id,
-                AgentToolStatus::Failed,
-                events,
-            ),
-            LoopToolStatus::RequiresConfirmation => {
-                append_tool_finished(
-                    turn_id,
-                    tool_result.tool_call.id,
-                    AgentToolStatus::Succeeded,
-                    events,
-                );
-                if let Some(confirmation) = tool_result.confirmation {
-                    events.push(AgentEvent::NeedsConfirmation {
-                        turn_id,
-                        confirmation_task_id: Uuid::parse_str(&confirmation.confirmation_task_id)
-                            .unwrap_or_else(|_| Uuid::new_v4()),
-                        question_text: confirmation.question_text,
-                    });
-                    flow = StepFlow::Stop;
-                }
-            }
-        }
-    }
-
-    flow
-}
-
-/// append_tool_finished 追加工具完成事件
-/// 核心职责：
-/// - 统一工具完成事件字段
-fn append_tool_finished(
-    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
-    tool_call_id: String,
-    status: AgentToolStatus,
-    events: &mut Vec<AgentEvent>,
-) {
-    events.push(AgentEvent::ToolFinished {
-        turn_id,
-        tool_call_id,
-        status,
-        citation_count: 0,
-    });
-}
-
-/// append_done_event 追加 turn 终态事件
-/// 核心职责：
-/// - 将 Done step 映射为完成或失败事件
-/// - 结束当前 turn 推进
-fn append_done_event(
-    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
-    message_id: Uuid,
-    final_text: String,
-    status: AgentTurnStatus,
-    engine_mode: &str,
-    events: &mut Vec<AgentEvent>,
-) -> StepFlow {
-    if status == AgentTurnStatus::Failed {
-        events.push(AgentEvent::TurnFailed {
-            turn_id,
-            error_code: "ai.runtime_failed".to_owned(),
-            retryable: false,
-            engine_mode: engine_mode.to_owned(),
-        });
+fn begin_turn(
+    state: &mut AgentSessionState,
+    user_input: String,
+    turn_context: Option<TurnContext>,
+) -> AgentTurnId {
+    if let Some(turn_context) = turn_context {
+        state.begin_turn_with_id_and_diagnostics_message_id(
+            user_input,
+            turn_context.turn_id,
+            Some(turn_context.diagnostics_message_id),
+        )
     } else {
-        events.push(AgentEvent::TurnFinished {
-            turn_id,
-            message_id,
-            final_text,
-            status,
-        });
+        state.begin_turn_with_id_and_diagnostics_message_id(user_input, AgentTurnId::new(), None)
     }
-
-    StepFlow::Stop
 }

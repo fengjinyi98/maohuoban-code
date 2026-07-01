@@ -468,6 +468,10 @@ mod tests {
         ) -> AiResult<()> {
             Ok(())
         }
+
+        async fn update_message_turn_id(&self, _message_id: Uuid, _turn_id: Uuid) -> AiResult<()> {
+            Ok(())
+        }
     }
 
     struct EmptyPetContextProvider;

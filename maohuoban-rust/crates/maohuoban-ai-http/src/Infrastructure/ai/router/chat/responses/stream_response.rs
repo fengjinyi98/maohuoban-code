@@ -5,7 +5,7 @@ use axum::response::{
 use futures_util::StreamExt;
 use uuid::Uuid;
 
-use maohuoban_ai_domain::ai::AiStreamEvent;
+use maohuoban_ai_domain::ai::{AiSessionTurnStatus, AiStreamEvent};
 
 use super::super::super::diagnostics::{
     record_chat_provider_error, record_chat_stream_event_emitted,
@@ -19,8 +19,10 @@ const EMPTY_MODEL_OUTPUT_FALLBACK_TEXT: &str = "暂时无法获取回答，请�
 pub(crate) fn provider_stream_response<S>(
     stream: S,
     session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
     session_id: Uuid,
     message_id: Uuid,
+    turn_id: Uuid,
     engine_mode: &'static str,
 ) -> Response
 where
@@ -30,6 +32,7 @@ where
 {
     let sse_stream = stream.then(move |result| {
         let session_repo = session_repo.clone();
+        let turn_repo = turn_repo.clone();
         async move {
             let event = match result {
                 Ok(event) => event,
@@ -84,9 +87,20 @@ where
                         usage.input_tokens,
                         usage.output_tokens,
                         format!("{finish_reason:?}"),
-                    ),
+                    )
+                    .with_turn_id(turn_id),
                 )
                 .await;
+                let _ = turn_repo
+                    .update_turn_status(
+                        turn_id,
+                        AiSessionTurnStatus::Completed,
+                        Some(message_id),
+                        Some(&format!("{finish_reason:?}")),
+                        None,
+                        None,
+                    )
+                    .await;
             }
 
             if let AiStreamEvent::ProposedAction { action } = &event {

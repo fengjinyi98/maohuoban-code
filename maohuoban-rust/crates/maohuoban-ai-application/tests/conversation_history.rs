@@ -34,6 +34,7 @@ fn user_message(content: &str, created_at: i64) -> AiMessage {
     AiMessage {
         id: Uuid::new_v4(),
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::User,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,
@@ -52,6 +53,7 @@ fn user_message_with_id(id: Uuid, content: &str, created_at: i64) -> AiMessage {
     AiMessage {
         id,
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::User,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,
@@ -70,6 +72,7 @@ fn assistant_message(content: &str, created_at: i64) -> AiMessage {
     AiMessage {
         id: Uuid::new_v4(),
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::Assistant,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,
@@ -397,6 +400,14 @@ impl AiSessionRepository for FakeSessionRepository {
         &self,
         _session_id: Uuid,
         _action: &maohuoban_ai_domain::ai::AiProposedAction,
+    ) -> maohuoban_ai_domain::ai::AiResult<()> {
+        Ok(())
+    }
+
+    async fn update_message_turn_id(
+        &self,
+        _message_id: Uuid,
+        _turn_id: Uuid,
     ) -> maohuoban_ai_domain::ai::AiResult<()> {
         Ok(())
     }

@@ -41,18 +41,7 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
             );
     });
 
-    let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-        base_url: server.base_url(),
-        api_key: "contract-api-key".to_owned(),
-        model: "contract-model".to_owned(),
-        timeout_secs: 5,
-        temperature: 0.2,
-        max_output_tokens: None,
-        response_format: None,
-    }
-    .into();
-    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    let app = spawn_provider_test_app(&server).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139009", "ios-ai-provider-config").await;
     let pet = create_pet(&app, &access_token, "毛球").await;
@@ -224,6 +213,22 @@ fn install_provider_test_diagnostics() -> Diagnostics {
         store: Box::new(store),
     })
     .expect("install diagnostics")
+}
+
+/// `spawn_provider_test_app` 使用 mock server 构建 Provider 测试应用
+async fn spawn_provider_test_app(server: &MockServer) -> maohuoban_rust::test_support::AuthTestApp {
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await
 }
 
 /// 助手身份问题没有私域宠物上下文时仍进入后端工作台和 Provider

@@ -20,7 +20,7 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, FoodInventoryHintProvider, LlmProvider,
     PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
-    SessionSummaryRepository,
+    SessionSummaryRepository, SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
@@ -36,6 +36,7 @@ pub struct AiHttpState {
     pub llm_provider: Arc<dyn LlmProvider>,
     pub runtime_engine_mode: AgentRuntimeEngineMode,
     pub session_repository: Arc<dyn AiSessionRepository>,
+    pub session_turn_repository: Arc<dyn SessionTurnRepository>,
     pub session_summary_repository: Arc<dyn SessionSummaryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,

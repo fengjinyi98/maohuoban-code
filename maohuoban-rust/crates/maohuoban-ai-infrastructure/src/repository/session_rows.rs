@@ -74,6 +74,7 @@ impl From<SessionRow> for AiChatSession {
 pub(super) struct MessageRow {
     id: Uuid,
     session_id: Uuid,
+    turn_id: Option<Uuid>,
     role: String,
     content: String,
     status: String,
@@ -118,6 +119,7 @@ impl From<MessageRow> for AiMessage {
         Self {
             id: row.id,
             session_id: row.session_id,
+            turn_id: row.turn_id,
             role,
             content: row.content,
             status,
