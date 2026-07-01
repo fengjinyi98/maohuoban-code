@@ -65,8 +65,7 @@ pub async fn handle_chat_stream(
     .await;
     if !context.gate_decision.enters_workbench() {
         return gated_stream_response(
-            state.session_repository.clone(),
-            state.session_turn_repository.clone(),
+            state.chat_turn_transaction.clone(),
             context.session_id,
             context.turn_id.as_uuid(),
             context.assistant_message_id,
@@ -81,8 +80,7 @@ pub async fn handle_chat_stream(
         .filter(|resolution| !resolution.is_resolved())
     {
         return pet_resolution_stream_response(
-            state.session_repository.clone(),
-            state.session_turn_repository.clone(),
+            state.chat_turn_transaction.clone(),
             context.session_id,
             context.turn_id.as_uuid(),
             context.assistant_message_id,
@@ -186,8 +184,7 @@ async fn provider_response_for_context(
 
     provider_stream_response(
         stream,
-        state.session_repository.clone(),
-        state.session_turn_repository.clone(),
+        state.chat_turn_transaction.clone(),
         input.session_id,
         input.message_id,
         input.turn_id.as_uuid(),

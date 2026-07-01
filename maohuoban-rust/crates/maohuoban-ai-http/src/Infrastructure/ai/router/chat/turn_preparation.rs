@@ -1,10 +1,11 @@
 use chrono::Utc;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
 use maohuoban_ai_application::ai::ports::{
-    AiRequestGateLog, AiSessionRepository, AiToolAccessLog, SessionTurnRepository,
+    AiRequestGateLog, AiSessionRepository, AiToolAccessLog, IngressTxInput,
 };
 use maohuoban_ai_domain::ai::{
-    AgentTurnId, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn,
+    AgentTurnId, AiChatSession, AiChatSessionStatus, AiGateDecision, AiIntent, AiMessage,
+    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn,
     AiSessionTurnStatus, AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
@@ -15,9 +16,6 @@ use uuid::Uuid;
 use super::super::AiHttpState;
 use super::composition::request::ChatStreamRequest;
 use super::composition::title::build_title;
-use super::persistence::session_persistence::{
-    PetSessionContext, persist_session_and_user_message,
-};
 use super::runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 
 /// ChatTurnContext 聊天轮次准备结果
@@ -75,54 +73,94 @@ pub(super) async fn prepare_chat_turn_context(
     }
 }
 
-/// persist_prepared_chat_turn 持久化已准备的聊天轮次
+/// persist_prepared_chat_turn 在单个事务内持久化已准备的聊天轮次
 /// 核心职责：
-/// - 写入或更新会话记录
-/// - 写入本轮用户消息和 gate 审计日志
-/// - 写入 turn 账本行，使 turn 成为数据库一等对象
+/// - 在 Ingress Tx 中写入 session、user message、turn 账本行和 gate 审计日志
+/// - 消除多次独立仓储调用导致的中间态不一致风险
 pub(super) async fn persist_prepared_chat_turn(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
     context: &ChatTurnContext,
 ) {
-    persist_session_and_user_message(
-        &state.session_repository,
-        req,
+    let now = Utc::now();
+    let primary_pet_id = context
+        .resolved_pet_id
+        .or(context.effective_selected_pet_id);
+
+    let session = AiChatSession {
+        id: context.session_id,
         actor_user_id,
-        context.session_id,
-        context.user_message_id,
-        context.turn_id.as_uuid(),
-        context.title.clone(),
-        PetSessionContext {
-            primary_pet_id: context
-                .resolved_pet_id
-                .or(context.effective_selected_pet_id),
-            pet_display_snapshot: context.target_pet.clone(),
-        },
-        Utc::now(),
-    )
-    .await;
+        primary_pet_id,
+        surface: req.surface,
+        source_hint_id: req.source_hint_id,
+        source_task_id: req.confirmation_task_id,
+        title: context.title.clone(),
+        is_pinned: false,
+        pet_display_snapshot: context.target_pet.clone(),
+        status: AiChatSessionStatus::Active,
+        created_at: now,
+        updated_at: now,
+    };
 
-    insert_turn_row(&state.session_turn_repository, req, actor_user_id, context).await;
+    let user_message = AiMessage {
+        id: context.user_message_id,
+        session_id: context.session_id,
+        turn_id: None,
+        role: AiMessageRole::User,
+        content: req.message.clone(),
+        status: AiMessageStatus::Completed,
+        citations: vec![],
+        model: None,
+        provider: None,
+        finish_reason: None,
+        usage_input_tokens: None,
+        usage_output_tokens: None,
+        verification: None,
+        created_at: now,
+    };
 
-    // 回写用户消息的 turn_id，建立 message ↔ turn 双向关联
-    // 解决循环外键：消息先以 turn_id=NULL 插入，turn 行插入后再回写
+    let turn = AiSessionTurn {
+        id: context.turn_id.as_uuid(),
+        session_id: context.session_id,
+        actor_user_id,
+        user_message_id: context.user_message_id,
+        assistant_message_id: None,
+        intent: intent_code(context.gate_decision.intent).to_owned(),
+        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
+        resolved_pet_id: context.resolved_pet_id,
+        engine_mode: "self_hosted".to_owned(),
+        surface: req.surface,
+        status: AiSessionTurnStatus::Running,
+        finish_reason: None,
+        error_code: None,
+        retryable: None,
+        started_at: now,
+        finished_at: None,
+    };
+
+    let gate_log = AiRequestGateLog {
+        session_id: Some(context.session_id),
+        actor_user_id,
+        intent: intent_code(context.gate_decision.intent).to_owned(),
+        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
+        context_loaded: context.gate_decision.context_loaded,
+        request_hash: request_hash(&req.message),
+        resolved_pet_id: context.resolved_pet_id,
+        selected_pet_id: context.effective_selected_pet_id,
+        risk_signal: context.gate_decision.risk_signal.clone(),
+        estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
+    };
+
     let _ = state
-        .session_repository
-        .update_message_turn_id(context.user_message_id, context.turn_id.as_uuid())
+        .chat_turn_transaction
+        .persist_ingress_tx(&IngressTxInput {
+            session: &session,
+            user_message: &user_message,
+            turn: &turn,
+            gate_log: &gate_log,
+        })
         .await;
-
-    insert_request_gate_log(
-        &state.session_repository,
-        req,
-        context.session_id,
-        actor_user_id,
-        context.resolved_pet_id,
-        context.effective_selected_pet_id,
-        &context.gate_decision,
-    )
-    .await;
 }
 
 /// load_pet_catalog_initial_events 加载宠物候选工具初始事件
@@ -151,39 +189,6 @@ pub(super) async fn load_pet_catalog_initial_events(
     } else {
         Vec::new()
     }
-}
-
-/// insert_turn_row 在 Ingress 阶段写入 turn 账本行
-/// 核心职责：
-/// - 创建 turn 行，状态为 running
-/// - 绑定 user_message_id 和 intent/gate 摘要
-async fn insert_turn_row(
-    turn_repo: &Arc<dyn SessionTurnRepository>,
-    req: &ChatStreamRequest,
-    actor_user_id: Uuid,
-    context: &ChatTurnContext,
-) {
-    let turn = AiSessionTurn {
-        id: context.turn_id.as_uuid(),
-        session_id: context.session_id,
-        actor_user_id,
-        user_message_id: context.user_message_id,
-        // assistant_message_id 在 Finalizer 阶段由 update_turn_status 回写，
-        // 避免循环外键：turn.assistant_message_id → ai_messages(id) 在插入时还不存在
-        assistant_message_id: None,
-        intent: intent_code(context.gate_decision.intent).to_owned(),
-        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
-        resolved_pet_id: context.resolved_pet_id,
-        engine_mode: "self_hosted".to_owned(),
-        surface: req.surface,
-        status: AiSessionTurnStatus::Running,
-        finish_reason: None,
-        error_code: None,
-        retryable: None,
-        started_at: Utc::now(),
-        finished_at: None,
-    };
-    let _ = turn_repo.insert_turn(&turn).await;
 }
 
 /// effective_selected_pet_id 解析本轮有效宠物 ID
@@ -242,35 +247,6 @@ fn resolved_pet_snapshot(pet_resolution: Option<&AiPetResolution>) -> Option<AiP
         Some(AiPetResolution::Resolved { snapshot, .. }) => Some(snapshot.clone()),
         _ => None,
     }
-}
-
-/// insert_request_gate_log 写入请求 gate 审计
-/// 核心职责：
-/// - 持久化意图、上下文加载状态和宠物解析结果
-/// - 避免在 handler 中展开审计表字段细节
-async fn insert_request_gate_log(
-    session_repo: &Arc<dyn AiSessionRepository>,
-    req: &ChatStreamRequest,
-    session_id: Uuid,
-    actor_user_id: Uuid,
-    resolved_pet_id: Option<Uuid>,
-    selected_pet_id: Option<Uuid>,
-    gate_decision: &AiGateDecision,
-) {
-    let _ = session_repo
-        .insert_request_gate_log(&AiRequestGateLog {
-            session_id: Some(session_id),
-            actor_user_id,
-            intent: intent_code(gate_decision.intent).to_owned(),
-            gate_decision: gate_decision_code(gate_decision).to_owned(),
-            context_loaded: gate_decision.context_loaded,
-            request_hash: request_hash(&req.message),
-            resolved_pet_id,
-            selected_pet_id,
-            risk_signal: gate_decision.risk_signal.clone(),
-            estimated_input_tokens: i32::try_from(req.message.chars().count()).unwrap_or(i32::MAX),
-        })
-        .await;
 }
 
 /// insert_pet_catalog_tool_log 写入授权宠物候选工具审计

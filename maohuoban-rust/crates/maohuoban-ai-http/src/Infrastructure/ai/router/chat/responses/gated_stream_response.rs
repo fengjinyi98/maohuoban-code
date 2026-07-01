@@ -2,25 +2,24 @@ use axum::response::{
     IntoResponse, Response,
     sse::{Event, KeepAlive, Sse},
 };
+use chrono::Utc;
 use futures_util::stream;
+use maohuoban_ai_application::ai::ports::{ChatTurnTransactionPort, FinalizerTxInput};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiGateDecision, AiIntent, AiSessionTurnStatus, AiStreamEvent,
-    LlmFinishReason, LlmUsage,
+    AiAnswerVerification, AiGateDecision, AiIntent, AiMessage, AiMessageRole, AiMessageStatus,
+    AiSessionTurnStatus, AiStreamEvent, LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
 use super::super::super::diagnostics::record_chat_stream_event_emitted;
-use super::super::persistence::assistant_message_persistence::{
-    AssistantMessagePersistRequest, spawn_assistant_message_persist,
-};
 
 /// gated_stream_response 构建不进入主 Agent 的安全 SSE 响应
 /// 核心职责：
 /// - 对 off-topic、app support 和风险请求跳过 Provider
+/// - 在单个事务内持久化边界消息和 turn 终态
 /// - 输出稳定 message_started/message_completed 事件
 pub(crate) fn gated_stream_response(
-    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+    chat_turn_transaction: std::sync::Arc<dyn ChatTurnTransactionPort>,
     session_id: Uuid,
     turn_id: Uuid,
     message_id: Uuid,
@@ -28,20 +27,14 @@ pub(crate) fn gated_stream_response(
     gate_decision: &AiGateDecision,
 ) -> Response {
     let final_text = gated_message_text(gate_decision).to_owned();
-    spawn_assistant_message_persist(
-        session_repo,
-        AssistantMessagePersistRequest::new(
-            message_id,
-            session_id,
-            final_text.clone(),
-            Vec::new(),
-            0,
-            0,
-            "gate_skipped_main_agent".to_owned(),
-        )
-        .with_turn_id(turn_id),
+    spawn_finalizer_tx(
+        chat_turn_transaction,
+        session_id,
+        turn_id,
+        message_id,
+        final_text.clone(),
+        "gate_skipped_main_agent",
     );
-    spawn_turn_finalize(turn_repo, turn_id, message_id, "gate_skipped_main_agent");
 
     let events = vec![
         AiStreamEvent::MessageStarted {
@@ -85,27 +78,47 @@ pub(crate) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str
     }
 }
 
-/// spawn_turn_finalize 异步更新 turn 终态
+/// spawn_finalizer_tx 异步在单个事务内持久化边界消息和 turn 终态
 /// 核心职责：
-/// - 在 gate / pet_resolution 分支统一收口 turn 终态
+/// - 在 gate / pet_resolution 分支统一收口 Finalizer 事务
 /// - 避免终态更新散落在各 handler
-fn spawn_turn_finalize(
-    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+pub(crate) fn spawn_finalizer_tx(
+    chat_turn_transaction: std::sync::Arc<dyn ChatTurnTransactionPort>,
+    session_id: Uuid,
     turn_id: Uuid,
-    assistant_message_id: Uuid,
+    message_id: Uuid,
+    final_text: String,
     finish_reason: &str,
 ) {
     let finish_reason = finish_reason.to_owned();
     tokio::spawn(async move {
-        let _ = turn_repo
-            .update_turn_status(
+        let assistant_message = AiMessage {
+            id: message_id,
+            session_id,
+            turn_id: Some(turn_id),
+            role: AiMessageRole::Assistant,
+            content: final_text,
+            status: AiMessageStatus::Completed,
+            citations: Vec::new(),
+            model: None,
+            provider: None,
+            finish_reason: Some(finish_reason.clone()),
+            usage_input_tokens: Some(0),
+            usage_output_tokens: Some(0),
+            verification: Some(AiAnswerVerification::passed()),
+            created_at: Utc::now(),
+        };
+        let _ = chat_turn_transaction
+            .persist_finalizer_tx(&FinalizerTxInput {
+                assistant_message: &assistant_message,
+                citations: &[],
                 turn_id,
-                AiSessionTurnStatus::Completed,
-                Some(assistant_message_id),
-                Some(&finish_reason),
-                None,
-                None,
-            )
+                turn_status: AiSessionTurnStatus::Completed,
+                assistant_message_id: Some(message_id),
+                finish_reason: Some(&finish_reason),
+                error_code: None,
+                retryable: None,
+            })
             .await;
     });
 }

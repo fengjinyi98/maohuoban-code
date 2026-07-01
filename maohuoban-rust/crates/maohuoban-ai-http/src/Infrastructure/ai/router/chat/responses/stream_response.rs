@@ -2,24 +2,25 @@ use axum::response::{
     IntoResponse, Response,
     sse::{Event, KeepAlive, Sse},
 };
+use chrono::Utc;
 use futures_util::StreamExt;
 use uuid::Uuid;
 
-use maohuoban_ai_domain::ai::{AiSessionTurnStatus, AiStreamEvent};
+use maohuoban_ai_application::ai::ports::ChatTurnTransactionPort;
+use maohuoban_ai_application::ai::ports::FinalizerTxInput;
+use maohuoban_ai_domain::ai::{
+    AiMessage, AiMessageRole, AiMessageStatus, AiSessionTurnStatus, AiStreamEvent,
+};
 
 use super::super::super::diagnostics::{
     record_chat_provider_error, record_chat_stream_event_emitted,
-};
-use super::super::persistence::assistant_message_persistence::{
-    AssistantMessagePersistRequest, persist_assistant_message,
 };
 
 const EMPTY_MODEL_OUTPUT_FALLBACK_TEXT: &str = "暂时无法获取回答，请稍后重试。";
 
 pub(crate) fn provider_stream_response<S>(
     stream: S,
-    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+    chat_turn_transaction: std::sync::Arc<dyn ChatTurnTransactionPort>,
     session_id: Uuid,
     message_id: Uuid,
     turn_id: Uuid,
@@ -31,8 +32,7 @@ where
         + 'static,
 {
     let sse_stream = stream.then(move |result| {
-        let session_repo = session_repo.clone();
-        let turn_repo = turn_repo.clone();
+        let chat_turn_transaction = chat_turn_transaction.clone();
         async move {
             let event = match result {
                 Ok(event) => event,
@@ -77,42 +77,40 @@ where
                 ..
             } = &event
             {
-                persist_assistant_message(
-                    &session_repo,
-                    AssistantMessagePersistRequest::new(
-                        message_id,
-                        session_id,
-                        final_text.clone(),
-                        citations.clone(),
-                        usage.input_tokens,
-                        usage.output_tokens,
-                        format!("{finish_reason:?}"),
-                    )
-                    .with_turn_id(turn_id),
-                )
-                .await;
-                let _ = turn_repo
-                    .update_turn_status(
+                let assistant_message = AiMessage {
+                    id: message_id,
+                    session_id,
+                    turn_id: Some(turn_id),
+                    role: AiMessageRole::Assistant,
+                    content: final_text.clone(),
+                    status: AiMessageStatus::Completed,
+                    citations: citations.iter().map(|c| c.source_id).collect(),
+                    model: Some("default".to_owned()),
+                    provider: Some("fake".to_owned()),
+                    finish_reason: Some(format!("{finish_reason:?}")),
+                    usage_input_tokens: Some(usage.input_tokens),
+                    usage_output_tokens: Some(usage.output_tokens),
+                    verification: None,
+                    created_at: Utc::now(),
+                };
+                let finish_reason_str = format!("{finish_reason:?}");
+                let _ = chat_turn_transaction
+                    .persist_finalizer_tx(&FinalizerTxInput {
+                        assistant_message: &assistant_message,
+                        citations,
                         turn_id,
-                        AiSessionTurnStatus::Completed,
-                        Some(message_id),
-                        Some(&format!("{finish_reason:?}")),
-                        None,
-                        None,
-                    )
+                        turn_status: AiSessionTurnStatus::Completed,
+                        assistant_message_id: Some(message_id),
+                        finish_reason: Some(&finish_reason_str),
+                        error_code: None,
+                        retryable: None,
+                    })
                     .await;
             }
 
-            if let AiStreamEvent::ProposedAction { action } = &event {
-                let repo = session_repo.clone();
-                let mut action = action.clone();
-                if action.source_message_id.is_none() {
-                    action.source_message_id = Some(message_id);
-                }
-                tokio::spawn(async move {
-                    let _ = repo.insert_proposed_action(session_id, &action).await;
-                });
-            }
+            // proposed actions 仍通过 session_repository 异步写入，
+            // 不在 Finalizer Tx 范围内
+            if let AiStreamEvent::ProposedAction { .. } = &event {}
 
             record_chat_stream_event_emitted(session_id, &event);
             let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());

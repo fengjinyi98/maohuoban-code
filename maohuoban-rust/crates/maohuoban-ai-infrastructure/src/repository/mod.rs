@@ -5,6 +5,7 @@
 //! - 查询会话列表和消息详情
 // MHB_STRUCTURE_EXEMPTION: 既有 AI infrastructure repository 聚合入口。
 
+mod chat_turn_transaction;
 mod memory;
 mod memory_candidate;
 mod session;
@@ -13,6 +14,7 @@ mod session_rows;
 mod session_summary;
 mod session_turn;
 
+pub use chat_turn_transaction::PostgresChatTurnTransaction;
 pub use memory::PostgresMemoryRepository;
 pub use memory_candidate::PostgresMemoryCandidateRepository;
 pub use session::PostgresAiSessionRepository;

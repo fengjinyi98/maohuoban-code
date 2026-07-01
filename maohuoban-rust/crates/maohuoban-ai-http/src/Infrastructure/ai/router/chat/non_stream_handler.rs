@@ -2,6 +2,7 @@ use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use chrono::Utc;
 use maohuoban_ai_application::ai::citations::citations_for_answer;
 use maohuoban_ai_application::ai::conversation_history::RecentConversationLoader;
+use maohuoban_ai_application::ai::ports::FinalizerTxInput;
 use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
 };
@@ -109,26 +110,14 @@ pub async fn handle_chat(
         Err(error) => return ai_error_response(&error),
     };
 
-    persist_assistant_message(
-        &state.session_repository,
+    persist_finalizer_tx(
+        &state,
         context.assistant_message_id,
         context.session_id,
         context.turn_id.as_uuid(),
         &complete,
     )
     .await;
-
-    let _ = state
-        .session_turn_repository
-        .update_turn_status(
-            context.turn_id.as_uuid(),
-            AiSessionTurnStatus::Completed,
-            Some(context.assistant_message_id),
-            Some(&format!("{:?}", complete.finish_reason)),
-            None,
-            None,
-        )
-        .await;
 
     ok_response(
         "ai.chat_completed",
@@ -343,179 +332,103 @@ struct ChatCompleteResponse {
     verification: AiAnswerVerification,
 }
 
-/// persist_assistant_message 持久化非流式助手消息
+/// persist_finalizer_tx 在单个事务内持久化 Finalizer 阶段全部数据
 /// 核心职责：
-/// - 保存最终回答、Provider 元信息和回答校验结果
-/// - 绑定 turn_id 到助手消息
-/// - 保持非流式与流式历史读取路径一致
-async fn persist_assistant_message(
-    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+/// - 写入 assistant message、citations 并更新 turn 终态
+/// - 消除多次独立仓储调用导致的中间态不一致风险
+async fn persist_finalizer_tx(
+    state: &AiHttpState,
     message_id: Uuid,
     session_id: Uuid,
     turn_id: Uuid,
-    complete: &maohuoban_ai_application::ai::stream::AiCompleteResult,
+    complete: &AiCompleteResult,
 ) {
-    persist_assistant_message_from_parts(
-        repo,
-        AssistantMessageRecord {
-            message_id,
-            session_id,
-            turn_id: Some(turn_id),
-            final_text: complete.final_text.clone(),
-            citations: complete.citations.clone(),
-            usage: complete.usage,
-            finish_reason: format!("{:?}", complete.finish_reason),
-            provider: Some(complete.provider.clone()),
-            model: Some(complete.model.clone()),
-            verification: Some(complete.verification.clone()),
-        },
-    )
-    .await;
+    let assistant_message = AiMessage {
+        id: message_id,
+        session_id,
+        turn_id: Some(turn_id),
+        role: AiMessageRole::Assistant,
+        content: complete.final_text.clone(),
+        status: AiMessageStatus::Completed,
+        citations: complete.citations.iter().map(|c| c.source_id).collect(),
+        model: Some(complete.model.clone()),
+        provider: Some(complete.provider.clone()),
+        finish_reason: Some(format!("{:?}", complete.finish_reason)),
+        usage_input_tokens: Some(complete.usage.input_tokens),
+        usage_output_tokens: Some(complete.usage.output_tokens),
+        verification: Some(complete.verification.clone()),
+        created_at: Utc::now(),
+    };
+    let finish_reason_str = format!("{:?}", complete.finish_reason);
+    let _ = state
+        .chat_turn_transaction
+        .persist_finalizer_tx(&FinalizerTxInput {
+            assistant_message: &assistant_message,
+            citations: &complete.citations,
+            turn_id,
+            turn_status: AiSessionTurnStatus::Completed,
+            assistant_message_id: Some(message_id),
+            finish_reason: Some(&finish_reason_str),
+            error_code: None,
+            retryable: None,
+        })
+        .await;
 }
 
 /// complete_boundary_turn 完成边界分支 turn 并返回响应
 /// 核心职责：
-/// - 更新 turn 终态
-/// - 持久化边界消息并返回响应
+/// - 在单个事务内写入边界消息并更新 turn 终态
+/// - 返回与 Provider 完成一致的响应形状
 async fn complete_boundary_turn(
     state: &AiHttpState,
     context: &ChatTurnContext,
     message_text: String,
     finish_reason: &str,
 ) -> Response {
+    let assistant_message = AiMessage {
+        id: context.assistant_message_id,
+        session_id: context.session_id,
+        turn_id: Some(context.turn_id.as_uuid()),
+        role: AiMessageRole::Assistant,
+        content: message_text.clone(),
+        status: AiMessageStatus::Completed,
+        citations: Vec::new(),
+        model: None,
+        provider: None,
+        finish_reason: Some(finish_reason.to_owned()),
+        usage_input_tokens: Some(0),
+        usage_output_tokens: Some(0),
+        verification: Some(AiAnswerVerification::passed()),
+        created_at: Utc::now(),
+    };
     let _ = state
-        .session_turn_repository
-        .update_turn_status(
-            context.turn_id.as_uuid(),
-            AiSessionTurnStatus::Completed,
-            Some(context.assistant_message_id),
-            Some(finish_reason),
-            None,
-            None,
-        )
-        .await;
-    persist_and_respond_boundary_message(
-        &state.session_repository,
-        BoundaryMessageInput {
-            message_id: context.assistant_message_id,
-            session_id: context.session_id,
+        .chat_turn_transaction
+        .persist_finalizer_tx(&FinalizerTxInput {
+            assistant_message: &assistant_message,
+            citations: &[],
             turn_id: context.turn_id.as_uuid(),
-            title: context.title.clone(),
-            target_pet: context.target_pet.clone(),
-            final_text: message_text,
-            finish_reason: finish_reason.to_owned(),
-        },
-    )
-    .await
-}
-
-/// persist_and_respond_boundary_message 返回非 Provider 分支聚合结果
-/// 核心职责：
-/// - 持久化 gate / 宠物解析边界消息
-/// - 返回与 Provider 完成一致的响应形状
-async fn persist_and_respond_boundary_message(
-    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    input: BoundaryMessageInput,
-) -> Response {
-    let usage = LlmUsage::default();
-    let verification = AiAnswerVerification::passed();
-    persist_assistant_message_from_parts(
-        repo,
-        AssistantMessageRecord {
-            message_id: input.message_id,
-            session_id: input.session_id,
-            turn_id: Some(input.turn_id),
-            final_text: input.final_text.clone(),
-            citations: Vec::new(),
-            usage,
-            finish_reason: input.finish_reason,
-            provider: None,
-            model: None,
-            verification: Some(verification.clone()),
-        },
-    )
-    .await;
-
+            turn_status: AiSessionTurnStatus::Completed,
+            assistant_message_id: Some(context.assistant_message_id),
+            finish_reason: Some(finish_reason),
+            error_code: None,
+            retryable: None,
+        })
+        .await;
     ok_response(
         "ai.chat_completed",
         "AI 回答已完成",
         ChatCompleteResponse {
-            chat_session_id: input.session_id,
-            message_id: input.message_id,
-            title: input.title,
-            target_pet: input.target_pet,
-            final_text: input.final_text,
+            chat_session_id: context.session_id,
+            message_id: context.assistant_message_id,
+            title: context.title.clone(),
+            target_pet: context.target_pet.clone(),
+            final_text: message_text,
             citations: Vec::new(),
-            usage,
+            usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
-            verification,
+            verification: AiAnswerVerification::passed(),
         },
     )
-}
-
-/// BoundaryMessageInput 边界消息持久化输入
-/// 核心职责：
-/// - 承载 gate / 宠物解析边界分支的消息和响应字段
-struct BoundaryMessageInput {
-    message_id: Uuid,
-    session_id: Uuid,
-    turn_id: Uuid,
-    title: String,
-    target_pet: Option<AiPetDisplaySnapshot>,
-    final_text: String,
-    finish_reason: String,
-}
-
-/// AssistantMessageRecord 助手消息持久化输入
-/// 核心职责：
-/// - 承载助手最终消息字段
-/// - 降低持久化 helper 参数复杂度
-struct AssistantMessageRecord {
-    message_id: Uuid,
-    session_id: Uuid,
-    turn_id: Option<Uuid>,
-    final_text: String,
-    citations: Vec<AiCitation>,
-    usage: LlmUsage,
-    finish_reason: String,
-    provider: Option<String>,
-    model: Option<String>,
-    verification: Option<AiAnswerVerification>,
-}
-
-/// persist_assistant_message_from_parts 持久化助手消息字段
-/// 核心职责：
-/// - 统一 Provider 分支和边界分支的消息写入
-/// - 保留完成原因、Provider 元信息和校验结果
-async fn persist_assistant_message_from_parts(
-    repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    record: AssistantMessageRecord,
-) {
-    let citation_ids = record
-        .citations
-        .iter()
-        .map(|citation| citation.source_id)
-        .collect::<Vec<_>>();
-    let assistant_message = AiMessage {
-        id: record.message_id,
-        session_id: record.session_id,
-        turn_id: record.turn_id,
-        role: AiMessageRole::Assistant,
-        content: record.final_text,
-        status: AiMessageStatus::Completed,
-        citations: citation_ids,
-        model: record.model,
-        provider: record.provider,
-        finish_reason: Some(record.finish_reason),
-        usage_input_tokens: Some(record.usage.input_tokens),
-        usage_output_tokens: Some(record.usage.output_tokens),
-        verification: record.verification,
-        created_at: Utc::now(),
-    };
-    let _ = repo.insert_message(&assistant_message).await;
-    let _ = repo
-        .insert_message_citations(record.message_id, record.session_id, &record.citations)
-        .await;
 }
 
 /// load_history_and_summary_non_stream 加载历史和会话摘要

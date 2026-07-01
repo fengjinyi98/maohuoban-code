@@ -38,7 +38,8 @@ use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
-    PostgresAiSessionRepository, PostgresSessionSummaryRepository, PostgresSessionTurnRepository,
+    PostgresAiSessionRepository, PostgresChatTurnTransaction, PostgresSessionSummaryRepository,
+    PostgresSessionTurnRepository,
 };
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
@@ -240,12 +241,16 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
     let ai_session_turn_repository = PostgresSessionTurnRepository::new(pool.clone());
+    let ai_chat_turn_transaction = PostgresChatTurnTransaction::new(pool.clone());
     let ai_http_state = build_ai_http_state(
         &config.ai_llm_provider_config,
         config.ai_runtime_engine_mode,
         pet_service.clone(),
-        ai_session_repository.clone(),
-        ai_session_turn_repository.clone(),
+        AiHttpRepositories {
+            session_repository: ai_session_repository.clone(),
+            session_turn_repository: ai_session_turn_repository.clone(),
+            chat_turn_transaction: ai_chat_turn_transaction,
+        },
         pool.clone(),
         auth_service.clone(),
     );
@@ -281,6 +286,16 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     })
 }
 
+/// AiHttpRepositories AI HTTP 仓储集合
+/// 核心职责：
+/// - 聚合 session、turn 和事务端口的仓储实现
+/// - 控制 build_ai_http_state 参数数量
+struct AiHttpRepositories {
+    session_repository: PostgresAiSessionRepository,
+    session_turn_repository: PostgresSessionTurnRepository,
+    chat_turn_transaction: PostgresChatTurnTransaction,
+}
+
 /// build_ai_http_state 装配 AI HTTP 状态
 /// 核心职责：
 /// - 构建 LLM stream pipeline 和宠物上下文 provider
@@ -289,8 +304,7 @@ fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
     runtime_engine_mode: AgentRuntimeEngineMode,
     pet_service: Arc<PetService>,
-    ai_session_repository: PostgresAiSessionRepository,
-    ai_session_turn_repository: PostgresSessionTurnRepository,
+    repos: AiHttpRepositories,
     ai_session_pool: sqlx::PgPool,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
@@ -304,10 +318,12 @@ fn build_ai_http_state(
         stream_pipeline: ai_stream_pipeline,
         llm_provider: ai_llm_provider,
         runtime_engine_mode,
-        session_repository: Arc::new(ai_session_repository)
+        session_repository: Arc::new(repos.session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-        session_turn_repository: Arc::new(ai_session_turn_repository)
+        session_turn_repository: Arc::new(repos.session_turn_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+        chat_turn_transaction: Arc::new(repos.chat_turn_transaction)
+            as Arc<dyn maohuoban_ai_application::ai::ports::ChatTurnTransactionPort>,
         session_summary_repository: Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionSummaryRepository>,
         pet_resolver: ai_pet_resolver,

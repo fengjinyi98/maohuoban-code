@@ -18,7 +18,7 @@ use axum::{
 };
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
-    AiSessionRepository, FoodInventoryHintProvider, LlmProvider,
+    AiSessionRepository, ChatTurnTransactionPort, FoodInventoryHintProvider, LlmProvider,
     PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
     SessionSummaryRepository, SessionTurnRepository,
 };
@@ -37,6 +37,7 @@ pub struct AiHttpState {
     pub runtime_engine_mode: AgentRuntimeEngineMode,
     pub session_repository: Arc<dyn AiSessionRepository>,
     pub session_turn_repository: Arc<dyn SessionTurnRepository>,
+    pub chat_turn_transaction: Arc<dyn ChatTurnTransactionPort>,
     pub session_summary_repository: Arc<dyn SessionSummaryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,

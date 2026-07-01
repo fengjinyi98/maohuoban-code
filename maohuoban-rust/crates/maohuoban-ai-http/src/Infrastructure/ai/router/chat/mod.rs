@@ -3,10 +3,6 @@
 //! - 汇聚流式与非流式聊天 handler
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
-mod persistence {
-    pub(super) mod assistant_message_persistence;
-    pub(super) mod session_persistence;
-}
 mod composition {
     pub(super) mod fact_package_merge;
     pub(super) mod request;

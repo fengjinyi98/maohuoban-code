@@ -3,24 +3,22 @@ use axum::response::{
     sse::{Event, KeepAlive, Sse},
 };
 use futures_util::stream;
+use maohuoban_ai_application::ai::ports::ChatTurnTransactionPort;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiPetResolution, AiSessionTurnStatus, AiStreamEvent, LlmFinishReason,
-    LlmUsage,
+    AiAnswerVerification, AiPetResolution, AiStreamEvent, LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
 use super::super::super::diagnostics::record_chat_stream_event_emitted;
-use super::super::persistence::assistant_message_persistence::{
-    AssistantMessagePersistRequest, spawn_assistant_message_persist,
-};
+use super::gated_stream_response::spawn_finalizer_tx;
 
 /// pet_resolution_stream_response 构建宠物解析未完成的安全 SSE 响应
 /// 核心职责：
 /// - 返回 pet_resolution 事件帮助前端展示选择或缺失信息
 /// - 跳过主 Provider，避免在没有唯一宠物事实根时调用 LLM
+/// - 在单个事务内持久化边界消息和 turn 终态
 pub(crate) fn pet_resolution_stream_response(
-    session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+    chat_turn_transaction: std::sync::Arc<dyn ChatTurnTransactionPort>,
     session_id: Uuid,
     turn_id: Uuid,
     message_id: Uuid,
@@ -28,23 +26,12 @@ pub(crate) fn pet_resolution_stream_response(
     resolution: AiPetResolution,
 ) -> Response {
     let final_text = pet_resolution_message_text(&resolution).to_owned();
-    spawn_assistant_message_persist(
-        session_repo,
-        AssistantMessagePersistRequest::new(
-            message_id,
-            session_id,
-            final_text.clone(),
-            Vec::new(),
-            0,
-            0,
-            "pet_resolution_skipped_main_agent".to_owned(),
-        )
-        .with_turn_id(turn_id),
-    );
-    spawn_turn_finalize(
-        turn_repo,
+    spawn_finalizer_tx(
+        chat_turn_transaction,
+        session_id,
         turn_id,
         message_id,
+        final_text.clone(),
         "pet_resolution_skipped_main_agent",
     );
 
@@ -86,28 +73,4 @@ pub(crate) fn pet_resolution_message_text(resolution: &AiPetResolution) -> &'sta
         AiPetResolution::NoPetContext => "请先创建或选择一只宠物，我再围绕它的记录继续回答。",
         AiPetResolution::Resolved { .. } => "已确认目标宠物。",
     }
-}
-
-/// spawn_turn_finalize 异步更新 turn 终态
-/// 核心职责：
-/// - 在 pet_resolution 分支统一收口 turn 终态
-fn spawn_turn_finalize(
-    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
-    turn_id: Uuid,
-    assistant_message_id: Uuid,
-    finish_reason: &str,
-) {
-    let finish_reason = finish_reason.to_owned();
-    tokio::spawn(async move {
-        let _ = turn_repo
-            .update_turn_status(
-                turn_id,
-                AiSessionTurnStatus::Completed,
-                Some(assistant_message_id),
-                Some(&finish_reason),
-                None,
-                None,
-            )
-            .await;
-    });
 }

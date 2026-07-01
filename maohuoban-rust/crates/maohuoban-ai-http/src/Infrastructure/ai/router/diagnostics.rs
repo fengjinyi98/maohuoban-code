@@ -84,34 +84,6 @@ pub(crate) fn record_chat_gate_decided(
     record_ai_event("ai.chat.gate.decided", Severity::Info, metadata);
 }
 
-/// record_chat_session_persisted 记录会话和用户消息持久化结果
-/// 核心职责：
-/// - 标记 session upsert 与 user message insert 是否成功
-/// - 关联用户、会话和目标宠物脱敏 ID
-pub(crate) fn record_chat_session_persisted(
-    actor_user_id: Uuid,
-    session_id: Uuid,
-    primary_pet_id: Option<Uuid>,
-    session_persisted: bool,
-    user_message_persisted: bool,
-) {
-    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
-    metadata.extend(vec![
-        (
-            "actor_user_id_prefix",
-            json!(uuid_prefix(Some(actor_user_id))),
-        ),
-        ("primary_pet_id_prefix", json!(uuid_prefix(primary_pet_id))),
-        ("session_persisted", json!(session_persisted)),
-        ("user_message_persisted", json!(user_message_persisted)),
-    ]);
-    record_ai_event(
-        "ai.chat.session.persisted",
-        severity(session_persisted && user_message_persisted),
-        metadata,
-    );
-}
-
 /// record_chat_provider_started 记录进入 Provider 分支
 /// 核心职责：
 /// - 区分 gate 跳过和真实 Provider 链路
@@ -321,37 +293,6 @@ pub(crate) fn record_chat_provider_error(
                 "safe_text_present",
                 json!(safe_fallback_text.is_some_and(|text| !text.trim().is_empty())),
             ),
-        ],
-    );
-}
-
-/// record_chat_assistant_persisted 记录助手消息持久化结果
-/// 核心职责：
-/// - 关联 message_completed 与历史详情可见性
-/// - 只记录完成原因、引用数量和 token 数
-pub(crate) fn record_chat_assistant_persisted(
-    session_id: Uuid,
-    message_id: Uuid,
-    success: bool,
-    citation_count: usize,
-    input_tokens: u32,
-    output_tokens: u32,
-    finish_reason: &str,
-) {
-    record_ai_event(
-        "ai.chat.assistant.persisted",
-        severity(success),
-        vec![
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
-            ),
-            ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
-            ("success", json!(success)),
-            ("citation_count", json!(citation_count)),
-            ("input_tokens", json!(input_tokens)),
-            ("output_tokens", json!(output_tokens)),
-            ("finish_reason", json!(finish_reason)),
         ],
     );
 }

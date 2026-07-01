@@ -4,6 +4,7 @@
 //! - application 只依赖 trait，不感知基础设施实现
 // MHB_STRUCTURE_EXEMPTION: 既有 AI application ports 聚合入口。
 
+pub mod chat_turn_transaction;
 pub mod diet_confirmation_candidates;
 pub mod diet_context;
 pub mod food_inventory_hints;
@@ -17,6 +18,7 @@ pub mod session_repository;
 pub mod session_summary_repository;
 pub mod session_turn_repository;
 
+pub use chat_turn_transaction::{ChatTurnTransactionPort, FinalizerTxInput, IngressTxInput};
 pub use diet_confirmation_candidates::PetDietConfirmationCandidateProvider;
 pub use diet_context::{EmptyPetDietFactProvider, PetDietFactProvider};
 pub use food_inventory_hints::FoodInventoryHintProvider;
