@@ -202,6 +202,10 @@ pub enum LoopStep {
     MessageDelta {
         text: String,
     },
+    ClarifyUser {
+        reason: String,
+        suggested_actions: Vec<String>,
+    },
     CallTools {
         tool_results: Vec<LoopToolResult>,
     },
@@ -266,6 +270,14 @@ impl LoopStep {
         Self::CallTools { tool_results }
     }
 
+    /// clarify_user 构造用户追问 step
+    pub fn clarify_user(reason: impl Into<String>, suggested_actions: Vec<String>) -> Self {
+        Self::ClarifyUser {
+            reason: reason.into(),
+            suggested_actions,
+        }
+    }
+
     /// done 构造终止 step
     pub fn done(message_id: Uuid, final_text: String, status: AgentTurnStatus) -> Self {
         Self::Done {
@@ -280,6 +292,7 @@ impl LoopStep {
         match self {
             Self::CallModel { .. } => "call_model",
             Self::MessageDelta { .. } => "message_delta",
+            Self::ClarifyUser { .. } => "clarify_user",
             Self::CallTools { .. } => "call_tools",
             Self::Done { .. } => "done",
         }

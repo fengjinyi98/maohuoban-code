@@ -162,6 +162,81 @@ async fn ai_chat_stream_diagnostics_records_gate_decision_fields() {
     );
 }
 
+/// 流式聊天诊断事件必须记录 planning 决策字段
+#[tokio::test]
+async fn ai_chat_stream_diagnostics_records_planning_decision_fields() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139049", "ios-ai-planning-diag").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天拉肚子了怎么办",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send planning diagnostics chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let planning_event = events
+        .iter()
+        .find(|event| event.message == "ai.chat.planning.decided")
+        .expect("missing ai.chat.planning.decided diagnostics event");
+
+    let required_fields = [
+        "session_id",
+        "turn_id",
+        "message_id",
+        "task_type",
+        "step_list",
+        "current_step",
+        "step_transition",
+        "replan_reason",
+        "terminal_step",
+        "policy_decision",
+    ];
+    for field in &required_fields {
+        assert!(
+            !planning_event.metadata[*field].is_null(),
+            "planning diagnostics missing required field: {field}"
+        );
+    }
+    assert!(
+        planning_event.metadata["step_list"]
+            .as_array()
+            .is_some_and(|steps| !steps.is_empty()),
+        "planning diagnostics step_list must be a non-empty array"
+    );
+    assert!(
+        planning_event.metadata["task_type"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()),
+        "planning diagnostics task_type must be present"
+    );
+    assert!(
+        planning_event.metadata["policy_decision"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()),
+        "planning diagnostics policy_decision must be present"
+    );
+}
+
 /// gate 诊断事件四个必备字段即使在不加载上下文的请求中也存在
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_gate_fields_present_for_all_intents() {

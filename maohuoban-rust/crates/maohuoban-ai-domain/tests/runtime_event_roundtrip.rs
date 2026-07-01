@@ -91,6 +91,23 @@ fn runtime_loop_step_roundtrip_covers_message_delta() {
 }
 
 #[test]
+fn runtime_loop_step_roundtrip_covers_clarify_user() {
+    let step = LoopStep::ClarifyUser {
+        reason: "用户描述缺少可行动观察信息".to_owned(),
+        suggested_actions: vec![
+            "补充症状持续时间".to_owned(),
+            "补充精神和食欲状态".to_owned(),
+        ],
+    };
+
+    let encoded = serde_json::to_string(&step).expect("serialize clarify step");
+    assert!(encoded.contains("clarify_user"));
+    assert_eq!(step.step_name(), "clarify_user");
+    let decoded: LoopStep = serde_json::from_str(&encoded).expect("deserialize clarify step");
+    assert_eq!(decoded, step);
+}
+
+#[test]
 fn runtime_event_roundtrip_preserves_frozen_event_names() {
     let chat_session_id = Uuid::new_v4();
     let message_id = Uuid::new_v4();

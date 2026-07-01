@@ -27,6 +27,7 @@ pub use engine::*;
 pub use engine_factory::*;
 pub use engine_input::*;
 pub use engine_mode::*;
+pub use evidence_planner::EvidencePlanner;
 pub use fake_loop_engine::*;
 pub use session::*;
 pub use session_runtime::*;

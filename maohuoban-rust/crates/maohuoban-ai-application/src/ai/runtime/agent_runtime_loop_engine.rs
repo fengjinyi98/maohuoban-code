@@ -3,14 +3,18 @@ use std::sync::Arc;
 
 use crate::ai::guardrail::{GuardrailDecision, ToolCallGuardrail};
 use crate::ai::output::visible_text_from_model_output;
+use crate::ai::planning::{
+    PlanningDiagnosticsSnapshot, ReplanAction, ReplanCause, ReplanDecision, ReplanPolicy, StepPlan,
+    StepPlanner, TaskClassifier,
+};
 use crate::ai::ports::LlmProvider;
 use crate::ai::tools::{AiToolContext, ToolRegistry};
 use async_trait::async_trait;
 use futures_util::{StreamExt, stream::BoxStream};
 use maohuoban_ai_domain::ai::{
     AgentSessionState, AgentTurnId, AiError, AiFactPackage, AiResult, LlmChatRequest,
-    LlmFinishReason, LlmStreamEvent, LlmUsage, LoopStep, LoopToolStatus, ModelCallOutcome,
-    ModelLabel, ProviderError, ProviderErrorCategory,
+    LlmDiagnosticsCorrelation, LlmFinishReason, LlmStreamEvent, LlmUsage, LoopStep, LoopToolStatus,
+    ModelCallOutcome, ModelLabel, ProviderError, ProviderErrorCategory,
 };
 
 use super::agent_runtime_diagnostics::AgentRuntimeDiagnostics;
@@ -37,6 +41,22 @@ pub struct AgentRuntimeLoopEngine {
     guardrail: ToolCallGuardrail,
     phase: RuntimePhase,
     evidence_prefetched_turn_id: Option<AgentTurnId>,
+    planning_recorded_turn_id: Option<AgentTurnId>,
+    current_step_plan: Option<(AgentTurnId, StepPlan)>,
+}
+
+/// StreamingRetryRequest 流式模型重试上下文
+/// 核心职责：
+/// - 保存同一模型 step 重试所需的原始请求和诊断关联
+/// - 限制 retry 只发生在尚未输出可见内容的 step 边界
+#[derive(Clone, Copy)]
+struct StreamingRetryRequest<'a> {
+    request: &'a LlmChatRequest,
+    purpose: StreamingModelPurpose,
+    tool_count: u32,
+    diagnostics_correlation: &'a LlmDiagnosticsCorrelation,
+    retry_count: u8,
+    retry_boundary_clear: bool,
 }
 
 impl AgentRuntimeLoopEngine {
@@ -56,7 +76,111 @@ impl AgentRuntimeLoopEngine {
             guardrail: ToolCallGuardrail::new(),
             phase: RuntimePhase::Model,
             evidence_prefetched_turn_id: None,
+            planning_recorded_turn_id: None,
+            current_step_plan: None,
         }
+    }
+
+    fn plan_current_turn(
+        &mut self,
+        state: &AgentSessionState,
+        evidence_tool_count: usize,
+    ) -> Option<StepPlan> {
+        let turn_id = state.current_turn_id?;
+        if let Some((cached_turn_id, plan)) = &self.current_step_plan
+            && *cached_turn_id == turn_id
+        {
+            return Some(plan.clone());
+        }
+        let user_input = state.user_inputs.last()?;
+        let selected_pet_present = state
+            .workbench
+            .as_ref()
+            .and_then(|workbench| workbench.context_pack.selected_pet.as_ref())
+            .is_some();
+        let write_tool_visible = self
+            .registry
+            .list_definitions()
+            .into_iter()
+            .any(|tool| tool.requires_confirmation || !tool.read_only);
+        let task_type = TaskClassifier::classify_runtime(
+            user_input,
+            selected_pet_present,
+            evidence_tool_count,
+            write_tool_visible,
+            None,
+        );
+        let plan = StepPlanner::plan(task_type);
+        self.current_step_plan = Some((turn_id, plan.clone()));
+        Some(plan)
+    }
+
+    fn record_planning_if_needed(&mut self, state: &AgentSessionState, plan: &StepPlan) {
+        let Some(turn_id) = state.current_turn_id else {
+            return;
+        };
+        if self.planning_recorded_turn_id == Some(turn_id) {
+            return;
+        }
+        let message_id = state
+            .current_turn_diagnostics_message_id
+            .unwrap_or_else(uuid::Uuid::nil);
+        let snapshot =
+            PlanningDiagnosticsSnapshot::new(state.chat_session_id, turn_id, message_id, plan);
+        AgentRuntimeDiagnostics::record_planning_snapshot(&snapshot);
+        self.planning_recorded_turn_id = Some(turn_id);
+    }
+
+    fn record_replan_decision(&self, state: &AgentSessionState, decision: ReplanDecision) {
+        let Some(turn_id) = state.current_turn_id else {
+            return;
+        };
+        let Some((planned_turn_id, plan)) = &self.current_step_plan else {
+            return;
+        };
+        if *planned_turn_id != turn_id {
+            return;
+        }
+        let message_id = state
+            .current_turn_diagnostics_message_id
+            .unwrap_or_else(uuid::Uuid::nil);
+        let snapshot =
+            PlanningDiagnosticsSnapshot::new(state.chat_session_id, turn_id, message_id, plan)
+                .with_replan_reason(decision.reason);
+        AgentRuntimeDiagnostics::record_planning_snapshot(&snapshot);
+    }
+
+    fn replan_streaming_model_error(
+        &self,
+        state: &AgentSessionState,
+        error: &AiError,
+        retry: StreamingRetryRequest<'_>,
+    ) -> Option<RuntimePhase> {
+        let cause = replan_cause_for_error(error)?;
+        let decision = ReplanPolicy.decide(cause);
+        self.record_replan_decision(state, decision);
+        if !decision.retryable || retry.retry_count > 0 || !retry.retry_boundary_clear {
+            return None;
+        }
+        if !matches!(
+            decision.action,
+            ReplanAction::RetrySameStep | ReplanAction::RecoverOrRetryStep
+        ) {
+            return None;
+        }
+        Some(RuntimePhase::StreamingModel {
+            request: Box::new(retry.request.clone()),
+            stream: model_stream(self.provider.clone(), retry.request.clone()),
+            purpose: retry.purpose,
+            accumulated_text: String::new(),
+            accumulated_reasoning_content: String::new(),
+            tool_calls: Vec::new(),
+            usage: LlmUsage::default(),
+            finish_reason: LlmFinishReason::Stop,
+            tool_count: retry.tool_count,
+            diagnostics_correlation: retry.diagnostics_correlation.clone(),
+            retry_count: retry.retry_count.saturating_add(1),
+        })
     }
 }
 
@@ -79,7 +203,29 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     } else {
                         EvidencePlanner::plan(state, self.registry.as_ref())
                     };
-                    if !evidence_tool_calls.is_empty() {
+                    let plan = self.plan_current_turn(state, evidence_tool_calls.len());
+                    if let Some(plan) = plan.as_ref() {
+                        self.record_planning_if_needed(state, plan);
+                        if plan.policy().requires_clarification() {
+                            self.phase = RuntimePhase::Done {
+                                message_id: uuid::Uuid::new_v4(),
+                                final_text: String::new(),
+                                status:
+                                    maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification,
+                            };
+                            return Ok(Some(LoopStep::clarify_user(
+                                "用户描述缺少可行动观察信息",
+                                vec![
+                                    "补充症状持续时间".to_owned(),
+                                    "补充精神、食欲和排便变化".to_owned(),
+                                ],
+                            )));
+                        }
+                    }
+                    let requires_evidence = plan
+                        .as_ref()
+                        .is_none_or(|plan| plan.policy().requires_evidence());
+                    if requires_evidence && !evidence_tool_calls.is_empty() {
                         self.evidence_prefetched_turn_id = state.current_turn_id;
                         self.phase = RuntimePhase::EvidenceToolExecution {
                             assistant_tool_calls: evidence_tool_calls.clone(),
@@ -105,7 +251,8 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     );
                     let diagnostics_correlation = request.diagnostics_correlation.clone();
                     self.phase = RuntimePhase::StreamingModel {
-                        stream: model_stream(self.provider.clone(), request),
+                        stream: model_stream(self.provider.clone(), request.clone()),
+                        request: Box::new(request),
                         purpose: StreamingModelPurpose::Initial,
                         accumulated_text: String::new(),
                         accumulated_reasoning_content: String::new(),
@@ -114,9 +261,11 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
                         diagnostics_correlation,
+                        retry_count: 0,
                     };
                 }
                 RuntimePhase::StreamingModel {
+                    request,
                     mut stream,
                     purpose,
                     mut accumulated_text,
@@ -126,6 +275,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     mut finish_reason,
                     tool_count,
                     diagnostics_correlation,
+                    retry_count,
                 } => {
                     if let Some(event) = stream.next().await {
                         let event = match event {
@@ -134,10 +284,26 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 AgentRuntimeDiagnostics::record_model_stream_error(
                                     state.chat_session_id,
                                     &diagnostics_correlation,
-                                    streaming_model_purpose_code(&purpose),
+                                    streaming_model_purpose_code(purpose),
                                     tool_count,
                                     &error,
                                 );
+                                if let Some(retry_phase) = self.replan_streaming_model_error(
+                                    state,
+                                    &error,
+                                    StreamingRetryRequest {
+                                        request: request.as_ref(),
+                                        purpose,
+                                        tool_count,
+                                        diagnostics_correlation: &diagnostics_correlation,
+                                        retry_count,
+                                        retry_boundary_clear: accumulated_text.is_empty()
+                                            && tool_calls.is_empty(),
+                                    },
+                                ) {
+                                    self.phase = retry_phase;
+                                    continue;
+                                }
                                 return Err(error);
                             }
                         };
@@ -147,6 +313,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 let suppress_visible_delta =
                                     accumulated_text.trim().is_empty() && content.trim().is_empty();
                                 self.phase = RuntimePhase::StreamingModel {
+                                    request,
                                     stream,
                                     purpose,
                                     accumulated_text,
@@ -156,6 +323,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     finish_reason,
                                     tool_count,
                                     diagnostics_correlation,
+                                    retry_count,
                                 };
                                 if suppress_visible_delta {
                                     continue;
@@ -165,6 +333,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             LlmStreamEvent::ReasoningDelta { content } => {
                                 accumulated_reasoning_content.push_str(&content);
                                 self.phase = RuntimePhase::StreamingModel {
+                                    request,
                                     stream,
                                     purpose,
                                     accumulated_text,
@@ -174,12 +343,14 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     finish_reason,
                                     tool_count,
                                     diagnostics_correlation,
+                                    retry_count,
                                 };
                                 continue;
                             }
                             LlmStreamEvent::ToolCall { tool_call } => {
                                 tool_calls.push(tool_call);
                                 self.phase = RuntimePhase::StreamingModel {
+                                    request,
                                     stream,
                                     purpose,
                                     accumulated_text,
@@ -189,6 +360,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     finish_reason,
                                     tool_count,
                                     diagnostics_correlation,
+                                    retry_count,
                                 };
                                 continue;
                             }
@@ -199,6 +371,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 finish_reason = fr;
                                 usage = u;
                                 self.phase = RuntimePhase::StreamingModel {
+                                    request,
                                     stream,
                                     purpose,
                                     accumulated_text,
@@ -208,6 +381,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     finish_reason,
                                     tool_count,
                                     diagnostics_correlation,
+                                    retry_count,
                                 };
                                 continue;
                             }
@@ -285,11 +459,15 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         safe_user_message, ..
                     }) = hard_stop
                     {
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text: safe_user_message,
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
-                        };
+                        let decision = ReplanPolicy.decide(ReplanCause::GuardrailHardStop);
+                        self.record_replan_decision(state, decision);
+                        if matches!(decision.action, ReplanAction::Terminate) {
+                            self.phase = RuntimePhase::Done {
+                                message_id: uuid::Uuid::new_v4(),
+                                final_text: safe_user_message,
+                                status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            };
+                        }
                         return Ok(Some(LoopStep::CallTools { tool_results }));
                     }
 
@@ -337,11 +515,15 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         safe_user_message, ..
                     }) = hard_stop
                     {
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text: safe_user_message,
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
-                        };
+                        let decision = ReplanPolicy.decide(ReplanCause::GuardrailHardStop);
+                        self.record_replan_decision(state, decision);
+                        if matches!(decision.action, ReplanAction::Terminate) {
+                            self.phase = RuntimePhase::Done {
+                                message_id: uuid::Uuid::new_v4(),
+                                final_text: safe_user_message,
+                                status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            };
+                        }
                         return Ok(Some(LoopStep::CallTools { tool_results }));
                     }
 
@@ -387,7 +569,8 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     );
                     let diagnostics_correlation = request.diagnostics_correlation.clone();
                     self.phase = RuntimePhase::StreamingModel {
-                        stream: model_stream(self.provider.clone(), request),
+                        stream: model_stream(self.provider.clone(), request.clone()),
+                        request: Box::new(request),
                         purpose: StreamingModelPurpose::Followup,
                         accumulated_text: String::new(),
                         accumulated_reasoning_content: String::new(),
@@ -396,6 +579,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         finish_reason: LlmFinishReason::Stop,
                         tool_count,
                         diagnostics_correlation,
+                        retry_count: 0,
                     };
                 }
                 RuntimePhase::Done {
@@ -424,6 +608,20 @@ pub(crate) fn model_stream(
             yield event?;
         }
     })
+}
+
+/// replan_cause_for_error 映射运行时错误到重规划原因
+/// 核心职责：
+/// - 只把 Provider 流式瞬时错误交给 ReplanPolicy 裁决
+/// - 保留业务错误和确定性校验错误的原始失败语义
+fn replan_cause_for_error(error: &AiError) -> Option<ReplanCause> {
+    match error {
+        AiError::Provider(provider_error) => {
+            ReplanCause::from_provider_category(provider_error.category())
+        }
+        AiError::ProviderStreamError(_) => Some(ReplanCause::StreamInterrupted),
+        _ => None,
+    }
 }
 
 /// execute_tool_calls 执行工具调用并接入 guardrail

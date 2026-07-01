@@ -37,6 +37,17 @@ pub(super) fn append_step_events(
             events.push(AgentEvent::MessageDelta { turn_id, text });
             StepFlow::Continue
         }
+        LoopStep::ClarifyUser {
+            reason,
+            suggested_actions,
+        } => {
+            events.push(AgentEvent::NeedsClarification {
+                turn_id,
+                reason,
+                suggested_actions,
+            });
+            StepFlow::Stop
+        }
         LoopStep::CallTools { tool_results } => append_tool_events(turn_id, tool_results, events),
         LoopStep::Done {
             message_id,

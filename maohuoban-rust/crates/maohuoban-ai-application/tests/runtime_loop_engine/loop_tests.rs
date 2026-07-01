@@ -9,13 +9,16 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
+use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiConversationSurface, AiToolConfirmationRequirement, LlmChatResponse,
-    LlmFinishReason, LlmMessage, LlmRole, LlmToolCall, LlmUsage, ToolProgressText, Toolset,
+    AgentEvent, AgentId, AiConversationSurface, AiError, AiResult, AiToolConfirmationRequirement,
+    LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
+    LlmToolCall, LlmUsage, ProviderError, ProviderErrorCategory, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -126,6 +129,75 @@ async fn private_identity_question_prefetches_fact_tool_before_model() {
 }
 
 #[tokio::test]
+async fn clarification_task_stops_before_provider_call() {
+    let provider = ScriptedProvider::new(vec![final_response()]);
+    let registry = ToolRegistry::new();
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("它今天不舒服", private_pet_context_workbench())
+        .await
+        .expect("clarification task");
+
+    let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
+    assert_eq!(names, vec!["turn_started", "needs_clarification"]);
+    assert!(
+        provider.take_requests().is_empty(),
+        "clarification task should not call provider before asking user"
+    );
+}
+
+#[tokio::test]
+async fn provider_timeout_retries_same_model_step_before_failing_turn() {
+    let provider = RetryOnceStreamProvider::new();
+    let registry = ToolRegistry::new();
+
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
+        None,
+    );
+
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", public_pet_domain_workbench())
+        .await
+        .expect("provider timeout should retry and then succeed");
+
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TurnFinished { .. })),
+        "retry should allow turn to finish"
+    );
+    assert_eq!(
+        provider.take_requests().len(),
+        2,
+        "timeout should retry the same model step once"
+    );
+}
+
+#[tokio::test]
 async fn agent_runtime_uses_answer_text_from_json_output() {
     let provider = ScriptedProvider::new(vec![json_final_response()]);
     let registry = ToolRegistry::new();
@@ -154,6 +226,69 @@ async fn agent_runtime_uses_answer_text_from_json_output() {
         final_text,
         Some("毛球当前状态正常，可以继续观察精神和食欲。")
     );
+}
+
+#[derive(Clone)]
+struct RetryOnceStreamProvider {
+    requests: Arc<std::sync::Mutex<Vec<LlmChatRequest>>>,
+    attempts: Arc<std::sync::Mutex<u32>>,
+}
+
+impl RetryOnceStreamProvider {
+    fn new() -> Self {
+        Self {
+            requests: Arc::new(std::sync::Mutex::new(Vec::new())),
+            attempts: Arc::new(std::sync::Mutex::new(0)),
+        }
+    }
+
+    fn take_requests(&self) -> Vec<LlmChatRequest> {
+        self.requests.lock().expect("requests").clone()
+    }
+}
+
+impl LlmProvider for RetryOnceStreamProvider {
+    fn complete<'a>(
+        &'a self,
+        _request: &'a LlmChatRequest,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AiResult<LlmChatResponse>> + Send + 'a>>
+    {
+        Box::pin(async {
+            Err(AiError::Provider(ProviderError::new(
+                ProviderErrorCategory::Timeout,
+                "complete should not be used",
+            )))
+        })
+    }
+
+    fn stream<'a>(
+        &'a self,
+        request: &'a LlmChatRequest,
+    ) -> futures_util::stream::BoxStream<'a, AiResult<LlmStreamEvent>> {
+        self.requests
+            .lock()
+            .expect("requests")
+            .push(request.clone());
+        let mut attempts = self.attempts.lock().expect("attempts");
+        *attempts += 1;
+        let events = if *attempts == 1 {
+            vec![Err(AiError::Provider(ProviderError::new(
+                ProviderErrorCategory::Timeout,
+                "provider timeout",
+            )))]
+        } else {
+            vec![
+                Ok(LlmStreamEvent::Delta {
+                    content: "先观察精神、食欲和便便频次。".to_owned(),
+                }),
+                Ok(LlmStreamEvent::Finish {
+                    finish_reason: LlmFinishReason::Stop,
+                    usage: LlmUsage::default(),
+                }),
+            ]
+        };
+        futures_util::stream::iter(events).boxed()
+    }
 }
 
 #[tokio::test]

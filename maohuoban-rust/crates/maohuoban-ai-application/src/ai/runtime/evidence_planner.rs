@@ -7,7 +7,7 @@ use crate::ai::tools::{ToolDefinitionInfo, ToolRegistry};
 /// 核心职责：
 /// - 基于工具事实 schema 判断用户问题需要的私域事实
 /// - 在模型回答前预取只读事实工具，降低无依据回答概率
-pub(crate) struct EvidencePlanner;
+pub struct EvidencePlanner;
 
 impl EvidencePlanner {
     /// plan 返回本轮需要预取的工具调用
@@ -26,6 +26,19 @@ impl EvidencePlanner {
             return Vec::new();
         };
 
+        Self::plan_for_input(user_input, selected_pet.pet_id, registry)
+    }
+
+    /// plan_for_input 基于用户输入和选中宠物生成预取工具调用
+    /// 核心职责：
+    /// - 服务 Runtime 预取路径和合同测试
+    /// - 保持只读、低风险、私域宠物事实工具的硬约束
+    #[must_use]
+    pub fn plan_for_input(
+        user_input: &str,
+        selected_pet_id: uuid::Uuid,
+        registry: &ToolRegistry,
+    ) -> Vec<LlmToolCall> {
         registry
             .list_definitions()
             .into_iter()
@@ -39,7 +52,7 @@ impl EvidencePlanner {
             .map(|tool| LlmToolCall {
                 id: format!("evidence_{}", tool.name),
                 name: tool.name.clone(),
-                arguments: evidence_arguments(&tool, selected_pet.pet_id).to_string(),
+                arguments: evidence_arguments(&tool, selected_pet_id).to_string(),
             })
             .collect()
     }

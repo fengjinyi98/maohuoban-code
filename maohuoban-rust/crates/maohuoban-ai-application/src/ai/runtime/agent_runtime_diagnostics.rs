@@ -14,6 +14,7 @@ use uuid::Uuid;
 use crate::ai::diagnostics::{
     AiDiagnosticsCorrelation, redact_ai_diagnostics_text, redact_ai_diagnostics_value,
 };
+use crate::ai::planning::PlanningDiagnosticsSnapshot;
 
 const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 
@@ -24,6 +25,26 @@ const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 pub(super) struct AgentRuntimeDiagnostics;
 
 impl AgentRuntimeDiagnostics {
+    /// record_planning_snapshot 记录 Runtime 规划协议快照
+    /// 核心职责：
+    /// - 暴露 task_type、step_list、terminal_step 和 policy_decision
+    /// - 固定 session_id、turn_id、message_id 三个规划关联键
+    pub(super) fn record_planning_snapshot(snapshot: &PlanningDiagnosticsSnapshot) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let mut event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Debug,
+            "ai.runtime.planning.decided",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
+        for (key, value) in snapshot.to_metadata_entries() {
+            event = event.metadata(key, value);
+        }
+        diagnostics.record(event);
+    }
+
     /// record_model_request_prepared 记录 Runtime 模型请求摘要
     pub(super) fn record_model_request_prepared(
         chat_session_id: Uuid,

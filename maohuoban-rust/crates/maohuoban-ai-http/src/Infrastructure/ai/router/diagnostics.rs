@@ -4,6 +4,7 @@ use maohuoban_ai_application::ai::diagnostics::{
 use maohuoban_ai_application::ai::finalizer::{
     FinalizationReceipt, FinalizerAsyncJobKind, FinalizerSynchronousWrite,
 };
+use maohuoban_ai_application::ai::planning::PlanningDiagnosticsSnapshot;
 use maohuoban_ai_domain::ai::{
     AgentSessionWorkbench, AiConversationSurface, AiGateDecision, AiSessionTurnStatus,
     AiStreamEvent,
@@ -239,6 +240,18 @@ pub(crate) fn record_chat_runtime_agent_event(
             ("event_name", json!(event_name)),
             ("payload", redact_ai_diagnostics_value(payload)),
         ],
+    );
+}
+
+/// record_chat_planning_decided 记录规划协议决策
+/// 核心职责：
+/// - 固定 task_type、step_list、current_step、replan_reason 和 policy_decision 字段
+/// - 保持 HTTP diagnostics 与 Runtime planning snapshot 使用同一字段合同
+pub(crate) fn record_chat_planning_decided(snapshot: &PlanningDiagnosticsSnapshot) {
+    record_ai_event(
+        "ai.chat.planning.decided",
+        Severity::Info,
+        snapshot.to_metadata_entries(),
     );
 }
 

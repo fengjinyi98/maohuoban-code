@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use futures_util::StreamExt;
+use maohuoban_ai_application::ai::planning::{
+    PlanningDiagnosticsSnapshot, StepPlanner, TaskClassifier,
+};
 use maohuoban_ai_application::ai::runtime::{
-    AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
+    AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession, EvidencePlanner,
 };
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_application::ai::tools::{
@@ -15,8 +18,8 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::diagnostics::{
-    record_chat_runtime_agent_event, record_chat_runtime_engine_selected,
-    record_chat_workbench_built,
+    record_chat_planning_decided, record_chat_runtime_agent_event,
+    record_chat_runtime_engine_selected, record_chat_workbench_built,
 };
 use super::composition::request::ChatStreamRequest;
 use super::runtime_stream::AgentEventSseProjector;
@@ -42,7 +45,7 @@ pub(super) fn runtime_provider_stream(
 ) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
 {
     let registry = build_runtime_registry(state, &input);
-    record_runtime_stream_selection(state, &input, registry.as_ref());
+    record_runtime_stream_selection(state, &input, registry.as_ref(), &req.message);
     let engine = build_runtime_engine(state, &input, registry);
     let session = AgentSession::new(
         input.session_id,
@@ -132,11 +135,12 @@ fn record_runtime_stream_selection(
     state: &AiHttpState,
     input: &RuntimeProviderStreamInput,
     registry: &ToolRegistry,
+    user_message: &str,
 ) {
-    let visible_tool_names = registry
-        .list_definitions()
-        .into_iter()
-        .map(|tool| tool.name)
+    let tool_definitions = registry.list_definitions();
+    let visible_tool_names = tool_definitions
+        .iter()
+        .map(|tool| tool.name.clone())
         .collect::<Vec<_>>();
     record_chat_workbench_built(
         input.session_id,
@@ -154,6 +158,29 @@ fn record_runtime_stream_selection(
         input.target_pet.is_some(),
         visible_tool_names.len(),
     );
+    let selected_pet_id = input
+        .workbench
+        .context_pack
+        .selected_pet
+        .as_ref()
+        .map(|pet| pet.pet_id);
+    let evidence_tool_count = selected_pet_id.map_or(0, |pet_id| {
+        EvidencePlanner::plan_for_input(user_message, pet_id, registry).len()
+    });
+    let write_tool_visible = tool_definitions
+        .iter()
+        .any(|tool| tool.requires_confirmation || !tool.read_only);
+    let task_type = TaskClassifier::classify_runtime(
+        user_message,
+        selected_pet_id.is_some(),
+        evidence_tool_count,
+        write_tool_visible,
+        None,
+    );
+    let plan = StepPlanner::plan(task_type);
+    let snapshot =
+        PlanningDiagnosticsSnapshot::new(input.session_id, input.turn_id, input.message_id, &plan);
+    record_chat_planning_decided(&snapshot);
 }
 
 fn build_runtime_engine(
