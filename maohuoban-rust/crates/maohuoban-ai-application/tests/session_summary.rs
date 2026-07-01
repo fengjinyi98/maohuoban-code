@@ -31,6 +31,7 @@ fn user_message(content: &str, ts: i64) -> AiMessage {
     AiMessage {
         id: Uuid::new_v4(),
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::User,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,
@@ -49,6 +50,7 @@ fn user_message_with_id(id: Uuid, content: &str, ts: i64) -> AiMessage {
     AiMessage {
         id,
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::User,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,
@@ -67,6 +69,7 @@ fn assistant_message(content: &str, ts: i64) -> AiMessage {
     AiMessage {
         id: Uuid::new_v4(),
         session_id: session_id(),
+        turn_id: None,
         role: AiMessageRole::Assistant,
         content: content.to_owned(),
         status: AiMessageStatus::Completed,

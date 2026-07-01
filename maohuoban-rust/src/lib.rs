@@ -38,7 +38,7 @@ use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
-    PostgresAiSessionRepository, PostgresSessionSummaryRepository,
+    PostgresAiSessionRepository, PostgresSessionSummaryRepository, PostgresSessionTurnRepository,
 };
 use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
@@ -173,6 +173,7 @@ pub struct BackendApp {
     pub recommendation_repository: PostgresRecommendationRepository,
     pub samecity_repository: PostgresSameCityRepository,
     pub ai_session_repository: PostgresAiSessionRepository,
+    pub ai_session_turn_repository: PostgresSessionTurnRepository,
 }
 
 /// build_backend_app 构建后端应用
@@ -238,11 +239,13 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
+    let ai_session_turn_repository = PostgresSessionTurnRepository::new(pool.clone());
     let ai_http_state = build_ai_http_state(
         &config.ai_llm_provider_config,
         config.ai_runtime_engine_mode,
         pet_service.clone(),
         ai_session_repository.clone(),
+        ai_session_turn_repository.clone(),
         pool.clone(),
         auth_service.clone(),
     );
@@ -274,6 +277,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_repository,
         samecity_repository,
         ai_session_repository,
+        ai_session_turn_repository,
     })
 }
 
@@ -286,6 +290,7 @@ fn build_ai_http_state(
     runtime_engine_mode: AgentRuntimeEngineMode,
     pet_service: Arc<PetService>,
     ai_session_repository: PostgresAiSessionRepository,
+    ai_session_turn_repository: PostgresSessionTurnRepository,
     ai_session_pool: sqlx::PgPool,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
@@ -301,6 +306,8 @@ fn build_ai_http_state(
         runtime_engine_mode,
         session_repository: Arc::new(ai_session_repository)
             as Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+        session_turn_repository: Arc::new(ai_session_turn_repository)
+            as Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
         session_summary_repository: Arc::new(PostgresSessionSummaryRepository::new(ai_session_pool))
             as Arc<dyn maohuoban_ai_application::ai::ports::SessionSummaryRepository>,
         pet_resolver: ai_pet_resolver,

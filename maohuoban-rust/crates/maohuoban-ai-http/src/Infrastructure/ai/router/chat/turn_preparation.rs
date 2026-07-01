@@ -1,8 +1,11 @@
 use chrono::Utc;
 use maohuoban_ai_application::ai::intent::AiIntentGate;
-use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
+use maohuoban_ai_application::ai::ports::{
+    AiRequestGateLog, AiSessionRepository, AiToolAccessLog, SessionTurnRepository,
+};
 use maohuoban_ai_domain::ai::{
-    AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiStreamEvent,
+    AgentTurnId, AiGateDecision, AiIntent, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn,
+    AiSessionTurnStatus, AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -23,6 +26,7 @@ use super::runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 /// - 固定用户消息和助手消息使用不同 ID 的持久化合同
 pub(super) struct ChatTurnContext {
     pub(super) session_id: Uuid,
+    pub(super) turn_id: AgentTurnId,
     pub(super) user_message_id: Uuid,
     pub(super) assistant_message_id: Uuid,
     pub(super) title: String,
@@ -59,6 +63,7 @@ pub(super) async fn prepare_chat_turn_context(
 
     ChatTurnContext {
         session_id: req.chat_session_id.unwrap_or_else(Uuid::new_v4),
+        turn_id: AgentTurnId::new(),
         user_message_id: Uuid::new_v4(),
         assistant_message_id: Uuid::new_v4(),
         title: build_title(&req.message),
@@ -74,6 +79,7 @@ pub(super) async fn prepare_chat_turn_context(
 /// 核心职责：
 /// - 写入或更新会话记录
 /// - 写入本轮用户消息和 gate 审计日志
+/// - 写入 turn 账本行，使 turn 成为数据库一等对象
 pub(super) async fn persist_prepared_chat_turn(
     state: &AiHttpState,
     req: &ChatStreamRequest,
@@ -86,6 +92,7 @@ pub(super) async fn persist_prepared_chat_turn(
         actor_user_id,
         context.session_id,
         context.user_message_id,
+        context.turn_id.as_uuid(),
         context.title.clone(),
         PetSessionContext {
             primary_pet_id: context
@@ -96,6 +103,15 @@ pub(super) async fn persist_prepared_chat_turn(
         Utc::now(),
     )
     .await;
+
+    insert_turn_row(&state.session_turn_repository, req, actor_user_id, context).await;
+
+    // 回写用户消息的 turn_id，建立 message ↔ turn 双向关联
+    // 解决循环外键：消息先以 turn_id=NULL 插入，turn 行插入后再回写
+    let _ = state
+        .session_repository
+        .update_message_turn_id(context.user_message_id, context.turn_id.as_uuid())
+        .await;
 
     insert_request_gate_log(
         &state.session_repository,
@@ -135,6 +151,39 @@ pub(super) async fn load_pet_catalog_initial_events(
     } else {
         Vec::new()
     }
+}
+
+/// insert_turn_row 在 Ingress 阶段写入 turn 账本行
+/// 核心职责：
+/// - 创建 turn 行，状态为 running
+/// - 绑定 user_message_id 和 intent/gate 摘要
+async fn insert_turn_row(
+    turn_repo: &Arc<dyn SessionTurnRepository>,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    context: &ChatTurnContext,
+) {
+    let turn = AiSessionTurn {
+        id: context.turn_id.as_uuid(),
+        session_id: context.session_id,
+        actor_user_id,
+        user_message_id: context.user_message_id,
+        // assistant_message_id 在 Finalizer 阶段由 update_turn_status 回写，
+        // 避免循环外键：turn.assistant_message_id → ai_messages(id) 在插入时还不存在
+        assistant_message_id: None,
+        intent: intent_code(context.gate_decision.intent).to_owned(),
+        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
+        resolved_pet_id: context.resolved_pet_id,
+        engine_mode: "self_hosted".to_owned(),
+        surface: req.surface,
+        status: AiSessionTurnStatus::Running,
+        finish_reason: None,
+        error_code: None,
+        retryable: None,
+        started_at: Utc::now(),
+        finished_at: None,
+    };
+    let _ = turn_repo.insert_turn(&turn).await;
 }
 
 /// effective_selected_pet_id 解析本轮有效宠物 ID

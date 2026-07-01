@@ -25,6 +25,7 @@ pub(crate) fn spawn_assistant_message_persist(
 pub(crate) struct AssistantMessagePersistRequest {
     message_id: Uuid,
     session_id: Uuid,
+    turn_id: Option<Uuid>,
     final_text: String,
     citations: Vec<AiCitation>,
     input_tokens: u32,
@@ -47,12 +48,20 @@ impl AssistantMessagePersistRequest {
         Self {
             message_id,
             session_id,
+            turn_id: None,
             final_text,
             citations,
             input_tokens,
             output_tokens,
             finish_reason,
         }
+    }
+
+    /// with_turn_id 设置 turn_id
+    #[must_use]
+    pub(crate) fn with_turn_id(mut self, turn_id: Uuid) -> Self {
+        self.turn_id = Some(turn_id);
+        self
     }
 }
 
@@ -74,6 +83,7 @@ pub(crate) async fn persist_assistant_message(
     let assistant_message = AiMessage {
         id: request.message_id,
         session_id: request.session_id,
+        turn_id: request.turn_id,
         role: AiMessageRole::Assistant,
         content: request.final_text,
         status: AiMessageStatus::Completed,

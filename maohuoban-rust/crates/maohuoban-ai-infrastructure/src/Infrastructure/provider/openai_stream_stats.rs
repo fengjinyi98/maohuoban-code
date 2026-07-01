@@ -30,7 +30,7 @@ impl ProviderStreamStats {
             LlmStreamEvent::Delta { .. } => {
                 self.delta_count = self.delta_count.saturating_add(1);
             }
-            LlmStreamEvent::ReasoningDelta { .. } => {}
+            LlmStreamEvent::ReasoningDelta { .. } | LlmStreamEvent::Error { .. } => {}
             LlmStreamEvent::ToolCall { .. } => {
                 self.tool_call_count = self.tool_call_count.saturating_add(1);
             }
@@ -38,7 +38,6 @@ impl ProviderStreamStats {
                 self.finish_count = self.finish_count.saturating_add(1);
                 self.stream_completed = true;
             }
-            LlmStreamEvent::Error { .. } => {}
         }
     }
 }

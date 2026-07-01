@@ -11,9 +11,11 @@ mod session;
 mod session_event;
 mod session_rows;
 mod session_summary;
+mod session_turn;
 
 pub use memory::PostgresMemoryRepository;
 pub use memory_candidate::PostgresMemoryCandidateRepository;
 pub use session::PostgresAiSessionRepository;
 pub use session_event::PostgresSessionEventRepository;
 pub use session_summary::PostgresSessionSummaryRepository;
+pub use session_turn::PostgresSessionTurnRepository;

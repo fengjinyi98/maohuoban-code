@@ -116,14 +116,15 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         sqlx::query(
             r"
             INSERT INTO ai_messages
-                (id, session_id, role, content, status, citations,
+                (id, session_id, turn_id, role, content, status, citations,
                  model, provider, finish_reason, usage_input_tokens,
                  usage_output_tokens, verification, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ",
         )
         .bind(message.id)
         .bind(message.session_id)
+        .bind(message.turn_id)
         .bind(role_str)
         .bind(&message.content)
         .bind(status_str)
@@ -170,7 +171,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
     async fn list_messages_by_session(&self, session_id: Uuid) -> AiResult<Vec<AiMessage>> {
         let rows = sqlx::query_as::<_, MessageRow>(
             r"
-            SELECT id, session_id, role, content, status, citations,
+            SELECT id, session_id, turn_id, role, content, status, citations,
                    model, provider, finish_reason, usage_input_tokens,
                    usage_output_tokens, verification, created_at
             FROM ai_messages
@@ -395,6 +396,23 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(&action.confirm_text)
         .bind(proposed_action_risk_code(action.risk_level))
         .bind(action.confirmation_task_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn update_message_turn_id(&self, message_id: Uuid, turn_id: Uuid) -> AiResult<()> {
+        sqlx::query(
+            r"
+            UPDATE ai_messages
+            SET turn_id = $2
+            WHERE id = $1
+            ",
+        )
+        .bind(message_id)
+        .bind(turn_id)
         .execute(&self.pool)
         .await
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;

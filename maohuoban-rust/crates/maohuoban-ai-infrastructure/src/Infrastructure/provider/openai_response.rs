@@ -39,41 +39,8 @@ pub(crate) fn parse_openai_response(body: &str) -> Result<LlmChatResponse, AiErr
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
 
-    let finish_reason = match choice
-        .get("finish_reason")
-        .and_then(|value| value.as_str())
-        .unwrap_or("stop")
-    {
-        "length" => LlmFinishReason::Length,
-        "tool_calls" => LlmFinishReason::ToolCalls,
-        "content_filter" => LlmFinishReason::ContentFilter,
-        _ => LlmFinishReason::Stop,
-    };
-
-    let tool_calls: Vec<LlmToolCall> = message
-        .get("tool_calls")
-        .and_then(|value| value.as_array())
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let id = item.get("id")?.as_str()?.to_owned();
-                    let function = item.get("function")?;
-                    let name = function.get("name")?.as_str()?.to_owned();
-                    let arguments = function
-                        .get("arguments")
-                        .and_then(|value| value.as_str())
-                        .unwrap_or("{}")
-                        .to_owned();
-                    Some(LlmToolCall {
-                        id,
-                        name,
-                        arguments,
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let finish_reason = parse_finish_reason(choice);
+    let tool_calls = parse_tool_calls(message);
 
     if tool_calls.is_empty() && content.trim().is_empty() {
         return Err(provider_error(
@@ -82,24 +49,7 @@ pub(crate) fn parse_openai_response(body: &str) -> Result<LlmChatResponse, AiErr
         ));
     }
 
-    let usage = json
-        .get("usage")
-        .map(|usage| LlmUsage {
-            input_tokens: usage
-                .get("prompt_tokens")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0) as u32,
-            output_tokens: usage
-                .get("completion_tokens")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0) as u32,
-            total_tokens: usage
-                .get("total_tokens")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0) as u32,
-        })
-        .unwrap_or_default();
-
+    let usage = parse_usage(&json);
     let model = json
         .get("model")
         .and_then(|value| value.as_str())
@@ -124,4 +74,66 @@ pub(crate) fn parse_openai_response(body: &str) -> Result<LlmChatResponse, AiErr
 
 fn provider_error(category: ProviderErrorCategory, message: impl Into<String>) -> AiError {
     AiError::Provider(ProviderError::new(category, message))
+}
+
+/// parse_finish_reason 从 choice 节点解析完成原因
+fn parse_finish_reason(choice: &serde_json::Value) -> LlmFinishReason {
+    match choice
+        .get("finish_reason")
+        .and_then(|value| value.as_str())
+        .unwrap_or("stop")
+    {
+        "length" => LlmFinishReason::Length,
+        "tool_calls" => LlmFinishReason::ToolCalls,
+        "content_filter" => LlmFinishReason::ContentFilter,
+        _ => LlmFinishReason::Stop,
+    }
+}
+
+/// parse_tool_calls 从 message 节点解析工具调用列表
+fn parse_tool_calls(message: &serde_json::Value) -> Vec<LlmToolCall> {
+    message
+        .get("tool_calls")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let id = item.get("id")?.as_str()?.to_owned();
+                    let function = item.get("function")?;
+                    let name = function.get("name")?.as_str()?.to_owned();
+                    let arguments = function
+                        .get("arguments")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("{}")
+                        .to_owned();
+                    Some(LlmToolCall {
+                        id,
+                        name,
+                        arguments,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// parse_usage 从 response JSON 解析 token 用量
+fn parse_usage(json: &serde_json::Value) -> LlmUsage {
+    json.get("usage")
+        .map(|usage| LlmUsage {
+            input_tokens: usage
+                .get("prompt_tokens")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as u32,
+            output_tokens: usage
+                .get("completion_tokens")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as u32,
+            total_tokens: usage
+                .get("total_tokens")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as u32,
+        })
+        .unwrap_or_default()
 }
