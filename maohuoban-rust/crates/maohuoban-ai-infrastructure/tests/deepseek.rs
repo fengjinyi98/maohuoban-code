@@ -31,6 +31,7 @@ fn sample_request() -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
+        diagnostics_correlation: Default::default(),
     }
 }
 

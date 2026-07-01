@@ -1,0 +1,44 @@
+[
+  {
+    "name": "pet_care_daily_state",
+    "message": "毛球今天状态怎么样，需要观察哪些日常照护点",
+    "surface": "home_private",
+    "expected_intent": "pet_care",
+    "expected_gate_decision": "load_context",
+    "forbidden_text": ["api_key", "authorization", "system prompt"]
+  },
+  {
+    "name": "app_support_edit_pet_profile",
+    "message": "毛伙伴 App 里怎么修改宠物资料",
+    "surface": "home_private",
+    "expected_intent": "app_support",
+    "expected_gate_decision": "enter_workbench",
+    "forbidden_text": ["api_key", "authorization", "system prompt"]
+  },
+  {
+    "name": "off_topic_weather_chat",
+    "message": "今天上海下雨吗",
+    "surface": "home_private",
+    "expected_intent": "off_topic",
+    "expected_gate_decision": "enter_workbench",
+    "forbidden_text": ["api_key", "authorization", "system prompt"]
+  },
+  {
+    "name": "provider_not_configured_pet_care",
+    "message": "毛球今天拉肚子了怎么办",
+    "surface": "home_private",
+    "expected_intent": "pet_health_risk",
+    "expected_gate_decision": "load_context",
+    "expected_error_code": "ai.provider.not_configured",
+    "forbidden_text": ["contract-api-key", "api_key", "authorization"]
+  },
+  {
+    "name": "unauthorized_pet_selected",
+    "message": "毛球今天状态怎么样",
+    "surface": "home_private",
+    "expected_intent": "pet_care",
+    "expected_gate_decision": "load_context",
+    "expected_pet_resolution": "unauthorized_or_not_found",
+    "forbidden_text": ["api_key", "authorization", "system prompt"]
+  }
+]

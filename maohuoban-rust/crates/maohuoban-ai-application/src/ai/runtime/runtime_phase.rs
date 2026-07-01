@@ -1,6 +1,7 @@
 use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
-    AiResult, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, LoopToolResult,
+    AiResult, LlmDiagnosticsCorrelation, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage,
+    LoopToolResult,
 };
 
 use super::streaming_model_purpose::StreamingModelPurpose;
@@ -20,6 +21,7 @@ pub(crate) enum RuntimePhase {
         usage: LlmUsage,
         finish_reason: LlmFinishReason,
         tool_count: u32,
+        diagnostics_correlation: LlmDiagnosticsCorrelation,
     },
     ToolExecution {
         assistant_reasoning_content: Option<String>,

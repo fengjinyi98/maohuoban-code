@@ -14,6 +14,7 @@ use uuid::Uuid;
 use super::super::AiHttpState;
 use super::super::diagnostics::{
     record_chat_runtime_agent_event, record_chat_runtime_engine_selected,
+    record_chat_workbench_built,
 };
 use super::composition::request::ChatStreamRequest;
 use super::runtime_stream::AgentEventSseProjector;
@@ -41,7 +42,18 @@ pub(super) fn runtime_provider_stream(
         Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
         None => ToolRegistry::new(),
     });
-    let tool_count = registry.list_definitions().len();
+    let visible_tool_names = registry
+        .list_definitions()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect::<Vec<_>>();
+    let tool_count = visible_tool_names.len();
+    record_chat_workbench_built(
+        input.session_id,
+        input.message_id,
+        &input.workbench,
+        &visible_tool_names,
+    );
     record_chat_runtime_engine_selected(
         input.session_id,
         input.message_id,
@@ -108,7 +120,11 @@ pub(super) fn runtime_provider_stream(
             &activity_pet_name,
             identity_context_tool_required,
         );
-        let mut agent_stream = session.into_prompt_stream_with_workbench(user_message, workbench);
+        let mut agent_stream = session.into_prompt_stream_with_workbench_diagnostics_message_id(
+            user_message,
+            workbench,
+            message_id,
+        );
         while let Some(result) = agent_stream.next().await {
             match result {
                 Ok(agent_event) => {

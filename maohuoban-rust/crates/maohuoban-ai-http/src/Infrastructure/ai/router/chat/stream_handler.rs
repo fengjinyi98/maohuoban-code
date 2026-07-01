@@ -39,7 +39,12 @@ pub async fn handle_chat_stream(
     };
 
     let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
-    record_stream_request_received(&req, actor_user_id, context.session_id);
+    record_stream_request_received(
+        &req,
+        actor_user_id,
+        context.session_id,
+        context.user_message_id,
+    );
     record_stream_gate_decided(
         context.session_id,
         context.effective_selected_pet_id,
@@ -181,10 +186,16 @@ async fn provider_response_for_context(
     )
 }
 
-fn record_stream_request_received(req: &ChatStreamRequest, actor_user_id: Uuid, session_id: Uuid) {
+fn record_stream_request_received(
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    session_id: Uuid,
+    message_id: Uuid,
+) {
     record_chat_stream_request_received(
         actor_user_id,
         session_id,
+        message_id,
         req.selected_pet_id,
         req.surface,
         &req.message,

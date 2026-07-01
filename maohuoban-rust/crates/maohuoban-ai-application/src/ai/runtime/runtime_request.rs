@@ -1,6 +1,6 @@
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AiFactPackage, LlmChatRequest, LlmMessage, LlmRole, LlmToolCall,
-    LlmToolSchema, LoopToolResult,
+    AgentSessionState, AiFactPackage, LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage,
+    LlmRole, LlmToolCall, LlmToolSchema, LoopToolResult,
 };
 
 use crate::ai::prompt::AiPromptBuilder;
@@ -46,6 +46,7 @@ pub(crate) fn build_request(
         stream: false,
         max_output_tokens: None,
         response_format,
+        diagnostics_correlation: diagnostics_correlation(state, assistant_tool_calls, tool_results),
     }
 }
 
@@ -104,4 +105,35 @@ fn build_messages(
     }
 
     messages
+}
+
+/// diagnostics_correlation 构建 Provider 请求诊断关联键
+/// 核心职责：
+/// - 将当前 in-memory session、turn 和 message 映射到 LLM 请求
+/// - 在 follow-up 模型请求中携带关联工具调用 ID
+fn diagnostics_correlation(
+    state: &AgentSessionState,
+    assistant_tool_calls: &[LlmToolCall],
+    tool_results: &[LoopToolResult],
+) -> LlmDiagnosticsCorrelation {
+    LlmDiagnosticsCorrelation {
+        session_id: Some(state.chat_session_id),
+        turn_id: state.current_turn_id.map(|turn_id| turn_id.as_uuid()),
+        message_id: state.current_turn_diagnostics_message_id,
+        tool_call_id: diagnostics_tool_call_id(assistant_tool_calls, tool_results),
+    }
+}
+
+fn diagnostics_tool_call_id(
+    assistant_tool_calls: &[LlmToolCall],
+    tool_results: &[LoopToolResult],
+) -> Option<String> {
+    assistant_tool_calls
+        .first()
+        .map(|tool_call| tool_call.id.clone())
+        .or_else(|| {
+            tool_results
+                .first()
+                .map(|tool_result| tool_result.tool_call.id.clone())
+        })
 }

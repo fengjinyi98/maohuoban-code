@@ -34,7 +34,20 @@ impl<E: LoopEngine> AgentSession<E> {
 
     /// prompt 提交用户输入并收集 Runtime 内部事件
     pub async fn prompt(&mut self, user_input: impl Into<String>) -> AiResult<Vec<AgentEvent>> {
-        self.prompt_inner(user_input.into(), None).await
+        self.prompt_inner(user_input.into(), None, None).await
+    }
+
+    /// prompt_with_diagnostics_message_id 提交带诊断 message 关联键的用户输入
+    /// 核心职责：
+    /// - 每轮 prompt 显式接收本轮 assistant message_id
+    /// - 支持复用 AgentSession 时刷新 Provider diagnostics 关联键
+    pub async fn prompt_with_diagnostics_message_id(
+        &mut self,
+        user_input: impl Into<String>,
+        diagnostics_message_id: Uuid,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.prompt_inner(user_input.into(), None, Some(diagnostics_message_id))
+            .await
     }
 
     /// prompt_with_workbench 提交用户输入和本轮工作台上下文
@@ -43,16 +56,38 @@ impl<E: LoopEngine> AgentSession<E> {
         user_input: impl Into<String>,
         workbench: AgentSessionWorkbench,
     ) -> AiResult<Vec<AgentEvent>> {
-        self.prompt_inner(user_input.into(), Some(workbench)).await
+        self.prompt_inner(user_input.into(), Some(workbench), None)
+            .await
+    }
+
+    /// prompt_with_workbench_diagnostics_message_id 提交带工作台和诊断 message 关联键的输入
+    /// 核心职责：
+    /// - 将 HTTP 已分配的 assistant message_id 绑定到当前 turn
+    /// - 避免复用 Runtime session 时串用上一轮 message 关联键
+    pub async fn prompt_with_workbench_diagnostics_message_id(
+        &mut self,
+        user_input: impl Into<String>,
+        workbench: AgentSessionWorkbench,
+        diagnostics_message_id: Uuid,
+    ) -> AiResult<Vec<AgentEvent>> {
+        self.prompt_inner(
+            user_input.into(),
+            Some(workbench),
+            Some(diagnostics_message_id),
+        )
+        .await
     }
 
     async fn prompt_inner(
         &mut self,
         user_input: String,
         workbench: Option<AgentSessionWorkbench>,
+        diagnostics_message_id: Option<Uuid>,
     ) -> AiResult<Vec<AgentEvent>> {
         self.state.attach_workbench(workbench);
-        let turn_id = self.state.begin_turn(user_input);
+        let turn_id = self
+            .state
+            .begin_turn_with_diagnostics_message_id(user_input, diagnostics_message_id);
         let engine_mode = self.engine.engine_mode().to_owned();
         let mut events = vec![AgentEvent::TurnStarted {
             turn_id,
@@ -82,7 +117,22 @@ impl<E: LoopEngine> AgentSession<E> {
     where
         E: 'static,
     {
-        self.into_prompt_stream_inner(user_input, None)
+        self.into_prompt_stream_inner(user_input, None, None)
+    }
+
+    /// into_prompt_stream_with_diagnostics_message_id 提交带诊断 message 关联键的流式输入
+    /// 核心职责：
+    /// - 将本轮 assistant message_id 写入当前 turn 诊断上下文
+    /// - 保持 Runtime 事件流输出顺序不变
+    pub fn into_prompt_stream_with_diagnostics_message_id(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+        diagnostics_message_id: Uuid,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, None, Some(diagnostics_message_id))
     }
 
     /// into_prompt_stream_with_workbench 提交用户输入和工作台并逐步产出事件
@@ -97,13 +147,30 @@ impl<E: LoopEngine> AgentSession<E> {
     where
         E: 'static,
     {
-        self.into_prompt_stream_inner(user_input, Some(workbench))
+        self.into_prompt_stream_inner(user_input, Some(workbench), None)
+    }
+
+    /// into_prompt_stream_with_workbench_diagnostics_message_id 提交流式工作台输入
+    /// 核心职责：
+    /// - 将工作台上下文和本轮 assistant message_id 同步绑定到 turn
+    /// - 让 Provider diagnostics 稳定关联到当前 HTTP message
+    pub fn into_prompt_stream_with_workbench_diagnostics_message_id(
+        self,
+        user_input: impl Into<String> + Send + 'static,
+        workbench: AgentSessionWorkbench,
+        diagnostics_message_id: Uuid,
+    ) -> BoxStream<'static, AiResult<AgentEvent>>
+    where
+        E: 'static,
+    {
+        self.into_prompt_stream_inner(user_input, Some(workbench), Some(diagnostics_message_id))
     }
 
     fn into_prompt_stream_inner(
         mut self,
         user_input: impl Into<String> + Send + 'static,
         workbench: Option<AgentSessionWorkbench>,
+        diagnostics_message_id: Option<Uuid>,
     ) -> BoxStream<'static, AiResult<AgentEvent>>
     where
         E: 'static,
@@ -111,7 +178,9 @@ impl<E: LoopEngine> AgentSession<E> {
         let user_input = user_input.into();
         Box::pin(async_stream::try_stream! {
             self.state.attach_workbench(workbench);
-            let turn_id = self.state.begin_turn(user_input);
+            let turn_id = self
+                .state
+                .begin_turn_with_diagnostics_message_id(user_input, diagnostics_message_id);
             let engine_mode = self.engine.engine_mode().to_owned();
             yield AgentEvent::TurnStarted {
                 turn_id,

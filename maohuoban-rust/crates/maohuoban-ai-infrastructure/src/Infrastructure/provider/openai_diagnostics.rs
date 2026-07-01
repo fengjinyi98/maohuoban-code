@@ -6,6 +6,9 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use maohuoban_ai_application::ai::diagnostics::{
+    AiDiagnosticsCorrelation, redact_ai_diagnostics_text, redact_ai_diagnostics_value,
+};
 use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmRole};
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use serde_json::Value;
@@ -31,16 +34,22 @@ impl OpenAiProviderDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
-            EventKind::Analytics,
-            Severity::Debug,
+        let request_messages =
+            redact_ai_diagnostics_value(&serde_json::json!(request_messages(request)));
+        let request_tool_schemas =
+            redact_ai_diagnostics_value(&serde_json::json!(request_tool_schemas(request)));
+        let request_body = redact_ai_diagnostics_value(body);
+        let request_body_text =
+            redact_ai_diagnostics_text(&serde_json::to_string(&request_body).unwrap_or_default());
+        let event = provider_diagnostic_event(
             "ai.provider.openai.request.prepared",
+            Severity::Debug,
+            request,
+            model,
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
         .metadata("mode", serde_json::json!(mode))
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("base_url_kind", serde_json::json!(base_url_kind(base_url)))
-        .metadata("model", serde_json::json!(model))
         .metadata(
             "request_stream",
             serde_json::json!(body.get("stream").and_then(Value::as_bool).unwrap_or(false)),
@@ -79,25 +88,17 @@ impl OpenAiProviderDiagnostics {
             "has_json_instruction",
             serde_json::json!(request_has_json_instruction(request)),
         )
-        .metadata(
-            "request_messages",
-            serde_json::json!(request_messages(request)),
-        )
-        .metadata(
-            "request_tool_schemas",
-            serde_json::json!(request_tool_schemas(request)),
-        )
-        .metadata("request_body", serde_json::json!(body))
-        .metadata(
-            "request_body_text",
-            serde_json::json!(serde_json::to_string(body).unwrap_or_default()),
-        );
+        .metadata("request_messages", request_messages)
+        .metadata("request_tool_schemas", request_tool_schemas)
+        .metadata("request_body", request_body)
+        .metadata("request_body_text", serde_json::json!(request_body_text));
         diagnostics.record(event);
     }
 
     pub(crate) fn record_http_response_started(
         mode: &'static str,
         request: &LlmChatRequest,
+        model: &str,
         status: u16,
         content_type: Option<&str>,
         header_summary: &str,
@@ -105,12 +106,12 @@ impl OpenAiProviderDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
-            EventKind::Analytics,
-            severity_from_status(status),
+        let event = provider_diagnostic_event(
             "ai.provider.openai.http.response.started",
+            severity_from_status(status),
+            request,
+            model,
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
         .metadata("mode", serde_json::json!(mode))
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("http_status", serde_json::json!(status))
@@ -118,34 +119,42 @@ impl OpenAiProviderDiagnostics {
             "content_type_kind",
             serde_json::json!(content_type_kind(content_type)),
         )
-        .metadata("header_summary", serde_json::json!(header_summary));
+        .metadata(
+            "header_summary",
+            serde_json::json!(redact_ai_diagnostics_text(header_summary)),
+        );
         diagnostics.record(event);
     }
 
     pub(crate) fn record_http_response_body(
         mode: &'static str,
         request: &LlmChatRequest,
+        model: &str,
         status: u16,
         response_body: &str,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
-            EventKind::Analytics,
-            severity_from_status(status),
+        let event = provider_diagnostic_event(
             "ai.provider.openai.http.response.body",
+            severity_from_status(status),
+            request,
+            model,
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
         .metadata("mode", serde_json::json!(mode))
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("http_status", serde_json::json!(status))
-        .metadata("response_body", serde_json::json!(response_body));
+        .metadata(
+            "response_body",
+            serde_json::json!(redact_ai_diagnostics_text(response_body)),
+        );
         diagnostics.record(event);
     }
 
     pub(crate) fn record_stream_chunk(
         request: &LlmChatRequest,
+        model: &str,
         chunk_index: u32,
         byte_len: usize,
         chunk_text: &str,
@@ -153,37 +162,46 @@ impl OpenAiProviderDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
-            EventKind::Analytics,
-            Severity::Debug,
+        let event = provider_diagnostic_event(
             "ai.provider.openai.stream.chunk",
+            Severity::Debug,
+            request,
+            model,
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("chunk_index", serde_json::json!(chunk_index))
         .metadata("byte_len", serde_json::json!(byte_len))
-        .metadata("chunk_text", serde_json::json!(chunk_text));
+        .metadata(
+            "chunk_text",
+            serde_json::json!(redact_ai_diagnostics_text(chunk_text)),
+        );
         diagnostics.record(event);
     }
 
-    pub(crate) fn record_stream_event(request: &LlmChatRequest, event_name: &str, payload: Value) {
+    pub(crate) fn record_stream_event(
+        request: &LlmChatRequest,
+        model: &str,
+        event_name: &str,
+        payload: Value,
+    ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
-            EventKind::Analytics,
-            Severity::Debug,
+        let event = provider_diagnostic_event(
             "ai.provider.openai.stream.event",
+            Severity::Debug,
+            request,
+            model,
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("event_name", serde_json::json!(event_name))
-        .metadata("payload", payload);
+        .metadata("payload", redact_ai_diagnostics_value(&payload));
         diagnostics.record(event);
     }
 
     pub(crate) fn record_stream_decode_error(
         request: &LlmChatRequest,
+        model: &str,
         error: &AiError,
         stats: ProviderStreamStats,
         decoder_idle: bool,
@@ -192,6 +210,7 @@ impl OpenAiProviderDiagnostics {
             "ai.provider.openai.stream.decode_error",
             Severity::Error,
             request,
+            model,
             Some(error),
             stats,
             decoder_idle,
@@ -200,6 +219,7 @@ impl OpenAiProviderDiagnostics {
 
     pub(crate) fn record_stream_completed(
         request: &LlmChatRequest,
+        model: &str,
         stats: ProviderStreamStats,
         decoder_idle: bool,
     ) {
@@ -207,6 +227,7 @@ impl OpenAiProviderDiagnostics {
             "ai.provider.openai.stream.completed",
             Severity::Debug,
             request,
+            model,
             None,
             stats,
             decoder_idle,
@@ -215,6 +236,7 @@ impl OpenAiProviderDiagnostics {
 
     pub(crate) fn record_stream_incomplete(
         request: &LlmChatRequest,
+        model: &str,
         stats: ProviderStreamStats,
         decoder_idle: bool,
     ) {
@@ -222,6 +244,7 @@ impl OpenAiProviderDiagnostics {
             "ai.provider.openai.stream.incomplete",
             Severity::Error,
             request,
+            model,
             None,
             stats,
             decoder_idle,
@@ -232,6 +255,7 @@ impl OpenAiProviderDiagnostics {
         message: &'static str,
         severity: Severity,
         request: &LlmChatRequest,
+        model: &str,
         error: Option<&AiError>,
         stats: ProviderStreamStats,
         decoder_idle: bool,
@@ -239,8 +263,7 @@ impl OpenAiProviderDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(EventKind::Analytics, severity, message)
-            .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+        let event = provider_diagnostic_event(message, severity, request, model)
             .metadata("phase_guess", serde_json::json!(phase_guess(request)))
             .metadata("chunk_count", serde_json::json!(stats.chunk_count))
             .metadata(
@@ -279,6 +302,25 @@ impl OpenAiProviderDiagnostics {
             );
         diagnostics.record(event);
     }
+}
+
+fn provider_diagnostic_event(
+    message: &'static str,
+    severity: Severity,
+    request: &LlmChatRequest,
+    model: &str,
+) -> DiagnosticEvent {
+    let mut event = DiagnosticEvent::new(EventKind::Analytics, severity, message)
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
+    for (key, value) in
+        AiDiagnosticsCorrelation::from_llm_diagnostics(&request.diagnostics_correlation)
+            .with_provider("openai_compatible")
+            .with_model(model)
+            .to_metadata()
+    {
+        event = event.metadata(key, value);
+    }
+    event.metadata("model_route", serde_json::json!(request.model.as_str()))
 }
 
 fn body_tool_count(body: &Value) -> usize {

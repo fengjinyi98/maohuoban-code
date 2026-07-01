@@ -40,7 +40,13 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     diagnostics.flush().expect("flush diagnostics");
 
     let events = diagnostics.read_events().expect("diagnostics events");
-    let forbidden_fields = ["contract-api-key", "api_key", "authorization", "Bearer"];
+    let forbidden_fields = [
+        "contract-api-key",
+        "api_key",
+        "authorization",
+        "Bearer",
+        "Cookie",
+    ];
 
     let ai_events: Vec<_> = events
         .iter()
@@ -64,6 +70,8 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
             && event.metadata["surface"] == json!("home_private")
             && event.metadata["message_length_bucket"] == json!("1_32")
             && event.metadata["message"] == json!("毛球今天拉肚子了怎么办")
+            && event.metadata["chat_session_id_prefix"].is_string()
+            && event.metadata["message_id_prefix"].is_string()
     }));
 }
 
