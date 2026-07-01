@@ -1,7 +1,13 @@
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiStreamEvent, LlmFinishReason,
+    AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
+    AiStreamEvent, LlmFinishReason, ModelLabel, ProviderErrorCategory,
 };
+use serde::Deserialize;
 use uuid::Uuid;
+
+const REPLAY_CASE_JSON: &str = include_str!(
+    "../../../../docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/replay_cases/provider_failure_turn.json"
+);
 
 #[allow(dead_code)]
 #[path = "../src/Infrastructure/ai/router/chat/runtime_stream_projector.rs"]
@@ -13,6 +19,59 @@ mod runtime_stream_helpers;
 
 use runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 use runtime_stream_projector::AgentEventSseProjector;
+
+// ReplayFixture WT10 replay fixture 的 projector 输入
+// 核心职责：
+// - 读取 replay failure case 的 runtime event 序列
+// - 固定 replay case 对应的 SSE projector 终态
+#[derive(Debug, Deserialize)]
+struct ReplayFixture {
+    expected_terminal_state: String,
+    event_sequence: Vec<String>,
+    expected_replay_read: ExpectedReplayRead,
+}
+
+// ExpectedReplayRead replay fixture 中 projector 终态期望
+// 核心职责：
+// - 固定 replay 序列投影后的用户可见终态事件
+#[derive(Debug, Deserialize)]
+struct ExpectedReplayRead {
+    projector_terminal_event: String,
+}
+
+#[test]
+fn projector_terminal_event_matches_replay_fixture_contract() {
+    let fixture: ReplayFixture = serde_json::from_str(REPLAY_CASE_JSON).expect("parse replay case");
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "毛球", false);
+
+    let projected = fixture
+        .event_sequence
+        .iter()
+        .flat_map(|event_name| projector.project(replay_agent_event(event_name, turn_id)))
+        .collect::<Vec<_>>();
+    let terminal_event = projected
+        .last()
+        .unwrap_or_else(|| panic!("replay fixture produced no projected events: {fixture:?}"));
+
+    assert_eq!(fixture.expected_terminal_state, "failed");
+    assert_eq!(
+        terminal_event.event_name(),
+        fixture.expected_replay_read.projector_terminal_event
+    );
+    assert!(
+        matches!(
+            terminal_event,
+            AiStreamEvent::Error {
+                code,
+                retryable: false,
+                ..
+            } if code == "ai.provider.not_configured"
+        ),
+        "provider failure replay must project stable error event, got {terminal_event:?}"
+    );
+}
 
 #[test]
 fn projector_streams_json_answer_text_incrementally_without_json_fields() {
@@ -255,4 +314,35 @@ fn projector_blocks_missing_identity_claim_when_identity_tool_not_called() {
     assert_eq!(*completed.1, LlmFinishReason::ContentFilter);
     assert!(completed.2.is_blocked());
     assert!(!completed.0.contains("没有生日记录"));
+}
+
+fn replay_agent_event(event_name: &str, turn_id: AgentTurnId) -> AgentEvent {
+    match event_name {
+        "turn_started" => AgentEvent::TurnStarted {
+            turn_id,
+            chat_session_id: Uuid::new_v4(),
+            agent_id: AgentId::main_pet_care_agent(),
+            surface: AiConversationSurface::HomePrivate,
+            engine_mode: "openai".to_owned(),
+        },
+        "model_call_started" => AgentEvent::ModelCallStarted {
+            turn_id,
+            model_label: ModelLabel::Primary,
+            tool_count: 0,
+            engine_mode: "openai".to_owned(),
+        },
+        "provider_error" => AgentEvent::ProviderError {
+            turn_id,
+            category: ProviderErrorCategory::NotConfigured,
+            retryable: false,
+            engine_mode: "openai".to_owned(),
+        },
+        "turn_failed" => AgentEvent::TurnFailed {
+            turn_id,
+            error_code: "ai.provider.not_configured".to_owned(),
+            retryable: false,
+            engine_mode: "openai".to_owned(),
+        },
+        event => panic!("unsupported replay fixture event {event}"),
+    }
 }

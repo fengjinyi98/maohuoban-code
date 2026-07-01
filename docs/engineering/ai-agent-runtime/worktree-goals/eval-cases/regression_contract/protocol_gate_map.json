@@ -1,0 +1,520 @@
+{
+  "schema_version": 1,
+  "protocol_documents": [
+    {
+      "id": "01",
+      "title": "完整运行链路与参考实现映射",
+      "document_path": "docs/engineering/ai-agent-runtime/01_毛球Agent完整运行链路与参考实现映射目标文档.md",
+      "contract_layer": "Runtime Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-http/tests/runtime_stream_projector.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test runtime_contract",
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+        "cargo test -p maohuoban-ai-http --test runtime_stream_projector"
+      ]
+    },
+    {
+      "id": "02",
+      "title": "意图规划Skill记忆上下文与工具系统",
+      "document_path": "docs/engineering/ai-agent-runtime/02_毛球Agent意图规划Skill记忆上下文与工具系统目标文档.md",
+      "contract_layer": "Eval Cases",
+      "test_entries": [
+        "maohuoban-rust/tests/ai_eval.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/eval_case/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/planning_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/skill_runtime_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/turn_context_builder/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test --test ai_eval",
+        "cargo test -p maohuoban-ai-application --test eval_case",
+        "cargo test -p maohuoban-ai-application --test planning_contract",
+        "cargo test -p maohuoban-ai-application --test skill_runtime_contract",
+        "cargo test -p maohuoban-ai-application --test turn_context_builder"
+      ]
+    },
+    {
+      "id": "03",
+      "title": "会话协议与数据库写入",
+      "document_path": "docs/engineering/ai-agent-runtime/03_毛球Agent会话协议与数据库写入目标文档.md",
+      "contract_layer": "Replay / Diagnostics",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-domain/tests/session_event_roundtrip.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/session_turn_contract/main.rs",
+        "maohuoban-rust/tests/ai_contract/history.rs",
+        "maohuoban-rust/tests/ai_contract/replay.rs",
+        "maohuoban-rust/tests/ai_contract/persistence.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-domain session_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-application --test session_turn_contract",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "id": "04",
+      "title": "Turn协议",
+      "document_path": "docs/engineering/ai-agent-runtime/04_毛球AgentTurn协议目标文档.md",
+      "contract_layer": "Domain Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-domain/tests/runtime_event_roundtrip.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-application --test runtime_contract",
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine"
+      ]
+    },
+    {
+      "id": "05",
+      "title": "工具协议",
+      "document_path": "docs/engineering/ai-agent-runtime/05_毛球Agent工具协议目标文档.md",
+      "contract_layer": "Runtime Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-domain/tests/enum_roundtrip.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_registry/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_guardrail/main.rs",
+        "maohuoban-rust/tests/ai_contract/chat_stream_runtime_tools.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test tool_registry",
+        "cargo test -p maohuoban-ai-application --test tool_guardrail",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "id": "06",
+      "title": "Finalizer协议",
+      "document_path": "docs/engineering/ai-agent-runtime/06_毛球AgentFinalizer协议目标文档.md",
+      "contract_layer": "Replay / Diagnostics",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/finalizer_contract/main.rs",
+        "maohuoban-rust/tests/ai_contract/chat_non_stream.rs",
+        "maohuoban-rust/tests/ai_contract/chat_stream_diagnostics.rs",
+        "maohuoban-rust/tests/ai_contract/persistence.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test finalizer_contract",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "id": "07",
+      "title": "Provider能力协议",
+      "document_path": "docs/engineering/ai-agent-runtime/07_毛球AgentProvider能力协议目标文档.md",
+      "contract_layer": "Provider Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_request_policy.rs",
+        "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/deepseek.rs",
+        "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/sse_stream_parser.rs",
+        "maohuoban-rust/tests/ai_contract/chat_stream_provider.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-infrastructure --test openai_request_policy",
+        "cargo test -p maohuoban-ai-infrastructure --test deepseek",
+        "cargo test -p maohuoban-ai-infrastructure --test sse_stream_parser",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "id": "08",
+      "title": "记忆与上下文检索协议",
+      "document_path": "docs/engineering/ai-agent-runtime/08_毛球Agent记忆与上下文检索协议目标文档.md",
+      "contract_layer": "Eval Cases",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-domain/tests/memory_pack_isolation.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/memory_retrieval/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/conversation_history/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/session_summary/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test memory_retrieval",
+        "cargo test -p maohuoban-ai-application --test conversation_history",
+        "cargo test -p maohuoban-ai-application --test session_summary"
+      ]
+    },
+    {
+      "id": "09",
+      "title": "规划与执行协议",
+      "document_path": "docs/engineering/ai-agent-runtime/09_毛球Agent规划与执行协议目标文档.md",
+      "contract_layer": "Runtime Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/planning_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine/planning_runtime_tests.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_regression_cases/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test planning_contract",
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+        "cargo test -p maohuoban-ai-application --test runtime_regression_cases"
+      ]
+    },
+    {
+      "id": "10",
+      "title": "意图闸门协议",
+      "document_path": "docs/engineering/ai-agent-runtime/10_毛球Agent意图闸门协议目标文档.md",
+      "contract_layer": "Eval Cases",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/intent_gate/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/eval_case/main.rs",
+        "maohuoban-rust/tests/ai_contract/chat_stream_diagnostics.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test intent_gate",
+        "cargo test -p maohuoban-ai-application --test eval_case",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Skill运行时协议",
+      "document_path": "docs/engineering/ai-agent-runtime/11_毛球AgentSkill运行时协议目标文档.md",
+      "contract_layer": "Eval Cases",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/skill_runtime_contract/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/skill_runtime_diagnostics/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_workbench_prompt_projection/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-application --test skill_runtime_contract",
+        "cargo test -p maohuoban-ai-application --test skill_runtime_diagnostics",
+        "cargo test -p maohuoban-ai-application --test runtime_workbench_prompt_projection"
+      ]
+    },
+    {
+      "id": "12",
+      "title": "领域事实协议",
+      "document_path": "docs/engineering/ai-agent-runtime/12_毛球Agent领域事实协议目标文档.md",
+      "contract_layer": "Domain Contract",
+      "test_entries": [
+        "maohuoban-rust/crates/maohuoban-ai-domain/tests/tool_fact_projection_boundary.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/fact_package_diet_hints/main.rs",
+        "maohuoban-rust/crates/maohuoban-ai-application/tests/prompt_builder/main.rs"
+      ],
+      "gate_commands": [
+        "cargo test -p maohuoban-ai-domain tool_fact_projection_boundary --tests",
+        "cargo test -p maohuoban-ai-application --test fact_package_diet_hints",
+        "cargo test -p maohuoban-ai-application --test prompt_builder"
+      ]
+    }
+  ],
+  "contract_layers": [
+    {
+      "name": "Domain Contract",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-domain session_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-domain enum_roundtrip --tests",
+        "cargo test -p maohuoban-ai-domain tool_fact_projection_boundary --tests"
+      ],
+      "frozen_objects": [
+        "AgentEvent.event_name()",
+        "InternalTurnEvent.event_name()",
+        "UserVisibleTurnEvent.event_name()",
+        "LoopStep.step_name()",
+        "AiIntent",
+        "LlmToolSchema",
+        "LlmToolCall",
+        "AiFactStrength"
+      ]
+    },
+    {
+      "name": "Runtime Contract",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+        "cargo test -p maohuoban-ai-application --test runtime_regression_cases",
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine_streaming",
+        "cargo test -p maohuoban-ai-application --test planning_contract"
+      ],
+      "frozen_objects": [
+        "RuntimePhase",
+        "TaskType",
+        "StepKind",
+        "ReplanPolicy",
+        "LoopToolResult"
+      ]
+    },
+    {
+      "name": "Provider Contract",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-infrastructure --test openai_request_policy",
+        "cargo test -p maohuoban-ai-infrastructure --test deepseek",
+        "cargo test -p maohuoban-ai-infrastructure --test sse_stream_parser"
+      ],
+      "frozen_objects": [
+        "ProviderCapability",
+        "ProviderProfile",
+        "ProviderErrorCategory",
+        "LlmStreamEvent"
+      ]
+    },
+    {
+      "name": "HTTP Contract",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-http --test runtime_stream_projector",
+        "cargo test --test ai_contract"
+      ],
+      "frozen_objects": [
+        "AiStreamEvent.event_name()",
+        "SSE event order",
+        "chat stream response schema"
+      ]
+    },
+    {
+      "name": "Replay / Diagnostics",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-domain session_event_roundtrip --tests",
+        "cargo test --test ai_contract"
+      ],
+      "frozen_objects": [
+        "AgentSessionEventEntry",
+        "diagnostics metadata fields",
+        "redaction forbidden fields"
+      ]
+    },
+    {
+      "name": "Eval Cases",
+      "primary_tests": [
+        "cargo test -p maohuoban-ai-application --test eval_case",
+        "cargo test --test ai_eval",
+        "cargo test -p maohuoban-ai-application --test intent_gate",
+        "cargo test --test ai_contract"
+      ],
+      "frozen_objects": [
+        "eval case schema",
+        "expected intent",
+        "expected workbench",
+        "expected context_loaded",
+        "expected terminal_state"
+      ]
+    }
+  ],
+  "gate_commands": {
+    "minimum": [
+      "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests",
+      "cargo test -p maohuoban-ai-domain session_event_roundtrip --tests",
+      "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+      "cargo test -p maohuoban-ai-application --test runtime_regression_cases",
+      "cargo test -p maohuoban-ai-application --test runtime_loop_engine_streaming",
+      "cargo test -p maohuoban-ai-application --test eval_case",
+      "cargo test --test ai_eval",
+      "cargo test -p maohuoban-ai-http --test runtime_stream_projector",
+      "cargo test -p maohuoban-ai-infrastructure --test openai_request_policy",
+      "cargo test -p maohuoban-ai-infrastructure --test deepseek",
+      "cargo test --test ai_contract"
+    ],
+    "wave": [
+      "cargo test -p maohuoban-ai-domain -p maohuoban-ai-application -p maohuoban-ai-infrastructure -p maohuoban-ai-http --all-targets"
+    ],
+    "integration": [
+      "cargo fmt --all --check",
+      "cargo check --workspace --all-targets",
+      "cargo clippy --workspace --all-targets -- -D warnings",
+      "cargo test --test ai_contract"
+    ],
+    "workspace": [
+      "cargo fmt --all --check",
+      "cargo check --workspace --all-targets",
+      "cargo clippy --workspace --all-targets -- -D warnings",
+      "cargo test --workspace"
+    ]
+  },
+  "change_layer_gates": [
+    {
+      "change_layer": "AiIntent / Gate",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-application --test intent_gate",
+        "cargo test -p maohuoban-ai-application --test eval_case",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "change_layer": "Turn / Event / LoopStep",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-domain session_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+        "cargo test -p maohuoban-ai-http --test runtime_stream_projector"
+      ]
+    },
+    {
+      "change_layer": "Tool Contract",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-application --test runtime_loop_engine",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "change_layer": "Provider Capability",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-infrastructure --test openai_request_policy",
+        "cargo test -p maohuoban-ai-infrastructure --test deepseek",
+        "cargo test -p maohuoban-ai-infrastructure --test sse_stream_parser"
+      ]
+    },
+    {
+      "change_layer": "Finalizer / Persistence",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-application --test finalizer_contract",
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "change_layer": "Memory / Retrieval / Summary",
+      "required_tests": [
+        "cargo test -p maohuoban-ai-application --test memory_retrieval",
+        "cargo test -p maohuoban-ai-application --test conversation_history",
+        "cargo test -p maohuoban-ai-application --test session_summary",
+        "cargo test -p maohuoban-ai-application --test eval_case"
+      ]
+    }
+  ],
+  "fixture_directories": [
+    {
+      "kind": "eval_cases",
+      "path": "docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/ai_eval_cases.json",
+      "purpose": "固定 intent、workbench、context_loaded、terminal_state、失败码和脱敏文本期望",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-application --test eval_case",
+        "cargo test --test ai_eval"
+      ]
+    },
+    {
+      "kind": "regression_contract",
+      "path": "docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/regression_contract/protocol_gate_map.json",
+      "purpose": "固定协议文档到测试入口、冻结对象和门禁命令的映射",
+      "guard_tests": [
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "kind": "replay_cases",
+      "path": "docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/replay_cases/provider_failure_turn.json",
+      "purpose": "固定 provider failure 的 turn replay 事件序列",
+      "guard_tests": [
+        "cargo test --test ai_contract"
+      ]
+    },
+    {
+      "kind": "diagnostics_assertions",
+      "path": "docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/diagnostics_assertions/ai_chat_diagnostics.json",
+      "purpose": "固定 request/response/tool/event 诊断链、脱敏和终态字段断言",
+      "guard_tests": [
+        "cargo test --test ai_contract"
+      ]
+    }
+  ],
+  "frozen_objects": [
+    {
+      "object": "AgentEvent.event_name()",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests"
+      ],
+      "frozen_values": [
+        "turn_started",
+        "model_call_started",
+        "tool_started",
+        "message_delta",
+        "turn_finished",
+        "tool_finished",
+        "provider_error",
+        "model_call_finished"
+      ]
+    },
+    {
+      "object": "InternalTurnEvent.event_name()",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests"
+      ],
+      "frozen_values": [
+        "model_delta",
+        "tool_planning",
+        "provider_json_draft"
+      ]
+    },
+    {
+      "object": "UserVisibleTurnEvent.event_name()",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests"
+      ],
+      "frozen_values": [
+        "execution_trace_started",
+        "answer_delta"
+      ]
+    },
+    {
+      "object": "LoopStep.step_name()",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain runtime_event_roundtrip --tests",
+        "cargo test -p maohuoban-ai-application --test runtime_contract"
+      ],
+      "frozen_values": [
+        "call_model",
+        "message_delta",
+        "call_tools",
+        "clarify_user",
+        "done"
+      ]
+    },
+    {
+      "object": "AiIntent",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain enum_roundtrip --tests",
+        "cargo test -p maohuoban-ai-application --test intent_gate",
+        "cargo test -p maohuoban-ai-application --test eval_case"
+      ],
+      "frozen_values": [
+        "pet_care",
+        "pet_health_risk",
+        "prompt_injection",
+        "cost_abuse",
+        "app_support",
+        "off_topic",
+        "emotional_pet_context",
+        "pet_record_query",
+        "pet_food"
+      ]
+    },
+    {
+      "object": "AiStreamEvent.event_name()",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain enum_roundtrip --tests",
+        "cargo test -p maohuoban-ai-http --test runtime_stream_projector"
+      ],
+      "frozen_values": [
+        "delta",
+        "message_started",
+        "citation",
+        "execution_trace_started",
+        "execution_trace_completed",
+        "answer_delta",
+        "answer_completed",
+        "error"
+      ]
+    },
+    {
+      "object": "Tool / Fact / Provider key protocol objects",
+      "guard_tests": [
+        "cargo test -p maohuoban-ai-domain enum_roundtrip --tests",
+        "cargo test -p maohuoban-ai-domain tool_fact_projection_boundary --tests",
+        "cargo test -p maohuoban-ai-infrastructure --test openai_request_policy",
+        "cargo test -p maohuoban-ai-infrastructure --test deepseek"
+      ],
+      "frozen_values": [
+        "LlmToolSchema",
+        "LlmToolCall",
+        "AiFactStrength::Strong",
+        "AiFactStrength::PendingConfirmation",
+        "AiFactStrength::Weak",
+        "ProviderCapability",
+        "ProviderErrorCategory"
+      ]
+    }
+  ]
+}

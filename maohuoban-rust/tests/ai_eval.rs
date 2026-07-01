@@ -7,14 +7,36 @@
 
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use std::sync::{Arc, OnceLock};
 use tokio::sync::Mutex;
 use tower::ServiceExt;
 
+const EVAL_CASES_JSON: &str = include_str!(
+    "../../docs/engineering/ai-agent-runtime/worktree-goals/eval-cases/ai_eval_cases.json"
+);
+
+/// `EvalFixtureCase` HTTP eval fixture 样例
+/// 核心职责：
+/// - 从 WT10 eval fixture 读取真实链路输入
+/// - 固定 HTTP / finalizer / pet resolution 的期望输出
+#[derive(Debug, Deserialize)]
+struct EvalFixtureCase {
+    name: String,
+    message: String,
+    surface: String,
+    expected_terminal_state: String,
+    #[serde(default)]
+    expected_error_code: Option<String>,
+    #[serde(default)]
+    expected_pet_resolution: Option<String>,
+}
+
 #[tokio::test]
 async fn provider_not_configured_eval() {
     let _guard = ai_eval_test_lock().lock_owned().await;
+    let case = eval_case_fixture("provider_not_configured_pet_care");
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139101", "ai-eval-provider-error").await;
@@ -29,8 +51,8 @@ async fn provider_not_configured_eval() {
             "/api/v1/ai/chat/stream",
             &access_token,
             json!({
-                "message": "毛球今天拉肚子了怎么办",
-                "surface": "home_private",
+                "message": case.message.as_str(),
+                "surface": case.surface.as_str(),
                 "selected_pet_id": pet_id
             }),
         ))
@@ -55,17 +77,19 @@ async fn provider_not_configured_eval() {
     );
 
     let error = sse_event_data(&text, "error");
-    assert_eq!(error["code"], "ai.provider.not_configured");
+    assert_eq!(error["code"].as_str(), case.expected_error_code.as_deref());
     assert_eq!(error["retryable"], false);
     assert_eq!(
         error["safe_fallback_text"],
         "暂时无法获取回答，请稍后重试。"
     );
+    assert_latest_turn_outcome(app.pool(), &case).await;
 }
 
 #[tokio::test]
 async fn unauthorized_pet_eval() {
     let _guard = ai_eval_test_lock().lock_owned().await;
+    let case = eval_case_fixture("unauthorized_pet_selected");
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let owner_token = login_and_get_token(&app, "13800139102", "ai-eval-pet-owner").await;
@@ -83,8 +107,8 @@ async fn unauthorized_pet_eval() {
             "/api/v1/ai/chat/stream",
             &actor_token,
             json!({
-                "message": "今天怎么样",
-                "surface": "home_private",
+                "message": case.message.as_str(),
+                "surface": case.surface.as_str(),
                 "selected_pet_id": owner_pet_id
             }),
         ))
@@ -107,13 +131,14 @@ async fn unauthorized_pet_eval() {
 
     let resolution = sse_event_data(&text, "pet_resolution");
     assert_eq!(
-        resolution["resolution"]["status"],
-        "unauthorized_or_not_found"
+        resolution["resolution"]["status"].as_str(),
+        case.expected_pet_resolution.as_deref()
     );
     assert!(
         !text.contains("event: error") && !text.contains("ai.provider.not_configured"),
         "unauthorized pet eval should not call provider, got body {text}"
     );
+    assert_latest_turn_outcome(app.pool(), &case).await;
 
     let row: (String, bool, Option<String>) = sqlx::query_as(
         r"
@@ -130,7 +155,32 @@ async fn unauthorized_pet_eval() {
 
     assert_eq!(row.0, "list_authorized_pet_candidates");
     assert!(!row.1);
-    assert_eq!(row.2.as_deref(), Some("unauthorized_or_not_found"));
+    assert_eq!(row.2.as_deref(), case.expected_pet_resolution.as_deref());
+}
+
+fn eval_case_fixture(name: &str) -> EvalFixtureCase {
+    serde_json::from_str::<Vec<EvalFixtureCase>>(EVAL_CASES_JSON)
+        .expect("parse eval fixture")
+        .into_iter()
+        .find(|case| case.name == name)
+        .unwrap_or_else(|| panic!("missing eval fixture case {name}"))
+}
+
+async fn assert_latest_turn_outcome(pool: &sqlx::PgPool, case: &EvalFixtureCase) {
+    let row: (String, Option<String>) = sqlx::query_as(
+        r"
+        SELECT status, error_code
+        FROM ai_session_turns
+        ORDER BY started_at DESC
+        LIMIT 1
+        ",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("read latest ai turn");
+
+    assert_eq!(row.0, case.expected_terminal_state);
+    assert_eq!(row.1.as_deref(), case.expected_error_code.as_deref());
 }
 
 fn json_request(method: &str, uri: &str, body: Value) -> Request<Body> {

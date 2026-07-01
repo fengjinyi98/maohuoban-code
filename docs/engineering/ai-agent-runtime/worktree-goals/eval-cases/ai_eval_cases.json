@@ -5,6 +5,10 @@
     "surface": "home_private",
     "expected_intent": "pet_care",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -13,6 +17,10 @@
     "surface": "home_private",
     "expected_intent": "pet_record_query",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -21,6 +29,10 @@
     "surface": "home_private",
     "expected_intent": "pet_food",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -29,6 +41,10 @@
     "surface": "home_private",
     "expected_intent": "pet_health_risk",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -37,6 +53,10 @@
     "surface": "home_private",
     "expected_intent": "emotional_pet_context",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -45,6 +65,10 @@
     "surface": "home_private",
     "expected_intent": "app_support",
     "expected_gate_decision": "enter_workbench",
+    "expected_workbench": "light_response",
+    "expected_context_loaded": false,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -53,6 +77,10 @@
     "surface": "home_private",
     "expected_intent": "off_topic",
     "expected_gate_decision": "enter_workbench",
+    "expected_workbench": "light_response",
+    "expected_context_loaded": false,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -61,6 +89,10 @@
     "surface": "home_private",
     "expected_intent": "prompt_injection",
     "expected_gate_decision": "blocked",
+    "expected_workbench": "blocked",
+    "expected_context_loaded": false,
+    "expected_enters_workbench": false,
+    "expected_terminal_state": "blocked",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -69,6 +101,10 @@
     "surface": "home_private",
     "expected_intent": "cost_abuse",
     "expected_gate_decision": "blocked",
+    "expected_workbench": "blocked",
+    "expected_context_loaded": false,
+    "expected_enters_workbench": false,
+    "expected_terminal_state": "blocked",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   },
   {
@@ -77,6 +113,10 @@
     "surface": "home_private",
     "expected_intent": "pet_health_risk",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "failed",
     "expected_error_code": "ai.provider.not_configured",
     "forbidden_text": ["contract-api-key", "api_key", "authorization"]
   },
@@ -86,6 +126,10 @@
     "surface": "home_private",
     "expected_intent": "pet_care",
     "expected_gate_decision": "load_context",
+    "expected_workbench": "private_pet_context",
+    "expected_context_loaded": true,
+    "expected_enters_workbench": true,
+    "expected_terminal_state": "completed",
     "expected_pet_resolution": "unauthorized_or_not_found",
     "forbidden_text": ["api_key", "authorization", "system prompt"]
   }

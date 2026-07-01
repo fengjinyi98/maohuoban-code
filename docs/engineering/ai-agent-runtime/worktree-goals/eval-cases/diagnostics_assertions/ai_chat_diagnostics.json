@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "name": "ai_chat_diagnostics",
+  "assertion_families": [
+    {
+      "family": "request",
+      "event": "ai.chat.stream.request.received",
+      "required_fields": [
+        "surface",
+        "message_length_bucket",
+        "message",
+        "chat_session_id_prefix",
+        "message_id_prefix"
+      ]
+    },
+    {
+      "family": "response",
+      "event": "ai.chat.finalizer.completed",
+      "required_fields": [
+        "terminal_status",
+        "synchronous_writes",
+        "async_triggers",
+        "async_failures"
+      ]
+    },
+    {
+      "family": "tool",
+      "event": "ai.chat.tool_gateway.completed",
+      "required_fields": [
+        "session_id",
+        "turn_id",
+        "message_id",
+        "tool_name",
+        "policy_decision",
+        "duration_ms",
+        "failure_code"
+      ]
+    },
+    {
+      "family": "event",
+      "event": "ai.chat.session.event.appended",
+      "required_fields": [
+        "session_id",
+        "turn_id",
+        "event_name"
+      ]
+    },
+    {
+      "family": "finalizer",
+      "event": "ai.chat.finalizer.completed",
+      "required_fields": [
+        "terminal_status",
+        "synchronous_writes",
+        "async_triggers",
+        "async_failures"
+      ]
+    },
+    {
+      "family": "planning",
+      "event": "ai.chat.planning.decided",
+      "required_fields": [
+        "session_id",
+        "turn_id",
+        "message_id",
+        "task_type",
+        "step_list",
+        "current_step",
+        "step_transition",
+        "replan_reason",
+        "terminal_step",
+        "policy_decision"
+      ]
+    },
+    {
+      "family": "skill",
+      "event": "ai.chat.skill.matched",
+      "required_fields": [
+        "session_id",
+        "turn_id",
+        "message_id",
+        "active_skill_ids",
+        "active_skill_layers",
+        "toolset_allowed_toolsets",
+        "toolset_preferred_toolsets",
+        "toolset_preferred_tools",
+        "workflow_skill_ids",
+        "merged_instruction_length"
+      ]
+    },
+    {
+      "family": "provider",
+      "event": "ai.provider.openai.request.prepared",
+      "required_fields": [
+        "provider",
+        "model",
+        "model_route",
+        "request_body_text",
+        "chat_session_id_prefix",
+        "message_id_prefix",
+        "turn_id_prefix",
+        "tool_call_id"
+      ]
+    },
+    {
+      "family": "redaction",
+      "event": "*",
+      "required_fields": [
+        "forbidden_text"
+      ]
+    }
+  ],
+  "forbidden_text": [
+    "contract-api-key",
+    "api_key",
+    "authorization",
+    "Bearer",
+    "Cookie"
+  ]
+}

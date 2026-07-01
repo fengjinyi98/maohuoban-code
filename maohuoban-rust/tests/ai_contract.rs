@@ -266,3 +266,6 @@ mod history;
 
 #[path = "ai_contract/memory_postgres.rs"]
 mod memory_postgres;
+
+#[path = "ai_contract/evaluation_regression_contract/mod.rs"]
+mod evaluation_regression_contract;

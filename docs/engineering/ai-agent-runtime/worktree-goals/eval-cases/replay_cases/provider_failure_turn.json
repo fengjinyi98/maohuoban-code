@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "provider_failure_turn",
+  "case_type": "failure",
+  "description": "固定 provider 未配置失败时 turn replay 的 append-only 事件序列",
+  "session_surface": "home_private",
+  "expected_terminal_state": "failed",
+  "event_sequence": [
+    "turn_started",
+    "model_call_started",
+    "provider_error",
+    "turn_failed"
+  ],
+  "expected_replay_read": {
+    "by_turn": true,
+    "preserve_order": true,
+    "projector_terminal_event": "error"
+  }
+}
