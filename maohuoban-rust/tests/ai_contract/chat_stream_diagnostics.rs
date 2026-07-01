@@ -75,6 +75,120 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     }));
 }
 
+/// 流式聊天诊断事件必须记录 gate 决策的四个必备字段
+#[tokio::test]
+async fn ai_chat_stream_diagnostics_records_gate_decision_fields() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let diagnostics = install_ai_test_diagnostics();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139029", "ios-ai-gate-diag").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球今天吃什么好",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send gate diagnostics chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let gate_event = events
+        .iter()
+        .find(|event| event.message == "ai.chat.gate.decided")
+        .expect("missing ai.chat.gate.decided diagnostics event");
+
+    // 验证 gate 诊断事件必备字段存在且非空
+    assert!(
+        gate_event.metadata["intent"]
+            .as_str()
+            .is_some_and(|v| !v.is_empty()),
+        "gate diagnostics missing intent field"
+    );
+    assert!(
+        gate_event.metadata["gate_decision"]
+            .as_str()
+            .is_some_and(|v| !v.is_empty()),
+        "gate diagnostics missing gate_decision field"
+    );
+    assert!(
+        gate_event.metadata["context_loaded"].is_boolean(),
+        "gate diagnostics missing context_loaded bool field"
+    );
+    assert!(
+        gate_event.metadata["risk_signal_present"].is_boolean(),
+        "gate diagnostics missing risk_signal_present bool field"
+    );
+    assert!(
+        gate_event.metadata["allow_processing"].is_boolean(),
+        "gate diagnostics missing allow_processing bool field"
+    );
+}
+
+/// gate 诊断事件四个必备字段即使在不加载上下文的请求中也存在
+#[tokio::test]
+async fn ai_chat_stream_diagnostics_gate_fields_present_for_all_intents() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let diagnostics = install_ai_test_diagnostics();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139039", "ios-ai-gate-fields").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "给我推荐一部好看的电影",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send gate fields diagnostics chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let gate_event = events
+        .iter()
+        .find(|event| event.message == "ai.chat.gate.decided")
+        .expect("missing ai.chat.gate.decided diagnostics event");
+
+    // 验证必备诊断字段始终存在
+    let required_fields = [
+        "intent",
+        "gate_decision",
+        "context_loaded",
+        "risk_signal_present",
+        "allow_processing",
+    ];
+    for field in &required_fields {
+        assert!(
+            !gate_event.metadata[*field].is_null(),
+            "gate diagnostics missing required field: {field}"
+        );
+    }
+}
+
 fn install_ai_test_diagnostics() -> Diagnostics {
     let root =
         std::env::temp_dir().join(format!("maohuoban-ai-diagnostics-{}", uuid::Uuid::new_v4()));

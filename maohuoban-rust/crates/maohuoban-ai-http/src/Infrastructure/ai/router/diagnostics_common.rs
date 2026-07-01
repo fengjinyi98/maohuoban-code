@@ -126,27 +126,11 @@ pub(super) fn length_bucket(count: usize) -> &'static str {
 }
 
 pub(super) fn intent_code(intent: AiIntent) -> &'static str {
-    match intent {
-        AiIntent::PetCare => "pet_care",
-        AiIntent::PetRecordQuery => "pet_record_query",
-        AiIntent::PetFood => "pet_food",
-        AiIntent::PetHealthRisk => "pet_health_risk",
-        AiIntent::EmotionalPetContext => "emotional_pet_context",
-        AiIntent::AppSupport => "app_support",
-        AiIntent::OffTopic => "off_topic",
-        AiIntent::PromptInjection => "prompt_injection",
-        AiIntent::CostAbuse => "cost_abuse",
-    }
+    intent.code()
 }
 
 pub(super) fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.enters_workbench() {
-        "blocked"
-    } else if gate_decision.context_loaded {
-        "load_context"
-    } else {
-        "enter_workbench"
-    }
+    gate_decision.gate_code()
 }
 
 pub(super) fn surface_code(surface: AiConversationSurface) -> &'static str {

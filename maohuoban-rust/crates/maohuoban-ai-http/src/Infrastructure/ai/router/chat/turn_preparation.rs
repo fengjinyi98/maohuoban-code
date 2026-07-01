@@ -4,9 +4,9 @@ use maohuoban_ai_application::ai::ports::{
     AiRequestGateLog, AiSessionRepository, AiToolAccessLog, IngressTxInput,
 };
 use maohuoban_ai_domain::ai::{
-    AgentTurnId, AiChatSession, AiChatSessionStatus, AiGateDecision, AiIntent, AiMessage,
-    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn,
-    AiSessionTurnStatus, AiStreamEvent,
+    AgentTurnId, AiChatSession, AiChatSessionStatus, AiGateDecision, AiMessage, AiMessageRole,
+    AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn, AiSessionTurnStatus,
+    AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -126,8 +126,8 @@ pub(super) async fn persist_prepared_chat_turn(
         actor_user_id,
         user_message_id: context.user_message_id,
         assistant_message_id: None,
-        intent: intent_code(context.gate_decision.intent).to_owned(),
-        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
+        intent: context.gate_decision.intent.code().to_owned(),
+        gate_decision: context.gate_decision.gate_code().to_owned(),
         resolved_pet_id: context.resolved_pet_id,
         engine_mode: "self_hosted".to_owned(),
         surface: req.surface,
@@ -142,8 +142,8 @@ pub(super) async fn persist_prepared_chat_turn(
     let gate_log = AiRequestGateLog {
         session_id: Some(context.session_id),
         actor_user_id,
-        intent: intent_code(context.gate_decision.intent).to_owned(),
-        gate_decision: gate_decision_code(&context.gate_decision).to_owned(),
+        intent: context.gate_decision.intent.code().to_owned(),
+        gate_decision: context.gate_decision.gate_code().to_owned(),
         context_loaded: context.gate_decision.context_loaded,
         request_hash: request_hash(&req.message),
         resolved_pet_id: context.resolved_pet_id,
@@ -307,36 +307,6 @@ fn pet_resolution_denied_reason(resolution: &AiPetResolution) -> Option<String> 
         AiPetResolution::NeedsSelection { .. } => Some("needs_pet_selection".to_owned()),
         AiPetResolution::UnauthorizedOrNotFound => Some("unauthorized_or_not_found".to_owned()),
         AiPetResolution::NoPetContext => Some("no_pet_context".to_owned()),
-    }
-}
-
-/// intent_code 返回审计用意图编码
-/// 核心职责：
-/// - 使用稳定 snake_case 字符串写入审计表
-fn intent_code(intent: AiIntent) -> &'static str {
-    match intent {
-        AiIntent::PetCare => "pet_care",
-        AiIntent::PetRecordQuery => "pet_record_query",
-        AiIntent::PetFood => "pet_food",
-        AiIntent::PetHealthRisk => "pet_health_risk",
-        AiIntent::EmotionalPetContext => "emotional_pet_context",
-        AiIntent::AppSupport => "app_support",
-        AiIntent::OffTopic => "off_topic",
-        AiIntent::PromptInjection => "prompt_injection",
-        AiIntent::CostAbuse => "cost_abuse",
-    }
-}
-
-/// gate_decision_code 返回审计用 gate 决策编码
-/// 核心职责：
-/// - 区分加载上下文、跳过主 Agent 和安全阻断
-fn gate_decision_code(gate_decision: &AiGateDecision) -> &'static str {
-    if !gate_decision.enters_workbench() {
-        "blocked"
-    } else if gate_decision.context_loaded {
-        "load_context"
-    } else {
-        "enter_workbench"
     }
 }
 

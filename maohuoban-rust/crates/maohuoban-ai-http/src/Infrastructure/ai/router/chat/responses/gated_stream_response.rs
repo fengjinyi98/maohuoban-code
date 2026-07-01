@@ -6,7 +6,7 @@ use chrono::Utc;
 use futures_util::stream;
 use maohuoban_ai_application::ai::ports::{ChatTurnTransactionPort, FinalizerTxInput};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiGateDecision, AiIntent, AiMessage, AiMessageRole, AiMessageStatus,
+    AiAnswerVerification, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
     AiSessionTurnStatus, AiStreamEvent, LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
@@ -65,17 +65,10 @@ pub(crate) fn gated_stream_response(
 
 /// gated_message_text 返回 gate 分支安全提示
 /// 核心职责：
-/// - 为非宠物和风险请求提供明确边界文案
+/// - 委托 AiGateDecision::gate_message() 提供边界文案
+/// - 不直接匹配 intent 枚举，保持展示层与领域解耦
 pub(crate) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str {
-    match gate_decision.intent {
-        AiIntent::AppSupport => {
-            "这个问题属于毛伙伴 App 使用帮助，我先不读取宠物事实。你可以描述遇到的页面或操作，我会按应用功能边界说明。"
-        }
-        AiIntent::PromptInjection | AiIntent::CostAbuse => {
-            "这个请求不符合毛球助手的安全边界，我不能继续处理。"
-        }
-        _ => "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。",
-    }
+    gate_decision.gate_message()
 }
 
 /// spawn_finalizer_tx 异步在单个事务内持久化边界消息和 turn 终态

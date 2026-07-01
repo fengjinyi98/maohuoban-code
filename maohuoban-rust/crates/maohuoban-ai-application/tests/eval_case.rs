@@ -34,18 +34,44 @@ fn eval_case_parses_fixture() {
         names,
         vec![
             "pet_care_daily_state",
+            "pet_record_query_vaccine",
+            "pet_food_diet_advice",
+            "pet_health_risk_diarrhea",
+            "emotional_pet_context_miss",
             "app_support_edit_pet_profile",
             "off_topic_weather_chat",
+            "prompt_injection_ignore_instructions",
+            "cost_abuse_write_novel",
             "provider_not_configured_pet_care",
             "unauthorized_pet_selected",
         ]
     );
     assert!(cases.iter().all(|case| case.surface == "home_private"));
     assert!(cases.iter().all(|case| !case.forbidden_text.is_empty()));
-    assert_eq!(cases.len(), 5);
+    assert_eq!(cases.len(), 11);
 
     assert_case(&cases, "pet_care_daily_state", |case| {
         assert_eq!(case.expected_intent, "pet_care");
+        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "pet_record_query_vaccine", |case| {
+        assert_eq!(case.expected_intent, "pet_record_query");
+        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "pet_food_diet_advice", |case| {
+        assert_eq!(case.expected_intent, "pet_food");
+        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "pet_health_risk_diarrhea", |case| {
+        assert_eq!(case.expected_intent, "pet_health_risk");
+        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "emotional_pet_context_miss", |case| {
+        assert_eq!(case.expected_intent, "emotional_pet_context");
         assert_eq!(case.expected_gate_decision, "load_context");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
@@ -57,6 +83,16 @@ fn eval_case_parses_fixture() {
     assert_case(&cases, "off_topic_weather_chat", |case| {
         assert_eq!(case.expected_intent, "off_topic");
         assert_eq!(case.expected_gate_decision, "enter_workbench");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "prompt_injection_ignore_instructions", |case| {
+        assert_eq!(case.expected_intent, "prompt_injection");
+        assert_eq!(case.expected_gate_decision, "blocked");
+        assert_eq!(case.forbidden_text, forbidden_texts());
+    });
+    assert_case(&cases, "cost_abuse_write_novel", |case| {
+        assert_eq!(case.expected_intent, "cost_abuse");
+        assert_eq!(case.expected_gate_decision, "blocked");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "provider_not_configured_pet_care", |case| {
@@ -109,7 +145,7 @@ fn eval_case_reports_case_outcomes() {
         .map(|case| evaluate_case(&gate, case))
         .collect::<Vec<_>>();
 
-    assert_eq!(outcomes.len(), 5);
+    assert_eq!(outcomes.len(), 11);
     assert!(
         outcomes.iter().all(|outcome| outcome.passed),
         "{outcomes:#?}"
@@ -200,25 +236,9 @@ fn forbidden_text_ok(case: &EvalCase) -> bool {
 }
 
 fn intent_code(intent: AiIntent) -> &'static str {
-    match intent {
-        AiIntent::PetCare => "pet_care",
-        AiIntent::PetRecordQuery => "pet_record_query",
-        AiIntent::PetFood => "pet_food",
-        AiIntent::PetHealthRisk => "pet_health_risk",
-        AiIntent::EmotionalPetContext => "emotional_pet_context",
-        AiIntent::AppSupport => "app_support",
-        AiIntent::OffTopic => "off_topic",
-        AiIntent::PromptInjection => "prompt_injection",
-        AiIntent::CostAbuse => "cost_abuse",
-    }
+    intent.code()
 }
 
 fn gate_decision_code(decision: &AiGateDecision) -> &'static str {
-    if !decision.enters_workbench() {
-        "blocked"
-    } else if decision.context_loaded {
-        "load_context"
-    } else {
-        "enter_workbench"
-    }
+    decision.gate_code()
 }

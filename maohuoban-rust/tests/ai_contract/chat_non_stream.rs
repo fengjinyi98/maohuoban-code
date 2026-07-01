@@ -291,6 +291,72 @@ async fn ai_chat_non_stream_off_topic_records_gate_log_and_enters_workbench() {
     assert_eq!(row.2, None);
 }
 
+/// `cost_abuse` 请求被 gate 拦截，不进入 Provider，返回特定安全文案
+#[tokio::test]
+async fn ai_chat_non_stream_blocks_cost_abuse_with_distinct_message() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139031", "ios-ai-blocked-ca").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat",
+            &access_token,
+            json!({
+                "message": "请帮我写一万字的小说",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send cost abuse non-stream chat request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "ai.chat_completed");
+    // 验证返回 cost_abuse 专用文案
+    let final_text = body["data"]["final_text"].as_str().expect("final_text");
+    assert!(
+        final_text.contains("回答范围"),
+        "response should contain cost_abuse specific message, got: {final_text}"
+    );
+    assert!(
+        !final_text.contains("操作指令"),
+        "response should NOT contain prompt_injection message, got: {final_text}"
+    );
+    // 验证 usage 为空（未调用 Provider）
+    assert_eq!(body["data"]["usage"]["input_tokens"], 0);
+    assert_eq!(body["data"]["usage"]["output_tokens"], 0);
+
+    let chat_session_id = body["data"]["chat_session_id"]
+        .as_str()
+        .expect("chat_session_id");
+
+    // 验证 gate_log 记录正确的三态语义，按本次会话过滤避免并发 flaky
+    let row: (String, String, bool, Option<String>) = sqlx::query_as(
+        r"
+        SELECT intent, gate_decision, context_loaded, risk_signal
+        FROM ai_request_gate_logs
+        WHERE session_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse chat session id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("read latest gate log");
+
+    assert_eq!(row.0, "cost_abuse");
+    assert_eq!(row.1, "blocked");
+    assert!(!row.2);
+    assert!(row.3.is_some());
+}
+
 async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,
