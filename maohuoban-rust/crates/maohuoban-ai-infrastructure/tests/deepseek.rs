@@ -3,14 +3,20 @@
 // - 验证 DeepSeek Provider 独立封装厂商默认行为
 // - 复用 OpenAI 兼容协议访问 DeepSeek Chat Completions
 
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::sync::mpsc;
+use std::time::Duration;
+
 use futures_util::StreamExt;
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
     LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason, LlmMessage, LlmRole,
-    LlmStreamEvent, LlmToolSchema,
+    LlmStreamEvent, LlmToolCall, LlmToolSchema,
 };
 use maohuoban_ai_infrastructure::provider::{DeepSeekConfig, DeepSeekLlmProvider};
+use serde_json::{Value, json};
 
 fn sample_request() -> LlmChatRequest {
     LlmChatRequest {
@@ -34,6 +40,95 @@ fn sample_request() -> LlmChatRequest {
         response_format: None,
         diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
+}
+
+fn sample_deepseek_provider(base_url: String, model: &str) -> DeepSeekLlmProvider {
+    DeepSeekLlmProvider::new(DeepSeekConfig {
+        base_url,
+        api_key: "deepseek-test-key".to_owned(),
+        model: model.to_owned(),
+        timeout_secs: 30,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    })
+}
+
+fn spawn_body_capture_server() -> (String, mpsc::Receiver<String>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().expect("local addr");
+    let (body_tx, body_rx) = mpsc::channel();
+
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept request");
+        let body = read_http_body(&mut stream);
+        body_tx.send(body).expect("send captured body");
+        let response_body = json!({
+            "id": "chatcmpl-deepseek-capture",
+            "model": "deepseek-v4-flash",
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": "ok"},
+                "finish_reason": "stop"
+            }],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+        })
+        .to_string();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("write response");
+    });
+
+    (format!("http://{addr}"), body_rx)
+}
+
+fn read_http_body(stream: &mut std::net::TcpStream) -> String {
+    let mut buffer = Vec::new();
+    let mut chunk = [0_u8; 1024];
+    let header_end = loop {
+        let read = stream.read(&mut chunk).expect("read request");
+        assert!(read > 0, "request closed before headers");
+        buffer.extend_from_slice(&chunk[..read]);
+        if let Some(index) = find_bytes(&buffer, b"\r\n\r\n") {
+            break index + 4;
+        }
+    };
+
+    let headers = String::from_utf8_lossy(&buffer[..header_end]);
+    let content_length = headers
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("content-length: ")
+                .or_else(|| line.strip_prefix("Content-Length: "))
+        })
+        .and_then(|value| value.parse::<usize>().ok())
+        .expect("content-length header");
+
+    while buffer.len() < header_end + content_length {
+        let read = stream.read(&mut chunk).expect("read body");
+        assert!(read > 0, "request closed before body");
+        buffer.extend_from_slice(&chunk[..read]);
+    }
+
+    String::from_utf8(buffer[header_end..header_end + content_length].to_vec()).expect("body utf8")
+}
+
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn captured_json(body_rx: &mpsc::Receiver<String>) -> Value {
+    let body = body_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("captured request body");
+    serde_json::from_str(&body).expect("captured body json")
 }
 
 #[tokio::test]
@@ -155,6 +250,132 @@ async fn deepseek_provider_streams_openai_compatible_tool_calls_without_json_out
                 total_tokens: 17,
             }
         ))
+    );
+}
+
+#[tokio::test]
+async fn deepseek_v4_request_applies_internal_thinking_policy_and_replay_padding() {
+    let (base_url, body_rx) = spawn_body_capture_server();
+    let provider = sample_deepseek_provider(base_url, "deepseek-v4-flash");
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+    request.tools.clear();
+    request.tool_choice = None;
+    request.messages.push(LlmMessage {
+        role: LlmRole::Assistant,
+        content: String::new(),
+        reasoning_content: None,
+        tool_call_id: None,
+        tool_calls: vec![LlmToolCall {
+            id: "call_1".to_owned(),
+            name: "load_pet_identity_context".to_owned(),
+            arguments: "{}".to_owned(),
+        }],
+    });
+    request.messages.push(LlmMessage {
+        role: LlmRole::Tool,
+        content: "{\"facts\":[]}".to_owned(),
+        reasoning_content: None,
+        tool_call_id: Some("call_1".to_owned()),
+        tool_calls: Vec::new(),
+    });
+
+    provider
+        .complete(&request)
+        .await
+        .expect("deepseek complete");
+
+    let body = captured_json(&body_rx);
+    assert_eq!(body["thinking"], json!({"type": "enabled"}));
+    assert_eq!(body["reasoning_effort"], "high");
+    assert!(
+        body.get("tools").is_none(),
+        "follow-up should not resend tools"
+    );
+    let assistant = &body["messages"][1];
+    assert_eq!(assistant["role"], "assistant");
+    assert_eq!(assistant["reasoning_content"], "");
+    assert_eq!(assistant["tool_calls"][0]["id"], "call_1");
+    assert_eq!(
+        assistant["tool_calls"][0]["function"]["name"],
+        "load_pet_identity_context"
+    );
+}
+
+#[tokio::test]
+async fn deepseek_chat_request_keeps_non_thinking_wire_shape() {
+    let (base_url, body_rx) = spawn_body_capture_server();
+    let provider = sample_deepseek_provider(base_url, "deepseek-chat");
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+
+    provider
+        .complete(&request)
+        .await
+        .expect("deepseek complete");
+
+    let body = captured_json(&body_rx);
+    assert!(body.get("thinking").is_none());
+    assert!(body.get("reasoning_effort").is_none());
+}
+
+#[tokio::test]
+async fn deepseek_request_normalizes_union_tool_schema() {
+    let (base_url, body_rx) = spawn_body_capture_server();
+    let provider = sample_deepseek_provider(base_url, "deepseek-v4-flash");
+    let mut request = sample_request();
+    request.model = "primary".to_owned();
+    request.tools = vec![LlmToolSchema {
+        name: "load_pet_identity_context".to_owned(),
+        description: "加载宠物身份".to_owned(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "档案日期",
+                    "anyOf": [{"type": "string"}, {"type": "integer"}]
+                },
+                "period": {
+                    "oneOf": [{"type": "string"}, {"type": "null"}]
+                },
+                "mode": {
+                    "anyOf": [
+                        {"const": "basic", "type": "string"},
+                        {"const": "full", "type": "string"}
+                    ]
+                }
+            },
+            "required": ["date"]
+        }),
+    }];
+
+    provider
+        .complete(&request)
+        .await
+        .expect("deepseek complete");
+
+    let body = captured_json(&body_rx);
+    let parameters = &body["tools"][0]["function"]["parameters"];
+    assert_eq!(
+        parameters,
+        &json!({
+            "type": "object",
+            "properties": {
+                "date": {
+                    "description": "档案日期",
+                    "type": "string"
+                },
+                "period": {
+                    "type": "string",
+                    "nullable": true
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["basic", "full"]
+                }
+            },
+            "required": ["date"]
+        })
     );
 }
 

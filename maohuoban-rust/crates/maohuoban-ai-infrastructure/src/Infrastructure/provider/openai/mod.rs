@@ -10,6 +10,7 @@ mod response;
 pub mod sse;
 mod stream_event;
 mod stream_stats;
+mod tool_schema;
 
 pub use provider::OpenAiCompatibleLlmProvider;
 pub use sse::{parse_sse_buffer, parse_sse_stream};

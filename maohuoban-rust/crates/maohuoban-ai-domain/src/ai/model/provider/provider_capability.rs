@@ -80,4 +80,52 @@ impl ProviderCapability {
             supports_system_prompt: true,
         }
     }
+
+    /// uses_deepseek_thinking_wire 判断是否使用 DeepSeek thinking 协议形态
+    /// 核心职责：
+    /// - 将 DeepSeek thinking 模型识别收口在能力模型内
+    /// - 避免调用现场散写模型名称判断
+    #[must_use]
+    pub fn uses_deepseek_thinking_wire(&self) -> bool {
+        if self.provider_name != "deepseek" {
+            return false;
+        }
+        let model = self.model_route.trim().to_ascii_lowercase();
+        if model.is_empty() {
+            return false;
+        }
+        (model.starts_with("deepseek-v") && !model.starts_with("deepseek-v3"))
+            || model == "deepseek-reasoner"
+    }
+
+    /// default_reasoning_effort 返回内部固定 reasoning effort
+    /// 核心职责：
+    /// - 为产品型 Agent 提供后端固定 reasoning 策略
+    /// - 不向前端暴露模型厂商参数
+    #[must_use]
+    pub fn default_reasoning_effort(&self) -> Option<&'static str> {
+        if self.uses_deepseek_thinking_wire() {
+            Some("high")
+        } else {
+            None
+        }
+    }
+
+    /// requires_assistant_reasoning_content 判断 replay 是否要求 reasoning_content 字段
+    /// 核心职责：
+    /// - 避免 DeepSeek thinking 多轮工具调用 replay 触发 400
+    /// - 将空 reasoning_content 补齐要求表达为 Provider 能力
+    #[must_use]
+    pub fn requires_assistant_reasoning_content(&self) -> bool {
+        self.uses_deepseek_thinking_wire()
+    }
+
+    /// requires_tool_schema_union_normalization 判断工具 schema 是否需要 union 规整
+    /// 核心职责：
+    /// - 标记 DeepSeek 对 anyOf/oneOf 工具参数的兼容处理
+    /// - 由基础设施序列化层执行实际 schema 转换
+    #[must_use]
+    pub fn requires_tool_schema_union_normalization(&self) -> bool {
+        self.provider_name == "deepseek"
+    }
 }

@@ -7,6 +7,8 @@
 use maohuoban_ai_application::ai::provider_capability::ProviderRequestPolicy;
 use maohuoban_ai_domain::ai::{LlmChatRequest, LlmRole, LlmToolCall, ProviderCapability};
 
+use super::tool_schema::normalize_provider_tool_parameters;
+
 /// build_openai_body 构建 OpenAI 兼容请求体
 /// 核心职责：
 /// - 所有请求字段裁剪统一通过 ProviderRequestPolicy 决策
@@ -18,6 +20,7 @@ pub(crate) fn build_openai_body(
 ) -> serde_json::Value {
     let send_reasoning = ProviderRequestPolicy::should_send_reasoning_content(capability);
     let send_tools = ProviderRequestPolicy::should_send_tools(capability, request);
+    let send_message_tool_calls = ProviderRequestPolicy::should_send_message_tool_calls(capability);
     let send_tool_choice = ProviderRequestPolicy::should_send_tool_choice(capability, request);
     let send_response_format =
         ProviderRequestPolicy::should_send_response_format(capability, request);
@@ -40,8 +43,15 @@ pub(crate) fn build_openai_body(
             }
             if send_reasoning && let Some(reasoning_content) = &message.reasoning_content {
                 msg["reasoning_content"] = serde_json::Value::String(reasoning_content.clone());
+            } else if send_reasoning
+                && ProviderRequestPolicy::should_backfill_assistant_reasoning_content(
+                    capability,
+                    message.role,
+                )
+            {
+                msg["reasoning_content"] = serde_json::Value::String(String::new());
             }
-            if send_tools && !message.tool_calls.is_empty() {
+            if send_message_tool_calls && !message.tool_calls.is_empty() {
                 msg["tool_calls"] = serde_json::Value::Array(
                     message
                         .tool_calls
@@ -71,7 +81,10 @@ pub(crate) fn build_openai_body(
                     "function": {
                         "name": tool.name,
                         "description": tool.description,
-                        "parameters": tool.parameters,
+                        "parameters": normalize_provider_tool_parameters(
+                            &tool.parameters,
+                            capability,
+                        ),
                     }
                 })
             })
@@ -97,6 +110,13 @@ pub(crate) fn build_openai_body(
             .is_some_and(|t| t == "json_object");
         if !is_json_object || send_json_output {
             body["response_format"] = fmt;
+        }
+    }
+
+    if ProviderRequestPolicy::should_send_deepseek_thinking_control(capability) {
+        body["thinking"] = serde_json::json!({"type": "enabled"});
+        if let Some(effort) = ProviderRequestPolicy::default_reasoning_effort(capability) {
+            body["reasoning_effort"] = serde_json::Value::String(effort.to_owned());
         }
     }
 
