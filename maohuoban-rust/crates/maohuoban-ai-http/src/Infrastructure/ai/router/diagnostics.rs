@@ -1,4 +1,9 @@
-use maohuoban_ai_domain::ai::{AiConversationSurface, AiGateDecision, AiStreamEvent};
+use maohuoban_ai_application::ai::diagnostics::{
+    AiDiagnosticsCorrelation, redact_ai_diagnostics_text, redact_ai_diagnostics_value,
+};
+use maohuoban_ai_domain::ai::{
+    AgentSessionWorkbench, AiConversationSurface, AiGateDecision, AiStreamEvent,
+};
 use maohuoban_diagnostics::Severity;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -19,35 +24,32 @@ pub(crate) use super::history_diagnostics::{
 pub(crate) fn record_chat_stream_request_received(
     actor_user_id: Uuid,
     session_id: Uuid,
+    message_id: Uuid,
     selected_pet_id: Option<Uuid>,
     surface: AiConversationSurface,
     message: &str,
 ) {
-    record_ai_event(
-        "ai.chat.stream.request.received",
-        Severity::Info,
-        vec![
-            (
-                "actor_user_id_prefix",
-                json!(uuid_prefix(Some(actor_user_id))),
-            ),
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
-            ),
-            (
-                "selected_pet_id_prefix",
-                json!(uuid_prefix(selected_pet_id)),
-            ),
-            ("surface", json!(surface_code(surface))),
-            ("message", json!(message)),
-            (
-                "message_length_bucket",
-                json!(length_bucket(message.chars().count())),
-            ),
-            ("has_selected_pet", json!(selected_pet_id.is_some())),
-        ],
-    );
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        (
+            "actor_user_id_prefix",
+            json!(uuid_prefix(Some(actor_user_id))),
+        ),
+        (
+            "selected_pet_id_prefix",
+            json!(uuid_prefix(selected_pet_id)),
+        ),
+        ("surface", json!(surface_code(surface))),
+        ("message", json!(redact_ai_diagnostics_text(message))),
+        (
+            "message_length_bucket",
+            json!(length_bucket(message.chars().count())),
+        ),
+        ("has_selected_pet", json!(selected_pet_id.is_some())),
+    ]);
+    record_ai_event("ai.chat.stream.request.received", Severity::Info, metadata);
 }
 
 /// record_chat_gate_decided 记录 AI gate 决策
@@ -60,32 +62,26 @@ pub(crate) fn record_chat_gate_decided(
     resolved_pet_id: Option<Uuid>,
     gate_decision: &AiGateDecision,
 ) {
-    record_ai_event(
-        "ai.chat.gate.decided",
-        Severity::Info,
-        vec![
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
-            ),
-            (
-                "selected_pet_id_prefix",
-                json!(uuid_prefix(selected_pet_id)),
-            ),
-            (
-                "resolved_pet_id_prefix",
-                json!(uuid_prefix(resolved_pet_id)),
-            ),
-            ("intent", json!(intent_code(gate_decision.intent))),
-            ("gate_decision", json!(gate_decision_code(gate_decision))),
-            ("context_loaded", json!(gate_decision.context_loaded)),
-            ("allow_processing", json!(gate_decision.allow_processing())),
-            (
-                "risk_signal_present",
-                json!(gate_decision.risk_signal.is_some()),
-            ),
-        ],
-    );
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
+    metadata.extend(vec![
+        (
+            "selected_pet_id_prefix",
+            json!(uuid_prefix(selected_pet_id)),
+        ),
+        (
+            "resolved_pet_id_prefix",
+            json!(uuid_prefix(resolved_pet_id)),
+        ),
+        ("intent", json!(intent_code(gate_decision.intent))),
+        ("gate_decision", json!(gate_decision_code(gate_decision))),
+        ("context_loaded", json!(gate_decision.context_loaded)),
+        ("allow_processing", json!(gate_decision.allow_processing())),
+        (
+            "risk_signal_present",
+            json!(gate_decision.risk_signal.is_some()),
+        ),
+    ]);
+    record_ai_event("ai.chat.gate.decided", Severity::Info, metadata);
 }
 
 /// record_chat_session_persisted 记录会话和用户消息持久化结果
@@ -99,22 +95,20 @@ pub(crate) fn record_chat_session_persisted(
     session_persisted: bool,
     user_message_persisted: bool,
 ) {
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
+    metadata.extend(vec![
+        (
+            "actor_user_id_prefix",
+            json!(uuid_prefix(Some(actor_user_id))),
+        ),
+        ("primary_pet_id_prefix", json!(uuid_prefix(primary_pet_id))),
+        ("session_persisted", json!(session_persisted)),
+        ("user_message_persisted", json!(user_message_persisted)),
+    ]);
     record_ai_event(
         "ai.chat.session.persisted",
         severity(session_persisted && user_message_persisted),
-        vec![
-            (
-                "actor_user_id_prefix",
-                json!(uuid_prefix(Some(actor_user_id))),
-            ),
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
-            ),
-            ("primary_pet_id_prefix", json!(uuid_prefix(primary_pet_id))),
-            ("session_persisted", json!(session_persisted)),
-            ("user_message_persisted", json!(user_message_persisted)),
-        ],
+        metadata,
     );
 }
 
@@ -130,21 +124,16 @@ pub(crate) fn record_chat_provider_started(
     initial_event_count: usize,
     fact_package_present: bool,
 ) {
-    record_ai_event(
-        "ai.chat.provider.started",
-        Severity::Info,
-        vec![
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
-            ),
-            ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
-            ("engine_mode", json!(engine_mode)),
-            ("target_pet_present", json!(target_pet_present)),
-            ("initial_event_count", json!(initial_event_count)),
-            ("fact_package_present", json!(fact_package_present)),
-        ],
-    );
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        ("engine_mode", json!(engine_mode)),
+        ("target_pet_present", json!(target_pet_present)),
+        ("initial_event_count", json!(initial_event_count)),
+        ("fact_package_present", json!(fact_package_present)),
+    ]);
+    record_ai_event("ai.chat.provider.started", Severity::Info, metadata);
 }
 
 /// record_chat_runtime_engine_selected 记录 Runtime engine 选择结果
@@ -160,22 +149,78 @@ pub(crate) fn record_chat_runtime_engine_selected(
     target_pet_present: bool,
     tool_count: usize,
 ) {
-    record_ai_event(
-        "ai.chat.runtime.engine.selected",
-        Severity::Info,
-        vec![
-            (
-                "chat_session_id_prefix",
-                json!(uuid_prefix(Some(session_id))),
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        ("engine_mode", json!(engine_mode)),
+        ("route", json!(route)),
+        ("stream", json!(stream)),
+        ("target_pet_present", json!(target_pet_present)),
+        ("tool_count", json!(tool_count)),
+    ]);
+    record_ai_event("ai.chat.runtime.engine.selected", Severity::Info, metadata);
+}
+
+/// record_chat_workbench_built 记录本轮 Workbench 观测基线
+/// 核心职责：
+/// - 固定能力目录、可见工具、上下文摘要和记忆/历史计数字段
+/// - 支撑后续 planner、skill 和 memory worktree 复用同一观测边界
+pub(crate) fn record_chat_workbench_built(
+    session_id: Uuid,
+    message_id: Uuid,
+    workbench: &AgentSessionWorkbench,
+    visible_tool_names: &[String],
+) {
+    let recent_conversation_count = workbench
+        .recent_conversation_pack
+        .as_ref()
+        .map_or(0, |pack| pack.entries.len());
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        (
+            "capability_catalog",
+            json!(
+                workbench
+                    .capability_catalog
+                    .capabilities
+                    .iter()
+                    .map(|capability| capability.code.clone())
+                    .collect::<Vec<_>>()
             ),
-            ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
-            ("engine_mode", json!(engine_mode)),
-            ("route", json!(route)),
-            ("stream", json!(stream)),
-            ("target_pet_present", json!(target_pet_present)),
-            ("tool_count", json!(tool_count)),
-        ],
-    );
+        ),
+        ("visible_tools", json!(visible_tool_names)),
+        (
+            "context_summary_present",
+            json!(workbench.context_pack.session_summary.is_some()),
+        ),
+        (
+            "context_summary_length_bucket",
+            json!(length_bucket(
+                workbench
+                    .context_pack
+                    .session_summary
+                    .as_deref()
+                    .map_or(0, |summary| summary.chars().count())
+            )),
+        ),
+        ("memory_count", json!(workbench.memory_pack.entries.len())),
+        (
+            "recent_conversation_count",
+            json!(recent_conversation_count),
+        ),
+        (
+            "selected_pet_present",
+            json!(workbench.context_pack.selected_pet.is_some()),
+        ),
+        (
+            "authorized_pet_count",
+            json!(workbench.context_pack.authorized_pets.len()),
+        ),
+    ]);
+    record_ai_event("ai.chat.workbench.built", Severity::Info, metadata);
 }
 
 /// record_chat_stream_event_emitted 记录后端输出 SSE 事件
@@ -214,8 +259,39 @@ pub(crate) fn record_chat_runtime_agent_event(
             ),
             ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
             ("event_name", json!(event_name)),
-            ("payload", payload),
+            ("payload", redact_ai_diagnostics_value(&payload)),
         ],
+    );
+}
+
+/// record_tool_gateway_completed 记录 Tool Gateway 执行结果
+/// 核心职责：
+/// - 固定工具名、参数、策略决策、耗时、事实数量和引用 ID 字段
+/// - 复用正式 diagnostics 链路观察工具成功、拒绝和失败
+pub(crate) fn record_tool_gateway_completed(
+    session_id: Uuid,
+    tool_name: &str,
+    args: &Value,
+    policy_decision: &str,
+    duration_ms: u128,
+    fact_count: usize,
+    citation_ids: Vec<String>,
+    failure_code: Option<&str>,
+) {
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
+    metadata.extend(vec![
+        ("tool_name", json!(tool_name)),
+        ("args", redact_ai_diagnostics_value(args)),
+        ("policy_decision", json!(policy_decision)),
+        ("duration_ms", json!(duration_ms)),
+        ("fact_count", json!(fact_count)),
+        ("citation_ids", json!(citation_ids)),
+        ("failure_code", json!(failure_code)),
+    ]);
+    record_ai_event(
+        "ai.chat.tool_gateway.completed",
+        severity(policy_decision == "allowed"),
+        metadata,
     );
 }
 

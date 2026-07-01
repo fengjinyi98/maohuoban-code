@@ -12,7 +12,8 @@ use maohuoban_ai_application::ai::turn_context::ContextBudgetPolicy;
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AiAnswerVerification, AiCitation, AiError, AiFactPackage,
-    AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, LlmFinishReason, LlmUsage,
+    AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot, AiSessionTurnStatus,
+    LlmFinishReason, LlmUsage,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::auth::current_user_id;
-use super::super::diagnostics::record_chat_runtime_engine_selected;
+use super::super::diagnostics::{record_chat_runtime_engine_selected, record_chat_workbench_built};
 use super::composition::request::ChatStreamRequest;
 use super::composition::workbench_builder::build_agent_session_workbench;
 use super::responses::gated_stream_response::gated_message_text;
@@ -62,14 +63,11 @@ pub async fn handle_chat(
     .await;
 
     if !context.gate_decision.enters_workbench() {
-        return persist_and_respond_boundary_message(
-            &state.session_repository,
-            context.assistant_message_id,
-            context.session_id,
-            context.title,
-            context.target_pet,
+        return complete_boundary_turn(
+            &state,
+            &context,
             gated_message_text(&context.gate_decision).to_owned(),
-            "gate_skipped_main_agent".to_owned(),
+            "gate_skipped_main_agent",
         )
         .await;
     }
@@ -79,14 +77,11 @@ pub async fn handle_chat(
         .as_ref()
         .filter(|resolution| !resolution.is_resolved())
     {
-        return persist_and_respond_boundary_message(
-            &state.session_repository,
-            context.assistant_message_id,
-            context.session_id,
-            context.title,
-            context.target_pet,
+        return complete_boundary_turn(
+            &state,
+            &context,
             pet_resolution_message_text(resolution).to_owned(),
-            "pet_resolution_skipped_main_agent".to_owned(),
+            "pet_resolution_skipped_main_agent",
         )
         .await;
     }
@@ -118,9 +113,22 @@ pub async fn handle_chat(
         &state.session_repository,
         context.assistant_message_id,
         context.session_id,
+        context.turn_id.as_uuid(),
         &complete,
     )
     .await;
+
+    let _ = state
+        .session_turn_repository
+        .update_turn_status(
+            context.turn_id.as_uuid(),
+            AiSessionTurnStatus::Completed,
+            Some(context.assistant_message_id),
+            Some(&format!("{:?}", complete.finish_reason)),
+            None,
+            None,
+        )
+        .await;
 
     ok_response(
         "ai.chat_completed",
@@ -151,11 +159,37 @@ async fn complete_with_runtime(
     target_pet: Option<AiPetDisplaySnapshot>,
     fact_package: Option<AiFactPackage>,
 ) -> Result<AiCompleteResult, AiError> {
+    let (recent_conversation, session_summary) = load_history_and_summary_non_stream(
+        state,
+        actor_user_id,
+        context.session_id,
+        context.user_message_id,
+    )
+    .await;
+
+    let workbench = build_agent_session_workbench(
+        req.surface,
+        target_pet.as_ref(),
+        session_summary,
+        Vec::new(),
+        recent_conversation,
+    );
     let registry = Arc::new(match target_pet.as_ref() {
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
         None => ToolRegistry::new(),
     });
-    let tool_count = registry.list_definitions().len();
+    let visible_tool_names = registry
+        .list_definitions()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect::<Vec<_>>();
+    let tool_count = visible_tool_names.len();
+    record_chat_workbench_built(
+        context.session_id,
+        context.assistant_message_id,
+        &workbench,
+        &visible_tool_names,
+    );
     record_chat_runtime_engine_selected(
         context.session_id,
         context.assistant_message_id,
@@ -182,23 +216,13 @@ async fn complete_with_runtime(
         req.surface,
         engine,
     );
-    let (recent_conversation, session_summary) = load_history_and_summary_non_stream(
-        state,
-        actor_user_id,
-        context.session_id,
-        context.user_message_id,
-    )
-    .await;
-
-    let workbench = build_agent_session_workbench(
-        req.surface,
-        target_pet.as_ref(),
-        session_summary,
-        Vec::new(),
-        recent_conversation,
-    );
     let events = session
-        .prompt_with_workbench(req.message.clone(), workbench)
+        .prompt_with_workbench_turn_and_diagnostics_message_id(
+            req.message.clone(),
+            workbench,
+            context.turn_id,
+            context.assistant_message_id,
+        )
         .await?;
     complete_from_runtime_events(events, fact_package, target_pet.is_some())
 }
@@ -322,11 +346,13 @@ struct ChatCompleteResponse {
 /// persist_assistant_message 持久化非流式助手消息
 /// 核心职责：
 /// - 保存最终回答、Provider 元信息和回答校验结果
+/// - 绑定 turn_id 到助手消息
 /// - 保持非流式与流式历史读取路径一致
 async fn persist_assistant_message(
     repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
     message_id: Uuid,
     session_id: Uuid,
+    turn_id: Uuid,
     complete: &maohuoban_ai_application::ai::stream::AiCompleteResult,
 ) {
     persist_assistant_message_from_parts(
@@ -334,6 +360,7 @@ async fn persist_assistant_message(
         AssistantMessageRecord {
             message_id,
             session_id,
+            turn_id: Some(turn_id),
             final_text: complete.final_text.clone(),
             citations: complete.citations.clone(),
             usage: complete.usage,
@@ -346,30 +373,62 @@ async fn persist_assistant_message(
     .await;
 }
 
+/// complete_boundary_turn 完成边界分支 turn 并返回响应
+/// 核心职责：
+/// - 更新 turn 终态
+/// - 持久化边界消息并返回响应
+async fn complete_boundary_turn(
+    state: &AiHttpState,
+    context: &ChatTurnContext,
+    message_text: String,
+    finish_reason: &str,
+) -> Response {
+    let _ = state
+        .session_turn_repository
+        .update_turn_status(
+            context.turn_id.as_uuid(),
+            AiSessionTurnStatus::Completed,
+            Some(context.assistant_message_id),
+            Some(finish_reason),
+            None,
+            None,
+        )
+        .await;
+    persist_and_respond_boundary_message(
+        &state.session_repository,
+        BoundaryMessageInput {
+            message_id: context.assistant_message_id,
+            session_id: context.session_id,
+            turn_id: context.turn_id.as_uuid(),
+            title: context.title.clone(),
+            target_pet: context.target_pet.clone(),
+            final_text: message_text,
+            finish_reason: finish_reason.to_owned(),
+        },
+    )
+    .await
+}
+
 /// persist_and_respond_boundary_message 返回非 Provider 分支聚合结果
 /// 核心职责：
 /// - 持久化 gate / 宠物解析边界消息
 /// - 返回与 Provider 完成一致的响应形状
 async fn persist_and_respond_boundary_message(
     repo: &std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
-    message_id: Uuid,
-    session_id: Uuid,
-    title: String,
-    target_pet: Option<AiPetDisplaySnapshot>,
-    final_text: String,
-    finish_reason: String,
+    input: BoundaryMessageInput,
 ) -> Response {
     let usage = LlmUsage::default();
     let verification = AiAnswerVerification::passed();
     persist_assistant_message_from_parts(
         repo,
         AssistantMessageRecord {
-            message_id,
-            session_id,
-            final_text: final_text.clone(),
+            message_id: input.message_id,
+            session_id: input.session_id,
+            turn_id: Some(input.turn_id),
+            final_text: input.final_text.clone(),
             citations: Vec::new(),
             usage,
-            finish_reason,
+            finish_reason: input.finish_reason,
             provider: None,
             model: None,
             verification: Some(verification.clone()),
@@ -381,17 +440,30 @@ async fn persist_and_respond_boundary_message(
         "ai.chat_completed",
         "AI 回答已完成",
         ChatCompleteResponse {
-            chat_session_id: session_id,
-            message_id,
-            title,
-            target_pet,
-            final_text,
+            chat_session_id: input.session_id,
+            message_id: input.message_id,
+            title: input.title,
+            target_pet: input.target_pet,
+            final_text: input.final_text,
             citations: Vec::new(),
             usage,
             finish_reason: LlmFinishReason::Stop,
             verification,
         },
     )
+}
+
+/// BoundaryMessageInput 边界消息持久化输入
+/// 核心职责：
+/// - 承载 gate / 宠物解析边界分支的消息和响应字段
+struct BoundaryMessageInput {
+    message_id: Uuid,
+    session_id: Uuid,
+    turn_id: Uuid,
+    title: String,
+    target_pet: Option<AiPetDisplaySnapshot>,
+    final_text: String,
+    finish_reason: String,
 }
 
 /// AssistantMessageRecord 助手消息持久化输入
@@ -401,6 +473,7 @@ async fn persist_and_respond_boundary_message(
 struct AssistantMessageRecord {
     message_id: Uuid,
     session_id: Uuid,
+    turn_id: Option<Uuid>,
     final_text: String,
     citations: Vec<AiCitation>,
     usage: LlmUsage,
@@ -426,6 +499,7 @@ async fn persist_assistant_message_from_parts(
     let assistant_message = AiMessage {
         id: record.message_id,
         session_id: record.session_id,
+        turn_id: record.turn_id,
         role: AiMessageRole::Assistant,
         content: record.final_text,
         status: AiMessageStatus::Completed,

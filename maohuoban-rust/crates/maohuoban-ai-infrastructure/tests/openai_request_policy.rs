@@ -29,6 +29,7 @@ fn request_with_temperature(temperature: f32) -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
+        diagnostics_correlation: Default::default(),
     }
 }
 

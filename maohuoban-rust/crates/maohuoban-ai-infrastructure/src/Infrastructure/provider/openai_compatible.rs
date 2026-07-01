@@ -142,6 +142,7 @@ impl OpenAiCompatibleLlmProvider {
     fn record_http_response_started(
         mode: &'static str,
         request: &LlmChatRequest,
+        model: &str,
         status: u16,
         headers: &HeaderMap,
     ) {
@@ -152,6 +153,7 @@ impl OpenAiCompatibleLlmProvider {
         OpenAiProviderDiagnostics::record_http_response_started(
             mode,
             request,
+            model,
             status,
             content_type,
             &header_summary,
@@ -197,13 +199,19 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                 .map_err(|error| Self::map_request_error(&error))?;
 
             let status = response.status().as_u16();
-            Self::record_http_response_started("complete", request, status, response.headers());
+            Self::record_http_response_started(
+                "complete",
+                request,
+                &model,
+                status,
+                response.headers(),
+            );
             let text = response
                 .text()
                 .await
                 .map_err(|error| Self::map_request_error(&error))?;
             OpenAiProviderDiagnostics::record_http_response_body(
-                "complete", request, status, &text,
+                "complete", request, &model, status, &text,
             );
 
             if status >= 400 {
@@ -250,12 +258,15 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             Self::record_http_response_started(
                 "stream",
                 request,
+                &model,
                 status,
                 response.headers(),
             );
             if status >= 400 {
                 let text = response.text().await.unwrap_or_default();
-                OpenAiProviderDiagnostics::record_http_response_body("stream", request, status, &text);
+                OpenAiProviderDiagnostics::record_http_response_body(
+                    "stream", request, &model, status, &text,
+                );
                 yield Err(Self::map_status_error(status, &text));
                 return;
             }
@@ -272,6 +283,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                         let chunk = String::from_utf8_lossy(&bytes);
                         OpenAiProviderDiagnostics::record_stream_chunk(
                             request,
+                            &model,
                             stream_stats.chunk_count,
                             bytes.len(),
                             &chunk,
@@ -285,6 +297,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                                     stream_stats.observe_event(&e);
                                     OpenAiProviderDiagnostics::record_stream_event(
                                         request,
+                                        &model,
                                         stream_event_name(&e),
                                         stream_event_payload(&e),
                                     );
@@ -293,6 +306,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                                 Err(e) => {
                                     OpenAiProviderDiagnostics::record_stream_decode_error(
                                         request,
+                                        &model,
                                         &e,
                                         stream_stats,
                                         decoder.is_idle(),
@@ -317,6 +331,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             if !decoder_idle || !stream_stats.stream_completed {
                 OpenAiProviderDiagnostics::record_stream_incomplete(
                     request,
+                    &model,
                     stream_stats,
                     decoder_idle,
                 );
@@ -327,6 +342,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
             } else {
                 OpenAiProviderDiagnostics::record_stream_completed(
                     request,
+                    &model,
                     stream_stats,
                     decoder_idle,
                 );

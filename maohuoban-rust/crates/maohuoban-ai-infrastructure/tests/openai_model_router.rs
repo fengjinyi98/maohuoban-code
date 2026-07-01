@@ -26,6 +26,7 @@ fn sample_request_with_model(model: &str) -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
+        diagnostics_correlation: Default::default(),
     }
 }
 

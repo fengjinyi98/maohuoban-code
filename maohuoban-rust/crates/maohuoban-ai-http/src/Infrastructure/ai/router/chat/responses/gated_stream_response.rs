@@ -4,7 +4,8 @@ use axum::response::{
 };
 use futures_util::stream;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiGateDecision, AiIntent, AiStreamEvent, LlmFinishReason, LlmUsage,
+    AiAnswerVerification, AiGateDecision, AiIntent, AiSessionTurnStatus, AiStreamEvent,
+    LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
@@ -19,7 +20,9 @@ use super::super::persistence::assistant_message_persistence::{
 /// - 输出稳定 message_started/message_completed 事件
 pub(crate) fn gated_stream_response(
     session_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::AiSessionRepository>,
+    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
     session_id: Uuid,
+    turn_id: Uuid,
     message_id: Uuid,
     title: String,
     gate_decision: &AiGateDecision,
@@ -35,8 +38,10 @@ pub(crate) fn gated_stream_response(
             0,
             0,
             "gate_skipped_main_agent".to_owned(),
-        ),
+        )
+        .with_turn_id(turn_id),
     );
+    spawn_turn_finalize(turn_repo, turn_id, message_id, "gate_skipped_main_agent");
 
     let events = vec![
         AiStreamEvent::MessageStarted {
@@ -78,4 +83,29 @@ pub(crate) fn gated_message_text(gate_decision: &AiGateDecision) -> &'static str
         }
         _ => "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。",
     }
+}
+
+/// spawn_turn_finalize 异步更新 turn 终态
+/// 核心职责：
+/// - 在 gate / pet_resolution 分支统一收口 turn 终态
+/// - 避免终态更新散落在各 handler
+fn spawn_turn_finalize(
+    turn_repo: std::sync::Arc<dyn maohuoban_ai_application::ai::ports::SessionTurnRepository>,
+    turn_id: Uuid,
+    assistant_message_id: Uuid,
+    finish_reason: &str,
+) {
+    let finish_reason = finish_reason.to_owned();
+    tokio::spawn(async move {
+        let _ = turn_repo
+            .update_turn_status(
+                turn_id,
+                AiSessionTurnStatus::Completed,
+                Some(assistant_message_id),
+                Some(&finish_reason),
+                None,
+                None,
+            )
+            .await;
+    });
 }

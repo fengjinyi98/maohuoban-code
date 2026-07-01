@@ -6,10 +6,14 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmRole};
+use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmRole};
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use serde_json::Value;
 use uuid::Uuid;
+
+use crate::ai::diagnostics::{
+    AiDiagnosticsCorrelation, redact_ai_diagnostics_text, redact_ai_diagnostics_value,
+};
 
 const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 
@@ -29,71 +33,74 @@ impl AgentRuntimeDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
+        let mut event = DiagnosticEvent::new(
             EventKind::Analytics,
             Severity::Debug,
             "ai.runtime.model.request.prepared",
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
-        .metadata(
-            "chat_session_id_prefix",
-            serde_json::json!(uuid_prefix(chat_session_id)),
-        )
-        .metadata("phase", serde_json::json!(phase))
-        .metadata("stream", serde_json::json!(request.stream))
-        .metadata("tool_count", serde_json::json!(request.tools.len()))
-        .metadata(
-            "response_format_present",
-            serde_json::json!(request.response_format.is_some()),
-        )
-        .metadata(
-            "response_format_type",
-            serde_json::json!(response_format_type(request.response_format.as_ref())),
-        )
-        .metadata(
-            "max_output_tokens_present",
-            serde_json::json!(request.max_output_tokens.is_some()),
-        )
-        .metadata("temperature", serde_json::json!(request.temperature))
-        .metadata(
-            "message_roles",
-            serde_json::json!(request_message_roles(request)),
-        )
-        .metadata("message_count", serde_json::json!(request.messages.len()))
-        .metadata(
-            "assistant_tool_call_message_count",
-            serde_json::json!(assistant_tool_call_message_count(request)),
-        )
-        .metadata(
-            "tool_result_message_count",
-            serde_json::json!(tool_result_message_count(request)),
-        )
-        .metadata(
-            "has_json_instruction",
-            serde_json::json!(request_has_json_instruction(request)),
-        )
-        .metadata(
-            "content_length_bucket",
-            serde_json::json!(length_bucket(total_message_chars(request))),
-        )
-        .metadata(
-            "message_contents",
-            serde_json::json!(request_message_contents(request)),
-        )
-        .metadata(
-            "message_reasoning_contents",
-            serde_json::json!(request_reasoning_contents(request)),
-        )
-        .metadata(
-            "tool_schemas",
-            serde_json::json!(request_tool_schemas(request)),
-        );
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
+        for (key, value) in
+            runtime_correlation(chat_session_id, &request.diagnostics_correlation).to_metadata()
+        {
+            event = event.metadata(key, value);
+        }
+        event = event
+            .metadata("phase", serde_json::json!(phase))
+            .metadata("stream", serde_json::json!(request.stream))
+            .metadata("tool_count", serde_json::json!(request.tools.len()))
+            .metadata(
+                "response_format_present",
+                serde_json::json!(request.response_format.is_some()),
+            )
+            .metadata(
+                "response_format_type",
+                serde_json::json!(response_format_type(request.response_format.as_ref())),
+            )
+            .metadata(
+                "max_output_tokens_present",
+                serde_json::json!(request.max_output_tokens.is_some()),
+            )
+            .metadata("temperature", serde_json::json!(request.temperature))
+            .metadata(
+                "message_roles",
+                serde_json::json!(request_message_roles(request)),
+            )
+            .metadata("message_count", serde_json::json!(request.messages.len()))
+            .metadata(
+                "assistant_tool_call_message_count",
+                serde_json::json!(assistant_tool_call_message_count(request)),
+            )
+            .metadata(
+                "tool_result_message_count",
+                serde_json::json!(tool_result_message_count(request)),
+            )
+            .metadata(
+                "has_json_instruction",
+                serde_json::json!(request_has_json_instruction(request)),
+            )
+            .metadata(
+                "content_length_bucket",
+                serde_json::json!(length_bucket(total_message_chars(request))),
+            )
+            .metadata(
+                "message_contents",
+                serde_json::json!(request_message_contents(request)),
+            )
+            .metadata(
+                "message_reasoning_contents",
+                serde_json::json!(request_reasoning_contents(request)),
+            )
+            .metadata(
+                "tool_schemas",
+                serde_json::json!(request_tool_schemas(request)),
+            );
         diagnostics.record(event);
     }
 
     /// record_model_stream_error 记录 Runtime 模型流错误摘要
     pub(super) fn record_model_stream_error(
         chat_session_id: Uuid,
+        correlation: &LlmDiagnosticsCorrelation,
         phase: &'static str,
         tool_count: u32,
         error: &AiError,
@@ -101,50 +108,59 @@ impl AgentRuntimeDiagnostics {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
         };
-        let event = DiagnosticEvent::new(
+        let mut event = DiagnosticEvent::new(
             EventKind::Analytics,
             Severity::Error,
             "ai.runtime.model.stream.error",
         )
-        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
-        .metadata(
-            "chat_session_id_prefix",
-            serde_json::json!(uuid_prefix(chat_session_id)),
-        )
-        .metadata("phase", serde_json::json!(phase))
-        .metadata("tool_count", serde_json::json!(tool_count))
-        .metadata("stable_code", serde_json::json!(error.stable_code()))
-        .metadata("retryable", serde_json::json!(error.is_retryable()))
-        .metadata(
-            "provider_category",
-            serde_json::json!(provider_category(error)),
-        )
-        .metadata(
-            "error_detail_kind",
-            serde_json::json!(error_detail_kind(error)),
-        )
-        .metadata(
-            "diagnostic_message_present",
-            serde_json::json!(sanitized_provider_message(error).is_some()),
-        )
-        .metadata(
-            "diagnostic_message",
-            serde_json::json!(sanitized_provider_message(error).unwrap_or_default()),
-        )
-        .metadata(
-            "error_message_hash",
-            serde_json::json!(stable_hash(&error.to_string())),
-        )
-        .metadata(
-            "error_message_length",
-            serde_json::json!(error.to_string().chars().count()),
-        );
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
+        for (key, value) in runtime_correlation(chat_session_id, correlation).to_metadata() {
+            event = event.metadata(key, value);
+        }
+        event = event
+            .metadata("phase", serde_json::json!(phase))
+            .metadata("tool_count", serde_json::json!(tool_count))
+            .metadata("stable_code", serde_json::json!(error.stable_code()))
+            .metadata("retryable", serde_json::json!(error.is_retryable()))
+            .metadata(
+                "provider_category",
+                serde_json::json!(provider_category(error)),
+            )
+            .metadata(
+                "error_detail_kind",
+                serde_json::json!(error_detail_kind(error)),
+            )
+            .metadata(
+                "diagnostic_message_present",
+                serde_json::json!(sanitized_provider_message(error).is_some()),
+            )
+            .metadata(
+                "diagnostic_message",
+                serde_json::json!(redact_ai_diagnostics_text(
+                    &sanitized_provider_message(error).unwrap_or_default()
+                )),
+            )
+            .metadata(
+                "error_message_hash",
+                serde_json::json!(stable_hash(&error.to_string())),
+            )
+            .metadata(
+                "error_message_length",
+                serde_json::json!(error.to_string().chars().count()),
+            );
         diagnostics.record(event);
     }
 }
 
-fn uuid_prefix(id: Uuid) -> String {
-    id.to_string().chars().take(8).collect()
+fn runtime_correlation(
+    chat_session_id: Uuid,
+    correlation: &LlmDiagnosticsCorrelation,
+) -> AiDiagnosticsCorrelation {
+    let mut value = AiDiagnosticsCorrelation::from_llm_diagnostics(correlation);
+    if value.session_id.is_none() {
+        value.session_id = Some(chat_session_id);
+    }
+    value
 }
 
 fn response_format_type(value: Option<&Value>) -> String {
@@ -172,7 +188,7 @@ fn request_message_contents(request: &LlmChatRequest) -> Vec<String> {
     request
         .messages
         .iter()
-        .map(|message| message.content.clone())
+        .map(|message| redact_ai_diagnostics_text(&message.content))
         .collect()
 }
 
@@ -180,7 +196,9 @@ fn request_reasoning_contents(request: &LlmChatRequest) -> Vec<String> {
     request
         .messages
         .iter()
-        .map(|message| message.reasoning_content.clone().unwrap_or_default())
+        .map(|message| {
+            redact_ai_diagnostics_text(&message.reasoning_content.clone().unwrap_or_default())
+        })
         .collect()
 }
 
@@ -189,11 +207,11 @@ fn request_tool_schemas(request: &LlmChatRequest) -> Vec<serde_json::Value> {
         .tools
         .iter()
         .map(|tool| {
-            serde_json::json!({
+            redact_ai_diagnostics_value(&serde_json::json!({
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.parameters,
-            })
+            }))
         })
         .collect()
 }

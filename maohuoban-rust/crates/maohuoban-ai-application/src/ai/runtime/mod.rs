@@ -15,6 +15,7 @@ mod fake_loop_engine;
 mod runtime_phase;
 mod runtime_request;
 mod session;
+mod session_event_mapper;
 mod session_runtime;
 mod streaming_model_purpose;
 mod tool_executor;

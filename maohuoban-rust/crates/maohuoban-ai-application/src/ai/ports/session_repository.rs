@@ -104,4 +104,10 @@ pub trait AiSessionRepository: Send + Sync {
         session_id: Uuid,
         action: &AiProposedAction,
     ) -> AiResult<()>;
+
+    /// update_message_turn_id 更新消息的 turn_id 关联
+    /// 核心职责：
+    /// - 在 turn 行插入后回写消息的 turn_id
+    /// - 解决 ai_messages.turn_id ↔ ai_session_turns.user_message_id 循环外键
+    async fn update_message_turn_id(&self, message_id: Uuid, turn_id: Uuid) -> AiResult<()>;
 }

@@ -39,7 +39,12 @@ pub async fn handle_chat_stream(
     };
 
     let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
-    record_stream_request_received(&req, actor_user_id, context.session_id);
+    record_stream_request_received(
+        &req,
+        actor_user_id,
+        context.session_id,
+        context.user_message_id,
+    );
     record_stream_gate_decided(
         context.session_id,
         context.effective_selected_pet_id,
@@ -61,7 +66,9 @@ pub async fn handle_chat_stream(
     if !context.gate_decision.enters_workbench() {
         return gated_stream_response(
             state.session_repository.clone(),
+            state.session_turn_repository.clone(),
             context.session_id,
+            context.turn_id.as_uuid(),
             context.assistant_message_id,
             context.title,
             &context.gate_decision,
@@ -75,7 +82,9 @@ pub async fn handle_chat_stream(
     {
         return pet_resolution_stream_response(
             state.session_repository.clone(),
+            state.session_turn_repository.clone(),
             context.session_id,
+            context.turn_id.as_uuid(),
             context.assistant_message_id,
             context.title,
             resolution.clone(),
@@ -87,6 +96,7 @@ pub async fn handle_chat_stream(
         &req,
         ProviderResponseInput {
             session_id: context.session_id,
+            turn_id: context.turn_id,
             message_id: context.assistant_message_id,
             title: context.title,
             actor_user_id,
@@ -104,6 +114,7 @@ pub async fn handle_chat_stream(
 /// - 控制 helper 参数数量并保持所有权边界清晰
 struct ProviderResponseInput {
     session_id: Uuid,
+    turn_id: maohuoban_ai_domain::ai::AgentTurnId,
     message_id: Uuid,
     title: String,
     actor_user_id: Uuid,
@@ -163,6 +174,7 @@ async fn provider_response_for_context(
         req,
         RuntimeProviderStreamInput {
             session_id: input.session_id,
+            turn_id: input.turn_id,
             message_id: input.message_id,
             actor_user_id: input.actor_user_id,
             target_pet: input.target_pet,
@@ -175,16 +187,24 @@ async fn provider_response_for_context(
     provider_stream_response(
         stream,
         state.session_repository.clone(),
+        state.session_turn_repository.clone(),
         input.session_id,
         input.message_id,
+        input.turn_id.as_uuid(),
         state.runtime_engine_mode.as_str(),
     )
 }
 
-fn record_stream_request_received(req: &ChatStreamRequest, actor_user_id: Uuid, session_id: Uuid) {
+fn record_stream_request_received(
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    session_id: Uuid,
+    message_id: Uuid,
+) {
     record_chat_stream_request_received(
         actor_user_id,
         session_id,
+        message_id,
         req.selected_pet_id,
         req.surface,
         &req.message,

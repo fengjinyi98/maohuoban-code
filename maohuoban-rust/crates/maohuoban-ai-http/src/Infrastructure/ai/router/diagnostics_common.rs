@@ -1,3 +1,4 @@
+use maohuoban_ai_application::ai::diagnostics::redact_ai_diagnostics_text;
 use maohuoban_ai_domain::ai::{
     AiAgentActivityStatus, AiAnswerVerification, AiCitation, AiConversationSurface, AiGateDecision,
     AiIntent, AiPetResolution, AiProposedAction, AiStreamEvent, AiToolCallStatus,
@@ -232,7 +233,7 @@ fn delta_metadata(text: &str) -> Vec<(&'static str, Value)> {
             "delta_length_bucket",
             json!(length_bucket(text.chars().count())),
         ),
-        ("delta_text", json!(text)),
+        ("delta_text", json!(redact_ai_diagnostics_text(text))),
     ]
 }
 
@@ -282,7 +283,7 @@ fn message_completed_metadata(
             "final_text_length_bucket",
             json!(length_bucket(final_text.chars().count())),
         ),
-        ("final_text", json!(final_text)),
+        ("final_text", json!(redact_ai_diagnostics_text(final_text))),
         ("input_tokens", json!(usage.input_tokens)),
         ("output_tokens", json!(usage.output_tokens)),
         ("finish_reason", json!(finish_reason_code(finish_reason))),
