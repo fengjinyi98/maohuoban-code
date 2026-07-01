@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use futures_util::stream::{BoxStream, StreamExt};
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiCitation, AiError, AiFactPackage, AiPetDisplaySnapshot, AiResult,
-    AiStreamEvent, LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
+    AiAnswerVerification, AiCitation, AiContentBlock, AiError, AiFactPackage, AiPetDisplaySnapshot,
+    AiResult, AiStreamEvent, LlmChatRequest, LlmFinishReason, LlmStreamEvent, LlmUsage,
     PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 
@@ -45,6 +45,7 @@ pub struct AiStreamRunContext {
 /// - 为 HTTP 非流式响应与消息持久化提供稳定数据
 pub struct AiCompleteResult {
     pub final_text: String,
+    pub content_blocks: Vec<AiContentBlock>,
     pub usage: LlmUsage,
     pub finish_reason: LlmFinishReason,
     pub provider: String,
@@ -225,6 +226,7 @@ impl AiStreamPipeline {
                 yield Ok(AiStreamEvent::MessageCompleted {
                     message_id: context.message_id,
                     final_text,
+                    content_blocks: Vec::new(),
                     usage,
                     finish_reason: LlmFinishReason::ContentFilter,
                     citations,
@@ -251,6 +253,7 @@ impl AiStreamPipeline {
             yield Ok(AiStreamEvent::MessageCompleted {
                 message_id: context.message_id,
                 final_text: visible_text,
+                content_blocks: Vec::new(),
                 usage,
                 finish_reason,
                 citations,
@@ -283,6 +286,7 @@ impl AiStreamPipeline {
             let citations = citations_for_answer(&final_text, &package);
             return Ok(AiCompleteResult {
                 final_text,
+                content_blocks: Vec::new(),
                 usage: response.usage,
                 finish_reason: LlmFinishReason::ContentFilter,
                 provider: response.provider,
@@ -295,6 +299,7 @@ impl AiStreamPipeline {
         let citations = citations_for_answer(&visible_text, &package);
         Ok(AiCompleteResult {
             final_text: visible_text,
+            content_blocks: Vec::new(),
             usage: response.usage,
             finish_reason: response.finish_reason,
             provider: response.provider,

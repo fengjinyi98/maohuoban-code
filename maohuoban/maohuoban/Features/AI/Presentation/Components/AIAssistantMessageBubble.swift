@@ -25,7 +25,15 @@ struct AIAssistantMessageBubble: View {
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                if message.text.isEmpty && message.isStreaming {
+                if message.contentBlocks.isEmpty == false {
+                    AIAssistantContentBlockList(blocks: message.contentBlocks)
+                    if message.text.isEmpty == false && message.isStreaming {
+                        streamingText
+                            .font(MHBTheme.Typography.headline.weight(.regular))
+                            .foregroundStyle(foregroundColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else if message.text.isEmpty && message.isStreaming {
                     if showsEmptyStreamingIndicator {
                         AIAssistantThinkingStatus(displayText: nil)
                     }

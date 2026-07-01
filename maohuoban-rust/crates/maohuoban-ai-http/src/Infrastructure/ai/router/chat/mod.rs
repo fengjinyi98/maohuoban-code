@@ -9,6 +9,7 @@ mod composition {
     pub(super) mod title;
     pub(super) mod workbench_builder;
 }
+mod content_block_projector;
 mod loaders {
     pub(super) mod diet_confirmation_candidate_loader;
     pub(super) mod diet_fact_loader;

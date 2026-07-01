@@ -109,6 +109,7 @@ pub(super) async fn persist_prepared_chat_turn(
         turn_id: None,
         role: AiMessageRole::User,
         content: req.message.clone(),
+        content_blocks: Vec::new(),
         status: AiMessageStatus::Completed,
         citations: vec![],
         model: None,

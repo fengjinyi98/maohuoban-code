@@ -157,20 +157,23 @@ async fn insert_user_message_in_tx(
             .collect::<Vec<_>>(),
     )
     .unwrap_or(serde_json::Value::Array(vec![]));
+    let content_blocks_json =
+        serde_json::to_value(&message.content_blocks).unwrap_or(serde_json::Value::Array(vec![]));
 
     sqlx::query(
         r"
         INSERT INTO ai_messages
-            (id, session_id, turn_id, role, content, status, citations,
+            (id, session_id, turn_id, role, content, content_blocks, status, citations,
              model, provider, finish_reason, usage_input_tokens,
              usage_output_tokens, verification, created_at)
-        VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ",
     )
     .bind(message.id)
     .bind(message.session_id)
     .bind(role_str)
     .bind(&message.content)
+    .bind(content_blocks_json)
     .bind(status_str)
     .bind(citations_json)
     .bind(&message.model)
@@ -304,14 +307,16 @@ async fn insert_assistant_message_in_tx(
         .verification
         .as_ref()
         .map(|v| serde_json::to_value(v).unwrap_or(serde_json::Value::Null));
+    let content_blocks_json =
+        serde_json::to_value(&message.content_blocks).unwrap_or(serde_json::Value::Array(vec![]));
 
     sqlx::query(
         r"
         INSERT INTO ai_messages
-            (id, session_id, turn_id, role, content, status, citations,
+            (id, session_id, turn_id, role, content, content_blocks, status, citations,
              model, provider, finish_reason, usage_input_tokens,
              usage_output_tokens, verification, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ",
     )
     .bind(message.id)
@@ -319,6 +324,7 @@ async fn insert_assistant_message_in_tx(
     .bind(message.turn_id)
     .bind(role_str)
     .bind(&message.content)
+    .bind(content_blocks_json)
     .bind(status_str)
     .bind(citations_json)
     .bind(&message.model)

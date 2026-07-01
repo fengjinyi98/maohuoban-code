@@ -6,6 +6,8 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
+use super::content_block_projector::project_pet_profile_content_blocks;
+
 pub(super) fn safe_execution_trace_completed_for_tool(
     tool_name: &str,
     pet_name: &str,
@@ -83,6 +85,7 @@ pub(super) fn append_verified_completion(
         output.push(AiStreamEvent::AnswerCompleted {
             message_id: input.message_id,
             final_text: safe_text,
+            content_blocks: Vec::new(),
             usage: input.usage,
             finish_reason: LlmFinishReason::ContentFilter,
             citations,
@@ -92,6 +95,7 @@ pub(super) fn append_verified_completion(
     }
 
     let citations = citations_for_answer(&input.final_text, input.package);
+    let content_blocks = project_pet_profile_content_blocks(input.package);
     append_citations(output, citations.clone());
     if input.streamed_delta_text != input.final_text {
         output.push(AiStreamEvent::AnswerDelta {
@@ -101,6 +105,7 @@ pub(super) fn append_verified_completion(
     output.push(AiStreamEvent::AnswerCompleted {
         message_id: input.message_id,
         final_text: input.final_text,
+        content_blocks,
         usage: input.usage,
         finish_reason: input.finish_reason,
         citations,
@@ -120,7 +125,7 @@ fn append_citations(
 fn activity_text_for_tool(tool_name: &str, pet_name: &str) -> String {
     match tool_name {
         "list_authorized_pet_candidates" => "正在确认宠物档案权限".to_owned(),
-        "load_pet_identity_context" => format!("正在查看{pet_name}档案"),
+        "load_pet_identity_context" => format!("正在整理{pet_name}的宠物档案"),
         "load_pet_current_diet_context" => format!("正在查看{pet_name}近期饮食"),
         "load_food_inventory_change_hints" => format!("正在检查{pet_name}近期喂食线索"),
         "load_pet_diet_confirmation_candidates" => {

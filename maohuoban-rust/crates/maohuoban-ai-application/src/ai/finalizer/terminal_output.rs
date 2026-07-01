@@ -1,6 +1,6 @@
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiCitation, AiProposedAction, AiSessionTurnStatus, LlmFinishReason,
-    LlmUsage,
+    AiAnswerVerification, AiCitation, AiContentBlock, AiProposedAction, AiSessionTurnStatus,
+    LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
@@ -18,6 +18,7 @@ pub struct TurnTerminalOutput {
     pub assistant_message_id: Uuid,
     pub status: AiSessionTurnStatus,
     pub final_text: Option<String>,
+    pub content_blocks: Vec<AiContentBlock>,
     pub safe_failure_text: Option<String>,
     pub failure_code: Option<String>,
     pub retryable: Option<bool>,

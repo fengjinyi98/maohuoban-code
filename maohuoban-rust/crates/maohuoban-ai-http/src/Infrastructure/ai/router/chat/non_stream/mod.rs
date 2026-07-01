@@ -122,6 +122,7 @@ pub async fn handle_chat(
             title: context.title,
             target_pet: context.target_pet,
             final_text: complete.final_text,
+            content_blocks: complete.content_blocks,
             citations: complete.citations,
             usage: complete.usage,
             finish_reason: complete.finish_reason,

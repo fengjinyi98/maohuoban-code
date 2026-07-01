@@ -12,6 +12,7 @@ use super::super::{
     LoopEngine,
     agent_runtime_diagnostics::AgentRuntimeDiagnostics,
     evidence_planner::EvidencePlanner,
+    followup_grounding::FollowupGrounding,
     runtime_phase::RuntimePhase,
     runtime_request::{build_request, request_tool_count},
     streaming_model_purpose::{StreamingModelPurpose, streaming_model_purpose_code},
@@ -36,6 +37,16 @@ impl LoopEngine for AgentRuntimeLoopEngine {
         loop {
             match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
                 RuntimePhase::Model => {
+                    if let Some(final_text) =
+                        FollowupGrounding::grounded_response(state, self.fact_package.as_ref())
+                    {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text,
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                        };
+                        continue;
+                    }
                     let already_prefetched =
                         self.evidence_prefetched_turn_id == state.current_turn_id;
                     let evidence_tool_calls = if already_prefetched {

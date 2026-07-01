@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ai::AiConversationSurface;
 
-use super::ContextPetSummary;
+use super::{ContextPetSummary, TemporalContext};
 
 /// ContextPack 本轮可见上下文包
 /// 核心职责：
@@ -13,6 +13,8 @@ pub struct ContextPack {
     pub surface: AiConversationSurface,
     pub locale: String,
     pub timezone: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temporal_context: Option<TemporalContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_pet: Option<ContextPetSummary>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

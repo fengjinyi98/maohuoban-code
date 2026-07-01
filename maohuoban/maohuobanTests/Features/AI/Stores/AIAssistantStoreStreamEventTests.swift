@@ -183,6 +183,32 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(store.messages[1].text, "这是第二轮已经完成的回复")
     }
 
+    func testMessageCompletedAppliesContentBlocksToAssistantMessage() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let messageID = UUID()
+        let blocks: [AIAssistantContentBlock] = [
+            .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是糯米的宠物信息")),
+            .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(id: "loading-1", title: "正在整理宠物档案")),
+        ]
+        store.messages = [
+            AIAssistantMessage(role: .user, text: "看看我的宠物"),
+        ]
+        store.ensureStreamingPlaceholderExists()
+
+        store.handleStreamEvent(.messageCompleted(
+            messageID: messageID,
+            finalText: "这是糯米的宠物信息",
+            referenceChips: [],
+            contentBlocks: blocks
+        ))
+
+        XCTAssertEqual(store.messages.count, 2)
+        let assistant = store.messages[1]
+        XCTAssertFalse(assistant.isStreaming)
+        XCTAssertEqual(assistant.text, "这是糯米的宠物信息")
+        XCTAssertEqual(assistant.contentBlocks, blocks)
+    }
+
     func testProposedActionSetsPendingAction() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),

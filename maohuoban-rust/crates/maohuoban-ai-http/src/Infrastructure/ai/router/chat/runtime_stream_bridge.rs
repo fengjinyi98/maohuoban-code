@@ -25,7 +25,7 @@ use super::composition::request::ChatStreamRequest;
 use super::runtime_stream::AgentEventSseProjector;
 use super::runtime_stream_helpers::{ai_error_to_sse_event, sanitize_tool_call_event};
 use super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
-use super::runtime_tools::build_runtime_tool_registry;
+use super::runtime_tools::{build_public_runtime_tool_registry, build_runtime_tool_registry};
 
 pub(super) struct RuntimeProviderStreamInput {
     pub session_id: Uuid,
@@ -127,7 +127,7 @@ fn build_runtime_registry(
 ) -> Arc<ToolRegistry> {
     Arc::new(match input.target_pet.as_ref() {
         Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
-        None => ToolRegistry::new(),
+        None => build_public_runtime_tool_registry(),
     })
 }
 

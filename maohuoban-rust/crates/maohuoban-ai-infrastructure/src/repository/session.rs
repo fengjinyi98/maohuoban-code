@@ -141,14 +141,16 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             .verification
             .as_ref()
             .map(|v| serde_json::to_value(v).unwrap_or(serde_json::Value::Null));
+        let content_blocks_json = serde_json::to_value(&message.content_blocks)
+            .unwrap_or(serde_json::Value::Array(vec![]));
 
         sqlx::query(
             r"
             INSERT INTO ai_messages
-                (id, session_id, turn_id, role, content, status, citations,
+                (id, session_id, turn_id, role, content, content_blocks, status, citations,
                  model, provider, finish_reason, usage_input_tokens,
                  usage_output_tokens, verification, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             ",
         )
         .bind(message.id)
@@ -156,6 +158,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(message.turn_id)
         .bind(role_str)
         .bind(&message.content)
+        .bind(content_blocks_json)
         .bind(status_str)
         .bind(citations_json)
         .bind(&message.model)
@@ -200,7 +203,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
     async fn list_messages_by_session(&self, session_id: Uuid) -> AiResult<Vec<AiMessage>> {
         let rows = sqlx::query_as::<_, MessageRow>(
             r"
-            SELECT id, session_id, turn_id, role, content, status, citations,
+            SELECT id, session_id, turn_id, role, content, content_blocks, status, citations,
                    model, provider, finish_reason, usage_input_tokens,
                    usage_output_tokens, verification, created_at
             FROM ai_messages

@@ -57,6 +57,7 @@ pub(crate) async fn pet_resolution_stream_response(
         AiStreamEvent::MessageCompleted {
             message_id,
             final_text,
+            content_blocks: Vec::new(),
             usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
             citations: vec![],

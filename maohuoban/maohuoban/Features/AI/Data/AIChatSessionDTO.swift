@@ -79,12 +79,23 @@ struct AIMessageDTO: Decodable {
     let id: UUID
     let role: String
     let content: String
+    let contentBlocks: [AIAssistantContentBlock]
     let createdAt: String
 
     enum CodingKeys: String, CodingKey {
         case id
         case role
         case content
+        case contentBlocks = "content_blocks"
         case createdAt = "created_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        role = try container.decode(String.self, forKey: .role)
+        content = try container.decode(String.self, forKey: .content)
+        contentBlocks = try container.decodeIfPresent([AIAssistantContentBlock].self, forKey: .contentBlocks) ?? []
+        createdAt = try container.decode(String.self, forKey: .createdAt)
     }
 }

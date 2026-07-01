@@ -10,7 +10,12 @@ enum AIStreamEventDTO {
     case confirmationTask(taskID: UUID, questionText: String)
     case delta(text: String)
     case citation(label: String)
-    case messageCompleted(messageID: UUID, finalText: String, referenceChips: [String])
+    case messageCompleted(
+        messageID: UUID,
+        finalText: String,
+        referenceChips: [String],
+        contentBlocks: [AIAssistantContentBlock] = []
+    )
     case proposedAction(action: AIProposedActionDTO)
     case error(code: String, message: String, retryable: Bool, safeFallbackText: String?)
 }

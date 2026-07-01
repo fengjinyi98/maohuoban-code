@@ -90,6 +90,7 @@ fn completed_output() -> TurnTerminalOutput {
         },
         verification: Some(AiAnswerVerification::passed()),
         citations: vec![citation()],
+        content_blocks: Vec::new(),
         proposed_actions: vec![proposed_action()],
         async_jobs: vec![
             FinalizerAsyncJob::new(FinalizerAsyncJobKind::SessionSummary),

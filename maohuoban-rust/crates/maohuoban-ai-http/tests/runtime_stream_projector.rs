@@ -1,6 +1,7 @@
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
-    AiStreamEvent, LlmFinishReason, ModelLabel, ProviderErrorCategory,
+    AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiContentBlock,
+    AiConversationSurface, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
+    AiPetProfileSpecies, AiStreamEvent, LlmFinishReason, ModelLabel, ProviderErrorCategory,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -12,6 +13,10 @@ const REPLAY_CASE_JSON: &str = include_str!(
 #[allow(dead_code)]
 #[path = "../src/Infrastructure/ai/router/chat/runtime_stream_projector.rs"]
 mod runtime_stream_projector;
+
+#[allow(dead_code)]
+#[path = "../src/Infrastructure/ai/router/chat/content_block_projector.rs"]
+mod content_block_projector;
 
 #[allow(dead_code)]
 #[path = "../src/Infrastructure/ai/router/chat/runtime_stream_helpers.rs"]
@@ -227,6 +232,42 @@ fn projector_scrubs_provider_raw_delta_reasoning_tool_planning_and_json_draft_be
 }
 
 #[test]
+fn projector_does_not_stream_dsml_tool_call_delta() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", false);
+
+    let chunks = [
+        "<| | DSML | | tool_calls>\n",
+        "<| | DSML | | invoke name=\"date_calculator\">\n",
+        "<| | DSML | | parameter name=\"operation\" string=\"true\">days_between</| | DSML | | parameter>\n",
+        "<| | DSML | | parameter name=\"date1\" string=\"true\">2026-07-02</| | DSML | | parameter>\n",
+        "<| | DSML | | parameter name=\"date2\" string=\"true\">2027-06-17</| | DSML | | parameter>\n",
+        "</| | DSML | | invoke>\n",
+        "</| | DSML | | tool_calls>",
+    ];
+
+    let deltas: Vec<String> = chunks
+        .into_iter()
+        .flat_map(|text| {
+            projector.project(AgentEvent::MessageDelta {
+                turn_id,
+                text: text.to_owned(),
+            })
+        })
+        .filter_map(|event| match event {
+            AiStreamEvent::AnswerDelta { text } => Some(text),
+            _ => None,
+        })
+        .collect();
+
+    assert!(
+        deltas.is_empty(),
+        "DSML tool call blocks must remain internal: {deltas:?}"
+    );
+}
+
+#[test]
 fn projector_emits_execution_trace_completed_before_answer_delta() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
@@ -273,10 +314,76 @@ fn safe_execution_trace_event_for_tool_does_not_expose_internal_tool_name() {
 
     assert_eq!(event.event_name(), "execution_trace_completed");
     let payload = serde_json::to_string(&event).expect("serialize safe execution trace");
-    assert!(payload.contains("正在查看豆包档案"));
+    assert!(payload.contains("正在整理豆包的宠物档案"));
     assert!(!payload.contains("tool_name"));
     assert!(!payload.contains("tool_call"));
     assert!(!payload.contains("load_pet_identity_context"));
+}
+
+#[test]
+fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let package = identity_fact_package("梅录");
+    let mut projector = AgentEventSseProjector::new(message_id, Some(package), "梅录", true);
+
+    let events = projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "梅录的基本信息如下：".to_owned(),
+        status: AgentTurnStatus::Completed,
+    });
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("answer_completed should include content blocks");
+
+    assert!(
+        matches!(
+            content_blocks.first(),
+            Some(AiContentBlock::SectionHeading { text, .. }) if text == "这是梅录的宠物信息"
+        ),
+        "first block should be semantic section heading, got {content_blocks:?}"
+    );
+    assert!(
+        matches!(
+            content_blocks.get(1),
+            Some(AiContentBlock::PetProfileCard {
+                pet,
+                computed,
+                ..
+            }) if pet.name == "梅录"
+                && pet.species == AiPetProfileSpecies::Cat
+                && pet.species_text == "猫"
+                && pet.sex_text == "母猫"
+                && pet.breed == "英短"
+                && pet.birth_date.as_deref() == Some("2024-06-17")
+                && pet.arrival_date.as_deref() == Some("2025-06-17")
+                && computed.age_text.as_deref() == Some("当前年龄约 2岁15天")
+                && computed.companionship_text.as_deref() == Some("到家陪伴 380 天")
+        ),
+        "second block should be pet profile card, got {content_blocks:?}"
+    );
+
+    let payload = serde_json::to_value(
+        events
+            .iter()
+            .find(|event| matches!(event, AiStreamEvent::AnswerCompleted { .. }))
+            .expect("answer_completed event"),
+    )
+    .expect("serialize answer_completed");
+    assert_eq!(
+        payload["content_blocks"][0]["type"],
+        serde_json::json!("section_heading")
+    );
+    assert_eq!(
+        payload["content_blocks"][1]["type"],
+        serde_json::json!("pet_profile_card")
+    );
 }
 
 #[test]
@@ -314,6 +421,41 @@ fn projector_blocks_missing_identity_claim_when_identity_tool_not_called() {
     assert_eq!(*completed.1, LlmFinishReason::ContentFilter);
     assert!(completed.2.is_blocked());
     assert!(!completed.0.contains("没有生日记录"));
+}
+
+fn identity_fact_package(name: &str) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    let candidate = AiPetCandidate {
+        pet_id: Uuid::new_v4(),
+        name: name.to_owned(),
+        avatar_url: Some("/uploads/pets/meilu.png".to_owned()),
+        species: "cat".to_owned(),
+        profile_number: "P001".to_owned(),
+    };
+    package.target_pet = Some((&candidate).into());
+    package.facts = vec![
+        strong_fact("pet_identity.name", name),
+        strong_fact("pet_identity.species", "猫"),
+        strong_fact("pet_identity.sex", "母猫"),
+        strong_fact("pet_identity.breed", "英短"),
+        strong_fact("pet_identity.birthday", "2024-06-17"),
+        strong_fact("pet_identity.arrival_date", "2025-06-17"),
+    ];
+    package.computed = vec![
+        strong_fact("pet_identity.age_display", "当前年龄约 2岁15天"),
+        strong_fact("pet_identity.companionship_display", "到家陪伴 380 天"),
+    ];
+    package.fact_strength = AiFactStrength::Strong;
+    package
+}
+
+fn strong_fact(key: &str, value: &str) -> AiFactEntry {
+    AiFactEntry {
+        key: key.to_owned(),
+        value: value.to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    }
 }
 
 fn replay_agent_event(event_name: &str, turn_id: AgentTurnId) -> AgentEvent {

@@ -10,9 +10,7 @@ use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
 };
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
-use maohuoban_ai_application::ai::tools::{
-    AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
-};
+use maohuoban_ai_application::ai::tools::{AiToolContext, ToolGatewayExecutionContext};
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AiError, AiFactPackage, LlmFinishReason, LlmUsage,
@@ -24,8 +22,11 @@ use super::super::composition::request::ChatStreamRequest;
 use super::super::composition::workbench_builder::{
     build_agent_session_workbench, load_memory_entries_for_workbench,
 };
+use super::super::content_block_projector::project_pet_profile_content_blocks;
 use super::super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
-use super::super::runtime_tools::build_runtime_tool_registry;
+use super::super::runtime_tools::{
+    build_public_runtime_tool_registry, build_runtime_tool_registry,
+};
 use super::super::turn_preparation::ChatTurnContext;
 use super::history_loader::load_history_and_summary_non_stream;
 use crate::ai::router::diagnostics::{
@@ -66,7 +67,7 @@ pub(super) async fn complete_with_runtime(
     );
     let registry = Arc::new(match target_pet.as_ref() {
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
-        None => ToolRegistry::new(),
+        None => build_public_runtime_tool_registry(),
     });
     let visible_tool_names = registry
         .list_definitions()
@@ -198,6 +199,7 @@ pub(super) fn complete_from_runtime_events(
             maohuoban_ai_application::ai::citations::citations_for_answer(&safe_text, &package);
         return Ok(AiCompleteResult {
             final_text: safe_text,
+            content_blocks: Vec::new(),
             usage,
             finish_reason: LlmFinishReason::ContentFilter,
             provider,
@@ -211,6 +213,7 @@ pub(super) fn complete_from_runtime_events(
         maohuoban_ai_application::ai::citations::citations_for_answer(&final_text, &package);
     Ok(AiCompleteResult {
         final_text,
+        content_blocks: project_pet_profile_content_blocks(&package),
         usage,
         finish_reason,
         provider,

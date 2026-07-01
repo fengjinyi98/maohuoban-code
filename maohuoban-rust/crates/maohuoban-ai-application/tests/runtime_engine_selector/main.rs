@@ -1,6 +1,6 @@
 // runtime_engine_selector Runtime 引擎选择测试
 // 核心职责：
-// - 验证运行时只接受 self_hosted 引擎配置
+// - 验证运行时使用 self_hosted 引擎编码
 // - 固定 HTTP 外层无需感知 LoopEngine 装配细节
 
 use std::sync::{Arc, Mutex};
@@ -121,12 +121,6 @@ fn observed_engine_modes(events: &[AgentEvent]) -> Vec<&str> {
 #[test]
 fn engine_mode_parses_runtime_config_values() {
     assert_eq!(AgentRuntimeEngineMode::SelfHosted.as_str(), "self_hosted");
-    assert_eq!(
-        AgentRuntimeEngineMode::from_config_value("self_hosted"),
-        Ok(AgentRuntimeEngineMode::SelfHosted)
-    );
-    assert!(AgentRuntimeEngineMode::from_config_value("rig_poc").is_err());
-    assert!(AgentRuntimeEngineMode::from_config_value("unknown").is_err());
 }
 
 #[tokio::test]

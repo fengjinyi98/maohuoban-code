@@ -6,7 +6,7 @@ use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
-    ToolGatewayExecutionContext, ToolRegistry,
+    DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
@@ -230,6 +230,46 @@ async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss
     );
 }
 
+#[tokio::test]
+async fn temporal_toolset_visible_without_selected_pet() {
+    let provider = RecordingStreamProvider::default();
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("明天是几号？", misleading_private_workbench())
+        .await
+        .expect("prompt workbench");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(
+        requests[0]
+            .tools
+            .iter()
+            .map(|tool| tool.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["date_calculator"]
+    );
+}
+
 fn misleading_private_workbench() -> AgentSessionWorkbench {
     AgentSessionWorkbench {
         agent_definition: AgentDefinition {
@@ -255,6 +295,7 @@ fn misleading_private_workbench() -> AgentSessionWorkbench {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,

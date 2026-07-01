@@ -133,13 +133,17 @@ extension AIAssistantStore {
         case .citation(let label):
             appendPendingReferenceChip(label)
 
-        case .messageCompleted(let messageID, let finalText, let chips):
+        case .messageCompleted(let messageID, let finalText, let chips, let contentBlocks):
             mhbTempFrontendLog(
                 "stage=store.handle.completed message_id=\(messageID) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(chips.count) active_id=\(String(describing: streamingEngine.activeMessageID))"
             )
             clearActiveAgentActivity()
             let resolvedChips = chips.isEmpty ? pendingReferenceChips : chips
-            applyCompletedAssistantMessage(finalText: finalText, referenceChips: resolvedChips)
+            applyCompletedAssistantMessage(
+                finalText: finalText,
+                referenceChips: resolvedChips,
+                contentBlocks: contentBlocks
+            )
             markAssistantReplyCompletedIfVisible(finalText)
             pendingReferenceChips = []
 
@@ -171,6 +175,7 @@ extension AIAssistantStore {
         let trimmedText = displayText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedText.isEmpty == false else { return }
         activeAgentActivityText = trimmedText
+        applyPetProfileSkeletonIfNeeded(activityText: trimmedText)
         streamingRevision += 1
     }
 
@@ -178,6 +183,24 @@ extension AIAssistantStore {
         guard activeAgentActivityText != nil else { return }
         activeAgentActivityText = nil
         streamingRevision += 1
+    }
+
+    func applyPetProfileSkeletonIfNeeded(activityText: String) {
+        let text = activityText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.contains("宠物档案") || text.contains("宠物信息") else { return }
+        let skeleton = AIAssistantContentBlock.petProfileCardSkeleton(
+            AIAssistantPetProfileSkeletonBlock(
+                id: "pet-profile-skeleton-\(streamingEngine.activeMessageID?.uuidString ?? UUID().uuidString)",
+                title: text
+            )
+        )
+        guard let activeMessageID = streamingEngine.activeMessageID,
+              let index = messages.firstIndex(where: { $0.id == activeMessageID }),
+              messages[index].contentBlocks.contains(skeleton) == false
+        else {
+            return
+        }
+        messages[index].contentBlocks = [skeleton]
     }
 
     func appendPendingReferenceChip(_ label: String) {
@@ -198,7 +221,11 @@ extension AIAssistantStore {
         streamingRevision += 1
     }
 
-    func applyCompletedAssistantMessage(finalText: String, referenceChips: [String]) {
+    func applyCompletedAssistantMessage(
+        finalText: String,
+        referenceChips: [String],
+        contentBlocks: [AIAssistantContentBlock] = []
+    ) {
         let activeMessageID = streamingEngine.activeMessageID
         mhbTempFrontendLog(
             "stage=store.apply_completed.start active_id=\(String(describing: activeMessageID)) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(referenceChips.count)"
@@ -207,6 +234,7 @@ extension AIAssistantStore {
             completeStreaming(finalText: finalText)
             if let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
                 messages[index].referenceChips = referenceChips
+                messages[index].contentBlocks = contentBlocks
             }
             streamingRevision += 1
             return
@@ -216,13 +244,15 @@ extension AIAssistantStore {
         if let index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
             messages[index].text = finalText
             messages[index].referenceChips = referenceChips
+            messages[index].contentBlocks = contentBlocks
             messages[index].isStreaming = false
         } else {
             messages.append(
                 AIAssistantMessage(
                     role: .assistant,
                     text: finalText,
-                    referenceChips: referenceChips
+                    referenceChips: referenceChips,
+                    contentBlocks: contentBlocks
                 )
             )
         }
@@ -304,8 +334,9 @@ extension AIAssistantStore {
 
     func streamEventCompletesAssistantReply(_ event: AIStreamEventDTO) -> Bool {
         switch event {
-        case .messageCompleted(_, let finalText, _):
+        case .messageCompleted(_, let finalText, _, let contentBlocks):
             return finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                || contentBlocks.isEmpty == false
         case .error(_, _, _, let safeFallbackText):
             return safeFallbackText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         case .messageStarted,
@@ -323,7 +354,10 @@ extension AIAssistantStore {
             message.id == messageID
                 && message.role == .assistant
                 && message.isStreaming == false
-                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                && (
+                    message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    || message.contentBlocks.isEmpty == false
+                )
         }
     }
 
@@ -332,7 +366,10 @@ extension AIAssistantStore {
             index >= startIndex
                 && message.role == .assistant
                 && message.isStreaming == false
-                && message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                && (
+                    message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                    || message.contentBlocks.isEmpty == false
+                )
         }
     }
 
@@ -346,7 +383,10 @@ extension AIAssistantStore {
         messages = messages.enumerated().compactMap { index, message in
             guard index >= startIndex,
                   message.role == .assistant,
-                  message.isStreaming || message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                  message.isStreaming || (
+                    message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && message.contentBlocks.isEmpty
+                  )
             else {
                 return message
             }
@@ -435,7 +475,8 @@ extension AIAssistantStore {
                 messages = data.map { dto in
                     AIAssistantMessage(
                         role: dto.role == "user" ? .user : .assistant,
-                        text: dto.content
+                        text: dto.content,
+                        contentBlocks: dto.contentBlocks
                     )
                 }
             }

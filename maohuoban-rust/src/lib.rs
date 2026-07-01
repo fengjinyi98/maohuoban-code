@@ -81,10 +81,6 @@ pub struct BackendConfig {
 
 impl BackendConfig {
     #[must_use]
-    ///
-    /// # Panics
-    ///
-    /// 当 `MAOHUOBAN_AI_RUNTIME_ENGINE` 不是支持的配置值时触发。
     pub fn from_env() -> Self {
         let _ = dotenvy::dotenv();
         Self {
@@ -107,13 +103,7 @@ impl BackendConfig {
                     .as_deref(),
             ),
             ai_llm_provider_config: LlmProviderRegistryConfig::from_env(),
-            ai_runtime_engine_mode: AgentRuntimeEngineMode::from_config_value(
-                env::var("MAOHUOBAN_AI_RUNTIME_ENGINE")
-                    .ok()
-                    .as_deref()
-                    .unwrap_or("self_hosted"),
-            )
-            .expect("MAOHUOBAN_AI_RUNTIME_ENGINE must be `self_hosted`"),
+            ai_runtime_engine_mode: AgentRuntimeEngineMode::SelfHosted,
         }
     }
 

@@ -298,6 +298,102 @@ async fn ai_session_messages_returns_messages() {
     assert_eq!(first_msg["content"], "毛球精神不好");
 }
 
+/// GET /api/v1/ai/chat-sessions/{id}/messages 回放结构化内容块
+#[tokio::test]
+async fn ai_session_messages_returns_persisted_content_blocks() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139106", "ios-ai-block-history").await;
+    let actor_user_id = current_user_id(app.pool(), "13800139106").await;
+    let session_id = uuid::Uuid::new_v4();
+    let message_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, title, status, created_at, updated_at)
+        VALUES ($1, $2, 'home_private', '宠物信息', 'active', now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(actor_user_id)
+    .execute(app.pool())
+    .await
+    .expect("insert session fixture");
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_messages
+            (id, session_id, role, content, status, citations, content_blocks, created_at)
+        VALUES ($1, $2, 'assistant', '这是梅录的宠物信息', 'completed', '[]'::jsonb, $3, now())
+        ",
+    )
+    .bind(message_id)
+    .bind(session_id)
+    .bind(json!([
+        {
+            "type": "section_heading",
+            "id": "pet-profile-heading",
+            "text": "这是梅录的宠物信息"
+        },
+        {
+            "type": "pet_profile_card",
+            "id": "pet-profile-card",
+            "pet": {
+                "id": "pet-1",
+                "name": "梅录",
+                "species": "cat",
+                "species_text": "猫",
+                "sex": "female",
+                "sex_text": "母猫",
+                "breed": "英短",
+                "avatar_url": null,
+                "birth_date": "2024-06-17",
+                "arrival_date": "2025-06-17"
+            },
+            "computed": {
+                "age_text": "当前年龄约 2岁15天",
+                "companionship_text": "到家陪伴 380 天"
+            },
+            "narrative": {
+                "birth": "梅录在 2024-06-17 来到这个世界。",
+                "arrival": "2025-06-17 是梅录到家的日子。"
+            }
+        }
+    ]))
+    .execute(app.pool())
+    .await
+    .expect("insert message fixture");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_get_request(
+            &format!("/api/v1/ai/chat-sessions/{session_id}/messages"),
+            &access_token,
+        ))
+        .await
+        .expect("get messages");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    let messages = body["data"].as_array().expect("messages array");
+    let assistant = messages
+        .iter()
+        .find(|message| message["id"] == message_id.to_string())
+        .expect("assistant message");
+
+    assert_eq!(
+        assistant["content_blocks"][0]["type"],
+        json!("section_heading")
+    );
+    assert_eq!(
+        assistant["content_blocks"][1]["type"],
+        json!("pet_profile_card")
+    );
+    assert_eq!(assistant["content_blocks"][1]["pet"]["name"], json!("梅录"));
+}
+
 /// PATCH /api/v1/ai/chat-sessions/{id}/title 重命名当前用户会话
 #[tokio::test]
 async fn ai_chat_session_title_can_be_renamed_by_owner() {
@@ -538,6 +634,23 @@ async fn list_chat_sessions(
 
     assert_eq!(response.status(), StatusCode::OK);
     response_json(response).await
+}
+
+/// `current_user_id` 读取测试登录用户 ID
+/// 核心职责：
+/// - 让历史契约测试可直接插入归属当前用户的会话 fixture
+async fn current_user_id(pool: &sqlx::PgPool, phone: &str) -> uuid::Uuid {
+    sqlx::query_scalar::<_, uuid::Uuid>(
+        r"
+        SELECT user_id
+        FROM user_identities
+        WHERE provider = 'phone' AND identifier = $1
+        ",
+    )
+    .bind(phone)
+    .fetch_one(pool)
+    .await
+    .expect("read current user id")
 }
 
 fn install_ai_history_test_diagnostics() -> Diagnostics {

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AiAnswerVerification, AiConversationSurface, AiPetDisplaySnapshot};
+use super::{AiAnswerVerification, AiContentBlock, AiConversationSurface, AiPetDisplaySnapshot};
 
 /// AiMessageRole AI 消息角色
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +33,8 @@ pub struct AiMessage {
     pub turn_id: Option<Uuid>,
     pub role: AiMessageRole,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_blocks: Vec<AiContentBlock>,
     pub status: AiMessageStatus,
     pub citations: Vec<uuid::Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

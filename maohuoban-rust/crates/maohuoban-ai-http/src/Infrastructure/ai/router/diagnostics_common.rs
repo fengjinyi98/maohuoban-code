@@ -68,6 +68,7 @@ pub(super) fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str,
             finish_reason,
             citations,
             verification,
+            ..
         }
         | AiStreamEvent::AnswerCompleted {
             message_id,
@@ -76,6 +77,7 @@ pub(super) fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str,
             finish_reason,
             citations,
             verification,
+            ..
         } => message_completed_metadata(
             *message_id,
             final_text,

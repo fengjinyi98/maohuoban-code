@@ -14,6 +14,7 @@ use maohuoban_ai_domain::ai::{
 pub struct AiFactPackageBuilder {
     target_pet: AiPetDisplaySnapshot,
     facts: Vec<AiFactEntry>,
+    computed: Vec<AiFactEntry>,
     pending_confirmations: Vec<AiFactEntry>,
     weak_hints: Vec<AiFactEntry>,
     citations: Vec<AiCitation>,
@@ -27,6 +28,7 @@ impl AiFactPackageBuilder {
         Self {
             target_pet: AiPetDisplaySnapshot::from(pet),
             facts: Vec::new(),
+            computed: Vec::new(),
             pending_confirmations: Vec::new(),
             weak_hints: Vec::new(),
             citations: Vec::new(),
@@ -37,6 +39,14 @@ impl AiFactPackageBuilder {
     /// add_strong_fact 添加强事实（当前主粮、喂食、确认事实）
     pub fn add_strong_fact(&mut self, entry: AiFactEntry) {
         self.facts.push(entry);
+    }
+
+    /// add_computed_fact 添加计算事实
+    /// 核心职责：
+    /// - 收集基于强事实和可信时间上下文派生的确定性结果
+    /// - 与原始强事实分桶存放，便于模型区分来源层级
+    pub fn add_computed_fact(&mut self, entry: AiFactEntry) {
+        self.computed.push(entry);
     }
 
     /// add_pending_confirmation 添加待确认事实
@@ -85,7 +95,7 @@ impl AiFactPackageBuilder {
         AiFactPackage {
             target_pet: Some(self.target_pet),
             facts: self.facts,
-            computed: Vec::new(),
+            computed: self.computed,
             pending_confirmations: self.pending_confirmations,
             weak_hints: self.weak_hints,
             citations: self.citations,

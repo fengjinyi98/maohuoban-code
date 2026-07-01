@@ -51,12 +51,13 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, chips) = result else {
+        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertEqual(finalText, "你好毛球")
         XCTAssertEqual(chips, ["疫苗记录"])
+        XCTAssertTrue(blocks.isEmpty)
     }
 
     func testDecodeAnswerCompletedEvent() {
@@ -65,12 +66,13 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "answer_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, chips) = result else {
+        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertEqual(finalText, "你好毛球")
         XCTAssertTrue(chips.isEmpty)
+        XCTAssertTrue(blocks.isEmpty)
     }
 
     func testDecodeMessageCompletedWithoutCitations() {
@@ -79,11 +81,50 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
 
-        guard case let .messageCompleted(_, _, chips) = result else {
+        guard case let .messageCompleted(_, _, chips, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertTrue(chips.isEmpty)
+        XCTAssertTrue(blocks.isEmpty)
+    }
+
+    func testDecodeMessageCompletedWithContentBlocks() {
+        let json = """
+        {"message_id":"\(UUID.zeroString)","final_text":"这是糯米的宠物信息","content_blocks":[{"id":"heading-1","type":"section_heading","text":"这是糯米的宠物信息"},{"id":"loading-1","type":"pet_profile_card_skeleton","title":"正在整理宠物档案"},{"id":"pet-1","type":"pet_profile_card","pet":{"id":"\(UUID.zeroString)","name":"糯米","species":"cat","species_text":"猫","sex":"female","sex_text":"女生","breed":"银渐层","avatar_url":"/api/v1/media/assets/avatar/content","birth_date":"2024-06-17","arrival_date":"2024-09-01"},"computed":{"age_text":"2岁15天","companionship_text":"1年10个月"},"narrative":{"birth":"糯米已经2岁15天啦，还是家里最会撒娇的小朋友。","arrival":"它来到你身边1年10个月了，很多日常已经变成你们的小习惯。"}}],"citations":[]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
+
+        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
+            XCTFail("expected messageCompleted")
+            return
+        }
+        XCTAssertEqual(finalText, "这是糯米的宠物信息")
+        XCTAssertTrue(chips.isEmpty)
+        XCTAssertEqual(blocks.count, 3)
+
+        guard case let .sectionHeading(heading) = blocks[0] else {
+            XCTFail("expected section heading")
+            return
+        }
+        XCTAssertEqual(heading.text, "这是糯米的宠物信息")
+
+        guard case let .petProfileCardSkeleton(skeleton) = blocks[1] else {
+            XCTFail("expected pet profile skeleton")
+            return
+        }
+        XCTAssertEqual(skeleton.title, "正在整理宠物档案")
+
+        guard case let .petProfileCard(card) = blocks[2] else {
+            XCTFail("expected pet profile card")
+            return
+        }
+        XCTAssertEqual(card.pet.name, "糯米")
+        XCTAssertEqual(card.pet.species, .cat)
+        XCTAssertEqual(card.pet.sex, .female)
+        XCTAssertEqual(card.pet.birthDate, "2024-06-17")
+        XCTAssertEqual(card.computed.ageText, "2岁15天")
+        XCTAssertEqual(card.narrative.arrival, "它来到你身边1年10个月了，很多日常已经变成你们的小习惯。")
     }
 
     func testDecodeErrorEvent() {
@@ -285,6 +326,22 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(messages[0].content, "毛球拉肚子了")
         XCTAssertEqual(messages[1].role, "assistant")
         XCTAssertEqual(messages[1].content, "需要观察精神状态")
+    }
+
+    func testDecodeMessageListWithContentBlocks() throws {
+        let json = """
+        [{"id":"\(UUID.zeroString)","role":"assistant","content":"这是糯米的宠物信息","content_blocks":[{"id":"heading-1","type":"section_heading","text":"这是糯米的宠物信息"}],"created_at":"2026-06-27T10:00:05Z"}]
+        """
+        let data = json.data(using: .utf8)!
+        let messages = try JSONDecoder().decode([AIMessageDTO].self, from: data)
+
+        XCTAssertEqual(messages.count, 1)
+        XCTAssertEqual(messages[0].contentBlocks.count, 1)
+        guard case let .sectionHeading(block) = messages[0].contentBlocks[0] else {
+            XCTFail("expected section heading")
+            return
+        }
+        XCTAssertEqual(block.text, "这是糯米的宠物信息")
     }
 }
 

@@ -13,7 +13,9 @@ use axum::{
     response::Response,
 };
 use chrono::{DateTime, Utc};
-use maohuoban_ai_domain::ai::{AiChatSession, AiError, AiPetCandidate, AiPetDisplaySnapshot};
+use maohuoban_ai_domain::ai::{
+    AiChatSession, AiContentBlock, AiError, AiPetCandidate, AiPetDisplaySnapshot,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -73,6 +75,7 @@ pub struct MessageDTO {
     pub id: Uuid,
     pub role: String,
     pub content: String,
+    pub content_blocks: Vec<AiContentBlock>,
     pub created_at: String,
 }
 
@@ -176,6 +179,7 @@ pub async fn handle_get_session_messages(
             id: m.id,
             role: format!("{:?}", m.role).to_lowercase(),
             content: m.content.clone(),
+            content_blocks: m.content_blocks.clone(),
             created_at: m.created_at.to_rfc3339(),
         })
         .collect();

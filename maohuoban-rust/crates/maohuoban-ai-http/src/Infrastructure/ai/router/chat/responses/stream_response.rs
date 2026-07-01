@@ -127,6 +127,7 @@ async fn finalize_error_if_needed(event: &AiStreamEvent, context: &StreamFinaliz
             assistant_message_id: context.message_id,
             status: AiSessionTurnStatus::Failed,
             final_text: None,
+            content_blocks: Vec::new(),
             safe_failure_text: Some(safe_text),
             failure_code: Some(code.clone()),
             retryable: Some(*retryable),
@@ -144,24 +145,33 @@ async fn finalize_error_if_needed(event: &AiStreamEvent, context: &StreamFinaliz
 }
 
 async fn finalize_completed_if_needed(event: &AiStreamEvent, context: &StreamFinalizerContext) {
-    let (AiStreamEvent::MessageCompleted {
-        final_text,
-        usage,
-        finish_reason,
-        citations,
-        verification,
-        ..
-    }
-    | AiStreamEvent::AnswerCompleted {
-        final_text,
-        usage,
-        finish_reason,
-        citations,
-        verification,
-        ..
-    }) = event
-    else {
-        return;
+    let (final_text, content_blocks, usage, finish_reason, citations, verification) = match event {
+        AiStreamEvent::MessageCompleted {
+            final_text,
+            content_blocks,
+            usage,
+            finish_reason,
+            citations,
+            verification,
+            ..
+        }
+        | AiStreamEvent::AnswerCompleted {
+            final_text,
+            content_blocks,
+            usage,
+            finish_reason,
+            citations,
+            verification,
+            ..
+        } => (
+            final_text,
+            content_blocks,
+            usage,
+            finish_reason,
+            citations,
+            verification,
+        ),
+        _ => return,
     };
     let actions = context.proposed_actions.lock().await.clone();
     let receipt = TurnFinalizer::new(context.finalizer_store.clone())
@@ -172,6 +182,7 @@ async fn finalize_completed_if_needed(event: &AiStreamEvent, context: &StreamFin
             assistant_message_id: context.message_id,
             status: AiSessionTurnStatus::Completed,
             final_text: Some(final_text.clone()),
+            content_blocks: content_blocks.clone(),
             safe_failure_text: None,
             failure_code: None,
             retryable: None,
@@ -204,6 +215,7 @@ async fn finalize_confirmation_if_needed(event: &AiStreamEvent, context: &Stream
             assistant_message_id: context.message_id,
             status: AiSessionTurnStatus::RequiresConfirmation,
             final_text: None,
+            content_blocks: Vec::new(),
             safe_failure_text: None,
             failure_code: None,
             retryable: None,

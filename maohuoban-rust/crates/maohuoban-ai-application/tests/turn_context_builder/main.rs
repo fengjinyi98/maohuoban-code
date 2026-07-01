@@ -38,11 +38,32 @@ fn builder_without_pet_produces_public_only_capabilities() {
 
     let domains = workbench.agent_definition.capability_domains.clone();
     assert!(domains.contains(&CapabilityDomain::PublicPetDomain));
+    assert!(domains.contains(&CapabilityDomain::TemporalReasoning));
     assert!(domains.contains(&CapabilityDomain::AppProductSupport));
     assert!(domains.contains(&CapabilityDomain::AssistantIdentity));
     assert!(
         !domains.contains(&CapabilityDomain::PrivatePetContext),
         "without selected pet, PrivatePetContext must not appear"
+    );
+}
+
+#[test]
+fn builder_exposes_temporal_date_calculation_capability_without_pet() {
+    let workbench = TurnContextBuilder::new(AiConversationSurface::HomePrivate).build();
+
+    let capability = workbench
+        .capability_catalog
+        .capabilities
+        .iter()
+        .find(|capability| capability.code == "temporal_date_calculation")
+        .expect("temporal date calculation capability");
+
+    assert_eq!(capability.domain, CapabilityDomain::TemporalReasoning);
+    assert!(!capability.requires_private_context);
+    assert!(
+        capability.when_to_use.contains("生日")
+            && capability.when_to_use.contains("相差天数")
+            && capability.when_to_use.contains("提前")
     );
 }
 
@@ -57,6 +78,7 @@ fn builder_with_pet_adds_private_pet_context() {
 
     let domains = workbench.agent_definition.capability_domains.clone();
     assert!(domains.contains(&CapabilityDomain::PrivatePetContext));
+    assert!(domains.contains(&CapabilityDomain::TemporalReasoning));
 }
 
 #[test]

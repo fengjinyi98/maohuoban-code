@@ -4,7 +4,7 @@ use maohuoban_ai_domain::ai::{AgentSessionState, AiResult, LoopStep};
 /// LoopEngine Agent Runtime loop 引擎边界
 /// 核心职责：
 /// - 基于当前 session state 产出下一步 Runtime step
-/// - 让 FakeLoopEngine、Rig adapter 或其他实现可替换
+/// - 让 FakeLoopEngine 或其他实现可替换
 #[async_trait]
 pub trait LoopEngine: Send {
     /// engine_mode 返回当前 LoopEngine 的稳定诊断标识

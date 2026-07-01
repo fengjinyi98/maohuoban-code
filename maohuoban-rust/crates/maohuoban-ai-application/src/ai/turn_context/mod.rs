@@ -4,8 +4,10 @@
 //! - 让 LoopEngine 只负责模型循环和工具回灌
 
 pub mod context_budget;
+mod temporal_context_provider;
 
 pub use context_budget::ContextBudgetPolicy;
+pub use temporal_context_provider::TemporalContextProvider;
 
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
@@ -80,12 +82,14 @@ impl TurnContextBuilder {
                 vec![
                     CapabilityDomain::PublicPetDomain,
                     CapabilityDomain::PrivatePetContext,
+                    CapabilityDomain::TemporalReasoning,
                     CapabilityDomain::AppProductSupport,
                     CapabilityDomain::AssistantIdentity,
                 ],
                 vec![
                     public_pet_care_capability(),
                     private_pet_context_capability(),
+                    temporal_date_calculation_capability(),
                     app_product_support_capability(),
                     assistant_identity_capability(),
                 ],
@@ -94,11 +98,13 @@ impl TurnContextBuilder {
             (
                 vec![
                     CapabilityDomain::PublicPetDomain,
+                    CapabilityDomain::TemporalReasoning,
                     CapabilityDomain::AppProductSupport,
                     CapabilityDomain::AssistantIdentity,
                 ],
                 vec![
                     public_pet_care_capability(),
+                    temporal_date_calculation_capability(),
                     app_product_support_capability(),
                     assistant_identity_capability(),
                 ],
@@ -119,6 +125,9 @@ impl TurnContextBuilder {
             .filter_for_public_context(),
         };
 
+        let timezone = "Asia/Shanghai".to_owned();
+        let temporal_context = Some(TemporalContextProvider::now_for_timezone(&timezone));
+
         AgentSessionWorkbench {
             recent_conversation_pack: self.recent_conversation,
             agent_definition: AgentDefinition {
@@ -132,7 +141,8 @@ impl TurnContextBuilder {
             context_pack: ContextPack {
                 surface: self.surface,
                 locale: "zh-Hans".to_owned(),
-                timezone: "Asia/Shanghai".to_owned(),
+                timezone,
+                temporal_context,
                 selected_pet,
                 authorized_pets,
                 session_summary: self.session_summary,
@@ -167,6 +177,17 @@ fn private_pet_context_capability() -> AgentCapability {
         title: "授权宠物上下文".to_owned(),
         when_to_use: "用户询问自己宠物档案、饮食或已授权上下文时使用".to_owned(),
         requires_private_context: true,
+    }
+}
+
+fn temporal_date_calculation_capability() -> AgentCapability {
+    AgentCapability {
+        code: "temporal_date_calculation".to_owned(),
+        domain: CapabilityDomain::TemporalReasoning,
+        title: "日期与时间计算".to_owned(),
+        when_to_use: "用户询问今天、明天、昨天、生日、年龄、相差天数、提前或延后日期时使用"
+            .to_owned(),
+        requires_private_context: false,
     }
 }
 

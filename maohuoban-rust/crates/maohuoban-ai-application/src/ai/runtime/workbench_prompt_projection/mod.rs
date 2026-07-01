@@ -111,6 +111,14 @@ fn write_context_pack(prompt: &mut String, workbench: &AgentSessionWorkbench) {
         workbench.context_pack.timezone
     )
     .expect("write workbench prompt");
+    if let Some(temporal_context) = &workbench.context_pack.temporal_context {
+        writeln!(
+            prompt,
+            "- 当前本地日期: {}；当前本地时间: {}；可信时区: {}。",
+            temporal_context.local_date, temporal_context.local_datetime, temporal_context.timezone
+        )
+        .expect("write workbench prompt");
+    }
     match &workbench.context_pack.selected_pet {
         Some(pet) => {
             writeln!(
@@ -191,6 +199,7 @@ fn display_capability_domain(domain: CapabilityDomain) -> &'static str {
     match domain {
         CapabilityDomain::PublicPetDomain => "公共宠物照护咨询",
         CapabilityDomain::PrivatePetContext => "授权宠物私域上下文",
+        CapabilityDomain::TemporalReasoning => "日期与时间计算",
         CapabilityDomain::AppProductSupport => "毛伙伴产品帮助",
         CapabilityDomain::AssistantIdentity => "助手身份说明",
         CapabilityDomain::HardSafety => "硬安全边界",

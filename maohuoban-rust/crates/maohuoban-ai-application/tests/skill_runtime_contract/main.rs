@@ -301,6 +301,51 @@ fn builtin_runtime_matches_workflow_skill_from_runtime_task_type() {
 }
 
 #[test]
+fn builtin_runtime_always_matches_temporal_reasoning_skill() {
+    let workbench = contract_workbench_with_household_memory(Uuid::new_v4());
+
+    let bundle = BuiltinSkillRuntime::match_workbench(&workbench, vec![]);
+
+    assert!(
+        bundle
+            .active_skills
+            .iter()
+            .any(|skill| skill.skill_id == "temporal.reasoning"),
+        "temporal reasoning skill should be active for every turn"
+    );
+    assert!(
+        bundle.merged_instruction.contains("可信时间上下文")
+            && bundle.merged_instruction.contains("日期派生事实"),
+        "temporal skill must force trusted temporal context usage: {}",
+        bundle.merged_instruction
+    );
+}
+
+#[test]
+fn builtin_runtime_temporal_skill_prefers_date_calculator_toolset() {
+    let workbench = contract_workbench_with_household_memory(Uuid::new_v4());
+
+    let bundle = BuiltinSkillRuntime::match_workbench(&workbench, vec![Toolset::Temporal]);
+
+    assert!(
+        bundle
+            .toolset_policy
+            .preferred_toolsets
+            .contains(&Toolset::Temporal),
+        "temporal reasoning should prefer temporal tools when available: {:?}",
+        bundle.toolset_policy.preferred_toolsets
+    );
+    assert!(
+        bundle
+            .toolset_policy
+            .preferred_tools
+            .contains(&"date_calculator".to_owned()),
+        "temporal reasoning should prefer date_calculator for relative date tasks: {:?}",
+        bundle.toolset_policy.preferred_tools
+    );
+}
+
+#[test]
 fn skill_diagnostics_snapshot_freezes_event_fields() {
     let session_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
@@ -465,6 +510,7 @@ fn contract_workbench_with_household_memory(household_id: Uuid) -> AgentSessionW
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: Some(ContextPetSummary {
                 pet_id: Uuid::new_v4(),
                 name: "梅录".to_owned(),

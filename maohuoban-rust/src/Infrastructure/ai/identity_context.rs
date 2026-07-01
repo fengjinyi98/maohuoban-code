@@ -11,6 +11,8 @@ use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::IdentitySummary;
 use uuid::Uuid;
 
+use super::pet_temporal_facts::pet_temporal_computed_facts;
+
 /// `PetServiceIdentityFactProvider` AI 宠物身份事实适配器
 /// 核心职责：
 /// - 通过现有 `PetService` 加载授权身份上下文
@@ -51,6 +53,11 @@ impl PetIdentityFactProvider for PetServiceIdentityFactProvider {
         let mut builder = AiFactPackageBuilder::new(&candidate);
         for fact in identity_facts_for_prompt(&context.identity) {
             builder.add_strong_fact(fact);
+        }
+        for fact in
+            pet_temporal_computed_facts(&context.identity, chrono::Local::now().date_naive())
+        {
+            builder.add_computed_fact(fact);
         }
         Ok(builder.build())
     }
@@ -199,5 +206,52 @@ mod tests {
         );
         assert!(facts.iter().all(|fact| fact.value != "cat"));
         assert!(facts.iter().all(|fact| fact.value != "female"));
+    }
+
+    #[test]
+    fn identity_fact_package_contains_pet_temporal_computed_facts() {
+        let candidate = AiPetCandidate {
+            pet_id: Uuid::new_v4(),
+            name: "梅录".to_owned(),
+            avatar_url: None,
+            species: "cat".to_owned(),
+            profile_number: "P001".to_owned(),
+        };
+        let mut builder = AiFactPackageBuilder::new(&candidate);
+        for fact in identity_facts_for_prompt(&sample_identity()) {
+            builder.add_strong_fact(fact);
+        }
+        for fact in pet_temporal_computed_facts(
+            &sample_identity(),
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 2).expect("local date"),
+        ) {
+            builder.add_computed_fact(fact);
+        }
+
+        let package = builder.build();
+        let value_for = |key: &str| {
+            package
+                .computed
+                .iter()
+                .find(|fact| fact.key == key)
+                .map(|fact| fact.value.as_str())
+        };
+
+        assert_eq!(
+            value_for("pet_identity.birthday_passed_this_year"),
+            Some("今年生日 6月17日 已经过了 15 天")
+        );
+        assert_eq!(
+            value_for("pet_identity.next_birthday"),
+            Some("下次生日是 2027-06-17")
+        );
+        assert_eq!(
+            value_for("pet_identity.age_display"),
+            Some("当前年龄约 2岁15天")
+        );
+        assert_eq!(
+            value_for("pet_identity.companionship_display"),
+            Some("到家陪伴 700 天")
+        );
     }
 }

@@ -6,7 +6,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiCitation, AiPetDisplaySnapshot, LlmFinishReason, LlmUsage,
+    AiAnswerVerification, AiCitation, AiContentBlock, AiPetDisplaySnapshot, LlmFinishReason,
+    LlmUsage,
 };
 
 #[derive(Serialize)]
@@ -16,6 +17,7 @@ pub(super) struct ChatCompleteResponse {
     pub(super) title: String,
     pub(super) target_pet: Option<AiPetDisplaySnapshot>,
     pub(super) final_text: String,
+    pub(super) content_blocks: Vec<AiContentBlock>,
     pub(super) citations: Vec<AiCitation>,
     pub(super) usage: LlmUsage,
     pub(super) finish_reason: LlmFinishReason,

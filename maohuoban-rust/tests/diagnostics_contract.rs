@@ -7,6 +7,7 @@ use axum::{
     middleware,
     routing::get,
 };
+use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_diagnostics::{DiagnosticEvent, EventKind, EventStore, FileSegmentStore, Severity};
 use serde_json::json;
 use std::time::Duration;
@@ -42,6 +43,16 @@ fn backend_config_enables_local_diagnostics_ingest_by_default() {
     assert!(!maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("0")));
     assert!(
         !maohuoban_rust::BackendConfig::diagnostics_ingest_enabled_from_env_value(Some("false"))
+    );
+}
+
+#[test]
+fn backend_config_ignores_retired_runtime_engine_env() {
+    let config = maohuoban_rust::BackendConfig::from_env();
+
+    assert_eq!(
+        config.ai_runtime_engine_mode,
+        AgentRuntimeEngineMode::SelfHosted
     );
 }
 

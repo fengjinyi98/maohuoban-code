@@ -86,13 +86,39 @@ fn scrub_model_output_prefix(content: &str) -> String {
 /// - 未闭合标签按内部片段处理，等待后续 chunk
 fn remove_tagged_internal_sections(content: &str) -> String {
     const TAGS: [&str; 4] = ["think", "thinking", "reasoning", "reasoning_scratchpad"];
-    let mut output = content.to_owned();
+    let mut output = remove_dsml_tool_call_sections(content);
 
     for tag in TAGS {
         output = remove_one_tagged_section_kind(&output, tag);
     }
 
     output
+}
+
+/// remove_dsml_tool_call_sections 删除 Provider 内部 DSML 工具调用块
+/// 核心职责：
+/// - 过滤被模型当正文吐出的工具调用 DSL
+/// - 对未闭合工具调用块保持抑制，等待后续分片
+fn remove_dsml_tool_call_sections(content: &str) -> String {
+    const OPEN: &str = "<| | DSML | | tool_calls>";
+    const CLOSE: &str = "</| | DSML | | tool_calls>";
+
+    let mut result = String::new();
+    let mut cursor = 0;
+
+    while let Some(relative_open) = content[cursor..].find(OPEN) {
+        let open_start = cursor + relative_open;
+        result.push_str(&content[cursor..open_start]);
+        let content_after_open = open_start + OPEN.len();
+
+        let Some(relative_close) = content[content_after_open..].find(CLOSE) else {
+            return trim_possible_dsml_opening_prefix(&result);
+        };
+        cursor = content_after_open + relative_close + CLOSE.len();
+    }
+
+    result.push_str(&content[cursor..]);
+    trim_possible_dsml_opening_prefix(&result)
 }
 
 fn remove_one_tagged_section_kind(content: &str, tag: &str) -> String {
@@ -124,15 +150,34 @@ fn trim_possible_opening_tag_prefix(content: &str) -> String {
         "<reasoning>",
         "<reasoning_scratchpad>",
     ];
-    let lower = content.to_ascii_lowercase();
+    let trimmed = trim_possible_dsml_opening_prefix(content);
+    let lower = trimmed.to_ascii_lowercase();
 
     for opening in OPENINGS {
         for prefix_len in 1..opening.len() {
             let prefix = &opening[..prefix_len];
             if lower.ends_with(prefix) {
-                let keep_len = content.len() - prefix_len;
-                return content[..keep_len].to_owned();
+                let keep_len = trimmed.len() - prefix_len;
+                return trimmed[..keep_len].to_owned();
             }
+        }
+    }
+
+    trimmed
+}
+
+/// trim_possible_dsml_opening_prefix 截掉分片末尾的 DSML 起始前缀
+/// 核心职责：
+/// - 防止 `<| | DSML | | tool_calls>` 被跨 chunk 拆开时提前展示
+/// - 只处理工具调用块起始标记，不吞掉普通正文
+fn trim_possible_dsml_opening_prefix(content: &str) -> String {
+    const OPEN: &str = "<| | DSML | | tool_calls>";
+
+    for prefix_len in 1..OPEN.len() {
+        let prefix = &OPEN[..prefix_len];
+        if content.ends_with(prefix) {
+            let keep_len = content.len() - prefix_len;
+            return content[..keep_len].to_owned();
         }
     }
 
@@ -297,5 +342,32 @@ mod tests {
         assert!(!output.contains("answer_text"));
         assert!(!output.contains("display_blocks"));
         assert_eq!(output, "梅录的档案信息如下：\n\n名字：梅录");
+    }
+
+    #[test]
+    fn complete_output_does_not_leak_dsml_tool_call_block() {
+        let output = visible_text_from_model_output(
+            r#"<| | DSML | | tool_calls>
+<| | DSML | | invoke name="date_calculator">
+<| | DSML | | parameter name="operation" string="true">days_between</| | DSML | | parameter>
+<| | DSML | | parameter name="date1" string="true">2026-07-02</| | DSML | | parameter>
+<| | DSML | | parameter name="date2" string="true">2027-06-17</| | DSML | | parameter>
+</| | DSML | | invoke>
+</| | DSML | | tool_calls>"#,
+        );
+
+        assert_eq!(output, "");
+    }
+
+    #[test]
+    fn prefix_output_does_not_leak_unclosed_dsml_tool_call_block() {
+        let output = visible_text_prefix_from_model_output(
+            r#"<| | DSML | | tool_calls>
+<| | DSML | | invoke name="date_calculator">
+<| | DSML | | parameter name="operation" string="true">days_between"#,
+        )
+        .expect("visible prefix");
+
+        assert_eq!(output, "");
     }
 }

@@ -150,6 +150,7 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,

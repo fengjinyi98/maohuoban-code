@@ -44,7 +44,12 @@ enum AIStreamEventDecoder {
                 return nil
             }
             let chips = payload.citations?.map(\.label) ?? []
-            return .messageCompleted(messageID: payload.messageID, finalText: payload.finalText, referenceChips: chips)
+            return .messageCompleted(
+                messageID: payload.messageID,
+                finalText: payload.finalText,
+                referenceChips: chips,
+                contentBlocks: payload.contentBlocks ?? []
+            )
         case "proposed_action":
             guard let payload = try? decoder.decode(AIStreamProposedActionPayload.self, from: jsonData) else { return nil }
             return .proposedAction(action: payload.action)

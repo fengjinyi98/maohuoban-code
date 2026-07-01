@@ -255,8 +255,8 @@ extension AIStreamEventDTO {
             return "delta chars=\(text.count) trimmed_empty=\(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)"
         case .citation(let label):
             return "citation label_len=\(label.count)"
-        case .messageCompleted(let messageID, let finalText, let referenceChips):
-            return "message_completed message_id=\(messageID) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(referenceChips.count)"
+        case .messageCompleted(let messageID, let finalText, let referenceChips, let contentBlocks):
+            return "message_completed message_id=\(messageID) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(referenceChips.count) blocks=\(contentBlocks.count)"
         case .proposedAction:
             return "proposed_action"
         case .error(let code, _, let retryable, let safeFallbackText):

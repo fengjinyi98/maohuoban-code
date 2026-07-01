@@ -81,6 +81,35 @@ fn prompt_includes_strong_facts() {
 }
 
 #[test]
+fn prompt_includes_computed_pet_temporal_facts() {
+    let pet = pet_candidate("梅录");
+    let mut package = fact_package(&pet);
+    package.computed.push(AiFactEntry {
+        key: "pet_identity.birthday_passed_this_year".to_owned(),
+        value: "今年生日 6月17日 已经过了 15 天".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    package.computed.push(AiFactEntry {
+        key: "pet_identity.next_birthday".to_owned(),
+        value: "下次生日是 2027-06-17".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    let builder = AiPromptBuilder::new();
+    let messages = builder.build_messages(
+        "今年的生日过了吗",
+        std::slice::from_ref(&pet),
+        Some(&package),
+    );
+
+    let all_content: String = messages.iter().map(|m| m.content.as_str()).collect();
+
+    assert!(all_content.contains("今年生日 6月17日 已经过了 15 天"));
+    assert!(all_content.contains("下次生日是 2027-06-17"));
+}
+
+#[test]
 fn prompt_includes_weak_hints_as_hints_not_facts() {
     let pet = pet_candidate("毛球");
     let package = fact_package(&pet);

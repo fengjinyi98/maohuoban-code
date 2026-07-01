@@ -51,6 +51,7 @@ fn workbench_contract_roundtrip_preserves_agent_context_and_capabilities() {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: Some(ContextPetSummary {
                 pet_id: pet_id(),
                 name: "豆包".to_owned(),
@@ -106,6 +107,7 @@ fn workbench_contract_does_not_expose_internal_fields() {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,

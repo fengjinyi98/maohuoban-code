@@ -17,6 +17,8 @@ pub enum Toolset {
     Memory,
     /// 确认流程能力
     Confirmation,
+    /// 时间计算能力
+    Temporal,
 }
 
 impl Toolset {
@@ -29,6 +31,7 @@ impl Toolset {
             Self::AppSupport => "app_support",
             Self::Memory => "memory",
             Self::Confirmation => "confirmation",
+            Self::Temporal => "temporal",
         }
     }
 }

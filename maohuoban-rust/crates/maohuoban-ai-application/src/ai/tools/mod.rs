@@ -6,6 +6,7 @@
 //! - 工具发现按 domain_tags 输出摘要并按需展开 schema
 
 mod context;
+mod date_calculator;
 mod definition;
 mod definition_info;
 mod disclosure;
@@ -20,6 +21,7 @@ mod risk_level;
 mod shared_gateway_observer;
 
 pub use context::AiToolContext;
+pub use date_calculator::DateCalculatorTool;
 pub use definition::AiToolDefinition;
 pub use definition_info::ToolDefinitionInfo;
 pub use disclosure::{

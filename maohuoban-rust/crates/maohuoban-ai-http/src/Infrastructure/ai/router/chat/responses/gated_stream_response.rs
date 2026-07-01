@@ -58,6 +58,7 @@ pub(crate) async fn gated_stream_response(
         AiStreamEvent::MessageCompleted {
             message_id,
             final_text,
+            content_blocks: Vec::new(),
             usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
             citations: vec![],
@@ -104,6 +105,7 @@ pub(crate) async fn finalize_boundary_turn(
             assistant_message_id: message_id,
             status: AiSessionTurnStatus::Completed,
             final_text: Some(final_text),
+            content_blocks: Vec::new(),
             safe_failure_text: None,
             failure_code: None,
             retryable: None,

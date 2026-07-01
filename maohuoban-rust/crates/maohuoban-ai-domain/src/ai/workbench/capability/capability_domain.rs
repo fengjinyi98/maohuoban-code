@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum CapabilityDomain {
     PublicPetDomain,
     PrivatePetContext,
+    TemporalReasoning,
     AppProductSupport,
     AssistantIdentity,
     HardSafety,

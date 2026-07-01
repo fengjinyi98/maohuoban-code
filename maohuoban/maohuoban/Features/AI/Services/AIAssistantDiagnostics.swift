@@ -189,12 +189,13 @@ enum AIAssistantDiagnostics {
                 "event_name": .string("citation"),
                 "label_length_bucket": .string(lengthBucket(label.count)),
             ]
-        case .messageCompleted(let messageID, let finalText, let referenceChips):
+        case .messageCompleted(let messageID, let finalText, let referenceChips, let contentBlocks):
             [
                 "event_name": .string("message_completed"),
                 "message_id_prefix": .string(prefix(messageID.uuidString)),
                 "final_text_length_bucket": .string(lengthBucket(finalText.count)),
                 "reference_chip_count": .int(referenceChips.count),
+                "content_block_count": .int(contentBlocks.count),
             ]
         case .proposedAction(let action):
             [

@@ -52,6 +52,7 @@ mod tests {
     async fn non_stream_finalizer_failure_is_returned_to_handler() {
         let complete = AiCompleteResult {
             final_text: "毛球今天可以继续观察精神和食欲。".to_owned(),
+            content_blocks: Vec::new(),
             usage: LlmUsage::default(),
             finish_reason: LlmFinishReason::Stop,
             provider: "test-provider".to_owned(),

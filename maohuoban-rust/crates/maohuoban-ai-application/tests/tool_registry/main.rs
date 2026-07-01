@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolGatewayObserver, AiToolMetadata, AiToolResult,
-    AiToolRiskLevel, ToolGatewayExecutionContext, ToolRegistry,
+    AiToolRiskLevel, DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength, LlmToolCall, ToolExecutionAudit,
@@ -212,6 +212,141 @@ async fn registered_tool_executes_successfully() {
         .await;
     assert!(result.is_success());
     assert!(result.denied_reason().is_none());
+}
+
+#[tokio::test]
+async fn date_calculator_adds_days_as_read_only_temporal_tool() {
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
+    let ctx = test_tool_context(Uuid::new_v4());
+
+    let result = registry
+        .call(
+            "date_calculator",
+            &ctx,
+            &json!({
+                "operation": "add_days",
+                "base_date": "2026-06-17",
+                "days": -7
+            }),
+        )
+        .await;
+
+    assert!(result.is_success());
+    let facts = result.facts();
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].key, "temporal.date_calculation");
+    assert_eq!(facts[0].value, "2026-06-17 加 -7 天 = 2026-06-10");
+
+    let tool = registry
+        .list_definitions()
+        .into_iter()
+        .find(|tool| tool.name == "date_calculator")
+        .expect("date calculator definition");
+    assert_eq!(tool.toolset, Toolset::Temporal);
+    assert!(tool.read_only);
+    assert!(!tool.requires_confirmation);
+}
+
+#[tokio::test]
+async fn date_calculator_finds_next_interval_date_after_local_date() {
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
+    let ctx = test_tool_context(Uuid::new_v4());
+
+    let result = registry
+        .call(
+            "date_calculator",
+            &ctx,
+            &json!({
+                "operation": "next_interval_date",
+                "start_date": "2026-06-17",
+                "interval_days": 30,
+                "after_date": "2026-07-02"
+            }),
+        )
+        .await;
+
+    assert!(result.is_success());
+    let facts = result.facts();
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].key, "temporal.date_calculation");
+    assert_eq!(
+        facts[0].value,
+        "从 2026-06-17 每 30 天一次，2026-07-02 之后的下次日期 = 2026-07-17"
+    );
+}
+
+#[tokio::test]
+async fn date_calculator_counts_days_between_dates() {
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
+    let ctx = test_tool_context(Uuid::new_v4());
+
+    let result = registry
+        .call(
+            "date_calculator",
+            &ctx,
+            &json!({
+                "operation": "days_between",
+                "date1": "2026-07-02",
+                "date2": "2027-06-17"
+            }),
+        )
+        .await;
+
+    assert!(result.is_success());
+    let facts = result.facts();
+    assert_eq!(facts.len(), 1);
+    assert_eq!(facts[0].key, "temporal.date_calculation");
+    assert_eq!(facts[0].value, "2026-07-02 到 2027-06-17 相差 350 天");
+
+    let tool = registry
+        .list_definitions()
+        .into_iter()
+        .find(|tool| tool.name == "date_calculator")
+        .expect("date calculator definition");
+    let operations = tool.parameters["properties"]["operation"]["enum"]
+        .as_array()
+        .expect("operation enum");
+    assert!(
+        operations
+            .iter()
+            .any(|operation| operation.as_str() == Some("days_between")),
+        "date_calculator schema must declare days_between operation"
+    );
+}
+
+#[tokio::test]
+async fn gateway_rejects_date_calculator_operation_outside_schema() {
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
+    let audits = Arc::new(Mutex::new(Vec::new()));
+    let ctx = test_tool_context_with_audits(Uuid::new_v4(), audits.clone());
+    let tool_call = LlmToolCall {
+        id: "call_unknown_operation".to_owned(),
+        name: "date_calculator".to_owned(),
+        arguments: json!({
+            "operation": "invent_magic_date",
+            "date1": "2026-07-02",
+            "date2": "2027-06-17"
+        })
+        .to_string(),
+    };
+
+    let result = registry.execute_tool_call(&ctx, &tool_call).await;
+
+    assert_eq!(result.audit.policy_decision, "failed");
+    assert_eq!(
+        result.audit.failure_code.as_deref(),
+        Some("tool.invalid_arguments")
+    );
+    let audits = audits.lock().expect("audits");
+    assert_eq!(audits.len(), 1);
+    assert_eq!(
+        audits[0].failure_code.as_deref(),
+        Some("tool.invalid_arguments")
+    );
 }
 
 #[tokio::test]

@@ -19,10 +19,11 @@ use maohuoban_ai_application::ai::tools::{
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench, AgentToolStatus,
-    AiConversationSurface, AiFactEntry, AiFactStrength, AiMessageRole, CapabilityCatalog,
-    CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
-    ModelLabel, RecentConversationEntry, RecentConversationPack, ToolProgressText, Toolset,
+    AiConversationSurface, AiFactEntry, AiFactPackage, AiFactStrength, AiMessageRole,
+    CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest,
+    LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage,
+    MemoryPack, ModelLabel, RecentConversationEntry, RecentConversationPack, ToolProgressText,
+    Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -297,6 +298,7 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
@@ -348,6 +350,15 @@ fn build_engine(
     ctx: AiToolContext,
 ) -> AgentRuntimeLoopEngine {
     AgentRuntimeLoopEngine::new(provider, Arc::new(registry), ctx, None)
+}
+
+fn build_engine_with_fact_package(
+    provider: Arc<ScriptedProvider>,
+    registry: ToolRegistry,
+    ctx: AiToolContext,
+    fact_package: AiFactPackage,
+) -> AgentRuntimeLoopEngine {
+    AgentRuntimeLoopEngine::new(provider, Arc::new(registry), ctx, Some(fact_package))
 }
 
 // ---- 通用 prompt runner ----
@@ -597,6 +608,70 @@ async fn case_followup_question_with_history() {
             .iter()
             .any(|m| m.content.contains("那要不要停罐头")),
         "current question should be in request"
+    );
+}
+
+#[tokio::test]
+async fn case_emotional_followup_uses_verified_birthday_fact_without_model_retry() {
+    let provider = Arc::new(ScriptedProvider::new(Vec::new()));
+    let mut fact_package = AiFactPackage::empty();
+    fact_package.computed.push(AiFactEntry {
+        key: "pet_identity.birthday_passed_this_year".to_owned(),
+        value: "今年生日 6月17日 已经过了 15 天".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    fact_package.computed.push(AiFactEntry {
+        key: "pet_identity.next_birthday".to_owned(),
+        value: "下次生日是 2027-06-17".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    });
+    let engine = build_engine_with_fact_package(
+        provider.clone(),
+        ToolRegistry::new(),
+        authorized_context(),
+        fact_package,
+    );
+
+    let history = vec![
+        RecentConversationEntry {
+            role: AiMessageRole::User,
+            content: "我的宠物今年的生日过了吗".to_owned(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        RecentConversationEntry {
+            role: AiMessageRole::Assistant,
+            content: "梅录今年的生日是 6月17日，已经过了，到今天是 15 天前。".to_owned(),
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+    ];
+
+    let events = run_prompt(
+        engine,
+        "遗憾我都忘了",
+        Some(workbench_with_history(history)),
+    )
+    .await;
+
+    assert_has_turn_finished(&events);
+    let text = final_text(&events);
+    assert!(
+        text.contains("已经过了 15 天") && text.contains("2027-06-17"),
+        "emotional follow-up should carry verified birthday facts forward, got: {text}"
+    );
+    assert!(
+        !text.contains("没查到")
+            && !text.contains("无法确认")
+            && !text.contains("不准确")
+            && !text.contains("忽略"),
+        "emotional follow-up must not retract verified facts, got: {text}"
+    );
+    assert!(
+        provider.take_requests().is_empty(),
+        "grounded emotional follow-up should be answered by runtime without model retry"
     );
 }
 

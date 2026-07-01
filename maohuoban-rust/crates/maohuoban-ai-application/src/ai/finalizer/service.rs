@@ -211,6 +211,7 @@ impl TurnFinalizer {
             turn_id: Some(output.turn_id),
             role: AiMessageRole::Assistant,
             content,
+            content_blocks: output.content_blocks.clone(),
             status,
             citations: output
                 .citations

@@ -20,6 +20,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
         }
     }
     var referenceChips: [String]
+    var contentBlocks: [AIAssistantContentBlock]
     var isStreaming: Bool
     private(set) var streamingRevision: Int
 
@@ -28,6 +29,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
         role: Role,
         text: String,
         referenceChips: [String] = [],
+        contentBlocks: [AIAssistantContentBlock] = [],
         isStreaming: Bool = false,
         streamingRevision: Int = 0
     ) {
@@ -35,6 +37,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
         self.role = role
         self.text = text
         self.referenceChips = referenceChips
+        self.contentBlocks = contentBlocks
         self.isStreaming = isStreaming
         self.streamingRevision = streamingRevision
     }

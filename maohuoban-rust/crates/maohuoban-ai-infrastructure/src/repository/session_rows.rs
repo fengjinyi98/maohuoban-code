@@ -5,8 +5,8 @@
 
 use chrono::Utc;
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiConversationSurface, AiMessage, AiMessageRole,
-    AiMessageStatus, AiPetDisplaySnapshot,
+    AiChatSession, AiChatSessionStatus, AiContentBlock, AiConversationSurface, AiMessage,
+    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot,
 };
 use uuid::Uuid;
 
@@ -77,6 +77,7 @@ pub(super) struct MessageRow {
     turn_id: Option<Uuid>,
     role: String,
     content: String,
+    content_blocks: serde_json::Value,
     status: String,
     citations: serde_json::Value,
     model: Option<String>,
@@ -115,6 +116,8 @@ impl From<MessageRow> for AiMessage {
         let verification = row
             .verification
             .and_then(|value| serde_json::from_value(value).ok());
+        let content_blocks =
+            serde_json::from_value::<Vec<AiContentBlock>>(row.content_blocks).unwrap_or_default();
 
         Self {
             id: row.id,
@@ -122,6 +125,7 @@ impl From<MessageRow> for AiMessage {
             turn_id: row.turn_id,
             role,
             content: row.content,
+            content_blocks,
             status,
             citations,
             model: row.model,

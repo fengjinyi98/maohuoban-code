@@ -13,7 +13,7 @@ mod tests;
 
 use std::sync::Arc;
 
-use maohuoban_ai_application::ai::tools::ToolRegistry;
+use maohuoban_ai_application::ai::tools::{DateCalculatorTool, ToolRegistry};
 use maohuoban_ai_domain::ai::AiPetDisplaySnapshot;
 use uuid::Uuid;
 
@@ -30,7 +30,7 @@ pub(super) fn build_runtime_tool_registry(
     session_id: Uuid,
     target_pet: &AiPetDisplaySnapshot,
 ) -> ToolRegistry {
-    let mut registry = ToolRegistry::new();
+    let mut registry = build_public_runtime_tool_registry();
     for kind in RuntimePetContextToolKind::all() {
         registry.register(RuntimePetContextTool {
             kind,
@@ -40,5 +40,15 @@ pub(super) fn build_runtime_tool_registry(
             target_pet: target_pet.clone(),
         });
     }
+    registry
+}
+
+/// build_public_runtime_tool_registry 构建公共 Runtime 工具注册表
+/// 核心职责：
+/// - 注册无需宠物授权的通用只读工具
+/// - 让时间计算能力在无选中宠物的 turn 中也可用
+pub(super) fn build_public_runtime_tool_registry() -> ToolRegistry {
+    let mut registry = ToolRegistry::new();
+    registry.register(DateCalculatorTool);
     registry
 }

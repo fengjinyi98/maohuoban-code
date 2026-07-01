@@ -22,6 +22,7 @@ impl BuiltinSkillRuntime {
         vec![
             system_tool_gateway_boundary(),
             system_safety_boundary(),
+            temporal_reasoning(),
             domain_public_pet_care(),
             domain_private_pet_context(),
             domain_app_support(),
@@ -83,6 +84,25 @@ fn system_safety_boundary() -> SkillDefinition {
                 .to_owned(),
         toolset_hints: SkillToolsetHints::default(),
         priority: 900,
+        mutable: false,
+    }
+}
+
+fn temporal_reasoning() -> SkillDefinition {
+    SkillDefinition {
+        skill_id: "temporal.reasoning".to_owned(),
+        layer: SkillLayer::System,
+        title: "时间推理边界".to_owned(),
+        match_conditions: SkillMatchConditions::default(),
+        instruction_block:
+            "涉及今天、昨天、明天、生日、年龄、到家天数、提醒日期或周期时，必须优先使用本轮可信时间上下文和日期派生事实；缺少可信时间或事实时直接说明无法确定，不能自造当前日期。"
+                .to_owned(),
+        toolset_hints: SkillToolsetHints {
+            allowed_toolsets: Vec::new(),
+            preferred_toolsets: vec![Toolset::Temporal],
+            preferred_tools: vec!["date_calculator".to_owned()],
+        },
+        priority: 850,
         mutable: false,
     }
 }

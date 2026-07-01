@@ -71,6 +71,7 @@ fn build_ingress_fixture() -> IngressFixture {
             content: "毛球今天怎么样".to_owned(),
             status: AiMessageStatus::Completed,
             citations: Vec::new(),
+            content_blocks: Vec::new(),
             model: None,
             provider: None,
             finish_reason: None,

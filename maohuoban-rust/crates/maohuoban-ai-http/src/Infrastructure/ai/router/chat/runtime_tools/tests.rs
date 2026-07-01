@@ -17,11 +17,12 @@ mod tests {
     use maohuoban_ai_application::ai::tools::{AiToolContext, AiToolDefinition};
     use maohuoban_ai_domain::ai::{
         AiChatSession, AiCitation, AiFactEntry, AiFactPackage, AiFactStrength, AiMessage,
-        AiPetDisplaySnapshot, AiProposedAction, AiResult,
+        AiPetDisplaySnapshot, AiProposedAction, AiResult, Toolset,
     };
     use serde_json::json;
     use uuid::Uuid;
 
+    use super::super::build_public_runtime_tool_registry;
     use super::super::kind::RuntimePetContextToolKind;
     use super::super::tool::RuntimePetContextTool;
     use crate::ai::router::AiPetContextProviders;
@@ -222,6 +223,20 @@ mod tests {
         assert!(result.denied_reason().is_none());
         assert!(result.failed_reason().is_none());
         assert_eq!(result.facts()[0].value, "当前目标宠物事实");
+    }
+
+    #[test]
+    fn public_runtime_tool_registry_exposes_date_calculator_without_selected_pet() {
+        let registry = build_public_runtime_tool_registry();
+        let tools = registry.list_definitions();
+
+        let date_tool = tools
+            .iter()
+            .find(|tool| tool.name == "date_calculator")
+            .expect("date_calculator should be registered for public temporal turns");
+        assert_eq!(date_tool.toolset, Toolset::Temporal);
+        assert!(date_tool.read_only);
+        assert!(!date_tool.requires_confirmation);
     }
 
     fn runtime_identity_tool() -> RuntimePetContextTool {

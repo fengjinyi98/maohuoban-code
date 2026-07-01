@@ -3,6 +3,7 @@ mod diet_context;
 mod food_inventory_hints;
 mod identity_context;
 mod pet_catalog;
+mod pet_temporal_facts;
 mod provider;
 
 pub(crate) use diet_confirmation_candidates::PetServiceDietConfirmationCandidateProvider;

@@ -19,7 +19,7 @@ use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest,
     LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
-    ModelLabel, ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
+    ModelLabel, TemporalContext, ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -338,6 +338,13 @@ async fn workbench_prompt_hides_domain_struct_field_names() {
         .as_str();
 
     assert!(workbench_prompt.contains("公共养宠咨询"));
+    assert!(workbench_prompt.contains("日期与时间计算"));
+    assert!(workbench_prompt.contains("相差天数"));
+    assert!(
+        workbench_prompt.contains("当前本地日期: 2026-07-02")
+            && workbench_prompt.contains("当前本地时间: 2026-07-02T04:30:29+08:00"),
+        "workbench prompt should disclose trusted temporal context: {workbench_prompt}"
+    );
     for forbidden in [
         "agent_definition",
         "context_pack",
@@ -617,21 +624,40 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
             name: "毛球".to_owned(),
             purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
             default_model_label: ModelLabel::Primary,
-            capability_domains: vec![CapabilityDomain::PublicPetDomain],
+            capability_domains: vec![
+                CapabilityDomain::PublicPetDomain,
+                CapabilityDomain::TemporalReasoning,
+            ],
         },
         capability_catalog: CapabilityCatalog {
-            capabilities: vec![AgentCapability {
-                code: "public_pet_care".to_owned(),
-                domain: CapabilityDomain::PublicPetDomain,
-                title: "公共养宠咨询".to_owned(),
-                when_to_use: "用户咨询通用照护、饮食、行为或常见症状观察时使用".to_owned(),
-                requires_private_context: false,
-            }],
+            capabilities: vec![
+                AgentCapability {
+                    code: "public_pet_care".to_owned(),
+                    domain: CapabilityDomain::PublicPetDomain,
+                    title: "公共养宠咨询".to_owned(),
+                    when_to_use: "用户咨询通用照护、饮食、行为或常见症状观察时使用".to_owned(),
+                    requires_private_context: false,
+                },
+                AgentCapability {
+                    code: "temporal_date_calculation".to_owned(),
+                    domain: CapabilityDomain::TemporalReasoning,
+                    title: "日期与时间计算".to_owned(),
+                    when_to_use:
+                        "用户询问今天、明天、昨天、生日、年龄、相差天数、提前或延后日期时使用"
+                            .to_owned(),
+                    requires_private_context: false,
+                },
+            ],
         },
         context_pack: ContextPack {
             surface: AiConversationSurface::HomePrivate,
             locale: "zh-Hans".to_owned(),
             timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: Some(TemporalContext {
+                local_date: "2026-07-02".to_owned(),
+                local_datetime: "2026-07-02T04:30:29+08:00".to_owned(),
+                timezone: "Asia/Shanghai".to_owned(),
+            }),
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
