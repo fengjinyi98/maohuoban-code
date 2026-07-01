@@ -9,8 +9,8 @@ use maohuoban_ai_application::ai::ports::FakeLlmProvider;
 use maohuoban_ai_application::ai::stream::{AiStreamPipeline, AiStreamRunContext};
 use maohuoban_ai_domain::ai::{
     AiCitation, AiCitationSourceKind, AiFactEntry, AiFactPackage, AiFactStrength, AiStreamEvent,
-    LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent,
-    LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
+    LlmChatRequest, LlmChatResponse, LlmDiagnosticsCorrelation, LlmFinishReason, LlmMessage,
+    LlmRole, LlmStreamEvent, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
 };
 use uuid::Uuid;
 
@@ -52,7 +52,7 @@ fn dummy_request() -> LlmChatRequest {
         stream: true,
         max_output_tokens: None,
         response_format: None,
-        diagnostics_correlation: Default::default(),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
 }
 

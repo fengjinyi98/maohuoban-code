@@ -182,7 +182,7 @@ impl OpenAiProviderDiagnostics {
         request: &LlmChatRequest,
         model: &str,
         event_name: &str,
-        payload: Value,
+        payload: &Value,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
@@ -195,7 +195,7 @@ impl OpenAiProviderDiagnostics {
         )
         .metadata("phase_guess", serde_json::json!(phase_guess(request)))
         .metadata("event_name", serde_json::json!(event_name))
-        .metadata("payload", redact_ai_diagnostics_value(&payload));
+        .metadata("payload", redact_ai_diagnostics_value(payload));
         diagnostics.record(event);
     }
 

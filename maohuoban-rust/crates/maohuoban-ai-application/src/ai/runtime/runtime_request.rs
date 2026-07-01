@@ -118,7 +118,9 @@ fn diagnostics_correlation(
 ) -> LlmDiagnosticsCorrelation {
     LlmDiagnosticsCorrelation {
         session_id: Some(state.chat_session_id),
-        turn_id: state.current_turn_id.map(|turn_id| turn_id.as_uuid()),
+        turn_id: state
+            .current_turn_id
+            .map(maohuoban_ai_domain::ai::AgentTurnId::as_uuid),
         message_id: state.current_turn_diagnostics_message_id,
         tool_call_id: diagnostics_tool_call_id(assistant_tool_calls, tool_results),
     }

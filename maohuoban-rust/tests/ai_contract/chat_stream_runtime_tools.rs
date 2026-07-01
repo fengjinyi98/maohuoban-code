@@ -24,18 +24,7 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     let _guard = diagnostics_test_lock().lock_owned().await;
     let diagnostics = install_runtime_tool_test_diagnostics();
     let server = MockServer::start();
-    let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-        base_url: server.base_url(),
-        api_key: "contract-api-key".to_owned(),
-        model: "contract-model".to_owned(),
-        timeout_secs: 5,
-        temperature: 0.2,
-        max_output_tokens: None,
-        response_format: None,
-    }
-    .into();
-    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    let app = spawn_runtime_tool_test_app(&server).await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139021", "ios-ai-runtime-tool").await;
     let pet = create_pet(&app, &access_token, "毛球").await;
@@ -63,68 +52,10 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
 
     first_mock.assert();
     second_mock.assert();
-    assert!(
-        text.contains("event: execution_trace_started")
-            && text.contains("event: execution_trace_completed")
-            && text.contains("正在查看毛球档案"),
-        "SSE should contain runtime execution trace events, got: {text}"
-    );
-    let started_events = sse_event_data_all(&text, "execution_trace_started");
-    assert!(
-        started_events.iter().any(|event| {
-            event["display_text"]
-                .as_str()
-                .is_some_and(|text| text.contains("正在查看毛球档案"))
-        }),
-        "SSE should contain runtime execution trace start text, got: {started_events:?}"
-    );
-    let completed_events = sse_event_data_all(&text, "execution_trace_completed");
-    assert!(
-        completed_events.iter().any(|event| {
-            event["display_text"]
-                .as_str()
-                .is_some_and(|text| text.contains("正在查看毛球档案"))
-                && event["status"] == "completed"
-        }),
-        "SSE should contain runtime execution trace completion text, got: {completed_events:?}"
-    );
-    assert!(
-        !text.contains("runtime_tool") && !text.contains("load_pet_identity_context"),
-        "SSE should not expose internal runtime tool names, got: {text}"
-    );
-    assert!(
-        started_events
-            .iter()
-            .chain(completed_events.iter())
-            .all(|event| event.get("tool_name").is_none()),
-        "execution trace should not expose internal tool names"
-    );
-    assert!(
-        completed_events
-            .iter()
-            .all(|event| event.get("tool_call_id").is_none()),
-        "execution trace should not expose internal tool call ids"
-    );
-    assert!(
-        text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
-        "SSE should contain followup model final text, got: {text}"
-    );
-    assert!(
-        text.contains("event: answer_completed"),
-        "SSE should contain answer_completed event, got: {text}"
-    );
+    assert_runtime_tool_stream_contract(&text);
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
-    assert!(events.iter().any(|event| {
-        event.message == "ai.chat.tool_gateway.completed"
-            && event.metadata["tool_name"] == json!("load_pet_identity_context")
-            && event.metadata["policy_decision"] == json!("allowed")
-            && event.metadata["fact_count"]
-                .as_u64()
-                .is_some_and(|count| count > 0)
-            && event.metadata["citation_ids"].is_array()
-            && event.metadata["failure_code"].is_null()
-    }));
+    assert_runtime_tool_diagnostics(&events);
 }
 
 /// Runtime 工具进度在二次模型完成前通过 SSE 到达
@@ -288,6 +219,89 @@ fn install_runtime_tool_call_mocks<'a>(
     pet_id: &str,
 ) -> (Mock<'a>, Mock<'a>) {
     install_runtime_tool_call_mocks_with_followup_delay(server, pet_id, Duration::ZERO)
+}
+
+async fn spawn_runtime_tool_test_app(
+    server: &MockServer,
+) -> maohuoban_rust::test_support::AuthTestApp {
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await
+}
+
+fn assert_runtime_tool_stream_contract(text: &str) {
+    assert!(
+        text.contains("event: execution_trace_started")
+            && text.contains("event: execution_trace_completed")
+            && text.contains("正在查看毛球档案"),
+        "SSE should contain runtime execution trace events, got: {text}"
+    );
+    let started_events = sse_event_data_all(text, "execution_trace_started");
+    assert!(
+        started_events.iter().any(|event| {
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("正在查看毛球档案"))
+        }),
+        "SSE should contain runtime execution trace start text, got: {started_events:?}"
+    );
+    let completed_events = sse_event_data_all(text, "execution_trace_completed");
+    assert!(
+        completed_events.iter().any(|event| {
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("正在查看毛球档案"))
+                && event["status"] == "completed"
+        }),
+        "SSE should contain runtime execution trace completion text, got: {completed_events:?}"
+    );
+    assert!(
+        !text.contains("runtime_tool") && !text.contains("load_pet_identity_context"),
+        "SSE should not expose internal runtime tool names, got: {text}"
+    );
+    assert!(
+        started_events
+            .iter()
+            .chain(completed_events.iter())
+            .all(|event| event.get("tool_name").is_none()),
+        "execution trace should not expose internal tool names"
+    );
+    assert!(
+        completed_events
+            .iter()
+            .all(|event| event.get("tool_call_id").is_none()),
+        "execution trace should not expose internal tool call ids"
+    );
+    assert!(
+        text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
+        "SSE should contain followup model final text, got: {text}"
+    );
+    assert!(
+        text.contains("event: answer_completed"),
+        "SSE should contain answer_completed event, got: {text}"
+    );
+}
+
+fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.tool_gateway.completed"
+            && event.metadata["tool_name"] == json!("load_pet_identity_context")
+            && event.metadata["policy_decision"] == json!("allowed")
+            && event.metadata["fact_count"]
+                .as_u64()
+                .is_some_and(|count| count > 0)
+            && event.metadata["citation_ids"].is_array()
+            && event.metadata["failure_code"].is_null()
+    }));
 }
 
 fn install_runtime_tool_test_diagnostics() -> Diagnostics {

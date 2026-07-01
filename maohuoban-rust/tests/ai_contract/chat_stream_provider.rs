@@ -67,135 +67,19 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     let text = response_text(response).await;
 
     mock.assert();
-    assert!(
-        text.contains("event: answer_delta"),
-        "SSE should contain answer_delta event, got: {text}"
-    );
-    assert!(
-        text.contains("真实 Provider"),
-        "SSE should contain configured provider content, got: {text}"
-    );
-    assert!(
-        text.contains("event: answer_completed"),
-        "SSE should contain completion event, got: {text}"
-    );
+    assert_provider_stream_response(&text);
     let started = sse_event_data(&text, "message_started");
     let chat_session_id_prefix = uuid_prefix_from_sse(&started, "chat_session_id");
     let message_id_prefix = uuid_prefix_from_sse(&started, "message_id");
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
-    for event_name in [
-        "ai.provider.openai.request.prepared",
-        "ai.provider.openai.http.response.started",
-        "ai.provider.openai.stream.chunk",
-        "ai.provider.openai.stream.event",
-    ] {
-        let event = events
-            .iter()
-            .find(|event| {
-                event.message == event_name
-                    && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
-                    && event.metadata["message_id_prefix"] == json!(message_id_prefix)
-            })
-            .unwrap_or_else(|| panic!("missing provider diagnostics event {event_name}"));
-        assert_eq!(
-            event.metadata["chat_session_id_prefix"],
-            json!(chat_session_id_prefix)
-        );
-        assert_eq!(
-            event.metadata["message_id_prefix"],
-            json!(message_id_prefix)
-        );
-        assert!(
-            event.metadata["turn_id_prefix"]
-                .as_str()
-                .is_some_and(|value| !value.is_empty()),
-            "missing turn correlation in {event:?}"
-        );
-        assert!(
-            event.metadata["tool_call_id"].is_string(),
-            "missing tool correlation field in {event:?}"
-        );
-        assert_eq!(event.metadata["provider"], json!("openai_compatible"));
-        assert_eq!(event.metadata["model"], json!("contract-model"));
-    }
-    assert!(events.iter().any(|event| {
-        event.message == "ai.provider.openai.request.prepared"
-            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
-            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
-            && event.metadata["provider"] == json!("openai_compatible")
-            && event.metadata["model_route"] == json!("primary")
-            && event.metadata["model"] == json!("contract-model")
-            && event.metadata["request_body_text"]
-                .as_str()
-                .is_some_and(|body| {
-                    body.contains("\"message\":\"毛球今天怎么样\"")
-                        || body.contains("毛球今天怎么样")
-                })
-    }));
-    assert!(events.iter().any(|event| {
-        event.message == "ai.chat.workbench.built"
-            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
-            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
-            && event.metadata["capability_catalog"]
-                .as_array()
-                .is_some_and(|capabilities| {
-                    capabilities
-                        .iter()
-                        .any(|value| value == "private_pet_context")
-                })
-            && event.metadata["visible_tools"]
-                .as_array()
-                .is_some_and(|tools| {
-                    tools
-                        .iter()
-                        .any(|value| value == "load_pet_identity_context")
-                })
-            && event.metadata["memory_count"] == json!(0)
-            && event.metadata["recent_conversation_count"] == json!(0)
-            && event.metadata["context_summary_present"] == json!(false)
-    }));
-    assert!(events.iter().any(|event| {
-        event.message == "ai.provider.openai.stream.chunk"
-            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
-            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
-            && event.metadata["chunk_text"]
-                .as_str()
-                .is_some_and(|body| body.contains("真实 Provider"))
-    }));
-    assert!(events.iter().any(|event| {
-        event.message == "ai.provider.openai.stream.event"
-            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
-            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
-            && event.metadata["event_name"] == json!("delta")
-            && event.metadata["payload"]["content"] == json!("真实 Provider")
-    }));
-    for event in &events {
-        let metadata = serde_json::to_string(&event.metadata).expect("serialize metadata");
-        assert!(
-            !metadata.contains("Bearer contract-api-key")
-                && !metadata.contains("\"api_key\"")
-                && !metadata.contains("contract-api-key")
-                && !metadata.contains("Cookie"),
-            "provider diagnostics leaked auth secret: {event:?}"
-        );
-    }
-
-    let identity_log_count: i64 = sqlx::query_scalar(
-        r"
-        SELECT COUNT(*)
-        FROM ai_tool_access_logs
-        WHERE tool_name = 'load_pet_identity_context'
-          AND target_pet_id = $1
-          AND allowed = true
-        ",
-    )
-    .bind(uuid::Uuid::parse_str(pet_id).expect("pet id"))
-    .fetch_one(app.pool())
-    .await
-    .expect("count identity tool log");
-
-    assert_eq!(identity_log_count, 1);
+    assert_provider_diagnostics(
+        &events,
+        &chat_session_id_prefix,
+        &message_id_prefix,
+        "毛球今天怎么样",
+    );
+    assert_provider_identity_tool_log(&app, pet_id).await;
 }
 
 fn install_provider_test_diagnostics() -> Diagnostics {
@@ -490,6 +374,188 @@ fn uuid_prefix_from_sse(event: &Value, field: &str) -> String {
         .chars()
         .take(8)
         .collect()
+}
+
+fn assert_provider_stream_response(text: &str) {
+    assert!(
+        text.contains("event: answer_delta"),
+        "SSE should contain answer_delta event, got: {text}"
+    );
+    assert!(
+        text.contains("真实 Provider"),
+        "SSE should contain configured provider content, got: {text}"
+    );
+    assert!(
+        text.contains("event: answer_completed"),
+        "SSE should contain completion event, got: {text}"
+    );
+}
+
+fn assert_provider_diagnostics(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    chat_session_id_prefix: &str,
+    message_id_prefix: &str,
+    expected_message: &str,
+) {
+    assert_required_provider_events(events, chat_session_id_prefix, message_id_prefix);
+    assert_provider_request_prepared(
+        events,
+        chat_session_id_prefix,
+        message_id_prefix,
+        expected_message,
+    );
+    assert_workbench_built_event(events, chat_session_id_prefix, message_id_prefix);
+    assert_provider_stream_payloads(events, chat_session_id_prefix, message_id_prefix);
+    assert_provider_diagnostics_without_secrets(events);
+}
+
+fn assert_required_provider_events(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    chat_session_id_prefix: &str,
+    message_id_prefix: &str,
+) {
+    for event_name in [
+        "ai.provider.openai.request.prepared",
+        "ai.provider.openai.http.response.started",
+        "ai.provider.openai.stream.chunk",
+        "ai.provider.openai.stream.event",
+    ] {
+        let event = events
+            .iter()
+            .find(|event| {
+                event.message == event_name
+                    && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+                    && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            })
+            .unwrap_or_else(|| panic!("missing provider diagnostics event {event_name}"));
+        assert_eq!(
+            event.metadata["chat_session_id_prefix"],
+            json!(chat_session_id_prefix)
+        );
+        assert_eq!(
+            event.metadata["message_id_prefix"],
+            json!(message_id_prefix)
+        );
+        assert!(
+            event.metadata["turn_id_prefix"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty()),
+            "missing turn correlation in {event:?}"
+        );
+        assert!(
+            event.metadata["tool_call_id"].is_string(),
+            "missing tool correlation field in {event:?}"
+        );
+        assert_eq!(event.metadata["provider"], json!("openai_compatible"));
+        assert_eq!(event.metadata["model"], json!("contract-model"));
+    }
+}
+
+fn assert_provider_request_prepared(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    chat_session_id_prefix: &str,
+    message_id_prefix: &str,
+    expected_message: &str,
+) {
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.request.prepared"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["provider"] == json!("openai_compatible")
+            && event.metadata["model_route"] == json!("primary")
+            && event.metadata["model"] == json!("contract-model")
+            && event.metadata["request_body_text"]
+                .as_str()
+                .is_some_and(|body| {
+                    body.contains(&format!("\"message\":\"{expected_message}\""))
+                        || body.contains(expected_message)
+                })
+    }));
+}
+
+fn assert_workbench_built_event(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    chat_session_id_prefix: &str,
+    message_id_prefix: &str,
+) {
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.workbench.built"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["capability_catalog"]
+                .as_array()
+                .is_some_and(|capabilities| {
+                    capabilities
+                        .iter()
+                        .any(|value| value == "private_pet_context")
+                })
+            && event.metadata["visible_tools"]
+                .as_array()
+                .is_some_and(|tools| {
+                    tools
+                        .iter()
+                        .any(|value| value == "load_pet_identity_context")
+                })
+            && event.metadata["memory_count"] == json!(0)
+            && event.metadata["recent_conversation_count"] == json!(0)
+            && event.metadata["context_summary_present"] == json!(false)
+    }));
+}
+
+fn assert_provider_stream_payloads(
+    events: &[maohuoban_diagnostics::DiagnosticEvent],
+    chat_session_id_prefix: &str,
+    message_id_prefix: &str,
+) {
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.stream.chunk"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["chunk_text"]
+                .as_str()
+                .is_some_and(|body| body.contains("真实 Provider"))
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.provider.openai.stream.event"
+            && event.metadata["chat_session_id_prefix"] == json!(chat_session_id_prefix)
+            && event.metadata["message_id_prefix"] == json!(message_id_prefix)
+            && event.metadata["event_name"] == json!("delta")
+            && event.metadata["payload"]["content"] == json!("真实 Provider")
+    }));
+}
+
+fn assert_provider_diagnostics_without_secrets(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
+    for event in events {
+        let metadata = serde_json::to_string(&event.metadata).expect("serialize metadata");
+        assert!(
+            !metadata.contains("Bearer contract-api-key")
+                && !metadata.contains("\"api_key\"")
+                && !metadata.contains("contract-api-key")
+                && !metadata.contains("Cookie"),
+            "provider diagnostics leaked auth secret: {event:?}"
+        );
+    }
+}
+
+async fn assert_provider_identity_tool_log(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    pet_id: &str,
+) {
+    let identity_log_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_tool_access_logs
+        WHERE tool_name = 'load_pet_identity_context'
+          AND target_pet_id = $1
+          AND allowed = true
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(pet_id).expect("pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count identity tool log");
+
+    assert_eq!(identity_log_count, 1);
 }
 
 async fn create_pet(

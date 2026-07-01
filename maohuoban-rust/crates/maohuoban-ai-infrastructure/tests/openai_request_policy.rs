@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
-use maohuoban_ai_domain::ai::{LlmChatRequest, LlmMessage, LlmRole};
+use maohuoban_ai_domain::ai::{LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole};
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
 
 fn request_with_temperature(temperature: f32) -> LlmChatRequest {
@@ -29,7 +29,7 @@ fn request_with_temperature(temperature: f32) -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
-        diagnostics_correlation: Default::default(),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
 }
 

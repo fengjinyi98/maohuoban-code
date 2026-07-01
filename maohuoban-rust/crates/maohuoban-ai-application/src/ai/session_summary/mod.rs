@@ -8,8 +8,8 @@
 use std::sync::Arc;
 
 use maohuoban_ai_domain::ai::{
-    AiMessage, AiMessageRole, AiResult, LlmChatRequest, LlmMessage, LlmRole,
-    RecentConversationEntry, RecentConversationPack, SessionSummary, SessionSummaryScope,
+    AiMessage, AiMessageRole, AiResult, LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage,
+    LlmRole, RecentConversationEntry, RecentConversationPack, SessionSummary, SessionSummaryScope,
 };
 use uuid::Uuid;
 
@@ -78,7 +78,7 @@ impl SummaryPromptTemplate {
             stream: false,
             max_output_tokens: Some(1024),
             response_format: None,
-            diagnostics_correlation: Default::default(),
+            diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
         }
     }
 }

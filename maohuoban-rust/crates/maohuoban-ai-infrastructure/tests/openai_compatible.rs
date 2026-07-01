@@ -9,8 +9,8 @@ use futures_util::StreamExt;
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
-    AiError, LlmChatRequest, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall,
-    LlmToolSchema, ProviderErrorCategory,
+    AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason, LlmMessage, LlmRole,
+    LlmStreamEvent, LlmToolCall, LlmToolSchema, ProviderErrorCategory,
 };
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
 use serde_json::json;
@@ -98,7 +98,7 @@ fn sample_request() -> LlmChatRequest {
         stream: false,
         max_output_tokens: Some(1024),
         response_format: None,
-        diagnostics_correlation: Default::default(),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
 }
 

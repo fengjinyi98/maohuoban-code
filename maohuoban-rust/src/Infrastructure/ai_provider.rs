@@ -37,7 +37,9 @@ pub(crate) fn build_ai_stream_pipeline_from_provider_config(
 mod tests {
     use futures_util::StreamExt;
     use httpmock::MockServer;
-    use maohuoban_ai_domain::ai::{AiStreamEvent, LlmChatRequest, LlmMessage, LlmRole};
+    use maohuoban_ai_domain::ai::{
+        AiStreamEvent, LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole,
+    };
     use uuid::Uuid;
 
     use super::{OpenAiCompatibleConfig, build_ai_stream_pipeline_from_provider_config};
@@ -61,7 +63,7 @@ mod tests {
             stream: true,
             max_output_tokens: None,
             response_format: None,
-            diagnostics_correlation: Default::default(),
+            diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
         }
     }
 

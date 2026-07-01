@@ -38,46 +38,9 @@ pub(super) fn runtime_provider_stream(
     input: RuntimeProviderStreamInput,
 ) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
 {
-    let provider = state.llm_provider.clone();
-    let registry = Arc::new(match input.target_pet.as_ref() {
-        Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
-        None => ToolRegistry::new(),
-    });
-    let visible_tool_names = registry
-        .list_definitions()
-        .into_iter()
-        .map(|tool| tool.name)
-        .collect::<Vec<_>>();
-    let tool_count = visible_tool_names.len();
-    record_chat_workbench_built(
-        input.session_id,
-        input.message_id,
-        &input.workbench,
-        &visible_tool_names,
-    );
-    record_chat_runtime_engine_selected(
-        input.session_id,
-        input.message_id,
-        state.runtime_engine_mode.as_str(),
-        "stream",
-        true,
-        input.target_pet.is_some(),
-        tool_count,
-    );
-    let tool_context = AiToolContext {
-        actor_user_id: input.actor_user_id,
-        authorized_pet_id: input
-            .target_pet
-            .as_ref()
-            .map_or_else(Uuid::nil, |pet| pet.pet_id),
-    };
-    let engine =
-        AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
-            provider,
-            registry,
-            tool_context,
-            fact_package: input.fact_package.clone(),
-        });
+    let registry = build_runtime_registry(state, &input);
+    record_runtime_stream_selection(state, &input, registry.as_ref());
+    let engine = build_runtime_engine(state, &input, registry);
     let session = AgentSession::new(
         input.session_id,
         AgentId::main_pet_care_agent(),
@@ -89,6 +52,8 @@ pub(super) fn runtime_provider_stream(
     let fact_package = input.fact_package;
     let context = input.context;
     let workbench = input.workbench;
+    let activity_pet_name = activity_pet_name(input.target_pet.as_ref());
+    let identity_context_tool_required = input.target_pet.is_some();
 
     async_stream::stream! {
         let AiStreamRunContext {
@@ -99,11 +64,6 @@ pub(super) fn runtime_provider_stream(
             initial_events,
             ..
         } = context;
-        let activity_pet_name = target_pet
-            .as_ref()
-            .map_or_else(|| "宠物".to_owned(), |pet| pet.pet_name.clone());
-        let identity_context_tool_required = target_pet.is_some();
-
         yield Ok(AiStreamEvent::MessageStarted {
             chat_session_id,
             message_id: started_message_id,
@@ -138,7 +98,7 @@ pub(super) fn runtime_provider_stream(
                         chat_session_id,
                         message_id,
                         &event_name,
-                        payload,
+                        &payload,
                     );
                     let projected_events = projector.project(agent_event);
                     for event in projected_events {
@@ -153,4 +113,65 @@ pub(super) fn runtime_provider_stream(
         }
     }
     .boxed()
+}
+
+fn build_runtime_registry(
+    state: &AiHttpState,
+    input: &RuntimeProviderStreamInput,
+) -> Arc<ToolRegistry> {
+    Arc::new(match input.target_pet.as_ref() {
+        Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
+        None => ToolRegistry::new(),
+    })
+}
+
+fn record_runtime_stream_selection(
+    state: &AiHttpState,
+    input: &RuntimeProviderStreamInput,
+    registry: &ToolRegistry,
+) {
+    let visible_tool_names = registry
+        .list_definitions()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect::<Vec<_>>();
+    record_chat_workbench_built(
+        input.session_id,
+        input.message_id,
+        &input.workbench,
+        &visible_tool_names,
+    );
+    record_chat_runtime_engine_selected(
+        input.session_id,
+        input.message_id,
+        state.runtime_engine_mode.as_str(),
+        "stream",
+        true,
+        input.target_pet.is_some(),
+        visible_tool_names.len(),
+    );
+}
+
+fn build_runtime_engine(
+    state: &AiHttpState,
+    input: &RuntimeProviderStreamInput,
+    registry: Arc<ToolRegistry>,
+) -> Box<dyn maohuoban_ai_application::ai::runtime::LoopEngine> {
+    let tool_context = AiToolContext {
+        actor_user_id: input.actor_user_id,
+        authorized_pet_id: input
+            .target_pet
+            .as_ref()
+            .map_or_else(Uuid::nil, |pet| pet.pet_id),
+    };
+    AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
+        provider: state.llm_provider.clone(),
+        registry,
+        tool_context,
+        fact_package: input.fact_package.clone(),
+    })
+}
+
+fn activity_pet_name(target_pet: Option<&AiPetDisplaySnapshot>) -> String {
+    target_pet.map_or_else(|| "宠物".to_owned(), |pet| pet.pet_name.clone())
 }

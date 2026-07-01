@@ -164,7 +164,7 @@ async fn insert_user_message_in_tx(
             (id, session_id, turn_id, role, content, status, citations,
              model, provider, finish_reason, usage_input_tokens,
              usage_output_tokens, verification, created_at)
-        VALUES ($1, $2, NULL, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ",
     )
     .bind(message.id)

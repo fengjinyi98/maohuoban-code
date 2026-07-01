@@ -299,7 +299,7 @@ impl LlmProvider for OpenAiCompatibleLlmProvider {
                                         request,
                                         &model,
                                         stream_event_name(&e),
-                                        stream_event_payload(&e),
+                                        &stream_event_payload(&e),
                                     );
                                     yield Ok(e);
                                 }

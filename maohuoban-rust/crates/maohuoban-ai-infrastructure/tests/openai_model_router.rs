@@ -6,7 +6,7 @@
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
-    AiError, LlmChatRequest, LlmMessage, LlmRole, ProviderErrorCategory,
+    AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole, ProviderErrorCategory,
 };
 use maohuoban_ai_infrastructure::provider::{OpenAiCompatibleConfig, OpenAiCompatibleLlmProvider};
 
@@ -26,7 +26,7 @@ fn sample_request_with_model(model: &str) -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
-        diagnostics_correlation: Default::default(),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
 }
 

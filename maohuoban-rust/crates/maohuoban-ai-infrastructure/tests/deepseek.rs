@@ -7,7 +7,8 @@ use futures_util::StreamExt;
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_domain::ai::{
-    LlmChatRequest, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolSchema,
+    LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason, LlmMessage, LlmRole,
+    LlmStreamEvent, LlmToolSchema,
 };
 use maohuoban_ai_infrastructure::provider::{DeepSeekConfig, DeepSeekLlmProvider};
 
@@ -31,7 +32,7 @@ fn sample_request() -> LlmChatRequest {
         stream: false,
         max_output_tokens: None,
         response_format: None,
-        diagnostics_correlation: Default::default(),
+        diagnostics_correlation: LlmDiagnosticsCorrelation::default(),
     }
 }
 

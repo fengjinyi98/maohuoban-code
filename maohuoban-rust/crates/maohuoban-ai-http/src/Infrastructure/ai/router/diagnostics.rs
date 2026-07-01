@@ -219,7 +219,7 @@ pub(crate) fn record_chat_runtime_agent_event(
     session_id: Uuid,
     message_id: Uuid,
     event_name: &str,
-    payload: Value,
+    payload: &Value,
 ) {
     record_ai_event(
         "ai.chat.runtime.agent_event",
@@ -231,9 +231,21 @@ pub(crate) fn record_chat_runtime_agent_event(
             ),
             ("message_id_prefix", json!(uuid_prefix(Some(message_id)))),
             ("event_name", json!(event_name)),
-            ("payload", redact_ai_diagnostics_value(&payload)),
+            ("payload", redact_ai_diagnostics_value(payload)),
         ],
     );
+}
+
+/// ToolGatewayCompletionDiagnostics 工具网关完成态诊断参数
+/// 核心职责：
+/// - 聚合策略决策、耗时、事实数量、引用和失败码
+/// - 缩小记录函数参数数量并复用借用数据
+pub(crate) struct ToolGatewayCompletionDiagnostics<'a> {
+    pub policy_decision: &'a str,
+    pub duration_ms: u128,
+    pub fact_count: usize,
+    pub citation_ids: &'a [String],
+    pub failure_code: Option<&'a str>,
 }
 
 /// record_tool_gateway_completed 记录 Tool Gateway 执行结果
@@ -244,25 +256,21 @@ pub(crate) fn record_tool_gateway_completed(
     session_id: Uuid,
     tool_name: &str,
     args: &Value,
-    policy_decision: &str,
-    duration_ms: u128,
-    fact_count: usize,
-    citation_ids: Vec<String>,
-    failure_code: Option<&str>,
+    diagnostics: &ToolGatewayCompletionDiagnostics<'_>,
 ) {
     let mut metadata = AiDiagnosticsCorrelation::for_session(session_id).to_metadata();
     metadata.extend(vec![
         ("tool_name", json!(tool_name)),
         ("args", redact_ai_diagnostics_value(args)),
-        ("policy_decision", json!(policy_decision)),
-        ("duration_ms", json!(duration_ms)),
-        ("fact_count", json!(fact_count)),
-        ("citation_ids", json!(citation_ids)),
-        ("failure_code", json!(failure_code)),
+        ("policy_decision", json!(diagnostics.policy_decision)),
+        ("duration_ms", json!(diagnostics.duration_ms)),
+        ("fact_count", json!(diagnostics.fact_count)),
+        ("citation_ids", json!(diagnostics.citation_ids)),
+        ("failure_code", json!(diagnostics.failure_code)),
     ]);
     record_ai_event(
         "ai.chat.tool_gateway.completed",
-        severity(policy_decision == "allowed"),
+        severity(diagnostics.policy_decision == "allowed"),
         metadata,
     );
 }
