@@ -25,7 +25,7 @@ use super::turn_preparation::{
 use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
 
 use complete::complete_with_runtime;
-use persistence::{complete_boundary_turn, persist_finalizer_tx};
+use persistence::{complete_boundary_turn, persist_finalizer};
 use response::ChatCompleteResponse;
 
 /// handle_chat 非流式聊天 handler
@@ -58,6 +58,7 @@ pub async fn handle_chat(
     if !context.gate_decision.enters_workbench() {
         return complete_boundary_turn(
             &state,
+            actor_user_id,
             &context,
             gated_message_text(&context.gate_decision).to_owned(),
             "gate_skipped_main_agent",
@@ -68,6 +69,7 @@ pub async fn handle_chat(
     if let Some(resolution) = context.pet_resolution.as_ref().filter(|r| !r.is_resolved()) {
         return complete_boundary_turn(
             &state,
+            actor_user_id,
             &context,
             pet_resolution_message_text(resolution).to_owned(),
             "pet_resolution_skipped_main_agent",
@@ -98,14 +100,18 @@ pub async fn handle_chat(
         Err(error) => return ai_error_response(&error),
     };
 
-    persist_finalizer_tx(
+    if let Err(error) = persist_finalizer(
         &state,
+        actor_user_id,
         context.assistant_message_id,
         context.session_id,
         context.turn_id.as_uuid(),
         &complete,
     )
-    .await;
+    .await
+    {
+        return ai_error_response(&error);
+    }
 
     ok_response(
         "ai.chat_completed",

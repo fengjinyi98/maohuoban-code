@@ -16,6 +16,9 @@ mod loaders {
     pub(super) mod history_summary_loader;
     pub(super) mod identity_fact_loader;
 }
+mod persistence {
+    pub(super) mod finalizer_store;
+}
 mod responses {
     pub(super) mod gated_stream_response;
     pub(super) mod pet_resolution_stream_response;

@@ -3,37 +3,48 @@ use axum::response::{
     sse::{Event, KeepAlive, Sse},
 };
 use futures_util::stream;
-use maohuoban_ai_application::ai::ports::ChatTurnTransactionPort;
+use maohuoban_ai_application::ai::finalizer::FinalizerStore;
 use maohuoban_ai_domain::ai::{
     AiAnswerVerification, AiPetResolution, AiStreamEvent, LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
-use super::super::super::diagnostics::record_chat_stream_event_emitted;
-use super::gated_stream_response::spawn_finalizer_tx;
+use super::super::super::diagnostics::{
+    record_chat_finalizer_completed, record_chat_stream_event_emitted,
+};
+use super::gated_stream_response::finalize_boundary_turn;
+use crate::ai::response::ai_error_response;
 
 /// pet_resolution_stream_response 构建宠物解析未完成的安全 SSE 响应
 /// 核心职责：
 /// - 返回 pet_resolution 事件帮助前端展示选择或缺失信息
 /// - 跳过主 Provider，避免在没有唯一宠物事实根时调用 LLM
-/// - 在单个事务内持久化边界消息和 turn 终态
-pub(crate) fn pet_resolution_stream_response(
-    chat_turn_transaction: std::sync::Arc<dyn ChatTurnTransactionPort>,
+/// - 通过 Finalizer 持久化边界消息和 turn 终态
+pub(crate) async fn pet_resolution_stream_response(
+    finalizer_store: std::sync::Arc<dyn FinalizerStore>,
     session_id: Uuid,
+    actor_user_id: Uuid,
     turn_id: Uuid,
     message_id: Uuid,
     title: String,
     resolution: AiPetResolution,
 ) -> Response {
     let final_text = pet_resolution_message_text(&resolution).to_owned();
-    spawn_finalizer_tx(
-        chat_turn_transaction,
+    let receipt = finalize_boundary_turn(
+        finalizer_store,
         session_id,
+        actor_user_id,
         turn_id,
         message_id,
         final_text.clone(),
         "pet_resolution_skipped_main_agent",
-    );
+    )
+    .await;
+    let receipt = match receipt {
+        Ok(receipt) => receipt,
+        Err(error) => return ai_error_response(&error),
+    };
+    record_chat_finalizer_completed(session_id, turn_id, Some(message_id), &receipt);
 
     let events = vec![
         AiStreamEvent::MessageStarted {

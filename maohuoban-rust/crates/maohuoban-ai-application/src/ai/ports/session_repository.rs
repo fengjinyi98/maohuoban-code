@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use maohuoban_ai_domain::ai::{AiChatSession, AiCitation, AiMessage, AiProposedAction, AiResult};
 use uuid::Uuid;
 
@@ -44,6 +45,18 @@ pub struct AiToolAccessLog {
 pub trait AiSessionRepository: Send + Sync {
     /// upsert_session 创建或更新会话
     async fn upsert_session(&self, session: &AiChatSession) -> AiResult<()>;
+
+    /// update_session_header 刷新会话最近 turn 与最近消息时间
+    /// 核心职责：
+    /// - 由 Finalizer 在终态收口时更新列表排序与恢复边界字段
+    /// - 保持 primary_pet_id 由会话入口准备阶段确定并在此处原样保留
+    async fn update_session_header(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        last_turn_id: Uuid,
+        last_message_at: DateTime<Utc>,
+    ) -> AiResult<()>;
 
     /// insert_message 插入一条消息
     async fn insert_message(&self, message: &AiMessage) -> AiResult<()>;

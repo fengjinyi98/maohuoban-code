@@ -1,8 +1,12 @@
 use maohuoban_ai_application::ai::diagnostics::{
     AiDiagnosticsCorrelation, redact_ai_diagnostics_text, redact_ai_diagnostics_value,
 };
+use maohuoban_ai_application::ai::finalizer::{
+    FinalizationReceipt, FinalizerAsyncJobKind, FinalizerSynchronousWrite,
+};
 use maohuoban_ai_domain::ai::{
-    AgentSessionWorkbench, AiConversationSurface, AiGateDecision, AiStreamEvent,
+    AgentSessionWorkbench, AiConversationSurface, AiGateDecision, AiSessionTurnStatus,
+    AiStreamEvent,
 };
 use maohuoban_diagnostics::Severity;
 use serde_json::{Value, json};
@@ -266,4 +270,87 @@ pub(crate) fn record_chat_provider_error(
             ),
         ],
     );
+}
+
+/// record_chat_finalizer_completed 记录 Finalizer 收口完成事件
+/// 核心职责：
+/// - 暴露 turn 终态、同步写入对象和异步触发对象
+/// - 将异步后处理失败作为 fail-open 诊断尾部记录
+pub(crate) fn record_chat_finalizer_completed(
+    session_id: Uuid,
+    turn_id: Uuid,
+    message_id: Option<Uuid>,
+    receipt: &FinalizationReceipt,
+) {
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_turn_id(turn_id)
+        .to_metadata();
+    if let Some(message_id) = message_id {
+        metadata = AiDiagnosticsCorrelation::for_session(session_id)
+            .with_turn_id(turn_id)
+            .with_message_id(message_id)
+            .to_metadata();
+    }
+    metadata.extend(vec![
+        (
+            "terminal_status",
+            json!(turn_status_code(receipt.terminal_status)),
+        ),
+        (
+            "synchronous_writes",
+            json!(
+                receipt
+                    .synchronous_writes
+                    .iter()
+                    .map(|write| synchronous_write_code(*write))
+                    .collect::<Vec<_>>()
+            ),
+        ),
+        (
+            "async_triggers",
+            json!(
+                receipt
+                    .async_triggers
+                    .iter()
+                    .map(|job| async_job_code(*job))
+                    .collect::<Vec<_>>()
+            ),
+        ),
+        (
+            "async_failures",
+            json!(
+                receipt
+                    .async_failures
+                    .iter()
+                    .map(|failure| json!({
+                        "job": async_job_code(failure.job_kind),
+                        "error_code": failure.error_code,
+                    }))
+                    .collect::<Vec<_>>()
+            ),
+        ),
+    ]);
+    record_ai_event("ai.chat.finalizer.completed", Severity::Info, metadata);
+}
+
+fn turn_status_code(status: AiSessionTurnStatus) -> &'static str {
+    status.as_str()
+}
+
+fn synchronous_write_code(write: FinalizerSynchronousWrite) -> &'static str {
+    match write {
+        FinalizerSynchronousWrite::AssistantMessage => "assistant_message",
+        FinalizerSynchronousWrite::Citations => "citations",
+        FinalizerSynchronousWrite::ProposedActions => "proposed_actions",
+        FinalizerSynchronousWrite::TurnStatus => "turn_status",
+        FinalizerSynchronousWrite::SessionHeader => "session_header",
+    }
+}
+
+fn async_job_code(job: FinalizerAsyncJobKind) -> &'static str {
+    match job {
+        FinalizerAsyncJobKind::SessionSummary => "session_summary",
+        FinalizerAsyncJobKind::MemoryCandidate => "memory_candidate",
+        FinalizerAsyncJobKind::Evaluation => "evaluation",
+    }
 }

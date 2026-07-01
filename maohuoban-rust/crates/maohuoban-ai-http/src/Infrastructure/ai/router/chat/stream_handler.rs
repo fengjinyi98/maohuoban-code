@@ -1,6 +1,7 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_domain::ai::{AiFactPackage, AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::super::AiHttpState;
@@ -18,6 +19,7 @@ use super::loaders::diet_fact_loader::load_current_diet_fact_package;
 use super::loaders::food_inventory_hint_loader::load_food_inventory_hint_package;
 use super::loaders::history_summary_loader::load_history_and_summary;
 use super::loaders::identity_fact_loader::load_identity_fact_package;
+use super::persistence::finalizer_store::HttpFinalizerStore;
 use super::responses::gated_stream_response::gated_stream_response;
 use super::responses::pet_resolution_stream_response::pet_resolution_stream_response;
 use super::responses::stream_response::provider_stream_response;
@@ -67,13 +69,15 @@ pub async fn handle_chat_stream(
     .await;
     if !context.gate_decision.enters_workbench() {
         return gated_stream_response(
-            state.chat_turn_transaction.clone(),
+            Arc::new(HttpFinalizerStore::from_state(&state)),
             context.session_id,
+            actor_user_id,
             context.turn_id.as_uuid(),
             context.assistant_message_id,
             context.title,
             &context.gate_decision,
-        );
+        )
+        .await;
     }
 
     if let Some(resolution) = context
@@ -82,13 +86,15 @@ pub async fn handle_chat_stream(
         .filter(|resolution| !resolution.is_resolved())
     {
         return pet_resolution_stream_response(
-            state.chat_turn_transaction.clone(),
+            Arc::new(HttpFinalizerStore::from_state(&state)),
             context.session_id,
+            actor_user_id,
             context.turn_id.as_uuid(),
             context.assistant_message_id,
             context.title,
             resolution.clone(),
-        );
+        )
+        .await;
     }
 
     provider_response_for_context(
@@ -166,8 +172,9 @@ async fn provider_response_for_context(
         Err(error) => {
             return provider_stream_response(
                 futures_util::stream::iter(vec![Err(error)]),
-                state.chat_turn_transaction.clone(),
+                Arc::new(HttpFinalizerStore::from_state(state)),
                 input.session_id,
+                input.actor_user_id,
                 input.message_id,
                 input.turn_id.as_uuid(),
                 state.runtime_engine_mode.as_str(),
@@ -186,8 +193,9 @@ async fn provider_response_for_context(
         Err(error) => {
             return provider_stream_response(
                 futures_util::stream::iter(vec![Err(error)]),
-                state.chat_turn_transaction.clone(),
+                Arc::new(HttpFinalizerStore::from_state(state)),
                 input.session_id,
+                input.actor_user_id,
                 input.message_id,
                 input.turn_id.as_uuid(),
                 state.runtime_engine_mode.as_str(),
@@ -219,8 +227,9 @@ async fn provider_response_for_context(
 
     provider_stream_response(
         stream,
-        state.chat_turn_transaction.clone(),
+        Arc::new(HttpFinalizerStore::from_state(state)),
         input.session_id,
+        input.actor_user_id,
         input.message_id,
         input.turn_id.as_uuid(),
         state.runtime_engine_mode.as_str(),

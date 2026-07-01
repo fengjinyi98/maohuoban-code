@@ -4,6 +4,7 @@
 //! - 持久化 AI 会话、消息，查询会话列表和消息详情
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiError, AiMessage,
@@ -79,6 +80,34 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(status_str)
         .bind(session.created_at)
         .bind(session.updated_at)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn update_session_header(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        last_turn_id: Uuid,
+        last_message_at: DateTime<Utc>,
+    ) -> AiResult<()> {
+        sqlx::query(
+            r"
+            UPDATE ai_chat_sessions
+            SET updated_at = $3,
+                last_message_at = $3,
+                last_turn_id = $4
+            WHERE id = $1
+              AND actor_user_id = $2
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
+        .bind(last_message_at)
+        .bind(last_turn_id)
         .execute(&self.pool)
         .await
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;

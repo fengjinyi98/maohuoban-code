@@ -34,6 +34,16 @@ mod tests {
             Ok(())
         }
 
+        async fn update_session_header(
+            &self,
+            _session_id: Uuid,
+            _actor_user_id: Uuid,
+            _last_turn_id: Uuid,
+            _last_message_at: chrono::DateTime<chrono::Utc>,
+        ) -> AiResult<()> {
+            Ok(())
+        }
+
         async fn insert_message(&self, _message: &AiMessage) -> AiResult<()> {
             Ok(())
         }

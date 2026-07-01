@@ -73,6 +73,29 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
             && event.metadata["chat_session_id_prefix"].is_string()
             && event.metadata["message_id_prefix"].is_string()
     }));
+
+    let finalizer_event = events
+        .iter()
+        .find(|event| event.message == "ai.chat.finalizer.completed")
+        .expect("missing ai.chat.finalizer.completed diagnostics event");
+    assert!(
+        finalizer_event.metadata["terminal_status"]
+            .as_str()
+            .is_some_and(|status| !status.is_empty()),
+        "finalizer diagnostics missing terminal_status"
+    );
+    assert!(
+        finalizer_event.metadata["synchronous_writes"].is_array(),
+        "finalizer diagnostics missing synchronous_writes"
+    );
+    assert!(
+        finalizer_event.metadata["async_triggers"].is_array(),
+        "finalizer diagnostics missing async_triggers"
+    );
+    assert!(
+        finalizer_event.metadata["async_failures"].is_array(),
+        "finalizer diagnostics missing async_failures"
+    );
 }
 
 /// 流式聊天诊断事件必须记录 gate 决策的四个必备字段

@@ -1,99 +1,124 @@
 //! persistence 非流式 Finalizer 持久化
 //! 核心职责：
-//! - 在单个事务内写入 assistant message、citations 并更新 turn 终态
+//! - 通过 TurnFinalizer 写入 assistant message、citations 并更新 turn 终态
 //! - 边界分支 turn 的快速完成和持久化
 
 use axum::response::Response;
-use chrono::Utc;
-use maohuoban_ai_application::ai::ports::FinalizerTxInput;
+use maohuoban_ai_application::ai::finalizer::{
+    FinalizationReceipt, FinalizerStore, TurnFinalizer, TurnTerminalOutput,
+};
 use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_domain::ai::{
-    AiAnswerVerification, AiMessage, AiMessageRole, AiMessageStatus, AiSessionTurnStatus,
-    LlmFinishReason, LlmUsage,
+    AiAnswerVerification, AiResult, AiSessionTurnStatus, LlmFinishReason, LlmUsage,
 };
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::super::super::AiHttpState;
+use super::super::super::diagnostics::record_chat_finalizer_completed;
+use super::super::persistence::finalizer_store::HttpFinalizerStore;
 use super::super::turn_preparation::ChatTurnContext;
 use super::response::ChatCompleteResponse;
-use crate::ai::response::ok_response;
+use crate::ai::response::{ai_error_response, ok_response};
 
-/// persist_finalizer_tx 在单个事务内持久化 Finalizer 阶段全部数据
-pub(super) async fn persist_finalizer_tx(
+/// persist_finalizer 通过 Finalizer 持久化终态数据
+pub(super) async fn persist_finalizer(
     state: &AiHttpState,
+    actor_user_id: Uuid,
     message_id: Uuid,
     session_id: Uuid,
     turn_id: Uuid,
     complete: &AiCompleteResult,
-) {
-    let assistant_message = AiMessage {
-        id: message_id,
+) -> AiResult<()> {
+    let store = Arc::new(HttpFinalizerStore::from_state(state));
+    let receipt = finalize_complete_turn(
+        store,
+        actor_user_id,
+        message_id,
         session_id,
-        turn_id: Some(turn_id),
-        role: AiMessageRole::Assistant,
-        content: complete.final_text.clone(),
-        status: AiMessageStatus::Completed,
-        citations: complete.citations.iter().map(|c| c.source_id).collect(),
-        model: Some(complete.model.clone()),
-        provider: Some(complete.provider.clone()),
-        finish_reason: Some(format!("{:?}", complete.finish_reason)),
-        usage_input_tokens: Some(complete.usage.input_tokens),
-        usage_output_tokens: Some(complete.usage.output_tokens),
-        verification: Some(complete.verification.clone()),
-        created_at: Utc::now(),
-    };
-    let finish_reason_str = format!("{:?}", complete.finish_reason);
-    let _ = state
-        .chat_turn_transaction
-        .persist_finalizer_tx(&FinalizerTxInput {
-            assistant_message: &assistant_message,
-            citations: &complete.citations,
+        turn_id,
+        complete,
+    )
+    .await?;
+    record_chat_finalizer_completed(session_id, turn_id, Some(message_id), &receipt);
+    Ok(())
+}
+
+/// finalize_complete_turn 完成非流式主路径终态收口
+/// 核心职责：
+/// - 通过传入的 FinalizerStore 执行关键同步写入
+/// - 将 Finalizer fail-closed 错误原样返回给 handler
+pub(super) async fn finalize_complete_turn(
+    store: Arc<dyn FinalizerStore>,
+    actor_user_id: Uuid,
+    message_id: Uuid,
+    session_id: Uuid,
+    turn_id: Uuid,
+    complete: &AiCompleteResult,
+) -> AiResult<FinalizationReceipt> {
+    TurnFinalizer::new(store)
+        .finalize(TurnTerminalOutput {
             turn_id,
-            turn_status: AiSessionTurnStatus::Completed,
-            assistant_message_id: Some(message_id),
-            finish_reason: Some(&finish_reason_str),
-            error_code: None,
+            session_id,
+            actor_user_id,
+            assistant_message_id: message_id,
+            status: AiSessionTurnStatus::Completed,
+            final_text: Some(complete.final_text.clone()),
+            safe_failure_text: None,
+            failure_code: None,
             retryable: None,
+            provider: Some(complete.provider.clone()),
+            model: Some(complete.model.clone()),
+            finish_reason: Some(complete.finish_reason),
+            usage: complete.usage,
+            verification: Some(complete.verification.clone()),
+            citations: complete.citations.clone(),
+            proposed_actions: Vec::new(),
+            async_jobs: Vec::new(),
         })
-        .await;
+        .await
 }
 
 /// complete_boundary_turn 完成边界分支 turn 并返回响应
 pub(super) async fn complete_boundary_turn(
     state: &AiHttpState,
+    actor_user_id: Uuid,
     context: &ChatTurnContext,
     message_text: String,
-    finish_reason: &str,
+    _finish_reason: &str,
 ) -> Response {
-    let assistant_message = AiMessage {
-        id: context.assistant_message_id,
-        session_id: context.session_id,
-        turn_id: Some(context.turn_id.as_uuid()),
-        role: AiMessageRole::Assistant,
-        content: message_text.clone(),
-        status: AiMessageStatus::Completed,
-        citations: Vec::new(),
-        model: None,
-        provider: None,
-        finish_reason: Some(finish_reason.to_owned()),
-        usage_input_tokens: Some(0),
-        usage_output_tokens: Some(0),
-        verification: Some(AiAnswerVerification::passed()),
-        created_at: Utc::now(),
-    };
-    let _ = state
-        .chat_turn_transaction
-        .persist_finalizer_tx(&FinalizerTxInput {
-            assistant_message: &assistant_message,
-            citations: &[],
+    let store = Arc::new(HttpFinalizerStore::from_state(state));
+    let receipt = TurnFinalizer::new(store)
+        .finalize(TurnTerminalOutput {
             turn_id: context.turn_id.as_uuid(),
-            turn_status: AiSessionTurnStatus::Completed,
-            assistant_message_id: Some(context.assistant_message_id),
-            finish_reason: Some(finish_reason),
-            error_code: None,
+            session_id: context.session_id,
+            actor_user_id,
+            assistant_message_id: context.assistant_message_id,
+            status: AiSessionTurnStatus::Completed,
+            final_text: Some(message_text.clone()),
+            safe_failure_text: None,
+            failure_code: None,
             retryable: None,
+            provider: None,
+            model: None,
+            finish_reason: Some(LlmFinishReason::Stop),
+            usage: LlmUsage::default(),
+            verification: Some(AiAnswerVerification::passed()),
+            citations: Vec::new(),
+            proposed_actions: Vec::new(),
+            async_jobs: Vec::new(),
         })
         .await;
+    let receipt = match receipt {
+        Ok(receipt) => receipt,
+        Err(error) => return ai_error_response(&error),
+    };
+    record_chat_finalizer_completed(
+        context.session_id,
+        context.turn_id.as_uuid(),
+        Some(context.assistant_message_id),
+        &receipt,
+    );
     ok_response(
         "ai.chat_completed",
         "AI 回答已完成",

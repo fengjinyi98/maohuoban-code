@@ -133,6 +133,7 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
     assert_eq!(body["data"]["usage"]["output_tokens"], 12);
     assert_eq!(body["data"]["verification"]["status"], "passed");
     assert_eq!(body["data"]["target_pet"]["pet_name"], "毛球");
+    assert_non_stream_session_header_finalized(&app, &body, pet_id).await;
 
     let assistant_count: i64 = sqlx::query_scalar(
         r"
@@ -483,6 +484,66 @@ async fn insert_user_memory(
     .execute(app.pool())
     .await
     .expect("insert user memory");
+}
+
+async fn assert_non_stream_session_header_finalized(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    body: &Value,
+    pet_id: &str,
+) {
+    let chat_session_id = uuid::Uuid::parse_str(
+        body["data"]["chat_session_id"]
+            .as_str()
+            .expect("chat session id"),
+    )
+    .expect("parse chat session id");
+    let message_id = uuid::Uuid::parse_str(
+        body["data"]["message_id"]
+            .as_str()
+            .expect("assistant message id"),
+    )
+    .expect("parse assistant message id");
+    let session_header: (
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<uuid::Uuid>,
+        Option<uuid::Uuid>,
+    ) = sqlx::query_as(
+        r"
+        SELECT last_message_at, last_turn_id, primary_pet_id
+        FROM ai_chat_sessions
+        WHERE id = $1
+        ",
+    )
+    .bind(chat_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load chat session header");
+
+    assert!(
+        session_header.0.is_some(),
+        "finalizer must persist last_message_at"
+    );
+    assert!(
+        session_header.1.is_some(),
+        "finalizer must persist last_turn_id"
+    );
+    assert_eq!(
+        session_header.2.map(|id| id.to_string()),
+        Some(pet_id.to_owned())
+    );
+
+    let message_turn_id: Option<uuid::Uuid> = sqlx::query_scalar(
+        r"
+        SELECT turn_id
+        FROM ai_messages
+        WHERE id = $1
+        ",
+    )
+    .bind(message_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load assistant turn id");
+    assert_eq!(session_header.1, message_turn_id);
 }
 
 fn request_body(req: &HttpMockRequest) -> String {
