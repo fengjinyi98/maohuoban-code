@@ -12,8 +12,8 @@ use super::{authorized_json_request, diagnostics_test_lock, login_and_get_token,
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_ai_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139019", "ios-ai-diagnostics").await;
     let pet = create_pet(&app, &access_token, "毛球").await;
@@ -79,8 +79,8 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_records_gate_decision_fields() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_ai_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139029", "ios-ai-gate-diag").await;
     let pet = create_pet(&app, &access_token, "毛球").await;
@@ -143,8 +143,8 @@ async fn ai_chat_stream_diagnostics_records_gate_decision_fields() {
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_gate_fields_present_for_all_intents() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_ai_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139039", "ios-ai-gate-fields").await;
 

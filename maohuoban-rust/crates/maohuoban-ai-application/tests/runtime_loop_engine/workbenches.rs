@@ -1,7 +1,7 @@
 //! workbenches Workbench 与 Response 构建器
 //! 核心职责：
-//! - 构造 public / private pet 场景的 AgentSessionWorkbench
-//! - 构造 final_response、json_final_response 等脚本响应
+//! - 构造 public / private pet 场景的 `AgentSessionWorkbench`
+//! - 构造 `final_response、json_final_response` 等脚本响应
 
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,

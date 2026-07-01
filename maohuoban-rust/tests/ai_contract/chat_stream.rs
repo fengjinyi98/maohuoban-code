@@ -102,8 +102,8 @@ async fn ai_chat_stream_authenticated_emits_sse_events() {
 #[tokio::test]
 async fn ai_chat_stream_records_backend_diagnostics_chain() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_ai_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139019", "ios-ai-diagnostics").await;
     let pet = create_pet(&app, &access_token, "毛球").await;

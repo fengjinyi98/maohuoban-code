@@ -38,10 +38,8 @@ pub(crate) fn build_openai_body(
             if let Some(id) = &message.tool_call_id {
                 msg["tool_call_id"] = serde_json::Value::String(id.clone());
             }
-            if send_reasoning {
-                if let Some(reasoning_content) = &message.reasoning_content {
-                    msg["reasoning_content"] = serde_json::Value::String(reasoning_content.clone());
-                }
+            if send_reasoning && let Some(reasoning_content) = &message.reasoning_content {
+                msg["reasoning_content"] = serde_json::Value::String(reasoning_content.clone());
             }
             if send_tools && !message.tool_calls.is_empty() {
                 msg["tool_calls"] = serde_json::Value::Array(
@@ -81,10 +79,8 @@ pub(crate) fn build_openai_body(
         body["tools"] = serde_json::Value::Array(tools);
     }
 
-    if send_tool_choice {
-        if let Some(choice) = &request.tool_choice {
-            body["tool_choice"] = serde_json::Value::String(choice.clone());
-        }
+    if send_tool_choice && let Some(choice) = &request.tool_choice {
+        body["tool_choice"] = serde_json::Value::String(choice.clone());
     }
 
     if let Some(max) = request.max_output_tokens {
@@ -93,16 +89,14 @@ pub(crate) fn build_openai_body(
 
     let send_json_output = ProviderRequestPolicy::should_send_json_output(capability, request);
 
-    if send_response_format {
-        if let Some(fmt) = request.response_format.clone() {
-            // json_object 类型额外受 supports_json_output 门控
-            let is_json_object = fmt
-                .get("type")
-                .and_then(|t| t.as_str())
-                .is_some_and(|t| t == "json_object");
-            if !is_json_object || send_json_output {
-                body["response_format"] = fmt;
-            }
+    if send_response_format && let Some(fmt) = request.response_format.clone() {
+        // json_object 类型额外受 supports_json_output 门控
+        let is_json_object = fmt
+            .get("type")
+            .and_then(|t| t.as_str())
+            .is_some_and(|t| t == "json_object");
+        if !is_json_object || send_json_output {
+            body["response_format"] = fmt;
         }
     }
 

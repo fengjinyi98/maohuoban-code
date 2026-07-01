@@ -3,11 +3,15 @@ use httpmock::{Mock, MockServer};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-use super::{authorized_json_request, login_and_get_token, response_json, response_text};
+use super::{
+    authorized_json_request, diagnostics_test_lock, login_and_get_token, response_json,
+    response_text, sse_event_data,
+};
 
 /// AI stream 会把当前饮食上下文作为强事实注入 Provider Prompt
 #[tokio::test]
 async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
     let server = MockServer::start();
     let mock = install_current_diet_context_mock(&server);
 
@@ -46,10 +50,20 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
         .await
         .expect("send diet context chat stream request");
 
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
     let text = response_text(response).await;
 
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "diet context stream failed, body: {text}"
+    );
+
     mock.assert();
+    let started = sse_event_data(&text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
     assert!(
         text.contains("event: execution_trace_completed") && text.contains("正在查看毛球近期饮食"),
         "SSE should contain diet context execution trace, got: {text}"
@@ -64,10 +78,12 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
         SELECT requested_scope, allowed, target_pet_id, returned_ref_ids
         FROM ai_tool_access_logs
         WHERE tool_name = 'load_pet_current_diet_context'
+          AND session_id = $1
         ORDER BY created_at DESC
         LIMIT 1
         ",
     )
+    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse chat session id"))
     .fetch_one(app.pool())
     .await
     .expect("read latest diet tool access log");
@@ -137,8 +153,10 @@ async fn create_pet(
         .await
         .expect("create pet");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"].clone()
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(status, StatusCode::CREATED, "create_pet failed: {body}");
+    body["data"].clone()
 }
 
 async fn create_food_inventory_item(
@@ -164,8 +182,14 @@ async fn create_food_inventory_item(
         .await
         .expect("create food inventory item");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"]["id"]
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "create_food_inventory_item failed: {body}"
+    );
+    body["data"]["id"]
         .as_str()
         .expect("food item id")
         .to_owned()
@@ -192,8 +216,14 @@ async fn set_current_staple(
         .await
         .expect("set current staple");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"]["id"]
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "set_current_staple failed for pet {pet_id}: {body}"
+    );
+    body["data"]["id"]
         .as_str()
         .expect("assignment id")
         .to_owned()

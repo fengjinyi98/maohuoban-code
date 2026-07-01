@@ -1,6 +1,6 @@
-//! projection_tests ToolFactProjector 接入测试
+//! `projection_tests` `ToolFactProjector` 接入测试
 //! 核心职责：
-//! - 验证工具成功结果通过 ToolFactProjector 投影，隐藏内部字段
+//! - 验证工具成功结果通过 `ToolFactProjector` 投影，隐藏内部字段
 //! - 验证拒绝/失败结果投影为通用安全文案
 //! - 验证 structured failure 回灌模型
 
@@ -23,7 +23,7 @@ async fn tool_success_projects_reference_ids_and_hides_internal_fields() {
     let provider = ScriptedProvider::new(vec![
         tool_call_response(
             "load_pet_identity_context",
-            json!({ "pet_id": AUTHORIZED_PET_ID }),
+            &json!({ "pet_id": AUTHORIZED_PET_ID }),
         ),
         final_response(),
     ]);
@@ -72,7 +72,7 @@ async fn tool_denied_projects_safe_message_not_raw_reason() {
     let provider = ScriptedProvider::new(vec![
         tool_call_response(
             "load_pet_identity_context",
-            json!({ "pet_id": "22222222-2222-2222-2222-222222222222" }),
+            &json!({ "pet_id": "22222222-2222-2222-2222-222222222222" }),
         ),
         final_response(),
     ]);
@@ -115,7 +115,7 @@ async fn tool_denied_projects_safe_message_not_raw_reason() {
 #[tokio::test]
 async fn tool_failed_projects_safe_message_not_raw_reason() {
     let provider = ScriptedProvider::new(vec![
-        tool_call_response("load_pet_identity_context", json!({})),
+        tool_call_response("load_pet_identity_context", &json!({})),
         final_response(),
     ]);
     let mut registry = ToolRegistry::new();

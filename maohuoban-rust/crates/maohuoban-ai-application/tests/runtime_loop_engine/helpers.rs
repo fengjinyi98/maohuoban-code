@@ -1,7 +1,7 @@
 //! helpers 辅助函数与常量
 //! 核心职责：
-//! - 测试用 tool_call_response、find_tool_message 等工厂函数
-//! - 共享的 AUTHORIZED_PET_ID 常量
+//! - 测试用 `tool_call_response、find_tool_message` 等工厂函数
+//! - 共享的 `AUTHORIZED_PET_ID` 常量
 
 use std::sync::{Arc, Mutex};
 
@@ -17,7 +17,7 @@ use uuid::Uuid;
 pub(super) const AUTHORIZED_PET_ID: &str = "11111111-1111-1111-1111-111111111111";
 
 /// `tool_call_response` 构造包含工具调用的脚本响应
-pub(super) fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatResponse {
+pub(super) fn tool_call_response(tool_name: &str, args: &serde_json::Value) -> LlmChatResponse {
     LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,

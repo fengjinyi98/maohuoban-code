@@ -64,7 +64,7 @@ impl AiFactPackageBuilder {
 
     /// build 构建最终事实包
     /// 核心职责：
-    /// - 根据强事实是否存在决定整体事实强度
+    /// - 按强事实 > 待确认 > 弱线索的优先级决定整体事实强度
     /// - 弱线索和待确认事实始终独立存放，不进入强事实桶
     #[must_use]
     pub fn build(self) -> AiFactPackage {
@@ -73,8 +73,11 @@ impl AiFactPackageBuilder {
             .iter()
             .any(|f| f.strength == AiFactStrength::Strong);
 
+        let has_pending = !self.pending_confirmations.is_empty();
         let fact_strength = if has_strong {
             AiFactStrength::Strong
+        } else if has_pending {
+            AiFactStrength::PendingConfirmation
         } else {
             AiFactStrength::Weak
         };

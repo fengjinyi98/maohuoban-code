@@ -182,8 +182,10 @@ async fn create_pet(
         .await
         .expect("create pet");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"].clone()
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(status, StatusCode::CREATED, "create_pet failed: {body}");
+    body["data"].clone()
 }
 
 async fn create_food_inventory_item(
@@ -209,8 +211,14 @@ async fn create_food_inventory_item(
         .await
         .expect("create food inventory item");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"]["id"]
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "create_food_inventory_item failed: {body}"
+    );
+    body["data"]["id"]
         .as_str()
         .expect("food item id")
         .to_owned()

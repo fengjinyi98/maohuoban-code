@@ -112,8 +112,8 @@ async fn ai_chat_sessions_returns_user_sessions() {
 #[tokio::test]
 async fn ai_chat_history_records_backend_diagnostics_counts() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_ai_history_test_diagnostics();
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_history_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139020", "ios-ai-history-diagnostics").await;
 

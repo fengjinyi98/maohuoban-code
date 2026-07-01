@@ -115,3 +115,68 @@ fn mixed_strong_and_weak_facts_separate_correctly() {
     // 整体强度为强（有强事实时提升）
     assert_eq!(package.fact_strength, AiFactStrength::Strong);
 }
+
+#[test]
+fn pending_only_package_strength_is_pending_confirmation() {
+    let pet = candidate("毛球");
+    let mut builder = AiFactPackageBuilder::new(&pet);
+
+    let pending_id = Uuid::new_v4();
+    builder.add_pending_confirmation(AiFactEntry {
+        key: "diet_change_candidate".to_owned(),
+        value: "待确认换粮".to_owned(),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: Some(pending_id),
+    });
+    builder.add_citation(AiCitation {
+        source_kind: AiCitationSourceKind::ConfirmationTask,
+        source_id: pending_id,
+        label: "待确认换粮候选".to_owned(),
+    });
+
+    let package = builder.build();
+
+    assert!(
+        package.strong_fact_values().is_empty(),
+        "pending confirmation should not appear in strong facts"
+    );
+    assert!(
+        package.weak_hint_values().is_empty(),
+        "pending confirmation should not appear in weak hints"
+    );
+    assert_eq!(package.pending_confirmations.len(), 1);
+    assert_eq!(
+        package.fact_strength,
+        AiFactStrength::PendingConfirmation,
+        "pending-only package must be PendingConfirmation, not Weak"
+    );
+}
+
+#[test]
+fn pending_and_weak_without_strong_is_pending_confirmation() {
+    let pet = candidate("毛球");
+    let mut builder = AiFactPackageBuilder::new(&pet);
+
+    builder.add_pending_confirmation(AiFactEntry {
+        key: "diet_change_candidate".to_owned(),
+        value: "待确认换粮".to_owned(),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    });
+    builder.add_weak_hint(AiFactEntry {
+        key: "inventory_hint".to_owned(),
+        value: "新增零食".to_owned(),
+        strength: AiFactStrength::Weak,
+        citation_id: None,
+    });
+
+    let package = builder.build();
+
+    assert_eq!(package.pending_confirmations.len(), 1);
+    assert_eq!(package.weak_hints.len(), 1);
+    assert_eq!(
+        package.fact_strength,
+        AiFactStrength::PendingConfirmation,
+        "pending + weak without strong must be PendingConfirmation"
+    );
+}

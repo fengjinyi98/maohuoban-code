@@ -5,6 +5,7 @@
 //! - 验证工具执行使用已授权目标宠物
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use std::sync::Arc;
 

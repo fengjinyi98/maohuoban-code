@@ -1,7 +1,7 @@
-//! echo_tool EchoIdentityTool 测试工具
+//! `echo_tool` `EchoIdentityTool` 测试工具
 //! 核心职责：
-//! - 按 pet_id 授权返回身份事实或拒绝/失败
-//! - 验证 ToolFactProjector 接入边界
+//! - 按 `pet_id` 授权返回身份事实或拒绝/失败
+//! - 验证 `ToolFactProjector` 接入边界
 
 use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{

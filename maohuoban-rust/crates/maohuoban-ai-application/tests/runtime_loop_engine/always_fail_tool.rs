@@ -1,7 +1,7 @@
-//! always_fail_tool 总是返回结构化失败的工具
+//! `always_fail_tool` 总是返回结构化失败的工具
 //! 核心职责：
-//! - 验证 guardrail hard_stop 在连续失败时触发 TurnFailed
-//! - 验证 structured failure 的 error_code / recoverable 回灌模型
+//! - 验证 guardrail `hard_stop` 在连续失败时触发 `TurnFailed`
+//! - 验证 structured failure 的 `error_code` / recoverable 回灌模型
 
 use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{

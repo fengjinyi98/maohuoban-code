@@ -1,7 +1,7 @@
-//! empty_facts_tool 成功返回但 facts 为空
+//! `empty_facts_tool` 成功返回但 facts 为空
 //! 核心职责：
-//! - 验证 guardrail soft_reminder 在空事实重复调用时触发
-//! - 验证 _guardrail_reminder 不破坏 output JSON 结构
+//! - 验证 guardrail `soft_reminder` 在空事实重复调用时触发
+//! - 验证 _`guardrail_reminder` 不破坏 output JSON 结构
 
 use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{

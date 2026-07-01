@@ -33,9 +33,9 @@ use super::{
 #[tokio::test]
 async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_runtime_tool_test_diagnostics();
     let server = MockServer::start();
     let app = spawn_runtime_tool_test_app(&server).await;
+    let diagnostics = install_runtime_tool_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139021", "ios-ai-runtime-tool").await;
     let pet = create_pet(&app, &access_token, "毛球").await;

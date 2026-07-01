@@ -20,7 +20,6 @@ use super::{
 #[tokio::test]
 async fn ai_chat_stream_uses_configured_openai_provider() {
     let _guard = diagnostics_test_lock().lock_owned().await;
-    let diagnostics = install_provider_test_diagnostics();
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -42,6 +41,7 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     });
 
     let app = spawn_provider_test_app(&server).await;
+    let diagnostics = install_provider_test_diagnostics();
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139009", "ios-ai-provider-config").await;
     let pet = create_pet(&app, &access_token, "毛球").await;

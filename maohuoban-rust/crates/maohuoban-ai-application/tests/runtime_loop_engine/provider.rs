@@ -1,6 +1,6 @@
 //! provider 脚本化 LLM Provider
 //! 核心职责：
-//! - ScriptedProvider 按预设顺序返回响应，记录所有请求
+//! - `ScriptedProvider` 按预设顺序返回响应，记录所有请求
 //! - 支持 complete 和 stream 两种模式
 
 use std::collections::VecDeque;
@@ -103,7 +103,7 @@ impl LlmProvider for ScriptedProvider {
     }
 }
 
-/// response_to_stream_events 将脚本响应拆分为流事件序列
+/// `response_to_stream_events` 将脚本响应拆分为流事件序列
 fn response_to_stream_events(
     response: LlmChatResponse,
 ) -> Vec<maohuoban_ai_domain::ai::AiResult<LlmStreamEvent>> {

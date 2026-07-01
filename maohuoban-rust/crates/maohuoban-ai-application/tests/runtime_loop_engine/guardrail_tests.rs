@@ -1,8 +1,8 @@
-//! guardrail_tests Guardrail 集成测试
+//! `guardrail_tests` Guardrail 集成测试
 //! 核心职责：
-//! - 验证连续失败时 HardStop 终止 turn 并写入 Gateway 审计
-//! - 验证 structured failure 的 error_code / recoverable 回灌模型
-//! - 验证空事实 Success 连续触发 SoftReminder
+//! - 验证连续失败时 `HardStop` 终止 turn 并写入 Gateway 审计
+//! - 验证 structured failure 的 `error_code` / recoverable 回灌模型
+//! - 验证空事实 Success 连续触发 `SoftReminder`
 
 use std::sync::{Arc, Mutex};
 
@@ -71,7 +71,7 @@ async fn guardrail_hard_stops_repeated_tool_failures() {
 #[tokio::test]
 async fn structured_failure_propagates_to_model_message() {
     let provider = ScriptedProvider::new(vec![
-        tool_call_response("load_pet_identity_context", json!({})),
+        tool_call_response("load_pet_identity_context", &json!({})),
         final_response(),
     ]);
     let mut registry = ToolRegistry::new();

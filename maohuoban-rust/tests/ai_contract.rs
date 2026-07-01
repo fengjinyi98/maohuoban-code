@@ -126,6 +126,24 @@ async fn response_text(response: axum::response::Response) -> String {
     String::from_utf8(bytes.to_vec()).expect("parse response text")
 }
 
+/// `sse_event_data` 解析指定 SSE 事件的数据负载
+/// 核心职责：
+/// - 按事件名定位契约测试中的 SSE 事件块
+/// - 将 `data:` 行解析为 JSON 断言输入
+fn sse_event_data(text: &str, event_name: &str) -> Value {
+    for block in text.split("\n\n") {
+        if block
+            .lines()
+            .any(|line| line == format!("event: {event_name}"))
+            && let Some(data_line) = block.lines().find(|line| line.starts_with("data: "))
+        {
+            return serde_json::from_str(data_line.trim_start_matches("data: "))
+                .expect("parse sse event data");
+        }
+    }
+    panic!("missing SSE event {event_name}, got: {text}");
+}
+
 /// `device_payload` 构造设备信息 JSON
 fn device_payload(device_id: &str) -> Value {
     serde_json::json!({
@@ -137,6 +155,8 @@ fn device_payload(device_id: &str) -> Value {
 }
 
 /// `send_phone_code` 发送验证码并返回 `challenge_id`
+///
+/// 失败时打印响应体，便于定位跨测试二进制 Redis 竞态导致的 OTP 失效
 async fn send_phone_code(
     app: &maohuoban_rust::test_support::AuthTestApp,
     phone: &str,
@@ -156,8 +176,13 @@ async fn send_phone_code(
         ))
         .await
         .expect("send phone code");
-    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let status = response.status();
     let body = response_json(response).await;
+    assert_eq!(
+        status,
+        axum::http::StatusCode::OK,
+        "send_phone_code failed for {phone}: {body}"
+    );
     body["data"]["challenge_id"]
         .as_str()
         .expect("challenge_id")
@@ -165,6 +190,8 @@ async fn send_phone_code(
 }
 
 /// `login_and_get_token` 完成手机验证码登录并返回 `access_token`
+///
+/// 失败时打印响应体，便于定位跨测试二进制 Redis 竞态导致的 challenge 失效
 async fn login_and_get_token(
     app: &maohuoban_rust::test_support::AuthTestApp,
     phone: &str,
@@ -185,8 +212,13 @@ async fn login_and_get_token(
         ))
         .await
         .expect("verify phone code");
-    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let status = response.status();
     let body = response_json(response).await;
+    assert_eq!(
+        status,
+        axum::http::StatusCode::OK,
+        "login_and_get_token verify failed for {phone} (challenge {challenge_id}): {body}"
+    );
     body["data"]["access_token"]
         .as_str()
         .expect("access token")

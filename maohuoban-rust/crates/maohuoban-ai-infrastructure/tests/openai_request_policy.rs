@@ -317,10 +317,10 @@ fn error_category_mapping_covers_all_eight_categories() {
             ProviderErrorCategory::StreamInterrupted => assert_eq!(name, "stream_interrupted"),
             ProviderErrorCategory::InvalidResponse => assert_eq!(name, "invalid_response"),
             ProviderErrorCategory::ProviderRequestFailed => {
-                assert_eq!(name, "provider_request_failed")
+                assert_eq!(name, "provider_request_failed");
             }
             ProviderErrorCategory::ProviderStreamError => {
-                assert_eq!(name, "provider_stream_error")
+                assert_eq!(name, "provider_stream_error");
             }
         }
     }

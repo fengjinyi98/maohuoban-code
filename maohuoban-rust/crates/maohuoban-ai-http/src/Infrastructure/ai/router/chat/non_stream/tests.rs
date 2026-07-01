@@ -1,6 +1,7 @@
 //! non_stream 非流式 handler 测试
 
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use maohuoban_ai_domain::ai::{
         AgentEvent, AgentTurnId, AgentTurnStatus, LlmFinishReason, LlmUsage, ModelLabel,

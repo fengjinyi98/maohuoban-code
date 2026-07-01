@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 /// - 描述 Provider 支持哪些协议能力和流式事件
 /// - 驱动请求体字段的条件发放
 /// - 所有 Provider 差异必须进入此模型，不得散落在 HTTP/Runtime 层
+///
+/// 每个 bool 代表一条独立的协议能力，无自然分组，保持平铺
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderCapability {
     /// 提供商名称标识，如 "openai_compatible"、"deepseek"
