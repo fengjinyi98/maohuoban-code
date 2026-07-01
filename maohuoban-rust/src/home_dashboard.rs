@@ -32,7 +32,7 @@ use maohuoban_recommendation_application::recommendation::{
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-/// InMemoryHomeDashboardProvider 内存首页快照提供器
+/// `InMemoryHomeDashboardProvider` 内存首页快照提供器
 /// 核心职责：
 /// - 为开发和契约测试提供可替换首页快照
 /// - 保持首页应用服务依赖端口而非具体数据库实现
@@ -49,7 +49,7 @@ impl InMemoryHomeDashboardProvider {
         }
     }
 
-    /// replace_snapshot 替换首页快照
+    /// `replace_snapshot` 替换首页快照
     /// 核心职责：
     /// - 为测试和开发种子切换首页形态
     /// - 通过写锁保证读取和替换的一致性
@@ -68,7 +68,7 @@ impl HomeDashboardProvider for InMemoryHomeDashboardProvider {
     }
 }
 
-/// HybridHomeDashboardProvider 混合首页快照提供器
+/// `HybridHomeDashboardProvider` 混合首页快照提供器
 /// 核心职责：
 /// - 无用户上下文时返回真实空态快照
 /// - 有用户上下文时读取宠物档案、商家窝次和事件生成真实首页聚合
@@ -93,7 +93,7 @@ impl HybridHomeDashboardProvider {
         }
     }
 
-    /// replace_snapshot 替换无上下文首页快照
+    /// `replace_snapshot` 替换无上下文首页快照
     /// 核心职责：
     /// - 支持首页契约测试切换内存快照
     /// - 不影响带用户上下文的真实聚合路径
@@ -206,7 +206,7 @@ impl HybridHomeDashboardProvider {
         Ok(snapshot)
     }
 
-    /// empty_state_snapshot 生成首页空态快照
+    /// `empty_state_snapshot` 生成首页空态快照
     /// 核心职责：
     /// - 复用新用户首页模板和空态推荐内容
     /// - 记录用户无宠物档案时的首页诊断事件

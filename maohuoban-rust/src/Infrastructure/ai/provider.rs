@@ -9,7 +9,7 @@ use maohuoban_ai_infrastructure::provider::{
     LlmProviderRegistryConfig, build_llm_provider_from_registry_config,
 };
 
-/// build_ai_llm_provider_from_provider_config 构建 AI LLM Provider
+/// `build_ai_llm_provider_from_provider_config` 构建 AI LLM Provider
 /// 核心职责：
 /// - 从运营配置注册表选择启用的默认 Provider
 /// - 缺少可用配置时装配可降级的 Disabled Provider
@@ -20,7 +20,7 @@ pub(crate) fn build_ai_llm_provider_from_provider_config(
     build_llm_provider_from_registry_config(config)
 }
 
-/// build_ai_stream_pipeline_from_provider_config 构建 AI 流式 pipeline
+/// `build_ai_stream_pipeline_from_provider_config` 构建 AI 流式 pipeline
 /// 核心职责：
 /// - 从运营配置注册表选择启用的默认 Provider
 /// - 缺少可用配置时装配可降级的 Disabled Provider

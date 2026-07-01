@@ -1,26 +1,7 @@
-#![allow(
-    clippy::doc_markdown,
-    clippy::double_must_use,
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::needless_raw_string_hashes
-)]
-
-#[path = "Infrastructure/ai_diet_confirmation_candidates.rs"]
-mod ai_diet_confirmation_candidates;
-#[path = "Infrastructure/ai_diet_context.rs"]
-mod ai_diet_context;
-#[path = "Infrastructure/ai_food_inventory_hints.rs"]
-mod ai_food_inventory_hints;
-#[path = "Infrastructure/ai_identity_context.rs"]
-mod ai_identity_context;
-#[path = "Infrastructure/ai_pet_catalog.rs"]
-mod ai_pet_catalog;
-#[path = "Infrastructure/ai_provider.rs"]
-mod ai_provider;
 pub mod diagnostics;
 mod home_dashboard;
 mod home_event_projection;
+mod infrastructure;
 mod media_content;
 pub mod test_support;
 
@@ -74,13 +55,13 @@ use redis::aio::ConnectionManager;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
-use crate::ai_diet_confirmation_candidates::PetServiceDietConfirmationCandidateProvider;
-use crate::ai_diet_context::PetServiceDietFactProvider;
-use crate::ai_food_inventory_hints::PetServiceFoodInventoryHintProvider;
-use crate::ai_identity_context::PetServiceIdentityFactProvider;
-use crate::ai_pet_catalog::PetServiceAuthorizedPetCatalog;
+use crate::infrastructure::ai::{
+    PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
+    PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
+    PetServiceIdentityFactProvider,
+};
 
-/// BackendConfig 后端启动配置
+/// `BackendConfig` 后端启动配置
 /// 核心职责：
 /// - 汇总认证服务所需外部资源地址和安全配置
 /// - 为本地开发、测试、生产装配提供统一入口
@@ -100,6 +81,10 @@ pub struct BackendConfig {
 
 impl BackendConfig {
     #[must_use]
+    ///
+    /// # Panics
+    ///
+    /// 当 `MAOHUOBAN_AI_RUNTIME_ENGINE` 不是支持的配置值时触发。
     pub fn from_env() -> Self {
         let _ = dotenvy::dotenv();
         Self {
@@ -156,7 +141,7 @@ impl BackendConfig {
     }
 }
 
-/// BackendApp 后端应用实例
+/// `BackendApp` 后端应用实例
 /// 核心职责：
 /// - 暴露 axum router 给运行时或测试
 /// - 保留基础设施资源用于测试数据准备
@@ -177,10 +162,14 @@ pub struct BackendApp {
     pub ai_session_turn_repository: PostgresSessionTurnRepository,
 }
 
-/// build_backend_app 构建后端应用
+/// `build_backend_app` 构建后端应用
 /// 核心职责：
-/// - 连接 PostgreSQL 和 Redis
+/// - 连接 `PostgreSQL` 和 Redis
 /// - 运行数据库迁移并装配认证、法务文档分层服务
+///
+/// # Errors
+///
+/// 当数据库连接、迁移、Redis 连接或诊断路由装配失败时返回错误。
 pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, BackendError> {
     let pool = PgPoolOptions::new()
         .max_connections(8)
@@ -286,20 +275,20 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     })
 }
 
-/// AiHttpRepositories AI HTTP 仓储集合
+/// `AiHttpRepositories` AI HTTP 仓储集合
 /// 核心职责：
 /// - 聚合 session、turn 和事务端口的仓储实现
-/// - 控制 build_ai_http_state 参数数量
+/// - 控制 `build_ai_http_state` 参数数量
 struct AiHttpRepositories {
     session_repository: PostgresAiSessionRepository,
     session_turn_repository: PostgresSessionTurnRepository,
     chat_turn_transaction: PostgresChatTurnTransaction,
 }
 
-/// build_ai_http_state 装配 AI HTTP 状态
+/// `build_ai_http_state` 装配 AI HTTP 状态
 /// 核心职责：
 /// - 构建 LLM stream pipeline 和宠物上下文 provider
-/// - 保持 build_backend_app 的服务装配流程可读
+/// - 保持 `build_backend_app` 的服务装配流程可读
 fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
     runtime_engine_mode: AgentRuntimeEngineMode,
@@ -308,7 +297,8 @@ fn build_ai_http_state(
     ai_session_pool: sqlx::PgPool,
     auth_service: Arc<AuthService>,
 ) -> AiHttpState {
-    let ai_llm_provider = ai_provider::build_ai_llm_provider_from_provider_config(provider_config);
+    let ai_llm_provider =
+        infrastructure::ai::build_ai_llm_provider_from_provider_config(provider_config);
     let ai_stream_pipeline = Arc::new(AiStreamPipeline::from_provider(ai_llm_provider.clone()));
     let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
         pet_service.clone(),
@@ -341,9 +331,9 @@ fn build_ai_http_state(
     }
 }
 
-/// AuthProfileInitializer 认证资料初始化适配器
+/// `AuthProfileInitializer` 认证资料初始化适配器
 /// 核心职责：
-/// - 将认证应用层端口转接到 ProfileService
+/// - 将认证应用层端口转接到 `ProfileService`
 /// - 保持认证域不依赖资料持久化实现
 #[derive(Clone)]
 struct AuthProfileInitializer {
@@ -369,7 +359,7 @@ impl UserProfileInitializer for AuthProfileInitializer {
     }
 }
 
-/// BackendError 后端启动错误
+/// `BackendError` 后端启动错误
 /// 核心职责：
 /// - 汇总外部资源连接和迁移失败
 /// - 让入口层用统一错误类型终止启动

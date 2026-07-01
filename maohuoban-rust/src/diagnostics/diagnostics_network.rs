@@ -9,7 +9,7 @@ use axum::{
 use maohuoban_diagnostics::{Diagnostics, NetworkSummary, TraceContext};
 use serde_json::json;
 
-/// record_http_network 记录后端 HTTP 网络摘要
+/// `record_http_network` 记录后端 HTTP 网络摘要
 /// 核心职责：
 /// - 在 axum 入口统一捕获请求方法、路径、状态码和耗时
 /// - 保留授权上下文是否存在，避免记录 token 和查询参数明文

@@ -16,7 +16,7 @@ mod merchant;
 
 pub use media::MediaCleanupState;
 
-/// AuthTestApp 认证集成测试应用
+/// `AuthTestApp` 认证集成测试应用
 /// 核心职责：
 /// - 暴露可 clone 的 router 供契约测试调用
 /// - 提供数据库和 Redis 重置、测试数据种子能力
@@ -26,7 +26,7 @@ pub struct AuthTestApp {
 }
 
 impl AuthTestApp {
-    /// pool 返回数据库连接池引用
+    /// `pool` 返回数据库连接池引用
     /// 核心职责：
     /// - 为契约测试提供直接数据库查询能力
     /// - 验证数据写入结果不依赖投影路径
@@ -35,15 +35,17 @@ impl AuthTestApp {
         &self.app.pool
     }
 
-    #[must_use]
     pub fn router(&self) -> axum::Router {
         self.app.router.clone()
     }
 
+    /// # Panics
+    ///
+    /// 当当前连接不是测试数据库，或 `PostgreSQL` / `Redis` 重置失败时触发。
     pub async fn reset(&self) {
         assert_test_database(&self.app.pool).await;
         sqlx::query(
-            r#"
+            r"
             TRUNCATE TABLE
                 agent_memory_candidates,
                 agent_memory_items,
@@ -74,7 +76,7 @@ impl AuthTestApp {
                 user_identities,
                 users
             CASCADE
-            "#,
+            ",
         )
         .execute(&self.app.pool)
         .await
@@ -91,6 +93,9 @@ impl AuthTestApp {
             .expect("flush test redis db");
     }
 
+    /// # Panics
+    ///
+    /// 当用户种子写入或密码哈希写入失败时触发。
     pub async fn seed_user_with_password(&self, phone: &str, password: &str) {
         let user = self
             .app
@@ -110,6 +115,9 @@ impl AuthTestApp {
             .expect("save seed password");
     }
 
+    /// # Panics
+    ///
+    /// 当用户种子、refresh token 或设备会话写入失败时触发。
     pub async fn seed_login_session(&self, phone: &str, device_id: &str) -> SeedLoginSession {
         let user = self
             .app
@@ -145,6 +153,9 @@ impl AuthTestApp {
         SeedLoginSession { refresh_token }
     }
 
+    /// # Panics
+    ///
+    /// 当审计事件统计查询失败时触发。
     pub async fn audit_event_count(&self) -> i64 {
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM auth_audit_events")
             .fetch_one(&self.app.pool)
@@ -152,15 +163,19 @@ impl AuthTestApp {
             .expect("count auth audit events")
     }
 
-    /// seed_active_pet_co_caretaker 写入活跃共管关系
+    /// `seed_active_pet_co_caretaker` 写入活跃共管关系
     /// 核心职责：
-    /// - 为宠物关系授权契约测试准备 co_caretaker 关系
+    /// - 为宠物关系授权契约测试准备 `co_caretaker` 关系
     /// - 避免测试绕过真实 HTTP 鉴权链路
+    ///
+    /// # Panics
+    ///
+    /// 当 `pet_id` / `user_id` 非法，或数据库写入失败时触发。
     pub async fn seed_active_pet_co_caretaker(&self, pet_id: &str, user_id: &str) {
         let pet_id = Uuid::parse_str(pet_id).expect("pet id");
         let user_id = Uuid::parse_str(user_id).expect("user id");
         sqlx::query(
-            r#"
+            r"
             INSERT INTO pet_guardians (
                 id,
                 pet_id,
@@ -171,7 +186,7 @@ impl AuthTestApp {
                 started_at
             )
             VALUES ($1, $2, 'user', $3, 'co_caretaker', 'active', now())
-            "#,
+            ",
         )
         .bind(Uuid::new_v4())
         .bind(pet_id)
@@ -181,21 +196,25 @@ impl AuthTestApp {
         .expect("seed active pet co caretaker");
     }
 
-    /// active_microchip_identifier_count 统计活跃芯片标识
+    /// `active_microchip_identifier_count` 统计活跃芯片标识
     /// 核心职责：
     /// - 验证芯片写入是否进入外部标识表
     /// - 区分重复提交与新写入行为
+    ///
+    /// # Panics
+    ///
+    /// 当 `pet_id` 非法或数据库查询失败时触发。
     pub async fn active_microchip_identifier_count(&self, pet_id: &str, microchip: &str) -> i64 {
         let pet_id = Uuid::parse_str(pet_id).expect("pet id");
         sqlx::query_scalar::<_, i64>(
-            r#"
+            r"
             SELECT COUNT(*)
             FROM pet_external_identifiers
             WHERE pet_id = $1
               AND identifier_type = 'microchip'
               AND identifier_value = $2
               AND status = 'active'
-            "#,
+            ",
         )
         .bind(pet_id)
         .bind(microchip)
@@ -204,10 +223,14 @@ impl AuthTestApp {
         .expect("count active microchip identifiers")
     }
 
-    /// microchip_identifier_status_count 统计指定状态芯片标识
+    /// `microchip_identifier_status_count` 统计指定状态芯片标识
     /// 核心职责：
     /// - 验证冲突芯片是否进入 disputed 生命周期
     /// - 支持 identity context 契约测试读取状态准备
+    ///
+    /// # Panics
+    ///
+    /// 当 `pet_id` 非法或数据库查询失败时触发。
     pub async fn microchip_identifier_status_count(
         &self,
         pet_id: &str,
@@ -216,14 +239,14 @@ impl AuthTestApp {
     ) -> i64 {
         let pet_id = Uuid::parse_str(pet_id).expect("pet id");
         sqlx::query_scalar::<_, i64>(
-            r#"
+            r"
             SELECT COUNT(*)
             FROM pet_external_identifiers
             WHERE pet_id = $1
               AND identifier_type = 'microchip'
               AND identifier_value = $2
               AND status = $3
-            "#,
+            ",
         )
         .bind(pet_id)
         .bind(microchip)
@@ -233,18 +256,22 @@ impl AuthTestApp {
         .expect("count microchip identifiers by status")
     }
 
-    /// pet_profile_microchip_projection 读取主表芯片兼容投影
+    /// `pet_profile_microchip_projection` 读取主表芯片兼容投影
     /// 核心职责：
-    /// - 验证新写入路径停止依赖 pet_profiles.microchip_number
+    /// - 验证新写入路径停止依赖 `pet_profiles.microchip_number`
     /// - 保持测试只读取 Phase 1 兼容字段
+    ///
+    /// # Panics
+    ///
+    /// 当 `pet_id` 非法或数据库查询失败时触发。
     pub async fn pet_profile_microchip_projection(&self, pet_id: &str) -> Option<String> {
         let pet_id = Uuid::parse_str(pet_id).expect("pet id");
         sqlx::query_scalar::<_, Option<String>>(
-            r#"
+            r"
             SELECT microchip_number
             FROM pet_profiles
             WHERE id = $1
-            "#,
+            ",
         )
         .bind(pet_id)
         .fetch_one(&self.app.pool)
@@ -252,7 +279,7 @@ impl AuthTestApp {
         .expect("read profile microchip projection")
     }
 
-    /// seed_new_user_home 设置新用户首页快照
+    /// `seed_new_user_home` 设置新用户首页快照
     /// 核心职责：
     /// - 为首页契约测试提供无宠物空态
     /// - 覆盖创建宠物主操作和辅助推荐内容
@@ -263,7 +290,7 @@ impl AuthTestApp {
             .await;
     }
 
-    /// seed_merchant_home 设置认证商家首页快照
+    /// `seed_merchant_home` 设置认证商家首页快照
     /// 核心职责：
     /// - 为首页契约测试提供机构宠物工作台
     /// - 覆盖多宠状态、窝次入口和待补记录
@@ -274,15 +301,19 @@ impl AuthTestApp {
             .await;
     }
 
-    /// seed_same_litter_relationship 写入同窝关系测试数据
+    /// `seed_same_litter_relationship` 写入同窝关系测试数据
     /// 核心职责：
     /// - 为首页今日伙伴推荐准备显式关系边
     /// - 保持推荐契约测试不依赖商家完整窝次流程
+    ///
+    /// # Panics
+    ///
+    /// 当 `subject_pet_id` / `related_pet_id` 非法或数据库写入失败时触发。
     pub async fn seed_same_litter_relationship(&self, subject_pet_id: &str, related_pet_id: &str) {
         let subject_pet_id = Uuid::parse_str(subject_pet_id).expect("subject pet id");
         let related_pet_id = Uuid::parse_str(related_pet_id).expect("related pet id");
         sqlx::query(
-            r#"
+            r"
             INSERT INTO pet_relationships (
                 id,
                 subject_pet_id,
@@ -291,7 +322,7 @@ impl AuthTestApp {
                 source_kind
             )
             VALUES ($1, $2, $3, 'same_litter', 'system_derived')
-            "#,
+            ",
         )
         .bind(Uuid::new_v4())
         .bind(subject_pet_id)
@@ -302,7 +333,7 @@ impl AuthTestApp {
     }
 }
 
-/// SeedLoginSession 测试登录会话
+/// `SeedLoginSession` 测试登录会话
 /// 核心职责：
 /// - 向契约测试暴露 refresh token
 /// - 隐藏服务端 session 持久化细节
@@ -325,10 +356,14 @@ pub async fn spawn_auth_test_app() -> AuthTestApp {
     spawn_auth_test_app_with_config(BackendConfig::local_test()).await
 }
 
-/// spawn_auth_test_app_with_config 使用指定配置构建契约测试应用
+/// `spawn_auth_test_app_with_config` 使用指定配置构建契约测试应用
 /// 核心职责：
 /// - 允许测试覆盖根服务配置装配分支
 /// - 复用同一把锁避免数据库和 Redis 重置互相干扰
+///
+/// # Panics
+///
+/// 当后端应用构建失败时触发。
 pub async fn spawn_auth_test_app_with_config(config: BackendConfig) -> AuthTestApp {
     let guard = auth_test_lock().lock_owned().await;
     let app = build_backend_app(config)
@@ -337,7 +372,7 @@ pub async fn spawn_auth_test_app_with_config(config: BackendConfig) -> AuthTestA
     AuthTestApp { app, _guard: guard }
 }
 
-/// spawn_home_test_app 构建首页契约测试应用
+/// `spawn_home_test_app` 构建首页契约测试应用
 /// 核心职责：
 /// - 复用后端完整路由装配
 /// - 暴露首页种子快照切换能力

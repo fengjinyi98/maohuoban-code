@@ -9,7 +9,7 @@ use super::{
 };
 use crate::diagnostics::DiagnosticsIngestConfig;
 
-/// backend_diagnostics_bootstrap_config 构建后端 SDK 启动配置
+/// `backend_diagnostics_bootstrap_config` 构建后端 SDK 启动配置
 /// 核心职责：
 /// - 读取本地环境变量覆盖项
 /// - 默认写入 workspace `.maohuoban-diagnostics/segments`
@@ -24,7 +24,7 @@ pub fn backend_diagnostics_bootstrap_config() -> DiagnosticsBootstrapConfig {
     config
 }
 
-/// cleanup_policy_from_env 读取本地诊断清理策略
+/// `cleanup_policy_from_env` 读取本地诊断清理策略
 /// 核心职责：
 /// - 为 LLM 排障保留较短的默认事件窗口
 /// - 支持本地环境变量临时放宽或收紧清理阈值
@@ -43,7 +43,7 @@ pub fn cleanup_policy_from_env() -> CleanupPolicy {
     )
 }
 
-/// cleanup_policy_from_env_values 从环境变量值构造清理策略
+/// `cleanup_policy_from_env_values` 从环境变量值构造清理策略
 /// 核心职责：
 /// - 固化本地开发默认保留窗口
 /// - 让测试不需要修改真实进程环境
@@ -66,7 +66,7 @@ pub fn cleanup_policy_from_env_values(
     }
 }
 
-/// cleanup_interval_from_env 读取周期清理间隔
+/// `cleanup_interval_from_env` 读取周期清理间隔
 /// 核心职责：
 /// - 控制长时间开发时的 segments 后台收敛频率
 /// - 保留环境变量覆盖入口
@@ -79,7 +79,7 @@ pub fn cleanup_interval_from_env() -> Duration {
     )
 }
 
-/// cleanup_interval_from_env_value 从环境变量值读取周期清理间隔
+/// `cleanup_interval_from_env_value` 从环境变量值读取周期清理间隔
 /// 核心职责：
 /// - 提供测试友好的纯函数入口
 /// - 避免非法值关闭默认清理
@@ -88,7 +88,7 @@ pub fn cleanup_interval_from_env_value(value: Option<&str>) -> Duration {
     cleanup_interval_from_value(value)
 }
 
-/// diagnostics_segments_directory_from_env 读取诊断段文件目录
+/// `diagnostics_segments_directory_from_env` 读取诊断段文件目录
 /// 核心职责：
 /// - 支持环境变量覆盖 workspace segments 位置
 /// - 为后端 SDK 和 Debug ingest 使用同一默认目录
@@ -100,7 +100,7 @@ pub fn diagnostics_segments_directory_from_env() -> PathBuf {
     )
 }
 
-/// diagnostics_ingest_config_from_env 读取 Debug ingest 配置
+/// `diagnostics_ingest_config_from_env` 读取 Debug ingest 配置
 /// 核心职责：
 /// - 支持本地环境变量开启和鉴权 token 覆盖
 /// - 约束真机回流写入 workspace 段文件

@@ -12,9 +12,9 @@ use maohuoban_pet_application::pet::{FoodInventoryChangeHint, PetService};
 use maohuoban_pet_domain::pet::FoodScopeType;
 use uuid::Uuid;
 
-/// PetServiceFoodInventoryHintProvider AI 储物柜变化线索适配器
+/// `PetServiceFoodInventoryHintProvider` AI 储物柜变化线索适配器
 /// 核心职责：
-/// - 通过现有 PetService 加载当前用户近期储物柜变化
+/// - 通过现有 `PetService` 加载当前用户近期储物柜变化
 /// - 将变化记录裁剪为 AI 弱线索和引用
 #[derive(Clone)]
 pub(crate) struct PetServiceFoodInventoryHintProvider {
@@ -58,7 +58,7 @@ impl FoodInventoryHintProvider for PetServiceFoodInventoryHintProvider {
     }
 }
 
-/// add_food_inventory_hint 添加储物柜变化弱线索
+/// `add_food_inventory_hint` 添加储物柜变化弱线索
 /// 核心职责：
 /// - 将食品资产变化标记为 weak hint
 /// - 使用 food item id 作为引用，避免被当作摄入事实

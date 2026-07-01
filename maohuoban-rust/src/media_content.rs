@@ -19,7 +19,7 @@ use media_storage::{load_media_asset, load_media_asset_component};
 
 const DEFAULT_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 
-/// MediaContentState 媒体内容读取状态
+/// `MediaContentState` 媒体内容读取状态
 /// 核心职责：
 /// - 持有数据库连接用于定位媒体对象
 /// - 持有对象存储客户端用于读取真实内容
@@ -30,7 +30,7 @@ struct MediaContentState {
     cache_control: String,
 }
 
-/// build_media_content_router 构建媒体内容只读路由
+/// `build_media_content_router` 构建媒体内容只读路由
 /// 核心职责：
 /// - 通过稳定 asset id 对外暴露媒体内容
 /// - 为前端远端图片和视频展示设置可缓存响应头

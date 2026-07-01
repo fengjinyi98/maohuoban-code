@@ -11,9 +11,9 @@ use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::IdentitySummary;
 use uuid::Uuid;
 
-/// PetServiceIdentityFactProvider AI 宠物身份事实适配器
+/// `PetServiceIdentityFactProvider` AI 宠物身份事实适配器
 /// 核心职责：
-/// - 通过现有 PetService 加载授权身份上下文
+/// - 通过现有 `PetService` 加载授权身份上下文
 /// - 将宠物身份摘要裁剪为 AI 强事实包
 #[derive(Clone)]
 pub(crate) struct PetServiceIdentityFactProvider {
@@ -56,7 +56,7 @@ impl PetIdentityFactProvider for PetServiceIdentityFactProvider {
     }
 }
 
-/// identity_facts_for_prompt 构造可进入普通回答的身份事实
+/// `identity_facts_for_prompt` 构造可进入普通回答的身份事实
 /// 核心职责：
 /// - 只保留用户视角的基础档案字段
 /// - 将内部枚举值转换为自然中文展示值
@@ -101,7 +101,7 @@ fn identity_facts_for_prompt(identity: &IdentitySummary) -> Vec<AiFactEntry> {
     facts
 }
 
-/// identity_fact 构造身份强事实
+/// `identity_fact` 构造身份强事实
 /// 核心职责：
 /// - 统一身份事实 key 和强度
 fn identity_fact(key: &str, value: String) -> AiFactEntry {
@@ -113,7 +113,7 @@ fn identity_fact(key: &str, value: String) -> AiFactEntry {
     }
 }
 
-/// display_species 返回身份事实里的宠物物种展示值
+/// `display_species` 返回身份事实里的宠物物种展示值
 /// 核心职责：
 /// - 屏蔽数据库枚举值
 /// - 保留未知扩展值的信息量
@@ -126,7 +126,7 @@ fn display_species(species: &str) -> &str {
     }
 }
 
-/// display_sex 返回身份事实里的宠物性别展示值
+/// `display_sex` 返回身份事实里的宠物性别展示值
 /// 核心职责：
 /// - 按物种输出自然中文
 /// - 对未知扩展值保持原值，避免丢失信息

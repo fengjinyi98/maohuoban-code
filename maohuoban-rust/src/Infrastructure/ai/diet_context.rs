@@ -12,9 +12,9 @@ use maohuoban_pet_application::pet::{
 };
 use uuid::Uuid;
 
-/// PetServiceDietFactProvider AI 宠物饮食事实适配器
+/// `PetServiceDietFactProvider` AI 宠物饮食事实适配器
 /// 核心职责：
-/// - 通过现有 PetService 加载授权当前饮食上下文
+/// - 通过现有 `PetService` 加载授权当前饮食上下文
 /// - 将饮食读模型裁剪为 AI 强事实和引用
 #[derive(Clone)]
 pub(crate) struct PetServiceDietFactProvider {
@@ -46,7 +46,7 @@ impl PetDietFactProvider for PetServiceDietFactProvider {
     }
 }
 
-/// build_diet_fact_package 构建当前饮食强事实包
+/// `build_diet_fact_package` 构建当前饮食强事实包
 /// 核心职责：
 /// - 将当前主粮、尝试中、常用零食/营养品映射为强事实
 /// - 保留最近喂食和饮食变更引用，供回答引用和审计使用
@@ -86,10 +86,10 @@ fn build_diet_fact_package(
     builder.build()
 }
 
-/// add_diet_item_fact 添加饮食配置强事实
+/// `add_diet_item_fact` 添加饮食配置强事实
 /// 核心职责：
 /// - 保留食品名作为可直接引用事实值
-/// - 使用 assignment_id 作为饮食配置引用 ID
+/// - 使用 `assignment_id` 作为饮食配置引用 ID
 fn add_diet_item_fact(
     builder: &mut AiFactPackageBuilder,
     key: &str,
@@ -109,7 +109,7 @@ fn add_diet_item_fact(
     });
 }
 
-/// add_recent_feeding_fact 添加最近喂食强事实
+/// `add_recent_feeding_fact` 添加最近喂食强事实
 /// 核心职责：
 /// - 使用事件 ID 作为引用
 /// - 暴露食品名和发生时间供 Prompt 使用
@@ -127,7 +127,7 @@ fn add_recent_feeding_fact(builder: &mut AiFactPackageBuilder, event: &RecentFee
     });
 }
 
-/// add_recent_diet_change_fact 添加最近饮食变更强事实
+/// `add_recent_diet_change_fact` 添加最近饮食变更强事实
 /// 核心职责：
 /// - 使用事件 ID 作为引用
 /// - 暴露变更状态和目标食品 ID，避免虚构食品名

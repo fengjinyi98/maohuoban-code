@@ -10,10 +10,10 @@ use maohuoban_ai_domain::ai::{
 use maohuoban_pet_application::pet::{PetDietConfirmationCandidate, PetService};
 use uuid::Uuid;
 
-/// PetServiceDietConfirmationCandidateProvider AI 饮食待确认候选适配器
+/// `PetServiceDietConfirmationCandidateProvider` AI 饮食待确认候选适配器
 /// 核心职责：
-/// - 通过现有 PetService 加载目标宠物饮食待确认候选
-/// - 将候选裁剪为 AI pending_confirmation 事实
+/// - 通过现有 `PetService` 加载目标宠物饮食待确认候选
+/// - 将候选裁剪为 AI `pending_confirmation` 事实
 #[derive(Clone)]
 pub(crate) struct PetServiceDietConfirmationCandidateProvider {
     pet: Arc<PetService>,
@@ -55,10 +55,10 @@ impl PetDietConfirmationCandidateProvider for PetServiceDietConfirmationCandidat
     }
 }
 
-/// add_diet_confirmation_candidate 添加饮食待确认候选事实
+/// `add_diet_confirmation_candidate` 添加饮食待确认候选事实
 /// 核心职责：
 /// - 保留追问文案和候选类型
-/// - 标记为 pending_confirmation，禁止当作已发生事实
+/// - 标记为 `pending_confirmation`，禁止当作已发生事实
 fn add_diet_confirmation_candidate(
     builder: &mut AiFactPackageBuilder,
     candidate: &PetDietConfirmationCandidate,

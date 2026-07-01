@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{DEFAULT_MAX_BODY_BYTES, backend_privacy_policy};
 
-/// DiagnosticsIngestConfig 本地诊断回流配置
+/// `DiagnosticsIngestConfig` 本地诊断回流配置
 /// 核心职责：
 /// - 描述 Debug ingest 的写入目录、鉴权 token 和 body 上限
 /// - 让后端启动配置与 axum 路由装配保持解耦
@@ -72,7 +72,7 @@ struct DiagnosticsIngestResponse {
     dropped: usize,
 }
 
-/// build_diagnostics_ingest_router 构建 Debug 诊断回流路由
+/// `build_diagnostics_ingest_router` 构建 Debug 诊断回流路由
 /// 核心职责：
 /// - 接收 iOS Debug mirror 回流事件
 /// - 复用隐私与采集策略后写入 workspace segments

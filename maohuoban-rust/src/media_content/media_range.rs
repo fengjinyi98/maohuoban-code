@@ -38,7 +38,7 @@ pub(super) fn media_response(
     response
 }
 
-/// ByteRange 媒体内容字节范围
+/// `ByteRange` 媒体内容字节范围
 /// 核心职责：
 /// - 表达 HTTP Range 解析后的闭区间
 /// - 为视频播放器按需读取媒体片段提供边界

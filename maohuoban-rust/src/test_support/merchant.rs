@@ -4,10 +4,14 @@ use uuid::Uuid;
 use super::AuthTestApp;
 
 impl AuthTestApp {
-    /// seed_merchant_tracking_workspace 写入商家追溯工作台数据
+    /// `seed_merchant_tracking_workspace` 写入商家追溯工作台数据
     /// 核心职责：
     /// - 为首页契约测试准备认证商家和窝次关系数据
     /// - 覆盖多宠状态、父母关系、同窝关系和商家事件
+    ///
+    /// # Panics
+    ///
+    /// 当 `owner_user_id` 不是合法 UUID，或任一测试数据写入失败时触发。
     pub async fn seed_merchant_tracking_workspace(&self, owner_user_id: &str) -> String {
         let owner_user_id = Uuid::parse_str(owner_user_id).expect("owner user id");
         let ids = MerchantWorkspaceSeedIds::new();
@@ -21,7 +25,7 @@ impl AuthTestApp {
     }
 }
 
-/// MerchantWorkspaceSeedIds 商家追溯测试 ID 集
+/// `MerchantWorkspaceSeedIds` 商家追溯测试 ID 集
 /// 核心职责：
 /// - 固定契约测试中的 UUID
 /// - 让测试断言和数据库关系稳定可重复
@@ -51,7 +55,7 @@ impl MerchantWorkspaceSeedIds {
 
 async fn seed_merchant_profile(pool: &sqlx::PgPool, merchant_id: Uuid, owner_user_id: Uuid) {
     sqlx::query(
-        r#"
+        r"
         INSERT INTO merchant_profiles (
             id,
             owner_user_id,
@@ -62,7 +66,7 @@ async fn seed_merchant_profile(pool: &sqlx::PgPool, merchant_id: Uuid, owner_use
             verified_at
         )
         VALUES ($1, $2, 'cat_breeder', '梧桐猫舍', '成都', 'verified', now())
-        "#,
+        ",
     )
     .bind(merchant_id)
     .bind(owner_user_id)
@@ -98,7 +102,7 @@ async fn seed_merchant_pets(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeedIds)
         ),
     ] {
         sqlx::query(
-            r#"
+            r"
             INSERT INTO pet_profiles (
                 id,
                 merchant_id,
@@ -112,7 +116,7 @@ async fn seed_merchant_pets(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeedIds)
                 source_kind
             )
             VALUES ($1, $2, $3, 'cat', '布偶猫', $4, $5, $6, $7, $8)
-            "#,
+            ",
         )
         .bind(pet_id)
         .bind(ids.merchant)
@@ -135,7 +139,7 @@ fn profile_number_from_uuid(id: Uuid) -> String {
 
 async fn seed_litter(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeedIds) {
     sqlx::query(
-        r#"
+        r"
         INSERT INTO litters (
             id,
             merchant_id,
@@ -149,7 +153,7 @@ async fn seed_litter(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeedIds) {
             status
         )
         VALUES ($1, $2, '2026 春季 A 窝', 'cat', $3, $4, $5, 3, 3, 'active')
-        "#,
+        ",
     )
     .bind(ids.litter)
     .bind(ids.merchant)
@@ -185,7 +189,7 @@ async fn seed_pet_relationships(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeed
         ),
     ] {
         sqlx::query(
-            r#"
+            r"
             INSERT INTO pet_relationships (
                 id,
                 subject_pet_id,
@@ -195,7 +199,7 @@ async fn seed_pet_relationships(pool: &sqlx::PgPool, ids: &MerchantWorkspaceSeed
                 source_kind
             )
             VALUES ($1, $2, $3, $4, $5, 'merchant_recorded')
-            "#,
+            ",
         )
         .bind(Uuid::new_v4())
         .bind(subject_pet_id)
@@ -214,7 +218,7 @@ async fn seed_litter_event(
     owner_user_id: Uuid,
 ) {
     sqlx::query(
-        r#"
+        r"
         INSERT INTO pet_events (
             id,
             litter_id,
@@ -241,7 +245,7 @@ async fn seed_litter_event(
             $4,
             1
         )
-        "#,
+        ",
     )
     .bind(parse_seed_uuid("0d2972a6-37a9-4681-8220-2a6de291e3ee"))
     .bind(ids.litter)

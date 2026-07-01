@@ -3,7 +3,7 @@ use maohuoban_home_domain::home::{
 };
 use maohuoban_pet_domain::pet::{EventKind, PetEvent};
 
-/// timeline_event_summary 将宠物事件投影为首页时间线摘要
+/// `timeline_event_summary` 将宠物事件投影为首页时间线摘要
 /// 核心职责：
 /// - 保持首页只消费轻量事件摘要
 /// - 统一健康、驱虫、疫苗等事件的首页视觉类型
@@ -21,7 +21,7 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
     }
 }
 
-/// reminders_from_events 从宠物事件派生首页提醒摘要
+/// `reminders_from_events` 从宠物事件派生首页提醒摘要
 /// 核心职责：
 /// - 提取疫苗、驱虫、复诊等带下次时间的事件
 /// - 保持首页提醒列表只展示近期待处理摘要

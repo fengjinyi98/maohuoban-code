@@ -6,9 +6,9 @@ use maohuoban_ai_domain::ai::{AiError, AiPetCandidate, AiResult};
 use maohuoban_pet_application::pet::PetService;
 use uuid::Uuid;
 
-/// PetServiceAuthorizedPetCatalog AI 授权宠物候选适配器
+/// `PetServiceAuthorizedPetCatalog` AI 授权宠物候选适配器
 /// 核心职责：
-/// - 通过现有 PetService 读取当前 actor 可访问宠物档案
+/// - 通过现有 `PetService` 读取当前 actor 可访问宠物档案
 /// - 裁剪为 AI 宠物解析所需的最小候选摘要
 #[derive(Clone)]
 pub(crate) struct PetServiceAuthorizedPetCatalog {
@@ -48,7 +48,7 @@ impl AuthorizedPetCatalog for PetServiceAuthorizedPetCatalog {
     }
 }
 
-/// media_asset_url 构造媒体资产内容 URL
+/// `media_asset_url` 构造媒体资产内容 URL
 /// 核心职责：
 /// - 对齐首页和宠物档案已有媒体 URL 契约
 /// - 为 AI 历史快照提供可直接展示的相对地址

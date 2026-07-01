@@ -7,7 +7,7 @@ use maohuoban_pet_application::pet::{
 use maohuoban_pet_domain::pet::{PetBackgroundMediaKind, PetProfile};
 use uuid::Uuid;
 
-/// record_home_pet_list 记录首页宠物列表读取结果
+/// `record_home_pet_list` 记录首页宠物列表读取结果
 /// 核心职责：
 /// - 捕获用户上下文下可见宠物数量
 /// - 保留当前选择宠物参数的脱敏标识
@@ -28,7 +28,7 @@ pub(super) fn record_home_pet_list(user_id: Uuid, selected_pet_id: Option<Uuid>,
     });
 }
 
-/// record_home_empty_state 记录首页空态输出
+/// `record_home_empty_state` 记录首页空态输出
 /// 核心职责：
 /// - 标记后端已进入无宠物空态
 /// - 为前端误显示添加宠物页提供后端证据
@@ -49,7 +49,7 @@ pub(super) fn record_home_empty_state(user_id: Uuid) {
     });
 }
 
-/// record_home_media_metadata 记录首页媒体元数据读取结果
+/// `record_home_media_metadata` 记录首页媒体元数据读取结果
 /// 核心职责：
 /// - 捕获选中宠物背景资产是否读取到展示元数据
 /// - 保留背景媒体类型用于图片和视频分支排查
@@ -77,7 +77,7 @@ pub(super) fn record_home_media_metadata(
     });
 }
 
-/// record_home_selected_pet_output 记录首页选中宠物 DTO 输出
+/// `record_home_selected_pet_output` 记录首页选中宠物 DTO 输出
 /// 核心职责：
 /// - 捕获 hero 图片或视频最终输出状态
 /// - 记录前端布局消费的尺寸和主题色字段
