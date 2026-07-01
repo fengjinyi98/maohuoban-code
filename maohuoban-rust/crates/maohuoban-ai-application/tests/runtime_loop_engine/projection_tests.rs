@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::ToolRegistry;
-use maohuoban_ai_domain::ai::{AgentId, AiConversationSurface};
+use maohuoban_ai_domain::ai::{AgentEvent, AgentId, AiConversationSurface};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -66,9 +66,9 @@ async fn tool_success_projects_reference_ids_and_hides_internal_fields() {
     );
 }
 
-/// 工具拒绝结果应通过 `ToolFactProjector::project_denied` 投影为通用安全文案
+/// 工具拒绝结果应按未授权重规划终止，避免进入 followup model
 #[tokio::test]
-async fn tool_denied_projects_safe_message_not_raw_reason() {
+async fn tool_denied_terminates_before_projection_followup() {
     let provider = ScriptedProvider::new(vec![
         tool_call_response(
             "load_pet_identity_context",
@@ -93,21 +93,21 @@ async fn tool_denied_projects_safe_message_not_raw_reason() {
         engine,
     );
 
-    session.prompt("毛球吃什么").await.expect("prompt");
+    let events = session.prompt("毛球吃什么").await.expect("prompt");
 
     let requests = provider.take_requests();
-    assert_eq!(requests.len(), 2);
-
-    let tool_message = find_tool_message(&requests);
-    let content = &tool_message.content;
-
+    assert_eq!(requests.len(), 1);
     assert!(
-        content.contains("工具无法执行"),
-        "denied tool result should contain safe message"
+        events
+            .iter()
+            .any(|event| matches!(event, AgentEvent::TurnFailed { .. })),
+        "denied tool result should terminate turn: {events:?}"
     );
     assert!(
-        !content.contains("pet not authorized"),
-        "denied tool result should not expose raw reason"
+        events
+            .iter()
+            .all(|event| !matches!(event, AgentEvent::TurnFinished { .. })),
+        "denied tool result must not complete as a normal answer: {events:?}"
     );
 }
 

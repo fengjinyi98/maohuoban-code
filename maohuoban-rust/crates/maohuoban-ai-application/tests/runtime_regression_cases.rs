@@ -621,20 +621,8 @@ async fn case_unauthorized_pet_denied() {
     );
 
     let requests = provider.take_requests();
-    assert!(requests.len() >= 2);
-    let tool_msg = requests[1]
-        .messages
-        .iter()
-        .find(|m| m.role == LlmRole::Tool)
-        .expect("followup should have tool message");
-    assert!(
-        !tool_msg.content.contains("饭团"),
-        "denied tool should not expose pet name"
-    );
-    assert!(
-        tool_msg.content.contains("工具无法执行"),
-        "denied tool should return safe message"
-    );
+    assert_eq!(requests.len(), 1);
+    assert_has_turn_failed(&real_events);
 }
 
 // ===========================================================================

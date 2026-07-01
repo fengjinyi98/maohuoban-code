@@ -39,6 +39,10 @@ pub(crate) enum RuntimePhase {
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_results: Vec<LoopToolResult>,
     },
+    ClarifyUser {
+        reason: String,
+        suggested_actions: Vec<String>,
+    },
     Done {
         message_id: uuid::Uuid,
         final_text: String,

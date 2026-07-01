@@ -16,8 +16,8 @@ use maohuoban_ai_application::ai::tools::{
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary, LlmChatRequest,
-    LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel,
-    ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
+    LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack,
+    ModelLabel, ToolFactField, ToolFactSchema, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -196,6 +196,115 @@ impl AiToolDefinition for PetIdentityFactTool {
     }
 }
 
+struct WriteObservationTool;
+
+#[async_trait]
+impl AiToolDefinition for WriteObservationTool {
+    fn name(&self) -> &'static str {
+        "prepare_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "准备写入宠物观察记录并等待用户确认"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::Medium,
+            requires_confirmation: true,
+            domain_tags: vec!["diet_confirmation".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::requires_confirmation(
+            maohuoban_ai_domain::ai::AiToolConfirmationRequirement {
+                confirmation_task_id: "confirm_observation_write".to_owned(),
+                tool_name: "prepare_pet_observation_write".to_owned(),
+                question_text: "确认写入本次观察记录？".to_owned(),
+                args: serde_json::json!({}),
+            },
+        )
+    }
+}
+
+#[derive(Clone)]
+struct ToolCallProvider {
+    requests: Arc<Mutex<Vec<LlmChatRequest>>>,
+}
+
+impl ToolCallProvider {
+    fn new() -> Self {
+        Self {
+            requests: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    fn take_requests(&self) -> Vec<LlmChatRequest> {
+        self.requests.lock().expect("requests").clone()
+    }
+}
+
+impl LlmProvider for ToolCallProvider {
+    fn complete<'a>(
+        &'a self,
+        _request: &LlmChatRequest,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = maohuoban_ai_domain::ai::AiResult<LlmChatResponse>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async {
+            Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
+                "runtime should use stream".to_owned(),
+            ))
+        })
+    }
+
+    fn stream<'a>(
+        &'a self,
+        request: &'a LlmChatRequest,
+    ) -> futures_util::stream::BoxStream<
+        'a,
+        maohuoban_ai_domain::ai::AiResult<maohuoban_ai_domain::ai::LlmStreamEvent>,
+    > {
+        self.requests
+            .lock()
+            .expect("requests")
+            .push(request.clone());
+        futures_util::stream::iter(vec![
+            Ok(LlmStreamEvent::ToolCall {
+                tool_call: LlmToolCall {
+                    id: "call_prepare_write".to_owned(),
+                    name: "prepare_pet_observation_write".to_owned(),
+                    arguments: "{}".to_owned(),
+                },
+            }),
+            Ok(LlmStreamEvent::Finish {
+                finish_reason: LlmFinishReason::ToolCalls,
+                usage: LlmUsage::default(),
+            }),
+        ])
+        .boxed()
+    }
+}
+
 #[tokio::test]
 async fn workbench_prompt_hides_domain_struct_field_names() {
     let provider = CapturingProvider::new();
@@ -241,6 +350,87 @@ async fn workbench_prompt_hides_domain_struct_field_names() {
 }
 
 #[tokio::test]
+async fn runtime_write_task_projects_workflow_skill_into_workbench_prompt() {
+    let provider = ToolCallProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(WriteObservationTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("帮我记录今天拉稀", private_pet_context_workbench())
+        .await
+        .expect("prompt write workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(
+        workbench_prompt.contains("workflow.write_requires_confirmation"),
+        "write task workflow skill should be projected into production prompt: {workbench_prompt}"
+    );
+}
+
+#[tokio::test]
+async fn runtime_evidence_task_projects_workflow_skill_into_followup_prompt() {
+    let provider = CapturingProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(PetIdentityFactTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("梅录多大了？", private_pet_context_workbench())
+        .await
+        .expect("prompt evidence workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(
+        workbench_prompt.contains("workflow.evidence_read_before_answer"),
+        "evidence task workflow skill should be projected into followup prompt: {workbench_prompt}"
+    );
+    assert!(
+        requests[0].tools.is_empty(),
+        "evidence followup request should not expose tools after prefetch: {:?}",
+        requests[0].tools
+    );
+}
+
+#[tokio::test]
 async fn workbench_prompt_discloses_empty_visible_tool_list() {
     let provider = CapturingProvider::new();
     let engine = AgentRuntimeLoopEngine::new(
@@ -277,6 +467,53 @@ async fn workbench_prompt_discloses_empty_visible_tool_list() {
     assert!(
         workbench_prompt.contains("用户询问工具或可执行能力时，只能基于“本轮可执行工具”回答"),
         "workbench prompt should bind tool disclosure to visible runtime tools: {workbench_prompt}"
+    );
+}
+
+#[tokio::test]
+async fn workbench_prompt_projects_skill_instructions_in_runtime_order() {
+    let provider = CapturingProvider::new();
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(ToolRegistry::new()),
+        test_tool_context(Uuid::nil()),
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("猫拉肚子一般要观察什么？", public_pet_domain_workbench())
+        .await
+        .expect("prompt public workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+    let system_index = workbench_prompt
+        .find("system.tool_gateway_boundary")
+        .expect("system skill should be projected");
+    let domain_index = workbench_prompt
+        .find("domain.public_pet_care")
+        .expect("domain skill should be projected");
+
+    assert!(workbench_prompt.contains("Skill 指令:"));
+    assert!(
+        system_index < domain_index,
+        "system skill must be projected before domain skill: {workbench_prompt}"
+    );
+    assert!(
+        !workbench_prompt.contains("personalization."),
+        "prompt projection must not invent personalization skill without user match: {workbench_prompt}"
     );
 }
 

@@ -4,6 +4,7 @@ use maohuoban_ai_domain::ai::{
 };
 
 use crate::ai::prompt::AiPromptBuilder;
+use crate::ai::skill::SkillBundle;
 use crate::ai::tools::ToolRegistry;
 
 use super::agent_runtime_request_policy::AgentRuntimeRequestPolicy;
@@ -14,6 +15,7 @@ pub(crate) fn build_request(
     state: &AgentSessionState,
     fact_package: Option<&AiFactPackage>,
     registry: &ToolRegistry,
+    skill_bundle: Option<&SkillBundle>,
     assistant_reasoning_content: Option<&str>,
     assistant_tool_calls: &[LlmToolCall],
     tool_results: &[LoopToolResult],
@@ -21,6 +23,10 @@ pub(crate) fn build_request(
     let is_followup_answer = !assistant_tool_calls.is_empty() || !tool_results.is_empty();
     let tools = if is_followup_answer {
         Vec::new()
+    } else if let Some(skill_bundle) = skill_bundle {
+        let base_visible_tools =
+            AgentRuntimeRequestPolicy::base_visible_tool_definitions(registry, state);
+        AgentRuntimeRequestPolicy::visible_tool_schemas_for_bundle(base_visible_tools, skill_bundle)
     } else {
         AgentRuntimeRequestPolicy::visible_tool_schemas(registry, state)
     };
@@ -35,6 +41,7 @@ pub(crate) fn build_request(
         assistant_tool_calls,
         tool_results,
         &tools,
+        skill_bundle,
     );
 
     LlmChatRequest {
@@ -61,6 +68,7 @@ fn build_messages(
     assistant_tool_calls: &[LlmToolCall],
     tool_results: &[LoopToolResult],
     visible_tools: &[LlmToolSchema],
+    skill_bundle: Option<&SkillBundle>,
 ) -> Vec<LlmMessage> {
     let user_message = state.user_inputs.last().cloned().unwrap_or_default();
     let mut messages = AiPromptBuilder::new().build_messages(&user_message, &[], fact_package);
@@ -71,7 +79,7 @@ fn build_messages(
 
         pre_user_messages.push(LlmMessage {
             role: LlmRole::System,
-            content: workbench_context_prompt(workbench, visible_tools),
+            content: workbench_context_prompt(workbench, visible_tools, skill_bundle),
             reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
