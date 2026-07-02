@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T05:00:31",
+  "generated_at": "2026-07-03T05:04:24",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -8,7 +8,7 @@
   },
   "scan": {
     "code_file_count": 1849,
-    "flat_directories": {
+    "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
         "files": [
@@ -868,719 +868,7 @@
         ]
       }
     },
-    "guideline_line_files": {
-      "maohuoban-diagnostics-sdk/collector/src/main.rs": {
-        "limit": 300,
-        "line_count": 328,
-        "suffix": ".rs"
-      },
-      "maohuoban-diagnostics-sdk/rust/tests/storage_pipeline.rs": {
-        "limit": 300,
-        "line_count": 489,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/output/mod.rs": {
-        "limit": 300,
-        "line_count": 373,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_diagnostics/mod.rs": {
-        "limit": 300,
-        "line_count": 472,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine/loop_engine.rs": {
-        "limit": 300,
-        "line_count": 462,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/registry.rs": {
-        "limit": 300,
-        "line_count": 331,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/conversation_history/main.rs": {
-        "limit": 300,
-        "line_count": 452,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/eval_case/main.rs": {
-        "limit": 300,
-        "line_count": 319,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/finalizer_contract/main.rs": {
-        "limit": 300,
-        "line_count": 474,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/memory_candidate/main.rs": {
-        "limit": 300,
-        "line_count": 409,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/prompt_builder/main.rs": {
-        "limit": 300,
-        "line_count": 380,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_disclosure/main.rs": {
-        "limit": 300,
-        "line_count": 401,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/stream/stream.rs": {
-        "limit": 300,
-        "line_count": 308,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-domain/tests/tool_fact_projection_boundary.rs": {
-        "limit": 300,
-        "line_count": 345,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_stream_projector.rs": {
-        "limit": 300,
-        "line_count": 367,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_tools/tests.rs": {
-        "limit": 300,
-        "line_count": 475,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/turn_preparation.rs": {
-        "limit": 300,
-        "line_count": 368,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/diagnostics_common.rs": {
-        "limit": 300,
-        "line_count": 357,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/history.rs": {
-        "limit": 300,
-        "line_count": 378,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/diagnostics.rs": {
-        "limit": 300,
-        "line_count": 493,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/provider.rs": {
-        "limit": 300,
-        "line_count": 366,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/sse.rs": {
-        "limit": 300,
-        "line_count": 341,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository/chat_turn_transaction.rs": {
-        "limit": 300,
-        "line_count": 429,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository/session.rs": {
-        "limit": 300,
-        "line_count": 495,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/deepseek.rs": {
-        "limit": 300,
-        "line_count": 455,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_request_policy.rs": {
-        "limit": 300,
-        "line_count": 345,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router/dto.rs": {
-        "limit": 300,
-        "line_count": 401,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router/handlers.rs": {
-        "limit": 300,
-        "line_count": 305,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-auth-infrastructure/src/postgres/repository/session.rs": {
-        "limit": 300,
-        "line_count": 310,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/attention_hint.rs": {
-        "limit": 300,
-        "line_count": 305,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/ports/mod.rs": {
-        "limit": 300,
-        "line_count": 355,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/service/diet.rs": {
-        "limit": 300,
-        "line_count": 357,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/service/mod.rs": {
-        "limit": 300,
-        "line_count": 383,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/profile_enums.rs": {
-        "limit": 300,
-        "line_count": 427,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/diet_repository.rs": {
-        "limit": 300,
-        "line_count": 391,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/food_inventory_repository.rs": {
-        "limit": 300,
-        "line_count": 306,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository.rs": {
-        "limit": 300,
-        "line_count": 352,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/abnormal_event_handler.rs": {
-        "limit": 300,
-        "line_count": 388,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/profile_external_ids.rs": {
-        "limit": 300,
-        "line_count": 409,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-profile-infrastructure/src/postgres/repository/media.rs": {
-        "limit": 300,
-        "line_count": 328,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/src/home_dashboard.rs": {
-        "limit": 300,
-        "line_count": 305,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/src/lib.rs": {
-        "limit": 300,
-        "line_count": 420,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/src/test_support.rs": {
-        "limit": 300,
-        "line_count": 386,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/ai_contract/chat_stream.rs": {
-        "limit": 300,
-        "line_count": 460,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/ai_contract/chat_stream_inventory_hints.rs": {
-        "limit": 300,
-        "line_count": 318,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/ai_contract/evaluation_regression_contract/fixture_contract.rs": {
-        "limit": 300,
-        "line_count": 404,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/ai_eval.rs": {
-        "limit": 300,
-        "line_count": 332,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/abnormal_episode_table_test.rs": {
-        "limit": 300,
-        "line_count": 326,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/diet_assignment.rs": {
-        "limit": 300,
-        "line_count": 420,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/feeding_event.rs": {
-        "limit": 300,
-        "line_count": 442,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/food_inventory_crud.rs": {
-        "limit": 300,
-        "line_count": 453,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/profile_crud.rs": {
-        "limit": 300,
-        "line_count": 437,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/pet_contract/profile_events.rs": {
-        "limit": 300,
-        "line_count": 339,
-        "suffix": ".rs"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Core/MHBImagePreviewOverlay.swift": {
-        "limit": 250,
-        "line_count": 262,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Interaction/MHBImagePreviewOverlay+Interaction.swift": {
-        "limit": 250,
-        "line_count": 314,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Zoom/MHBImagePreviewZoomScrollView.swift": {
-        "limit": 250,
-        "line_count": 267,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessory/MHBKeyboardAccessoryHostingController.swift": {
-        "limit": 250,
-        "line_count": 305,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/Container/MHBKeyboardAccessoryTextInputContainerView.swift": {
-        "limit": 250,
-        "line_count": 373,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardTextView/MHBKeyboardTextView.swift": {
-        "limit": 250,
-        "line_count": 380,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantHistoryScreen.swift": {
-        "limit": 250,
-        "line_count": 261,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantScreen.swift": {
-        "limit": 250,
-        "line_count": 398,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Home/Data/Mock/Fixtures/Scenarios/HomeMockPetOwnerDashboardFixtures.swift": {
-        "limit": 250,
-        "line_count": 255,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Home/Presentation/Components/QuickFact/Sheets/HomeQuickFactSheets.swift": {
-        "limit": 250,
-        "line_count": 277,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Home/Presentation/Sections/Dashboard/HomeDashboardLoadedView.swift": {
-        "limit": 250,
-        "line_count": 296,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Home/Presentation/Sections/HomeTimelineSection.swift": {
-        "limit": 250,
-        "line_count": 368,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Screens/PetAbnormalRecordDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 364,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordSections.swift": {
-        "limit": 250,
-        "line_count": 346,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Add/Media/PetProfileAddScreen+MediaActions.swift": {
-        "limit": 250,
-        "line_count": 266,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Daily/PetDailyRecordSections.swift": {
-        "limit": 250,
-        "line_count": 309,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Health/PetHealthRecordSections.swift": {
-        "limit": 250,
-        "line_count": 257,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Actions/PetProfileEditScreen+ProfileSaveActions.swift": {
-        "limit": 250,
-        "line_count": 270,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift": {
-        "limit": 250,
-        "line_count": 325,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift": {
-        "limit": 250,
-        "line_count": 392,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Models/PetPreventiveCareRecordDetailPresentation.swift": {
-        "limit": 250,
-        "line_count": 259,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Screens/PetPreventiveCareRecordDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 344,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareAddRecordSections.swift": {
-        "limit": 250,
-        "line_count": 305,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareSections.swift": {
-        "limit": 250,
-        "line_count": 378,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Records/Details/PetFeedingDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 277,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Records/History/PetRecordHistoryScreen.swift": {
-        "limit": 250,
-        "line_count": 386,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Completion/PetWalkCompletionScreen.swift": {
-        "limit": 250,
-        "line_count": 288,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/Detail/PetWalkHistoryDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 260,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/List/PetWalkHistoryScreen.swift": {
-        "limit": 250,
-        "line_count": 311,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTrackingScreen.swift": {
-        "limit": 250,
-        "line_count": 324,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTrackingSheet.swift": {
-        "limit": 250,
-        "line_count": 367,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 325,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightHistoryScreen.swift": {
-        "limit": 250,
-        "line_count": 356,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightRecordDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 289,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sheets/PetWeightRecordSheet.swift": {
-        "limit": 250,
-        "line_count": 310,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Content/PetWorldFeedDetailContent.swift": {
-        "limit": 250,
-        "line_count": 383,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/PetWorld/Presentation/Models/Mock/PetWorldMockFeedDetail.swift": {
-        "limit": 250,
-        "line_count": 355,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/PetWorld/Presentation/Screens/Detail/PetWorldFeedDetailLoadedScreen.swift": {
-        "limit": 250,
-        "line_count": 358,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgeDetailSheet.swift": {
-        "limit": 250,
-        "line_count": 361,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
-        "limit": 250,
-        "line_count": 317,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Replies/ProfileReplySections.swift": {
-        "limit": 250,
-        "line_count": 289,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeHeaderSections.swift": {
-        "limit": 250,
-        "line_count": 332,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Favorites/ProfileFavoriteFoldersScreen.swift": {
-        "limit": 250,
-        "line_count": 294,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Badges/ProfileBadge.swift": {
-        "limit": 250,
-        "line_count": 298,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Editing/ProfileUserEditRegionModels.swift": {
-        "limit": 250,
-        "line_count": 253,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Feed/ProfileMockFeedDetail.swift": {
-        "limit": 250,
-        "line_count": 345,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserAvatarPreviewScreen.swift": {
-        "limit": 250,
-        "line_count": 285,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserBackgroundPreviewScreen.swift": {
-        "limit": 250,
-        "line_count": 262,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Region/ProfileUserRegionPickerScreen.swift": {
-        "limit": 250,
-        "line_count": 258,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Social/ProfileFollowingScreen.swift": {
-        "limit": 250,
-        "line_count": 373,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/UserEdit/ProfileUserEditScreen.swift": {
-        "limit": 250,
-        "line_count": 290,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Stores/CurrentUserStore.swift": {
-        "limit": 250,
-        "line_count": 260,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Stores/ProfileUserEditStore.swift": {
-        "limit": 250,
-        "line_count": 331,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Location/PublishLocationPickerSheet.swift": {
-        "limit": 250,
-        "line_count": 380,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishMentionUserSelectionSheet.swift": {
-        "limit": 250,
-        "line_count": 338,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishSelectionSheets.swift": {
-        "limit": 250,
-        "line_count": 292,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Composer/PublishEventComposerScreen.swift": {
-        "limit": 250,
-        "line_count": 328,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/RichText/PublishArticleRichTextEditor+Coordinator+Delegate.swift": {
-        "limit": 250,
-        "line_count": 295,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/RichText/PublishArticleRichTextEditor+Coordinator.swift": {
-        "limit": 250,
-        "line_count": 377,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/Text/PublishTopicTextEditor.swift": {
-        "limit": 250,
-        "line_count": 369,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Commodity/Detail/SameCityCommodityDetailSections.swift": {
-        "limit": 250,
-        "line_count": 259,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Feed/SameCityCommodityFeedCard.swift": {
-        "limit": 250,
-        "line_count": 263,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/SameCity/Presentation/Models/Commodity/SameCityCommodityDetailItem.swift": {
-        "limit": 250,
-        "line_count": 256,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 397,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityGrowthRecordScreen.swift": {
-        "limit": 250,
-        "line_count": 388,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Settings/Presentation/Views/Preferences/SettingsPrivacyScreens.swift": {
-        "limit": 250,
-        "line_count": 343,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Topics/Presentation/TopicDetailScreen.swift": {
-        "limit": 250,
-        "line_count": 312,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Topics/Presentation/TopicFollowedListScreen.swift": {
-        "limit": 250,
-        "line_count": 337,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Topics/Stores/TopicStore.swift": {
-        "limit": 250,
-        "line_count": 282,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/List/FeedDetailCommentsSection.swift": {
-        "limit": 250,
-        "line_count": 285,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift": {
-        "limit": 250,
-        "line_count": 299,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Stores/FeedInteractionStore.swift": {
-        "limit": 250,
-        "line_count": 295,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Location/Search/MHBLocationSearchService.swift": {
-        "limit": 250,
-        "line_count": 285,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/MediaPicker/Camera/Controller/MHBResponsiveCameraViewController.swift": {
-        "limit": 250,
-        "line_count": 276,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/MHBPhotoLibraryService.swift": {
-        "limit": 250,
-        "line_count": 276,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Networking/Core/MHBHTTPClientInfrastructure.swift": {
-        "limit": 250,
-        "line_count": 329,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Networking/Sending/MHBHTTPClient+Sending.swift": {
-        "limit": 250,
-        "line_count": 252,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/SwiftUI/Avatar/MHBAvatar.swift": {
-        "limit": 250,
-        "line_count": 256,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/UIKit/Navigation/PopGesture/MHBInteractivePopGestureRestorer.swift": {
-        "limit": 250,
-        "line_count": 302,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/UIKit/Navigation/SearchBar/MHBNavigationSearchBarInstaller+Coordinator.swift": {
-        "limit": 250,
-        "line_count": 286,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreRuntimeAdapterTests.swift": {
-        "limit": 250,
-        "line_count": 266,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/AI/Stores/Streaming/AIAssistantStoreStreamingTests.swift": {
-        "limit": 250,
-        "line_count": 292,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Home/Dashboard/Stores/HomeDashboardStoreTests.swift": {
-        "limit": 250,
-        "line_count": 251,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Home/Mock/HomeMockDashboardFixturesTests.swift": {
-        "limit": 250,
-        "line_count": 258,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryFoodInventoryContractTests.swift": {
-        "limit": 250,
-        "line_count": 251,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryMediaContractTests.swift": {
-        "limit": 250,
-        "line_count": 254,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Pet/Stores/FoodInventory/PetFoodInventoryStoreTests.swift": {
-        "limit": 250,
-        "line_count": 257,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
-        "limit": 250,
-        "line_count": 344,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanWidgets/PetWalkLiveActivityWidget.swift": {
-        "limit": 250,
-        "line_count": 386,
-        "suffix": ".swift"
-      }
-    },
-    "hard_line_files": {
+    "exempted_hard_line_files": {
       ".codex/hooks/maohuoban_project_rules.rs": {
         "limit": 500,
         "line_count": 607,
@@ -1717,7 +1005,7 @@
         "suffix": ".swift"
       }
     },
-    "multi_type_files": {
+    "exempted_multi_type_files": {
       ".pi/packages/maohuoban-workflow/src/index.ts": {
         "line_count": 945,
         "primary_type_count": 8,
@@ -3993,7 +3281,722 @@
         "primary_type_count": 11,
         "suffix": ".swift"
       }
-    }
+    },
+    "flat_directories": {},
+    "guideline_line_files": {
+      "maohuoban-diagnostics-sdk/collector/src/main.rs": {
+        "limit": 300,
+        "line_count": 328,
+        "suffix": ".rs"
+      },
+      "maohuoban-diagnostics-sdk/rust/tests/storage_pipeline.rs": {
+        "limit": 300,
+        "line_count": 489,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/output/mod.rs": {
+        "limit": 300,
+        "line_count": 373,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_diagnostics/mod.rs": {
+        "limit": 300,
+        "line_count": 472,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine/loop_engine.rs": {
+        "limit": 300,
+        "line_count": 462,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/registry.rs": {
+        "limit": 300,
+        "line_count": 331,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/conversation_history/main.rs": {
+        "limit": 300,
+        "line_count": 452,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/eval_case/main.rs": {
+        "limit": 300,
+        "line_count": 319,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/finalizer_contract/main.rs": {
+        "limit": 300,
+        "line_count": 474,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/memory_candidate/main.rs": {
+        "limit": 300,
+        "line_count": 409,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/prompt_builder/main.rs": {
+        "limit": 300,
+        "line_count": 380,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_disclosure/main.rs": {
+        "limit": 300,
+        "line_count": 401,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/stream/stream.rs": {
+        "limit": 300,
+        "line_count": 308,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-domain/tests/tool_fact_projection_boundary.rs": {
+        "limit": 300,
+        "line_count": 345,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_stream_projector.rs": {
+        "limit": 300,
+        "line_count": 367,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_tools/tests.rs": {
+        "limit": 300,
+        "line_count": 475,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/turn_preparation.rs": {
+        "limit": 300,
+        "line_count": 368,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/diagnostics_common.rs": {
+        "limit": 300,
+        "line_count": 357,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/history.rs": {
+        "limit": 300,
+        "line_count": 378,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/diagnostics.rs": {
+        "limit": 300,
+        "line_count": 493,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/provider.rs": {
+        "limit": 300,
+        "line_count": 366,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/sse.rs": {
+        "limit": 300,
+        "line_count": 341,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository/chat_turn_transaction.rs": {
+        "limit": 300,
+        "line_count": 429,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository/session.rs": {
+        "limit": 300,
+        "line_count": 495,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/deepseek.rs": {
+        "limit": 300,
+        "line_count": 455,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_request_policy.rs": {
+        "limit": 300,
+        "line_count": 345,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router/dto.rs": {
+        "limit": 300,
+        "line_count": 401,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router/handlers.rs": {
+        "limit": 300,
+        "line_count": 305,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-auth-infrastructure/src/postgres/repository/session.rs": {
+        "limit": 300,
+        "line_count": 310,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/attention_hint.rs": {
+        "limit": 300,
+        "line_count": 305,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/ports/mod.rs": {
+        "limit": 300,
+        "line_count": 355,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/service/diet.rs": {
+        "limit": 300,
+        "line_count": 357,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-application/src/pet/service/mod.rs": {
+        "limit": 300,
+        "line_count": 383,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/profile_enums.rs": {
+        "limit": 300,
+        "line_count": 427,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/diet_repository.rs": {
+        "limit": 300,
+        "line_count": 391,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/food_inventory_repository.rs": {
+        "limit": 300,
+        "line_count": 306,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository.rs": {
+        "limit": 300,
+        "line_count": 352,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/abnormal_event_handler.rs": {
+        "limit": 300,
+        "line_count": 388,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/profile_external_ids.rs": {
+        "limit": 300,
+        "line_count": 409,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-profile-infrastructure/src/postgres/repository/media.rs": {
+        "limit": 300,
+        "line_count": 328,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/src/home_dashboard.rs": {
+        "limit": 300,
+        "line_count": 305,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/src/lib.rs": {
+        "limit": 300,
+        "line_count": 420,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/src/test_support.rs": {
+        "limit": 300,
+        "line_count": 386,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/ai_contract/chat_stream.rs": {
+        "limit": 300,
+        "line_count": 460,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/ai_contract/chat_stream_inventory_hints.rs": {
+        "limit": 300,
+        "line_count": 318,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/ai_contract/evaluation_regression_contract/fixture_contract.rs": {
+        "limit": 300,
+        "line_count": 404,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/ai_eval.rs": {
+        "limit": 300,
+        "line_count": 332,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/abnormal_episode_table_test.rs": {
+        "limit": 300,
+        "line_count": 326,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/diet_assignment.rs": {
+        "limit": 300,
+        "line_count": 420,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/feeding_event.rs": {
+        "limit": 300,
+        "line_count": 442,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/food_inventory_crud.rs": {
+        "limit": 300,
+        "line_count": 453,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/profile_crud.rs": {
+        "limit": 300,
+        "line_count": 437,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/pet_contract/profile_events.rs": {
+        "limit": 300,
+        "line_count": 339,
+        "suffix": ".rs"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Core/MHBImagePreviewOverlay.swift": {
+        "limit": 250,
+        "line_count": 262,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Interaction/MHBImagePreviewOverlay+Interaction.swift": {
+        "limit": 250,
+        "line_count": 314,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Zoom/MHBImagePreviewZoomScrollView.swift": {
+        "limit": 250,
+        "line_count": 267,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessory/MHBKeyboardAccessoryHostingController.swift": {
+        "limit": 250,
+        "line_count": 305,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/Container/MHBKeyboardAccessoryTextInputContainerView.swift": {
+        "limit": 250,
+        "line_count": 373,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardTextView/MHBKeyboardTextView.swift": {
+        "limit": 250,
+        "line_count": 380,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantHistoryScreen.swift": {
+        "limit": 250,
+        "line_count": 261,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantScreen.swift": {
+        "limit": 250,
+        "line_count": 398,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Home/Data/Mock/Fixtures/Scenarios/HomeMockPetOwnerDashboardFixtures.swift": {
+        "limit": 250,
+        "line_count": 255,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Home/Presentation/Components/QuickFact/Sheets/HomeQuickFactSheets.swift": {
+        "limit": 250,
+        "line_count": 277,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Home/Presentation/Sections/Dashboard/HomeDashboardLoadedView.swift": {
+        "limit": 250,
+        "line_count": 296,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Home/Presentation/Sections/HomeTimelineSection.swift": {
+        "limit": 250,
+        "line_count": 368,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Screens/PetAbnormalRecordDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 364,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordSections.swift": {
+        "limit": 250,
+        "line_count": 346,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Add/Media/PetProfileAddScreen+MediaActions.swift": {
+        "limit": 250,
+        "line_count": 266,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Daily/PetDailyRecordSections.swift": {
+        "limit": 250,
+        "line_count": 309,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Health/PetHealthRecordSections.swift": {
+        "limit": 250,
+        "line_count": 257,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Actions/PetProfileEditScreen+ProfileSaveActions.swift": {
+        "limit": 250,
+        "line_count": 270,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift": {
+        "limit": 250,
+        "line_count": 325,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift": {
+        "limit": 250,
+        "line_count": 392,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Models/PetPreventiveCareRecordDetailPresentation.swift": {
+        "limit": 250,
+        "line_count": 259,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Screens/PetPreventiveCareRecordDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 344,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareAddRecordSections.swift": {
+        "limit": 250,
+        "line_count": 305,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareSections.swift": {
+        "limit": 250,
+        "line_count": 378,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Records/Details/PetFeedingDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 277,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Records/History/PetRecordHistoryScreen.swift": {
+        "limit": 250,
+        "line_count": 386,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Completion/PetWalkCompletionScreen.swift": {
+        "limit": 250,
+        "line_count": 288,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/Detail/PetWalkHistoryDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 260,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/List/PetWalkHistoryScreen.swift": {
+        "limit": 250,
+        "line_count": 311,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTrackingScreen.swift": {
+        "limit": 250,
+        "line_count": 324,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTrackingSheet.swift": {
+        "limit": 250,
+        "line_count": 367,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 325,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightHistoryScreen.swift": {
+        "limit": 250,
+        "line_count": 356,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightRecordDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 289,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sheets/PetWeightRecordSheet.swift": {
+        "limit": 250,
+        "line_count": 310,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Content/PetWorldFeedDetailContent.swift": {
+        "limit": 250,
+        "line_count": 383,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/PetWorld/Presentation/Models/Mock/PetWorldMockFeedDetail.swift": {
+        "limit": 250,
+        "line_count": 355,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/PetWorld/Presentation/Screens/Detail/PetWorldFeedDetailLoadedScreen.swift": {
+        "limit": 250,
+        "line_count": 358,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgeDetailSheet.swift": {
+        "limit": 250,
+        "line_count": 361,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
+        "limit": 250,
+        "line_count": 317,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Replies/ProfileReplySections.swift": {
+        "limit": 250,
+        "line_count": 289,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeHeaderSections.swift": {
+        "limit": 250,
+        "line_count": 332,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Favorites/ProfileFavoriteFoldersScreen.swift": {
+        "limit": 250,
+        "line_count": 294,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Badges/ProfileBadge.swift": {
+        "limit": 250,
+        "line_count": 298,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Editing/ProfileUserEditRegionModels.swift": {
+        "limit": 250,
+        "line_count": 253,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Models/Feed/ProfileMockFeedDetail.swift": {
+        "limit": 250,
+        "line_count": 345,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserAvatarPreviewScreen.swift": {
+        "limit": 250,
+        "line_count": 285,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserBackgroundPreviewScreen.swift": {
+        "limit": 250,
+        "line_count": 262,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Region/ProfileUserRegionPickerScreen.swift": {
+        "limit": 250,
+        "line_count": 258,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Social/ProfileFollowingScreen.swift": {
+        "limit": 250,
+        "line_count": 373,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/UserEdit/ProfileUserEditScreen.swift": {
+        "limit": 250,
+        "line_count": 290,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Stores/CurrentUserStore.swift": {
+        "limit": 250,
+        "line_count": 260,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Stores/ProfileUserEditStore.swift": {
+        "limit": 250,
+        "line_count": 331,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Location/PublishLocationPickerSheet.swift": {
+        "limit": 250,
+        "line_count": 380,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishMentionUserSelectionSheet.swift": {
+        "limit": 250,
+        "line_count": 338,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishSelectionSheets.swift": {
+        "limit": 250,
+        "line_count": 292,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Composer/PublishEventComposerScreen.swift": {
+        "limit": 250,
+        "line_count": 328,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/RichText/PublishArticleRichTextEditor+Coordinator+Delegate.swift": {
+        "limit": 250,
+        "line_count": 295,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/RichText/PublishArticleRichTextEditor+Coordinator.swift": {
+        "limit": 250,
+        "line_count": 377,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Publish/Presentation/Editing/Text/PublishTopicTextEditor.swift": {
+        "limit": 250,
+        "line_count": 369,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Commodity/Detail/SameCityCommodityDetailSections.swift": {
+        "limit": 250,
+        "line_count": 259,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Feed/SameCityCommodityFeedCard.swift": {
+        "limit": 250,
+        "line_count": 263,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/SameCity/Presentation/Models/Commodity/SameCityCommodityDetailItem.swift": {
+        "limit": 250,
+        "line_count": 256,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 397,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityGrowthRecordScreen.swift": {
+        "limit": 250,
+        "line_count": 388,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Settings/Presentation/Views/Preferences/SettingsPrivacyScreens.swift": {
+        "limit": 250,
+        "line_count": 343,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Topics/Presentation/TopicDetailScreen.swift": {
+        "limit": 250,
+        "line_count": 312,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Topics/Presentation/TopicFollowedListScreen.swift": {
+        "limit": 250,
+        "line_count": 337,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Topics/Stores/TopicStore.swift": {
+        "limit": 250,
+        "line_count": 282,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/List/FeedDetailCommentsSection.swift": {
+        "limit": 250,
+        "line_count": 285,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift": {
+        "limit": 250,
+        "line_count": 299,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Stores/FeedInteractionStore.swift": {
+        "limit": 250,
+        "line_count": 295,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Location/Search/MHBLocationSearchService.swift": {
+        "limit": 250,
+        "line_count": 285,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/MediaPicker/Camera/Controller/MHBResponsiveCameraViewController.swift": {
+        "limit": 250,
+        "line_count": 276,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/MHBPhotoLibraryService.swift": {
+        "limit": 250,
+        "line_count": 276,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Networking/Core/MHBHTTPClientInfrastructure.swift": {
+        "limit": 250,
+        "line_count": 329,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Networking/Sending/MHBHTTPClient+Sending.swift": {
+        "limit": 250,
+        "line_count": 252,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/SwiftUI/Avatar/MHBAvatar.swift": {
+        "limit": 250,
+        "line_count": 256,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/UIKit/Navigation/PopGesture/MHBInteractivePopGestureRestorer.swift": {
+        "limit": 250,
+        "line_count": 302,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/UIKit/Navigation/SearchBar/MHBNavigationSearchBarInstaller+Coordinator.swift": {
+        "limit": 250,
+        "line_count": 286,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreRuntimeAdapterTests.swift": {
+        "limit": 250,
+        "line_count": 266,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/AI/Stores/Streaming/AIAssistantStoreStreamingTests.swift": {
+        "limit": 250,
+        "line_count": 292,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Home/Dashboard/Stores/HomeDashboardStoreTests.swift": {
+        "limit": 250,
+        "line_count": 251,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Home/Mock/HomeMockDashboardFixturesTests.swift": {
+        "limit": 250,
+        "line_count": 258,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryFoodInventoryContractTests.swift": {
+        "limit": 250,
+        "line_count": 251,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryMediaContractTests.swift": {
+        "limit": 250,
+        "line_count": 254,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Pet/Stores/FoodInventory/PetFoodInventoryStoreTests.swift": {
+        "limit": 250,
+        "line_count": 257,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
+        "limit": 250,
+        "line_count": 344,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanWidgets/PetWalkLiveActivityWidget.swift": {
+        "limit": 250,
+        "line_count": 386,
+        "suffix": ".swift"
+      }
+    },
+    "hard_line_files": {},
+    "multi_type_files": {}
   },
   "source_report": "docs/engineering/code-structure/03_目录与文件规则全仓扫描报告.md",
   "version": 1

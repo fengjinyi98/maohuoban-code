@@ -1,0 +1,1664 @@
+{
+  "flat_directories": {
+    "maohuoban-diagnostics-sdk/collector/src": {
+      "reason": "crate 入口目录保留 lib/main 与少量聚合模块，保持包入口稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/collector/tests": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src": {
+      "reason": "crate 入口目录保留 lib/main 与少量聚合模块，保持包入口稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/export": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/runtime": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/storage": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/tests": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Core": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Export": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Runtime": {
+      "reason": "诊断 SDK 公共接口与运行时目录保持当前 Swift/Rust 包布局，避免影响 SDK 消费端；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-his-web": {
+      "reason": "HIS Web 当前为轻量应用入口与共享目录，保持现有构建约定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/shared/api": {
+      "reason": "HIS Web 当前为轻量应用入口与共享目录，保持现有构建约定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/shared/mocks": {
+      "reason": "HIS Web 当前为轻量应用入口与共享目录，保持现有构建约定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/finalizer": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/model_router": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/planning": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine/output_guard": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/skill": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/runtime": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/session": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/stream": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/capability": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/context": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/memory": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/skill": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/tool": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/tests": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/non_stream": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/runtime_tools": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/config": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-application/src/auth/service": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-http/src/auth/extractor": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-infrastructure/src/postgres/repository": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-application/src/home": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/service": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/router": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/merchant_repository": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/media_commands": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-application/src/profile": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-http/src/profile/router": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-infrastructure/src/postgres/repository": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-samecity-http/src/samecity": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/src": {
+      "reason": "crate 入口目录保留 lib/main 与少量聚合模块，保持包入口稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/src/Infrastructure/ai": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/src/home_dashboard": {
+      "reason": "Rust 模块根目录依赖 mod.rs 与同级模块声明，当前保留以避免无行为收益的模块路径扰动；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/auth_contract": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/auth_contract/profile": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/home_contract": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/pet_contract": {
+      "reason": "合同测试或集成测试目录按测试主题聚合，保持 Cargo/Xcode 测试发现稳定；新增直接代码文件由扫描基线阻断。"
+    }
+  },
+  "generated_at": "2026-07-03T05:04:23",
+  "hard_line_files": {
+    ".codex/hooks/maohuoban_project_rules.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine/loop_tests.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine/planning_runtime_tests.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_loop_engine_streaming/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_regression_cases/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_tool_visibility/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_workbench_prompt_projection/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/session_summary/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/session_turn_contract/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/skill_runtime_contract/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_registry/main.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/runtime/runtime.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/diagnostics.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/tests/runtime_stream_projector.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_compatible.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract/chat_non_stream.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract/chat_stream_diagnostics.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract/chat_stream_runtime_tools.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract/history.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/tests/ai_contract/persistence.rs": {
+      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Stores/Streaming/AIAssistantStore+Streaming.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/ProfileRootScreen.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Input/MHBStableMultilineTextInput.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/AI/Data/AIAssistantDTOTests.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreStreamEventTests.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
+      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
+    }
+  },
+  "multi_type_files": {
+    ".pi/packages/maohuoban-workflow/src/index.ts": {
+      "reason": "存量多类型文件已审计保留，新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/collector/src/config.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/collector/src/workspace_report.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/cleanup.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/event.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/export/bundle.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/network.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/policy.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/runtime/config.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/runtime/health.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/src/storage/queued_event_store.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/rust/tests/support/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Context/DiagnosticsContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Core/DiagnosticEvent.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Core/DiagnosticsConfiguration.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Core/Policies.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Export/DebugBundleExporter.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Export/DebugBundleIndex.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Export/DebugBundleTimeBasis.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Remote/DiagnosticsRemoteEventSink.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Runtime/DiagnosticsEventWriter.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Runtime/DiagnosticsRepositoryInstrumentation.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/Runtime/DiagnosticsStorageHealth.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-diagnostics-sdk/swift/Sources/MaohuobanDiagnostics/SwiftUI/DiagnosticsSwiftUIInstrumentation.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/features/auth/domain/models.ts": {
+      "reason": "存量多类型文件已审计保留，新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/shared/api/types.ts": {
+      "reason": "存量多类型文件已审计保留，新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/shared/components/HisStatusChip.tsx": {
+      "reason": "存量多类型文件已审计保留，新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-his-web/src/shared/design-system/navigation.ts": {
+      "reason": "存量多类型文件已审计保留，新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/conversation_history/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/guardrail/controller.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/memory/retriever.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/chat_turn_transaction.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/diet_context.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/identity_context.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/llm.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/memory_candidate_repository.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/memory_repository.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/pet_catalog.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/session_repository.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/ports/session_summary_repository.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/session_summary/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/stream/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/disclosure.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/discovery.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/tools/result.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-application/src/ai/verifier/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/facts/fact_package.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/intent/intent.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/llm/llm.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/pet/pet_snapshot.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/runtime/runtime.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/session/session.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/session/session_turn.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/stream/proposed_action.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/stream/stream.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/verification/verification.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/memory/memory_candidate.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/session/recent_conversation.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/session/session_summary.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/tool/tool_execution_record.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/tool/tool_fact_projection.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/workbench/tool/tool_fact_schema.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/chat/visible_output_plan.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/history.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/repository/session_rows.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-application/src/auth/ports.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-application/src/auth/service.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-domain/src/auth/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-domain/src/auth/model.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-http/src/auth/router/dto.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-auth-infrastructure/src/postgres/repository/rows.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-application/src/home/service.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/activity.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/attention_hint.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/identity.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/merchant.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-home-domain/src/home/model/pet.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-legal-domain/src/legal/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-legal-domain/src/legal/model.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-media-gc-worker/src/lib.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-media-storage/src/lib.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-media-storage/src/media_upload_policy.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/diagnostics.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/merchant.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/ports/diet.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/ports/media.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-application/src/pet/ports/mod.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/merchant.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/abnormal_episode.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/agent_confirmation_task.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/diet_assignment.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/event.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/external_identifier.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/food_event_payloads.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/food_inventory_item.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/identity_context.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/lifecycle_event.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/media.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/pet_guardian.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/profile.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-domain/src/pet/model/profile_enums.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/merchant.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests/diet_assignment.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests/food_inventory.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests/media.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests/merchant.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/requests/profile.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/dto/responses.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-http/src/pet/router/food_inventory.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/merchant_repository/merchant_rows.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/media_commands.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-pet-infrastructure/src/postgres/repository/rows.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-application/src/profile/ports.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-domain/src/profile/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-domain/src/profile/model.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-http/src/profile/router/mappers.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-http/src/profile/router/requests.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-profile-infrastructure/src/postgres/repository/rows.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-recommendation-application/src/recommendation/ports.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-recommendation-domain/src/recommendation/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-recommendation-domain/src/recommendation/model.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-samecity-application/src/samecity/ports.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-samecity-domain/src/samecity/error.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-samecity-domain/src/samecity/model.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/crates/maohuoban-samecity-http/src/samecity/dto.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/src/home_dashboard.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/src/lib.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban-rust/src/test_support.rs": {
+      "reason": "Rust 文件含紧密耦合值对象或测试支撑类型，拆分需配合模块边界专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/TextInput/MHBStableTextInputLimit.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/TextInput/MHBStableTextInputStateMachine.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Image/MHBRemoteMediaLoading.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/Coordinator/MHBImagePreviewCoordinator.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/Overlay/MHBImagePreviewWindowOverlay.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Core/MHBImagePreviewOverlay+Types.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Layout/MHBTopChromePositioning.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Core/MHBSlotTextConfiguration.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Core/MHBSlotTextTransitionPlan.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Views/MHBSlotTextView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/Views/MHBToastView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessory/MHBKeyboardAccessoryContainerView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardTextView/MHBKeyboardTextView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/Packages/MaohuobanDesignSystem/Tests/MaohuobanDesignSystemTests/Image/MHBRemoteImageLoadingTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/App/Appearance/AppAppearanceStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Data/AIStreamEventParser.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Data/DTO/Core/AIChatSessionDTO.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Domain/Entry/AIAssistantEntryContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Domain/Entry/AIAssistantHistoryMenuActions.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantHistoryScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Presentation/Components/Message/AIAssistantMessageBubble.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Presentation/Components/Message/AIAssistantPetAvatar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/AI/Presentation/Components/References/AIAssistantPromptRail.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Data/AuthDTOs.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Data/AuthRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Domain/AuthModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Actions/AuthActionButtons.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Actions/AuthAgreementRow.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Actions/AuthThirdPartyButtons.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Base/AuthComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Inputs/AuthCodeBoxes.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Components/Inputs/AuthInputFields.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Screens/AuthLoginView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Screens/AuthVerificationView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Auth/Presentation/Screens/Root/AuthRootView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Data/HomeRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Components/HomeQuickFactSheetModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Components/QuickFact/Chrome/HomeQuickFactActionBar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/HomeRootScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Models/HomeQuickFactAction.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Navigation/HomeActionRouteResolver.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Reminders/HomeAddReminderModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Reminders/HomeAddReminderSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Reminders/HomeAddReminderSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Actions/HomeQuickActionsFloatingMenu.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Dashboard/HomeDashboardContentSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Dashboard/HomeEmptyStateSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/HomeAttentionHintSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/HomeTimelineSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/ImmersiveHeader/Chrome/HomeImmersiveHeaderControls.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/ImmersiveHeader/Chrome/HomeImmersivePetHeaderBadges.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/ImmersiveHeader/Chrome/HomeImmersivePetHeaderSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/ImmersiveHeader/Media/HomeImmersivePetHeaderBackgroundLayer.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Merchant/HomeMerchantDashboardSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Merchant/HomePartnerSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Care/HomeRemindersSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Media/HomePetAlbumsSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Media/HomePetGallerySection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Media/HomePetHeroSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Switching/HomeImmersivePetSwitchPanel.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Presentation/Sections/Pet/Switching/HomePetSwitcherSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Stores/HomeDashboardStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Home/Stores/HomeDashboardThemeStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Legal/Data/LegalRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Legal/Domain/LegalDocument.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Legal/Presentation/LegalDocumentView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Legal/Presentation/LegalHTMLTextView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Data/MerchantRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Domain/Models/MerchantPetModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Domain/Taxonomy/MerchantPetTaxonomy.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Components/MerchantLitterDetailRows.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Components/MerchantPetRows.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Screens/Pets/MerchantPetCreateScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Sections/Litter/MerchantLitterDetailContentSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Sections/Litter/MerchantLitterDetailHeaderSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Sections/Litter/MerchantLitterDetailStateSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Sections/Pets/MerchantPetsSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Presentation/Sections/Status/MerchantAvailableStatusSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Stores/Litter/MerchantLitterDetailStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Stores/Pets/MerchantPetCreateStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Stores/Pets/MerchantPetsStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Merchant/Stores/Status/MerchantAvailableStatusStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Data/PetRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Events/Drafts/PetEventDraft.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Media/Assets/PetMediaDerivative.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Media/Kinds/PetMediaKinds.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Media/Upload/PetMediaUploadDrafts.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Diet/Snapshots/PetCurrentDietContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Inventory/FoodInventoryItem.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Items/PantryItemDraft.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Profile/Editing/Drafts/PetProfileEditProfile.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Profile/Identity/PetIdentityContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Domain/Taxonomy/PetTaxonomyEnums.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Models/PetAbnormalRecordModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Screens/PetAbnormalRecordDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordDetailTimelineSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordTopChrome.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sheets/PetAbnormalRecordActionSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sheets/PetAbnormalRecordDetailSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Add/Components/Sections/PetProfileAddDetailSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Add/Components/Sections/PetProfileAddRows.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Add/Components/Selection/PetProfileAddRowFramePreference.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Add/Components/Selection/PetProfileAddSelectionMenu.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Media/PetProfileHeroMediaPreviewContent.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Daily/PetDailyRecordSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Health/PetHealthRecordControls.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Records/Health/PetHealthRecordSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Write/PetWriteFormComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Write/PetWriteStatusSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Components/Write/PetWriteToastBridge.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Header/PetProfileEditPetPickerHeader.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Media/PetProfileEditMediaComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Preferences/PetProfileEditRowFramePreference.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Sections/PetProfileEditDetailSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Sections/PetProfileEditRows.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Components/Selection/PetProfileEditSelectionMenu.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Preview/HomePreviewUIKitPresenter.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Edit/Preview/PetProfileHomePreviewContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Management/Components/Avatar/PetManagementPetAvatar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Models/Context/PetRecordEntryContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Models/Drafts/PetDailyRecordFormDraft.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Models/Drafts/PetHealthRecordFormDraft.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PetCreateScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Models/PetPreventiveCareModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Models/PetPreventiveCareRecordDetailPresentation.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Screens/PetPreventiveCareRecordDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Screens/PetPreventiveCareScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareAddRecordSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareChrome.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sections/PetPreventiveCareSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/Sheets/PetPreventiveCareAddRecordSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Profile/PetProfileDeleteConfirmationScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Profile/Previews/PetProfileAvatarPreviewScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/QuickFacts/PetQuickFactDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/QuickFacts/PetRecordDetailRoute.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Records/Details/PetEventRecordScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Records/Details/PetFeedingDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Records/Details/PetTradeImportScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Records/History/PetRecordHistoryScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Completion/PetWalkCompletionRoutePreview.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Completion/PetWalkCompletionScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/Detail/PetWalkHistoryDetailRouteCanvas.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/Detail/PetWalkHistoryDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/List/PetWalkHistoryDashboardSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/List/PetWalkHistoryRecordsSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/History/List/PetWalkHistoryScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/PetWalkNavigationStatus.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTopChrome.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Walking/Tracking/PetWalkTrackingSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightHistoryScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightRecordDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Charts/PetWeightChartCardSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Charts/PetWeightLineChartSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Summary/PetWeightHeroSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Summary/PetWeightHistorySection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sheets/PetWeightRecordSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Stores/Detail/PetAbnormalDetailStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Pet/Stores/Detail/PetEventDetailStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Domain/PetAlbumMenuActions.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Domain/PetAlbumModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Presentation/Components/Assets/PetAlbumMosaicGrid.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Presentation/Components/Assets/PetAlbumPhotoStackCard.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Presentation/Components/Chrome/PetAlbumContextMenuContent.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Presentation/Models/PetAlbumCreateMode.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetAlbum/Presentation/PetAlbumCreateScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Comments/Composer/PetWorldFeedDetailCommentActionSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Comments/List/PetWorldFeedDetailCommentsSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Comments/List/PetWorldFeedDetailInputBar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Content/PetWorldFeedDetailContent.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Content/PetWorldFeedDetailInterleavedArticle.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Header/PetWorldFeedDetailHeaderControls.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Detail/Header/PetWorldFeedDetailHeroCarousel.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Components/Navigation/PetWorldNavigationTabBar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Models/Actions/PetWorldFeedDetailMoreMenuAction.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/PetWorld/Presentation/Screens/Root/PetWorldRootScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Data/CurrentUserProfileRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Domain/Models/CurrentUserModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Domain/Models/CurrentUserProfile.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Badges/ProfileBadgesScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgeDetailSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgesSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Overview/ProfileBadgeGrid.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Editing/ProfileUserEditSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileQuickEntriesSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Followers/ProfileFollowedTopicsSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Followers/ProfileFollowerSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Replies/ProfileReplySections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Content/ProfileUserHomeContentSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeHeaderSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeNavigationChrome.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomePetFamilySection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Favorites/ProfileFavoriteFolderCreateScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Favorites/ProfileFavoriteFoldersScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Models/Editing/ProfileUserEditRegionModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Models/Favorites/Actions/ProfileFavoriteFolderMenuActions.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Models/Favorites/ProfileFavoriteFolder.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Models/Favorites/ProfileFavoriteFolderCreateMode.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Models/UserHome/ProfileUserHomeModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserAvatarPreviewScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Previews/ProfileUserBackgroundPreviewScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Region/ProfileUserRegionPickerScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Sheets/ProfileUserGenderEditorSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Social/ProfileFollowersScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Social/ProfileFollowingScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/Social/ProfileRepliesScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Presentation/UserHome/ProfileUserHomeScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Stores/CurrentUserStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Profile/Stores/ProfileUserEditStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Domain/Drafts/PublishDraft.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Domain/Drafts/PublishEntryContext.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Composer/Toolbar/PublishComposerInlineToolStrip.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Composer/Toolbar/PublishComposerModePicker.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Location/PublishLocationPickerSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Media/PublishInlineImageBlock.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Media/PublishMediaHorizontalScroll.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishMentionUserSelectionSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Components/Selection/PublishSelectionSheets.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Configuration/PublishConfigurationRow.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Editing/Text/PublishTopicTextEditor.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Publish/Presentation/Editing/Text/PublishTopicTokenController.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Data/SameCityRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Domain/SameCityModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Commodity/Support/SameCityCommodityDetailSupport.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Commodity/Chrome/SameCityCommodityDetailBottomBar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Commodity/Detail/SameCityCommodityDetailSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Feed/SameCityCommodityFeedCard.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Feed/SameCityCommodityGrowthRecordCard.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Feed/SameCityFeedComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Service/SameCityServiceComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Components/Toolbar/SameCityToolbarComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Hospital/Sections/HospitalBookingContentSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Hospital/Sections/HospitalBookingFeedbackSections.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Models/Commodity/SameCityCommodityDetailItem.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Models/Commodity/SameCityCommodityFeedItem.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Models/Growth/SameCityCommodityGrowthRecordModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Presentation/Screens/Commodity/SameCityCommodityGrowthRecordScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/SameCity/Stores/HospitalBookingStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Search/Presentation/Components/SearchHistorySection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Search/Presentation/Components/SearchHotListSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Search/Presentation/Models/HotKeywords/SearchHotKeyword.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Search/Presentation/SearchScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Data/MockSettingsDeviceSessionRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Data/SettingsDeviceSessionRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Data/SettingsPasswordRepository.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Domain/SettingsAccountSecurityModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Domain/SettingsDeviceSessionModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Components/SettingsListComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Account/SettingsSetPasswordScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Device/SettingsDeviceManagementScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Device/SettingsStorageSpaceScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Preferences/SettingsGeneralAndNotificationScreens.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Preferences/SettingsPrivacyScreens.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/SettingsScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Presentation/Views/Verification/SettingsOfficialVerificationScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Settings/Stores/SettingsPasswordStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Topics/Domain/TopicModels.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Topics/Presentation/TopicDetailScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Topics/Presentation/TopicFollowedListScreen.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Features/Topics/Stores/TopicStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Author/FeedAuthorRow.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Card/Actions/FeedMoreButtonFramePreference.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Card/Actions/FeedMoreMenu.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/Composer/FeedDetailCommentActionSheet.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/Composer/FeedDetailCommentComposerComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/List/FeedDetailCommentsSection.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailHeaderControls.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailHeroCarousel.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailMetadataComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/Actions/Menu/FeedMoreMenuActionResolver.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/Author/FeedAuthorBadge.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/ImageCropping/Circular/MHBCircularImageCropOverlay.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/ImageCropping/Rectangular/MHBRectImageCropOverlay.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Location/Search/MHBLocationSearchService.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Media/Upload/MHBMediaUploadEncoder.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/MHBPhotoLibrarySelectionResolver.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/States/Permissions/MHBPhotoLibraryLimitedAccessView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Networking/Core/MHBHTTPClient.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Networking/Core/MHBHTTPClientInfrastructure.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Networking/Models/MHBAPIResponse.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Security/Token/MHBKeychainTokenStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/Security/Token/MHBTokenStore.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Avatar/MHBAvatar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Controls/MHBGlassSegmentedTabsBar.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Layout/MHBFlowLayout.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Layout/MHBScreenScrollView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/PetSwitcher/MHBPetSwitcherComponents.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/PetSwitcher/MHBPetSwitcherItem.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/SwiftUI/Presentation/MHBBottomFloatingCTA.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/UIKit/MHBVariableBlurView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/UIKit/Map/MHBRouteMapView+Annotations.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/UIKit/Media/LivePhoto/MHBRemoteLivePhotoView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/UIKit/Media/Video/MHBMutedLoopingVideoView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuoban/Infrastructure/UIKit/SegmentedTabs/MHBToolbarLikeSegmentedTabs+ContainerView.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanShared/RemoteMedia/MHBRemoteMediaLoading.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreStreamEventTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/AI/Stores/Streaming/AIAssistantStoreStreamingTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Auth/AuthViewModelTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Home/Dashboard/Repositories/HomeRepositoryTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Home/Dashboard/Stores/HomeDashboardStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Merchant/Litter/MerchantLitterDetailStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Merchant/Pets/MerchantPetCreateStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Merchant/Pets/MerchantPetsStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Merchant/Status/MerchantAvailableStatusStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Pet/Stores/Detail/PetEventDetailStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/SameCity/HospitalBookingStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/SameCity/SameCityRepositoryTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Settings/Repositories/SettingsDeviceSessionRepositoryTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Settings/Repositories/SettingsPasswordRepositoryTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Features/Settings/Stores/SettingsPasswordStoreTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Infrastructure/Networking/Client/Core/MHBHTTPClientRequestInfrastructureTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Infrastructure/RemoteImage/MHBRemoteImageTests.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Support/Merchant/MerchantRepositoryTestCase.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanTests/Support/Pet/Repository/PetRepositoryURLProtocol.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    },
+    "maohuoban/maohuobanWidgets/PetWalkLiveActivityWidget.swift": {
+      "reason": "Swift 文件含紧密耦合展示/测试支撑类型，拆分需配合 UI 或测试专项处理；新增多类型文件或类型数增长由扫描基线阻断。"
+    }
+  },
+  "policy": "已审计豁免只覆盖当前存量结构项；新增、扩大或继续增长仍由基线比对阻断。",
+  "version": 1
+}

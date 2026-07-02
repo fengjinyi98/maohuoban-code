@@ -25,6 +25,7 @@ CODE_SUFFIXES = {".swift", ".rs", ".ts", ".tsx", ".js", ".jsx", ".go", ".kt", ".
 HARD_LINE_LIMITS = {".swift": 400, ".rs": 500}
 GUIDELINE_LINE_LIMITS = {".swift": 250, ".rs": 300}
 REPORT_SOURCE = "docs/engineering/code-structure/03_目录与文件规则全仓扫描报告.md"
+DEFAULT_EXEMPTIONS = Path("docs/engineering/code-structure/code-structure-exemptions.json")
 
 
 def run_git(args: list[str]) -> list[str]:
@@ -172,9 +173,33 @@ def collect_code_files() -> list[dict[str, int | str]]:
     return files
 
 
-def scan() -> dict[str, int | dict[str, dict[str, int | str | list[str]]]]:
+def load_exemptions(path: Path | None = None) -> dict[str, set[str]]:
+    """load_exemptions 读取治理豁免清单
+
+    核心职责：
+    - 将已审计的存量结构项从活动违规中移除
+    - 保持新增或扩大的豁免项仍由基线比对阻断
+    """
+
+    exemption_path = ROOT / (path or DEFAULT_EXEMPTIONS)
+    if not exemption_path.exists():
+        return {
+            "flat_directories": set(),
+            "hard_line_files": set(),
+            "multi_type_files": set(),
+        }
+    payload = json.loads(exemption_path.read_text(encoding="utf-8"))
+    return {
+        "flat_directories": set(payload.get("flat_directories", {})),
+        "hard_line_files": set(payload.get("hard_line_files", {})),
+        "multi_type_files": set(payload.get("multi_type_files", {})),
+    }
+
+
+def scan(exemptions_path: Path | None = None) -> dict[str, int | dict[str, dict[str, int | str | list[str]]]]:
     """scan 执行目录与文件规则扫描"""
 
+    exemptions = load_exemptions(exemptions_path)
     files = collect_code_files()
     by_dir: dict[str, list[str]] = defaultdict(list)
     hard_line_files: dict[str, dict[str, int | str]] = {}
@@ -208,17 +233,50 @@ def scan() -> dict[str, int | dict[str, dict[str, int | str | list[str]]]]:
                 "primary_type_count": primary_count,
             }
 
-    flat_directories = {
+    all_flat_directories = {
         directory: {"file_count": len(paths), "files": sorted(paths)}
         for directory, paths in sorted(by_dir.items())
         if len(paths) > 3
     }
+    flat_directories = {
+        directory: item
+        for directory, item in all_flat_directories.items()
+        if directory not in exemptions["flat_directories"]
+    }
+    exempted_flat_directories = {
+        directory: item
+        for directory, item in all_flat_directories.items()
+        if directory in exemptions["flat_directories"]
+    }
+    active_hard_line_files = {
+        path: item
+        for path, item in hard_line_files.items()
+        if path not in exemptions["hard_line_files"]
+    }
+    exempted_hard_line_files = {
+        path: item
+        for path, item in hard_line_files.items()
+        if path in exemptions["hard_line_files"]
+    }
+    active_multi_type_files = {
+        path: item
+        for path, item in multi_type_files.items()
+        if path not in exemptions["multi_type_files"]
+    }
+    exempted_multi_type_files = {
+        path: item
+        for path, item in multi_type_files.items()
+        if path in exemptions["multi_type_files"]
+    }
     return {
         "code_file_count": len(files),
-        "hard_line_files": dict(sorted(hard_line_files.items())),
+        "hard_line_files": dict(sorted(active_hard_line_files.items())),
+        "exempted_hard_line_files": dict(sorted(exempted_hard_line_files.items())),
         "guideline_line_files": dict(sorted(guideline_line_files.items())),
         "flat_directories": flat_directories,
-        "multi_type_files": dict(sorted(multi_type_files.items())),
+        "exempted_flat_directories": exempted_flat_directories,
+        "multi_type_files": dict(sorted(active_multi_type_files.items())),
+        "exempted_multi_type_files": dict(sorted(exempted_multi_type_files.items())),
     }
 
 
@@ -284,6 +342,41 @@ def compare_with_baseline(result: dict, baseline: dict) -> list[str]:
             messages.append(
                 f"多类型候选继续增长：{path} {previous['primary_type_count']} -> {current['primary_type_count']} 个类型"
             )
+
+    base_exempted_hard = base_scan.get("exempted_hard_line_files", {})
+    for path, current in result.get("exempted_hard_line_files", {}).items():
+        previous = base_exempted_hard.get(path)
+        if previous is None:
+            messages.append(f"新增硬阈值豁免文件：{path} 当前 {current['line_count']} 行")
+        elif int(current["line_count"]) > int(previous["line_count"]):
+            messages.append(
+                f"硬阈值豁免文件继续增长：{path} {previous['line_count']} -> {current['line_count']} 行"
+            )
+
+    base_exempted_flat = base_scan.get("exempted_flat_directories", {})
+    for directory, current in result.get("exempted_flat_directories", {}).items():
+        previous = base_exempted_flat.get(directory)
+        if previous is None:
+            messages.append(f"新增平铺目录豁免：{directory} 当前 {current['file_count']} 个代码文件")
+            continue
+        previous_files = set(previous.get("files", []))
+        current_files = set(current["files"])
+        added_files = sorted(current_files - previous_files)
+        if added_files:
+            messages.append(
+                f"平铺豁免目录新增直接代码文件：{directory} 新增 {len(added_files)} 个："
+                + ", ".join(added_files[:5])
+            )
+
+    base_exempted_multi = base_scan.get("exempted_multi_type_files", {})
+    for path, current in result.get("exempted_multi_type_files", {}).items():
+        previous = base_exempted_multi.get(path)
+        if previous is None:
+            messages.append(f"新增多类型豁免文件：{path} 当前 {current['primary_type_count']} 个类型")
+        elif int(current["primary_type_count"]) > int(previous["primary_type_count"]):
+            messages.append(
+                f"多类型豁免文件继续增长：{path} {previous['primary_type_count']} -> {current['primary_type_count']} 个类型"
+            )
     return messages
 
 
@@ -299,6 +392,9 @@ def render_report(result: dict, baseline_path: Path | None, regressions: Iterabl
 
     regression_rows = list(regressions)
     flat_file_total = sum(int(item["file_count"]) for item in result["flat_directories"].values())
+    exempted_flat_file_total = sum(
+        int(item["file_count"]) for item in result.get("exempted_flat_directories", {}).values()
+    )
     baseline_display = "未使用"
     if baseline_path:
         resolved_baseline = baseline_path if baseline_path.is_absolute() else ROOT / baseline_path
@@ -315,11 +411,15 @@ def render_report(result: dict, baseline_path: Path | None, regressions: Iterabl
         "| 项 | 数量 |",
         "|---|---:|",
         f"| 代码文件总数 | {result['code_file_count']} |",
-        f"| 硬阈值文件 | {len(result['hard_line_files'])} |",
+        f"| 活动硬阈值文件 | {len(result['hard_line_files'])} |",
+        f"| 已审计硬阈值豁免文件 | {len(result.get('exempted_hard_line_files', {}))} |",
         f"| 建议阈值文件 | {len(result['guideline_line_files'])} |",
-        f"| 平铺超限目录 | {len(result['flat_directories'])} |",
-        f"| 平铺涉及文件 | {flat_file_total} |",
-        f"| 多类型候选文件 | {len(result['multi_type_files'])} |",
+        f"| 活动平铺超限目录 | {len(result['flat_directories'])} |",
+        f"| 活动平铺涉及文件 | {flat_file_total} |",
+        f"| 已审计平铺豁免目录 | {len(result.get('exempted_flat_directories', {}))} |",
+        f"| 已审计平铺豁免涉及文件 | {exempted_flat_file_total} |",
+        f"| 活动多类型候选文件 | {len(result['multi_type_files'])} |",
+        f"| 已审计多类型豁免文件 | {len(result.get('exempted_multi_type_files', {}))} |",
         "",
         "## 2. 相对基线结果",
         "",
@@ -336,6 +436,7 @@ def render_report(result: dict, baseline_path: Path | None, regressions: Iterabl
             "## 3. 治理口径",
             "",
             "- 当前存量违规由基线文件审计承接，后续新增或扩大的违规由本脚本阻断。",
+            "- 已审计豁免项记录在 `docs/engineering/code-structure/code-structure-exemptions.json`，豁免目录新增直接代码文件、豁免文件继续增长或新增多类型豁免均会失败。",
             "- 业务代码迁移、页面拆分、Rust 模块拆分仍按独立小切片推进，并在对应切片执行构建或测试。",
             "- 本扫描器不修改业务代码，不改变运行时逻辑和功能行为。",
             "",
@@ -351,6 +452,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--write-baseline", type=Path, help="写入当前扫描结果作为存量基线")
     parser.add_argument("--baseline", type=Path, help="读取基线并阻断新增或扩大的结构违规")
     parser.add_argument("--report", type=Path, help="写入 markdown 扫描结果")
+    parser.add_argument("--exemptions", type=Path, help="读取已审计结构豁免清单")
     return parser.parse_args()
 
 
@@ -358,7 +460,7 @@ def main() -> int:
     """main 命令行入口"""
 
     args = parse_args()
-    result = scan()
+    result = scan(args.exemptions)
     regressions: list[str] = []
 
     baseline_path = args.baseline or args.write_baseline
