@@ -18,7 +18,6 @@ use super::super::auth::current_user_id;
 use super::composition::request::ChatStreamRequest;
 use super::responses::gated_stream_response::gated_message_text;
 use super::responses::pet_resolution_stream_response::pet_resolution_message_text;
-use super::stream_handler::load_fact_context_and_initial_events;
 use super::turn_preparation::{
     load_pet_catalog_initial_events, persist_prepared_chat_turn, prepare_chat_turn_context,
 };
@@ -41,7 +40,10 @@ pub async fn handle_chat(
         return unauthorized_response();
     };
 
-    let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
+    let context = match prepare_chat_turn_context(&state, &req, actor_user_id).await {
+        Ok(context) => context,
+        Err(error) => return ai_error_response(&error),
+    };
     persist_prepared_chat_turn(&state, &req, actor_user_id, &context).await;
 
     let _ = load_pet_catalog_initial_events(
@@ -77,22 +79,13 @@ pub async fn handle_chat(
         .await;
     }
 
-    let (fact_package, _initial_events) = load_fact_context_and_initial_events(
-        &state,
-        context.session_id,
-        actor_user_id,
-        context.target_pet.as_ref(),
-        Vec::new(),
-    )
-    .await;
-
     let complete_result = complete_with_runtime(
         &state,
         &req,
         actor_user_id,
         &context,
         context.target_pet.clone(),
-        fact_package,
+        None,
     )
     .await;
     let complete = match complete_result {

@@ -1,6 +1,6 @@
 use axum::{Json, extract::State, http::HeaderMap, response::Response};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
-use maohuoban_ai_domain::ai::{AiFactPackage, AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent};
+use maohuoban_ai_domain::ai::{AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -9,16 +9,11 @@ use super::super::auth::current_user_id;
 use super::super::diagnostics::{
     record_chat_gate_decided, record_chat_provider_started, record_chat_stream_request_received,
 };
-use super::composition::fact_package_merge::merge_fact_packages;
 use super::composition::request::ChatStreamRequest;
 use super::composition::workbench_builder::{
     build_agent_session_workbench, load_memory_entries_for_workbench,
 };
-use super::loaders::diet_confirmation_candidate_loader::load_diet_confirmation_candidate_package;
-use super::loaders::diet_fact_loader::load_current_diet_fact_package;
-use super::loaders::food_inventory_hint_loader::load_food_inventory_hint_package;
 use super::loaders::history_summary_loader::load_history_and_summary;
-use super::loaders::identity_fact_loader::load_identity_fact_package;
 use super::persistence::finalizer_store::HttpFinalizerStore;
 use super::responses::gated_stream_response::gated_stream_response;
 use super::responses::pet_resolution_stream_response::pet_resolution_stream_response;
@@ -27,7 +22,7 @@ use super::runtime_stream_bridge::{RuntimeProviderStreamInput, runtime_provider_
 use super::turn_preparation::{
     load_pet_catalog_initial_events, persist_prepared_chat_turn, prepare_chat_turn_context,
 };
-use crate::ai::response::unauthorized_response;
+use crate::ai::response::{ai_error_response, unauthorized_response};
 
 /// handle_chat_stream 流式聊天 SSE handler
 /// 核心职责：
@@ -42,7 +37,10 @@ pub async fn handle_chat_stream(
         return unauthorized_response();
     };
 
-    let context = prepare_chat_turn_context(&state, &req, actor_user_id).await;
+    let context = match prepare_chat_turn_context(&state, &req, actor_user_id).await {
+        Ok(context) => context,
+        Err(error) => return ai_error_response(&error),
+    };
     record_stream_request_received(
         &req,
         actor_user_id,
@@ -134,22 +132,13 @@ async fn provider_response_for_context(
     req: &ChatStreamRequest,
     input: ProviderResponseInput,
 ) -> Response {
-    let (fact_package, initial_events) = load_fact_context_and_initial_events(
-        state,
-        input.session_id,
-        input.actor_user_id,
-        input.target_pet.as_ref(),
-        input.initial_events,
-    )
-    .await;
-
     record_provider_context_started(
         input.session_id,
         input.message_id,
         state.runtime_engine_mode.as_str(),
         input.target_pet.as_ref(),
-        &initial_events,
-        fact_package.as_ref(),
+        &input.initial_events,
+        false,
     );
 
     let stream_context = AiStreamRunContext {
@@ -157,8 +146,8 @@ async fn provider_response_for_context(
         message_id: input.message_id,
         title: input.title,
         target_pet: input.target_pet.clone(),
-        initial_events,
-        fact_package: fact_package.clone(),
+        initial_events: input.initial_events,
+        fact_package: None,
     };
     let (recent_conversation, session_summary) = match load_history_and_summary(
         state,
@@ -219,7 +208,7 @@ async fn provider_response_for_context(
             message_id: input.message_id,
             actor_user_id: input.actor_user_id,
             target_pet: input.target_pet,
-            fact_package,
+            fact_package: None,
             context: stream_context,
             workbench,
         },
@@ -267,7 +256,7 @@ fn record_provider_context_started(
     engine_mode: &str,
     target_pet: Option<&AiPetDisplaySnapshot>,
     initial_events: &[AiStreamEvent],
-    fact_package: Option<&AiFactPackage>,
+    fact_package_loaded: bool,
 ) {
     record_chat_provider_started(
         session_id,
@@ -275,38 +264,6 @@ fn record_provider_context_started(
         engine_mode,
         target_pet.is_some(),
         initial_events.len(),
-        fact_package.is_some(),
+        fact_package_loaded,
     );
-}
-
-pub(super) async fn load_fact_context_and_initial_events(
-    state: &AiHttpState,
-    session_id: Uuid,
-    actor_user_id: Uuid,
-    target_pet: Option<&AiPetDisplaySnapshot>,
-    mut initial_events: Vec<AiStreamEvent>,
-) -> (Option<AiFactPackage>, Vec<AiStreamEvent>) {
-    let (identity_fact_package, identity_events) =
-        load_identity_fact_package(state, session_id, actor_user_id, target_pet).await;
-    let (diet_fact_package, diet_events) =
-        load_current_diet_fact_package(state, session_id, actor_user_id, target_pet).await;
-    let (food_inventory_hint_package, food_inventory_hint_events) =
-        load_food_inventory_hint_package(state, session_id, actor_user_id, target_pet).await;
-    let (diet_confirmation_candidate_package, diet_confirmation_candidate_events) =
-        load_diet_confirmation_candidate_package(state, session_id, actor_user_id, target_pet)
-            .await;
-    initial_events.extend(identity_events);
-    initial_events.extend(diet_events);
-    initial_events.extend(food_inventory_hint_events);
-    initial_events.extend(diet_confirmation_candidate_events);
-
-    let merged = merge_fact_packages(
-        merge_fact_packages(identity_fact_package, diet_fact_package),
-        merge_fact_packages(
-            food_inventory_hint_package,
-            diet_confirmation_candidate_package,
-        ),
-    );
-
-    (merged, initial_events)
 }

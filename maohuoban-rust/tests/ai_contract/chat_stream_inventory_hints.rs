@@ -1,11 +1,11 @@
 use axum::http::StatusCode;
-use httpmock::MockServer;
+use httpmock::{MockServer, prelude::HttpMockRequest};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
 use super::{authorized_json_request, login_and_get_token, response_json, response_text};
 
-/// AI stream 会把储物柜变化作为弱线索注入 Provider Prompt
+/// AI stream 会通过 Runtime 工具把储物柜变化弱线索回灌 Provider
 #[tokio::test]
 async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
     let server = MockServer::start();
@@ -14,8 +14,9 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
+            .body_contains("prefetched_tool_context")
+            .body_contains("load_food_inventory_change_hints")
             .body_contains("弱线索")
-            .body_contains("不能作为已发生事实")
             .body_contains("巅峰牛肉罐头");
         then.status(200)
             .header("content-type", "text/event-stream")
@@ -95,11 +96,75 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
 #[tokio::test]
 async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
     let server = MockServer::start();
-    let mock = server.mock(|when, then| {
+    let (first_mock, unsafe_followup_mock, repair_mock) = install_weak_hint_repair_mocks(&server);
+    let app = spawn_ai_provider_test_app(&server).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139016", "ios-ai-weak-verify").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+    create_food_inventory_item(&app, &access_token, "巅峰牛肉罐头").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "毛球最近是不是换粮了？",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send weak hint verification chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+
+    first_mock.assert();
+    unsafe_followup_mock.assert();
+    repair_mock.assert();
+    assert!(
+        !text.contains("已经换成巅峰牛肉罐头"),
+        "unsafe weak hint claim should not be streamed, got: {text}"
+    );
+    assert!(
+        text.contains("event: answer_completed") && text.contains("还需要你确认毛球是否真的在吃"),
+        "SSE should complete with repaired weak hint answer, got: {text}"
+    );
+    assert!(
+        !text.contains("event: error"),
+        "repaired output should not surface output guard error, got: {text}"
+    );
+}
+
+fn install_weak_hint_repair_mocks(
+    server: &MockServer,
+) -> (httpmock::Mock<'_>, httpmock::Mock<'_>, httpmock::Mock<'_>) {
+    let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":true");
+            .body_contains("\"stream\":true")
+            .body_contains("load_food_inventory_change_hints")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(tool_call_response_body(
+                "call_inventory_hints",
+                "load_food_inventory_change_hints",
+            ));
+    });
+    let unsafe_followup_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"role\":\"tool\"")
+            .body_contains("\"tool_call_id\":\"call_inventory_hints\"")
+            .body_contains("巅峰牛肉罐头");
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
@@ -135,7 +200,12 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
                 }
             }));
     });
+    (first_mock, unsafe_followup_mock, repair_mock)
+}
 
+async fn spawn_ai_provider_test_app(
+    server: &MockServer,
+) -> maohuoban_rust::test_support::AuthTestApp {
     let mut config = maohuoban_rust::BackendConfig::local_test();
     config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
         base_url: server.base_url(),
@@ -147,46 +217,7 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
         response_format: None,
     }
     .into();
-    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
-    app.reset().await;
-    let access_token = login_and_get_token(&app, "13800139016", "ios-ai-weak-verify").await;
-    let pet = create_pet(&app, &access_token, "毛球").await;
-    let pet_id = pet["id"].as_str().expect("pet id");
-    create_food_inventory_item(&app, &access_token, "巅峰牛肉罐头").await;
-
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_json_request(
-            "POST",
-            "/api/v1/ai/chat/stream",
-            &access_token,
-            json!({
-                "message": "毛球最近是不是换粮了？",
-                "surface": "home_private",
-                "selected_pet_id": pet_id
-            }),
-        ))
-        .await
-        .expect("send weak hint verification chat stream request");
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let text = response_text(response).await;
-
-    mock.assert();
-    repair_mock.assert();
-    assert!(
-        !text.contains("已经换成巅峰牛肉罐头"),
-        "unsafe weak hint claim should not be streamed, got: {text}"
-    );
-    assert!(
-        text.contains("event: answer_completed") && text.contains("还需要你确认毛球是否真的在吃"),
-        "SSE should complete with repaired weak hint answer, got: {text}"
-    );
-    assert!(
-        !text.contains("event: error"),
-        "repaired output should not surface output guard error, got: {text}"
-    );
+    maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await
 }
 
 async fn create_pet(
@@ -253,4 +284,21 @@ async fn create_food_inventory_item(
         .as_str()
         .expect("food item id")
         .to_owned()
+}
+
+fn tool_call_response_body(tool_call_id: &str, tool_name: &str) -> String {
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":{tool_call_id:?},\"function\":{{\"name\":{tool_name:?},\"arguments\":\"{{}}\"}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
+}
+
+fn request_without_tool_result(req: &HttpMockRequest) -> bool {
+    let body = req
+        .body
+        .as_ref()
+        .map(|body| String::from_utf8_lossy(body).into_owned())
+        .unwrap_or_default();
+    !body.contains("\"role\":\"tool\"")
 }

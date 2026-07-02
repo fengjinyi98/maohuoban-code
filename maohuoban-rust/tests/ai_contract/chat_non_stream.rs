@@ -72,7 +72,7 @@ async fn ai_chat_non_stream_uses_configured_openai_provider() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains("只能基于提供的事实包")
-            .body_contains("## 目标宠物")
+            .body_contains("已选宠物: 毛球")
             .body_contains("用户喜欢先给照护检查清单");
         then.status(200)
             .header("content-type", "text/event-stream")

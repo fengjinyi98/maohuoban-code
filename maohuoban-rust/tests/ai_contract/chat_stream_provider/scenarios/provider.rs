@@ -13,10 +13,7 @@ use crate::{authorized_json_request, diagnostics_test_lock, login_and_get_token,
 use super::app::{
     create_pet, insert_user_memory, load_actor_user_id_by_phone, spawn_provider_test_app,
 };
-use super::diagnostics::{
-    assert_provider_diagnostics, assert_provider_identity_tool_log,
-    install_provider_test_diagnostics,
-};
+use super::diagnostics::{assert_provider_diagnostics, install_provider_test_diagnostics};
 use super::sse::{assert_provider_stream_response, sse_event_data, uuid_prefix_from_sse};
 
 /// 配置 `OpenAI` 兼容 Provider 后 `/api/v1/ai/chat/stream` 返回真实 Provider delta
@@ -30,8 +27,7 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains("只能基于提供的事实包")
-            .body_contains("## 目标宠物")
-            .body_contains("pet_identity")
+            .body_contains("已选宠物: 毛球")
             .body_contains("\"tools\"")
             .body_contains("load_pet_identity_context")
             .body_contains("用户喜欢直接给可执行建议");
@@ -86,5 +82,26 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
         &message_id_prefix,
         "毛球今天怎么样",
     );
-    assert_provider_identity_tool_log(&app, pet_id).await;
+    assert_no_identity_tool_log_without_tool_call(&app, pet_id).await;
+}
+
+async fn assert_no_identity_tool_log_without_tool_call(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    pet_id: &str,
+) {
+    let identity_log_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_tool_access_logs
+        WHERE tool_name = 'load_pet_identity_context'
+          AND target_pet_id = $1
+          AND allowed = true
+        ",
+    )
+    .bind(uuid::Uuid::parse_str(pet_id).expect("pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count identity tool log");
+
+    assert_eq!(identity_log_count, 0);
 }

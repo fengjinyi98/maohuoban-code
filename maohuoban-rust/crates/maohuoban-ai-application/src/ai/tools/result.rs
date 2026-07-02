@@ -210,10 +210,15 @@ impl AiToolResult {
     pub fn to_loop_tool_result(&self, tool_call: LlmToolCall) -> LoopToolResult {
         match self {
             Self::Success(success) => {
-                let mut projected = ToolFactProjector::project_facts(&success.facts);
-                projected
-                    .reference_ids
-                    .extend(success.reference_ids.clone());
+                let mut projected = success.fact_package.as_ref().map_or_else(
+                    || ToolFactProjector::project_facts(&success.facts),
+                    ToolFactProjector::project_package,
+                );
+                for reference_id in &success.reference_ids {
+                    if !projected.reference_ids.contains(reference_id) {
+                        projected.reference_ids.push(reference_id.clone());
+                    }
+                }
                 let json = serde_json::to_string(&projected)
                     .unwrap_or_else(|_| "{\"facts\":[]}".to_owned());
                 let citation_count = u32::try_from(success.citations.len()).unwrap_or(u32::MAX);

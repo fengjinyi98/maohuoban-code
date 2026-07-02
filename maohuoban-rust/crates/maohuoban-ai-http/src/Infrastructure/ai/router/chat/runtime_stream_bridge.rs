@@ -12,7 +12,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent,
+    AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot,
+    AiStreamEvent, LlmToolCall,
 };
 use uuid::Uuid;
 
@@ -26,6 +27,7 @@ use super::runtime_stream::AgentEventSseProjector;
 use super::runtime_stream_helpers::{ai_error_to_sse_event, sanitize_tool_call_event};
 use super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::runtime_tools::{build_public_runtime_tool_registry, build_runtime_tool_registry};
+use super::visible_output_plan::plan_visible_output;
 
 pub(super) struct RuntimeProviderStreamInput {
     pub session_id: Uuid,
@@ -45,7 +47,17 @@ pub(super) fn runtime_provider_stream(
 ) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
 {
     let registry = build_runtime_registry(state, &input);
-    record_runtime_stream_selection(state, &input, registry.as_ref(), &req.message);
+    let evidence_tool_calls =
+        plan_evidence_tool_calls(&input.workbench, registry.as_ref(), &req.message);
+    record_runtime_stream_selection(
+        state,
+        &input,
+        registry.as_ref(),
+        &req.message,
+        &evidence_tool_calls,
+    );
+    let visible_output_plan =
+        plan_visible_output(req.surface, input.target_pet.as_ref(), &evidence_tool_calls);
     let engine = build_runtime_engine(state, &input, registry);
     let session = AgentSession::new(
         input.session_id,
@@ -86,6 +98,7 @@ pub(super) fn runtime_provider_stream(
             fact_package,
             &activity_pet_name,
             identity_context_tool_required,
+            visible_output_plan,
         );
         let mut agent_stream =
             session.into_prompt_stream_with_workbench_turn_and_diagnostics_message_id(
@@ -136,6 +149,7 @@ fn record_runtime_stream_selection(
     input: &RuntimeProviderStreamInput,
     registry: &ToolRegistry,
     user_message: &str,
+    evidence_tool_calls: &[LlmToolCall],
 ) {
     let tool_definitions = registry.list_definitions();
     let visible_tool_names = tool_definitions
@@ -158,15 +172,8 @@ fn record_runtime_stream_selection(
         input.target_pet.is_some(),
         visible_tool_names.len(),
     );
-    let selected_pet_id = input
-        .workbench
-        .context_pack
-        .selected_pet
-        .as_ref()
-        .map(|pet| pet.pet_id);
-    let evidence_tool_count = selected_pet_id.map_or(0, |pet_id| {
-        EvidencePlanner::plan_for_input(user_message, pet_id, registry).len()
-    });
+    let selected_pet_id = input.workbench.context_pack.selected_pet.as_ref();
+    let evidence_tool_count = evidence_tool_calls.len();
     let write_tool_visible = tool_definitions
         .iter()
         .any(|tool| tool.requires_confirmation || !tool.read_only);
@@ -181,6 +188,21 @@ fn record_runtime_stream_selection(
     let snapshot =
         PlanningDiagnosticsSnapshot::new(input.session_id, input.turn_id, input.message_id, &plan);
     record_chat_planning_decided(&snapshot);
+}
+
+/// plan_evidence_tool_calls 规划 Runtime 预取事实工具
+/// 核心职责：
+/// - 基于 Workbench 目标宠物和工具注册表生成本轮事实读取计划
+/// - 让诊断、可见输出计划和 Runtime 预取使用同一组工具计划
+pub(super) fn plan_evidence_tool_calls(
+    workbench: &AgentSessionWorkbench,
+    registry: &ToolRegistry,
+    user_message: &str,
+) -> Vec<LlmToolCall> {
+    let Some(selected_pet) = workbench.context_pack.selected_pet.as_ref() else {
+        return Vec::new();
+    };
+    EvidencePlanner::plan_for_input(user_message, selected_pet.pet_id, registry)
 }
 
 fn build_runtime_engine(

@@ -4,18 +4,14 @@
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
 mod composition {
-    pub(super) mod fact_package_merge;
     pub(super) mod request;
     pub(super) mod title;
     pub(super) mod workbench_builder;
 }
 mod content_block_projector;
+mod fact_package_merge;
 mod loaders {
-    pub(super) mod diet_confirmation_candidate_loader;
-    pub(super) mod diet_fact_loader;
-    pub(super) mod food_inventory_hint_loader;
     pub(super) mod history_summary_loader;
-    pub(super) mod identity_fact_loader;
 }
 mod persistence {
     pub(super) mod finalizer_store;
@@ -35,6 +31,7 @@ mod runtime_tool_gateway_observer;
 mod runtime_tools;
 mod stream_handler;
 mod turn_preparation;
+mod visible_output_plan;
 
 pub use non_stream::handle_chat;
 pub use stream_handler::handle_chat_stream;

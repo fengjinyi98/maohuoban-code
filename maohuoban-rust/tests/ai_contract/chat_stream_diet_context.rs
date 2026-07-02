@@ -8,7 +8,7 @@ use super::{
     response_text, sse_event_data,
 };
 
-/// AI stream 会把当前饮食上下文作为强事实注入 Provider Prompt
+/// AI stream 会通过 Runtime 工具预取当前饮食上下文后回灌 Provider
 #[tokio::test]
 async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     let _guard = diagnostics_test_lock().lock_owned().await;
@@ -117,7 +117,8 @@ fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
-            .body_contains("已确认事实")
+            .body_contains("prefetched_tool_context")
+            .body_contains("load_pet_current_diet_context")
             .body_contains("渴望六种鱼");
         then.status(200)
             .header("content-type", "text/event-stream")

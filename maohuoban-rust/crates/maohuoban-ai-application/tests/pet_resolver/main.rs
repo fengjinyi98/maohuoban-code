@@ -55,6 +55,36 @@ async fn unique_name_in_message_resolves_to_matching_pet() {
 }
 
 #[tokio::test]
+async fn named_pet_reference_is_detected_from_authorized_catalog_without_pet_keyword() {
+    let meilu_id = Uuid::new_v4();
+    let candidates = vec![candidate(meilu_id, "梅录", "cat")];
+    let catalog = InMemoryPetCatalog::new(candidates);
+    let resolver = AiPetResolver::new(catalog);
+
+    let has_reference = resolver
+        .has_authorized_pet_name_reference("梅录多大了", Uuid::new_v4())
+        .await
+        .expect("detect authorized pet reference");
+
+    assert!(has_reference);
+}
+
+#[tokio::test]
+async fn app_support_question_without_pet_name_does_not_trigger_pet_reference() {
+    let meilu_id = Uuid::new_v4();
+    let candidates = vec![candidate(meilu_id, "梅录", "cat")];
+    let catalog = InMemoryPetCatalog::new(candidates);
+    let resolver = AiPetResolver::new(catalog);
+
+    let has_reference = resolver
+        .has_authorized_pet_name_reference("毛伙伴怎么修改昵称", Uuid::new_v4())
+        .await
+        .expect("detect authorized pet reference");
+
+    assert!(!has_reference);
+}
+
+#[tokio::test]
 async fn ambiguous_same_name_returns_needs_selection() {
     let pet_a = Uuid::new_v4();
     let pet_b = Uuid::new_v4();

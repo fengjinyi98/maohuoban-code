@@ -18,6 +18,7 @@ mod tests {
     };
     use uuid::Uuid;
 
+    use super::super::super::visible_output_plan::VisibleOutputPlan;
     use super::super::complete::complete_from_runtime_events;
     use super::super::persistence::finalize_complete_turn;
 
@@ -42,7 +43,8 @@ mod tests {
             },
         ];
 
-        let Err(err) = complete_from_runtime_events(events, None, true) else {
+        let Err(err) = complete_from_runtime_events(events, None, true, VisibleOutputPlan::empty())
+        else {
             panic!("non-stream aggregation must reject unrepaired invalid answer");
         };
 
@@ -60,7 +62,8 @@ mod tests {
             status: AgentTurnStatus::Failed,
         }];
 
-        let Err(err) = complete_from_runtime_events(events, None, true) else {
+        let Err(err) = complete_from_runtime_events(events, None, true, VisibleOutputPlan::empty())
+        else {
             panic!("non-stream aggregation must reject failed runtime turn");
         };
 
@@ -100,7 +103,9 @@ mod tests {
             },
         ];
 
-        let complete = complete_from_runtime_events(events, None, true).expect("complete result");
+        let complete =
+            complete_from_runtime_events(events, None, true, VisibleOutputPlan::pet_profile_card())
+                .expect("complete result");
 
         assert!(
             matches!(

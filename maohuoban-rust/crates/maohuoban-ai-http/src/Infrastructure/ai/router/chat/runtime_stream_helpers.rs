@@ -61,6 +61,7 @@ pub(super) struct VerifiedCompletionInput<'a> {
     pub package: &'a AiFactPackage,
     pub verification_context: AiAnswerVerificationContext,
     pub streamed_delta_text: &'a str,
+    pub include_pet_profile_blocks: bool,
 }
 
 /// `append_missing_profile_blocks_error` 追加宠物资料卡契约错误事件
@@ -99,7 +100,11 @@ pub(super) fn append_verified_completion(
     }
 
     let citations = citations_for_answer(&input.final_text, input.package);
-    let content_blocks = project_pet_profile_content_blocks(input.package);
+    let content_blocks = if input.include_pet_profile_blocks {
+        project_pet_profile_content_blocks(input.package)
+    } else {
+        Vec::new()
+    };
     append_citations(output, citations.clone());
     if input.streamed_delta_text != input.final_text {
         output.push(AiStreamEvent::AnswerDelta {

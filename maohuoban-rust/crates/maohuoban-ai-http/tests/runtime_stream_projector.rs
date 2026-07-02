@@ -1,7 +1,8 @@
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiContentBlock,
     AiConversationSurface, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
-    AiPetProfileSpecies, AiStreamEvent, ModelLabel, ProviderErrorCategory,
+    AiPetDisplaySnapshot, AiPetProfileSpecies, AiStreamEvent, LlmToolCall, ModelLabel,
+    ProviderErrorCategory,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -26,8 +27,17 @@ mod runtime_stream_helpers;
 #[path = "../src/Infrastructure/ai/router/chat/runtime_activity_text.rs"]
 mod runtime_activity_text;
 
+#[allow(dead_code)]
+#[path = "../src/Infrastructure/ai/router/chat/visible_output_plan.rs"]
+mod visible_output_plan;
+
+#[allow(dead_code)]
+#[path = "../src/Infrastructure/ai/router/chat/fact_package_merge.rs"]
+mod fact_package_merge;
+
 use runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 use runtime_stream_projector::AgentEventSseProjector;
+use visible_output_plan::{VisibleOutputPlan, plan_visible_output};
 
 // ReplayFixture WT10 replay fixture 的 projector 输入
 // 核心职责：
@@ -53,7 +63,8 @@ fn projector_terminal_event_matches_replay_fixture_contract() {
     let fixture: ReplayFixture = serde_json::from_str(REPLAY_CASE_JSON).expect("parse replay case");
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "毛球", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "毛球", false, VisibleOutputPlan::empty());
 
     let projected = fixture
         .event_sequence
@@ -86,7 +97,8 @@ fn projector_terminal_event_matches_replay_fixture_contract() {
 fn projector_streams_json_answer_text_incrementally_without_json_fields() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "豆包", false, VisibleOutputPlan::empty());
 
     let first_events = projector.project(AgentEvent::MessageDelta {
         turn_id,
@@ -140,7 +152,8 @@ fn projector_streams_json_answer_text_incrementally_without_json_fields() {
 fn projector_scrubs_embedded_json_dto_fields_from_mixed_model_output() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", false, VisibleOutputPlan::empty());
 
     let chunks = [
         "好的，这是梅录的档案信息：",
@@ -173,7 +186,8 @@ fn projector_scrubs_embedded_json_dto_fields_from_mixed_model_output() {
 fn projector_scrubs_cross_chunk_thinking_and_internal_context_before_sse_delta() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "豆包", false, VisibleOutputPlan::empty());
 
     let chunks = [
         "<think>先看内部推理",
@@ -203,7 +217,8 @@ fn projector_scrubs_cross_chunk_thinking_and_internal_context_before_sse_delta()
 fn projector_scrubs_provider_raw_delta_reasoning_tool_planning_and_json_draft_before_sse_delta() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "豆包", false, VisibleOutputPlan::empty());
 
     let chunks = [
         "<reasoning>Provider internal plan: call load_pet_identity_context</reasoning>",
@@ -239,7 +254,8 @@ fn projector_scrubs_provider_raw_delta_reasoning_tool_planning_and_json_draft_be
 fn projector_does_not_stream_dsml_tool_call_delta() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", false, VisibleOutputPlan::empty());
 
     let chunks = [
         "<| | DSML | | tool_calls>\n",
@@ -275,7 +291,8 @@ fn projector_does_not_stream_dsml_tool_call_delta() {
 fn projector_emits_execution_trace_completed_before_answer_delta() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "豆包", false);
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "豆包", false, VisibleOutputPlan::empty());
 
     let mut events = Vec::new();
     events.extend(projector.project(AgentEvent::ToolStarted {
@@ -330,7 +347,13 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let package = identity_fact_package("梅录");
-    let mut projector = AgentEventSseProjector::new(message_id, Some(package), "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        Some(package),
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let events = projector.project(AgentEvent::TurnFinished {
         turn_id,
@@ -405,7 +428,13 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
 fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let events = projector.project(AgentEvent::ToolStarted {
         turn_id,
@@ -415,8 +444,8 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
 
     assert_eq!(
         events.len(),
-        2,
-        "identity tool start should emit content blocks before activity: {events:?}"
+        1,
+        "identity tool start should emit content blocks without duplicate activity: {events:?}"
     );
     assert!(
         matches!(
@@ -434,12 +463,121 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
         "first event should render heading and pet profile skeleton blocks: {events:?}"
     );
     assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::ExecutionTraceStarted { .. })),
+        "visible content block plan should suppress duplicate started activity: {events:?}"
+    );
+}
+
+#[test]
+fn projector_does_not_trigger_pet_profile_skeleton_from_activity_text_without_visible_plan() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", true, VisibleOutputPlan::empty());
+
+    let events = projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    });
+
+    assert!(
         matches!(
-            &events[1],
-            AiStreamEvent::ExecutionTraceStarted { display_text }
+            events.as_slice(),
+            [AiStreamEvent::ExecutionTraceStarted { display_text }]
                 if display_text == "正在整理梅录的宠物档案"
         ),
-        "second event should remain execution trace metadata: {events:?}"
+        "activity text must not create pet profile content blocks without an explicit plan: {events:?}"
+    );
+    assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::ContentBlockDelta { .. })),
+        "content block delta must be driven by visible output plan: {events:?}"
+    );
+}
+
+#[test]
+fn visible_output_plan_uses_identity_evidence_tool_for_pet_profile_card() {
+    let target_pet = pet_display_snapshot("豆包");
+    let evidence_tool_calls = vec![identity_evidence_call(target_pet.pet_id)];
+
+    let plan = plan_visible_output(
+        AiConversationSurface::HomePrivate,
+        Some(&target_pet),
+        &evidence_tool_calls,
+    );
+
+    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
+}
+
+#[test]
+fn visible_output_plan_uses_pet_profile_surface_for_pet_profile_card() {
+    let target_pet = pet_display_snapshot("豆包");
+    let evidence_tool_calls = Vec::new();
+
+    let plan = plan_visible_output(
+        AiConversationSurface::PetProfile,
+        Some(&target_pet),
+        &evidence_tool_calls,
+    );
+
+    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
+}
+
+#[test]
+fn visible_output_plan_does_not_create_pet_profile_card_without_target_pet() {
+    let evidence_tool_calls = vec![identity_evidence_call(Uuid::new_v4())];
+
+    let plan = plan_visible_output(
+        AiConversationSurface::HomePrivate,
+        None,
+        &evidence_tool_calls,
+    );
+
+    assert_eq!(plan, VisibleOutputPlan::empty());
+}
+
+#[test]
+fn projector_does_not_emit_final_pet_profile_blocks_without_visible_plan() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", true, VisibleOutputPlan::empty());
+
+    let mut events = Vec::new();
+    events.extend(projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    }));
+    events.extend(projector.project(AgentEvent::ToolFinished {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        status: AgentToolStatus::Succeeded,
+        citation_count: 1,
+        fact_package: Some(Box::new(identity_fact_package("梅录"))),
+    }));
+    events.extend(projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "梅录状态稳定。".to_owned(),
+        status: AgentTurnStatus::Completed,
+    }));
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("turn should complete without profile UI blocks");
+
+    assert!(
+        content_blocks.is_empty(),
+        "final pet profile UI blocks must require visible output plan: {content_blocks:?}"
     );
 }
 
@@ -447,7 +585,13 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
 fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let mut events = Vec::new();
     events.extend(projector.project(AgentEvent::ToolStarted {
@@ -490,7 +634,13 @@ fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
 fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let mut events = Vec::new();
     events.extend(projector.project(AgentEvent::ToolStarted {
@@ -536,7 +686,13 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
 fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_completion() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let delta_events = projector.project(AgentEvent::MessageDelta {
         turn_id,
@@ -577,7 +733,13 @@ fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_compl
 fn projector_reports_failed_turn_without_empty_answer_completion() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        VisibleOutputPlan::pet_profile_card(),
+    );
 
     let events = projector.project(AgentEvent::TurnFinished {
         turn_id,
@@ -640,6 +802,24 @@ fn strong_fact(key: &str, value: &str) -> AiFactEntry {
         value: value.to_owned(),
         strength: AiFactStrength::Strong,
         citation_id: None,
+    }
+}
+
+fn pet_display_snapshot(name: &str) -> AiPetDisplaySnapshot {
+    AiPetDisplaySnapshot {
+        pet_id: Uuid::new_v4(),
+        pet_name: name.to_owned(),
+        pet_avatar_url: None,
+        pet_species: "cat".to_owned(),
+        profile_number: "P001".to_owned(),
+    }
+}
+
+fn identity_evidence_call(pet_id: Uuid) -> LlmToolCall {
+    LlmToolCall {
+        id: "evidence_load_pet_identity_context".to_owned(),
+        name: "load_pet_identity_context".to_owned(),
+        arguments: serde_json::json!({ "pet_id": pet_id }).to_string(),
     }
 }
 

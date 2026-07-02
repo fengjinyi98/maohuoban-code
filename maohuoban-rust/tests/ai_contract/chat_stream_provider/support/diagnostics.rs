@@ -178,24 +178,3 @@ fn assert_provider_diagnostics_without_secrets(events: &[DiagnosticEvent]) {
         );
     }
 }
-
-pub(crate) async fn assert_provider_identity_tool_log(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    pet_id: &str,
-) {
-    let identity_log_count: i64 = sqlx::query_scalar(
-        r"
-        SELECT COUNT(*)
-        FROM ai_tool_access_logs
-        WHERE tool_name = 'load_pet_identity_context'
-          AND target_pet_id = $1
-          AND allowed = true
-        ",
-    )
-    .bind(uuid::Uuid::parse_str(pet_id).expect("pet id"))
-    .fetch_one(app.pool())
-    .await
-    .expect("count identity tool log");
-
-    assert_eq!(identity_log_count, 1);
-}

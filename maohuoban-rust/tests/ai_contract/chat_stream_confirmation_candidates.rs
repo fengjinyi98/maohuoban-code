@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use httpmock::MockServer;
+use httpmock::{MockServer, prelude::HttpMockRequest};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -8,17 +8,31 @@ use super::{
     response_text, sse_event_data,
 };
 
-/// AI stream 会把宠物饮食待确认候选作为 pending context 注入 Provider Prompt
+/// AI stream 会通过 Runtime 工具把宠物饮食待确认候选回灌 Provider
 #[tokio::test]
 async fn ai_chat_stream_loads_diet_confirmation_candidates_as_pending_context() {
     let _guard = diagnostics_test_lock().lock_owned().await;
     let server = MockServer::start();
-    let mock = server.mock(|when, then| {
+    let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
-            .body_contains("待确认信息")
-            .body_contains("弱线索")
+            .body_contains("load_pet_diet_confirmation_candidates")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(tool_call_response_body(
+                "call_confirmation_candidates",
+                "load_pet_diet_confirmation_candidates",
+            ));
+    });
+    let followup_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"role\":\"tool\"")
+            .body_contains("\"tool_call_id\":\"call_confirmation_candidates\"")
             .body_contains("最近新增的「渴望六种鱼」，饭团有吃过或正在换这款吗？");
         then.status(200)
             .header("content-type", "text/event-stream")
@@ -66,7 +80,8 @@ async fn ai_chat_stream_loads_diet_confirmation_candidates_as_pending_context() 
     assert_eq!(response.status(), StatusCode::OK);
     let text = response_text(response).await;
 
-    mock.assert();
+    first_mock.assert();
+    followup_mock.assert();
     let started = sse_event_data(&text, "message_started");
     let chat_session_id = started["chat_session_id"]
         .as_str()
@@ -164,4 +179,21 @@ async fn create_food_inventory_item(
         .as_str()
         .expect("food item id")
         .to_owned()
+}
+
+fn tool_call_response_body(tool_call_id: &str, tool_name: &str) -> String {
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":{tool_call_id:?},\"function\":{{\"name\":{tool_name:?},\"arguments\":\"{{}}\"}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
+}
+
+fn request_without_tool_result(req: &HttpMockRequest) -> bool {
+    let body = req
+        .body
+        .as_ref()
+        .map(|body| String::from_utf8_lossy(body).into_owned())
+        .unwrap_or_default();
+    !body.contains("\"role\":\"tool\"")
 }

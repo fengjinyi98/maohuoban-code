@@ -24,11 +24,14 @@ use super::super::composition::workbench_builder::{
     build_agent_session_workbench, load_memory_entries_for_workbench,
 };
 use super::super::content_block_projector::project_pet_profile_content_blocks;
+use super::super::fact_package_merge::merge_fact_packages;
+use super::super::runtime_stream_bridge::plan_evidence_tool_calls;
 use super::super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::super::runtime_tools::{
     build_public_runtime_tool_registry, build_runtime_tool_registry,
 };
 use super::super::turn_preparation::ChatTurnContext;
+use super::super::visible_output_plan::{VisibleOutputPlan, plan_visible_output};
 use super::history_loader::load_history_and_summary_non_stream;
 use crate::ai::router::diagnostics::{
     record_chat_runtime_engine_selected, record_chat_workbench_built,
@@ -70,6 +73,9 @@ pub(super) async fn complete_with_runtime(
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
         None => build_public_runtime_tool_registry(),
     });
+    let evidence_tool_calls = plan_evidence_tool_calls(&workbench, registry.as_ref(), &req.message);
+    let visible_output_plan =
+        plan_visible_output(req.surface, target_pet.as_ref(), &evidence_tool_calls);
     let visible_tool_names = registry
         .list_definitions()
         .into_iter()
@@ -123,7 +129,12 @@ pub(super) async fn complete_with_runtime(
             context.assistant_message_id,
         )
         .await?;
-    complete_from_runtime_events(events, fact_package, target_pet.is_some())
+    complete_from_runtime_events(
+        events,
+        fact_package,
+        target_pet.is_some(),
+        visible_output_plan,
+    )
 }
 
 /// complete_from_runtime_events 聚合 Runtime 事件
@@ -131,6 +142,7 @@ pub(super) fn complete_from_runtime_events(
     events: Vec<AgentEvent>,
     fact_package: Option<AiFactPackage>,
     identity_context_tool_required: bool,
+    visible_output_plan: VisibleOutputPlan,
 ) -> Result<AiCompleteResult, AiError> {
     let mut package = fact_package.unwrap_or_else(AiFactPackage::empty);
     let mut usage = LlmUsage::default();
@@ -157,12 +169,12 @@ pub(super) fn complete_from_runtime_events(
                 ..
             } => {
                 let tool_name = tool_names_by_call_id.remove(&tool_call_id);
-                if tool_name.as_deref() == Some("load_pet_identity_context")
-                    && status == AgentToolStatus::Succeeded
-                {
-                    identity_context_tool_succeeded = true;
+                if status == AgentToolStatus::Succeeded {
+                    if tool_name.as_deref() == Some("load_pet_identity_context") {
+                        identity_context_tool_succeeded = true;
+                    }
                     if let Some(fact_package) = fact_package {
-                        package = *fact_package;
+                        package = merge_fact_packages(package, *fact_package);
                     }
                 }
             }
@@ -214,7 +226,11 @@ pub(super) fn complete_from_runtime_events(
         maohuoban_ai_application::ai::citations::citations_for_answer(&final_text, &package);
     Ok(AiCompleteResult {
         final_text,
-        content_blocks: project_pet_profile_content_blocks(&package),
+        content_blocks: if visible_output_plan.pet_profile_card {
+            project_pet_profile_content_blocks(&package)
+        } else {
+            Vec::new()
+        },
         usage,
         finish_reason,
         provider,

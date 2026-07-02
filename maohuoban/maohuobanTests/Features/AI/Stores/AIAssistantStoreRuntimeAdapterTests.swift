@@ -67,14 +67,14 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         XCTAssertEqual(store.messages.last?.text, "先观察精神状态")
     }
 
-    func testPetProfileActivityUsesSkeletonWithoutTimelineActivityText() async {
+    func testAgentActivityDoesNotParsePetProfileText() async {
         let store = Self.makeStoreWithStreamingPlaceholder()
 
         store.handleStreamEvent(
             .agentActivity(displayText: "正在整理梅录的宠物档案", status: "started")
         )
 
-        XCTAssertNil(store.activeAgentActivityText)
+        XCTAssertEqual(store.activeAgentActivityText, "正在整理梅录的宠物档案")
         XCTAssertTrue(store.messages.last?.contentBlocks.isEmpty == true)
     }
 

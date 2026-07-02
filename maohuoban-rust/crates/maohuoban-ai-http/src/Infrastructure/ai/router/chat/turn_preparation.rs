@@ -5,8 +5,8 @@ use maohuoban_ai_application::ai::ports::{
 };
 use maohuoban_ai_domain::ai::{
     AgentTurnId, AiChatSession, AiChatSessionStatus, AiGateDecision, AiMessage, AiMessageRole,
-    AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiSessionTurn, AiSessionTurnStatus,
-    AiStreamEvent,
+    AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiResult, AiSessionTurn,
+    AiSessionTurnStatus, AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -43,7 +43,7 @@ pub(super) async fn prepare_chat_turn_context(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
-) -> ChatTurnContext {
+) -> AiResult<ChatTurnContext> {
     let gate_decision = AiIntentGate::new().classify(&req.message);
     let effective_selected_pet_id = effective_selected_pet_id(state, req, actor_user_id).await;
     let pet_resolution = resolve_target_pet(
@@ -53,13 +53,13 @@ pub(super) async fn prepare_chat_turn_context(
         effective_selected_pet_id,
         &gate_decision,
     )
-    .await;
+    .await?;
     let resolved_pet_id = pet_resolution
         .as_ref()
         .and_then(AiPetResolution::resolved_pet_id);
     let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
 
-    ChatTurnContext {
+    Ok(ChatTurnContext {
         session_id: req.chat_session_id.unwrap_or_else(Uuid::new_v4),
         turn_id: AgentTurnId::new(),
         user_message_id: Uuid::new_v4(),
@@ -70,7 +70,7 @@ pub(super) async fn prepare_chat_turn_context(
         resolved_pet_id,
         target_pet,
         effective_selected_pet_id,
-    }
+    })
 }
 
 /// persist_prepared_chat_turn 在单个事务内持久化已准备的聊天轮次
@@ -166,7 +166,7 @@ pub(super) async fn persist_prepared_chat_turn(
 
 /// load_pet_catalog_initial_events 加载宠物候选工具初始事件
 /// 核心职责：
-/// - 只在需要上下文的请求中记录宠物候选工具审计
+/// - 只在执行过宠物解析的请求中记录宠物候选工具审计
 /// - 返回可在 message_started 后输出的安全执行态事件
 pub(super) async fn load_pet_catalog_initial_events(
     session_repo: &Arc<dyn AiSessionRepository>,
@@ -177,7 +177,7 @@ pub(super) async fn load_pet_catalog_initial_events(
     selected_pet_id: Option<Uuid>,
     pet_resolution: Option<&AiPetResolution>,
 ) -> Vec<AiStreamEvent> {
-    if gate_decision.context_loaded {
+    if gate_decision.enters_workbench() && pet_resolution.is_some() {
         insert_pet_catalog_tool_log(
             session_repo,
             session_id,
@@ -220,24 +220,52 @@ async fn effective_selected_pet_id(
 
 /// resolve_target_pet 解析请求目标宠物
 /// 核心职责：
-/// - 只在 gate 要求加载上下文时调用后端授权宠物解析器
-/// - 将解析失败降级为无宠物上下文，保持主链路可返回安全响应
+/// - 在进入 Workbench 且存在稳定宠物目标信号时调用授权宠物解析器
+/// - 为 Runtime Planner 提供目标宠物实体，不让 gate 承担事实工具触发职责
 async fn resolve_target_pet(
     state: &AiHttpState,
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
     selected_pet_id: Option<Uuid>,
     gate_decision: &AiGateDecision,
-) -> Option<AiPetResolution> {
-    if gate_decision.context_loaded {
-        state
-            .pet_resolver
-            .resolve(&req.message, selected_pet_id, actor_user_id)
-            .await
-            .ok()
-    } else {
-        None
+) -> AiResult<Option<AiPetResolution>> {
+    if !should_resolve_pet_for_planning(state, req, actor_user_id, selected_pet_id, gate_decision)
+        .await?
+    {
+        return Ok(None);
     }
+
+    state
+        .pet_resolver
+        .resolve(&req.message, selected_pet_id, actor_user_id)
+        .await
+        .map(Some)
+}
+
+/// should_resolve_pet_for_planning 判断本轮是否需要解析目标宠物
+/// 核心职责：
+/// - 将硬安全 gate 与宠物实体解析解耦
+/// - 只根据稳定上下文信号决定是否给 Runtime Planner 提供目标宠物
+async fn should_resolve_pet_for_planning(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+    selected_pet_id: Option<Uuid>,
+    gate_decision: &AiGateDecision,
+) -> AiResult<bool> {
+    if !gate_decision.enters_workbench() {
+        return Ok(false);
+    }
+    if gate_decision.context_loaded
+        || selected_pet_id.is_some()
+        || req.surface == maohuoban_ai_domain::ai::AiConversationSurface::PetProfile
+    {
+        return Ok(true);
+    }
+    state
+        .pet_resolver
+        .has_authorized_pet_name_reference(&req.message, actor_user_id)
+        .await
 }
 
 /// resolved_pet_snapshot 提取已解析宠物快照

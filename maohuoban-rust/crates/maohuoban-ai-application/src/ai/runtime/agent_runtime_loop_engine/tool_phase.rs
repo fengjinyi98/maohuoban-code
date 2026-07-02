@@ -1,4 +1,7 @@
-use maohuoban_ai_domain::ai::{AgentSessionState, AiResult, LlmToolCall, LoopStep, LoopToolStatus};
+use maohuoban_ai_domain::ai::{
+    AgentSessionState, AiFactPackage, AiFactStrength, AiResult, LlmToolCall, LoopStep,
+    LoopToolResult, LoopToolStatus,
+};
 
 use crate::ai::guardrail::GuardrailDecision;
 use crate::ai::planning::{ReplanAction, ReplanCause, ReplanPolicy, StepKind};
@@ -52,6 +55,8 @@ impl AgentRuntimeLoopEngine {
             self.phase = runtime_phase_for_tool_replan(decision, &tool_results);
             return Ok(Some(LoopStep::CallTools { tool_results }));
         }
+
+        self.merge_successful_tool_fact_packages(&tool_results);
 
         let needs_confirmation = tool_results
             .iter()
@@ -124,6 +129,8 @@ impl AgentRuntimeLoopEngine {
             return Ok(Some(LoopStep::CallTools { tool_results }));
         }
 
+        self.merge_successful_tool_fact_packages(&tool_results);
+
         let needs_confirmation = tool_results
             .iter()
             .any(|result| matches!(result.status, LoopToolStatus::RequiresConfirmation));
@@ -149,5 +156,45 @@ impl AgentRuntimeLoopEngine {
         }
 
         Ok(Some(LoopStep::CallTools { tool_results }))
+    }
+
+    fn merge_successful_tool_fact_packages(&mut self, tool_results: &[LoopToolResult]) {
+        for package in tool_results
+            .iter()
+            .filter(|result| matches!(result.status, LoopToolStatus::Succeeded))
+            .filter_map(|result| result.fact_package.as_deref())
+        {
+            self.fact_package = Some(merge_runtime_fact_package(
+                self.fact_package
+                    .take()
+                    .unwrap_or_else(AiFactPackage::empty),
+                package.clone(),
+            ));
+        }
+    }
+}
+
+fn merge_runtime_fact_package(mut base: AiFactPackage, incoming: AiFactPackage) -> AiFactPackage {
+    if base.target_pet.is_none() {
+        base.target_pet = incoming.target_pet;
+    }
+    base.facts.extend(incoming.facts);
+    base.computed.extend(incoming.computed);
+    base.pending_confirmations
+        .extend(incoming.pending_confirmations);
+    base.weak_hints.extend(incoming.weak_hints);
+    base.citations.extend(incoming.citations);
+    base.missing_info.extend(incoming.missing_info);
+    base.fact_strength = strongest_fact_strength(base.fact_strength, incoming.fact_strength);
+    base
+}
+
+fn strongest_fact_strength(left: AiFactStrength, right: AiFactStrength) -> AiFactStrength {
+    match (left, right) {
+        (AiFactStrength::Strong, _) | (_, AiFactStrength::Strong) => AiFactStrength::Strong,
+        (AiFactStrength::PendingConfirmation, _) | (_, AiFactStrength::PendingConfirmation) => {
+            AiFactStrength::PendingConfirmation
+        }
+        (AiFactStrength::Weak, AiFactStrength::Weak) => AiFactStrength::Weak,
     }
 }

@@ -8,11 +8,13 @@ use maohuoban_ai_domain::ai::{
 };
 use uuid::Uuid;
 
+use super::fact_package_merge::merge_fact_packages;
 use super::runtime_activity_text::activity_text_for_tool;
 use super::runtime_stream_helpers::{
     VerifiedCompletionInput, append_missing_profile_blocks_error, append_verified_completion,
     map_activity_status,
 };
+use super::visible_output_plan::VisibleOutputPlan;
 
 pub(super) struct AgentEventSseProjector {
     package: AiFactPackage,
@@ -25,6 +27,7 @@ pub(super) struct AgentEventSseProjector {
     suppress_model_delta: bool,
     identity_context_tool_required: bool,
     identity_context_tool_succeeded: bool,
+    visible_output_plan: VisibleOutputPlan,
 }
 
 impl AgentEventSseProjector {
@@ -34,6 +37,7 @@ impl AgentEventSseProjector {
         fact_package: Option<AiFactPackage>,
         pet_name: &str,
         identity_context_tool_required: bool,
+        visible_output_plan: VisibleOutputPlan,
     ) -> Self {
         Self {
             package: fact_package.unwrap_or_else(AiFactPackage::empty),
@@ -46,10 +50,20 @@ impl AgentEventSseProjector {
             suppress_model_delta: false,
             identity_context_tool_required,
             identity_context_tool_succeeded: false,
+            visible_output_plan,
         }
     }
 
     pub(super) fn project(&mut self, event: AgentEvent) -> Vec<AiStreamEvent> {
+        if let AgentEvent::ToolStarted {
+            turn_id,
+            tool_call_id,
+            tool_name,
+            ..
+        } = event
+        {
+            return self.project_tool_started_sse(turn_id, &tool_call_id, &tool_name);
+        }
         let visible_events = self.project_user_visible(event);
         visible_events
             .into_iter()
@@ -68,12 +82,6 @@ impl AgentEventSseProjector {
                 self.finish_reason = reason;
                 Vec::new()
             }
-            AgentEvent::ToolStarted {
-                turn_id,
-                tool_call_id,
-                tool_name,
-                ..
-            } => self.project_tool_started(turn_id, &tool_call_id, &tool_name),
             AgentEvent::ToolFinished {
                 turn_id,
                 tool_call_id,
@@ -123,24 +131,25 @@ impl AgentEventSseProjector {
             } => Self::project_error(turn_id, error_code, retryable),
             AgentEvent::TurnStarted { .. }
             | AgentEvent::PolicyChecked { .. }
+            | AgentEvent::ToolStarted { .. }
             | AgentEvent::ModelCallStarted { .. }
             | AgentEvent::NeedsClarification { .. } => Vec::new(),
         }
     }
 
-    fn project_tool_started(
+    fn project_tool_started_sse(
         &mut self,
-        turn_id: AgentTurnId,
+        _turn_id: AgentTurnId,
         tool_call_id: &str,
         tool_name: &str,
-    ) -> Vec<UserVisibleTurnEvent> {
+    ) -> Vec<AiStreamEvent> {
         let display_text = activity_text_for_tool(tool_name, &self.pet_name);
         self.tool_names_by_call_id
             .insert(tool_call_id.to_owned(), tool_name.to_owned());
-        vec![UserVisibleTurnEvent::ExecutionTraceStarted {
-            turn_id,
-            display_text,
-        }]
+        if self.visible_output_plan.pet_profile_card && tool_name == "load_pet_identity_context" {
+            return vec![self.pet_profile_skeleton_event(display_text)];
+        }
+        vec![AiStreamEvent::ExecutionTraceStarted { display_text }]
     }
 
     fn project_tool_finished(
@@ -155,10 +164,12 @@ impl AgentEventSseProjector {
             .tool_names_by_call_id
             .remove(tool_call_id)
             .unwrap_or_else(|| "runtime_tool".to_owned());
-        if tool_name == "load_pet_identity_context" && status == AgentToolStatus::Succeeded {
-            self.identity_context_tool_succeeded = true;
+        if status == AgentToolStatus::Succeeded {
+            if tool_name == "load_pet_identity_context" {
+                self.identity_context_tool_succeeded = true;
+            }
             if let Some(package) = fact_package {
-                self.package = *package;
+                self.package = merge_fact_packages(self.package.clone(), *package);
             }
         }
         let display_text = activity_text_for_tool(&tool_name, &self.pet_name);
@@ -209,20 +220,6 @@ impl AgentEventSseProjector {
         let mut output = Vec::new();
         match event {
             UserVisibleTurnEvent::ExecutionTraceStarted { display_text, .. } => {
-                if self.requires_profile_skeleton_blocks(&display_text) {
-                    output.push(AiStreamEvent::ContentBlockDelta {
-                        content_blocks: vec![
-                            maohuoban_ai_domain::ai::AiContentBlock::SectionHeading {
-                                id: "pet-profile-heading".to_owned(),
-                                text: format!("这是{}的宠物信息", self.pet_name),
-                            },
-                            maohuoban_ai_domain::ai::AiContentBlock::PetProfileCardSkeleton {
-                                id: "pet-profile-skeleton".to_owned(),
-                                title: display_text.clone(),
-                            },
-                        ],
-                    });
-                }
                 output.push(AiStreamEvent::ExecutionTraceStarted { display_text });
             }
             UserVisibleTurnEvent::ExecutionTraceCompleted {
@@ -243,7 +240,8 @@ impl AgentEventSseProjector {
                 final_text,
                 ..
             } => {
-                if self.requires_profile_content_blocks()
+                if self.visible_output_plan.pet_profile_card
+                    && self.requires_profile_content_blocks()
                     && super::content_block_projector::project_pet_profile_content_blocks(
                         &self.package,
                     )
@@ -261,6 +259,7 @@ impl AgentEventSseProjector {
                         package: &self.package,
                         verification_context: self.verification_context(),
                         streamed_delta_text: &self.streamed_delta_text,
+                        include_pet_profile_blocks: self.visible_output_plan.pet_profile_card,
                     },
                     &mut output,
                 );
@@ -341,9 +340,18 @@ impl AgentEventSseProjector {
         self.identity_context_tool_required && self.identity_context_tool_succeeded
     }
 
-    fn requires_profile_skeleton_blocks(&self, display_text: &str) -> bool {
-        self.identity_context_tool_required
-            && display_text.contains("宠物档案")
-            && display_text.contains(&self.pet_name)
+    fn pet_profile_skeleton_event(&self, title: String) -> AiStreamEvent {
+        AiStreamEvent::ContentBlockDelta {
+            content_blocks: vec![
+                maohuoban_ai_domain::ai::AiContentBlock::SectionHeading {
+                    id: "pet-profile-heading".to_owned(),
+                    text: format!("这是{}的宠物信息", self.pet_name),
+                },
+                maohuoban_ai_domain::ai::AiContentBlock::PetProfileCardSkeleton {
+                    id: "pet-profile-skeleton".to_owned(),
+                    title,
+                },
+            ],
+        }
     }
 }

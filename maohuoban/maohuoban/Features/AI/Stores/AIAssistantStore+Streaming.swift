@@ -151,11 +151,6 @@ extension AIAssistantStore {
         }
         let trimmedText = displayText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedText.isEmpty == false else { return }
-        if isPetProfileActivityText(trimmedText) {
-            activeAgentActivityText = nil
-            streamingRevision += 1
-            return
-        }
         activeAgentActivityText = trimmedText
         streamingRevision += 1
     }
@@ -178,10 +173,6 @@ extension AIAssistantStore {
             messages[index].text = ""
         }
         streamingRevision += 1
-    }
-
-    func isPetProfileActivityText(_ text: String) -> Bool {
-        text.contains("宠物档案") || text.contains("宠物信息")
     }
 
     func appendPendingReferenceChip(_ label: String) {

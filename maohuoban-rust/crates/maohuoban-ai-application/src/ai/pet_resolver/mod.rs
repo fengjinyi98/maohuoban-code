@@ -87,6 +87,22 @@ impl AiPetResolver {
         self.catalog.list_authorized_candidates(actor_user_id).await
     }
 
+    /// has_authorized_pet_name_reference 判断消息是否显式提到授权宠物名
+    /// 核心职责：
+    /// - 基于授权宠物目录识别目标实体信号
+    /// - 支撑 Runtime Planner 在 gate 之外获得可规划宠物上下文
+    pub async fn has_authorized_pet_name_reference(
+        &self,
+        message: &str,
+        actor_user_id: uuid::Uuid,
+    ) -> AiResult<bool> {
+        let candidates = self
+            .catalog
+            .list_authorized_candidates(actor_user_id)
+            .await?;
+        Ok(!match_pets_by_name(&candidates, message).is_empty())
+    }
+
     /// resolve_with_selected 有 selected pet 时的解析
     fn resolve_with_selected(
         candidates: &[AiPetCandidate],

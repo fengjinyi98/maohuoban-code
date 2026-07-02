@@ -11,11 +11,12 @@
 | 项 | 结论 |
 |---|---|
 | 协议归属 | 可见输出顺序属于后端 SSE 契约，不属于前端文案解析 |
+| 触发归属 | UI 块触发必须来自 `VisibleOutputPlan`、稳定工具类型或 finalizer 合同 |
 | 标题判定 | 标题必须由后端输出 `section_heading` 内容块 |
 | 正文判定 | 普通流式正文使用 `answer_delta`；需要结构化段落时由后端输出 `paragraph` 内容块 |
 | UI 块判定 | 卡片、骨架屏、工具结果视图必须由后端输出明确 content block |
 | 前端职责 | 前端按事件顺序写入当前 assistant 消息并渲染 DTO |
-| 禁止路径 | 前端不得从 `agent_activity.display_text`、`answer_delta`、`final_text` 反推标题、骨架屏或卡片 |
+| 禁止路径 | 前端和 projector 不得从 `agent_activity.display_text`、`answer_delta`、`final_text` 反推标题、骨架屏或卡片 |
 
 ## 2. 目标边界
 
@@ -61,11 +62,12 @@
 
 ```text
 用户输入“我的宠物信息”
+  -> VisibleOutputPlan 判定本轮需要 pet_profile_card
   -> Runtime 判定需要 load_pet_identity_context
   -> ToolStarted
   -> Projector 输出 content_block_delta
        [section_heading, pet_profile_card_skeleton]
-  -> Projector 输出 execution_trace_started
+  -> Projector 不再输出重复 execution_trace_started
   -> ToolFinished 写入事实包
   -> TurnFinished
   -> Projector 输出 answer_completed/message_completed
@@ -79,7 +81,8 @@
 | 任务 | 目标文件 / 模块 | 要求 |
 |---|---|---|
 | 定义事件 | `maohuoban-ai-domain/src/ai/model/stream/stream.rs` | `ContentBlockDelta` 是稳定 SSE 事件 |
-| 固定顺序 | `runtime_stream_projector.rs` | 宠物信息工具开始时第一事件为 `content_block_delta`，随后才是工具状态事件 |
+| 固定顺序 | `runtime_stream_projector.rs` | 宠物信息工具开始时第一事件为 `content_block_delta`，骨架块承接加载态 |
+| 输出计划 | `visible_output_plan.rs` | 基于 surface、事实工具计划和稳定工具名决定是否展示资料卡 UI |
 | 完成态校验 | `runtime_stream_helpers.rs` / `content_block_projector.rs` | 最终资料卡必须从事实包投影，缺失时失败诊断 |
 | 诊断 | `diagnostics_common.rs` | 记录 `content_block_delta` 与块数量 |
 
@@ -103,6 +106,16 @@
 | 加载骨架 | `*_skeleton` block | 后端 projector | 渲染对应骨架屏 |
 | 资料卡 / 医院卡 / 服务卡 | 对应 card block | 后端 projector / finalizer | 渲染对应原生 UI |
 | 工具状态 | `execution_trace_started/completed` | 后端 projector | 仅作为工具状态，不生成内容块 |
+
+### 7.1 可见输出计划约束
+
+| 约束 | 要求 |
+|---|---|
+| 计划入口 | 新 UI 形态必须先进入 `VisibleOutputPlan` 或同级计划模型 |
+| 工具关联 | 骨架屏只能由计划项与稳定工具名共同触发 |
+| 文案隔离 | `display_text` 只作为活动展示文案，不参与 UI 块判定 |
+| 重复活动 | 已由 skeleton content block 承接加载态的工具开始事件，不再额外发送顶部 `execution_trace_started` |
+| 扩展方式 | 医院、服务、商品等 UI 新增独立 block 类型、计划项和合同测试 |
 
 ## 8. TDD 任务拆分
 
@@ -170,6 +183,7 @@
 | 约束 | 说明 |
 |---|---|
 | 前端无文案推断 | 前端不得从工具文案、正文文本、完成文本推导标题或 UI 块 |
+| Projector 无文案推断 | Projector 不得从 `display_text` 内容推导 `content_block_delta` |
 | 顺序由 SSE 决定 | 同一 assistant 消息内的可见顺序等于后端事件顺序 |
 | 完成态替换骨架 | 骨架只存在于流式准备阶段，完成态由最终 `content_blocks` 决定 |
 | 历史回放一致 | 历史接口必须持久化并返回 `content_blocks`，刷新后保持同样 UI |

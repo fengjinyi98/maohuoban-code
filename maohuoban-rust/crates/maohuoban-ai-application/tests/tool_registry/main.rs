@@ -416,6 +416,71 @@ async fn tool_result_preserves_fact_package_for_runtime_projection() {
 }
 
 #[tokio::test]
+async fn tool_result_projects_full_fact_package_to_model_visible_content() {
+    let package = mixed_strength_fact_package();
+    let tool_call = LlmToolCall {
+        id: "diet_call_1".to_owned(),
+        name: "load_pet_diet_confirmation_candidates".to_owned(),
+        arguments: "{}".to_owned(),
+    };
+
+    let loop_result =
+        AiToolResult::allowed_with_fact_package(package).to_loop_tool_result(tool_call);
+
+    assert!(
+        loop_result
+            .output
+            .as_deref()
+            .unwrap_or("")
+            .contains("最近新增的「渴望六种鱼」"),
+        "tool result should expose pending confirmation text, got: {}",
+        loop_result.output.as_deref().unwrap_or("")
+    );
+    assert!(
+        loop_result
+            .output
+            .as_deref()
+            .unwrap_or("")
+            .contains("巅峰牛肉罐头"),
+        "tool result should expose weak hint text, got: {}",
+        loop_result.output.as_deref().unwrap_or("")
+    );
+    assert!(
+        loop_result
+            .output
+            .as_deref()
+            .unwrap_or("")
+            .contains("待确认")
+            && loop_result
+                .output
+                .as_deref()
+                .unwrap_or("")
+                .contains("弱线索"),
+        "tool result should preserve certainty labels, got: {}",
+        loop_result.output.as_deref().unwrap_or("")
+    );
+    assert!(
+        !loop_result
+            .output
+            .as_deref()
+            .unwrap_or("")
+            .contains("diet.confirmation_candidate")
+            && !loop_result
+                .output
+                .as_deref()
+                .unwrap_or("")
+                .contains("food_inventory.change_hint")
+            && !loop_result
+                .output
+                .as_deref()
+                .unwrap_or("")
+                .contains("citation_id"),
+        "tool result should hide internal fact keys and citation fields, got: {}",
+        loop_result.output.as_deref().unwrap_or("")
+    );
+}
+
+#[tokio::test]
 async fn tool_registry_lists_registered_tools() {
     let mut registry = ToolRegistry::new();
     registry.register(FakePetTool);
@@ -455,6 +520,26 @@ fn identity_fact_package(name: &str) -> AiFactPackage {
         citation_id: None,
     }];
     package.fact_strength = AiFactStrength::Strong;
+    package
+}
+
+fn mixed_strength_fact_package() -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.pending_confirmations = vec![AiFactEntry {
+        key: "diet.confirmation_candidate".to_owned(),
+        value:
+            "food_inventory_added main_food: 最近新增的「渴望六种鱼」，饭团有吃过或正在换这款吗？"
+                .to_owned(),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    }];
+    package.weak_hints = vec![AiFactEntry {
+        key: "food_inventory.change_hint".to_owned(),
+        value: "added wet_food: 巅峰牛肉罐头".to_owned(),
+        strength: AiFactStrength::Weak,
+        citation_id: None,
+    }];
+    package.fact_strength = AiFactStrength::PendingConfirmation;
     package
 }
 
