@@ -56,7 +56,11 @@ def list_code_paths() -> list[Path]:
     tracked = run_git(["ls-files", "-z"])
     untracked = run_git(["ls-files", "--others", "--exclude-standard", "-z"])
     paths = sorted(set(tracked + untracked))
-    return [ROOT / path for path in paths if Path(path).suffix in CODE_SUFFIXES]
+    return [
+        ROOT / path
+        for path in paths
+        if Path(path).suffix in CODE_SUFFIXES and (ROOT / path).is_file()
+    ]
 
 
 def count_lines(path: Path) -> int:
