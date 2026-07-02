@@ -152,7 +152,7 @@ async fn ai_chat_stream_off_topic_records_gate_log_and_enters_workbench() {
     .await
     .expect("read latest gate log");
 
-    assert_eq!(row.0, "off_topic");
+    assert_eq!(row.0, "allowed");
     assert_eq!(row.1, "enter_workbench");
     assert!(!row.2);
     assert_eq!(row.3, None);

@@ -1,7 +1,7 @@
 //! `planning_runtime_tests` WT08 Runtime 规划执行测试
 //! 核心职责：
-//! - 验证 WriteTask、ReplanPolicy 和规划诊断进入真实 Runtime 路径
-//! - 固定确认、重规划和 step transition 的可观测行为
+//! - 验证模型规划、ReplanPolicy 和规划诊断进入真实 Runtime 路径
+//! - 固定工具确认、重规划和 step transition 的可观测行为
 
 use std::sync::{Arc, LazyLock, Mutex};
 
@@ -25,7 +25,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use super::echo_tool::EchoIdentityTool;
-use super::helpers::{AUTHORIZED_PET_ID, test_tool_context};
+use super::helpers::{AUTHORIZED_PET_ID, test_tool_context, tool_call_response};
 use super::provider::ScriptedProvider;
 use super::workbenches::{
     final_response, private_pet_context_workbench, public_pet_domain_workbench,
@@ -36,11 +36,11 @@ static DIAGNOSTICS_TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 #[tokio::test]
-async fn write_task_without_confirmation_tool_call_stops_without_user_visible_model_answer() {
+async fn write_like_text_without_tool_call_is_model_answer() {
     let provider = ScriptedProvider::new(vec![LlmChatResponse {
         message: LlmMessage {
             role: LlmRole::Assistant,
-            content: "已记录今天拉稀。".to_owned(),
+            content: "我需要先确认要写入的宠物和记录内容，然后再帮你记录。".to_owned(),
             reasoning_content: None,
             tool_call_id: None,
             tool_calls: Vec::new(),
@@ -70,25 +70,19 @@ async fn write_task_without_confirmation_tool_call_stops_without_user_visible_mo
     let events = session
         .prompt_with_workbench("帮我记录今天拉稀", private_pet_context_workbench())
         .await
-        .expect("write task");
+        .expect("write-like model answer");
 
     assert!(
         events
             .iter()
-            .any(|event| matches!(event, AgentEvent::NeedsClarification { .. })),
-        "write task without confirmation tool call should ask for clarification: {events:?}"
+            .any(|event| matches!(event, AgentEvent::MessageDelta { .. })),
+        "runtime should not suppress model text through keyword planning: {events:?}"
     );
     assert!(
         events
             .iter()
-            .all(|event| !matches!(event, AgentEvent::MessageDelta { .. })),
-        "write task must not expose model text before confirmation: {events:?}"
-    );
-    assert!(
-        events
-            .iter()
-            .all(|event| !matches!(event, AgentEvent::TurnFinished { .. })),
-        "write task without confirmation must not complete as a direct answer: {events:?}"
+            .any(|event| matches!(event, AgentEvent::TurnFinished { .. })),
+        "model-planned answer without tool call should finish normally: {events:?}"
     );
     assert_eq!(provider.take_requests().len(), 1);
 }
@@ -160,8 +154,14 @@ async fn tool_unauthorized_terminates_via_replan_policy_without_followup_model()
 }
 
 #[tokio::test]
-async fn evidence_insufficient_replans_to_clarification_without_followup_model() {
-    let provider = ScriptedProvider::new(vec![final_response()]);
+async fn model_planned_evidence_failure_is_returned_to_followup_model() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response(
+            "load_pet_identity_context",
+            &json!({ "pet_id": AUTHORIZED_PET_ID }),
+        ),
+        final_response(),
+    ]);
     let mut registry = ToolRegistry::new();
     registry.register(FailingIdentityFactTool);
 
@@ -181,17 +181,21 @@ async fn evidence_insufficient_replans_to_clarification_without_followup_model()
     let events = session
         .prompt_with_workbench("梅录多大了？", private_pet_context_workbench())
         .await
-        .expect("evidence insufficient");
+        .expect("evidence failure followup");
 
     assert!(
         events
             .iter()
-            .any(|event| matches!(event, AgentEvent::NeedsClarification { .. })),
-        "insufficient evidence should replan to clarification: {events:?}"
+            .any(|event| matches!(event, AgentEvent::TurnFinished { .. })),
+        "model-planned evidence failure should be returned to followup model: {events:?}"
     );
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 2);
     assert!(
-        provider.take_requests().is_empty(),
-        "insufficient evidence should not call followup model: {events:?}"
+        requests[1].messages.iter().any(|message| {
+            message.role == LlmRole::Tool && message.content.contains("tool.internal_error")
+        }),
+        "followup model should receive structured tool failure: {requests:?}"
     );
 }
 
@@ -302,7 +306,13 @@ async fn context_limit_provider_error_compresses_context_then_retries() {
 async fn planning_diagnostics_records_real_step_transition() {
     let _diagnostics_guard = DIAGNOSTICS_TEST_LOCK.lock().await;
     let diagnostics = install_test_diagnostics();
-    let provider = ScriptedProvider::new(vec![final_response()]);
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response(
+            "load_pet_identity_context",
+            &json!({ "pet_id": AUTHORIZED_PET_ID }),
+        ),
+        final_response(),
+    ]);
     let mut registry = ToolRegistry::new();
     registry.register(EchoIdentityTool);
 
@@ -347,7 +357,7 @@ async fn planning_diagnostics_records_real_step_transition() {
     assert!(
         planning_events.iter().any(|event| {
             event.metadata["current_step"] == json!("tool_read")
-                && event.metadata["step_transition"] == json!("prefetch_evidence->tool_read")
+                && event.metadata["step_transition"] == json!("model_reason->tool_read")
         }),
         "planning diagnostics should include real step transition: {planning_events:?}"
     );

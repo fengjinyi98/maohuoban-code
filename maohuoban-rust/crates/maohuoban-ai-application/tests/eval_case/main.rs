@@ -56,7 +56,7 @@ fn eval_case_parses_fixture() {
     assert_eq!(cases.len(), 11);
     assert_eq!(
         value_set(&cases, |case| case.expected_workbench.as_str()),
-        BTreeSet::from(["blocked", "light_response", "private_pet_context"])
+        BTreeSet::from(["blocked", "runtime"])
     );
     assert_eq!(
         value_set(&cases, |case| case.expected_terminal_state.as_str()),
@@ -64,37 +64,37 @@ fn eval_case_parses_fixture() {
     );
 
     assert_case(&cases, "pet_care_daily_state", |case| {
-        assert_eq!(case.expected_intent, "pet_care");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "pet_record_query_vaccine", |case| {
-        assert_eq!(case.expected_intent, "pet_record_query");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "pet_food_diet_advice", |case| {
-        assert_eq!(case.expected_intent, "pet_food");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "pet_health_risk_diarrhea", |case| {
-        assert_eq!(case.expected_intent, "pet_health_risk");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "emotional_pet_context_miss", |case| {
-        assert_eq!(case.expected_intent, "emotional_pet_context");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "app_support_edit_pet_profile", |case| {
-        assert_eq!(case.expected_intent, "app_support");
+        assert_eq!(case.expected_intent, "allowed");
         assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "off_topic_weather_chat", |case| {
-        assert_eq!(case.expected_intent, "off_topic");
+        assert_eq!(case.expected_intent, "allowed");
         assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
@@ -109,8 +109,8 @@ fn eval_case_parses_fixture() {
         assert_eq!(case.forbidden_text, forbidden_texts());
     });
     assert_case(&cases, "provider_not_configured_pet_care", |case| {
-        assert_eq!(case.expected_intent, "pet_health_risk");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.expected_terminal_state, "failed");
         assert_eq!(
             case.expected_error_code.as_deref(),
@@ -119,8 +119,8 @@ fn eval_case_parses_fixture() {
         assert_eq!(case.forbidden_text, provider_forbidden_texts());
     });
     assert_case(&cases, "unauthorized_pet_selected", |case| {
-        assert_eq!(case.expected_intent, "pet_care");
-        assert_eq!(case.expected_gate_decision, "load_context");
+        assert_eq!(case.expected_intent, "allowed");
+        assert_eq!(case.expected_gate_decision, "enter_workbench");
         assert_eq!(case.expected_terminal_state, "completed");
         assert_eq!(
             case.expected_pet_resolution.as_deref(),
@@ -192,27 +192,15 @@ fn assert_case(cases: &[EvalCase], name: &str, check: impl FnOnce(&EvalCase)) {
 
 fn assert_workbench_contract(case: &EvalCase) {
     match case.expected_workbench.as_str() {
-        "private_pet_context" => {
-            assert!(
-                case.expected_context_loaded,
-                "case {} must load context",
-                case.name
-            );
-            assert!(
-                case.expected_enters_workbench,
-                "case {} must enter workbench",
-                case.name
-            );
-        }
-        "light_response" => {
+        "runtime" => {
             assert!(
                 !case.expected_context_loaded,
-                "case {} must not load private context",
+                "case {} must not let gate load private context",
                 case.name
             );
             assert!(
                 case.expected_enters_workbench,
-                "case {} must enter lightweight workbench",
+                "case {} must enter runtime workbench",
                 case.name
             );
         }

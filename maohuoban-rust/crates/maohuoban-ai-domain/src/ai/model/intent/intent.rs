@@ -1,38 +1,32 @@
 use serde::{Deserialize, Serialize};
 
-/// AiIntent 毛球 Agent 意图分类
+/// AiIntent 毛球 Agent 安全边界分类
 /// 核心职责：
-/// - 表达用户消息的领域意图，驱动是否加载宠物上下文
+/// - 表达入口安全边界裁决结果
+/// - 不承载领域意图、工具选择或上下文加载规划
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AiIntent {
-    PetCare,
-    PetRecordQuery,
-    PetFood,
-    PetHealthRisk,
-    EmotionalPetContext,
-    AppSupport,
-    OffTopic,
+    Allowed,
     PromptInjection,
     CostAbuse,
 }
 
 impl AiIntent {
-    /// is_pet_domain 判断该意图是否属于宠物领域，需要加载宠物事实
+    /// is_pet_domain 领域意图已移出 Gate
+    /// 核心职责：
+    /// - 保持旧调用点编译稳定
+    /// - 明确 Gate 不再声明宠物领域归属
     pub fn is_pet_domain(self) -> bool {
-        matches!(
-            self,
-            Self::PetCare
-                | Self::PetRecordQuery
-                | Self::PetFood
-                | Self::PetHealthRisk
-                | Self::EmotionalPetContext
-        )
+        false
     }
 
-    /// requires_context_load 判断该意图是否需要加载私有事实上下文
+    /// requires_context_load 上下文加载由 Runtime Planner 决定
+    /// 核心职责：
+    /// - 防止 Gate 继续驱动私域事实加载
+    /// - 保持旧调用点编译稳定
     pub fn requires_context_load(self) -> bool {
-        self.is_pet_domain()
+        false
     }
 
     /// code 返回审计用意图编码
@@ -42,22 +36,17 @@ impl AiIntent {
     #[must_use]
     pub fn code(self) -> &'static str {
         match self {
-            Self::PetCare => "pet_care",
-            Self::PetRecordQuery => "pet_record_query",
-            Self::PetFood => "pet_food",
-            Self::PetHealthRisk => "pet_health_risk",
-            Self::EmotionalPetContext => "emotional_pet_context",
-            Self::AppSupport => "app_support",
-            Self::OffTopic => "off_topic",
+            Self::Allowed => "allowed",
             Self::PromptInjection => "prompt_injection",
             Self::CostAbuse => "cost_abuse",
         }
     }
 }
 
-/// AiGateDecision 意图闸门决策结果
+/// AiGateDecision 安全闸门决策结果
 /// 核心职责：
-/// - 记录意图分类、是否加载上下文和风险信号
+/// - 记录入口是否允许进入 Agent Runtime
+/// - 记录硬安全风险信号，不承载领域规划
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AiGateDecision {
     pub intent: AiIntent,
@@ -82,16 +71,14 @@ impl AiGateDecision {
 
     /// gate_code 返回审计用 gate 决策编码
     /// 核心职责：
-    /// - 统一三态语义：blocked / load_context / enter_workbench
+    /// - 统一安全边界语义：blocked / enter_workbench
     /// - 作为 turn_preparation、diagnostics、eval_case 的唯一编码来源
     #[must_use]
     pub fn gate_code(&self) -> &'static str {
-        if !self.enters_workbench() {
-            "blocked"
-        } else if self.context_loaded {
-            "load_context"
-        } else {
+        if self.enters_workbench() {
             "enter_workbench"
+        } else {
+            "blocked"
         }
     }
 
@@ -102,16 +89,14 @@ impl AiGateDecision {
     /// - 避免调用方直接匹配 intent 枚举决定展示文本
     #[must_use]
     pub fn gate_message(&self) -> &'static str {
-        if !self.enters_workbench() {
+        if self.enters_workbench() {
+            "允许进入毛球 Agent Runtime。"
+        } else {
             match self.intent {
                 AiIntent::PromptInjection => "这个请求包含不受支持的操作指令，我不能继续处理。",
                 AiIntent::CostAbuse => "这个请求超出了毛球助手的回答范围，我不能继续处理。",
-                _ => "这个请求不符合毛球助手的安全边界，我不能继续处理。",
+                AiIntent::Allowed => "这个请求不符合毛球助手的安全边界，我不能继续处理。",
             }
-        } else if self.context_loaded {
-            "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。"
-        } else {
-            "这个问题属于毛伙伴 App 使用帮助，我先不读取宠物事实。你可以描述遇到的页面或操作，我会按应用功能边界说明。"
         }
     }
 }
@@ -129,21 +114,12 @@ mod tests {
         }
     }
 
-    fn load_context_decision() -> AiGateDecision {
-        AiGateDecision {
-            intent: AiIntent::PetCare,
-            context_loaded: true,
-            risk_signal: None,
-            reason: "pet domain".to_owned(),
-        }
-    }
-
     fn enter_workbench_decision() -> AiGateDecision {
         AiGateDecision {
-            intent: AiIntent::OffTopic,
+            intent: AiIntent::Allowed,
             context_loaded: false,
             risk_signal: None,
-            reason: "off topic".to_owned(),
+            reason: "allowed".to_owned(),
         }
     }
 
@@ -164,11 +140,9 @@ mod tests {
     /// gate_message 对非 blocked 路径保持原有文案不变
     #[test]
     fn gate_message_preserves_non_blocked_messages() {
-        let load = load_context_decision();
         let enter = enter_workbench_decision();
 
-        assert!(load.gate_message().contains("宠物照护"));
-        assert!(enter.gate_message().contains("App 使用帮助"));
+        assert!(enter.gate_message().contains("Agent Runtime"));
     }
 
     // gate_message 中 blocked 分支的 _ => 兜底文案在当前枚举下不可达：

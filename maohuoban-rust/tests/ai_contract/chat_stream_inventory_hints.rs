@@ -9,14 +9,27 @@ use super::{authorized_json_request, login_and_get_token, response_json, respons
 #[tokio::test]
 async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
     let server = MockServer::start();
-    let mock = server.mock(|when, then| {
+    let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
-            .body_contains("prefetched_tool_context")
             .body_contains("load_food_inventory_change_hints")
-            .body_contains("弱线索")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(tool_call_response_body(
+                "call_inventory_hints",
+                "load_food_inventory_change_hints",
+            ));
+    });
+    let followup_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"role\":\"tool\"")
+            .body_contains("\"tool_call_id\":\"call_inventory_hints\"")
             .body_contains("巅峰牛肉罐头");
         then.status(200)
             .header("content-type", "text/event-stream")
@@ -64,7 +77,8 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
     assert_eq!(response.status(), StatusCode::OK);
     let text = response_text(response).await;
 
-    mock.assert();
+    first_mock.assert();
+    followup_mock.assert();
     assert!(
         text.contains("event: execution_trace_completed")
             && text.contains("正在检查毛球近期喂食线索"),

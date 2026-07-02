@@ -30,10 +30,6 @@ pub(crate) enum RuntimePhase {
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_calls: Vec<LlmToolCall>,
     },
-    EvidenceToolExecution {
-        assistant_tool_calls: Vec<LlmToolCall>,
-        tool_calls: Vec<LlmToolCall>,
-    },
     FollowupModel {
         assistant_reasoning_content: Option<String>,
         assistant_tool_calls: Vec<LlmToolCall>,

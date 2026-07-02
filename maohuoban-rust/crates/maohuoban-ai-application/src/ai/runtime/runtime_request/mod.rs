@@ -8,7 +8,7 @@ use crate::ai::skill::SkillBundle;
 use crate::ai::tools::ToolRegistry;
 
 use super::agent_runtime_request_policy::AgentRuntimeRequestPolicy;
-use super::tool_messages::{prefetched_tool_context_message, tool_result_to_message};
+use super::tool_messages::tool_result_to_message;
 use super::workbench_prompt_projection::workbench_context_prompt;
 
 pub(crate) fn build_request(
@@ -102,8 +102,6 @@ fn build_messages(
             tool_call_id: None,
             tool_calls: assistant_tool_calls.to_vec(),
         });
-    } else if !tool_results.is_empty() {
-        messages.push(prefetched_tool_context_message(tool_results));
     }
 
     if !assistant_tool_calls.is_empty() {

@@ -1,8 +1,7 @@
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiContentBlock,
     AiConversationSurface, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
-    AiPetDisplaySnapshot, AiPetProfileSpecies, AiStreamEvent, LlmToolCall, ModelLabel,
-    ProviderErrorCategory,
+    AiPetDisplaySnapshot, AiPetProfileSpecies, AiStreamEvent, ModelLabel, ProviderErrorCategory,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -500,42 +499,30 @@ fn projector_does_not_trigger_pet_profile_skeleton_from_activity_text_without_vi
 }
 
 #[test]
-fn visible_output_plan_uses_identity_evidence_tool_for_pet_profile_card() {
+fn visible_output_plan_does_not_use_identity_evidence_tool_for_pet_profile_card() {
     let target_pet = pet_display_snapshot("豆包");
-    let evidence_tool_calls = vec![identity_evidence_call(target_pet.pet_id)];
 
-    let plan = plan_visible_output(
-        AiConversationSurface::HomePrivate,
-        Some(&target_pet),
-        &evidence_tool_calls,
+    let plan = plan_visible_output(AiConversationSurface::HomePrivate, Some(&target_pet));
+
+    assert_eq!(
+        plan,
+        VisibleOutputPlan::empty(),
+        "fact tools provide evidence only; they must not decide visible UI blocks"
     );
-
-    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
 }
 
 #[test]
 fn visible_output_plan_uses_pet_profile_surface_for_pet_profile_card() {
     let target_pet = pet_display_snapshot("豆包");
-    let evidence_tool_calls = Vec::new();
 
-    let plan = plan_visible_output(
-        AiConversationSurface::PetProfile,
-        Some(&target_pet),
-        &evidence_tool_calls,
-    );
+    let plan = plan_visible_output(AiConversationSurface::PetProfile, Some(&target_pet));
 
     assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
 }
 
 #[test]
 fn visible_output_plan_does_not_create_pet_profile_card_without_target_pet() {
-    let evidence_tool_calls = vec![identity_evidence_call(Uuid::new_v4())];
-
-    let plan = plan_visible_output(
-        AiConversationSurface::HomePrivate,
-        None,
-        &evidence_tool_calls,
-    );
+    let plan = plan_visible_output(AiConversationSurface::HomePrivate, None);
 
     assert_eq!(plan, VisibleOutputPlan::empty());
 }
@@ -812,14 +799,6 @@ fn pet_display_snapshot(name: &str) -> AiPetDisplaySnapshot {
         pet_avatar_url: None,
         pet_species: "cat".to_owned(),
         profile_number: "P001".to_owned(),
-    }
-}
-
-fn identity_evidence_call(pet_id: Uuid) -> LlmToolCall {
-    LlmToolCall {
-        id: "evidence_load_pet_identity_context".to_owned(),
-        name: "load_pet_identity_context".to_owned(),
-        arguments: serde_json::json!({ "pet_id": pet_id }).to_string(),
     }
 }
 

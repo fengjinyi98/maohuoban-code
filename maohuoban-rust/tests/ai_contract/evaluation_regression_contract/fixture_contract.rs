@@ -39,10 +39,7 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
         .iter()
         .map(|case| case.expected_workbench.as_str())
         .collect::<BTreeSet<_>>();
-    assert_eq!(
-        workbench_kinds,
-        BTreeSet::from(["blocked", "light_response", "private_pet_context"])
-    );
+    assert_eq!(workbench_kinds, BTreeSet::from(["blocked", "runtime"]));
 
     let terminal_states = cases
         .iter()
@@ -53,10 +50,6 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
         BTreeSet::from(["blocked", "completed", "failed"])
     );
 
-    assert!(
-        cases.iter().any(|case| case.expected_context_loaded),
-        "fixture must contain context-loaded cases"
-    );
     assert!(
         cases.iter().any(|case| !case.expected_context_loaded),
         "fixture must contain context-free cases"

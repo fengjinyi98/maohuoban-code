@@ -25,7 +25,6 @@ use super::super::composition::workbench_builder::{
 };
 use super::super::content_block_projector::project_pet_profile_content_blocks;
 use super::super::fact_package_merge::merge_fact_packages;
-use super::super::runtime_stream_bridge::plan_evidence_tool_calls;
 use super::super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::super::runtime_tools::{
     build_public_runtime_tool_registry, build_runtime_tool_registry,
@@ -73,9 +72,7 @@ pub(super) async fn complete_with_runtime(
         Some(target_pet) => build_runtime_tool_registry(state, context.session_id, target_pet),
         None => build_public_runtime_tool_registry(),
     });
-    let evidence_tool_calls = plan_evidence_tool_calls(&workbench, registry.as_ref(), &req.message);
-    let visible_output_plan =
-        plan_visible_output(req.surface, target_pet.as_ref(), &evidence_tool_calls);
+    let visible_output_plan = plan_visible_output(req.surface, target_pet.as_ref());
     let visible_tool_names = registry
         .list_definitions()
         .into_iter()

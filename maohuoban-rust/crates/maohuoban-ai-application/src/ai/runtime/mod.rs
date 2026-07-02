@@ -12,7 +12,6 @@ mod engine_input;
 mod engine_mode;
 mod evidence_planner;
 mod fake_loop_engine;
-mod followup_grounding;
 mod runtime_phase;
 mod runtime_request;
 mod session;

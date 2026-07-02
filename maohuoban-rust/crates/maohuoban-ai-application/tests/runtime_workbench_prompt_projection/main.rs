@@ -359,7 +359,7 @@ async fn workbench_prompt_hides_domain_struct_field_names() {
 }
 
 #[tokio::test]
-async fn runtime_write_task_projects_workflow_skill_into_workbench_prompt() {
+async fn write_tool_is_visible_without_keyword_workflow_skill() {
     let provider = ToolCallProvider::new();
     let mut registry = ToolRegistry::new();
     registry.register(WriteObservationTool);
@@ -390,14 +390,17 @@ async fn runtime_write_task_projects_workflow_skill_into_workbench_prompt() {
         .content
         .as_str();
 
+    assert!(workbench_prompt.contains("prepare_pet_observation_write"));
+    assert!(workbench_prompt.contains("需要写入或高风险动作时必须进入确认路径"));
+    assert!(workbench_prompt.contains("工具只能由 Runtime Gateway 执行"));
     assert!(
-        workbench_prompt.contains("workflow.write_requires_confirmation"),
-        "write task workflow skill should be projected into production prompt: {workbench_prompt}"
+        !workbench_prompt.contains("workflow.write_requires_confirmation"),
+        "runtime must not inject write workflow skill from user text: {workbench_prompt}"
     );
 }
 
 #[tokio::test]
-async fn runtime_evidence_task_projects_workflow_skill_into_followup_prompt() {
+async fn evidence_tool_is_visible_without_prefetch_workflow_skill() {
     let provider = CapturingProvider::new();
     let mut registry = ToolRegistry::new();
     registry.register(PetIdentityFactTool);
@@ -428,14 +431,16 @@ async fn runtime_evidence_task_projects_workflow_skill_into_followup_prompt() {
         .content
         .as_str();
 
+    assert!(workbench_prompt.contains("load_pet_identity_context"));
+    assert!(workbench_prompt.contains("模型只申请工具或基于已投影信息回答"));
     assert!(
-        workbench_prompt.contains("workflow.evidence_read_before_answer"),
-        "evidence task workflow skill should be projected into followup prompt: {workbench_prompt}"
+        !workbench_prompt.contains("workflow.evidence_read_before_answer"),
+        "runtime must not inject evidence workflow skill from user text: {workbench_prompt}"
     );
-    assert!(
-        requests[0].tools.is_empty(),
-        "evidence followup request should not expose tools after prefetch: {:?}",
-        requests[0].tools
+    assert_eq!(
+        requests[0].tools.len(),
+        1,
+        "initial model planning request should expose the evidence tool"
     );
 }
 

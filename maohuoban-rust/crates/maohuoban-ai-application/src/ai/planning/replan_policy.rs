@@ -27,12 +27,9 @@ impl ReplanPolicy {
                 false,
                 Some(TaskType::RejectTask),
             ),
-            ReplanCause::EvidenceInsufficient => ReplanDecision::new(
-                cause,
-                ReplanAction::ReplanToTask,
-                false,
-                Some(TaskType::ClarificationTask),
-            ),
+            ReplanCause::EvidenceInsufficient => {
+                ReplanDecision::new(cause, ReplanAction::ReplanToTask, false, None)
+            }
             ReplanCause::ContextLimitExceeded => {
                 ReplanDecision::new(cause, ReplanAction::CompressContextAndRetry, true, None)
             }

@@ -24,7 +24,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use super::echo_tool::EchoIdentityTool;
-use super::helpers::{AUTHORIZED_PET_ID, test_tool_context};
+use super::helpers::{AUTHORIZED_PET_ID, test_tool_context, tool_call_response};
 use super::provider::ScriptedProvider;
 use super::workbenches::{
     final_response, json_final_response, private_pet_context_workbench,
@@ -69,8 +69,14 @@ async fn public_pet_domain_without_private_tools() {
 }
 
 #[tokio::test]
-async fn private_identity_question_prefetches_fact_tool_before_model() {
-    let provider = ScriptedProvider::new(vec![final_response()]);
+async fn private_identity_question_uses_model_planned_fact_tool_before_answer() {
+    let provider = ScriptedProvider::new(vec![
+        tool_call_response(
+            "load_pet_identity_context",
+            &serde_json::json!({ "pet_id": AUTHORIZED_PET_ID }),
+        ),
+        final_response(),
+    ]);
     let mut registry = ToolRegistry::new();
     registry.register(EchoIdentityTool);
 
@@ -98,6 +104,8 @@ async fn private_identity_question_prefetches_fact_tool_before_model() {
         names,
         vec![
             "turn_started",
+            "model_call_started",
+            "model_call_finished",
             "tool_started",
             "tool_finished",
             "message_delta",
@@ -105,31 +113,29 @@ async fn private_identity_question_prefetches_fact_tool_before_model() {
             "model_call_finished",
             "turn_finished",
         ],
-        "private fact question should execute evidence tool before model"
+        "private fact question should execute the model-planned evidence tool before final answer"
     );
 
     let requests = provider.take_requests();
-    assert_eq!(requests.len(), 1);
+    assert_eq!(requests.len(), 2);
     assert!(
         requests[0]
             .messages
             .iter()
             .all(|message| message.role != LlmRole::Tool),
-        "prefetched evidence must not be sent as OpenAI tool-role history"
+        "initial model planning request must not contain tool-role history"
     );
-    let tool_message = requests[0]
+    let tool_message = requests[1]
         .messages
         .iter()
-        .find(|message| {
-            message.role == LlmRole::System && message.content.contains("prefetched_tool_context")
-        })
-        .expect("model request should include prefetched tool result as system context");
+        .find(|message| message.role == LlmRole::Tool)
+        .expect("followup model request should include model-planned tool result");
     assert!(tool_message.content.contains("梅录"));
     assert!(tool_message.content.contains("420"));
 }
 
 #[tokio::test]
-async fn clarification_task_stops_before_provider_call() {
+async fn ambiguous_pet_context_text_is_sent_to_model_for_planning() {
     let provider = ScriptedProvider::new(vec![final_response()]);
     let registry = ToolRegistry::new();
 
@@ -150,13 +156,22 @@ async fn clarification_task_stops_before_provider_call() {
     let events = session
         .prompt_with_workbench("它今天不舒服", private_pet_context_workbench())
         .await
-        .expect("clarification task");
+        .expect("ambiguous private context text");
 
     let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
-    assert_eq!(names, vec!["turn_started", "needs_clarification"]);
+    assert_eq!(
+        names,
+        vec![
+            "turn_started",
+            "message_delta",
+            "model_call_started",
+            "model_call_finished",
+            "turn_finished"
+        ]
+    );
     assert!(
-        provider.take_requests().is_empty(),
-        "clarification task should not call provider before asking user"
+        provider.take_requests().len() == 1,
+        "runtime should let model decide whether to answer, ask, or call tools"
     );
 }
 

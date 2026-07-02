@@ -256,8 +256,7 @@ async fn should_resolve_pet_for_planning(
     if !gate_decision.enters_workbench() {
         return Ok(false);
     }
-    if gate_decision.context_loaded
-        || selected_pet_id.is_some()
+    if selected_pet_id.is_some()
         || req.surface == maohuoban_ai_domain::ai::AiConversationSurface::PetProfile
     {
         return Ok(true);

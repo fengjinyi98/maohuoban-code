@@ -15,15 +15,9 @@ use uuid::Uuid;
 #[test]
 fn ai_intent_serializes_snake_case() {
     for (intent, expected) in [
-        (AiIntent::PetCare, "\"pet_care\""),
-        (AiIntent::PetHealthRisk, "\"pet_health_risk\""),
+        (AiIntent::Allowed, "\"allowed\""),
         (AiIntent::PromptInjection, "\"prompt_injection\""),
         (AiIntent::CostAbuse, "\"cost_abuse\""),
-        (AiIntent::AppSupport, "\"app_support\""),
-        (AiIntent::OffTopic, "\"off_topic\""),
-        (AiIntent::EmotionalPetContext, "\"emotional_pet_context\""),
-        (AiIntent::PetRecordQuery, "\"pet_record_query\""),
-        (AiIntent::PetFood, "\"pet_food\""),
     ] {
         let serialized = serde_json::to_string(&intent).expect("serialize intent");
         assert_eq!(serialized, expected);
@@ -40,10 +34,8 @@ fn ai_intent_rejects_unknown_variant() {
 
 #[test]
 fn ai_intent_pet_domain_classification() {
-    assert!(AiIntent::PetCare.is_pet_domain());
-    assert!(AiIntent::PetFood.requires_context_load());
-    assert!(!AiIntent::AppSupport.is_pet_domain());
-    assert!(!AiIntent::OffTopic.requires_context_load());
+    assert!(!AiIntent::Allowed.is_pet_domain());
+    assert!(!AiIntent::Allowed.requires_context_load());
 }
 
 #[test]
@@ -57,8 +49,8 @@ fn ai_gate_decision_allow_processing() {
     assert!(!blocked.allow_processing());
 
     let allowed = AiGateDecision {
-        intent: AiIntent::PetCare,
-        context_loaded: true,
+        intent: AiIntent::Allowed,
+        context_loaded: false,
         risk_signal: None,
         reason: "ok".to_owned(),
     };

@@ -55,30 +55,6 @@ pub(crate) fn tool_result_to_message(tool_result: &LoopToolResult) -> LlmMessage
     }
 }
 
-pub(crate) fn prefetched_tool_context_message(tool_results: &[LoopToolResult]) -> LlmMessage {
-    let payload: Vec<serde_json::Value> = tool_results
-        .iter()
-        .map(|result| {
-            serde_json::json!({
-                "tool": result.tool_call.name,
-                "status": format!("{:?}", result.status),
-                "content": result.output.as_deref().unwrap_or("{}"),
-            })
-        })
-        .collect();
-    LlmMessage {
-        role: LlmRole::System,
-        content: serde_json::json!({
-            "prefetched_tool_context": payload,
-            "instruction": "这些是系统在回答前预取的可信宠物上下文，只用于回答当前用户问题。",
-        })
-        .to_string(),
-        reasoning_content: None,
-        tool_call_id: None,
-        tool_calls: Vec::new(),
-    }
-}
-
 pub(crate) fn non_empty_string(value: String) -> Option<String> {
     if value.trim().is_empty() {
         None

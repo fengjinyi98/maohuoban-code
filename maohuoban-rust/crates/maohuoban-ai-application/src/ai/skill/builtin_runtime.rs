@@ -15,7 +15,7 @@ pub struct BuiltinSkillRuntime;
 impl BuiltinSkillRuntime {
     /// definitions 返回内置 skill 定义
     /// 核心职责：
-    /// - 固定当前阶段系统、领域和基础 workflow skill
+    /// - 固定当前阶段系统和领域 skill
     /// - 不加载用户自定义 skill 平台
     #[must_use]
     pub fn definitions() -> Vec<SkillDefinition> {
@@ -26,8 +26,6 @@ impl BuiltinSkillRuntime {
             domain_public_pet_care(),
             domain_private_pet_context(),
             domain_app_support(),
-            workflow_evidence_read(),
-            workflow_write_confirmation(),
         ]
     }
 
@@ -151,24 +149,6 @@ fn domain_app_support() -> SkillDefinition {
     )
 }
 
-fn workflow_evidence_read() -> SkillDefinition {
-    workflow_skill(
-        "workflow.evidence_read_before_answer",
-        "evidence_read_task",
-        "私域事实问题必须先取证，再基于工具结果回答；证据不足时转为追问或说明无记录。",
-        100,
-    )
-}
-
-fn workflow_write_confirmation() -> SkillDefinition {
-    workflow_skill(
-        "workflow.write_requires_confirmation",
-        "write_task",
-        "写入类任务必须先组织确认问题，用户确认前不得提交事实或记录。",
-        100,
-    )
-}
-
 fn domain_skill(
     id: &str,
     title: &str,
@@ -188,21 +168,6 @@ fn domain_skill(
         match_conditions: conditions,
         instruction_block: instruction.to_owned(),
         toolset_hints,
-        priority,
-        mutable: false,
-    }
-}
-
-fn workflow_skill(id: &str, task_type: &str, instruction: &str, priority: i32) -> SkillDefinition {
-    let mut conditions = SkillMatchConditions::default();
-    conditions.task_types.push(task_type.to_owned());
-    SkillDefinition {
-        skill_id: id.to_owned(),
-        layer: SkillLayer::Workflow,
-        title: id.to_owned(),
-        match_conditions: conditions,
-        instruction_block: instruction.to_owned(),
-        toolset_hints: SkillToolsetHints::default(),
         priority,
         mutable: false,
     }

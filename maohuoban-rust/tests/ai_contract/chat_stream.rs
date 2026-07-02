@@ -139,8 +139,8 @@ async fn ai_chat_stream_records_backend_diagnostics_chain() {
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.gate.decided"
-            && event.metadata["gate_decision"] == json!("load_context")
-            && event.metadata["context_loaded"] == json!(true)
+            && event.metadata["gate_decision"] == json!("enter_workbench")
+            && event.metadata["context_loaded"] == json!(false)
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.provider.started"
@@ -224,7 +224,7 @@ async fn ai_chat_stream_resolves_selected_pet_from_backend_catalog() {
     let pet_uuid = uuid::Uuid::parse_str(pet_id).expect("parse pet id");
     assert_eq!(row.0, Some(pet_uuid));
     assert_eq!(row.1, Some(pet_uuid));
-    assert!(row.2);
+    assert!(!row.2);
 
     let tool_log: (String, bool, Option<uuid::Uuid>, serde_json::Value) = sqlx::query_as(
         r"
@@ -343,7 +343,7 @@ async fn ai_chat_stream_restores_selected_pet_from_existing_session() {
     let pet_uuid = uuid::Uuid::parse_str(pet_id).expect("parse pet id");
     assert_eq!(row.0, Some(pet_uuid));
     assert_eq!(row.1, Some(pet_uuid));
-    assert!(row.2);
+    assert!(!row.2);
 }
 
 async fn create_pet(

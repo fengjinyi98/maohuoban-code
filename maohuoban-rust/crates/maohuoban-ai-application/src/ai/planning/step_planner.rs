@@ -3,7 +3,7 @@ use super::{ExecutionPolicy, StepKind, StepPlan, TaskType};
 /// StepPlanner 轻规划步骤生成器
 /// 核心职责：
 /// - 将 TaskType 映射为线性 StepPlan
-/// - 固定直接回答、取证、追问、写入确认和拒绝路径的停止边界
+/// - 固定模型回答、上下文回答和安全拒绝路径的停止边界
 pub struct StepPlanner;
 
 impl StepPlanner {
@@ -16,19 +16,6 @@ impl StepPlanner {
                 StepKind::LoadContext,
                 StepKind::ModelReason,
                 StepKind::FinalizeAnswer,
-            ],
-            TaskType::EvidenceReadTask => vec![
-                StepKind::LoadContext,
-                StepKind::PrefetchEvidence,
-                StepKind::ToolRead,
-                StepKind::ModelReason,
-                StepKind::FinalizeAnswer,
-            ],
-            TaskType::ClarificationTask => vec![StepKind::ClarifyUser],
-            TaskType::WriteTask => vec![
-                StepKind::LoadContext,
-                StepKind::ModelReason,
-                StepKind::ToolWritePrepare,
             ],
             TaskType::RejectTask => vec![StepKind::FinalizeAnswer],
         };

@@ -612,8 +612,10 @@ async fn case_followup_question_with_history() {
 }
 
 #[tokio::test]
-async fn case_emotional_followup_uses_verified_birthday_fact_without_model_retry() {
-    let provider = Arc::new(ScriptedProvider::new(Vec::new()));
+async fn case_emotional_followup_is_planned_by_model_with_verified_facts() {
+    let provider = Arc::new(ScriptedProvider::new(vec![final_text_response(
+        "是啊，今年生日已经过了 15 天。下次生日是 2027-06-17，可以提前留个提醒。",
+    )]));
     let mut fact_package = AiFactPackage::empty();
     fact_package.computed.push(AiFactEntry {
         key: "pet_identity.birthday_passed_this_year".to_owned(),
@@ -670,9 +672,19 @@ async fn case_emotional_followup_uses_verified_birthday_fact_without_model_retry
         "emotional follow-up must not retract verified facts, got: {text}"
     );
     assert!(
-        provider.take_requests().is_empty(),
-        "grounded emotional follow-up should be answered by runtime without model retry"
+        provider.take_requests().len() == 1,
+        "emotional follow-up should still go through model planning"
     );
+    let requests = provider.take_requests();
+    let projected_prompt = requests[0]
+        .messages
+        .iter()
+        .map(|message| message.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(projected_prompt.contains("遗憾我都忘了"));
+    assert!(projected_prompt.contains("梅录今年的生日是 6月17日"));
+    assert!(projected_prompt.contains("今年生日 6月17日 已经过了 15 天"));
 }
 
 // ===========================================================================

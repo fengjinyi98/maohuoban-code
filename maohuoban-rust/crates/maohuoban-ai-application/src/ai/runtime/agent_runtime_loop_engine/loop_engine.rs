@@ -11,8 +11,6 @@ use crate::ai::planning::StepKind;
 use super::super::{
     LoopEngine,
     agent_runtime_diagnostics::AgentRuntimeDiagnostics,
-    evidence_planner::EvidencePlanner,
-    followup_grounding::FollowupGrounding,
     runtime_phase::RuntimePhase,
     runtime_request::{build_request, request_tool_count},
     streaming_model_purpose::{StreamingModelPurpose, streaming_model_purpose_code},
@@ -22,7 +20,6 @@ use super::{
     AgentRuntimeLoopEngine,
     model_stream::{empty_assistant_content_error, model_stream},
     output_guard::{OutputGuardDecision, evaluate_output_guard},
-    planning::ensure_workflow_policy_supports_plan,
     replan::StreamingRetryRequest,
 };
 
@@ -38,69 +35,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
         loop {
             match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
                 RuntimePhase::Model => {
-                    if let Some(final_text) =
-                        FollowupGrounding::grounded_response(state, self.fact_package.as_ref())
-                    {
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text,
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
-                            error_code: None,
-                        };
-                        continue;
-                    }
-                    let already_prefetched =
-                        self.evidence_prefetched_turn_id == state.current_turn_id;
-                    let evidence_tool_calls = if already_prefetched {
-                        Vec::new()
-                    } else {
-                        EvidencePlanner::plan(state, self.registry.as_ref())
-                    };
-                    let plan = self.plan_current_turn(state, evidence_tool_calls.len());
+                    let plan = self.plan_current_turn(state);
                     if let Some(plan) = plan.as_ref() {
                         self.record_planning_if_needed(state, plan);
-                        if plan.policy().requires_clarification() {
-                            self.record_planning_step(state, StepKind::ClarifyUser, None);
-                            self.phase = RuntimePhase::Done {
-                                message_id: uuid::Uuid::new_v4(),
-                                final_text: String::new(),
-                                status:
-                                    maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification,
-                                error_code: None,
-                            };
-                            return Ok(Some(LoopStep::clarify_user(
-                                "用户描述缺少可行动观察信息",
-                                vec![
-                                    "补充症状持续时间".to_owned(),
-                                    "补充精神、食欲和排便变化".to_owned(),
-                                ],
-                            )));
-                        }
                     }
                     let skill_bundle = plan
                         .as_ref()
                         .and_then(|_| self.current_skill_bundle_for_state(state));
-                    if let (Some(plan), Some(skill_bundle)) = (plan.as_ref(), skill_bundle.as_ref())
-                    {
-                        ensure_workflow_policy_supports_plan(plan, skill_bundle)?;
-                    }
-                    let requires_evidence = plan
-                        .as_ref()
-                        .is_none_or(|plan| plan.policy().requires_evidence());
-                    if requires_evidence && !evidence_tool_calls.is_empty() {
-                        self.record_planning_step(
-                            state,
-                            StepKind::PrefetchEvidence,
-                            Some((StepKind::LoadContext, StepKind::PrefetchEvidence)),
-                        );
-                        self.evidence_prefetched_turn_id = state.current_turn_id;
-                        self.phase = RuntimePhase::EvidenceToolExecution {
-                            assistant_tool_calls: evidence_tool_calls.clone(),
-                            tool_calls: evidence_tool_calls,
-                        };
-                        continue;
-                    }
-
                     self.record_planning_step(state, StepKind::ModelReason, None);
                     let mut request = build_request(
                         state,
@@ -146,8 +87,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     diagnostics_correlation,
                     retry_count,
                 } => {
-                    let requires_confirmation = matches!(purpose, StreamingModelPurpose::Initial)
-                        && self.current_plan_requires_confirmation(state);
                     if let Some(event) = stream.next().await {
                         let event = match event {
                             Ok(event) => event,
@@ -181,8 +120,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         match event {
                             LlmStreamEvent::Delta { content } => {
                                 accumulated_text.push_str(&content);
-                                let suppress_visible_delta = requires_confirmation
-                                    || self.fact_package.is_some()
+                                let suppress_visible_delta = self.fact_package.is_some()
                                     || (accumulated_text.trim().is_empty()
                                         && content.trim().is_empty());
                                 self.phase = RuntimePhase::StreamingModel {
@@ -267,30 +205,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     }
 
                     if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
-                        if requires_confirmation && tool_calls.is_empty() {
-                            self.record_planning_step(
-                                state,
-                                StepKind::ToolWritePrepare,
-                                Some((StepKind::ModelReason, StepKind::ToolWritePrepare)),
-                            );
-                            self.phase = RuntimePhase::ClarifyUser {
-                                reason: "写入请求缺少确认工具调用".to_owned(),
-                                suggested_actions: vec![
-                                    "确认要写入的宠物和记录内容".to_owned(),
-                                    "重新提交写入请求".to_owned(),
-                                ],
-                            };
-                            return Ok(Some(LoopStep::CallModel {
-                                model_label: ModelLabel::Primary,
-                                tool_count,
-                                outcome: ModelCallOutcome::Finished {
-                                    finish_reason,
-                                    usage,
-                                    provider: "runtime_stream".to_owned(),
-                                    model: ModelLabel::Primary.as_str().to_owned(),
-                                },
-                            }));
-                        }
                         let visible_text = visible_text_from_model_output(&accumulated_text);
                         if visible_text.trim().is_empty() {
                             return Err(empty_assistant_content_error());
@@ -334,13 +248,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         }));
                     }
 
-                    if requires_confirmation {
-                        self.record_planning_step(
-                            state,
-                            StepKind::ToolWritePrepare,
-                            Some((StepKind::ModelReason, StepKind::ToolWritePrepare)),
-                        );
-                    }
                     self.phase = RuntimePhase::ToolExecution {
                         assistant_reasoning_content: non_empty_string(
                             accumulated_reasoning_content,
@@ -368,18 +275,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         .advance_tool_execution_phase(
                             state,
                             assistant_reasoning_content,
-                            assistant_tool_calls,
-                            tool_calls,
-                        )
-                        .await;
-                }
-                RuntimePhase::EvidenceToolExecution {
-                    assistant_tool_calls,
-                    tool_calls,
-                } => {
-                    return self
-                        .advance_evidence_tool_execution_phase(
-                            state,
                             assistant_tool_calls,
                             tool_calls,
                         )

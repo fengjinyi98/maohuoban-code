@@ -1,8 +1,8 @@
 use crate::ai::planning::{
-    PlanningDiagnosticsSnapshot, StepKind, StepPlan, StepPlanner, TaskClassifier, TaskType,
+    PlanningDiagnosticsSnapshot, StepKind, StepPlan, StepPlanner, TaskClassifier,
 };
 use crate::ai::skill::{BuiltinSkillRuntime, SkillBundle};
-use maohuoban_ai_domain::ai::{AgentSessionState, AiError, AiResult};
+use maohuoban_ai_domain::ai::AgentSessionState;
 
 use super::super::{
     agent_runtime_diagnostics::AgentRuntimeDiagnostics,
@@ -11,35 +11,19 @@ use super::super::{
 use super::AgentRuntimeLoopEngine;
 
 impl AgentRuntimeLoopEngine {
-    pub(super) fn plan_current_turn(
-        &mut self,
-        state: &AgentSessionState,
-        evidence_tool_count: usize,
-    ) -> Option<StepPlan> {
+    pub(super) fn plan_current_turn(&mut self, state: &AgentSessionState) -> Option<StepPlan> {
         let turn_id = state.current_turn_id?;
         if let Some((cached_turn_id, plan)) = &self.current_step_plan
             && *cached_turn_id == turn_id
         {
             return Some(plan.clone());
         }
-        let user_input = state.user_inputs.last()?;
         let selected_pet_present = state
             .workbench
             .as_ref()
             .and_then(|workbench| workbench.context_pack.selected_pet.as_ref())
             .is_some();
-        let write_tool_visible = self
-            .registry
-            .list_definitions()
-            .into_iter()
-            .any(|tool| tool.requires_confirmation || !tool.read_only);
-        let task_type = TaskClassifier::classify_runtime(
-            user_input,
-            selected_pet_present,
-            evidence_tool_count,
-            write_tool_visible,
-            None,
-        );
+        let task_type = TaskClassifier::classify_runtime(selected_pet_present);
         let plan = StepPlanner::plan(task_type);
         self.current_step_plan = Some((turn_id, plan.clone()));
         Some(plan)
@@ -65,11 +49,6 @@ impl AgentRuntimeLoopEngine {
         let turn_id = state.current_turn_id?;
         let (planned_turn_id, plan) = self.current_step_plan.as_ref()?;
         (*planned_turn_id == turn_id).then_some(plan)
-    }
-
-    pub(super) fn current_plan_requires_confirmation(&self, state: &AgentSessionState) -> bool {
-        self.current_plan_for_state(state)
-            .is_some_and(|plan| plan.policy().requires_confirmation())
     }
 
     pub(super) fn current_skill_bundle_for_state(
@@ -125,37 +104,5 @@ impl AgentRuntimeLoopEngine {
             snapshot = snapshot.with_step_transition(from, to);
         }
         AgentRuntimeDiagnostics::record_planning_snapshot(&snapshot);
-    }
-}
-
-pub(super) fn ensure_workflow_policy_supports_plan(
-    plan: &StepPlan,
-    bundle: &SkillBundle,
-) -> AiResult<()> {
-    let Some(required_skill_id) = required_workflow_skill_id(plan.task_type()) else {
-        return Ok(());
-    };
-    if bundle
-        .workflow_policy
-        .workflow_skill_ids
-        .iter()
-        .any(|skill_id| skill_id == required_skill_id)
-    {
-        return Ok(());
-    }
-    Err(AiError::Infrastructure(format!(
-        "workflow skill {required_skill_id} missing for task {}",
-        plan.task_type().as_str()
-    )))
-}
-
-fn required_workflow_skill_id(task_type: TaskType) -> Option<&'static str> {
-    match task_type {
-        TaskType::EvidenceReadTask => Some("workflow.evidence_read_before_answer"),
-        TaskType::WriteTask => Some("workflow.write_requires_confirmation"),
-        TaskType::DirectAnswer
-        | TaskType::ContextAnswer
-        | TaskType::ClarificationTask
-        | TaskType::RejectTask => None,
     }
 }

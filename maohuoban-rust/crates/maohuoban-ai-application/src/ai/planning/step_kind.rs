@@ -8,12 +8,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum StepKind {
     LoadContext,
-    PrefetchEvidence,
     ModelReason,
     ToolRead,
-    ToolWritePrepare,
-    ToolWriteCommit,
-    ClarifyUser,
     FinalizeAnswer,
 }
 
@@ -23,12 +19,8 @@ impl StepKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::LoadContext => "load_context",
-            Self::PrefetchEvidence => "prefetch_evidence",
             Self::ModelReason => "model_reason",
             Self::ToolRead => "tool_read",
-            Self::ToolWritePrepare => "tool_write_prepare",
-            Self::ToolWriteCommit => "tool_write_commit",
-            Self::ClarifyUser => "clarify_user",
             Self::FinalizeAnswer => "finalize_answer",
         }
     }

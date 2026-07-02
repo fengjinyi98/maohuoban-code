@@ -24,7 +24,7 @@ fn skill_definition_roundtrips_with_contract_fields() {
         layer: SkillLayer::System,
         title: "医疗边界".to_owned(),
         match_conditions: SkillMatchConditions {
-            intents: vec![AiIntent::PetHealthRisk],
+            intents: vec![AiIntent::Allowed],
             capability_domains: vec![CapabilityDomain::HardSafety],
             capability_codes: vec!["hard_safety".to_owned()],
             task_types: vec!["clarification_task".to_owned()],
@@ -48,10 +48,7 @@ fn skill_definition_roundtrips_with_contract_fields() {
 
     assert_eq!(value["skill_id"], json!("system.medical_boundary"));
     assert_eq!(value["layer"], json!("system"));
-    assert_eq!(
-        value["match_conditions"]["intents"],
-        json!(["pet_health_risk"])
-    );
+    assert_eq!(value["match_conditions"]["intents"], json!(["allowed"]));
     assert_eq!(
         value["toolset_hints"]["allowed_toolsets"],
         json!(["public_pet_domain"])
@@ -88,7 +85,7 @@ fn skill_matcher_hits_system_domain_workflow_and_personalization_layers() {
         ),
     ];
     let input = SkillMatchInput {
-        intent: Some(AiIntent::PetFood),
+        intent: Some(AiIntent::Allowed),
         task_type: Some("evidence_read_task".to_owned()),
         surface: AiConversationSurface::HomePrivate,
         capability_domains: vec![CapabilityDomain::PrivatePetContext],
@@ -274,30 +271,27 @@ fn runtime_match_input_carries_planner_actor_and_household_context() {
     let input = SkillMatchInput::from_runtime(
         &workbench,
         vec![Toolset::PrivatePetContext],
-        Some(TaskType::WriteTask.as_str()),
+        Some(TaskType::ContextAnswer.as_str()),
         Some(actor_user_id),
     );
 
-    assert_eq!(input.task_type.as_deref(), Some("write_task"));
+    assert_eq!(input.task_type.as_deref(), Some("context_answer"));
     assert_eq!(input.actor_user_id, Some(actor_user_id));
     assert_eq!(input.household_id, Some(household_id));
 }
 
 #[test]
-fn builtin_runtime_matches_workflow_skill_from_runtime_task_type() {
+fn builtin_runtime_does_not_inject_workflow_skill_from_runtime_task_type() {
     let workbench = contract_workbench_with_household_memory(Uuid::new_v4());
 
     let bundle = BuiltinSkillRuntime::match_runtime(
         &workbench,
         vec![Toolset::PrivatePetContext],
-        Some(TaskType::WriteTask.as_str()),
+        Some(TaskType::ContextAnswer.as_str()),
         Some(Uuid::new_v4()),
     );
 
-    assert_eq!(
-        bundle.workflow_policy.workflow_skill_ids,
-        vec!["workflow.write_requires_confirmation"]
-    );
+    assert!(bundle.workflow_policy.workflow_skill_ids.is_empty());
 }
 
 #[test]
@@ -457,7 +451,7 @@ fn personalization_skill(
 
 fn public_direct_input(actor_user_id: Option<Uuid>) -> SkillMatchInput {
     SkillMatchInput {
-        intent: Some(AiIntent::PetCare),
+        intent: Some(AiIntent::Allowed),
         task_type: Some("direct_answer".to_owned()),
         surface: AiConversationSurface::HomePrivate,
         capability_domains: vec![CapabilityDomain::PublicPetDomain],

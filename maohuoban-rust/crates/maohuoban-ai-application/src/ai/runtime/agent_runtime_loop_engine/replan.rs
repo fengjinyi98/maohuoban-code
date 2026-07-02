@@ -1,5 +1,5 @@
 use crate::ai::planning::{
-    PlanningDiagnosticsSnapshot, ReplanAction, ReplanCause, ReplanDecision, ReplanPolicy, TaskType,
+    PlanningDiagnosticsSnapshot, ReplanAction, ReplanCause, ReplanDecision, ReplanPolicy,
 };
 use maohuoban_ai_domain::ai::{
     AgentSessionState, AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason,
@@ -103,9 +103,7 @@ pub(super) fn runtime_phase_for_tool_replan(
     tool_results: &[LoopToolResult],
 ) -> RuntimePhase {
     match decision.action {
-        ReplanAction::ReplanToTask
-            if decision.replanned_task_type == Some(TaskType::ClarificationTask) =>
-        {
+        ReplanAction::ReplanToTask if decision.cause == ReplanCause::EvidenceInsufficient => {
             RuntimePhase::ClarifyUser {
                 reason: "取证结果不足，无法可靠回答当前问题".to_owned(),
                 suggested_actions: vec![

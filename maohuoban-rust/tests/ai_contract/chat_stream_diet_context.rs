@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use httpmock::{Mock, MockServer};
+use httpmock::{Mock, MockServer, prelude::HttpMockRequest};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -13,7 +13,7 @@ use super::{
 async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     let _guard = diagnostics_test_lock().lock_owned().await;
     let server = MockServer::start();
-    let mock = install_current_diet_context_mock(&server);
+    let (first_mock, followup_mock) = install_current_diet_context_mocks(&server);
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
     config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
@@ -59,7 +59,8 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
         "diet context stream failed, body: {text}"
     );
 
-    mock.assert();
+    first_mock.assert();
+    followup_mock.assert();
     let started = sse_event_data(&text, "message_started");
     let chat_session_id = started["chat_session_id"]
         .as_str()
@@ -111,14 +112,28 @@ async fn ai_chat_stream_loads_current_diet_context_for_provider_prompt() {
     assert_eq!(citation_count, 1);
 }
 
-fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
-    server.mock(|when, then| {
+fn install_current_diet_context_mocks(server: &MockServer) -> (Mock<'_>, Mock<'_>) {
+    let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
-            .body_contains("prefetched_tool_context")
             .body_contains("load_pet_current_diet_context")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(tool_call_response_body(
+                "call_current_diet",
+                "load_pet_current_diet_context",
+            ));
+    });
+    let followup_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"role\":\"tool\"")
+            .body_contains("\"tool_call_id\":\"call_current_diet\"")
             .body_contains("渴望六种鱼");
         then.status(200)
             .header("content-type", "text/event-stream")
@@ -127,7 +142,25 @@ fn install_current_diet_context_mock(server: &MockServer) -> Mock<'_> {
                  data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":4,\"completion_tokens\":6,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
-    })
+    });
+    (first_mock, followup_mock)
+}
+
+fn tool_call_response_body(tool_call_id: &str, tool_name: &str) -> String {
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":{tool_call_id:?},\"function\":{{\"name\":{tool_name:?},\"arguments\":\"{{}}\"}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
+}
+
+fn request_without_tool_result(req: &HttpMockRequest) -> bool {
+    let body = req
+        .body
+        .as_ref()
+        .map(|body| String::from_utf8_lossy(body).into_owned())
+        .unwrap_or_default();
+    !body.contains("\"role\":\"tool\"")
 }
 
 async fn create_pet(
