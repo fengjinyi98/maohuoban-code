@@ -25,23 +25,21 @@ struct AIAssistantMessageBubble: View {
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                if message.contentBlocks.isEmpty == false {
+                let presentation = AIAssistantMessageBubblePresentation(message: message)
+
+                if presentation.shouldShowContentBlocks {
                     AIAssistantContentBlockList(blocks: message.contentBlocks)
-                    if message.text.isEmpty == false && message.isStreaming {
-                        streamingText
-                            .font(MHBTheme.Typography.headline.weight(.regular))
-                            .foregroundStyle(foregroundColor)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                } else if message.text.isEmpty && message.isStreaming {
-                    if showsEmptyStreamingIndicator {
-                        AIAssistantThinkingStatus(displayText: nil)
-                    }
-                } else {
+                }
+
+                if presentation.shouldShowText {
                     streamingText
                         .font(MHBTheme.Typography.headline.weight(.regular))
                         .foregroundStyle(foregroundColor)
                         .fixedSize(horizontal: false, vertical: true)
+                } else if presentation.shouldShowEmptyStreamingIndicator {
+                    if showsEmptyStreamingIndicator {
+                        AIAssistantThinkingStatus(displayText: nil)
+                    }
                 }
 
                 if message.referenceChips.isEmpty == false && !message.isStreaming {
