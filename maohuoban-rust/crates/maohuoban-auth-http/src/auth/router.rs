@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::FromRef,
     routing::{get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
@@ -30,18 +29,12 @@ impl AuthHttpState {
     }
 }
 
-impl FromRef<AuthHttpState> for Arc<AuthService> {
-    fn from_ref(input: &AuthHttpState) -> Self {
-        input.auth.clone()
-    }
-}
-
-/// build_auth_router 构建认证路由
+/// build_auth_public_router 构建认证公开路由
 /// 核心职责：
 /// - 注册登录、refresh、第三方 TODO 接口
-/// - 将 HTTP 层限制在 DTO 和响应转换范围内
+/// - 仅暴露无需已登录态的认证能力
 #[must_use]
-pub fn build_auth_router(auth: Arc<AuthService>, profile: Arc<ProfileService>) -> Router {
+pub fn build_auth_public_router(auth: Arc<AuthService>, profile: Arc<ProfileService>) -> Router {
     Router::new()
         .route("/api/v1/auth/phone/code", post(handlers::send_phone_code))
         .route(
@@ -51,23 +44,6 @@ pub fn build_auth_router(auth: Arc<AuthService>, profile: Arc<ProfileService>) -
         .route(
             "/api/v1/auth/password/login",
             post(handlers::password_login),
-        )
-        .route("/api/v1/account/security", get(handlers::account_security))
-        .route(
-            "/api/v1/account/password",
-            post(handlers::set_account_password).patch(handlers::change_account_password),
-        )
-        .route(
-            "/api/v1/account/password/change-code",
-            post(handlers::send_password_change_code),
-        )
-        .route(
-            "/api/v1/account/devices",
-            get(handlers::list_account_devices),
-        )
-        .route(
-            "/api/v1/account/devices/{session_id}",
-            get(handlers::load_account_device).delete(handlers::revoke_account_device),
         )
         .route("/api/v1/auth/refresh", post(handlers::refresh_token))
         .route("/api/v1/auth/logout", post(handlers::logout))
@@ -79,6 +55,49 @@ pub fn build_auth_router(auth: Arc<AuthService>, profile: Arc<ProfileService>) -
         .route(
             "/api/v1/account-recovery/reset-password",
             post(handlers::reset_password),
+        )
+        .with_state(AuthHttpState::new(auth, profile))
+}
+
+/// build_auth_user_protected_router 构建认证用户受保护路由
+/// 核心职责：
+/// - 注册需要当前用户登录态的账号安全与密码接口
+/// - 将路由定义与鉴权策略拆分，交给根路由树统一装配
+#[must_use]
+pub fn build_auth_user_protected_router(
+    auth: Arc<AuthService>,
+    profile: Arc<ProfileService>,
+) -> Router {
+    Router::new()
+        .route("/api/v1/account/security", get(handlers::account_security))
+        .route(
+            "/api/v1/account/password",
+            post(handlers::set_account_password).patch(handlers::change_account_password),
+        )
+        .route(
+            "/api/v1/account/password/change-code",
+            post(handlers::send_password_change_code),
+        )
+        .with_state(AuthHttpState::new(auth, profile))
+}
+
+/// build_auth_session_protected_router 构建认证会话受保护路由
+/// 核心职责：
+/// - 注册依赖当前 session 语义的设备管理接口
+/// - 将路由定义与鉴权策略拆分，交给根路由树统一装配
+#[must_use]
+pub fn build_auth_session_protected_router(
+    auth: Arc<AuthService>,
+    profile: Arc<ProfileService>,
+) -> Router {
+    Router::new()
+        .route(
+            "/api/v1/account/devices",
+            get(handlers::list_account_devices),
+        )
+        .route(
+            "/api/v1/account/devices/{session_id}",
+            get(handlers::load_account_device).delete(handlers::revoke_account_device),
         )
         .with_state(AuthHttpState::new(auth, profile))
 }

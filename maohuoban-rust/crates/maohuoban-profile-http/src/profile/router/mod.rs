@@ -7,10 +7,9 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{DefaultBodyLimit, FromRef},
+    extract::DefaultBodyLimit,
     routing::{get, post},
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
 use maohuoban_profile_application::profile::ProfileService;
 
@@ -21,19 +20,12 @@ use maohuoban_profile_application::profile::ProfileService;
 #[derive(Clone)]
 pub struct ProfileHttpState {
     profile: Arc<ProfileService>,
-    auth: Arc<AuthService>,
 }
 
 impl ProfileHttpState {
     #[must_use]
-    pub const fn new(profile: Arc<ProfileService>, auth: Arc<AuthService>) -> Self {
-        Self { profile, auth }
-    }
-}
-
-impl FromRef<ProfileHttpState> for Arc<AuthService> {
-    fn from_ref(input: &ProfileHttpState) -> Self {
-        input.auth.clone()
+    pub const fn new(profile: Arc<ProfileService>) -> Self {
+        Self { profile }
     }
 }
 
@@ -41,7 +33,7 @@ impl FromRef<ProfileHttpState> for Arc<AuthService> {
 /// 核心职责：
 /// - 注册当前用户资料读取接口
 /// - 保持用户资料响应来自 `ProfileService` 单一事实源
-pub fn build_profile_router(profile: Arc<ProfileService>, auth: Arc<AuthService>) -> Router {
+pub fn build_profile_router(profile: Arc<ProfileService>) -> Router {
     Router::new()
         .route(
             "/api/v1/profile/me",
@@ -59,5 +51,5 @@ pub fn build_profile_router(profile: Arc<ProfileService>, auth: Arc<AuthService>
                 MediaUploadPolicy::cover().body_limit_bytes,
             )),
         )
-        .with_state(ProfileHttpState::new(profile, auth))
+        .with_state(ProfileHttpState::new(profile))
 }

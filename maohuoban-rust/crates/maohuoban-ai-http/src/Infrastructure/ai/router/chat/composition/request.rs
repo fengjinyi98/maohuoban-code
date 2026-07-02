@@ -6,7 +6,7 @@ use uuid::Uuid;
 /// 核心职责：
 /// - 接收用户消息、入口上下文和会话 ID
 /// - 不包含 actor_user_id，只从 token 注入
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ChatStreamRequest {
     pub message: String,
     #[serde(default)]

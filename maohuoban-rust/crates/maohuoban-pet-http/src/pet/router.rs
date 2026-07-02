@@ -10,10 +10,9 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{DefaultBodyLimit, FromRef},
+    extract::DefaultBodyLimit,
     routing::{delete, get, post},
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_media_storage::media_upload_policy::MediaUploadPolicy;
 use maohuoban_pet_application::pet::PetService;
 
@@ -26,19 +25,12 @@ const PET_VIDEO_UPLOAD_LIMIT_BYTES: usize = 128 * 1024 * 1024;
 #[derive(Clone)]
 pub struct PetHttpState {
     pet: Arc<PetService>,
-    auth: Arc<AuthService>,
 }
 
 impl PetHttpState {
     #[must_use]
-    pub const fn new(pet: Arc<PetService>, auth: Arc<AuthService>) -> Self {
-        Self { pet, auth }
-    }
-}
-
-impl FromRef<PetHttpState> for Arc<AuthService> {
-    fn from_ref(input: &PetHttpState) -> Self {
-        input.auth.clone()
+    pub const fn new(pet: Arc<PetService>) -> Self {
+        Self { pet }
     }
 }
 
@@ -47,7 +39,7 @@ impl FromRef<PetHttpState> for Arc<AuthService> {
 /// - 注册宠物档案、事件追加和时间线接口
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
 #[allow(clippy::too_many_lines)]
-pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router {
+pub fn build_pet_router(pet: Arc<PetService>) -> Router {
     Router::new()
         .route(
             "/api/v1/pets",
@@ -174,5 +166,5 @@ pub fn build_pet_router(pet: Arc<PetService>, auth: Arc<AuthService>) -> Router 
             "/api/v1/merchants/{merchant_id}/litters/{litter_id}",
             get(merchant::load_merchant_litter_detail),
         )
-        .with_state(PetHttpState::new(pet, auth))
+        .with_state(PetHttpState::new(pet))
 }

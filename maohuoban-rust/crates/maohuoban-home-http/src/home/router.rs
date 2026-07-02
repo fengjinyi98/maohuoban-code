@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{FromRef, Query, State},
+    extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
@@ -22,19 +21,12 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct HomeHttpState {
     home: Arc<HomeDashboardService>,
-    auth: Arc<AuthService>,
 }
 
 impl HomeHttpState {
     #[must_use]
-    pub const fn new(home: Arc<HomeDashboardService>, auth: Arc<AuthService>) -> Self {
-        Self { home, auth }
-    }
-}
-
-impl FromRef<HomeHttpState> for Arc<AuthService> {
-    fn from_ref(input: &HomeHttpState) -> Self {
-        input.auth.clone()
+    pub const fn new(home: Arc<HomeDashboardService>) -> Self {
+        Self { home }
     }
 }
 
@@ -43,10 +35,10 @@ impl FromRef<HomeHttpState> for Arc<AuthService> {
 /// - 注册首页聚合快照接口
 /// - 将 HTTP 层限制在统一响应和 DTO 转换范围内
 #[must_use]
-pub fn build_home_router(home: Arc<HomeDashboardService>, auth: Arc<AuthService>) -> Router {
+pub fn build_home_router(home: Arc<HomeDashboardService>) -> Router {
     Router::new()
         .route("/api/v1/home/dashboard", get(get_home_dashboard))
-        .with_state(HomeHttpState::new(home, auth))
+        .with_state(HomeHttpState::new(home))
 }
 
 async fn get_home_dashboard(

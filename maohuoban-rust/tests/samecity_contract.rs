@@ -158,6 +158,28 @@ async fn samecity_hospital_list_returns_verified_city_hospitals() {
 }
 
 #[tokio::test]
+async fn samecity_hospital_list_requires_authenticated_user() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/same-city/hospitals?city=成都",
+            None,
+        ))
+        .await
+        .expect("list hospitals without token");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "auth.session_expired");
+    assert_eq!(body["message"], "登录状态已过期，请重新登录");
+}
+
+#[tokio::test]
 async fn samecity_hospital_booking_creates_pending_appointment_for_current_pet() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

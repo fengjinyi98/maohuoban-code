@@ -1,14 +1,11 @@
-use std::sync::Arc;
-
 use axum::{
-    extract::{FromRef, FromRequestParts},
+    extract::FromRequestParts,
     http::request::Parts,
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_domain::auth::AuthUser;
 use uuid::Uuid;
 
-use super::{AuthRejection, authenticate_user};
+use super::AuthRejection;
 
 /// AuthenticatedUser 已鉴权用户提取器
 /// 核心职责：
@@ -29,15 +26,15 @@ impl AuthenticatedUser {
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     S: Send + Sync,
-    Arc<AuthService>: FromRef<S>,
 {
     type Rejection = AuthRejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth = Arc::<AuthService>::from_ref(state);
-        let user = authenticate_user(&auth, &parts.headers)
-            .await
-            .map_err(AuthRejection::from)?;
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let user = parts
+            .extensions
+            .get::<AuthUser>()
+            .cloned()
+            .ok_or_else(|| AuthRejection::missing_extension("authenticated_user"))?;
         Ok(Self { user })
     }
 }

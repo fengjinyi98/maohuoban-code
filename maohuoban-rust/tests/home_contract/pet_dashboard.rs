@@ -1,6 +1,24 @@
 use super::*;
 
 #[tokio::test]
+async fn home_dashboard_requires_authenticated_user() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+
+    let response = app
+        .router()
+        .oneshot(empty_request("GET", "/api/v1/home/dashboard"))
+        .await
+        .expect("load home dashboard without token");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "auth.session_expired");
+    assert_eq!(body["message"], "登录状态已过期，请重新登录");
+}
+
+#[tokio::test]
 async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;

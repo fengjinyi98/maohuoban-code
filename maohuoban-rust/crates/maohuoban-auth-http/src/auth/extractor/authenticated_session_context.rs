@@ -1,14 +1,11 @@
-use std::sync::Arc;
-
 use axum::{
-    extract::{FromRef, FromRequestParts},
+    extract::FromRequestParts,
     http::request::Parts,
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_domain::auth::AuthenticatedSession;
 use uuid::Uuid;
 
-use super::{AuthRejection, authenticate_session_context};
+use super::AuthRejection;
 
 /// AuthenticatedSessionContext 已鉴权会话提取器
 /// 核心职责：
@@ -34,15 +31,15 @@ impl AuthenticatedSessionContext {
 impl<S> FromRequestParts<S> for AuthenticatedSessionContext
 where
     S: Send + Sync,
-    Arc<AuthService>: FromRef<S>,
 {
     type Rejection = AuthRejection;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth = Arc::<AuthService>::from_ref(state);
-        let session = authenticate_session_context(&auth, &parts.headers)
-            .await
-            .map_err(AuthRejection::from)?;
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let session = parts
+            .extensions
+            .get::<AuthenticatedSession>()
+            .cloned()
+            .ok_or_else(|| AuthRejection::missing_extension("authenticated_session"))?;
         Ok(Self { session })
     }
 }

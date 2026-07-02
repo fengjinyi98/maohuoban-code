@@ -15,11 +15,11 @@ use chrono::{DateTime, Utc};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiContentBlock, AiError, AiPetCandidate, AiPetDisplaySnapshot,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::AiHttpState;
-use super::auth::AuthenticatedUser;
 use super::diagnostics::{
     record_history_messages_loaded, record_history_mutation_completed,
     record_history_sessions_loaded,

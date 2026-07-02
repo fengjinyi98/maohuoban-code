@@ -8,7 +8,7 @@ pub mod test_support;
 use std::{env, sync::Arc};
 
 use async_trait::async_trait;
-use axum::Router;
+use axum::{Router, middleware};
 use diagnostics::{
     build_diagnostics_ingest_router, diagnostics_ingest_config_from_env, record_http_network,
 };
@@ -16,7 +16,10 @@ use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider}
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
-use maohuoban_ai_http::ai::router::{AiHttpState, AiPetContextProviders, build_ai_router};
+use maohuoban_ai_http::ai::router::{
+    AiHttpState, AiPetContextProviders, build_ai_chat_router, build_ai_history_router,
+    build_ai_router_state,
+};
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
     PostgresAiSessionRepository, PostgresChatTurnTransaction, PostgresMemoryRepository,
@@ -26,7 +29,13 @@ use maohuoban_auth_application::auth::{
     AuthService, AuthServiceConfig, AuthServiceDependencies, UserProfileInitializer,
 };
 use maohuoban_auth_domain::auth::{AuthResult, AuthUser};
-use maohuoban_auth_http::auth::build_auth_router;
+use maohuoban_auth_http::auth::{
+    build_auth_public_router, build_auth_session_protected_router,
+    build_auth_user_protected_router,
+    extractor::{
+        AuthMiddlewareState, require_authenticated_session, require_authenticated_user,
+    },
+};
 use maohuoban_auth_infrastructure::{
     postgres::PostgresAuthRepository,
     redis::RedisOtpChallengeStore,
@@ -231,16 +240,58 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
             chat_turn_transaction: ai_chat_turn_transaction,
         },
         &pool,
-        auth_service.clone(),
     );
-    let mut router = build_auth_router(auth_service.clone(), profile_service.clone())
+    let auth_middleware_state = AuthMiddlewareState::new(auth_service.clone());
+    let auth_public_routes =
+        build_auth_public_router(auth_service.clone(), profile_service.clone());
+    let auth_user_protected_routes = build_auth_user_protected_router(
+        auth_service.clone(),
+        profile_service.clone(),
+    )
+    .route_layer(middleware::from_fn_with_state(
+        auth_middleware_state.clone(),
+        require_authenticated_user,
+    ));
+    let auth_session_protected_routes = build_auth_session_protected_router(
+        auth_service.clone(),
+        profile_service.clone(),
+    )
+    .route_layer(middleware::from_fn_with_state(
+        auth_middleware_state.clone(),
+        require_authenticated_session,
+    ));
+    let protected_user_routes = build_home_router(home_service)
+        .merge(build_profile_router(profile_service.clone()))
+        .merge(build_pet_router(pet_service))
+        .merge(build_samecity_router(samecity_service))
+        .route_layer(middleware::from_fn_with_state(
+            auth_middleware_state.clone(),
+            require_authenticated_user,
+        ));
+    let ai_chat_routes = build_ai_chat_router()
+        .route_layer(middleware::from_fn_with_state(
+            auth_middleware_state.clone(),
+            maohuoban_ai_http::ai::router::require_ai_chat_auth,
+        ))
+        .route_layer(middleware::from_fn(
+            maohuoban_ai_http::ai::router::snapshot_ai_chat_request,
+        ));
+    let ai_history_routes = build_ai_history_router().route_layer(
+        middleware::from_fn_with_state(
+            auth_middleware_state.clone(),
+            require_authenticated_user,
+        ),
+    );
+    let mut router = auth_public_routes
+        .merge(auth_user_protected_routes)
+        .merge(auth_session_protected_routes)
         .merge(build_legal_router(legal_service))
-        .merge(build_home_router(home_service, auth_service.clone()))
         .merge(build_media_content_router(pool.clone()))
-        .merge(build_profile_router(profile_service, auth_service.clone()))
-        .merge(build_pet_router(pet_service, auth_service.clone()))
-        .merge(build_samecity_router(samecity_service, auth_service))
-        .merge(build_ai_router(ai_http_state));
+        .merge(protected_user_routes)
+        .merge(build_ai_router_state(
+            ai_chat_routes.merge(ai_history_routes),
+            ai_http_state,
+        ));
     if config.diagnostics_ingest_enabled {
         router = router.merge(build_diagnostics_ingest_router(
             diagnostics_ingest_config_from_env(),
@@ -285,7 +336,6 @@ fn build_ai_http_state(
     pet_service: Arc<PetService>,
     repos: AiHttpRepositories,
     ai_session_pool: &sqlx::PgPool,
-    auth_service: Arc<AuthService>,
 ) -> AiHttpState {
     let ai_llm_provider =
         infrastructure::ai::build_ai_llm_provider_from_provider_config(provider_config);
@@ -321,7 +371,6 @@ fn build_ai_http_state(
                 pet_service,
             )),
         ),
-        auth: auth_service,
     }
 }
 

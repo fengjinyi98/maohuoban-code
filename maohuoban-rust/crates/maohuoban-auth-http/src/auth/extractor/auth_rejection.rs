@@ -23,6 +23,15 @@ impl From<AuthError> for AuthRejection {
     }
 }
 
+impl AuthRejection {
+    #[must_use]
+    pub fn missing_extension(kind: &str) -> Self {
+        Self {
+            error: AuthError::Infrastructure(format!("missing {kind} extension")),
+        }
+    }
+}
+
 impl IntoResponse for AuthRejection {
     fn into_response(self) -> Response {
         (

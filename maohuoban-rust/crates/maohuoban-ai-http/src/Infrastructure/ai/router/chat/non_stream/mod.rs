@@ -11,14 +11,12 @@ mod response;
 #[cfg(test)]
 mod tests;
 
-use axum::{Json, extract::State, http::HeaderMap, response::Response};
+use axum::{Json, extract::State, response::Response};
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 
 use super::super::AiHttpState;
-use super::super::auth::{auth_error_code, authenticate_user, authorization_header_diagnostics};
 use super::super::diagnostics::{
-    record_chat_gate_decided, record_chat_non_stream_auth_failed,
-    record_chat_non_stream_auth_succeeded, record_chat_non_stream_ingress_received,
-    record_chat_provider_started,
+    record_chat_gate_decided, record_chat_provider_started,
 };
 use super::composition::request::ChatStreamRequest;
 use super::responses::gated_stream_response::gated_message_text;
@@ -26,7 +24,7 @@ use super::responses::pet_resolution_stream_response::pet_resolution_message_tex
 use super::turn_preparation::{
     load_pet_catalog_initial_events, persist_prepared_chat_turn, prepare_chat_turn_context,
 };
-use crate::ai::response::{ai_error_response, ok_response, unauthorized_response};
+use crate::ai::response::{ai_error_response, ok_response};
 
 use complete::complete_with_runtime;
 use persistence::{complete_boundary_turn, persist_finalizer};
@@ -38,40 +36,10 @@ use response::ChatCompleteResponse;
 /// - 复用流式链路的宠物解析、事实包、回答校验和消息持久化
 pub async fn handle_chat(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(req): Json<ChatStreamRequest>,
 ) -> Response {
-    record_chat_non_stream_ingress_received(
-        req.chat_session_id,
-        req.selected_pet_id,
-        req.surface,
-        &req.message,
-    );
-    let auth_observation = authorization_header_diagnostics(&headers);
-    let actor_user_id = match authenticate_user(&state.auth, &headers).await {
-        Ok(actor) => {
-            record_chat_non_stream_auth_succeeded(
-                actor.id,
-                req.chat_session_id,
-                req.selected_pet_id,
-                req.surface,
-                &req.message,
-            );
-            actor.id
-        }
-        Err(error) => {
-            record_chat_non_stream_auth_failed(
-                req.chat_session_id,
-                req.selected_pet_id,
-                req.surface,
-                &req.message,
-                auth_observation.has_authorization,
-                auth_observation.bearer_prefix_present,
-                auth_error_code(&error),
-            );
-            return unauthorized_response();
-        }
-    };
+    let actor_user_id = actor.user_id();
 
     let context = match prepare_chat_turn_context(&state, &req, actor_user_id).await {
         Ok(context) => context,

@@ -3,6 +3,7 @@
 //! - 汇聚流式与非流式聊天 handler
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
+mod auth_middleware;
 mod composition {
     pub(super) mod request;
     pub(super) mod title;
@@ -22,6 +23,7 @@ mod responses {
     pub(super) mod stream_response;
 }
 mod non_stream;
+mod request_snapshot_middleware;
 mod runtime_activity_text;
 mod runtime_stream;
 mod runtime_stream_bridge;
@@ -34,4 +36,6 @@ mod turn_preparation;
 mod visible_output_plan;
 
 pub use non_stream::handle_chat;
+pub use auth_middleware::require_ai_chat_auth;
+pub use request_snapshot_middleware::snapshot_ai_chat_request;
 pub use stream_handler::handle_chat_stream;

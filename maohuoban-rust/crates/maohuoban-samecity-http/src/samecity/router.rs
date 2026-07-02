@@ -2,11 +2,10 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{FromRef, Query, State},
+    extract::{Query, State},
     response::Response,
     routing::{get, post},
 };
-use maohuoban_auth_application::auth::AuthService;
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_samecity_application::samecity::SameCityService;
 
@@ -22,19 +21,12 @@ use super::{
 #[derive(Clone)]
 pub struct SameCityHttpState {
     samecity: Arc<SameCityService>,
-    auth: Arc<AuthService>,
 }
 
 impl SameCityHttpState {
     #[must_use]
-    pub const fn new(samecity: Arc<SameCityService>, auth: Arc<AuthService>) -> Self {
-        Self { samecity, auth }
-    }
-}
-
-impl FromRef<SameCityHttpState> for Arc<AuthService> {
-    fn from_ref(input: &SameCityHttpState) -> Self {
-        input.auth.clone()
+    pub const fn new(samecity: Arc<SameCityService>) -> Self {
+        Self { samecity }
     }
 }
 
@@ -42,14 +34,14 @@ impl FromRef<SameCityHttpState> for Arc<AuthService> {
 /// 核心职责：
 /// - 注册同城医院列表和医院预约接口
 /// - 将 HTTP 层限制在 DTO、用户上下文和响应转换范围内
-pub fn build_samecity_router(samecity: Arc<SameCityService>, auth: Arc<AuthService>) -> Router {
+pub fn build_samecity_router(samecity: Arc<SameCityService>) -> Router {
     Router::new()
         .route("/api/v1/same-city/hospitals", get(list_hospitals))
         .route(
             "/api/v1/same-city/hospital-appointments",
             post(create_hospital_appointment),
         )
-        .with_state(SameCityHttpState::new(samecity, auth))
+        .with_state(SameCityHttpState::new(samecity))
 }
 
 async fn list_hospitals(

@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::FromRef,
     routing::{delete, get, patch, post},
 };
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
@@ -25,8 +24,8 @@ use maohuoban_ai_application::ai::ports::{
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::stream::AiStreamPipeline;
-use maohuoban_auth_application::auth::AuthService;
 
+pub use self::chat::{require_ai_chat_auth, snapshot_ai_chat_request};
 /// AiHttpState AI HTTP 状态
 /// 核心职责：
 /// - 持有 AI stream pipeline、会话仓储和认证服务
@@ -43,13 +42,6 @@ pub struct AiHttpState {
     pub memory_repository: Arc<dyn MemoryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
-    pub auth: Arc<AuthService>,
-}
-
-impl FromRef<AiHttpState> for Arc<AuthService> {
-    fn from_ref(input: &AiHttpState) -> Self {
-        input.auth.clone()
-    }
 }
 
 /// AiPetContextProviders AI 宠物上下文 provider 集合
@@ -82,11 +74,22 @@ impl AiPetContextProviders {
     }
 }
 
-/// build_ai_router 构建 AI 路由
-pub fn build_ai_router(state: AiHttpState) -> Router {
+/// build_ai_chat_router 构建 AI chat 路由
+/// 核心职责：
+/// - 仅注册 chat 与 chat/stream 业务 handler
+/// - 将请求快照与认证策略留给根路由树统一装配
+pub fn build_ai_chat_router() -> Router<AiHttpState> {
     Router::new()
         .route("/api/v1/ai/chat", post(chat::handle_chat))
         .route("/api/v1/ai/chat/stream", post(chat::handle_chat_stream))
+}
+
+/// build_ai_history_router 构建 AI 历史路由
+/// 核心职责：
+/// - 仅注册 AI 会话历史读取与修改 handler
+/// - 将用户认证策略留给根路由树统一装配
+pub fn build_ai_history_router() -> Router<AiHttpState> {
+    Router::new()
         .route(
             "/api/v1/ai/chat-sessions",
             get(history::handle_list_sessions),
@@ -107,5 +110,12 @@ pub fn build_ai_router(state: AiHttpState) -> Router {
             "/api/v1/ai/chat-sessions/{id}/messages",
             get(history::handle_get_session_messages),
         )
-        .with_state(state)
+}
+
+/// build_ai_router_state 绑定 AI 路由共享状态
+/// 核心职责：
+/// - 为已装配完成的 AI 子路由挂载统一状态
+/// - 避免根路由树重复感知 AI HTTP 状态细节
+pub fn build_ai_router_state(router: Router<AiHttpState>, state: AiHttpState) -> Router {
+    router.with_state(state)
 }
