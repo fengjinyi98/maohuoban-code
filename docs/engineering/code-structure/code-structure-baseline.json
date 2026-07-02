@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T04:37:44",
+  "generated_at": "2026-07-03T04:41:32",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -1107,38 +1107,6 @@
           "maohuoban/maohuoban/Features/Pet/Domain/Media/PetMediaUploadResult.swift"
         ]
       },
-      "maohuoban/maohuoban/Features/Pet/Domain/Pantry": {
-        "file_count": 11,
-        "files": [
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/FoodInventoryItem.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryCategory.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryItem+FoodInventoryMapping.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryItem.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryItemDraft.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryStatus.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetCurrentDietContext.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetDietAssignment.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetDietAssignmentRole.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetFoodSnapshot.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetPantrySummary.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Features/Pet/Domain/Profile": {
-        "file_count": 11,
-        "files": [
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetExternalIdentifierSummary.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetIdentityContext.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetLifeStatusHelper.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetNameEditPolicy.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileAddMediaRoute.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileDraft.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileEditProfile.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileSummary.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileUpdateDraft.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetWriteFormatters.swift",
-          "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetWriteTextNormalizer.swift"
-        ]
-      },
       "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal": {
         "file_count": 9,
         "files": [
@@ -1252,23 +1220,6 @@
           "maohuoban/maohuoban/Features/Pet/Presentation/Models/PetRecordEntryContext.swift"
         ]
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry": {
-        "file_count": 12,
-        "files": [
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/AddPantryItemScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/EditPantryItemScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PantryCategoryCard.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PantryCategoryCover.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PantryItemActionSheet.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PantryItemCard.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryArchivedRestoreSection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryCategoryScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryDietSummarySection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryLockerCustomization.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryRoute.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PetPantryScreen.swift"
-        ]
-      },
       "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare": {
         "file_count": 8,
         "files": [
@@ -1280,22 +1231,6 @@
           "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/PetPreventiveCareRecordDetailScreen.swift",
           "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/PetPreventiveCareScreen.swift",
           "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/PetPreventiveCareSections.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight": {
-        "file_count": 11,
-        "files": [
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightChartCardSection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightDetailContext.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightDetailScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHeroSection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHistoryScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHistorySection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightLineChartSection.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecord.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordDetailPresentation.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordDetailScreen.swift",
-          "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordSheet.swift"
         ]
       },
       "maohuoban/maohuoban/Features/Pet/Stores": {
@@ -1433,22 +1368,6 @@
           "maohuoban/maohuoban/Features/Search/Presentation/Models/SearchHotKeyword.swift",
           "maohuoban/maohuoban/Features/Search/Presentation/Models/SearchHotKeywordProvider.swift",
           "maohuoban/maohuoban/Features/Search/Presentation/Models/SearchNavigationSearchBarConfiguration.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models": {
-        "file_count": 11,
-        "files": [
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedAuthorBadge.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedCardTopTrailingAction.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedComment.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedCommentAuthorIdentity.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedDetailHeroMediaItem.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedInteractionState.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedItem.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedMoreAction.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedMoreMenuActionResolver.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedMoreMenuPresentationStateResolver.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedRecommendationReason.swift"
         ]
       },
       "maohuoban/maohuoban/Infrastructure/Location": {
@@ -2072,14 +1991,14 @@
         "line_count": 270,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/AddPantryItemScreen.swift": {
-        "limit": 250,
-        "line_count": 392,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/PantryItemActionSheet.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift": {
         "limit": 250,
         "line_count": 325,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift": {
+        "limit": 250,
+        "line_count": 392,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/Pet/Presentation/PreventiveCare/PetPreventiveCareAddRecordSections.swift": {
@@ -2137,22 +2056,22 @@
         "line_count": 367,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightDetailScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightDetailScreen.swift": {
         "limit": 250,
         "line_count": 325,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHistoryScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightHistoryScreen.swift": {
         "limit": 250,
         "line_count": 356,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordDetailScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightRecordDetailScreen.swift": {
         "limit": 250,
         "line_count": 289,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordSheet.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sheets/PetWeightRecordSheet.swift": {
         "limit": 250,
         "line_count": 310,
         "suffix": ".swift"
@@ -3666,29 +3585,29 @@
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/FoodInventoryItem.swift": {
-        "line_count": 110,
-        "primary_type_count": 4,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PantryItemDraft.swift": {
-        "line_count": 35,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/PetCurrentDietContext.swift": {
+      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Diet/Snapshots/PetCurrentDietContext.swift": {
         "line_count": 83,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetIdentityContext.swift": {
-        "line_count": 116,
-        "primary_type_count": 6,
+      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Inventory/FoodInventoryItem.swift": {
+        "line_count": 110,
+        "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Domain/Profile/PetProfileEditProfile.swift": {
+      "maohuoban/maohuoban/Features/Pet/Domain/Pantry/Items/PantryItemDraft.swift": {
+        "line_count": 35,
+        "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Domain/Profile/Editing/Drafts/PetProfileEditProfile.swift": {
         "line_count": 169,
         "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Domain/Profile/Identity/PetIdentityContext.swift": {
+        "line_count": 116,
+        "primary_type_count": 6,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/Pet/Domain/Taxonomy/PetTaxonomyEnums.swift": {
@@ -3846,7 +3765,7 @@
         "primary_type_count": 5,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/AddPantryItemScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift": {
         "line_count": 392,
         "primary_type_count": 6,
         "suffix": ".swift"
@@ -3986,42 +3905,42 @@
         "primary_type_count": 9,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightChartCardSection.swift": {
-        "line_count": 99,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightDetailScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightDetailScreen.swift": {
         "line_count": 325,
         "primary_type_count": 5,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHeroSection.swift": {
-        "line_count": 65,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHistoryScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightHistoryScreen.swift": {
         "line_count": 356,
         "primary_type_count": 6,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightHistorySection.swift": {
-        "line_count": 98,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightLineChartSection.swift": {
-        "line_count": 172,
-        "primary_type_count": 4,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordDetailScreen.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Screens/PetWeightRecordDetailScreen.swift": {
         "line_count": 289,
         "primary_type_count": 9,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/PetWeightRecordSheet.swift": {
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Charts/PetWeightChartCardSection.swift": {
+        "line_count": 99,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Charts/PetWeightLineChartSection.swift": {
+        "line_count": 172,
+        "primary_type_count": 4,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Summary/PetWeightHeroSection.swift": {
+        "line_count": 65,
+        "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sections/Summary/PetWeightHistorySection.swift": {
+        "line_count": 98,
+        "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Pet/Presentation/Weight/Sheets/PetWeightRecordSheet.swift": {
         "line_count": 310,
         "primary_type_count": 6,
         "suffix": ".swift"
@@ -4601,13 +4520,13 @@
         "primary_type_count": 8,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedAuthorBadge.swift": {
-        "line_count": 62,
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/Actions/Menu/FeedMoreMenuActionResolver.swift": {
+        "line_count": 25,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedMoreMenuActionResolver.swift": {
-        "line_count": 25,
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/Author/FeedAuthorBadge.swift": {
+        "line_count": 62,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
