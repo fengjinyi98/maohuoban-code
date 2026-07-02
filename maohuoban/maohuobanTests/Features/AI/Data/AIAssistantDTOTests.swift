@@ -70,6 +70,45 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(skeleton.title, "正在整理梅录的宠物档案")
     }
 
+    func testDecodeParagraphContentBlockWithInlineStrongSpans() {
+        let json = """
+        {"content_blocks":[{"id":"answer-paragraph-1","type":"paragraph","text":"梅录今年的生日是 6月17日，已经过啦～","spans":[{"text":"梅录今年的生日是 ","style":"text"},{"text":"6月17日","style":"strong"},{"text":"，已经过啦～","style":"text"}]}]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "content_block_delta", data: json)
+
+        guard case let .contentBlockDelta(blocks) = result else {
+            XCTFail("expected contentBlockDelta")
+            return
+        }
+        guard case let .paragraph(block) = blocks.first else {
+            XCTFail("expected paragraph block")
+            return
+        }
+
+        XCTAssertEqual(block.text, "梅录今年的生日是 6月17日，已经过啦～")
+        XCTAssertEqual(block.spans.count, 3)
+        XCTAssertEqual(block.spans[1].text, "6月17日")
+        XCTAssertEqual(block.spans[1].style, .strong)
+    }
+
+    func testDecodeParagraphContentBlockWithoutSpansReturnsNil() {
+        let json = """
+        {"content_blocks":[{"id":"answer-paragraph-1","type":"paragraph","text":"梅录今年的生日是 **6月17日**，已经过啦～"}]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "content_block_delta", data: json)
+
+        XCTAssertNil(result)
+    }
+
+    func testDecodeParagraphContentBlockWithMismatchedSpansReturnsNil() {
+        let json = """
+        {"content_blocks":[{"id":"answer-paragraph-1","type":"paragraph","text":"梅录今年的生日是 6月17日，已经过啦～","spans":[{"text":"梅录今年的生日是 ","style":"text"},{"text":"6月17日","style":"strong"}]}]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "content_block_delta", data: json)
+
+        XCTAssertNil(result)
+    }
+
     func testDecodeMessageCompletedEvent() {
         let json = """
         {"message_id":"\(UUID.zeroString)","final_text":"你好毛球","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15},"finish_reason":"stop","citations":[{"source_kind":"pet_event","source_id":"\(UUID.zeroString)","label":"疫苗记录"}],"verification":{"status":"passed"}}
@@ -150,6 +189,36 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(card.pet.birthDate, "2024-06-17")
         XCTAssertEqual(card.computed.ageText, "2岁15天")
         XCTAssertEqual(card.narrative.arrival, "它来到你身边1年10个月了，很多日常已经变成你们的小习惯。")
+    }
+
+    func testDecodeAnswerCompletedWithPetCardAndParagraphSpans() {
+        let json = """
+        {"message_id":"\(UUID.zeroString)","final_text":"梅录今年的生日 已经过了 🎉\\n\\n梅录的生日是 6月17日，今年的生日已经过去了 16 天。","content_blocks":[{"id":"pet-profile-heading","type":"section_heading","text":"这是梅录的宠物信息"},{"id":"pet-profile-card","type":"pet_profile_card","pet":{"id":"\(UUID.zeroString)","name":"梅录","species":"cat","species_text":"猫","sex":"female","sex_text":"母猫","breed":"银渐层","avatar_url":"/uploads/pets/meilu.png","birth_date":"2024-06-17","arrival_date":"2025-06-17"},"computed":{"age_text":"当前年龄约 2岁16天","companionship_text":"已陪伴 380 天"},"narrative":{"birth":null,"arrival":null}},{"id":"answer-paragraph-1","type":"paragraph","text":"梅录今年的生日 已经过了 🎉\\n\\n梅录的生日是 6月17日，今年的生日已经过去了 16 天。","spans":[{"text":"梅录今年的生日 ","style":"text"},{"text":"已经过了","style":"strong"},{"text":" 🎉\\n\\n梅录的生日是 ","style":"text"},{"text":"6月17日","style":"strong"},{"text":"，今年的生日已经过去了 ","style":"text"},{"text":"16 天","style":"strong"},{"text":"。","style":"text"}]}],"citations":[]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "answer_completed", data: json)
+
+        guard case let .messageCompleted(_, finalText, _, blocks) = result else {
+            XCTFail("expected answer_completed to decode")
+            return
+        }
+
+        XCTAssertTrue(finalText.contains("梅录今年的生日"))
+        XCTAssertEqual(blocks.count, 3)
+        guard case let .sectionHeading(heading) = blocks[0] else {
+            XCTFail("expected section heading")
+            return
+        }
+        XCTAssertEqual(heading.text, "这是梅录的宠物信息")
+        guard case let .petProfileCard(card) = blocks[1] else {
+            XCTFail("expected pet profile card")
+            return
+        }
+        XCTAssertEqual(card.pet.name, "梅录")
+        guard case let .paragraph(paragraph) = blocks[2] else {
+            XCTFail("expected paragraph block")
+            return
+        }
+        XCTAssertEqual(paragraph.spans.filter { $0.style == .strong }.map(\.text), ["已经过了", "6月17日", "16 天"])
     }
 
     func testDecodeErrorEvent() {

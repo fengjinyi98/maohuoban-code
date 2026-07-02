@@ -13,11 +13,21 @@ struct AIAssistantMessageBubblePresentation {
 
     var shouldShowText: Bool {
         message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            && hasParagraphContentBlock == false
     }
 
     var shouldShowEmptyStreamingIndicator: Bool {
         shouldShowText == false
             && message.isStreaming
             && shouldShowContentBlocks == false
+    }
+
+    private var hasParagraphContentBlock: Bool {
+        message.contentBlocks.contains { block in
+            if case .paragraph = block {
+                return true
+            }
+            return false
+        }
     }
 }

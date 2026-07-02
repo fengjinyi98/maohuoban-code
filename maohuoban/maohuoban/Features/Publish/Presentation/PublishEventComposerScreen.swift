@@ -224,9 +224,7 @@ struct PublishEventComposerScreen: View {
             )
         }
         .sheet(item: $activeSheet) { sheet in
-            optionSheet(for: sheet)
-                .presentationDetents(sheet.presentationDetents)
-                .presentationDragIndicator(.visible)
+            presentedOptionSheet(for: sheet)
         }
         .onChange(of: composerMode) { _, newMode in
             if newMode == .richText {
@@ -308,6 +306,22 @@ struct PublishEventComposerScreen: View {
                     activeSheet = nil
                 }
             )
+        }
+    }
+
+    @ViewBuilder
+    func presentedOptionSheet(for sheet: PublishComposerSheet) -> some View {
+        if sheet.usesFittedPresentationSizing {
+            optionSheet(for: sheet)
+                .presentationSizing(.fitted)
+                .presentationDragIndicator(.visible)
+        } else if let presentationDetents = sheet.presentationDetents {
+            optionSheet(for: sheet)
+                .presentationDetents(presentationDetents)
+                .presentationDragIndicator(.visible)
+        } else {
+            optionSheet(for: sheet)
+                .presentationDragIndicator(.visible)
         }
     }
 

@@ -10,12 +10,21 @@ enum PublishComposerSheet: String, Identifiable {
 
     var id: String { rawValue }
 
-    var presentationDetents: Set<PresentationDetent> {
+    var presentationDetents: Set<PresentationDetent>? {
         switch self {
         case .location, .mentionUser:
             [.large]
         case .pet, .visibility, .album:
-            [.medium]
+            nil
+        }
+    }
+
+    var usesFittedPresentationSizing: Bool {
+        switch self {
+        case .pet, .visibility, .album:
+            true
+        case .location, .mentionUser:
+            false
         }
     }
 }

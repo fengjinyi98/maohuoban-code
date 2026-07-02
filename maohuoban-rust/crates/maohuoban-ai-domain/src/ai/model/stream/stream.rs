@@ -20,6 +20,7 @@ pub enum AiContentBlock {
     Paragraph {
         id: String,
         text: String,
+        spans: Vec<AiInlineTextSpan>,
     },
     PetProfileCardSkeleton {
         id: String,
@@ -31,6 +32,86 @@ pub enum AiContentBlock {
         computed: Box<AiPetProfileComputedBlock>,
         narrative: Box<AiPetProfileNarrativeBlock>,
     },
+}
+
+/// AiInlineTextSpan AI 行内富文本片段
+/// 核心职责：
+/// - 表达正文段落内受控的局部样式
+/// - 将模型常见 inline markup 归一化为前端稳定 DTO
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiInlineTextSpan {
+    pub text: String,
+    pub style: AiInlineTextStyle,
+}
+
+impl AiInlineTextSpan {
+    /// text 创建普通文本片段
+    #[must_use]
+    pub fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            style: AiInlineTextStyle::Text,
+        }
+    }
+
+    /// strong 创建强调文本片段
+    #[must_use]
+    pub fn strong(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            style: AiInlineTextStyle::Strong,
+        }
+    }
+
+    /// parse_supported_markup 解析受控行内标记
+    /// 核心职责：
+    /// - 支持模型正文中常见的 `**strong**` 强调标记
+    /// - 对未闭合或空强调保持普通文本语义，避免脏标记进入 UI
+    #[must_use]
+    pub fn parse_supported_markup(text: &str) -> Vec<Self> {
+        let mut spans = Vec::new();
+        let mut remaining = text;
+
+        while let Some(start) = remaining.find("**") {
+            let before = &remaining[..start];
+            push_text_span(&mut spans, before);
+
+            let after_start = &remaining[start + 2..];
+            let Some(end) = after_start.find("**") else {
+                push_text_span(&mut spans, &remaining[start..]);
+                return spans;
+            };
+
+            let strong_text = &after_start[..end];
+            if strong_text.is_empty() {
+                push_text_span(&mut spans, "****");
+            } else {
+                spans.push(Self::strong(strong_text));
+            }
+            remaining = &after_start[end + 2..];
+        }
+
+        push_text_span(&mut spans, remaining);
+        spans
+    }
+}
+
+fn push_text_span(spans: &mut Vec<AiInlineTextSpan>, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    spans.push(AiInlineTextSpan::text(text));
+}
+
+/// AiInlineTextStyle AI 行内富文本样式
+/// 核心职责：
+/// - 约束前端可以渲染的正文局部样式集合
+/// - 避免直接暴露 Markdown 的完整渲染能力
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiInlineTextStyle {
+    Text,
+    Strong,
 }
 
 /// AiPetProfileFactBlock 宠物资料卡事实字段

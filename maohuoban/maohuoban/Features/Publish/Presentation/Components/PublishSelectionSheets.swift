@@ -127,45 +127,120 @@ private struct PublishSelectionSheet: View {
     let selectedID: String?
     let onSelect: (PublishSelectionOption) -> Void
 
+    @State private var contentHeight: CGFloat = 300
+
     var body: some View {
-        NavigationStack {
-            List(options) { option in
-                Button {
-                    onSelect(option)
-                } label: {
-                    HStack(spacing: MHBTheme.Spacing.s3) {
-                        Image(systemName: option.systemImage)
-                            .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                            .frame(width: 32, height: 32)
-                            .background(MHBTheme.ColorToken.primaryBackground.color)
-                            .clipShape(Circle())
+        VStack(spacing: 0) {
+            Text(title)
+                .font(MHBTheme.Typography.headline)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .frame(maxWidth: .infinity)
+                .padding(.top, MHBTheme.Spacing.s4)
+                .padding(.bottom, MHBTheme.Spacing.s3)
 
-                        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                            Text(option.title)
-                                .font(MHBTheme.Typography.callout.weight(.semibold))
-                                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                            Text(option.subtitle)
-                                .font(MHBTheme.Typography.caption)
-                                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        }
-
-                        Spacer()
-
-                        if selectedID == option.id || selectedID == option.title {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(MHBTheme.ColorToken.success.color)
-                        }
-                    }
-                    .padding(.vertical, MHBTheme.Spacing.s1)
+            PublishSelectionGroup {
+                ForEach(options) { option in
+                    PublishSelectionRow(
+                        option: option,
+                        isSelected: selectedID == option.id || selectedID == option.title,
+                        showsSeparator: option.id != options.last?.id,
+                        onSelect: { onSelect(option) }
+                    )
                 }
-                .buttonStyle(.plain)
             }
-            .listStyle(.plain)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            .frame(maxWidth: .infinity)
         }
+        .padding(.horizontal, MHBTheme.Spacing.s4)
+        .padding(.bottom, MHBTheme.Spacing.s4)
+        .frame(maxWidth: .infinity)
+        .fixedSize(horizontal: false, vertical: true)
+        .background {
+            GeometryReader { contentProxy in
+                Color.clear
+                    .onAppear {
+                        contentHeight = contentProxy.size.height
+                    }
+                    .onChange(of: contentProxy.size) { _, newSize in
+                        contentHeight = newSize.height
+                    }
+            }
+        }
+        .presentationBackground(Color(uiColor: .systemGroupedBackground))
+        .presentationDetents([.height(contentHeight)])
+    }
+}
+
+// PublishSelectionGroup 发布选择分组容器
+// 核心职责：
+// - 承载发布选择项的原生分组表面
+// - 复用宠物编辑档案的分组背景与圆角规则
+private struct PublishSelectionGroup<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+    }
+}
+
+// PublishSelectionRow 发布选择分组行
+// 核心职责：
+// - 展示发布选择项标题、副标题和选中状态
+// - 保持 iOS 原生分组列表的行距、图标列和分割线
+private struct PublishSelectionRow: View {
+    let option: PublishSelectionOption
+    let isSelected: Bool
+    let showsSeparator: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 0) {
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    Image(systemName: option.systemImage)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                        .frame(width: 24)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(option.title)
+                            .font(MHBTheme.Typography.body)
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
+                        Text(option.subtitle)
+                            .font(MHBTheme.Typography.caption)
+                            .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                            .frame(width: 20, alignment: .trailing)
+                    }
+                }
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.vertical, MHBTheme.Spacing.s3)
+                .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+                .contentShape(Rectangle())
+
+                if showsSeparator {
+                    Rectangle()
+                        .fill(MHBTheme.ColorToken.separatorSoft.color)
+                        .frame(height: 0.5)
+                        .padding(.leading, MHBTheme.Spacing.s4 + 24 + MHBTheme.Spacing.s3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

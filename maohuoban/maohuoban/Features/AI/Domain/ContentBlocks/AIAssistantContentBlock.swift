@@ -5,8 +5,8 @@ import Foundation
 // - 表达 AI 消息中可由前端原生渲染的语义片段
 // - 将标题、段落、宠物档案和加载占位从普通文本中分离
 enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
-    case sectionHeading(AIAssistantTextBlock)
-    case paragraph(AIAssistantTextBlock)
+    case sectionHeading(AIAssistantSectionHeadingBlock)
+    case paragraph(AIAssistantParagraphBlock)
     case petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock)
     case petProfileCard(AIAssistantPetProfileCardBlock)
 
@@ -33,9 +33,9 @@ enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
 
         switch type {
         case "section_heading":
-            self = .sectionHeading(try AIAssistantTextBlock(from: decoder))
+            self = .sectionHeading(try AIAssistantSectionHeadingBlock(from: decoder))
         case "paragraph":
-            self = .paragraph(try AIAssistantTextBlock(from: decoder))
+            self = .paragraph(try AIAssistantParagraphBlock(from: decoder))
         case "pet_profile_card_skeleton":
             self = .petProfileCardSkeleton(try AIAssistantPetProfileSkeletonBlock(from: decoder))
         case "pet_profile_card":

@@ -13,7 +13,7 @@ final class AIAssistantMessageBubblePresentationTests: XCTestCase {
             role: .assistant,
             text: "梅录今年的生日已经过啦。",
             contentBlocks: [
-                .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是梅录的宠物信息")),
+                .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
                 .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(id: "loading-1", title: "正在整理梅录的宠物档案")),
             ],
             isStreaming: false
@@ -23,6 +23,30 @@ final class AIAssistantMessageBubblePresentationTests: XCTestCase {
 
         XCTAssertTrue(presentation.shouldShowContentBlocks)
         XCTAssertTrue(presentation.shouldShowText)
+    }
+
+    func testCompletedAssistantMessageWithParagraphBlockDoesNotDuplicateFinalText() {
+        let message = AIAssistantMessage(
+            role: .assistant,
+            text: "梅录今年的生日是 6月17日，已经过啦～",
+            contentBlocks: [
+                .paragraph(AIAssistantParagraphBlock(
+                    id: "answer-paragraph-1",
+                    text: "梅录今年的生日是 6月17日，已经过啦～",
+                    spans: [
+                        AIAssistantInlineTextSpan(text: "梅录今年的生日是 ", style: .text),
+                        AIAssistantInlineTextSpan(text: "6月17日", style: .strong),
+                        AIAssistantInlineTextSpan(text: "，已经过啦～", style: .text),
+                    ]
+                )),
+            ],
+            isStreaming: false
+        )
+
+        let presentation = AIAssistantMessageBubblePresentation(message: message)
+
+        XCTAssertTrue(presentation.shouldShowContentBlocks)
+        XCTAssertFalse(presentation.shouldShowText)
     }
 
     func testStreamingAssistantMessageWithoutContentShowsEmptyStreamingIndicator() {

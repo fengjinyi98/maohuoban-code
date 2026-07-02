@@ -5,8 +5,8 @@
 
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AgentTurnTerminationReason,
-    AiConversationSurface, InternalTurnEvent, LlmFinishReason, LlmUsage, LoopStep, ModelLabel,
-    ProviderErrorCategory, UserVisibleTurnEvent,
+    AiContentBlock, AiConversationSurface, AiInlineTextSpan, AiInlineTextStyle, InternalTurnEvent,
+    LlmFinishReason, LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory, UserVisibleTurnEvent,
 };
 use uuid::Uuid;
 
@@ -88,6 +88,60 @@ fn runtime_loop_step_roundtrip_covers_message_delta() {
     assert_eq!(step.step_name(), "message_delta");
     let decoded: LoopStep = serde_json::from_str(&encoded).expect("deserialize loop step");
     assert_eq!(decoded, step);
+}
+
+#[test]
+fn paragraph_content_block_serializes_inline_strong_spans() {
+    let block = AiContentBlock::Paragraph {
+        id: "paragraph-1".to_owned(),
+        text: "梅录今年的生日是 6月17日，已经过啦～".to_owned(),
+        spans: vec![
+            AiInlineTextSpan::text("梅录今年的生日是 "),
+            AiInlineTextSpan::strong("6月17日"),
+            AiInlineTextSpan::text("，已经过啦～"),
+        ],
+    };
+
+    let payload = serde_json::to_value(&block).expect("serialize paragraph block");
+
+    assert_eq!(payload["type"], serde_json::json!("paragraph"));
+    assert_eq!(
+        payload["text"],
+        serde_json::json!("梅录今年的生日是 6月17日，已经过啦～")
+    );
+    assert_eq!(payload["spans"][1]["style"], serde_json::json!("strong"));
+    assert_eq!(payload["spans"][1]["text"], serde_json::json!("6月17日"));
+}
+
+#[test]
+fn inline_text_spans_parse_supported_markdown_strong() {
+    let spans = AiInlineTextSpan::parse_supported_markup("生日是 **6月17日**，今天是 **7月3日**。");
+
+    assert_eq!(
+        spans,
+        vec![
+            AiInlineTextSpan {
+                text: "生日是 ".to_owned(),
+                style: AiInlineTextStyle::Text,
+            },
+            AiInlineTextSpan {
+                text: "6月17日".to_owned(),
+                style: AiInlineTextStyle::Strong,
+            },
+            AiInlineTextSpan {
+                text: "，今天是 ".to_owned(),
+                style: AiInlineTextStyle::Text,
+            },
+            AiInlineTextSpan {
+                text: "7月3日".to_owned(),
+                style: AiInlineTextStyle::Strong,
+            },
+            AiInlineTextSpan {
+                text: "。".to_owned(),
+                style: AiInlineTextStyle::Text,
+            },
+        ]
+    );
 }
 
 #[test]

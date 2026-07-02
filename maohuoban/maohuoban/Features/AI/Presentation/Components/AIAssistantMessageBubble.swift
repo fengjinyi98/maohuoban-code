@@ -33,9 +33,6 @@ struct AIAssistantMessageBubble: View {
 
                 if presentation.shouldShowText {
                     streamingText
-                        .font(MHBTheme.Typography.headline.weight(.regular))
-                        .foregroundStyle(foregroundColor)
-                        .fixedSize(horizontal: false, vertical: true)
                 } else if presentation.shouldShowEmptyStreamingIndicator {
                     if showsEmptyStreamingIndicator {
                         AIAssistantThinkingStatus(displayText: nil)
@@ -64,8 +61,11 @@ struct AIAssistantMessageBubble: View {
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
-    private var streamingText: Text {
-        Text("\(message.text)\(message.isStreaming ? " ▎" : "")")
+    private var streamingText: some View {
+        AIAssistantInlineTextView(
+            text: message.text,
+            showsStreamingCursor: message.isStreaming
+        )
     }
 
     private var backgroundColor: Color {

@@ -187,7 +187,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         let store = AIAssistantStore(context: AIAssistantEntryContext())
         let messageID = UUID()
         let blocks: [AIAssistantContentBlock] = [
-            .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是糯米的宠物信息")),
+            .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是糯米的宠物信息")),
             .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(id: "loading-1", title: "正在整理宠物档案")),
         ]
         store.messages = [

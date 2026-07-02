@@ -12,7 +12,7 @@ struct AIAssistantContentBlockView: View {
         case .sectionHeading(let block):
             AIAssistantSectionHeadingView(text: block.text)
         case .paragraph(let block):
-            AIAssistantParagraphBlockView(text: block.text)
+            AIAssistantParagraphBlockView(text: block.text, spans: block.spans)
         case .petProfileCardSkeleton(let block):
             AIAssistantPetProfileSkeletonView(title: block.title)
         case .petProfileCard(let block):

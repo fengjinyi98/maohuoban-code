@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::content_block_projector::project_pet_profile_content_blocks;
 use super::runtime_activity_text::activity_text_for_tool;
+use super::text_content_block_projector::append_paragraph_content_block;
 
 pub(super) fn safe_execution_trace_completed_for_tool(
     tool_name: &str,
@@ -99,12 +100,13 @@ pub(super) fn append_verified_completion(
         return;
     }
 
-    let citations = citations_for_answer(&input.final_text, input.package);
-    let content_blocks = if input.include_pet_profile_blocks {
+    let mut content_blocks = if input.include_pet_profile_blocks {
         project_pet_profile_content_blocks(input.package)
     } else {
         Vec::new()
     };
+    let display_final_text = append_paragraph_content_block(&input.final_text, &mut content_blocks);
+    let citations = citations_for_answer(&display_final_text, input.package);
     append_citations(output, citations.clone());
     if input.streamed_delta_text != input.final_text {
         output.push(AiStreamEvent::AnswerDelta {
@@ -113,7 +115,7 @@ pub(super) fn append_verified_completion(
     }
     output.push(AiStreamEvent::AnswerCompleted {
         message_id: input.message_id,
-        final_text: input.final_text,
+        final_text: display_final_text,
         content_blocks,
         usage: input.usage,
         finish_reason: input.finish_reason,

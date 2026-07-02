@@ -116,7 +116,10 @@ mod tests {
                 [
                     AiContentBlock::SectionHeading { text, .. },
                     AiContentBlock::PetProfileCard { pet, .. },
-                ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+                    AiContentBlock::Paragraph { text: paragraph_text, .. },
+                ] if text == "这是梅录的宠物信息"
+                    && pet.name == "梅录"
+                    && paragraph_text == "这是梅录的宠物信息。"
             ),
             "non-stream completion should project typed pet profile blocks: {:?}",
             complete.content_blocks

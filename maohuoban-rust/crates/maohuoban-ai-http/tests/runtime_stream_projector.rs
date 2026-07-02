@@ -23,6 +23,10 @@ mod content_block_projector;
 mod runtime_stream_helpers;
 
 #[allow(dead_code)]
+#[path = "../src/Infrastructure/ai/router/chat/text_content_block_projector.rs"]
+mod text_content_block_projector;
+
+#[allow(dead_code)]
 #[path = "../src/Infrastructure/ai/router/chat/runtime_activity_text.rs"]
 mod runtime_activity_text;
 
@@ -427,6 +431,55 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
 }
 
 #[test]
+fn projector_emits_paragraph_content_block_with_inline_strong_spans() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        Some(AiFactPackage::empty()),
+        "梅录",
+        false,
+        VisibleOutputPlan::empty(),
+    );
+
+    let events = projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "梅录今年的生日是 **6月17日**，已经过啦～".to_owned(),
+        status: AgentTurnStatus::Completed,
+        termination_reason: None,
+    });
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("answer_completed should include paragraph block");
+    let completed_text = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { final_text, .. } => Some(final_text),
+            _ => None,
+        })
+        .expect("answer_completed should include final_text");
+
+    assert_eq!(completed_text, "梅录今年的生日是 6月17日，已经过啦～");
+    assert!(
+        matches!(
+            content_blocks.as_slice(),
+            [AiContentBlock::Paragraph { text, spans, .. }]
+                if text == "梅录今年的生日是 6月17日，已经过啦～"
+                    && spans.len() == 3
+                    && spans[1].text == "6月17日"
+                    && spans[1].style == maohuoban_ai_domain::ai::AiInlineTextStyle::Strong
+        ),
+        "final text should be normalized to a rich paragraph block: {content_blocks:?}"
+    );
+}
+
+#[test]
 fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
@@ -563,7 +616,9 @@ fn projector_does_not_emit_final_pet_profile_blocks_without_visible_plan() {
         .expect("turn should complete without profile UI blocks");
 
     assert!(
-        content_blocks.is_empty(),
+        content_blocks
+            .iter()
+            .all(|block| !matches!(block, AiContentBlock::PetProfileCard { .. })),
         "final pet profile UI blocks must require visible output plan: {content_blocks:?}"
     );
 }
@@ -665,7 +720,10 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
             [
                 AiContentBlock::SectionHeading { text, .. },
                 AiContentBlock::PetProfileCard { pet, .. },
-            ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+                AiContentBlock::Paragraph { text: paragraph_text, .. },
+            ] if text == "这是梅录的宠物信息"
+                && pet.name == "梅录"
+                && paragraph_text == "这是梅录的宠物信息。"
         ),
         "identity tool package should project typed pet profile blocks: {content_blocks:?}"
     );
@@ -733,7 +791,10 @@ fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
             [
                 AiContentBlock::SectionHeading { text, .. },
                 AiContentBlock::PetProfileCard { pet, .. },
-            ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+                AiContentBlock::Paragraph { text: paragraph_text, .. },
+            ] if text == "这是梅录的宠物信息"
+                && pet.name == "梅录"
+                && paragraph_text == "好的，这是梅录的档案信息。"
         ),
         "home_private answer should include typed pet profile blocks: {completed_blocks:?}"
     );

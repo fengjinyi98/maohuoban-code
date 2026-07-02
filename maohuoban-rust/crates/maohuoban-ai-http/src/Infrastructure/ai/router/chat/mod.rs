@@ -32,6 +32,7 @@ mod runtime_stream_projector;
 mod runtime_tool_gateway_observer;
 mod runtime_tools;
 mod stream_handler;
+mod text_content_block_projector;
 mod turn_preparation;
 mod visible_output_plan;
 

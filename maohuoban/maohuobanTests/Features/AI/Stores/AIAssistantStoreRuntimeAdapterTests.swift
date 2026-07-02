@@ -82,7 +82,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         let store = Self.makeStoreWithStreamingPlaceholder()
 
         store.handleStreamEvent(.contentBlockDelta(contentBlocks: [
-            .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是梅录的宠物信息")),
+            .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
             .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(
                 id: "loading-1",
                 title: "正在整理梅录的宠物档案"
@@ -108,7 +108,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         let store = Self.makeStoreWithStreamingPlaceholder()
 
         store.handleStreamEvent(.contentBlockDelta(contentBlocks: [
-            .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是梅录的宠物信息")),
+            .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
             .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(
                 id: "loading-1",
                 title: "正在整理梅录的宠物档案"
@@ -133,7 +133,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         let store = Self.makeStoreWithStreamingPlaceholder()
 
         store.handleStreamEvent(.contentBlockDelta(contentBlocks: [
-            .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是梅录的宠物信息")),
+            .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
             .petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock(
                 id: "loading-1",
                 title: "正在整理梅录的宠物档案"
@@ -144,7 +144,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
             finalText: "这是梅录的宠物信息",
             referenceChips: [],
             contentBlocks: [
-                .sectionHeading(AIAssistantTextBlock(id: "heading-2", text: "这是梅录的宠物信息")),
+                .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-2", text: "这是梅录的宠物信息")),
                 .petProfileCard(Self.makePetProfileCardBlock(id: "pet-card-1"))
             ]
         ))
@@ -175,7 +175,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
             finalText: "这是梅录的宠物信息",
             referenceChips: [],
             contentBlocks: [
-                .sectionHeading(AIAssistantTextBlock(id: "heading-1", text: "这是梅录的宠物信息")),
+                .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
                 .petProfileCard(Self.makePetProfileCardBlock(id: "pet-card-1"))
             ]
         ))

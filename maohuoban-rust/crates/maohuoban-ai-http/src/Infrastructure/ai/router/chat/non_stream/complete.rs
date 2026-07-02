@@ -29,6 +29,7 @@ use super::super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::super::runtime_tools::{
     build_public_runtime_tool_registry, build_runtime_tool_registry,
 };
+use super::super::text_content_block_projector::append_paragraph_content_block;
 use super::super::turn_preparation::ChatTurnContext;
 use super::super::visible_output_plan::{VisibleBlockKind, VisibleOutputPlan, plan_visible_output};
 use super::history_loader::load_history_and_summary_non_stream;
@@ -247,13 +248,14 @@ pub(super) fn complete_from_runtime_events(
 
     let citations =
         maohuoban_ai_application::ai::citations::citations_for_answer(&final_text, &package);
-    let content_blocks = if visible_output_plan.allows(VisibleBlockKind::PetProfileCard) {
+    let mut content_blocks = if visible_output_plan.allows(VisibleBlockKind::PetProfileCard) {
         project_pet_profile_content_blocks(&package)
     } else {
         Vec::new()
     };
+    let display_final_text = append_paragraph_content_block(&final_text, &mut content_blocks);
     Ok(AiCompleteResult {
-        final_text,
+        final_text: display_final_text,
         content_blocks,
         usage,
         finish_reason,
