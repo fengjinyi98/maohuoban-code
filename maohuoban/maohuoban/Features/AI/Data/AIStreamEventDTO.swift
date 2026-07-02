@@ -9,6 +9,7 @@ enum AIStreamEventDTO {
     case agentActivity(displayText: String, status: String)
     case confirmationTask(taskID: UUID, questionText: String)
     case delta(text: String)
+    case contentBlockDelta(contentBlocks: [AIAssistantContentBlock])
     case citation(label: String)
     case messageCompleted(
         messageID: UUID,

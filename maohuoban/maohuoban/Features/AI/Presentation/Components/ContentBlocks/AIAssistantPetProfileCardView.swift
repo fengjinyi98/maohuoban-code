@@ -20,7 +20,7 @@ struct AIAssistantPetProfileCardView: View {
             )
         }
         .padding(.vertical, MHBTheme.Spacing.s2)
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.opacity)
         .accessibilityIdentifier("ai.assistant.block.petProfileCard")
     }
 }

@@ -22,6 +22,11 @@ enum AIStreamEventDecoder {
                 return nil
             }
             return .delta(text: payload.text)
+        case "content_block_delta":
+            guard let payload = try? decoder.decode(AIStreamContentBlockDeltaPayload.self, from: jsonData) else {
+                return nil
+            }
+            return .contentBlockDelta(contentBlocks: payload.contentBlocks)
         case "citation":
             guard let payload = try? decoder.decode(AIStreamCitationPayload.self, from: jsonData) else { return nil }
             return .citation(label: payload.citation.label)

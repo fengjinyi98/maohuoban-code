@@ -55,6 +55,9 @@ pub(super) fn stream_event_metadata(event: &AiStreamEvent) -> Vec<(&'static str,
             *citation_count,
         ),
         AiStreamEvent::Delta { text } | AiStreamEvent::AnswerDelta { text } => delta_metadata(text),
+        AiStreamEvent::ContentBlockDelta { content_blocks } => {
+            content_block_delta_metadata(content_blocks.len())
+        }
         AiStreamEvent::Citation { citation } => citation_metadata(citation),
         AiStreamEvent::ProposedAction { action } => proposed_action_metadata(action),
         AiStreamEvent::ConfirmationTask {
@@ -220,6 +223,13 @@ fn delta_metadata(text: &str) -> Vec<(&'static str, Value)> {
             json!(length_bucket(text.chars().count())),
         ),
         ("delta_text", json!(redact_ai_diagnostics_text(text))),
+    ]
+}
+
+fn content_block_delta_metadata(content_block_count: usize) -> Vec<(&'static str, Value)> {
+    vec![
+        ("event_name", json!("content_block_delta")),
+        ("content_block_count", json!(content_block_count)),
     ]
 }
 

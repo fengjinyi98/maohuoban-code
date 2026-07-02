@@ -184,6 +184,11 @@ enum AIAssistantDiagnostics {
                 "event_name": .string("delta"),
                 "delta_length_bucket": .string(lengthBucket(text.count)),
             ]
+        case .contentBlockDelta(let contentBlocks):
+            [
+                "event_name": .string("content_block_delta"),
+                "content_block_count": .int(contentBlocks.count),
+            ]
         case .citation(let label):
             [
                 "event_name": .string("citation"),

@@ -11,6 +11,8 @@ extension AIAssistantStore {
             "confirmation_task"
         case .delta:
             "delta"
+        case .contentBlockDelta:
+            "content_block_delta"
         case .citation:
             "citation"
         case .messageCompleted:

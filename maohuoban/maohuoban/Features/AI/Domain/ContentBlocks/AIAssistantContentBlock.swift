@@ -49,3 +49,26 @@ enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
         }
     }
 }
+
+extension AIAssistantContentBlock {
+    var isSectionHeading: Bool {
+        if case .sectionHeading = self {
+            return true
+        }
+        return false
+    }
+
+    var isPetProfileSkeleton: Bool {
+        if case .petProfileCardSkeleton = self {
+            return true
+        }
+        return false
+    }
+
+    var isPetProfileCard: Bool {
+        if case .petProfileCard = self {
+            return true
+        }
+        return false
+    }
+}

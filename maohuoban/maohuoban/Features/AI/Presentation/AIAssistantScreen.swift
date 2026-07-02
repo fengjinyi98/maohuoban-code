@@ -12,6 +12,8 @@ struct AIAssistantScreen: View {
     @State private var isCameraFailureAlertPresented = false
     @State private var cameraFailureMessage = ""
     @State private var fpsMonitor = MHBFPSMonitor()
+    @State private var timelineContentHeight: CGFloat = 0
+    @State private var timelineViewportHeight: CGFloat = 0
 
     private static let bottomAnchorID = "ai.assistant.bottom"
 
@@ -23,36 +25,52 @@ struct AIAssistantScreen: View {
         @Bindable var store = store
 
         ScrollViewReader { proxy in
-            MHBScreenScrollView(showsIndicators: false) {
-                AIAssistantMessageTimeline(
-                    messages: store.messages,
-                    activeAgentActivityText: store.activeAgentActivityText,
-                    pendingAction: store.pendingAction,
-                    bottomAnchorID: Self.bottomAnchorID,
-                    onConfirmPendingAction: {
-                        store.confirmPendingAction()
-                    },
-                    onCancelPendingAction: {
-                        store.cancelPendingAction()
+            GeometryReader { viewportProxy in
+                MHBScreenScrollView(showsIndicators: false) {
+                    AIAssistantMessageTimeline(
+                        messages: store.messages,
+                        activeAgentActivityText: store.activeAgentActivityText,
+                        pendingAction: store.pendingAction,
+                        bottomAnchorID: Self.bottomAnchorID,
+                        onConfirmPendingAction: {
+                            store.confirmPendingAction()
+                        },
+                        onCancelPendingAction: {
+                            store.cancelPendingAction()
+                        }
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s4)
+                    .padding(.top, MHBTheme.Spacing.s6)
+                    .padding(.bottom, MHBTheme.Spacing.s4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background {
+                        GeometryReader { contentProxy in
+                            Color.clear
+                                .preference(
+                                    key: AIAssistantTimelineContentHeightKey.self,
+                                    value: contentProxy.size.height
+                                )
+                        }
                     }
-                )
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .padding(.top, MHBTheme.Spacing.s6)
-                .padding(.bottom, MHBTheme.Spacing.s4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .onChange(of: store.messages.count) { _, _ in
-                withAnimation(.smooth(duration: 0.2)) {
-                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                 }
-            }
-            .onChange(of: store.streamingRevision) { _, _ in
-                proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
-            }
-            .onChange(of: store.pendingAction) { _, _ in
-                withAnimation(.smooth(duration: 0.2)) {
-                    proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+                .scrollDismissesKeyboard(.interactively)
+                .onAppear {
+                    timelineViewportHeight = viewportProxy.size.height
+                }
+                .onChange(of: viewportProxy.size.height) { _, height in
+                    timelineViewportHeight = height
+                }
+                .onPreferenceChange(AIAssistantTimelineContentHeightKey.self) { height in
+                    timelineContentHeight = height
+                }
+                .onChange(of: store.messages.count) { _, _ in
+                    scrollToBottomIfNeeded(proxy: proxy, animated: true)
+                }
+                .onChange(of: store.streamingRevision) { _, _ in
+                    scrollToBottomIfNeeded(proxy: proxy, animated: false)
+                }
+                .onChange(of: store.pendingAction) { _, _ in
+                    scrollToBottomIfNeeded(proxy: proxy, animated: true)
                 }
             }
         }
@@ -252,6 +270,34 @@ struct AIAssistantScreen: View {
     private func presentCameraFailure(_ message: String) {
         cameraFailureMessage = message
         isCameraFailureAlertPresented = true
+    }
+
+    private func scrollToBottomIfNeeded(proxy: ScrollViewProxy, animated: Bool) {
+        guard AIAssistantScrollStateTracker.shouldAutoScrollToBottom(
+            contentHeight: timelineContentHeight,
+            viewportHeight: timelineViewportHeight
+        ) else {
+            return
+        }
+        if animated {
+            withAnimation(.smooth(duration: 0.2)) {
+                proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+        }
+    }
+}
+
+// AIAssistantTimelineContentHeightKey AI 消息列表内容高度
+// 核心职责：
+// - 将消息列表实际高度传回页面
+// - 支持自动滚动规则避免短内容贴底
+private struct AIAssistantTimelineContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

@@ -45,6 +45,31 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(text, "你好")
     }
 
+    func testDecodeContentBlockDeltaEvent() {
+        let json = """
+        {"content_blocks":[{"id":"heading-1","type":"section_heading","text":"这是梅录的宠物信息"},{"id":"loading-1","type":"pet_profile_card_skeleton","title":"正在整理梅录的宠物档案"}]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "content_block_delta", data: json)
+
+        guard case let .contentBlockDelta(blocks) = result else {
+            XCTFail("expected contentBlockDelta")
+            return
+        }
+        XCTAssertEqual(blocks.count, 2)
+        guard case let .sectionHeading(heading) = blocks[0] else {
+            XCTFail("expected backend heading block")
+            return
+        }
+        XCTAssertEqual(heading.id, "heading-1")
+        XCTAssertEqual(heading.text, "这是梅录的宠物信息")
+        guard case let .petProfileCardSkeleton(skeleton) = blocks[1] else {
+            XCTFail("expected backend pet profile skeleton block")
+            return
+        }
+        XCTAssertEqual(skeleton.id, "loading-1")
+        XCTAssertEqual(skeleton.title, "正在整理梅录的宠物档案")
+    }
+
     func testDecodeMessageCompletedEvent() {
         let json = """
         {"message_id":"\(UUID.zeroString)","final_text":"你好毛球","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15},"finish_reason":"stop","citations":[{"source_kind":"pet_event","source_id":"\(UUID.zeroString)","label":"疫苗记录"}],"verification":{"status":"passed"}}

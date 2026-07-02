@@ -402,6 +402,48 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
 }
 
 #[test]
+fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+
+    let events = projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    });
+
+    assert_eq!(
+        events.len(),
+        2,
+        "identity tool start should emit content blocks before activity: {events:?}"
+    );
+    assert!(
+        matches!(
+            &events[0],
+            AiStreamEvent::ContentBlockDelta { content_blocks, .. }
+                if matches!(
+                    content_blocks.as_slice(),
+                    [
+                        AiContentBlock::SectionHeading { text, .. },
+                        AiContentBlock::PetProfileCardSkeleton { title, .. },
+                    ] if text == "这是梅录的宠物信息"
+                        && title == "正在整理梅录的宠物档案"
+                )
+        ),
+        "first event should render heading and pet profile skeleton blocks: {events:?}"
+    );
+    assert!(
+        matches!(
+            &events[1],
+            AiStreamEvent::ExecutionTraceStarted { display_text }
+                if display_text == "正在整理梅录的宠物档案"
+        ),
+        "second event should remain execution trace metadata: {events:?}"
+    );
+}
+
+#[test]
 fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();

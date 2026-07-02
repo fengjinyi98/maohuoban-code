@@ -209,6 +209,20 @@ impl AgentEventSseProjector {
         let mut output = Vec::new();
         match event {
             UserVisibleTurnEvent::ExecutionTraceStarted { display_text, .. } => {
+                if self.requires_profile_skeleton_blocks(&display_text) {
+                    output.push(AiStreamEvent::ContentBlockDelta {
+                        content_blocks: vec![
+                            maohuoban_ai_domain::ai::AiContentBlock::SectionHeading {
+                                id: "pet-profile-heading".to_owned(),
+                                text: format!("这是{}的宠物信息", self.pet_name),
+                            },
+                            maohuoban_ai_domain::ai::AiContentBlock::PetProfileCardSkeleton {
+                                id: "pet-profile-skeleton".to_owned(),
+                                title: display_text.clone(),
+                            },
+                        ],
+                    });
+                }
                 output.push(AiStreamEvent::ExecutionTraceStarted { display_text });
             }
             UserVisibleTurnEvent::ExecutionTraceCompleted {
@@ -325,5 +339,11 @@ impl AgentEventSseProjector {
 
     fn requires_profile_content_blocks(&self) -> bool {
         self.identity_context_tool_required && self.identity_context_tool_succeeded
+    }
+
+    fn requires_profile_skeleton_blocks(&self, display_text: &str) -> bool {
+        self.identity_context_tool_required
+            && display_text.contains("宠物档案")
+            && display_text.contains(&self.pet_name)
     }
 }

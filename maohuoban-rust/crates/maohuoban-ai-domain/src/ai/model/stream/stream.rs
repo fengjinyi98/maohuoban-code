@@ -140,6 +140,9 @@ pub enum AiStreamEvent {
     AnswerDelta {
         text: String,
     },
+    ContentBlockDelta {
+        content_blocks: Vec<AiContentBlock>,
+    },
     Citation {
         citation: AiCitation,
     },
@@ -212,6 +215,7 @@ impl AiStreamEvent {
             Self::ExecutionTraceCompleted { .. } => "execution_trace_completed",
             Self::Delta { .. } => "delta",
             Self::AnswerDelta { .. } => "answer_delta",
+            Self::ContentBlockDelta { .. } => "content_block_delta",
             Self::Citation { .. } => "citation",
             Self::ProposedAction { .. } => "proposed_action",
             Self::ConfirmationTask { .. } => "confirmation_task",

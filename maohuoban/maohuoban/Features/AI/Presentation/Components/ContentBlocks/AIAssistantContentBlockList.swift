@@ -12,8 +12,10 @@ struct AIAssistantContentBlockList: View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             ForEach(blocks) { block in
                 AIAssistantContentBlockView(block: block)
+                    .transition(.opacity.animation(.smooth(duration: 0.18)))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.smooth(duration: 0.18), value: blocks)
     }
 }

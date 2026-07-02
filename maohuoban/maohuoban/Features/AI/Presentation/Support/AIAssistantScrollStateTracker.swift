@@ -49,4 +49,15 @@ nonisolated struct AIAssistantScrollStateTracker {
     ) -> Bool {
         messageCount > 0 && !isScrolledToBottom
     }
+
+    /// 是否需要将内容滚动到底部
+    /// 核心职责：
+    /// - 内容未超过视口时保持顶部自然布局
+    /// - 内容超过视口时允许跟随最新消息
+    static func shouldAutoScrollToBottom(
+        contentHeight: CGFloat,
+        viewportHeight: CGFloat
+    ) -> Bool {
+        contentHeight > viewportHeight
+    }
 }

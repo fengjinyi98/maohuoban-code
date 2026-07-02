@@ -17,20 +17,12 @@ struct AIAssistantPetProfileSkeletonHeaderView: View {
                 isHighlighted: isHighlighted
             )
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                AIAssistantPetProfileSkeletonCapsule(
-                    width: 96,
-                    height: 22,
-                    cornerRadius: 8,
-                    isHighlighted: isHighlighted
-                )
-                AIAssistantPetProfileSkeletonCapsule(
-                    width: 68,
-                    height: 13,
-                    cornerRadius: 6,
-                    isHighlighted: isHighlighted
-                )
-            }
+            AIAssistantPetProfileSkeletonCapsule(
+                width: 96,
+                height: 22,
+                cornerRadius: 8,
+                isHighlighted: isHighlighted
+            )
         }
     }
 }

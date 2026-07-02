@@ -17,24 +17,11 @@ struct AIAssistantPetProfileHeaderView: View {
             )
             .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                Text(pet.name)
-                    .font(MHBTheme.Typography.title.weight(.bold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                Text(identityText)
-                    .font(MHBTheme.Typography.footnote.weight(.medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.84)
-            }
+            Text(pet.name)
+                .font(MHBTheme.Typography.title.weight(.bold))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
         }
-    }
-
-    private var identityText: String {
-        let breed = pet.breed.trimmingCharacters(in: .whitespacesAndNewlines)
-        return breed.isEmpty ? pet.speciesText : "\(pet.speciesText) · \(breed)"
     }
 }

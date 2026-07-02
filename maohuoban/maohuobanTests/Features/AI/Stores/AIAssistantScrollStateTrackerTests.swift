@@ -99,4 +99,20 @@ final class AIAssistantScrollStateTrackerTests: XCTestCase {
         )
         XCTAssertFalse(result)
     }
+
+    func testShouldNotAutoScrollToBottomWhenContentFitsViewport() {
+        let result = AIAssistantScrollStateTracker.shouldAutoScrollToBottom(
+            contentHeight: 480,
+            viewportHeight: 640
+        )
+        XCTAssertFalse(result)
+    }
+
+    func testShouldAutoScrollToBottomWhenContentExceedsViewport() {
+        let result = AIAssistantScrollStateTracker.shouldAutoScrollToBottom(
+            contentHeight: 720,
+            viewportHeight: 640
+        )
+        XCTAssertTrue(result)
+    }
 }
