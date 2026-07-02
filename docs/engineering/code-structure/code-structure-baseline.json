@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T04:24:36",
+  "generated_at": "2026-07-03T04:27:58",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -1525,28 +1525,6 @@
           "maohuoban/maohuoban/Features/Profile/Presentation/ProfileUserHomeScreen.swift"
         ]
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components": {
-        "file_count": 17,
-        "files": [
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeArtwork.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeDetailSheet.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeGrid.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeVisualStyle.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgesSection.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileFAQBanner.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileFollowedTopicsSection.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileFollowerSections.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileQuickEntriesSection.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileReplySections.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserEditDisplay.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserEditSections.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeContentSections.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeHeaderSections.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeNavigationChrome.swift",
-          "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomePetFamilySection.swift"
-        ]
-      },
       "maohuoban/maohuoban/Features/Publish/Domain": {
         "file_count": 5,
         "files": [
@@ -1665,28 +1643,6 @@
           "maohuoban/maohuoban/Features/Settings/Presentation/Views/SettingsScreen.swift",
           "maohuoban/maohuoban/Features/Settings/Presentation/Views/SettingsSetPasswordScreen.swift",
           "maohuoban/maohuoban/Features/Settings/Presentation/Views/SettingsStorageSpaceScreen.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components": {
-        "file_count": 17,
-        "files": [
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedAuthorRow.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCardText.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentActionSheet.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentComposerComponents.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentsEmptyState.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentsSection.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailHeaderControls.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailHeroCarousel.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailLayout.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailMetadataComponents.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailPreviewAwareBottomBar.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedList.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedMediaContainer.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedMoreButtonFramePreference.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedMoreMenu.swift",
-          "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedRollingCountText.swift"
         ]
       },
       "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models": {
@@ -2460,22 +2416,22 @@
         "line_count": 358,
         "suffix": ".swift"
       },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgeDetailSheet.swift": {
+        "limit": 250,
+        "line_count": 361,
+        "suffix": ".swift"
+      },
       "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
         "limit": 250,
         "line_count": 317,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeDetailSheet.swift": {
-        "limit": 250,
-        "line_count": 361,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileReplySections.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Replies/ProfileReplySections.swift": {
         "limit": 250,
         "line_count": 289,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeHeaderSections.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeHeaderSections.swift": {
         "limit": 250,
         "line_count": 332,
         "suffix": ".swift"
@@ -2615,14 +2571,14 @@
         "line_count": 282,
         "suffix": ".swift"
       },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/List/FeedDetailCommentsSection.swift": {
+        "limit": 250,
+        "line_count": 285,
+        "suffix": ".swift"
+      },
       "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift": {
         "limit": 250,
         "line_count": 299,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentsSection.swift": {
-        "limit": 250,
-        "line_count": 285,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Infrastructure/Feed/Stores/FeedInteractionStore.swift": {
@@ -4424,34 +4380,29 @@
         "primary_type_count": 5,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
-        "line_count": 317,
-        "primary_type_count": 10,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeDetailSheet.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgeDetailSheet.swift": {
         "line_count": 361,
         "primary_type_count": 11,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgeGrid.swift": {
-        "line_count": 74,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileBadgesSection.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Detail/ProfileBadgesSection.swift": {
         "line_count": 84,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileFollowedTopicsSection.swift": {
-        "line_count": 115,
-        "primary_type_count": 3,
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Badges/Overview/ProfileBadgeGrid.swift": {
+        "line_count": 74,
+        "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileFollowerSections.swift": {
-        "line_count": 245,
-        "primary_type_count": 8,
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Editing/ProfileUserEditSections.swift": {
+        "line_count": 128,
+        "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileAccountSummarySection.swift": {
+        "line_count": 317,
+        "primary_type_count": 10,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileQuickEntriesSection.swift": {
@@ -4459,32 +4410,37 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileReplySections.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Followers/ProfileFollowedTopicsSection.swift": {
+        "line_count": 115,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Followers/ProfileFollowerSections.swift": {
+        "line_count": 245,
+        "primary_type_count": 8,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/Social/Replies/ProfileReplySections.swift": {
         "line_count": 289,
         "primary_type_count": 11,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserEditSections.swift": {
-        "line_count": 128,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeContentSections.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Content/ProfileUserHomeContentSections.swift": {
         "line_count": 144,
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeHeaderSections.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeHeaderSections.swift": {
         "line_count": 332,
         "primary_type_count": 8,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomeNavigationChrome.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomeNavigationChrome.swift": {
         "line_count": 142,
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/Profile/Presentation/Components/ProfileUserHomePetFamilySection.swift": {
+      "maohuoban/maohuoban/Features/Profile/Presentation/Components/UserHome/Header/ProfileUserHomePetFamilySection.swift": {
         "line_count": 111,
         "primary_type_count": 3,
         "suffix": ".swift"
@@ -4839,54 +4795,54 @@
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedAuthorRow.swift": {
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Author/FeedAuthorRow.swift": {
         "line_count": 123,
         "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Card/Actions/FeedMoreButtonFramePreference.swift": {
+        "line_count": 58,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Card/Actions/FeedMoreMenu.swift": {
+        "line_count": 240,
+        "primary_type_count": 4,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/Composer/FeedDetailCommentActionSheet.swift": {
+        "line_count": 133,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/Composer/FeedDetailCommentComposerComponents.swift": {
+        "line_count": 125,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Comments/List/FeedDetailCommentsSection.swift": {
+        "line_count": 285,
+        "primary_type_count": 6,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailHeaderControls.swift": {
+        "line_count": 171,
+        "primary_type_count": 4,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailHeroCarousel.swift": {
+        "line_count": 152,
+        "primary_type_count": 3,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/Detail/Header/FeedDetailMetadataComponents.swift": {
+        "line_count": 123,
+        "primary_type_count": 5,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedCard.swift": {
         "line_count": 299,
         "primary_type_count": 8,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentActionSheet.swift": {
-        "line_count": 133,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentComposerComponents.swift": {
-        "line_count": 125,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailCommentsSection.swift": {
-        "line_count": 285,
-        "primary_type_count": 6,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailHeaderControls.swift": {
-        "line_count": 171,
-        "primary_type_count": 4,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailHeroCarousel.swift": {
-        "line_count": 152,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedDetailMetadataComponents.swift": {
-        "line_count": 123,
-        "primary_type_count": 5,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedMoreButtonFramePreference.swift": {
-        "line_count": 58,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Components/FeedMoreMenu.swift": {
-        "line_count": 240,
-        "primary_type_count": 4,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedAuthorBadge.swift": {
