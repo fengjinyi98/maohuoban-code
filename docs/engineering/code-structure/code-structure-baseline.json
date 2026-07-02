@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T04:27:58",
+  "generated_at": "2026-07-03T04:30:22",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -997,28 +997,6 @@
           "maohuoban/maohuoban/App/Navigation/MHBTabPlaceholderRootScreen.swift"
         ]
       },
-      "maohuoban/maohuoban/Features/AI/Data": {
-        "file_count": 17,
-        "files": [
-          "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIChatSessionDTO.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIProposedActionDTO.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIProposedActionPayloadDTO.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamAgentActivityPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamCitationLabelDTO.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamCitationPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamConfirmationTaskPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamContentBlockDeltaPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamDeltaPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamErrorPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamEventDTO.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamEventDecoder.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamEventParser.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamMessageCompletedPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamMessageStartedPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Data/AIStreamProposedActionPayload.swift"
-        ]
-      },
       "maohuoban/maohuoban/Features/AI/Domain": {
         "file_count": 11,
         "files": [
@@ -1069,27 +1047,6 @@
           "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantReferenceChipFlow.swift",
           "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantSendButton.swift",
           "maohuoban/maohuoban/Features/AI/Presentation/Components/ThinkingDots.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks": {
-        "file_count": 16,
-        "files": [
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantContentBlockList.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantContentBlockView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantParagraphBlockView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileCardView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileDividerView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileFactGridView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileFactItemView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileHeaderView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileMomentListView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileMomentView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileSkeletonCapsule.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileSkeletonGridView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileSkeletonHeaderView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileSkeletonMomentView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantPetProfileSkeletonView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ContentBlocks/AIAssistantSectionHeadingView.swift"
         ]
       },
       "maohuoban/maohuoban/Features/AI/Stores": {
@@ -3545,14 +3502,14 @@
         "primary_type_count": 9,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Data/AIChatSessionDTO.swift": {
-        "line_count": 101,
-        "primary_type_count": 4,
-        "suffix": ".swift"
-      },
       "maohuoban/maohuoban/Features/AI/Data/AIStreamEventParser.swift": {
         "line_count": 76,
         "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/AI/Data/DTO/Core/AIChatSessionDTO.swift": {
+        "line_count": 101,
+        "primary_type_count": 4,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/AI/Domain/AIAssistantEntryContext.swift": {
