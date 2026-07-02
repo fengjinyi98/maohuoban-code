@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T04:54:47",
+  "generated_at": "2026-07-03T05:00:31",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -866,288 +866,6 @@
           "maohuoban-rust/tests/pet_contract/profile_events.rs",
           "maohuoban-rust/tests/pet_contract/support.rs"
         ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBStableTextField.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBStableTextInputLimit.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBStableTextInputStateMachine.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBTagView.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/API": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/API/MHBImagePreviewAsset.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/API/MHBImagePreviewRequest.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/API/MHBPreviewableAssetImage.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/API/MHBPreviewableImage.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/MHBImagePreviewActiveIndexBinding.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/MHBImagePreviewCoordinator.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/MHBImagePreviewInteractionPolicy.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/MHBImagePreviewSession.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment": {
-        "file_count": 6,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/EnvironmentValues+MHBImagePreview.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewHostModifier.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewPresentAction.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewSourceRegistrar.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewTabBarHidingModifier.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewWindowOverlay.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation": {
-        "file_count": 10,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewAssetImage.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewLayoutMetrics.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Chrome.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+DismissTarget.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Interaction.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+State.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Types.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Zoom+Prelaod.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewZoomablePage.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking": {
-        "file_count": 5,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking/MHBImagePreviewSourceID.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking/MHBImagePreviewSourceObserver.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking/MHBImagePreviewSourceRegistration.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking/MHBImagePreviewSourceRegistrationView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/SourceTracking/MHBImagePreviewTrackingView.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText": {
-        "file_count": 5,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotText.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextCellView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextConfiguration.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextTransitionPlan.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextView.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme": {
-        "file_count": 7,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/Color+Adaptive.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBTheme.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBThemeColorToken.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBThemeIconSize.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBThemeRadius.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBThemeSpacing.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Theme/MHBThemeTypography.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast": {
-        "file_count": 9,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBCustomHostingView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBPassThroughWindow.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToast.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastAction.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastManager.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastModifier.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastType.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBWindowExtractor.swift"
-        ]
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView": {
-        "file_count": 6,
-        "files": [
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryStarterTextView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryTextInputContainerView+Glass.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryTextInputContainerView.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryTextViewController.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryTextViewHost.swift",
-          "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryVisibleTextView.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/AI/Stores": {
-        "file_count": 8,
-        "files": [
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantScrollStateTrackerTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreRuntimeAdapterTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamEventTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamingTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStreamingEngineAccumulationTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStreamingEngineTests.swift",
-          "maohuoban/maohuobanTests/Features/AI/Stores/RuntimeAdapterTestRepository.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Home": {
-        "file_count": 10,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Home/HomeActionRouteResolverTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeDashboardDecodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeDashboardLivePhotoDecodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeDashboardStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeGenderSymbolTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeMerchantDashboardDecodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeMockDashboardFixturesTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeQuickFactActionTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Home/HomeRouteTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Merchant": {
-        "file_count": 6,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantAvailableStatusRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantAvailableStatusStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantLitterDetailStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantPetCreateStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantPetsStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Merchant/MerchantRepositoryTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Pet": {
-        "file_count": 27,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Pet/PetDailyRecordFormDraftTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetEventDetailStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetExternalIdentifierSummaryTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetHealthRecordFormDraftTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetIdentityContextDecodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetMediaUploadDiagnosticsTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetMediaUploadStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetProfileAddMediaRouteTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetProfileEditScreenTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetProfileSummaryDecodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryDiagnosticsTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryEventContractTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryFoodInventoryContractTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryMediaContractTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetRepositoryTradeImportContractTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWalkCompletionSummaryTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWalkHistoryDisplayStateTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWalkLiveActivityDisplayTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWalkLiveActivitySyncTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWalkRouteRecorderTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteDraftEncodingTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteStoreEventTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteStoreImportTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteStoreMutationTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/PetWriteToastResolverTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Pet/Stores": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Pet/Stores/PetFoodInventoryRestoreStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/Stores/PetFoodInventoryStoreLoadingTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/Stores/PetFoodInventoryStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Pet/Stores/RestoreFoodInventoryRepositoryStub.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/PetAlbum": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/maohuobanTests/Features/PetAlbum/PetAlbumCreateDraftTests.swift",
-          "maohuoban/maohuobanTests/Features/PetAlbum/PetAlbumMenuActionTests.swift",
-          "maohuoban/maohuobanTests/Features/PetAlbum/PetAlbumNavigationTests.swift",
-          "maohuoban/maohuobanTests/Features/PetAlbum/PetAlbumStoreMutationTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Profile": {
-        "file_count": 21,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserProfileRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserStoreArchitectureTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserStoreBehaviorTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserStoreEditingTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserStoreFeatureWiringTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/CurrentUserStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileBadgeMockDataTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileCoverSourceTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFavoriteFolderContentResolverTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFavoriteFolderCreateDraftTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFavoriteFolderMenuActionTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFavoriteFolderNavigationTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFollowerFilterTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileFollowingFilterTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileProfessionalIdentityBadgeTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileQuickEntryRouteResolverTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileReplyFilterTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileSettingsRouteTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileUserEditDraftTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileUserEditStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Profile/ProfileUserHomeIdentityDisplayTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Search": {
-        "file_count": 4,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Search/SearchHistoryStateTests.swift",
-          "maohuoban/maohuobanTests/Features/Search/SearchHotKeywordProviderTests.swift",
-          "maohuoban/maohuobanTests/Features/Search/SearchNavigationRouteTests.swift",
-          "maohuoban/maohuobanTests/Features/Search/SearchNavigationSearchBarConfigurationTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Features/Settings": {
-        "file_count": 5,
-        "files": [
-          "maohuoban/maohuobanTests/Features/Settings/SettingsDeviceSessionRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Settings/SettingsLogoutCopyTests.swift",
-          "maohuoban/maohuobanTests/Features/Settings/SettingsMockStoreTests.swift",
-          "maohuoban/maohuobanTests/Features/Settings/SettingsPasswordRepositoryTests.swift",
-          "maohuoban/maohuobanTests/Features/Settings/SettingsPasswordStoreTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Infrastructure/Feed": {
-        "file_count": 6,
-        "files": [
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedAvatarSubjectTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedCommentAuthorIdentityTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedInteractionStoreAvatarTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedMoreButtonFrameStateTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedMoreMenuActionResolverTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Feed/FeedMoreMenuPresentationStateTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Infrastructure/Networking": {
-        "file_count": 8,
-        "files": [
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBBackendEndpointTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientAuthorizationTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientConfigurationTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientDiagnosticsTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientRequestInfrastructureTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientRetryTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientTokenRefreshTests.swift",
-          "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientTracingTests.swift"
-        ]
-      },
-      "maohuoban/maohuobanTests/Support": {
-        "file_count": 9,
-        "files": [
-          "maohuoban/maohuobanTests/Support/MerchantRepositoryTestCase.swift",
-          "maohuoban/maohuobanTests/Support/MerchantRepositoryURLProtocol.swift",
-          "maohuoban/maohuobanTests/Support/PetMediaUploadStoreTestCase.swift",
-          "maohuoban/maohuobanTests/Support/PetMediaUploadTestRepository.swift",
-          "maohuoban/maohuobanTests/Support/PetRepositoryTestCase.swift",
-          "maohuoban/maohuobanTests/Support/PetRepositoryTestResponses.swift",
-          "maohuoban/maohuobanTests/Support/PetRepositoryURLProtocol.swift",
-          "maohuoban/maohuobanTests/Support/PetWriteStoreTestRepository.swift",
-          "maohuoban/maohuobanTests/Support/PetWriteStoreTestResponses.swift"
-        ]
       }
     },
     "guideline_line_files": {
@@ -1416,14 +1134,14 @@
         "line_count": 339,
         "suffix": ".rs"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Interaction.swift": {
-        "limit": 250,
-        "line_count": 314,
-        "suffix": ".swift"
-      },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Core/MHBImagePreviewOverlay.swift": {
         "limit": 250,
         "line_count": 262,
+        "suffix": ".swift"
+      },
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Interaction/MHBImagePreviewOverlay+Interaction.swift": {
+        "limit": 250,
+        "line_count": 314,
         "suffix": ".swift"
       },
       "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Zoom/MHBImagePreviewZoomScrollView.swift": {
@@ -1436,7 +1154,7 @@
         "line_count": 305,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/MHBKeyboardAccessoryTextInputContainerView.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardAccessoryTextView/Container/MHBKeyboardAccessoryTextInputContainerView.swift": {
         "limit": 250,
         "line_count": 373,
         "suffix": ".swift"
@@ -1816,42 +1534,42 @@
         "line_count": 286,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreRuntimeAdapterTests.swift": {
+      "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreRuntimeAdapterTests.swift": {
         "limit": 250,
         "line_count": 266,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamingTests.swift": {
+      "maohuoban/maohuobanTests/Features/AI/Stores/Streaming/AIAssistantStoreStreamingTests.swift": {
         "limit": 250,
         "line_count": 292,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Home/HomeDashboardStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Home/Dashboard/Stores/HomeDashboardStoreTests.swift": {
         "limit": 250,
         "line_count": 251,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Home/HomeMockDashboardFixturesTests.swift": {
+      "maohuoban/maohuobanTests/Features/Home/Mock/HomeMockDashboardFixturesTests.swift": {
         "limit": 250,
         "line_count": 258,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Pet/PetRepositoryFoodInventoryContractTests.swift": {
+      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryFoodInventoryContractTests.swift": {
         "limit": 250,
         "line_count": 251,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Pet/PetRepositoryMediaContractTests.swift": {
+      "maohuoban/maohuobanTests/Features/Pet/Repository/Contracts/PetRepositoryMediaContractTests.swift": {
         "limit": 250,
         "line_count": 254,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Pet/Stores/PetFoodInventoryStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Pet/Stores/FoodInventory/PetFoodInventoryStoreTests.swift": {
         "limit": 250,
         "line_count": 257,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Profile/CurrentUserProfileRepositoryTests.swift": {
+      "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
         "limit": 250,
         "line_count": 344,
         "suffix": ".swift"
@@ -1988,12 +1706,12 @@
         "line_count": 446,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamEventTests.swift": {
+      "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreStreamEventTests.swift": {
         "limit": 400,
         "line_count": 540,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Profile/ProfileUserEditStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
         "limit": 400,
         "line_count": 426,
         "suffix": ".swift"
@@ -2655,12 +2373,12 @@
         "primary_type_count": 2,
         "suffix": ".rs"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBStableTextInputLimit.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/TextInput/MHBStableTextInputLimit.swift": {
         "line_count": 73,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/MHBStableTextInputStateMachine.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Components/TextInput/MHBStableTextInputStateMachine.swift": {
         "line_count": 57,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -2670,17 +2388,17 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/MHBImagePreviewCoordinator.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Coordination/Coordinator/MHBImagePreviewCoordinator.swift": {
         "line_count": 115,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/MHBImagePreviewWindowOverlay.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Environment/Overlay/MHBImagePreviewWindowOverlay.swift": {
         "line_count": 80,
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/MHBImagePreviewOverlay+Types.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/ImagePreview/Presentation/Overlay/Core/MHBImagePreviewOverlay+Types.swift": {
         "line_count": 21,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -2690,22 +2408,22 @@
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextConfiguration.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Core/MHBSlotTextConfiguration.swift": {
         "line_count": 154,
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextTransitionPlan.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Core/MHBSlotTextTransitionPlan.swift": {
         "line_count": 137,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/MHBSlotTextView.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/SlotText/Views/MHBSlotTextView.swift": {
         "line_count": 247,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/MHBToastView.swift": {
+      "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/Toast/Views/MHBToastView.swift": {
         "line_count": 119,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -4165,12 +3883,12 @@
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamEventTests.swift": {
+      "maohuoban/maohuobanTests/Features/AI/Stores/Store/AIAssistantStoreStreamEventTests.swift": {
         "line_count": 540,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/AI/Stores/AIAssistantStoreStreamingTests.swift": {
+      "maohuoban/maohuobanTests/Features/AI/Stores/Streaming/AIAssistantStoreStreamingTests.swift": {
         "line_count": 292,
         "primary_type_count": 3,
         "suffix": ".swift"
@@ -4180,47 +3898,47 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Home/HomeDashboardStoreTests.swift": {
-        "line_count": 251,
-        "primary_type_count": 3,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Home/HomeRepositoryTests.swift": {
+      "maohuoban/maohuobanTests/Features/Home/Dashboard/Repositories/HomeRepositoryTests.swift": {
         "line_count": 157,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Merchant/MerchantAvailableStatusStoreTests.swift": {
-        "line_count": 181,
-        "primary_type_count": 2,
+      "maohuoban/maohuobanTests/Features/Home/Dashboard/Stores/HomeDashboardStoreTests.swift": {
+        "line_count": 251,
+        "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Merchant/MerchantLitterDetailStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Merchant/Litter/MerchantLitterDetailStoreTests.swift": {
         "line_count": 116,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Merchant/MerchantPetCreateStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Merchant/Pets/MerchantPetCreateStoreTests.swift": {
         "line_count": 129,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Merchant/MerchantPetsStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Merchant/Pets/MerchantPetsStoreTests.swift": {
         "line_count": 120,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Pet/PetEventDetailStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Merchant/Status/MerchantAvailableStatusStoreTests.swift": {
+        "line_count": 181,
+        "primary_type_count": 2,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Pet/Stores/Detail/PetEventDetailStoreTests.swift": {
         "line_count": 162,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Profile/CurrentUserProfileRepositoryTests.swift": {
+      "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
         "line_count": 344,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Profile/ProfileUserEditStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
         "line_count": 426,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -4235,22 +3953,22 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Settings/SettingsDeviceSessionRepositoryTests.swift": {
+      "maohuoban/maohuobanTests/Features/Settings/Repositories/SettingsDeviceSessionRepositoryTests.swift": {
         "line_count": 205,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Settings/SettingsPasswordRepositoryTests.swift": {
+      "maohuoban/maohuobanTests/Features/Settings/Repositories/SettingsPasswordRepositoryTests.swift": {
         "line_count": 248,
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Settings/SettingsPasswordStoreTests.swift": {
+      "maohuoban/maohuobanTests/Features/Settings/Stores/SettingsPasswordStoreTests.swift": {
         "line_count": 231,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Infrastructure/Networking/MHBHTTPClientRequestInfrastructureTests.swift": {
+      "maohuoban/maohuobanTests/Infrastructure/Networking/Client/Core/MHBHTTPClientRequestInfrastructureTests.swift": {
         "line_count": 218,
         "primary_type_count": 8,
         "suffix": ".swift"
@@ -4260,12 +3978,12 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Support/MerchantRepositoryTestCase.swift": {
+      "maohuoban/maohuobanTests/Support/Merchant/MerchantRepositoryTestCase.swift": {
         "line_count": 96,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Support/PetRepositoryURLProtocol.swift": {
+      "maohuoban/maohuobanTests/Support/Pet/Repository/PetRepositoryURLProtocol.swift": {
         "line_count": 84,
         "primary_type_count": 2,
         "suffix": ".swift"
