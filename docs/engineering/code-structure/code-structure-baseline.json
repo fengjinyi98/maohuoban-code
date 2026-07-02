@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T04:34:53",
+  "generated_at": "2026-07-03T04:37:44",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -997,58 +997,6 @@
           "maohuoban/maohuoban/App/Navigation/MHBTabPlaceholderRootScreen.swift"
         ]
       },
-      "maohuoban/maohuoban/Features/AI/Domain": {
-        "file_count": 11,
-        "files": [
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantAttachmentSource.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantConversationHistory.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantEntryContext.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantHistoryMenuActions.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantMessage.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantMockContent.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantProposedAction+StreamDecoder.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantProposedAction.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantProposedActionPayload.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantSelectedAttachment.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/AIAssistantSuggestedPrompt.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks": {
-        "file_count": 12,
-        "files": [
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantContentBlock.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantInlineTextSpan.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantInlineTextStyle.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantParagraphBlock.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileCardBlock.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileComputed.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileFact.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileNarrative.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileSex.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileSkeletonBlock.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantPetProfileSpecies.swift",
-          "maohuoban/maohuoban/Features/AI/Domain/ContentBlocks/AIAssistantSectionHeadingBlock.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Features/AI/Presentation/Components": {
-        "file_count": 14,
-        "files": [
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantAttachmentMenu.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantAttachmentSelectionChip.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantComposerBar.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantComposerSurface.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantHistoryContextMenuContent.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantInlineTextView.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantMessageBubble.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantMessageBubblePresentation.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantPetAvatar.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantPromptRail.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantProposedActionCard.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantReferenceChipFlow.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantSendButton.swift",
-          "maohuoban/maohuoban/Features/AI/Presentation/Components/ThinkingDots.swift"
-        ]
-      },
       "maohuoban/maohuoban/Features/AI/Stores": {
         "file_count": 8,
         "files": [
@@ -1503,23 +1451,6 @@
           "maohuoban/maohuoban/Infrastructure/Feed/Presentation/Models/FeedRecommendationReason.swift"
         ]
       },
-      "maohuoban/maohuoban/Infrastructure/ImageCropping": {
-        "file_count": 12,
-        "files": [
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCircularImageCropGeometryCalculator.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCircularImageCropOverlay.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCircularImageCropScreen+Actions.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCircularImageCropScreen.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCropOutsideBlurLayer.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBImageCropDisplayGeometryCalculator.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBImageCropMetadata.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropGeometryCalculator.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropOverlay.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropResult.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropScreen+Actions.swift",
-          "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropScreen.swift"
-        ]
-      },
       "maohuoban/maohuoban/Infrastructure/Location": {
         "file_count": 8,
         "files": [
@@ -1573,23 +1504,6 @@
           "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Grid/MHBPhotoGridScrollDateFormatter.swift",
           "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Grid/MHBPhotoGridScrollDateSnapshot.swift",
           "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Grid/MHBPhotoGridViewRepresentable.swift"
-        ]
-      },
-      "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation": {
-        "file_count": 12,
-        "files": [
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryAlbumPickerView.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryAlbumRow.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryAlbumThumbnail.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryAuthorizedContent.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryEmptyView.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryLimitedAccessView.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryLoadingView.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryPermissionView.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryPickerBottomBar.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryPickerContent.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryPickerHeader.swift",
-          "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryPickerScreen.swift"
         ]
       },
       "maohuoban/maohuoban/Infrastructure/Networking": {
@@ -3397,12 +3311,12 @@
         "primary_type_count": 4,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Domain/AIAssistantEntryContext.swift": {
+      "maohuoban/maohuoban/Features/AI/Domain/Entry/AIAssistantEntryContext.swift": {
         "line_count": 44,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Domain/AIAssistantHistoryMenuActions.swift": {
+      "maohuoban/maohuoban/Features/AI/Domain/Entry/AIAssistantHistoryMenuActions.swift": {
         "line_count": 58,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -3417,17 +3331,17 @@
         "primary_type_count": 5,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantMessageBubble.swift": {
+      "maohuoban/maohuoban/Features/AI/Presentation/Components/Message/AIAssistantMessageBubble.swift": {
         "line_count": 131,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantPetAvatar.swift": {
+      "maohuoban/maohuoban/Features/AI/Presentation/Components/Message/AIAssistantPetAvatar.swift": {
         "line_count": 69,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Features/AI/Presentation/Components/AIAssistantPromptRail.swift": {
+      "maohuoban/maohuoban/Features/AI/Presentation/Components/References/AIAssistantPromptRail.swift": {
         "line_count": 60,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -4697,12 +4611,12 @@
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBCircularImageCropOverlay.swift": {
+      "maohuoban/maohuoban/Infrastructure/ImageCropping/Circular/MHBCircularImageCropOverlay.swift": {
         "line_count": 64,
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/ImageCropping/MHBRectImageCropOverlay.swift": {
+      "maohuoban/maohuoban/Infrastructure/ImageCropping/Rectangular/MHBRectImageCropOverlay.swift": {
         "line_count": 62,
         "primary_type_count": 2,
         "suffix": ".swift"
@@ -4722,7 +4636,7 @@
         "primary_type_count": 2,
         "suffix": ".swift"
       },
-      "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/MHBPhotoLibraryLimitedAccessView.swift": {
+      "maohuoban/maohuoban/Infrastructure/MediaPicker/PhotoLibrary/Presentation/States/Permissions/MHBPhotoLibraryLimitedAccessView.swift": {
         "line_count": 59,
         "primary_type_count": 2,
         "suffix": ".swift"
