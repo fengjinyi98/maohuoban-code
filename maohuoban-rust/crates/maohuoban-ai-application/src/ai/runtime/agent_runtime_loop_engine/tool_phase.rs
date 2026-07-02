@@ -88,16 +88,7 @@ impl AgentRuntimeLoopEngine {
             .iter()
             .any(|result| matches!(result.status, LoopToolStatus::RequiresConfirmation));
 
-        if self.accumulated_total_tokens > self.turn_token_budget {
-            self.phase = RuntimePhase::Done {
-                message_id: uuid::Uuid::new_v4(),
-                final_text: String::new(),
-                status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
-                termination_reason:
-                    maohuoban_ai_domain::ai::AgentTurnTerminationReason::BudgetExhausted,
-                error_code: Some("ai.runtime.budget_exhausted".to_owned()),
-            };
-        } else if needs_confirmation {
+        if needs_confirmation {
             self.phase = RuntimePhase::Done {
                 message_id: uuid::Uuid::new_v4(),
                 final_text: String::new(),

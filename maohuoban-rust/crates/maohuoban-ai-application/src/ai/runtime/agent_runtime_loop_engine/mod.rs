@@ -19,7 +19,6 @@ use crate::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_domain::ai::{AgentTurnId, AiFactPackage};
 
 const DEFAULT_MAX_TOOL_ROUNDS: u8 = 4;
-const DEFAULT_TURN_TOKEN_BUDGET: u32 = 4096;
 
 use super::runtime_phase::RuntimePhase;
 
@@ -40,7 +39,6 @@ pub struct AgentRuntimeLoopEngine {
     current_skill_bundle: Option<(AgentTurnId, SkillBundle)>,
     max_tool_rounds: u8,
     current_round: u8,
-    turn_token_budget: u32,
     accumulated_total_tokens: u32,
     current_turn_successful_write_tools: Vec<String>,
 }
@@ -66,7 +64,6 @@ impl AgentRuntimeLoopEngine {
             current_skill_bundle: None,
             max_tool_rounds: DEFAULT_MAX_TOOL_ROUNDS,
             current_round: 0,
-            turn_token_budget: DEFAULT_TURN_TOKEN_BUDGET,
             accumulated_total_tokens: 0,
             current_turn_successful_write_tools: Vec::new(),
         }
@@ -78,13 +75,5 @@ impl AgentRuntimeLoopEngine {
     /// - 避免把单轮工具深度硬编码在 loop 结构里
     pub fn set_max_tool_rounds(&mut self, max_tool_rounds: u8) {
         self.max_tool_rounds = max_tool_rounds;
-    }
-
-    /// set_turn_token_budget 配置单 turn token 预算
-    /// 核心职责：
-    /// - 为测试与装配层提供显式预算上限入口
-    /// - 让 loop 用结构化预算终止替代隐式失控
-    pub fn set_turn_token_budget(&mut self, turn_token_budget: u32) {
-        self.turn_token_budget = turn_token_budget;
     }
 }

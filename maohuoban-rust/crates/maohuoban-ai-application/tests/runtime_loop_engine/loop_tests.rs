@@ -277,39 +277,58 @@ async fn runtime_stops_tool_chain_at_configured_round_limit() {
 }
 
 #[tokio::test]
-async fn runtime_terminates_with_budget_exhausted_reason() {
-    let provider = ScriptedProvider::new(vec![LlmChatResponse {
-        message: LlmMessage {
-            role: LlmRole::Assistant,
-            content: String::new(),
-            reasoning_content: None,
-            tool_call_id: None,
+async fn runtime_completes_answer_after_high_token_tool_planning() {
+    let provider = ScriptedProvider::new(vec![
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: String::new(),
+                reasoning_content: None,
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
+            tool_calls: vec![LlmToolCall {
+                id: "call_budget".to_owned(),
+                name: "loop_echo_tool".to_owned(),
+                arguments: serde_json::json!({ "value": "r1" }).to_string(),
+            }],
+            usage: LlmUsage {
+                input_tokens: 3000,
+                output_tokens: 302,
+                total_tokens: 3302,
+            },
+            finish_reason: LlmFinishReason::ToolCalls,
+            provider: "scripted".to_owned(),
+            model: "primary".to_owned(),
+        },
+        LlmChatResponse {
+            message: LlmMessage {
+                role: LlmRole::Assistant,
+                content: "梅录今年的生日已经过啦。".to_owned(),
+                reasoning_content: None,
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            },
             tool_calls: Vec::new(),
+            usage: LlmUsage {
+                input_tokens: 3000,
+                output_tokens: 814,
+                total_tokens: 3814,
+            },
+            finish_reason: LlmFinishReason::Stop,
+            provider: "scripted".to_owned(),
+            model: "primary".to_owned(),
         },
-        tool_calls: vec![LlmToolCall {
-            id: "call_budget".to_owned(),
-            name: "loop_echo_tool".to_owned(),
-            arguments: serde_json::json!({ "value": "r1" }).to_string(),
-        }],
-        usage: LlmUsage {
-            input_tokens: 3,
-            output_tokens: 2,
-            total_tokens: 5,
-        },
-        finish_reason: LlmFinishReason::ToolCalls,
-        provider: "scripted".to_owned(),
-        model: "primary".to_owned(),
-    }]);
+    ]);
     let mut registry = ToolRegistry::new();
     registry.register(LoopEchoTool);
 
-    let mut engine = AgentRuntimeLoopEngine::new(
+    let engine = AgentRuntimeLoopEngine::new(
         Arc::new(provider),
         Arc::new(registry),
         test_tool_context(Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id")),
         None,
     );
-    engine.set_turn_token_budget(1);
 
     let mut session = AgentSession::new(
         Uuid::new_v4(),
@@ -319,25 +338,26 @@ async fn runtime_terminates_with_budget_exhausted_reason() {
     );
 
     let events = session
-        .prompt_with_workbench("预算耗尽测试", private_pet_context_workbench())
+        .prompt_with_workbench("高 token 观测测试", private_pet_context_workbench())
         .await
-        .expect("prompt with budget exhaustion");
+        .expect("prompt with high token usage");
 
-    let turn_failed = events.iter().any(|event| {
-        matches!(
-            event,
-            AgentEvent::TurnFailed {
-                error_code,
-                termination_reason,
-                ..
-            } if error_code == "ai.runtime.budget_exhausted"
-                && *termination_reason
-                    == Some(maohuoban_ai_domain::ai::AgentTurnTerminationReason::BudgetExhausted)
-        )
+    let final_text = events.iter().find_map(|event| match event {
+        AgentEvent::TurnFinished {
+            final_text,
+            termination_reason,
+            ..
+        } if *termination_reason
+            == Some(maohuoban_ai_domain::ai::AgentTurnTerminationReason::ModelStop) =>
+        {
+            Some(final_text.as_str())
+        }
+        _ => None,
     });
-    assert!(
-        turn_failed,
-        "runtime should fail the turn when token budget is exhausted"
+    assert_eq!(
+        final_text,
+        Some("梅录今年的生日已经过啦。"),
+        "runtime should deliver the model answer even when observed token usage is high"
     );
 }
 

@@ -33,7 +33,7 @@
 
 | 编号 | 范围 | 目标 |
 |---|---|---|
-| R1 | 循环深度协议 | 单 turn 支持 N 轮 `模型 -> 工具 -> 回灌` 递归，终止条件显式化：模型自然停止 / 工具轮次上限 / token 预算耗尽 / 澄清中断 / 守卫失败 |
+| R1 | 循环深度协议 | 单 turn 支持 N 轮 `模型 -> 工具 -> 回灌` 递归，终止条件显式化：模型自然停止 / 工具轮次上限 / 澄清中断 / 守卫失败；token 使用只进入诊断观测 |
 | R2 | 入口闸门收敛 | `AiIntentGate` 删除 prompt-injection 与 cost-abuse 词表；入口只保留结构化硬边界（空消息、超长消息、会话归属校验） |
 | R3 | 出口校验证据锚定 | `AiAnswerVerifier` 从词表否决重构为证据锚定判定：写声明对照 tool ledger、弱线索对照 fact package、医疗边界移交 skill instruction；修复次数 1 提升为 2 |
 | R4 | 工具面扩展第一步 | 新增写提案 / 确认提交工具对（复用 `09` 文档 `tool_write_prepare/tool_write_commit` 协议与 PolicyGuard 确认态）；现有读工具保持 |
@@ -44,7 +44,7 @@
 
 | 暂不做 | 原因 |
 |---|---|
-| LLM 分类器替代入口 gate | 词表退役后先验证"分层防御 + 预算控制"是否已足够；语义 gate 是可选的后续增强，不是本期依赖 |
+| LLM 分类器替代入口 gate | 词表退役后先验证"分层防御 + 安全硬边界"是否已足够；语义 gate 是可选的后续增强，不是本期依赖 |
 | 多 agent / subagent 编排 | `01` 文档明确这是 runtime 窄腰稳定后的上层能力 |
 | 记忆平台化与检索升级 | 归属 `08` 记忆协议，本文不展开 |
 | Provider 专项优化（DeepSeek 多轮 tool-call 调优） | 归属 `07` Provider 能力协议；本文只在风险节标注依赖 |
@@ -57,7 +57,7 @@
 
 | 层 | 文件 / 事实 | 依据 |
 |---|---|---|
-| 循环深度治理 | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine/loop_engine.rs`、`tool_phase.rs` | Followup 已允许继续发 tool call；由 `max_tool_rounds`、turn token budget、clarification、guardrail / output guard 终止条件控制 |
+| 循环深度治理 | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/runtime/agent_runtime_loop_engine/loop_engine.rs`、`tool_phase.rs` | Followup 已允许继续发 tool call；由 `max_tool_rounds`、clarification、guardrail / output guard 终止条件控制；`accumulated_total_tokens` 只作为 diagnostics 观测字段 |
 | 入口词表退役 | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/intent/mod.rs` | `AiIntentGate` 只处理空消息与 4000 字符超长消息；prompt injection / cost abuse 语义文本进入 Runtime 交给模型与结构化边界处理 |
 | 出口证据锚定 | `maohuoban-rust/crates/maohuoban-ai-application/src/ai/verifier/mod.rs`、`output_guard/evaluator.rs` | 写完成声明对照 `successful_write_tools` ledger；弱线索与身份缺失声明对照 fact package 与工具证据；医疗/药物词表已退役 |
 | 修复次数 | `.../agent_runtime_loop_engine/output_guard/evaluator.rs` 的 `MAX_OUTPUT_REPAIR_ATTEMPTS = 2` | 拦截后最多 2 次内部修复；修复失败进入结构化失败终态，避免用户可见 fallback 正文 |
@@ -93,7 +93,7 @@
 | 权力 | 归属 | 内容 | 毛球对应实现 |
 |---|---|---|---|
 | 语义决策权 | 模型 | 理解请求、决定直接回答还是调工具、选哪个工具、传什么参数、是否追问、何时答完、如何表达 | 模型采样输出 text / tool_calls / 澄清；本文 R1-R5 归还被词表和硬上限占用的部分 |
-| 流程权 | 代码 | 循环推进、阶段迁移、并发、轮次上限、token 预算、超时、重试与重规划、持久化顺序 | `RuntimePhase` 状态机、`ReplanPolicy`、Finalizer；R1 补齐终止条件协议 |
+| 流程权 | 代码 | 循环推进、阶段迁移、并发、轮次上限、超时、重试与重规划、持久化顺序 | `RuntimePhase` 状态机、`ReplanPolicy`、Finalizer；R1 补齐终止条件协议 |
 | 边界权 | 代码 | 工具可见性与授权集合、数据作用域、写确认态、事实投影裁剪、审计、输出证据校验 | `ToolRegistry` 可见性、`PolicyGuard`、`AiFactProjection`、tool access log；R3 重构判定来源 |
 
 ### 5.2 达标判据
@@ -102,8 +102,8 @@
 |---|---|
 | 未枚举路径可达 | 新请求的执行路径在运行时由模型输出展开，代码只提供可组合的行动空间；不存在"代码枚举了所有合法路径"的隐藏假设 |
 | 决策点可数且归属清晰 | 每个运行时决策点能明确回答"这是模型决定的还是代码决定的"；语义类决策点不出现字符串匹配 |
-| 终止由条件而非结构保证 | 循环停止依据显式终止条件（自然停止 / 上限 / 预算 / 中断），而非状态机结构里藏一个隐式单轮上限 |
-| 拒绝可解释且有证据 | 任何拦截决策能给出结构化证据（权限缺失、预算耗尽、无工具成功记录），而非命中了哪个词 |
+| 终止由条件而非结构保证 | 循环停止依据显式终止条件（自然停止 / 上限 / 澄清 / 守卫失败），而非状态机结构里藏一个隐式单轮上限 |
+| 拒绝可解释且有证据 | 任何拦截决策能给出结构化证据（权限缺失、请求超出结构化硬边界、无工具成功记录），而非命中了哪个词 |
 
 ### 5.3 反模式清单（会退化回模板系统的做法）
 
@@ -142,7 +142,7 @@
        -> 对每个 tool call：PolicyGuard 裁决
           allow / deny / requires_confirmation                [边界权:代码]
        -> Tool Gateway 执行 + 审计 + fact 回灌                 [边界权:代码]
-       -> 终止条件检查：round 上限 / token 预算 / 超时          [流程权:代码]
+       -> 终止条件检查：round 上限 / 超时 / 硬边界状态          [流程权:代码]
   -> 出口证据锚定校验 + 最多 2 次内部修复                      [边界权:代码]
   -> Finalizer 持久化 + SSE 投递                              [流程权:代码]
 ```
@@ -151,7 +151,7 @@
 
 | 编号 | 交还内容 | 从谁手里 | 交还方式 |
 |---|---|---|---|
-| R1 | "还需不需要再取证"的决定权 | 状态机隐式单轮上限 | Followup 采样允许再发 tool call；代码只用 `MAX_TOOL_ROUNDS`（建议默认 4，可配置）与 token 预算约束总量，终止原因进入诊断 |
+| R1 | "还需不需要再取证"的决定权 | 状态机隐式单轮上限 | Followup 采样允许再发 tool call；代码只用 `MAX_TOOL_ROUNDS`（建议默认 4，可配置）约束工具循环，token 使用只进入诊断观测 |
 | R2 | "这个请求该不该处理"的判断权 | 入口词表 | 模型在 system prompt 与 `system.safety_boundary` skill 约束下自行拒绝离题 / 越权请求；入口只留结构化校验 |
 | R3 | "这个回答能不能说"的表达权 | 出口词表 | 校验器只在有结构化证据冲突时拦截（详见 6.3）；医疗表达边界由 skill instruction 约束模型，eval 红线组验证 |
 | R4 | "怎么完成写任务"的编排权 | 无写工具可用的现状 | 提供 `propose_*_write`（组织参数与确认问题）与 `commit_confirmed_write`（确认后执行）工具对，模型自主编排，确认态由 PolicyGuard 强制 |
@@ -178,16 +178,16 @@
 | 诱导未确认写入 | 写工具强制 `requires_confirmation`，确认态终止本轮并等待用户显式确认；确认提交走独立工具与独立审计 | `PolicyGuard` + `09` 文档确认态协议 | 否：确认态是硬状态机约束 |
 | 系统提示词与内部字段泄漏 | fact 投影阻断内部 key / 引用 ID / 状态字段进入模型输入；出口 forbidden_text 红线 eval 兜底 | `AiFactProjection` + eval 红线组 | 否 |
 | 跨用户 / 跨宠物数据访问 | 授权候选目录闭包：resolver 与所有上下文工具只在 `list_authorized_candidates` 集合内工作 | `AuthorizedPetCatalog` 端口 | 否 |
-| 成本滥用（长文生成 / 批量调用） | Provider 请求 `max_tokens` 上限；单 turn `MAX_TOOL_ROUNDS` 与 token 预算终止；会话级限流与配额（依赖基础设施，标注为后续项） | R1 终止条件 + provider 请求策略 | 增强：预算是计量防线，词表是猜测防线 |
+| 成本滥用（长文生成 / 批量调用） | Provider 请求输出上限；单 turn `MAX_TOOL_ROUNDS` 防工具循环；会话级限流与配额（依赖基础设施，标注为后续项）；token 使用进入 diagnostics 供治理分析 | R1 终止条件 + provider 请求策略 + 上游配额 | 增强：结构化配额是硬边界，词表是猜测防线 |
 | 编造私域事实 | 私域事实必须来自工具回灌的 fact package；出口校验对照 ledger 与 fact package | R3 证据锚定校验 | 增强：判定从"命中词"变为"有无证据" |
 | 医疗越界表达 | `system.safety_boundary` skill instruction 持续注入；eval 红线组固定回归；出口不再误伤合规转诊表述 | skill runtime + eval | 需 eval 验证，见风险节 |
-| 模型试图修改流程 / 预算 / 权限 | 轮次上限、预算、工具可见性、确认态均不在模型可写入的任何通道上；模型输出只能是文本与 tool call | Runtime 结构本身 | 否 |
+| 模型试图修改流程 / 权限 | 轮次上限、工具可见性、确认态均不在模型可写入的任何通道上；模型输出只能是文本与 tool call | Runtime 结构本身 | 否 |
 
 ## 8. 后端目标
 
 | 任务 | 目标文件 / 模块 | 要求 |
 |---|---|---|
-| R1 循环深度 | `.../agent_runtime_loop_engine/loop_engine.rs`、`runtime_phase/mod.rs`、`tool_phase.rs` | 移除 Followup 即定稿的判定；引入 `MAX_TOOL_ROUNDS`（默认 4，装配可配）与 turn 级 token 预算检查；新增终止原因编码 `model_stop / max_tool_rounds / budget_exhausted / awaiting_clarification / output_guard_failed`，进入 diagnostics 与 turn 终态 |
+| R1 循环深度 | `.../agent_runtime_loop_engine/loop_engine.rs`、`runtime_phase/mod.rs`、`tool_phase.rs` | 移除 Followup 即定稿的判定；引入 `MAX_TOOL_ROUNDS`（默认 4，装配可配）；终止原因编码为 `model_stop / max_tool_rounds / awaiting_clarification / output_guard_failed`，进入 diagnostics 与 turn 终态；token 使用保留为观测数据 |
 | R2 入口收敛 | `.../ai/intent/mod.rs`、`turn_preparation.rs`、`responses/gated_stream_response.rs` | 删除 `is_prompt_injection` / `is_cost_abuse` 词表；`AiIntentGate` 只保留结构化校验（空消息、超长消息上限、必要的请求形状校验）；`AiGateDecision` 协议对象与 gate 审计字段保留；`AiIntent` 枚举按域层协议同步收敛 |
 | R3 出口证据锚定 | `.../ai/verifier/mod.rs`、`.../output_guard/evaluator.rs`、`repair_request.rs` | 按 6.3 表逐项重构；校验器输入增加本轮 tool ledger 视图；`MAX_OUTPUT_REPAIR_ATTEMPTS` 调整为 2；拦截原因结构化进入修复请求与 diagnostics |
 | R4 写工具对 | `.../runtime_tools/`（新增 kind 或独立模块）、`.../ai/policy/guard.rs` | 新增一对写提案 / 确认提交工具（首个场景建议：宠物症状 / 饮食变更记录提案）；提案工具产出确认问题与参数快照，`requires_confirmation` 硬置位；提交工具仅接受已确认任务 ID；全链路 tool access log |
@@ -199,7 +199,7 @@
 | 事件 / 信号 | 触发层 | 必备字段 |
 |---|---|---|
 | loop round 推进 | LoopEngine | `chat_session_id`、`turn_id`、`round`、`tool_calls_count`、`accumulated_tokens` |
-| turn 终止 | LoopEngine / Finalizer | `termination_reason`（5 种编码）、`total_rounds`、`total_usage` |
+| turn 终止 | LoopEngine / Finalizer | `termination_reason`（4 种编码）、`total_rounds`、`total_usage` |
 | 出口校验裁决 | output_guard | `verdict`、`blocked_reason`、`evidence_refs`（ledger / fact key 引用，替代词表命中项）、`repair_attempt` |
 | gate 结构化拒绝 | Ingress | 保留现有 `ai_request_gate_logs` 字段合同；`risk_signal` 仅承载结构化信号 |
 | 写确认链路 | Tool Gateway | `proposal_id`、`requires_confirmation`、`confirmed_by_user`、`commit_result` |
@@ -281,7 +281,7 @@
 | Tool Gateway 是唯一工具入口 | 继承 `01` 文档；任何新工具不得旁路执行 |
 | 授权集合闭包 | 工具可见性、宠物候选、事实读取全部限定在 actor 授权集合内，模型无法扩大 |
 | 写操作必须经确认态 | `requires_confirmation` 是硬状态机约束，模型与用户话术都不能绕过 |
-| 流程参数模型不可写 | 轮次上限、token 预算、工具可见性、确认态不存在于模型可影响的任何通道 |
+| 流程参数模型不可写 | 轮次上限、工具可见性、确认态不存在于模型可影响的任何通道 |
 | fact 投影裁剪不变 | 内部 key、引用 ID、展示状态字段继续阻断在模型输入之外 |
 | 弱线索语义不变 | 弱线索不得表达为已发生事实；本文只改变判定证据来源 |
 | SSE 事件顺序合同不变 | `message_started -> delta* -> message_completed` 与 `15` 文档内容块契约保持 |
@@ -295,10 +295,10 @@
 | 风险 | 处理 |
 |---|---|
 | 词表退役后模型出现医疗越界表达 | skill instruction 持续注入 + eval 红线组固定回归；若真实流量出现漏网，再评估小模型 judge 兜底并另立目标文档，不回退词表 |
-| 多轮循环推高 token 成本与时延 | `MAX_TOOL_ROUNDS` 默认 4 + turn 级预算终止 + round 观测字段；上线前用 diagnostics 统计轮次分布再调参 |
+| 多轮循环推高 token 成本与时延 | `MAX_TOOL_ROUNDS` 默认 4 + provider 输出上限 + round / turn 观测字段；上线前用 diagnostics 统计轮次和 token 分布再调参 |
 | DeepSeek 等 provider 多轮 tool-call 稳定性不足 | 多跳 eval 用 FakeLlmProvider 保证契约层回归；真实 provider 差异进入 `07` 能力协议处理，不在 loop 层打补丁 |
 | 写工具对引入副作用事故 | 确认态硬约束 + 独立审计 + 首期只开一个低风险写场景；commit 工具只接受已确认提案 ID |
-| 入口失去"离题拦截"后出现闲聊成本 | 离题拒绝转由 system prompt / skill 承担并计入 eval；预算终止保证单轮成本上界 |
+| 入口失去"离题拦截"后出现闲聊成本 | 离题拒绝转由 system prompt / skill 承担并计入 eval；上游会话级限流与配额保证滥用边界 |
 | 误伤组案例断言主观 | 案例断言只用结构化字段（intent / terminal_state / forbidden_text / 工具轮次），不断言具体文案措辞 |
 | 循环放开后出现工具死循环 | 轮次上限是硬终止；`ReplanPolicy` 的 terminal 分类保持不重试硬失败 |
 
@@ -308,7 +308,8 @@
 
 | 日期 | 状态 | 进展 | 剩余 |
 |---|---|---|---|
-| 2026-07-02 | 已完成 | 已移除 `Followup` 单轮即定稿限制；已新增 `AgentTurnTerminationReason` 协议；已把 `termination_reason` 透传到 `LoopStep::Done`、`AgentEvent::TurnFinished` 与 `AgentEvent::TurnFailed`；已补 `followup_model_can_chain_second_tool_call_before_final_answer`、`agent_runtime_streaming_followup_can_chain_second_tool_call_before_final_answer`、`ai_chat_stream_supports_chained_runtime_tool_calls` 并转绿；已补 `runtime_stops_tool_chain_at_configured_round_limit` 的 `termination_reason = max_tool_rounds`、`runtime_terminates_with_budget_exhausted_reason`、`tool_invalid_arguments_replans_to_clarification_without_followup_model`、`invalid_repair_result_fails_turn_without_user_visible_fallback` 的显式终止原因断言并转绿；已补 round 级与 turn 终止级 diagnostics 骨架（`ai.runtime.loop.round.completed`、`ai.runtime.turn.terminated`）；已通过 `cargo test -p maohuoban-ai-application --test runtime_loop_engine --test runtime_loop_engine_streaming`、`cargo test -p maohuoban_rust --test ai_contract chat_stream_runtime_tools::ai_chat_stream_supports_chained_runtime_tool_calls -- --exact --nocapture`、`cargo fmt --all --check`、`cargo check --workspace --all-targets` | 无 |
+| 2026-07-02 | 已完成 | 已移除 `Followup` 单轮即定稿限制；已新增 `AgentTurnTerminationReason` 协议；已把 `termination_reason` 透传到 `LoopStep::Done`、`AgentEvent::TurnFinished` 与 `AgentEvent::TurnFailed`；已补 `followup_model_can_chain_second_tool_call_before_final_answer`、`agent_runtime_streaming_followup_can_chain_second_tool_call_before_final_answer`、`ai_chat_stream_supports_chained_runtime_tool_calls` 并转绿；已补 `runtime_stops_tool_chain_at_configured_round_limit` 的 `termination_reason = max_tool_rounds`、`tool_invalid_arguments_replans_to_clarification_without_followup_model`、`invalid_repair_result_fails_turn_without_user_visible_fallback` 的显式终止原因断言并转绿；已补 round 级与 turn 终止级 diagnostics 骨架（`ai.runtime.loop.round.completed`、`ai.runtime.turn.terminated`）；已通过 `cargo test -p maohuoban-ai-application --test runtime_loop_engine --test runtime_loop_engine_streaming`、`cargo test -p maohuoban_rust --test ai_contract chat_stream_runtime_tools::ai_chat_stream_supports_chained_runtime_tool_calls -- --exact --nocapture`、`cargo fmt --all --check`、`cargo check --workspace --all-targets` | 无 |
+| 2026-07-03 | 已完成 | 已移除单 turn token budget 硬失败与 `budget_exhausted` 终止原因；`accumulated_total_tokens` 继续进入 round / turn diagnostics；已补 `runtime_completes_answer_after_high_token_tool_planning` 固化“高 token 观测值不丢弃有效答案”契约 | 无 |
 
 ### 14.2 R2 入口闸门收敛
 

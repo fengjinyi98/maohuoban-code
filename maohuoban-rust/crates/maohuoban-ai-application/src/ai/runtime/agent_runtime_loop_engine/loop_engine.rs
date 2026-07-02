@@ -229,17 +229,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         self.accumulated_total_tokens,
                     );
 
-                    if self.accumulated_total_tokens > self.turn_token_budget {
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text: String::new(),
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
-                            termination_reason: AgentTurnTerminationReason::BudgetExhausted,
-                            error_code: Some("ai.runtime.budget_exhausted".to_owned()),
-                        };
-                        continue;
-                    }
-
                     if tool_calls.is_empty() {
                         let visible_text = visible_text_from_model_output(&accumulated_text);
                         if visible_text.trim().is_empty() {
@@ -328,16 +317,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     tool_results,
                     completed_tool_rounds,
                 } => {
-                    if self.accumulated_total_tokens > self.turn_token_budget {
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text: String::new(),
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
-                            termination_reason: AgentTurnTerminationReason::BudgetExhausted,
-                            error_code: Some("ai.runtime.budget_exhausted".to_owned()),
-                        };
-                        continue;
-                    }
                     if completed_tool_rounds > self.max_tool_rounds {
                         self.phase = RuntimePhase::Done {
                             message_id: uuid::Uuid::new_v4(),
@@ -449,7 +428,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         match termination_reason {
                             AgentTurnTerminationReason::ModelStop => "model_stop",
                             AgentTurnTerminationReason::MaxToolRounds => "max_tool_rounds",
-                            AgentTurnTerminationReason::BudgetExhausted => "budget_exhausted",
                             AgentTurnTerminationReason::AwaitingClarification => {
                                 "awaiting_clarification"
                             }
@@ -469,7 +447,6 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             }
                         },
                         self.accumulated_total_tokens,
-                        self.turn_token_budget,
                     );
                     return Ok(Some(LoopStep::Done {
                         message_id,

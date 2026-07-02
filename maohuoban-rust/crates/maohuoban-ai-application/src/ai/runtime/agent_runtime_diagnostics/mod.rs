@@ -221,7 +221,6 @@ impl AgentRuntimeDiagnostics {
         total_rounds: u8,
         final_status: &str,
         accumulated_total_tokens: u32,
-        turn_token_budget: u32,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
@@ -240,8 +239,7 @@ impl AgentRuntimeDiagnostics {
             .metadata(
                 "accumulated_total_tokens",
                 serde_json::json!(accumulated_total_tokens),
-            )
-            .metadata("turn_token_budget", serde_json::json!(turn_token_budget)),
+            ),
         );
     }
 
