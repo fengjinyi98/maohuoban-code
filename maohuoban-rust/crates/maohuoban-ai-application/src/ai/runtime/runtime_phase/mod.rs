@@ -39,6 +39,10 @@ pub(crate) enum RuntimePhase {
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_results: Vec<LoopToolResult>,
     },
+    OutputRepairModel {
+        request: Box<LlmChatRequest>,
+        attempt: u8,
+    },
     ClarifyUser {
         reason: String,
         suggested_actions: Vec<String>,
@@ -47,5 +51,6 @@ pub(crate) enum RuntimePhase {
         message_id: uuid::Uuid,
         final_text: String,
         status: maohuoban_ai_domain::ai::AgentTurnStatus,
+        error_code: Option<String>,
     },
 }

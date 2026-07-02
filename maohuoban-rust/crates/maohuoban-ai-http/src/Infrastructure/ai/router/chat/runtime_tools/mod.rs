@@ -2,9 +2,8 @@
 //! 核心职责：
 //! - 构建当前请求的 Runtime Tool Registry
 //! - 将已授权目标宠物上下文注册为模型可调用工具
-//! - 子模块按职责拆分：kind（工具类型）、tool（工具实现）、entries（条目合并）
+//! - 子模块按职责拆分：kind（工具类型）、tool（工具实现）
 
-mod entries;
 mod kind;
 mod tool;
 

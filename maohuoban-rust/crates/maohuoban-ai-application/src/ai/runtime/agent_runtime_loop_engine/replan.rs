@@ -132,6 +132,7 @@ pub(super) fn runtime_phase_for_tool_replan(
             message_id: uuid::Uuid::new_v4(),
             final_text: safe_tool_replan_message(tool_results),
             status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+            error_code: None,
         },
     }
 }

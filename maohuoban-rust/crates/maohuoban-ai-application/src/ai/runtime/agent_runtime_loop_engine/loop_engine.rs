@@ -21,6 +21,7 @@ use super::super::{
 use super::{
     AgentRuntimeLoopEngine,
     model_stream::{empty_assistant_content_error, model_stream},
+    output_guard::{OutputGuardDecision, evaluate_output_guard},
     planning::ensure_workflow_policy_supports_plan,
     replan::StreamingRetryRequest,
 };
@@ -44,6 +45,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             message_id: uuid::Uuid::new_v4(),
                             final_text,
                             status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                            error_code: None,
                         };
                         continue;
                     }
@@ -64,6 +66,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 final_text: String::new(),
                                 status:
                                     maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification,
+                                error_code: None,
                             };
                             return Ok(Some(LoopStep::clarify_user(
                                 "用户描述缺少可行动观察信息",
@@ -179,6 +182,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             LlmStreamEvent::Delta { content } => {
                                 accumulated_text.push_str(&content);
                                 let suppress_visible_delta = requires_confirmation
+                                    || self.fact_package.is_some()
                                     || (accumulated_text.trim().is_empty()
                                         && content.trim().is_empty());
                                 self.phase = RuntimePhase::StreamingModel {
@@ -296,10 +300,27 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             StepKind::FinalizeAnswer,
                             Some((StepKind::ModelReason, StepKind::FinalizeAnswer)),
                         );
-                        self.phase = RuntimePhase::Done {
-                            message_id: uuid::Uuid::new_v4(),
-                            final_text: visible_text,
-                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                        self.phase = match evaluate_output_guard(
+                            state,
+                            self.fact_package.as_ref(),
+                            &visible_text,
+                            0,
+                        ) {
+                            OutputGuardDecision::Accept => RuntimePhase::Done {
+                                message_id: uuid::Uuid::new_v4(),
+                                final_text: visible_text,
+                                status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                                error_code: None,
+                            },
+                            OutputGuardDecision::Repair { request, attempt } => {
+                                RuntimePhase::OutputRepairModel { request, attempt }
+                            }
+                            OutputGuardDecision::Fail => RuntimePhase::Done {
+                                message_id: uuid::Uuid::new_v4(),
+                                final_text: String::new(),
+                                status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                                error_code: Some("ai.output_guard.unrepaired".to_owned()),
+                            },
                         };
                         return Ok(Some(LoopStep::CallModel {
                             model_label: ModelLabel::Primary,
@@ -401,6 +422,45 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         retry_count: 0,
                     };
                 }
+                RuntimePhase::OutputRepairModel { request, attempt } => {
+                    let response = self.provider.complete(&request).await?;
+                    let visible_text = visible_text_from_model_output(&response.message.content);
+                    if visible_text.trim().is_empty() {
+                        return Err(empty_assistant_content_error());
+                    }
+                    self.phase = match evaluate_output_guard(
+                        state,
+                        self.fact_package.as_ref(),
+                        &visible_text,
+                        attempt,
+                    ) {
+                        OutputGuardDecision::Accept => RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: visible_text,
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                            error_code: None,
+                        },
+                        OutputGuardDecision::Repair { request, attempt } => {
+                            RuntimePhase::OutputRepairModel { request, attempt }
+                        }
+                        OutputGuardDecision::Fail => RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            error_code: Some("ai.output_guard.unrepaired".to_owned()),
+                        },
+                    };
+                    return Ok(Some(LoopStep::CallModel {
+                        model_label: ModelLabel::Primary,
+                        tool_count: 0,
+                        outcome: ModelCallOutcome::Finished {
+                            finish_reason: response.finish_reason,
+                            usage: response.usage,
+                            provider: response.provider,
+                            model: response.model,
+                        },
+                    }));
+                }
                 RuntimePhase::ClarifyUser {
                     reason,
                     suggested_actions,
@@ -409,6 +469,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         message_id: uuid::Uuid::new_v4(),
                         final_text: String::new(),
                         status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification,
+                        error_code: None,
                     };
                     return Ok(Some(LoopStep::clarify_user(reason, suggested_actions)));
                 }
@@ -416,11 +477,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     message_id,
                     final_text,
                     status,
+                    error_code,
                 } => {
                     return Ok(Some(LoopStep::Done {
                         message_id,
                         final_text,
                         status,
+                        error_code,
                     }));
                 }
             }

@@ -91,7 +91,7 @@ async fn ai_chat_stream_loads_food_inventory_change_hints_as_weak_context() {
     assert!(returned_ref_ids.contains(&json!(food_item_id)));
 }
 
-/// AI stream 校验器会阻断把储物柜弱线索当作已确认饮食事实的回答
+/// AI stream 输出守卫会阻断把储物柜弱线索当作已确认饮食事实的回答
 #[tokio::test]
 async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
     let server = MockServer::start();
@@ -107,6 +107,33 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
                  data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":8,\"total_tokens\":13}}\n\n\
                  data: [DONE]\n\n",
             );
+    });
+    let repair_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":false")
+            .body_contains("上一次候选回答未通过校验")
+            .body_contains("待确认线索");
+        then.status(200)
+            .header("content-type", "application/json")
+            .json_body(json!({
+                "id": "chatcmpl-repair-weak-hint",
+                "model": "contract-model",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "目前只能看到巅峰牛肉罐头的储物柜变化线索，还需要你确认毛球是否真的在吃。"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 12,
+                    "completion_tokens": 10,
+                    "total_tokens": 22
+                }
+            }));
     });
 
     let mut config = maohuoban_rust::BackendConfig::local_test();
@@ -147,14 +174,18 @@ async fn ai_chat_stream_blocks_confirmed_claim_from_food_inventory_weak_hint() {
     let text = response_text(response).await;
 
     mock.assert();
+    repair_mock.assert();
     assert!(
         !text.contains("已经换成巅峰牛肉罐头"),
         "unsafe weak hint claim should not be streamed, got: {text}"
     );
     assert!(
-        text.contains("该信息尚为待确认线索")
-            && text.contains("\"blocked_reason\":\"weak_hint_misuse\""),
-        "answer_completed should include weak_hint_misuse block, got: {text}"
+        text.contains("event: answer_completed") && text.contains("还需要你确认毛球是否真的在吃"),
+        "SSE should complete with repaired weak hint answer, got: {text}"
+    );
+    assert!(
+        !text.contains("event: error"),
+        "repaired output should not surface output guard error, got: {text}"
     );
 }
 

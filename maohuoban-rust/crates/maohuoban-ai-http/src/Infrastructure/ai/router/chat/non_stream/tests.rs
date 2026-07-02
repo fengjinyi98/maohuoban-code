@@ -11,8 +11,9 @@ mod tests {
     };
     use maohuoban_ai_application::ai::stream::AiCompleteResult;
     use maohuoban_ai_domain::ai::{
-        AgentEvent, AgentTurnId, AgentTurnStatus, AiAnswerVerification, AiCitation, AiError,
-        AiMessage, AiProposedAction, AiResult, AiSessionTurnStatus, LlmFinishReason, LlmUsage,
+        AgentEvent, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiAnswerVerification,
+        AiCitation, AiContentBlock, AiError, AiFactEntry, AiFactPackage, AiFactStrength, AiMessage,
+        AiPetCandidate, AiProposedAction, AiResult, AiSessionTurnStatus, LlmFinishReason, LlmUsage,
         ModelLabel,
     };
     use uuid::Uuid;
@@ -21,7 +22,7 @@ mod tests {
     use super::super::persistence::finalize_complete_turn;
 
     #[test]
-    fn non_stream_completion_blocks_missing_identity_claim_without_tool_success() {
+    fn non_stream_completion_rejects_unrepaired_invalid_final_answer() {
         let turn_id = AgentTurnId::new();
         let message_id = Uuid::new_v4();
         let events = vec![
@@ -41,11 +42,77 @@ mod tests {
             },
         ];
 
+        let Err(err) = complete_from_runtime_events(events, None, true) else {
+            panic!("non-stream aggregation must reject unrepaired invalid answer");
+        };
+
+        assert_eq!(err.stable_code(), "ai.infrastructure");
+    }
+
+    #[test]
+    fn non_stream_completion_rejects_failed_runtime_turn() {
+        let turn_id = AgentTurnId::new();
+        let message_id = Uuid::new_v4();
+        let events = vec![AgentEvent::TurnFinished {
+            turn_id,
+            message_id,
+            final_text: String::new(),
+            status: AgentTurnStatus::Failed,
+        }];
+
+        let Err(err) = complete_from_runtime_events(events, None, true) else {
+            panic!("non-stream aggregation must reject failed runtime turn");
+        };
+
+        assert_eq!(err.stable_code(), "ai.infrastructure");
+    }
+
+    #[test]
+    fn non_stream_completion_projects_pet_profile_blocks_from_identity_tool_package() {
+        let turn_id = AgentTurnId::new();
+        let message_id = Uuid::new_v4();
+        let events = vec![
+            AgentEvent::ToolStarted {
+                turn_id,
+                tool_call_id: "identity_call_1".to_owned(),
+                tool_name: "load_pet_identity_context".to_owned(),
+            },
+            AgentEvent::ToolFinished {
+                turn_id,
+                tool_call_id: "identity_call_1".to_owned(),
+                status: AgentToolStatus::Succeeded,
+                citation_count: 1,
+                fact_package: Some(Box::new(identity_fact_package("梅录"))),
+            },
+            AgentEvent::ModelCallFinished {
+                turn_id,
+                finish_reason: LlmFinishReason::Stop,
+                usage: LlmUsage::default(),
+                provider: "test".to_owned(),
+                model: ModelLabel::Primary.as_str().to_owned(),
+                engine_mode: "self_hosted".to_owned(),
+            },
+            AgentEvent::TurnFinished {
+                turn_id,
+                message_id,
+                final_text: "这是梅录的宠物信息。".to_owned(),
+                status: AgentTurnStatus::Completed,
+            },
+        ];
+
         let complete = complete_from_runtime_events(events, None, true).expect("complete result");
 
-        assert_eq!(complete.finish_reason, LlmFinishReason::ContentFilter);
-        assert!(complete.verification.is_blocked());
-        assert!(!complete.final_text.contains("没有生日记录"));
+        assert!(
+            matches!(
+                complete.content_blocks.as_slice(),
+                [
+                    AiContentBlock::SectionHeading { text, .. },
+                    AiContentBlock::PetProfileCard { pet, .. },
+                ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+            ),
+            "non-stream completion should project typed pet profile blocks: {:?}",
+            complete.content_blocks
+        );
     }
 
     #[tokio::test]
@@ -123,6 +190,41 @@ mod tests {
 
         async fn trigger_async_job(&self, _job: &FinalizerAsyncJob) -> AiResult<()> {
             Ok(())
+        }
+    }
+
+    fn identity_fact_package(name: &str) -> AiFactPackage {
+        let mut package = AiFactPackage::empty();
+        let candidate = AiPetCandidate {
+            pet_id: Uuid::new_v4(),
+            name: name.to_owned(),
+            avatar_url: Some("/uploads/pets/meilu.png".to_owned()),
+            species: "cat".to_owned(),
+            profile_number: "P001".to_owned(),
+        };
+        package.target_pet = Some((&candidate).into());
+        package.facts = vec![
+            strong_fact("pet_identity.name", name),
+            strong_fact("pet_identity.species", "猫"),
+            strong_fact("pet_identity.sex", "母猫"),
+            strong_fact("pet_identity.breed", "英短"),
+            strong_fact("pet_identity.birthday", "2024-06-17"),
+            strong_fact("pet_identity.arrival_date", "2025-06-17"),
+        ];
+        package.computed = vec![strong_fact(
+            "pet_identity.age_display",
+            "当前年龄约 2岁15天",
+        )];
+        package.fact_strength = AiFactStrength::Strong;
+        package
+    }
+
+    fn strong_fact(key: &str, value: &str) -> AiFactEntry {
+        AiFactEntry {
+            key: key.to_owned(),
+            value: value.to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
         }
     }
 }

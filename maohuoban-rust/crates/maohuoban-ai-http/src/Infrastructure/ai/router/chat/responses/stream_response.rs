@@ -72,13 +72,6 @@ async fn project_stream_result(
     context: &StreamFinalizerContext,
 ) -> Result<Event, std::convert::Infallible> {
     let event = normalize_stream_completion_event(stream_result_to_event(result));
-    mhb_temp_backend_log(format!(
-        "tag=PetProfileSkeleton stage=sse.project.before_finalize session_id={} turn_id={} message_id={} {}",
-        context.session_id,
-        context.turn_id,
-        context.message_id,
-        stream_event_temp_summary(&event)
-    ));
     remember_proposed_action(&event, context).await;
     finalize_error_if_needed(&event, context).await;
     finalize_completed_if_needed(&event, context).await;
@@ -152,33 +145,26 @@ async fn finalize_error_if_needed(event: &AiStreamEvent, context: &StreamFinaliz
 }
 
 async fn finalize_completed_if_needed(event: &AiStreamEvent, context: &StreamFinalizerContext) {
-    let (final_text, content_blocks, usage, finish_reason, citations, verification) = match event {
-        AiStreamEvent::MessageCompleted {
-            final_text,
-            content_blocks,
-            usage,
-            finish_reason,
-            citations,
-            verification,
-            ..
-        }
-        | AiStreamEvent::AnswerCompleted {
-            final_text,
-            content_blocks,
-            usage,
-            finish_reason,
-            citations,
-            verification,
-            ..
-        } => (
-            final_text,
-            content_blocks,
-            usage,
-            finish_reason,
-            citations,
-            verification,
-        ),
-        _ => return,
+    let (AiStreamEvent::MessageCompleted {
+        final_text,
+        content_blocks,
+        usage,
+        finish_reason,
+        citations,
+        verification,
+        ..
+    }
+    | AiStreamEvent::AnswerCompleted {
+        final_text,
+        content_blocks,
+        usage,
+        finish_reason,
+        citations,
+        verification,
+        ..
+    }) = event
+    else {
+        return;
     };
     let actions = context.proposed_actions.lock().await.clone();
     let receipt = TurnFinalizer::new(context.finalizer_store.clone())
@@ -253,88 +239,6 @@ fn event_to_sse(event: &AiStreamEvent) -> Event {
     let event_name = event.event_name();
     let json = serde_json::to_string(&event).unwrap_or_else(|_| "{}".to_owned());
     Event::default().event(event_name).data(json)
-}
-
-// MHB_TEMP_BACKEND_LOG: PetProfileSkeleton 临时后端日志，确认修复后删除。
-fn mhb_temp_backend_log(line: impl AsRef<str>) {
-    use std::io::Write;
-
-    let path = std::env::var("MHB_BACKEND_TEMP_LOG")
-        .unwrap_or_else(|_| "work/debug/PetProfileSkeleton.log".to_owned());
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-    {
-        let _ = writeln!(file, "{}", line.as_ref());
-    }
-}
-
-fn stream_event_temp_summary(event: &AiStreamEvent) -> String {
-    match event {
-        AiStreamEvent::MessageStarted { title, .. } => {
-            format!(
-                "event=message_started title_chars={}",
-                title.chars().count()
-            )
-        }
-        AiStreamEvent::ExecutionTraceStarted { display_text } => format!(
-            "event=execution_trace_started display_chars={} pet_profile_hint={}",
-            display_text.chars().count(),
-            is_pet_profile_activity_text(display_text)
-        ),
-        AiStreamEvent::ExecutionTraceCompleted { display_text, .. } => format!(
-            "event=execution_trace_completed display_chars={} pet_profile_hint={}",
-            display_text.chars().count(),
-            is_pet_profile_activity_text(display_text)
-        ),
-        AiStreamEvent::AnswerDelta { text } | AiStreamEvent::Delta { text } => {
-            format!(
-                "event=answer_delta text_chars={} trimmed_empty={}",
-                text.chars().count(),
-                text.trim().is_empty()
-            )
-        }
-        AiStreamEvent::AnswerCompleted {
-            final_text,
-            content_blocks,
-            ..
-        }
-        | AiStreamEvent::MessageCompleted {
-            final_text,
-            content_blocks,
-            ..
-        } => format!(
-            "event=answer_completed final_chars={} content_blocks={} has_pet_profile_card={}",
-            final_text.chars().count(),
-            content_blocks.len(),
-            content_blocks.iter().any(|block| matches!(
-                block,
-                maohuoban_ai_domain::ai::AiContentBlock::PetProfileCard { .. }
-            ))
-        ),
-        AiStreamEvent::Citation { .. } => "event=citation".to_owned(),
-        AiStreamEvent::ConfirmationTask { .. } => "event=confirmation_task".to_owned(),
-        AiStreamEvent::ProposedAction { .. } => "event=proposed_action".to_owned(),
-        AiStreamEvent::Error { code, .. } => format!("event=error code={code}"),
-        AiStreamEvent::PetResolution { .. } => "event=pet_resolution".to_owned(),
-        AiStreamEvent::ToolCall { .. } => "event=tool_call".to_owned(),
-        AiStreamEvent::AgentActivity {
-            display_text,
-            status,
-        } => format!(
-            "event=agent_activity status={status:?} display_chars={} pet_profile_hint={}",
-            display_text.chars().count(),
-            is_pet_profile_activity_text(display_text)
-        ),
-    }
-}
-
-fn is_pet_profile_activity_text(text: &str) -> bool {
-    text.contains("宠物档案") || text.contains("宠物信息")
 }
 
 fn normalize_stream_completion_event(event: AiStreamEvent) -> AiStreamEvent {

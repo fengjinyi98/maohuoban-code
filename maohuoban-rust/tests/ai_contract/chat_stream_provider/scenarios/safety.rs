@@ -1,6 +1,6 @@
 // safety Provider 安全与拦截场景
 // 核心职责：
-// - 验证 Provider 不安全回答被回答校验器拦截
+// - 验证 Provider 不安全回答被输出守卫拦截
 // - 验证 prompt_injection 被 gate 拦截并写入测试数据库日志
 
 use axum::http::StatusCode;
@@ -13,7 +13,7 @@ use crate::{authorized_json_request, login_and_get_token, response_text};
 use super::app::{create_pet, spawn_provider_test_app};
 use super::sse::sse_event_data;
 
-/// Provider 输出医疗诊断时由回答校验器回退为安全消息
+/// Provider 输出医疗诊断时由输出守卫阻断用户可见完成
 #[tokio::test]
 async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     let server = MockServer::start();
@@ -29,6 +29,33 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
                  data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":8,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
+    });
+    let repair_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":false")
+            .body_contains("上一次候选回答未通过校验")
+            .body_contains("不能进行诊断或开具药物");
+        then.status(200)
+            .header("content-type", "application/json")
+            .json_body(json!({
+                "id": "chatcmpl-repair-medical",
+                "model": "contract-model",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "毛球拉肚子需要先观察精神、食欲和排便变化；如果持续腹泻、便血或精神变差，请尽快联系兽医。"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 12,
+                    "completion_tokens": 16,
+                    "total_tokens": 28
+                }
+            }));
     });
 
     let app = spawn_provider_test_app(&server).await;
@@ -57,18 +84,18 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     let text = response_text(response).await;
 
     mock.assert();
+    repair_mock.assert();
     assert!(
         !text.contains("阿莫西林") && !text.contains("得了肠胃炎"),
         "unsafe provider diagnosis should not be streamed, got: {text}"
     );
     assert!(
-        text.contains("毛球助手不能进行诊断或开具药物"),
-        "SSE should contain verifier safe fallback, got: {text}"
+        text.contains("event: answer_completed") && text.contains("请尽快联系兽医"),
+        "SSE should complete with repaired safe medical guidance, got: {text}"
     );
     assert!(
-        text.contains("\"status\":\"blocked\"")
-            && text.contains("\"blocked_reason\":\"medical_blocked\""),
-        "answer_completed should include blocked verification, got: {text}"
+        !text.contains("event: error"),
+        "repaired output should not surface output guard error, got: {text}"
     );
 }
 

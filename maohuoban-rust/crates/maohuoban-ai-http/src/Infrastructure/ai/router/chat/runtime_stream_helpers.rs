@@ -7,6 +7,7 @@ use maohuoban_ai_domain::ai::{
 use uuid::Uuid;
 
 use super::content_block_projector::project_pet_profile_content_blocks;
+use super::runtime_activity_text::activity_text_for_tool;
 
 pub(super) fn safe_execution_trace_completed_for_tool(
     tool_name: &str,
@@ -62,6 +63,20 @@ pub(super) struct VerifiedCompletionInput<'a> {
     pub streamed_delta_text: &'a str,
 }
 
+/// `append_missing_profile_blocks_error` 追加宠物资料卡契约错误事件
+/// 核心职责：
+/// - 阻止身份资料卡流程用空内容块完成
+/// - 暴露稳定错误码供前后端联调定位协议缺口
+pub(super) fn append_missing_profile_blocks_error(output: &mut Vec<AiStreamEvent>) {
+    output.push(AiStreamEvent::Error {
+        code: "ai.profile_content_blocks.missing".to_owned(),
+        message: "宠物资料卡内容块缺失。".to_owned(),
+        retryable: false,
+        blocked_reason: None,
+        safe_fallback_text: None,
+    });
+}
+
 pub(super) fn append_verified_completion(
     input: VerifiedCompletionInput<'_>,
     output: &mut Vec<AiStreamEvent>,
@@ -73,23 +88,12 @@ pub(super) fn append_verified_completion(
     );
 
     if verification.is_blocked() {
-        let safe_text = verification
-            .safe_fallback_text
-            .clone()
-            .unwrap_or_else(|| "这次回答没有通过安全校验，请基于已确认事实重新提问。".to_owned());
-        let citations = citations_for_answer(&safe_text, input.package);
-        append_citations(output, citations.clone());
-        output.push(AiStreamEvent::AnswerDelta {
-            text: safe_text.clone(),
-        });
-        output.push(AiStreamEvent::AnswerCompleted {
-            message_id: input.message_id,
-            final_text: safe_text,
-            content_blocks: Vec::new(),
-            usage: input.usage,
-            finish_reason: LlmFinishReason::ContentFilter,
-            citations,
-            verification,
+        output.push(AiStreamEvent::Error {
+            code: "ai.output_guard.unrepaired".to_owned(),
+            message: "最终回答未通过输出校验。".to_owned(),
+            retryable: true,
+            blocked_reason: verification.blocked_reason,
+            safe_fallback_text: None,
         });
         return;
     }
@@ -119,19 +123,6 @@ fn append_citations(
 ) {
     for citation in citations {
         output.push(AiStreamEvent::Citation { citation });
-    }
-}
-
-fn activity_text_for_tool(tool_name: &str, pet_name: &str) -> String {
-    match tool_name {
-        "list_authorized_pet_candidates" => "正在确认宠物档案权限".to_owned(),
-        "load_pet_identity_context" => format!("正在整理{pet_name}的宠物档案"),
-        "load_pet_current_diet_context" => format!("正在查看{pet_name}近期饮食"),
-        "load_food_inventory_change_hints" => format!("正在检查{pet_name}近期喂食线索"),
-        "load_pet_diet_confirmation_candidates" => {
-            format!("正在查看{pet_name}待确认喂食记录")
-        }
-        _ => format!("正在处理{pet_name}相关信息"),
     }
 }
 

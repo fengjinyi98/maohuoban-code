@@ -19,9 +19,9 @@ pub(super) fn project_pet_profile_content_blocks(package: &AiFactPackage) -> Vec
         },
         AiContentBlock::PetProfileCard {
             id: "pet-profile-card".to_owned(),
-            pet: card.pet,
-            computed: card.computed,
-            narrative: card.narrative,
+            pet: Box::new(card.pet),
+            computed: Box::new(card.computed),
+            narrative: Box::new(card.narrative),
         },
     ]
 }

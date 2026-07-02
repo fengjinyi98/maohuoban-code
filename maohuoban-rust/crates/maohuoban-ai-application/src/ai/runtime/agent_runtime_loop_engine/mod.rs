@@ -1,6 +1,7 @@
 // MHB_STRUCTURE_EXEMPTION: ai/runtime 为既有 Agent Runtime 目录；本次仅拆分超长 runtime loop 文件，后续 code-structure P1 统一迁移到 Infrastructure/Services 分层目录。
 mod loop_engine;
 mod model_stream;
+mod output_guard;
 mod planning;
 mod replan;
 mod tool_phase;

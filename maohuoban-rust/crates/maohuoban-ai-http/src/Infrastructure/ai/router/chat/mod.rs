@@ -26,6 +26,7 @@ mod responses {
     pub(super) mod stream_response;
 }
 mod non_stream;
+mod runtime_activity_text;
 mod runtime_stream;
 mod runtime_stream_bridge;
 mod runtime_stream_helpers;

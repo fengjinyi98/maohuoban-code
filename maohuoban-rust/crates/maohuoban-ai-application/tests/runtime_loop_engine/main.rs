@@ -9,6 +9,7 @@ mod empty_facts_tool;
 mod guardrail_tests;
 mod helpers;
 mod loop_tests;
+mod output_guard_tests;
 mod planning_runtime_tests;
 mod projection_tests;
 mod provider;

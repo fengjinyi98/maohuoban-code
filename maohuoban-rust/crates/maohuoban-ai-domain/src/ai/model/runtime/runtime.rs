@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::ai::AgentSessionWorkbench;
+use crate::ai::{AgentSessionWorkbench, AiFactPackage};
 
 use super::ToolFailure;
 use super::provider_error::ProviderErrorCategory;
@@ -213,6 +213,8 @@ pub enum LoopStep {
         message_id: Uuid,
         final_text: String,
         status: AgentTurnStatus,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error_code: Option<String>,
     },
 }
 
@@ -284,6 +286,7 @@ impl LoopStep {
             message_id,
             final_text,
             status,
+            error_code: None,
         }
     }
 
@@ -311,6 +314,8 @@ pub struct LoopToolResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fact_package: Option<Box<AiFactPackage>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub denied_reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_reason: Option<String>,
@@ -332,6 +337,7 @@ impl LoopToolResult {
             status: LoopToolStatus::Requested,
             citation_count: 0,
             output: None,
+            fact_package: None,
             denied_reason: None,
             failed_reason: None,
             confirmation: None,
@@ -347,6 +353,7 @@ impl LoopToolResult {
             status: LoopToolStatus::Succeeded,
             citation_count: 0,
             output: Some(output.into()),
+            fact_package: None,
             denied_reason: None,
             failed_reason: None,
             confirmation: None,
@@ -366,12 +373,28 @@ impl LoopToolResult {
             status: LoopToolStatus::Succeeded,
             citation_count,
             output: Some(output.into()),
+            fact_package: None,
             denied_reason: None,
             failed_reason: None,
             confirmation: None,
             failure: None,
             guardrail_message: None,
         }
+    }
+
+    /// succeeded_with_fact_package 构造携带完整事实包的成功工具结果
+    /// 核心职责：
+    /// - 保留模型可见 output
+    /// - 同时携带后端 typed DTO 投影所需事实包
+    pub fn succeeded_with_fact_package(
+        tool_call: LlmToolCall,
+        output: impl Into<String>,
+        citation_count: u32,
+        fact_package: AiFactPackage,
+    ) -> Self {
+        let mut result = Self::succeeded_with_citations(tool_call, output, citation_count);
+        result.fact_package = Some(Box::new(fact_package));
+        result
     }
 
     /// denied 构造拒绝工具结果
@@ -381,6 +404,7 @@ impl LoopToolResult {
             status: LoopToolStatus::Denied,
             citation_count: 0,
             output: None,
+            fact_package: None,
             denied_reason: Some(reason.into()),
             failed_reason: None,
             confirmation: None,
@@ -396,6 +420,7 @@ impl LoopToolResult {
             status: LoopToolStatus::Failed,
             citation_count: 0,
             output: None,
+            fact_package: None,
             denied_reason: None,
             failed_reason: Some(reason.into()),
             confirmation: None,
@@ -412,6 +437,7 @@ impl LoopToolResult {
             status: LoopToolStatus::Failed,
             citation_count: 0,
             output: None,
+            fact_package: None,
             denied_reason: None,
             failed_reason: Some(reason),
             confirmation: None,
@@ -430,6 +456,7 @@ impl LoopToolResult {
             status: LoopToolStatus::RequiresConfirmation,
             citation_count: 0,
             output: None,
+            fact_package: None,
             denied_reason: None,
             failed_reason: None,
             confirmation: Some(confirmation),
@@ -514,6 +541,8 @@ pub enum AgentEvent {
         tool_call_id: String,
         status: AgentToolStatus,
         citation_count: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fact_package: Option<Box<AiFactPackage>>,
     },
     NeedsConfirmation {
         turn_id: AgentTurnId,

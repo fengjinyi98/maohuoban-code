@@ -53,7 +53,16 @@ pub(super) fn append_step_events(
             message_id,
             final_text,
             status,
-        } => append_done_event(turn_id, message_id, final_text, status, engine_mode, events),
+            error_code,
+        } => append_done_event(
+            turn_id,
+            message_id,
+            final_text,
+            status,
+            error_code,
+            engine_mode,
+            events,
+        ),
     }
 }
 
@@ -138,6 +147,7 @@ fn append_tool_events(
                 tool_result.tool_call.id,
                 AgentToolStatus::Succeeded,
                 tool_result.citation_count,
+                tool_result.fact_package,
                 events,
             ),
             LoopToolStatus::Denied => append_tool_finished(
@@ -145,6 +155,7 @@ fn append_tool_events(
                 tool_result.tool_call.id,
                 AgentToolStatus::Denied,
                 tool_result.citation_count,
+                None,
                 events,
             ),
             LoopToolStatus::Failed => append_tool_finished(
@@ -152,6 +163,7 @@ fn append_tool_events(
                 tool_result.tool_call.id,
                 AgentToolStatus::Failed,
                 tool_result.citation_count,
+                None,
                 events,
             ),
             LoopToolStatus::RequiresConfirmation => {
@@ -160,6 +172,7 @@ fn append_tool_events(
                     tool_result.tool_call.id,
                     AgentToolStatus::Succeeded,
                     tool_result.citation_count,
+                    tool_result.fact_package,
                     events,
                 );
                 if let Some(confirmation) = tool_result.confirmation {
@@ -186,6 +199,7 @@ fn append_tool_finished(
     tool_call_id: String,
     status: AgentToolStatus,
     citation_count: u32,
+    fact_package: Option<Box<maohuoban_ai_domain::ai::AiFactPackage>>,
     events: &mut Vec<AgentEvent>,
 ) {
     events.push(AgentEvent::ToolFinished {
@@ -193,6 +207,7 @@ fn append_tool_finished(
         tool_call_id,
         status,
         citation_count,
+        fact_package,
     });
 }
 
@@ -205,13 +220,14 @@ fn append_done_event(
     message_id: Uuid,
     final_text: String,
     status: AgentTurnStatus,
+    error_code: Option<String>,
     engine_mode: &str,
     events: &mut Vec<AgentEvent>,
 ) -> StepFlow {
     if status == AgentTurnStatus::Failed {
         events.push(AgentEvent::TurnFailed {
             turn_id,
-            error_code: "ai.runtime_failed".to_owned(),
+            error_code: error_code.unwrap_or_else(|| "ai.runtime_failed".to_owned()),
             retryable: false,
             engine_mode: engine_mode.to_owned(),
         });

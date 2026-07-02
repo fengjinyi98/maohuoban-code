@@ -27,9 +27,9 @@ pub enum AiContentBlock {
     },
     PetProfileCard {
         id: String,
-        pet: AiPetProfileFactBlock,
-        computed: AiPetProfileComputedBlock,
-        narrative: AiPetProfileNarrativeBlock,
+        pet: Box<AiPetProfileFactBlock>,
+        computed: Box<AiPetProfileComputedBlock>,
+        narrative: Box<AiPetProfileNarrativeBlock>,
     },
 }
 

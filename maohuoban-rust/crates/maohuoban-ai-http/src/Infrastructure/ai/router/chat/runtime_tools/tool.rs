@@ -16,7 +16,6 @@ use maohuoban_ai_domain::ai::{
 use uuid::Uuid;
 
 use super::super::super::AiPetContextProviders;
-use super::entries::package_entries;
 use super::kind::RuntimePetContextToolKind;
 
 /// RuntimePetContextTool 运行时宠物上下文工具
@@ -67,11 +66,9 @@ impl AiToolDefinition for RuntimePetContextTool {
         let result = self.load_package(ctx.actor_user_id).await;
         match result {
             Ok(package) => {
-                let facts = package_entries(&package);
-                let citations = package.citations.clone();
                 self.record_tool_access(ctx.actor_user_id, true, None, &package)
                     .await;
-                AiToolResult::allowed_with_facts(facts, citations)
+                AiToolResult::allowed_with_fact_package(package)
             }
             Err(error) => {
                 let stable_code = error.stable_code().to_owned();

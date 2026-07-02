@@ -10,8 +10,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolRiskLevel, DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactStrength, LlmToolCall, ToolExecutionAudit,
-    ToolProgressText, Toolset,
+    AiCitation, AiCitationSourceKind, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
+    LlmToolCall, ToolExecutionAudit, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use std::sync::{Arc, Mutex};
@@ -396,12 +396,66 @@ async fn tool_result_can_carry_facts_and_citations() {
 }
 
 #[tokio::test]
+async fn tool_result_preserves_fact_package_for_runtime_projection() {
+    let package = identity_fact_package("梅录");
+    let tool_call = LlmToolCall {
+        id: "identity_call_1".to_owned(),
+        name: "load_pet_identity_context".to_owned(),
+        arguments: "{}".to_owned(),
+    };
+
+    let loop_result =
+        AiToolResult::allowed_with_fact_package(package.clone()).to_loop_tool_result(tool_call);
+
+    let projected_package = loop_result
+        .fact_package
+        .expect("loop result should preserve typed fact package");
+    assert_eq!(projected_package.target_pet, package.target_pet);
+    assert_eq!(projected_package.facts, package.facts);
+    assert_eq!(projected_package.computed, package.computed);
+}
+
+#[tokio::test]
 async fn tool_registry_lists_registered_tools() {
     let mut registry = ToolRegistry::new();
     registry.register(FakePetTool);
     let tools = registry.list_definitions();
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "load_pet_identity_context");
+}
+
+fn identity_fact_package(name: &str) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    let candidate = AiPetCandidate {
+        pet_id: Uuid::new_v4(),
+        name: name.to_owned(),
+        avatar_url: Some("/uploads/pets/meilu.png".to_owned()),
+        species: "cat".to_owned(),
+        profile_number: "P001".to_owned(),
+    };
+    package.target_pet = Some((&candidate).into());
+    package.facts = vec![
+        AiFactEntry {
+            key: "pet_identity.name".to_owned(),
+            value: name.to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
+        },
+        AiFactEntry {
+            key: "pet_identity.species".to_owned(),
+            value: "猫".to_owned(),
+            strength: AiFactStrength::Strong,
+            citation_id: None,
+        },
+    ];
+    package.computed = vec![AiFactEntry {
+        key: "pet_identity.age_display".to_owned(),
+        value: "当前年龄约 2岁15天".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: None,
+    }];
+    package.fact_strength = AiFactStrength::Strong;
+    package
 }
 
 #[tokio::test]

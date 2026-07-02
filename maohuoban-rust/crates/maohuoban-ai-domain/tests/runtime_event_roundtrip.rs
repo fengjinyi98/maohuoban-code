@@ -108,6 +108,22 @@ fn runtime_loop_step_roundtrip_covers_clarify_user() {
 }
 
 #[test]
+fn runtime_loop_step_roundtrip_preserves_failed_done_error_code() {
+    let step = LoopStep::Done {
+        message_id: Uuid::new_v4(),
+        final_text: String::new(),
+        status: AgentTurnStatus::Failed,
+        error_code: Some("ai.output_guard.unrepaired".to_owned()),
+    };
+
+    let encoded = serde_json::to_string(&step).expect("serialize done step");
+    assert!(encoded.contains("ai.output_guard.unrepaired"));
+    assert_eq!(step.step_name(), "done");
+    let decoded: LoopStep = serde_json::from_str(&encoded).expect("deserialize done step");
+    assert_eq!(decoded, step);
+}
+
+#[test]
 fn runtime_event_roundtrip_preserves_frozen_event_names() {
     let chat_session_id = Uuid::new_v4();
     let message_id = Uuid::new_v4();
@@ -171,6 +187,7 @@ fn runtime_event_roundtrip_covers_tool_finished_and_provider_error() {
             tool_call_id: "call_1".to_owned(),
             status: AgentToolStatus::Succeeded,
             citation_count: 1,
+            fact_package: None,
         },
         AgentEvent::ProviderError {
             turn_id: turn_id(),

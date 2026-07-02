@@ -3,13 +3,15 @@ use std::collections::HashMap;
 use maohuoban_ai_application::ai::output::visible_text_prefix_from_model_output;
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentToolStatus, AgentTurnId, AiFactPackage, AiStreamEvent, LlmFinishReason,
-    LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, UserVisibleTurnEvent,
+    AgentEvent, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiFactPackage, AiStreamEvent,
+    LlmFinishReason, LlmUsage, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, UserVisibleTurnEvent,
 };
 use uuid::Uuid;
 
+use super::runtime_activity_text::activity_text_for_tool;
 use super::runtime_stream_helpers::{
-    VerifiedCompletionInput, append_verified_completion, map_activity_status,
+    VerifiedCompletionInput, append_missing_profile_blocks_error, append_verified_completion,
+    map_activity_status,
 };
 
 pub(super) struct AgentEventSseProjector {
@@ -77,8 +79,15 @@ impl AgentEventSseProjector {
                 tool_call_id,
                 status,
                 citation_count,
+                fact_package,
                 ..
-            } => self.project_tool_finished(turn_id, &tool_call_id, status, citation_count),
+            } => self.project_tool_finished(
+                turn_id,
+                &tool_call_id,
+                status,
+                citation_count,
+                fact_package,
+            ),
             AgentEvent::NeedsConfirmation {
                 turn_id,
                 confirmation_task_id,
@@ -99,14 +108,7 @@ impl AgentEventSseProjector {
                 message_id,
                 final_text,
                 status,
-            } => {
-                vec![UserVisibleTurnEvent::AnswerCompleted {
-                    turn_id,
-                    message_id,
-                    final_text,
-                    status,
-                }]
-            }
+            } => Self::project_turn_finished(turn_id, message_id, final_text, status),
             AgentEvent::ProviderError {
                 turn_id,
                 retryable,
@@ -147,6 +149,7 @@ impl AgentEventSseProjector {
         tool_call_id: &str,
         status: AgentToolStatus,
         citation_count: u32,
+        fact_package: Option<Box<AiFactPackage>>,
     ) -> Vec<UserVisibleTurnEvent> {
         let tool_name = self
             .tool_names_by_call_id
@@ -154,6 +157,9 @@ impl AgentEventSseProjector {
             .unwrap_or_else(|| "runtime_tool".to_owned());
         if tool_name == "load_pet_identity_context" && status == AgentToolStatus::Succeeded {
             self.identity_context_tool_succeeded = true;
+            if let Some(package) = fact_package {
+                self.package = *package;
+            }
         }
         let display_text = activity_text_for_tool(&tool_name, &self.pet_name);
         vec![UserVisibleTurnEvent::ExecutionTraceCompleted {
@@ -174,6 +180,28 @@ impl AgentEventSseProjector {
             code,
             message: PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned(),
             retryable,
+        }]
+    }
+
+    fn project_turn_finished(
+        turn_id: AgentTurnId,
+        message_id: Uuid,
+        final_text: String,
+        status: AgentTurnStatus,
+    ) -> Vec<UserVisibleTurnEvent> {
+        if status == AgentTurnStatus::Failed {
+            return vec![UserVisibleTurnEvent::Error {
+                turn_id,
+                code: "ai.output_guard.unrepaired".to_owned(),
+                message: PROVIDER_USER_VISIBLE_FAILURE_MESSAGE.to_owned(),
+                retryable: true,
+            }];
+        }
+        vec![UserVisibleTurnEvent::AnswerCompleted {
+            turn_id,
+            message_id,
+            final_text,
+            status,
         }]
     }
 
@@ -200,18 +228,29 @@ impl AgentEventSseProjector {
                 message_id,
                 final_text,
                 ..
-            } => append_verified_completion(
-                VerifiedCompletionInput {
-                    message_id,
-                    final_text,
-                    usage: self.latest_usage,
-                    finish_reason: self.finish_reason,
-                    package: &self.package,
-                    verification_context: self.verification_context(),
-                    streamed_delta_text: &self.streamed_delta_text,
-                },
-                &mut output,
-            ),
+            } => {
+                if self.requires_profile_content_blocks()
+                    && super::content_block_projector::project_pet_profile_content_blocks(
+                        &self.package,
+                    )
+                    .is_empty()
+                {
+                    append_missing_profile_blocks_error(&mut output);
+                    return output;
+                }
+                append_verified_completion(
+                    VerifiedCompletionInput {
+                        message_id,
+                        final_text,
+                        usage: self.latest_usage,
+                        finish_reason: self.finish_reason,
+                        package: &self.package,
+                        verification_context: self.verification_context(),
+                        streamed_delta_text: &self.streamed_delta_text,
+                    },
+                    &mut output,
+                );
+            }
             UserVisibleTurnEvent::ConfirmationTask {
                 confirmation_task_id,
                 question_text,
@@ -230,7 +269,7 @@ impl AgentEventSseProjector {
                 message,
                 retryable,
                 blocked_reason: None,
-                safe_fallback_text: Some("暂时无法获取回答，请稍后重试。".to_owned()),
+                safe_fallback_text: None,
             }),
         }
         output
@@ -283,17 +322,8 @@ impl AgentEventSseProjector {
             identity_context_tool_succeeded: self.identity_context_tool_succeeded,
         }
     }
-}
 
-fn activity_text_for_tool(tool_name: &str, pet_name: &str) -> String {
-    match tool_name {
-        "list_authorized_pet_candidates" => "正在确认宠物档案权限".to_owned(),
-        "load_pet_identity_context" => format!("正在整理{pet_name}的宠物档案"),
-        "load_pet_current_diet_context" => format!("正在查看{pet_name}近期饮食"),
-        "load_food_inventory_change_hints" => format!("正在检查{pet_name}近期喂食线索"),
-        "load_pet_diet_confirmation_candidates" => {
-            format!("正在查看{pet_name}待确认喂食记录")
-        }
-        _ => format!("正在处理{pet_name}相关信息"),
+    fn requires_profile_content_blocks(&self) -> bool {
+        self.identity_context_tool_required && self.identity_context_tool_succeeded
     }
 }

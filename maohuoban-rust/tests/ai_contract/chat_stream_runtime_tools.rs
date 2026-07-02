@@ -73,18 +73,7 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
 #[tokio::test]
 async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finishes() {
     let server = MockServer::start();
-    let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-        base_url: server.base_url(),
-        api_key: "contract-api-key".to_owned(),
-        model: "contract-model".to_owned(),
-        timeout_secs: 5,
-        temperature: 0.2,
-        max_output_tokens: None,
-        response_format: None,
-    }
-    .into();
-    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    let app = spawn_runtime_tool_test_app(&server).await;
     app.reset().await;
     let access_token =
         login_and_get_token(&app, "13800139022", "ios-ai-runtime-tool-progress").await;
@@ -118,7 +107,7 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
         &mut body_stream,
         &[
             "event: execution_trace_started",
-            "正在查看毛球档案",
+            "正在整理毛球的宠物档案",
             "event: execution_trace_completed",
             "\"status\":\"completed\"",
         ],
@@ -131,13 +120,13 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     assert!(
         started_events
             .iter()
-            .any(|event| event["display_text"] == "正在查看毛球档案"),
+            .any(|event| event["display_text"] == "正在整理毛球的宠物档案"),
         "SSE should stream runtime execution trace start before followup model finishes, got: {started_events:?}"
     );
     let completed_events = sse_event_data_all(&partial_text, "execution_trace_completed");
     assert!(
         completed_events.iter().any(|event| {
-            event["display_text"] == "正在查看毛球档案" && event["status"] == "completed"
+            event["display_text"] == "正在整理毛球的宠物档案" && event["status"] == "completed"
         }),
         "SSE should stream backend-provided execution trace completion text, got: {completed_events:?}"
     );
@@ -315,7 +304,11 @@ async fn read_sse_until_contains(
             let chunk = body_stream
                 .next()
                 .await
-                .expect("SSE stream should continue before expected fragments")
+                .unwrap_or_else(|| {
+                    panic!(
+                        "SSE stream ended before expected fragments {expected_fragments:?}, partial text: {text}"
+                    )
+                })
                 .expect("read SSE chunk");
             text.push_str(&String::from_utf8_lossy(&chunk));
         }
@@ -353,7 +346,7 @@ fn assert_runtime_tool_stream_contract(text: &str) {
     assert!(
         text.contains("event: execution_trace_started")
             && text.contains("event: execution_trace_completed")
-            && text.contains("正在查看毛球档案"),
+            && text.contains("正在整理毛球的宠物档案"),
         "SSE should contain runtime execution trace events, got: {text}"
     );
     let started_events = sse_event_data_all(text, "execution_trace_started");
@@ -361,7 +354,7 @@ fn assert_runtime_tool_stream_contract(text: &str) {
         started_events.iter().any(|event| {
             event["display_text"]
                 .as_str()
-                .is_some_and(|text| text.contains("正在查看毛球档案"))
+                .is_some_and(|text| text.contains("正在整理毛球的宠物档案"))
         }),
         "SSE should contain runtime execution trace start text, got: {started_events:?}"
     );
@@ -370,7 +363,7 @@ fn assert_runtime_tool_stream_contract(text: &str) {
         completed_events.iter().any(|event| {
             event["display_text"]
                 .as_str()
-                .is_some_and(|text| text.contains("正在查看毛球档案"))
+                .is_some_and(|text| text.contains("正在整理毛球的宠物档案"))
                 && event["status"] == "completed"
         }),
         "SSE should contain runtime execution trace completion text, got: {completed_events:?}"

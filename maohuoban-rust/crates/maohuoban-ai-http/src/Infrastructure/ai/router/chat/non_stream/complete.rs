@@ -13,7 +13,8 @@ use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolGatewayExecutionContext};
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentToolStatus, AiError, AiFactPackage, LlmFinishReason, LlmUsage,
+    AgentEvent, AgentId, AgentToolStatus, AgentTurnStatus, AiError, AiFactPackage, LlmFinishReason,
+    LlmUsage,
 };
 use uuid::Uuid;
 
@@ -131,7 +132,7 @@ pub(super) fn complete_from_runtime_events(
     fact_package: Option<AiFactPackage>,
     identity_context_tool_required: bool,
 ) -> Result<AiCompleteResult, AiError> {
-    let package = fact_package.unwrap_or_else(AiFactPackage::empty);
+    let mut package = fact_package.unwrap_or_else(AiFactPackage::empty);
     let mut usage = LlmUsage::default();
     let mut finish_reason = LlmFinishReason::Stop;
     let mut provider = "runtime".to_owned();
@@ -152,6 +153,7 @@ pub(super) fn complete_from_runtime_events(
             AgentEvent::ToolFinished {
                 tool_call_id,
                 status,
+                fact_package,
                 ..
             } => {
                 let tool_name = tool_names_by_call_id.remove(&tool_call_id);
@@ -159,6 +161,9 @@ pub(super) fn complete_from_runtime_events(
                     && status == AgentToolStatus::Succeeded
                 {
                     identity_context_tool_succeeded = true;
+                    if let Some(fact_package) = fact_package {
+                        package = *fact_package;
+                    }
                 }
             }
             AgentEvent::ModelCallFinished {
@@ -173,7 +178,16 @@ pub(super) fn complete_from_runtime_events(
                 provider = p;
                 model = m;
             }
-            AgentEvent::TurnFinished { final_text, .. } => completed_text = Some(final_text),
+            AgentEvent::TurnFinished {
+                final_text, status, ..
+            } => {
+                if status == AgentTurnStatus::Failed {
+                    return Err(AiError::Infrastructure(
+                        "runtime output guard returned failed turn".to_owned(),
+                    ));
+                }
+                completed_text = Some(final_text);
+            }
             AgentEvent::TurnFailed { error_code, .. } => {
                 return Err(AiError::Infrastructure(error_code));
             }
@@ -191,22 +205,9 @@ pub(super) fn complete_from_runtime_events(
         AiAnswerVerifier::new().verify_with_context(&final_text, &package, verification_ctx);
 
     if verification.is_blocked() {
-        let safe_text = verification
-            .safe_fallback_text
-            .clone()
-            .unwrap_or_else(|| "回答内容未通过安全校验。".to_owned());
-        let citations =
-            maohuoban_ai_application::ai::citations::citations_for_answer(&safe_text, &package);
-        return Ok(AiCompleteResult {
-            final_text: safe_text,
-            content_blocks: Vec::new(),
-            usage,
-            finish_reason: LlmFinishReason::ContentFilter,
-            provider,
-            model,
-            citations,
-            verification,
-        });
+        return Err(AiError::Infrastructure(
+            "runtime output guard returned unrepaired final answer".to_owned(),
+        ));
     }
 
     let citations =

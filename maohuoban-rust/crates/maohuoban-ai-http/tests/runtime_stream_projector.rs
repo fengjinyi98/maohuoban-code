@@ -1,7 +1,7 @@
 use maohuoban_ai_domain::ai::{
     AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiContentBlock,
     AiConversationSurface, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
-    AiPetProfileSpecies, AiStreamEvent, LlmFinishReason, ModelLabel, ProviderErrorCategory,
+    AiPetProfileSpecies, AiStreamEvent, ModelLabel, ProviderErrorCategory,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -21,6 +21,10 @@ mod content_block_projector;
 #[allow(dead_code)]
 #[path = "../src/Infrastructure/ai/router/chat/runtime_stream_helpers.rs"]
 mod runtime_stream_helpers;
+
+#[allow(dead_code)]
+#[path = "../src/Infrastructure/ai/router/chat/runtime_activity_text.rs"]
+mod runtime_activity_text;
 
 use runtime_stream_helpers::safe_execution_trace_completed_for_tool;
 use runtime_stream_projector::AgentEventSseProjector;
@@ -284,6 +288,7 @@ fn projector_emits_execution_trace_completed_before_answer_delta() {
         tool_call_id: "call_1".to_owned(),
         status: AgentToolStatus::Succeeded,
         citation_count: 1,
+        fact_package: None,
     }));
     events.extend(projector.project(AgentEvent::MessageDelta {
         turn_id,
@@ -397,7 +402,96 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
 }
 
 #[test]
-fn projector_blocks_missing_identity_claim_when_identity_tool_not_called() {
+fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+
+    let mut events = Vec::new();
+    events.extend(projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    }));
+    events.extend(projector.project(AgentEvent::ToolFinished {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        status: AgentToolStatus::Succeeded,
+        citation_count: 1,
+        fact_package: None,
+    }));
+    events.extend(projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "这是梅录的宠物信息。".to_owned(),
+        status: AgentTurnStatus::Completed,
+    }));
+
+    let terminal_event = events
+        .last()
+        .expect("identity profile turn should emit terminal event");
+    assert!(
+        matches!(
+            terminal_event,
+            AiStreamEvent::Error {
+                code,
+                retryable: false,
+                safe_fallback_text: None,
+                ..
+            } if code == "ai.profile_content_blocks.missing"
+        ),
+        "identity profile turn must not complete with empty content blocks: {terminal_event:?}"
+    );
+}
+
+#[test]
+fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+
+    let mut events = Vec::new();
+    events.extend(projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    }));
+    events.extend(projector.project(AgentEvent::ToolFinished {
+        turn_id,
+        tool_call_id: "identity_call_1".to_owned(),
+        status: AgentToolStatus::Succeeded,
+        citation_count: 1,
+        fact_package: Some(Box::new(identity_fact_package("梅录"))),
+    }));
+    events.extend(projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "这是梅录的宠物信息。".to_owned(),
+        status: AgentTurnStatus::Completed,
+    }));
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("identity tool package should produce answer_completed");
+
+    assert!(
+        matches!(
+            content_blocks.as_slice(),
+            [
+                AiContentBlock::SectionHeading { text, .. },
+                AiContentBlock::PetProfileCard { pet, .. },
+            ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+        ),
+        "identity tool package should project typed pet profile blocks: {content_blocks:?}"
+    );
+}
+
+#[test]
+fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_completion() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
@@ -415,22 +509,61 @@ fn projector_blocks_missing_identity_claim_when_identity_tool_not_called() {
         status: AgentTurnStatus::Completed,
     });
 
-    let completed = completed_events
+    let error = completed_events
         .iter()
         .find_map(|event| match event {
-            AiStreamEvent::AnswerCompleted {
-                final_text,
-                finish_reason,
-                verification,
+            AiStreamEvent::Error {
+                code,
+                safe_fallback_text,
                 ..
-            } => Some((final_text, finish_reason, verification)),
+            } => Some((code, safe_fallback_text)),
             _ => None,
         })
-        .expect("blocked completion should emit answer_completed");
+        .expect("unrepaired invalid answer should emit error event");
 
-    assert_eq!(*completed.1, LlmFinishReason::ContentFilter);
-    assert!(completed.2.is_blocked());
-    assert!(!completed.0.contains("没有生日记录"));
+    assert_eq!(error.0, "ai.output_guard.unrepaired");
+    assert_eq!(error.1, &None);
+    assert!(
+        completed_events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::AnswerCompleted { .. })),
+        "projector must not convert verifier fallback into completed user text"
+    );
+}
+
+#[test]
+fn projector_reports_failed_turn_without_empty_answer_completion() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(message_id, None, "梅录", true);
+
+    let events = projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: String::new(),
+        status: AgentTurnStatus::Failed,
+    });
+
+    assert!(
+        matches!(
+            events.as_slice(),
+            [
+                AiStreamEvent::Error {
+                    code,
+                    retryable: true,
+                    safe_fallback_text: None,
+                    ..
+                }
+            ] if code == "ai.output_guard.unrepaired"
+        ),
+        "failed runtime turn should be projected as retryable output guard error: {events:?}"
+    );
+    assert!(
+        events
+            .iter()
+            .all(|event| !matches!(event, AiStreamEvent::AnswerCompleted { .. })),
+        "failed runtime turn must not emit an empty answer_completed event"
+    );
 }
 
 fn identity_fact_package(name: &str) -> AiFactPackage {

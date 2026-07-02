@@ -1,6 +1,6 @@
 use maohuoban_ai_domain::ai::{
-    AiCitation, AiFactEntry, AiToolConfirmationRequirement, LlmToolCall, LoopToolResult,
-    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, ToolFactProjector, ToolFailure,
+    AiCitation, AiFactEntry, AiFactPackage, AiToolConfirmationRequirement, LlmToolCall,
+    LoopToolResult, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, ToolFactProjector, ToolFailure,
 };
 
 /// AiToolSuccess 工具成功结果
@@ -12,6 +12,7 @@ pub struct AiToolSuccess {
     pub facts: Vec<AiFactEntry>,
     pub citations: Vec<AiCitation>,
     pub reference_ids: Vec<String>,
+    pub fact_package: Option<AiFactPackage>,
 }
 
 /// AiToolDenied 工具拒绝结果
@@ -38,7 +39,7 @@ pub struct AiToolFailed {
 /// - 让 Tool Gateway 统一投影事实、引用和失败信息
 #[derive(Debug, Clone)]
 pub enum AiToolResult {
-    Success(AiToolSuccess),
+    Success(Box<AiToolSuccess>),
     Denied(AiToolDenied),
     Failed(AiToolFailed),
     RequiresConfirmation(AiToolConfirmationRequirement),
@@ -48,22 +49,43 @@ impl AiToolResult {
     /// allowed 构造允许且无事实返回的结果
     #[must_use]
     pub fn allowed(ref_ids: Vec<String>) -> Self {
-        Self::Success(AiToolSuccess {
+        Self::Success(Box::new(AiToolSuccess {
             facts: Vec::new(),
             citations: Vec::new(),
             reference_ids: ref_ids,
-        })
+            fact_package: None,
+        }))
     }
 
     /// allowed_with_facts 构造允许且携带事实和引用的结果
     #[must_use]
     pub fn allowed_with_facts(facts: Vec<AiFactEntry>, citations: Vec<AiCitation>) -> Self {
         let ref_ids: Vec<String> = citations.iter().map(|c| c.source_id.to_string()).collect();
-        Self::Success(AiToolSuccess {
+        Self::Success(Box::new(AiToolSuccess {
             facts,
             citations,
             reference_ids: ref_ids,
-        })
+            fact_package: None,
+        }))
+    }
+
+    /// allowed_with_fact_package 构造允许且携带完整事实包的结果
+    /// 核心职责：
+    /// - 为模型提供扁平事实投影
+    /// - 为后端 typed DTO 投影保留完整事实包
+    #[must_use]
+    pub fn allowed_with_fact_package(package: AiFactPackage) -> Self {
+        let ref_ids: Vec<String> = package
+            .citations
+            .iter()
+            .map(|c| c.source_id.to_string())
+            .collect();
+        Self::Success(Box::new(AiToolSuccess {
+            facts: package.facts.clone(),
+            citations: package.citations.clone(),
+            reference_ids: ref_ids,
+            fact_package: Some(package),
+        }))
     }
 
     /// denied 构造拒绝结果
@@ -194,11 +216,17 @@ impl AiToolResult {
                     .extend(success.reference_ids.clone());
                 let json = serde_json::to_string(&projected)
                     .unwrap_or_else(|_| "{\"facts\":[]}".to_owned());
-                LoopToolResult::succeeded_with_citations(
-                    tool_call,
-                    json,
-                    u32::try_from(success.citations.len()).unwrap_or(u32::MAX),
-                )
+                let citation_count = u32::try_from(success.citations.len()).unwrap_or(u32::MAX);
+                if let Some(package) = success.fact_package.clone() {
+                    LoopToolResult::succeeded_with_fact_package(
+                        tool_call,
+                        json,
+                        citation_count,
+                        package,
+                    )
+                } else {
+                    LoopToolResult::succeeded_with_citations(tool_call, json, citation_count)
+                }
             }
             Self::Denied(denied) => {
                 LoopToolResult::denied(tool_call, denied.safe_user_message.clone())

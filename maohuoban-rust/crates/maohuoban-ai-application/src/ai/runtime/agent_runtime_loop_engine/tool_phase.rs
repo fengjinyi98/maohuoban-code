@@ -42,6 +42,7 @@ impl AgentRuntimeLoopEngine {
                     message_id: uuid::Uuid::new_v4(),
                     final_text: safe_user_message,
                     status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                    error_code: None,
                 };
             }
             return Ok(Some(LoopStep::CallTools { tool_results }));
@@ -61,6 +62,7 @@ impl AgentRuntimeLoopEngine {
                 message_id: uuid::Uuid::new_v4(),
                 final_text: String::new(),
                 status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
+                error_code: None,
             };
         } else {
             self.phase = RuntimePhase::FollowupModel {
@@ -111,6 +113,7 @@ impl AgentRuntimeLoopEngine {
                     message_id: uuid::Uuid::new_v4(),
                     final_text: safe_user_message,
                     status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                    error_code: None,
                 };
             }
             return Ok(Some(LoopStep::CallTools { tool_results }));
@@ -130,6 +133,7 @@ impl AgentRuntimeLoopEngine {
                 message_id: uuid::Uuid::new_v4(),
                 final_text: String::new(),
                 status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
+                error_code: None,
             };
         } else {
             self.record_planning_step(
