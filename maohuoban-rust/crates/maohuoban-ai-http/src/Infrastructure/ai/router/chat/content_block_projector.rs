@@ -3,10 +3,10 @@ use maohuoban_ai_domain::ai::{
     AiPetProfileNarrativeBlock, AiPetProfileSex, AiPetProfileSpecies,
 };
 
-/// project_pet_profile_content_blocks 投影宠物资料 UI 内容块
+/// `project_pet_profile_content_blocks` 投影宠物资料 UI 内容块
 /// 核心职责：
 /// - 从已验证事实包生成前端原生渲染 DTO
-/// - 保持事实字段、确定性计算字段和叙事文案分离
+/// - 只投影事实字段和确定性计算字段，叙事表达交由模型最终回答生成
 pub(super) fn project_pet_profile_content_blocks(package: &AiFactPackage) -> Vec<AiContentBlock> {
     let Some(card) = pet_profile_card_from_package(package) else {
         return Vec::new();
@@ -35,33 +35,23 @@ struct PetProfileCardProjection {
 fn pet_profile_card_from_package(package: &AiFactPackage) -> Option<PetProfileCardProjection> {
     let target_pet = package.target_pet.as_ref()?;
     let name = fact_value(package, "pet_identity.name")
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| target_pet.pet_name.clone());
+        .map_or_else(|| target_pet.pet_name.clone(), ToOwned::to_owned);
     let species = profile_species(&target_pet.pet_species);
-    let species_text = fact_value(package, "pet_identity.species")
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| profile_species_text(species).to_owned());
+    let species_text = fact_value(package, "pet_identity.species").map_or_else(
+        || profile_species_text(species).to_owned(),
+        ToOwned::to_owned,
+    );
     let sex_text = fact_value(package, "pet_identity.sex")
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| "未知".to_owned());
+        .map_or_else(|| "未知".to_owned(), ToOwned::to_owned);
     let sex = profile_sex(&sex_text);
     let breed = fact_value(package, "pet_identity.breed")
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| "未填写".to_owned());
+        .map_or_else(|| "未填写".to_owned(), ToOwned::to_owned);
     let birth_date = fact_value(package, "pet_identity.birthday").map(ToOwned::to_owned);
     let arrival_date = fact_value(package, "pet_identity.arrival_date").map(ToOwned::to_owned);
     let computed = AiPetProfileComputedBlock {
         age_text: computed_value(package, "pet_identity.age_display").map(ToOwned::to_owned),
         companionship_text: computed_value(package, "pet_identity.companionship_display")
             .map(ToOwned::to_owned),
-    };
-    let narrative = AiPetProfileNarrativeBlock {
-        birth: birth_date
-            .as_deref()
-            .map(|date| format!("{name}在 {date} 来到这个世界，档案里的每一天都值得被好好记住。")),
-        arrival: arrival_date
-            .as_deref()
-            .map(|date| format!("{date} 是{name}到家的日子，这段陪伴已经写进你们的日常里。")),
     };
 
     Some(PetProfileCardProjection {
@@ -78,7 +68,7 @@ fn pet_profile_card_from_package(package: &AiFactPackage) -> Option<PetProfileCa
             arrival_date,
         },
         computed,
-        narrative,
+        narrative: AiPetProfileNarrativeBlock::default(),
     })
 }
 

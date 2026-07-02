@@ -355,6 +355,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
             Some(AiContentBlock::PetProfileCard {
                 pet,
                 computed,
+                narrative,
                 ..
             }) if pet.name == "梅录"
                 && pet.species == AiPetProfileSpecies::Cat
@@ -365,6 +366,8 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
                 && pet.arrival_date.as_deref() == Some("2025-06-17")
                 && computed.age_text.as_deref() == Some("当前年龄约 2岁15天")
                 && computed.companionship_text.as_deref() == Some("到家陪伴 380 天")
+                && narrative.birth.is_none()
+                && narrative.arrival.is_none()
         ),
         "second block should be pet profile card, got {content_blocks:?}"
     );
@@ -384,6 +387,13 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
         payload["content_blocks"][1]["type"],
         serde_json::json!("pet_profile_card")
     );
+    assert_eq!(
+        payload["content_blocks"][1]["narrative"],
+        serde_json::json!({})
+    );
+    let serialized = serde_json::to_string(&payload).expect("serialize payload");
+    assert!(!serialized.contains("来到这个世界"));
+    assert!(!serialized.contains("这段陪伴"));
 }
 
 #[test]

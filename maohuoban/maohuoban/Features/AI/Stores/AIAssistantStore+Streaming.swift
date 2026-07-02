@@ -137,6 +137,9 @@ extension AIAssistantStore {
             mhbTempFrontendLog(
                 "stage=store.handle.completed message_id=\(messageID) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(chips.count) active_id=\(String(describing: streamingEngine.activeMessageID))"
             )
+            mhbTempPetProfileSkeletonLog(
+                "stage=store.handle.completed message_id=\(messageID) final_chars=\(finalText.count) content_blocks=\(contentBlocks.count) has_pet_profile_card=\(contentBlocks.containsPetProfileCard) active_id=\(String(describing: streamingEngine.activeMessageID))"
+            )
             clearActiveAgentActivity()
             let resolvedChips = chips.isEmpty ? pendingReferenceChips : chips
             applyCompletedAssistantMessage(
@@ -168,6 +171,9 @@ extension AIAssistantStore {
     }
 
     func applyAgentActivity(displayText: String, status: String) {
+        mhbTempPetProfileSkeletonLog(
+            "stage=store.activity.received status=\(status) display_chars=\(displayText.count) pet_profile_hint=\(displayText.mhbTempPetProfileSkeletonHint) active_id=\(String(describing: streamingEngine.activeMessageID))"
+        )
         guard status == "started" else {
             clearActiveAgentActivity()
             return
@@ -187,7 +193,11 @@ extension AIAssistantStore {
 
     func applyPetProfileSkeletonIfNeeded(activityText: String) {
         let text = activityText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.contains("宠物档案") || text.contains("宠物信息") else { return }
+        let shouldApplySkeleton = text.contains("宠物档案") || text.contains("宠物信息")
+        mhbTempPetProfileSkeletonLog(
+            "stage=store.skeleton.check should_apply=\(shouldApplySkeleton) text_chars=\(text.count) active_id=\(String(describing: streamingEngine.activeMessageID))"
+        )
+        guard shouldApplySkeleton else { return }
         let skeleton = AIAssistantContentBlock.petProfileCardSkeleton(
             AIAssistantPetProfileSkeletonBlock(
                 id: "pet-profile-skeleton-\(streamingEngine.activeMessageID?.uuidString ?? UUID().uuidString)",
@@ -195,11 +205,22 @@ extension AIAssistantStore {
             )
         )
         guard let activeMessageID = streamingEngine.activeMessageID,
-              let index = messages.firstIndex(where: { $0.id == activeMessageID }),
-              messages[index].contentBlocks.contains(skeleton) == false
+              let index = messages.firstIndex(where: { $0.id == activeMessageID })
         else {
+            mhbTempPetProfileSkeletonLog(
+                "stage=store.skeleton.skip_missing_active active_id=\(String(describing: streamingEngine.activeMessageID)) message_count=\(messages.count)"
+            )
             return
         }
+        guard messages[index].contentBlocks.contains(skeleton) == false else {
+            mhbTempPetProfileSkeletonLog(
+                "stage=store.skeleton.skip_duplicate index=\(index) existing_blocks=\(messages[index].contentBlocks.count)"
+            )
+            return
+        }
+        mhbTempPetProfileSkeletonLog(
+            "stage=store.skeleton.apply index=\(index) previous_blocks=\(messages[index].contentBlocks.count) title_chars=\(text.count)"
+        )
         messages[index].contentBlocks = [skeleton]
     }
 
@@ -230,9 +251,15 @@ extension AIAssistantStore {
         mhbTempFrontendLog(
             "stage=store.apply_completed.start active_id=\(String(describing: activeMessageID)) final_chars=\(finalText.count) final_trimmed_empty=\(finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) chips=\(referenceChips.count)"
         )
+        mhbTempPetProfileSkeletonLog(
+            "stage=store.apply_completed.start active_id=\(String(describing: activeMessageID)) final_chars=\(finalText.count) incoming_blocks=\(contentBlocks.count) incoming_has_pet_profile_card=\(contentBlocks.containsPetProfileCard)"
+        )
         if let activeMessageID {
             completeStreaming(finalText: finalText)
             if let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
+                mhbTempPetProfileSkeletonLog(
+                    "stage=store.apply_completed.replace_blocks index=\(index) old_blocks=\(messages[index].contentBlocks.count) new_blocks=\(contentBlocks.count) old_has_skeleton=\(messages[index].contentBlocks.containsPetProfileSkeleton)"
+                )
                 messages[index].referenceChips = referenceChips
                 messages[index].contentBlocks = contentBlocks
             }
@@ -489,4 +516,35 @@ extension AIAssistantStore {
 // MHB_TEMP_FRONTEND_LOG: AgentFallbackRegression 临时前端日志，确认修复后删除。
 private func mhbTempFrontendLog(_ message: String) {
     print("[DEBUG:AgentFallbackRegression] \(message)")
+}
+
+// MHB_TEMP_FRONTEND_LOG: PetProfileSkeleton 临时前端日志，确认修复后删除。
+private func mhbTempPetProfileSkeletonLog(_ message: String) {
+    print("[DEBUG:PetProfileSkeleton] \(message)")
+}
+
+private extension String {
+    var mhbTempPetProfileSkeletonHint: Bool {
+        contains("宠物档案") || contains("宠物信息")
+    }
+}
+
+private extension Array where Element == AIAssistantContentBlock {
+    var containsPetProfileCard: Bool {
+        contains { block in
+            if case .petProfileCard = block {
+                return true
+            }
+            return false
+        }
+    }
+
+    var containsPetProfileSkeleton: Bool {
+        contains { block in
+            if case .petProfileCardSkeleton = block {
+                return true
+            }
+            return false
+        }
+    }
 }
