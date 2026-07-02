@@ -46,6 +46,20 @@ impl PolicyGuard {
             };
         }
 
+        if is_write_commit_tool(tool_name) && !matches_confirmation_task(ctx, args) {
+            return PolicyDecision::Deny {
+                reason: "confirmation task not authorized".to_owned(),
+            };
+        }
+
+        if is_write_commit_tool(tool_name) && matches_confirmation_task(ctx, args) {
+            return PolicyDecision::Allow;
+        }
+
+        if is_write_prepare_tool(tool_name) {
+            return PolicyDecision::Allow;
+        }
+
         if metadata.requires_confirmation
             || !metadata.read_only
             || matches!(
@@ -77,4 +91,21 @@ fn is_authorized_pet_target(ctx: &AiToolContext, args: &serde_json::Value) -> bo
     };
 
     Uuid::parse_str(raw_pet_id).is_ok_and(|pet_id| pet_id == ctx.authorized_pet_id)
+}
+
+fn is_write_commit_tool(tool_name: &str) -> bool {
+    tool_name.starts_with("commit_")
+}
+
+fn is_write_prepare_tool(tool_name: &str) -> bool {
+    tool_name.starts_with("prepare_")
+}
+
+fn matches_confirmation_task(ctx: &AiToolContext, args: &serde_json::Value) -> bool {
+    let Some(expected) = ctx.gateway_context.confirmation_task_id.as_deref() else {
+        return false;
+    };
+    args.get("confirmation_task_id")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|actual| actual == expected)
 }

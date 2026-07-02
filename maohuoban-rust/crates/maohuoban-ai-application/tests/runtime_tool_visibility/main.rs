@@ -10,8 +10,9 @@ use maohuoban_ai_application::ai::tools::{
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
-    CapabilityCatalog, CapabilityDomain, ContextPack, LlmChatRequest, LlmChatResponse,
-    LlmFinishReason, LlmStreamEvent, LlmUsage, MemoryPack, ModelLabel, ToolProgressText, Toolset,
+    CapabilityCatalog, CapabilityDomain, ContextConfirmationTaskSummary, ContextPack,
+    ContextPetSummary, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmUsage,
+    MemoryPack, ModelLabel, ToolProgressText, Toolset,
 };
 use uuid::Uuid;
 
@@ -186,6 +187,76 @@ impl AiToolDefinition for SneakyPrivateTool {
     }
 }
 
+struct PrepareObservationWriteTool;
+
+#[async_trait]
+impl AiToolDefinition for PrepareObservationWriteTool {
+    fn name(&self) -> &'static str {
+        "prepare_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "准备写入宠物观察记录"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_prepare".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: true,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::failed("unexpected")
+    }
+}
+
+struct CommitObservationWriteTool;
+
+#[async_trait]
+impl AiToolDefinition for CommitObservationWriteTool {
+    fn name(&self) -> &'static str {
+        "commit_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "确认后写入宠物观察记录"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_commit".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::failed("unexpected")
+    }
+}
+
 #[tokio::test]
 async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss_old_rules() {
     // 旧规则只检查 scope.starts_with("pet.") 和 domain_tags in [identity, diet, inventory, diet_confirmation]
@@ -270,6 +341,137 @@ async fn temporal_toolset_visible_without_selected_pet() {
     );
 }
 
+#[tokio::test]
+async fn prepare_write_tool_visible_with_private_context() {
+    let provider = RecordingStreamProvider::default();
+    let mut registry = ToolRegistry::new();
+    registry.register(PrepareObservationWriteTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("帮我记一下今天拉稀", selected_private_workbench())
+        .await
+        .expect("prompt workbench");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "prepare_pet_observation_write")
+    );
+}
+
+#[tokio::test]
+async fn commit_write_tool_visible_with_private_context() {
+    let provider = RecordingStreamProvider::default();
+    let mut registry = ToolRegistry::new();
+    registry.register(CommitObservationWriteTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext::default(),
+            gateway_observer: None,
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    session
+        .prompt_with_workbench("确认写入上一条观察记录", selected_private_workbench())
+        .await
+        .expect("prompt workbench");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "commit_pet_observation_write")
+    );
+}
+
+#[tokio::test]
+async fn commit_write_tool_visible_with_pending_confirmation_task() {
+    let provider = RecordingStreamProvider::default();
+    let mut registry = ToolRegistry::new();
+    registry.register(CommitObservationWriteTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext {
+                session_id: None,
+                turn_id: None,
+                message_id: None,
+                confirmation_task_id: Some(
+                    Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+                        .expect("task id")
+                        .to_string(),
+                ),
+            },
+            gateway_observer: None,
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::ConfirmationTask,
+        engine,
+    );
+
+    let mut workbench = selected_private_workbench();
+    workbench.context_pack.pending_confirmation_task = Some(ContextConfirmationTaskSummary {
+        confirmation_task_id: Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+            .expect("task id"),
+        tool_name: "commit_pet_observation_write".to_owned(),
+        question_text: "是否确认写入这条观察记录？".to_owned(),
+    });
+
+    session
+        .prompt_with_workbench("确认写入这条观察记录", workbench)
+        .await
+        .expect("prompt workbench");
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "commit_pet_observation_write")
+    );
+}
+
 fn misleading_private_workbench() -> AgentSessionWorkbench {
     AgentSessionWorkbench {
         agent_definition: AgentDefinition {
@@ -299,10 +501,21 @@ fn misleading_private_workbench() -> AgentSessionWorkbench {
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: Vec::new(),
         },
         recent_conversation_pack: None,
     }
+}
+
+fn selected_private_workbench() -> AgentSessionWorkbench {
+    let mut workbench = misleading_private_workbench();
+    workbench.context_pack.selected_pet = Some(ContextPetSummary {
+        pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+        name: "毛球".to_owned(),
+        species: "cat".to_owned(),
+    });
+    workbench
 }

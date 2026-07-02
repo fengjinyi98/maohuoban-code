@@ -35,7 +35,7 @@ mod stream_handler;
 mod turn_preparation;
 mod visible_output_plan;
 
-pub use non_stream::handle_chat;
 pub use auth_middleware::require_ai_chat_auth;
+pub use non_stream::handle_chat;
 pub use request_snapshot_middleware::snapshot_ai_chat_request;
 pub use stream_handler::handle_chat_stream;

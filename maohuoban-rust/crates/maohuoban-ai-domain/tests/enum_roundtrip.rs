@@ -16,8 +16,7 @@ use uuid::Uuid;
 fn ai_intent_serializes_snake_case() {
     for (intent, expected) in [
         (AiIntent::Allowed, "\"allowed\""),
-        (AiIntent::PromptInjection, "\"prompt_injection\""),
-        (AiIntent::CostAbuse, "\"cost_abuse\""),
+        (AiIntent::InvalidInput, "\"invalid_input\""),
     ] {
         let serialized = serde_json::to_string(&intent).expect("serialize intent");
         assert_eq!(serialized, expected);
@@ -41,9 +40,9 @@ fn ai_intent_pet_domain_classification() {
 #[test]
 fn ai_gate_decision_allow_processing() {
     let blocked = AiGateDecision {
-        intent: AiIntent::PromptInjection,
+        intent: AiIntent::InvalidInput,
         context_loaded: false,
-        risk_signal: Some("injection".to_owned()),
+        risk_signal: Some("invalid_input".to_owned()),
         reason: "blocked".to_owned(),
     };
     assert!(!blocked.allow_processing());

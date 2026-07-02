@@ -11,23 +11,31 @@ mod tests {
 
     use async_trait::async_trait;
     use maohuoban_ai_application::ai::ports::{
-        AiRequestGateLog, AiSessionRepository, FoodInventoryHintProvider,
+        AiRequestGateLog, AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite,
+        FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput,
         PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
+        PetObservationWriteProvider, PreparedObservationWrite, SessionSummaryRepository,
+        SessionTurnRepository,
     };
     use maohuoban_ai_application::ai::tools::{AiToolContext, AiToolDefinition};
     use maohuoban_ai_domain::ai::{
         AiChatSession, AiCitation, AiFactEntry, AiFactPackage, AiFactStrength, AiMessage,
-        AiPetDisplaySnapshot, AiProposedAction, AiResult, Toolset,
+        AiPetDisplaySnapshot, AiProposedAction, AiResult, AiSessionTurn,
+        AiToolConfirmationRequirement, SessionSummary, Toolset,
     };
+    use maohuoban_pet_domain::pet::PetResult;
     use serde_json::json;
     use uuid::Uuid;
 
     use super::super::build_public_runtime_tool_registry;
     use super::super::kind::RuntimePetContextToolKind;
     use super::super::tool::RuntimePetContextTool;
-    use crate::ai::router::AiPetContextProviders;
+    use crate::ai::router::{AiHttpState, AiPetContextProviders};
 
     struct EmptySessionRepository;
+    struct EmptySessionTurnRepository;
+    struct EmptyChatTurnTransaction;
+    struct EmptySessionSummaryRepository;
 
     #[async_trait]
     impl AiSessionRepository for EmptySessionRepository {
@@ -124,7 +132,70 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl SessionTurnRepository for EmptySessionTurnRepository {
+        async fn insert_turn(&self, _turn: &AiSessionTurn) -> AiResult<()> {
+            Ok(())
+        }
+
+        async fn update_turn_status(
+            &self,
+            _turn_id: Uuid,
+            _status: maohuoban_ai_domain::ai::AiSessionTurnStatus,
+            _assistant_message_id: Option<Uuid>,
+            _finish_reason: Option<&str>,
+            _error_code: Option<&str>,
+            _retryable: Option<bool>,
+        ) -> AiResult<()> {
+            Ok(())
+        }
+
+        async fn get_turn(&self, _turn_id: Uuid) -> AiResult<Option<AiSessionTurn>> {
+            Ok(None)
+        }
+
+        async fn list_turns_by_session(&self, _session_id: Uuid) -> AiResult<Vec<AiSessionTurn>> {
+            Ok(Vec::new())
+        }
+    }
+
+    #[async_trait]
+    impl ChatTurnTransactionPort for EmptyChatTurnTransaction {
+        async fn persist_ingress_tx(&self, _input: &IngressTxInput<'_>) -> AiResult<()> {
+            Ok(())
+        }
+
+        async fn persist_finalizer_tx(&self, _input: &FinalizerTxInput<'_>) -> AiResult<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl SessionSummaryRepository for EmptySessionSummaryRepository {
+        async fn insert_summary(&self, _summary: &SessionSummary) -> AiResult<()> {
+            Ok(())
+        }
+
+        async fn get_active_summary(
+            &self,
+            _chat_session_id: Uuid,
+        ) -> AiResult<Option<SessionSummary>> {
+            Ok(None)
+        }
+
+        async fn supersede_previous_summaries(
+            &self,
+            _chat_session_id: Uuid,
+            _superseded_at: chrono::DateTime<chrono::Utc>,
+        ) -> AiResult<()> {
+            Ok(())
+        }
+    }
+
     struct EmptyPetContextProvider;
+
+    #[derive(Clone)]
+    struct EmptyObservationWriteProvider;
 
     #[async_trait]
     impl PetIdentityFactProvider for EmptyPetContextProvider {
@@ -167,6 +238,38 @@ mod tests {
             target_pet: &AiPetDisplaySnapshot,
         ) -> AiResult<AiFactPackage> {
             Ok(fact_package_for(target_pet))
+        }
+    }
+
+    #[async_trait]
+    impl PetObservationWriteProvider for EmptyObservationWriteProvider {
+        async fn prepare_observation_write(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            _note: String,
+        ) -> PetResult<PreparedObservationWrite> {
+            let confirmation_task_id = Uuid::new_v4();
+            Ok(PreparedObservationWrite {
+                confirmation: AiToolConfirmationRequirement {
+                    confirmation_task_id: confirmation_task_id.to_string(),
+                    tool_name: "commit_pet_observation_write".to_owned(),
+                    question_text: "确认写入观察记录？".to_owned(),
+                    args: json!({ "confirmation_task_id": confirmation_task_id }),
+                },
+            })
+        }
+
+        async fn commit_observation_write(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            confirmation_task_id: Uuid,
+        ) -> PetResult<CommittedObservationWrite> {
+            Ok(CommittedObservationWrite {
+                confirmation_task_id,
+                event_id: Uuid::new_v4(),
+            })
         }
     }
 
@@ -239,6 +342,65 @@ mod tests {
         assert!(!date_tool.requires_confirmation);
     }
 
+    #[tokio::test]
+    async fn runtime_prepare_observation_write_tool_returns_confirmation() {
+        let state = runtime_state();
+        let target_pet = test_pet();
+        let registry =
+            super::super::build_runtime_tool_registry(&state, Uuid::new_v4(), &target_pet);
+
+        let result = registry
+            .call(
+                "prepare_pet_observation_write",
+                &AiToolContext {
+                    actor_user_id: Uuid::new_v4(),
+                    authorized_pet_id: target_pet.pet_id,
+                    gateway_context:
+                        maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
+                    gateway_observer: None,
+                },
+                &json!({ "note": "今天拉稀" }),
+            )
+            .await;
+
+        assert!(result.confirmation().is_some());
+    }
+
+    #[tokio::test]
+    async fn runtime_commit_observation_write_tool_requires_matching_confirmation_task() {
+        let state = runtime_state();
+        let target_pet = test_pet();
+        let registry =
+            super::super::build_runtime_tool_registry(&state, Uuid::new_v4(), &target_pet);
+        let confirmation_task_id = Uuid::new_v4();
+
+        let result = registry
+            .call(
+                "commit_pet_observation_write",
+                &AiToolContext {
+                    actor_user_id: Uuid::new_v4(),
+                    authorized_pet_id: target_pet.pet_id,
+                    gateway_context:
+                        maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext {
+                            session_id: None,
+                            turn_id: None,
+                            message_id: None,
+                            confirmation_task_id: Some(confirmation_task_id.to_string()),
+                        },
+                    gateway_observer: None,
+                },
+                &json!({ "confirmation_task_id": confirmation_task_id }),
+            )
+            .await;
+
+        assert!(
+            result.is_success(),
+            "commit tool should succeed after confirmation, got denied={:?} failed={:?}",
+            result.denied_reason(),
+            result.failed_reason()
+        );
+    }
+
     fn runtime_identity_tool() -> RuntimePetContextTool {
         let provider = Arc::new(EmptyPetContextProvider);
         RuntimePetContextTool {
@@ -248,6 +410,7 @@ mod tests {
                 provider.clone(),
                 provider.clone(),
                 provider,
+                Arc::new(EmptyObservationWriteProvider),
             ),
             session_repository: Arc::new(EmptySessionRepository),
             session_id: Uuid::new_v4(),
@@ -258,6 +421,43 @@ mod tests {
                 pet_species: "cat".to_owned(),
                 profile_number: "MHB001".to_owned(),
             },
+        }
+    }
+
+    fn test_pet() -> AiPetDisplaySnapshot {
+        AiPetDisplaySnapshot {
+            pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+            pet_name: "饭团".to_owned(),
+            pet_avatar_url: None,
+            pet_species: "cat".to_owned(),
+            profile_number: "MHB001".to_owned(),
+        }
+    }
+
+    fn runtime_state() -> AiHttpState {
+        let provider = Arc::new(EmptyPetContextProvider);
+        AiHttpState {
+            llm_provider: Arc::new(maohuoban_ai_application::ai::ports::DisabledLlmProvider),
+            runtime_engine_mode:
+                maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode::SelfHosted,
+            session_repository: Arc::new(EmptySessionRepository),
+            session_turn_repository: Arc::new(EmptySessionTurnRepository),
+            chat_turn_transaction: Arc::new(EmptyChatTurnTransaction),
+            session_summary_repository: Arc::new(EmptySessionSummaryRepository),
+            memory_repository: Arc::new(maohuoban_ai_application::ai::ports::NoopMemoryRepository),
+            pet_resolver: Arc::new(
+                maohuoban_ai_application::ai::pet_resolver::AiPetResolver::new(
+                    maohuoban_ai_application::ai::ports::EmptyPetCatalog,
+                ),
+            ),
+            pet_context_providers: AiPetContextProviders::new(
+                provider.clone(),
+                provider.clone(),
+                provider.clone(),
+                provider,
+                Arc::new(EmptyObservationWriteProvider),
+            ),
+            observation_write_provider: Arc::new(EmptyObservationWriteProvider),
         }
     }
 

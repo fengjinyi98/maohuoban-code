@@ -150,10 +150,10 @@ mod tests {
             Uuid::new_v4(),
             "新对话".to_owned(),
             &AiGateDecision {
-                intent: maohuoban_ai_domain::ai::AiIntent::CostAbuse,
+                intent: maohuoban_ai_domain::ai::AiIntent::InvalidInput,
                 context_loaded: false,
-                risk_signal: Some("cost_abuse".to_owned()),
-                reason: "测试成本滥用拦截".to_owned(),
+                risk_signal: Some("invalid_input".to_owned()),
+                reason: "测试空消息拦截".to_owned(),
             },
         )
         .await;

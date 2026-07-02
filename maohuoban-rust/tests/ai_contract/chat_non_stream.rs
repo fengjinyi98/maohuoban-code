@@ -31,6 +31,39 @@ async fn ai_chat_non_stream_unauthorized_without_token() {
     assert_eq!(body["code"], "auth.session_expired");
 }
 
+/// `/api/v1/ai/chat` 超长消息返回结构化 invalid_input
+#[tokio::test]
+async fn ai_chat_non_stream_rejects_overlong_message() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139041", "ios-ai-chat-overlong").await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat",
+            &access_token,
+            json!({
+                "message": "毛".repeat(4001),
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send overlong non-stream chat request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "ai.invalid_input");
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("超过 4000 字符上限"))
+    );
+}
+
 /// `/api/v1/ai/chat` 未配置 Provider 时返回稳定错误
 #[tokio::test]
 async fn ai_chat_non_stream_returns_provider_not_configured() {
@@ -296,9 +329,9 @@ async fn ai_chat_non_stream_off_topic_records_gate_log_and_enters_workbench() {
     assert_eq!(row.2, None);
 }
 
-/// `cost_abuse` 请求被 gate 拦截，不进入 Provider，返回特定安全文案
+/// 旧“长文写作”词表命中文案不再由 gate 拦截，运行时应继续进入主链
 #[tokio::test]
-async fn ai_chat_non_stream_blocks_cost_abuse_with_distinct_message() {
+async fn ai_chat_non_stream_allows_write_novel_like_text_to_enter_runtime() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139031", "ios-ai-blocked-ca").await;
@@ -316,50 +349,31 @@ async fn ai_chat_non_stream_blocks_cost_abuse_with_distinct_message() {
             }),
         ))
         .await
-        .expect("send cost abuse non-stream chat request");
+        .expect("send cost abuse-like non-stream chat request");
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     let body = response_json(response).await;
 
-    assert_eq!(body["success"], true);
-    assert_eq!(body["code"], "ai.chat_completed");
-    // 验证返回 cost_abuse 专用文案
-    let final_text = body["data"]["final_text"].as_str().expect("final_text");
-    assert!(
-        final_text.contains("回答范围"),
-        "response should contain cost_abuse specific message, got: {final_text}"
-    );
-    assert!(
-        !final_text.contains("操作指令"),
-        "response should NOT contain prompt_injection message, got: {final_text}"
-    );
-    // 验证 usage 为空（未调用 Provider）
-    assert_eq!(body["data"]["usage"]["input_tokens"], 0);
-    assert_eq!(body["data"]["usage"]["output_tokens"], 0);
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "ai.provider.not_configured");
+    assert_eq!(body["message"], "暂时无法获取回答，请稍后重试。");
 
-    let chat_session_id = body["data"]["chat_session_id"]
-        .as_str()
-        .expect("chat_session_id");
-
-    // 验证 gate_log 记录正确的三态语义，按本次会话过滤避免并发 flaky
     let row: (String, String, bool, Option<String>) = sqlx::query_as(
         r"
         SELECT intent, gate_decision, context_loaded, risk_signal
         FROM ai_request_gate_logs
-        WHERE session_id = $1
         ORDER BY created_at DESC
         LIMIT 1
         ",
     )
-    .bind(uuid::Uuid::parse_str(chat_session_id).expect("parse chat session id"))
     .fetch_one(app.pool())
     .await
     .expect("read latest gate log");
 
-    assert_eq!(row.0, "cost_abuse");
-    assert_eq!(row.1, "blocked");
+    assert_eq!(row.0, "allowed");
+    assert_eq!(row.1, "enter_workbench");
     assert!(!row.2);
-    assert!(row.3.is_some());
+    assert!(row.3.is_none());
 }
 
 async fn create_pet(

@@ -13,8 +13,8 @@ use maohuoban_ai_application::ai::stream::AiCompleteResult;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolGatewayExecutionContext};
 use maohuoban_ai_application::ai::verifier::{AiAnswerVerificationContext, AiAnswerVerifier};
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentToolStatus, AgentTurnStatus, AiError, AiFactPackage, LlmFinishReason,
-    LlmUsage,
+    AgentEvent, AgentId, AgentToolStatus, AgentTurnStatus, AiError, AiFactPackage,
+    ContextConfirmationTaskSummary, LlmFinishReason, LlmUsage,
 };
 use uuid::Uuid;
 
@@ -66,6 +66,13 @@ pub(super) async fn complete_with_runtime(
         req.surface,
         target_pet.as_ref(),
         session_summary,
+        context
+            .confirmation_task_id
+            .map(|task_id| ContextConfirmationTaskSummary {
+                confirmation_task_id: task_id,
+                tool_name: "commit_pet_observation_write".to_owned(),
+                question_text: "是否确认写入这条观察记录？".to_owned(),
+            }),
         memory_entries,
         recent_conversation,
     );
@@ -110,6 +117,7 @@ pub(super) async fn complete_with_runtime(
             session_id: Some(context.session_id),
             turn_id: Some(context.turn_id.as_uuid()),
             message_id: Some(context.assistant_message_id),
+            confirmation_task_id: context.confirmation_task_id.map(|id| id.to_string()),
         },
         gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
     };
@@ -226,6 +234,7 @@ pub(super) fn complete_from_runtime_events(
     let verification_ctx = AiAnswerVerificationContext {
         identity_context_tool_required,
         identity_context_tool_succeeded,
+        successful_write_tools: Vec::new(),
     };
     let verification =
         AiAnswerVerifier::new().verify_with_context(&final_text, &package, verification_ctx);

@@ -109,18 +109,19 @@ async fn ambiguous_same_name_returns_needs_selection() {
 }
 
 #[tokio::test]
-async fn unauthorized_name_returns_unauthorized_or_not_found() {
+async fn unmatched_two_character_prefix_with_single_pet_resolves_authorized_candidate() {
     let maoqiu_id = Uuid::new_v4();
     let candidates = vec![candidate(maoqiu_id, "毛球", "cat")];
     let catalog = InMemoryPetCatalog::new(candidates);
     let resolver = AiPetResolver::new(catalog);
 
     let resolution = resolver
-        .resolve("花花今天怎么样", None, Uuid::new_v4())
+        .resolve("我家今天拉稀怎么办", None, Uuid::new_v4())
         .await
         .expect("resolve");
 
-    assert_eq!(resolution, AiPetResolution::UnauthorizedOrNotFound);
+    assert!(resolution.is_resolved());
+    assert_eq!(resolution.resolved_pet_id(), Some(maoqiu_id));
 }
 
 #[tokio::test]

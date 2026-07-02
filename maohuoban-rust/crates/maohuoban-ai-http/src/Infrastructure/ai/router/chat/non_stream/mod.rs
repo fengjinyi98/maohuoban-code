@@ -15,9 +15,7 @@ use axum::{Json, extract::State, response::Response};
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 
 use super::super::AiHttpState;
-use super::super::diagnostics::{
-    record_chat_gate_decided, record_chat_provider_started,
-};
+use super::super::diagnostics::{record_chat_gate_decided, record_chat_provider_started};
 use super::composition::request::ChatStreamRequest;
 use super::responses::gated_stream_response::gated_message_text;
 use super::responses::pet_resolution_stream_response::pet_resolution_message_text;

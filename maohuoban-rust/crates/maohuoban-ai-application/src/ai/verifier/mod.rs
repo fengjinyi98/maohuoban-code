@@ -17,10 +17,12 @@ pub struct AiAnswerVerifier;
 /// 核心职责：
 /// - 标记本轮是否需要身份事实工具作为证据
 /// - 标记身份事实工具是否已成功执行
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// - 保留本轮成功写工具证据，支撑写完成声明校验
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AiAnswerVerificationContext {
     pub identity_context_tool_required: bool,
     pub identity_context_tool_succeeded: bool,
+    pub successful_write_tools: Vec<String>,
 }
 
 impl AiAnswerVerifier {
@@ -32,7 +34,7 @@ impl AiAnswerVerifier {
 
     /// verify 校验回答
     /// 核心职责：
-    /// - 按优先级检查：未确认写入 > 医疗诊断 > 弱线索误用 > 无来源事实
+    /// - 按优先级检查：写完成声明 > 弱线索误用 > 无来源事实
     #[must_use]
     pub fn verify(&self, answer: &str, package: &AiFactPackage) -> AiAnswerVerification {
         self.verify_with_context(answer, package, AiAnswerVerificationContext::default())
@@ -49,23 +51,15 @@ impl AiAnswerVerifier {
         package: &AiFactPackage,
         context: AiAnswerVerificationContext,
     ) -> AiAnswerVerification {
-        // 1. 检查未确认写操作
-        if Self::detect_unconfirmed_write(answer) {
+        // 1. 检查写完成声明是否具备成功写工具证据
+        if Self::detect_unconfirmed_write(answer) && context.successful_write_tools.is_empty() {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::UnconfirmedWrite,
                 "写操作需要用户确认后才能执行，不能直接声称已完成。".to_owned(),
             );
         }
 
-        // 2. 检查医疗诊断
-        if Self::detect_medical_diagnosis(answer) {
-            return AiAnswerVerification::blocked(
-                AiBlockedReason::MedicalBlocked,
-                "毛球助手不能进行诊断或开具药物，建议提供观察要点并就医。".to_owned(),
-            );
-        }
-
-        // 3. 检查弱线索误用
+        // 2. 检查弱线索误用
         if Self::detect_weak_hint_misuse(answer, package) {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::WeakHintMisuse,
@@ -73,7 +67,7 @@ impl AiAnswerVerifier {
             );
         }
 
-        // 4. 检查未执行身份工具时的缺失声明
+        // 3. 检查未执行身份工具时的缺失声明
         if Self::detect_identity_missing_claim_without_tool_evidence(answer, context) {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::UnsupportedFact,
@@ -81,7 +75,7 @@ impl AiAnswerVerifier {
             );
         }
 
-        // 5. 检查身份事实缺失误判
+        // 4. 检查身份事实缺失误判
         if Self::detect_identity_missing_claim_conflict(answer, package) {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::UnsupportedFact,
@@ -89,7 +83,7 @@ impl AiAnswerVerifier {
             );
         }
 
-        // 6. 检查无来源事实
+        // 5. 检查无来源事实
         if Self::detect_unsupported_fact(answer, package) {
             return AiAnswerVerification::blocked(
                 AiBlockedReason::UnsupportedFact,
@@ -123,28 +117,6 @@ impl AiAnswerVerifier {
             "成功保存",
         ];
         PATTERNS.iter().any(|p| answer.contains(p))
-    }
-
-    /// detect_medical_diagnosis 检测医疗诊断
-    fn detect_medical_diagnosis(answer: &str) -> bool {
-        const DIAGNOSIS: &[&str] = &[
-            "得了",
-            "确诊",
-            "诊断",
-            "是肠胃炎",
-            "是感冒",
-            "是猫瘟",
-            "是犬瘟",
-            "是细小",
-            "感染了",
-            "需要吃",
-            "需要服用",
-            "开药",
-            "用药",
-            "剂量",
-            "打针",
-        ];
-        DIAGNOSIS.iter().any(|p| answer.contains(p))
     }
 
     /// detect_weak_hint_misuse 检测弱线索误用
@@ -223,32 +195,8 @@ impl AiAnswerVerifier {
                 .any(|pattern| answer.contains(pattern))
     }
 
-    /// detect_unsupported_fact 检测无来源事实
     fn detect_unsupported_fact(answer: &str, package: &AiFactPackage) -> bool {
-        const DRUGS: &[&str] = &[
-            "阿莫西林",
-            "甲硝唑",
-            "头孢",
-            "抗生素",
-            "消炎药",
-            "驱虫药",
-            "蒙脱石",
-            "益生菌",
-            "维生素",
-        ];
-
-        let all_facts: String = package
-            .facts
-            .iter()
-            .chain(package.weak_hints.iter())
-            .map(|f| f.value.as_str())
-            .collect();
-
-        for drug in DRUGS {
-            if answer.contains(drug) && !all_facts.contains(drug) {
-                return true;
-            }
-        }
+        let _ = (answer, package);
         false
     }
 }

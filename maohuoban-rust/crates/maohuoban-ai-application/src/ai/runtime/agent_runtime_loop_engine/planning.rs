@@ -23,7 +23,13 @@ impl AgentRuntimeLoopEngine {
             .as_ref()
             .and_then(|workbench| workbench.context_pack.selected_pet.as_ref())
             .is_some();
-        let task_type = TaskClassifier::classify_runtime(selected_pet_present);
+        let confirmation_task_present = state
+            .workbench
+            .as_ref()
+            .and_then(|workbench| workbench.context_pack.pending_confirmation_task.as_ref())
+            .is_some();
+        let task_type =
+            TaskClassifier::classify_runtime(selected_pet_present, confirmation_task_present);
         let plan = StepPlanner::plan(task_type);
         self.current_step_plan = Some((turn_id, plan.clone()));
         Some(plan)

@@ -3,7 +3,9 @@
 // - 验证 ContextPack 不包含数据库字段、权限字段、UI 展示字段、内部状态字段
 // - 验证 has_private_context 正确反映是否有已选宠物
 
-use maohuoban_ai_domain::ai::{AiConversationSurface, ContextPack, ContextPetSummary};
+use maohuoban_ai_domain::ai::{
+    AiConversationSurface, ContextConfirmationTaskSummary, ContextPack, ContextPetSummary,
+};
 use uuid::Uuid;
 
 fn pet_id() -> Uuid {
@@ -28,6 +30,7 @@ fn context_pack_without_selected_pet_has_no_private_context() {
         selected_pet: None,
         authorized_pets: Vec::new(),
         session_summary: None,
+        pending_confirmation_task: None,
     };
     assert!(!pack.has_private_context());
 }
@@ -42,6 +45,7 @@ fn context_pack_with_selected_pet_has_private_context() {
         selected_pet: Some(pet_summary()),
         authorized_pets: vec![pet_summary()],
         session_summary: None,
+        pending_confirmation_task: None,
     };
     assert!(pack.has_private_context());
 }
@@ -60,6 +64,11 @@ fn context_pack_serialization_does_not_contain_forbidden_markers() {
         selected_pet: Some(pet_summary()),
         authorized_pets: vec![pet_summary()],
         session_summary: Some("用户正在询问豆包近期饮食变化".to_owned()),
+        pending_confirmation_task: Some(ContextConfirmationTaskSummary {
+            confirmation_task_id: Uuid::new_v4(),
+            tool_name: "commit_pet_observation_write".to_owned(),
+            question_text: "是否确认写入这条观察记录？".to_owned(),
+        }),
     };
 
     let encoded = serde_json::to_string(&pack).expect("serialize context pack");
@@ -80,6 +89,9 @@ fn context_pack_serialization_does_not_contain_forbidden_markers() {
         "avatar_url",
         "status",
         "alive",
+        "candidate_payload",
+        "answer_payload",
+        "resolved_event_id",
     ] {
         assert!(
             !encoded.contains(forbidden),
@@ -102,6 +114,11 @@ fn context_pack_roundtrip_preserves_all_fields() {
         selected_pet: Some(pet_summary()),
         authorized_pets: vec![pet_summary()],
         session_summary: Some("会话摘要".to_owned()),
+        pending_confirmation_task: Some(ContextConfirmationTaskSummary {
+            confirmation_task_id: Uuid::new_v4(),
+            tool_name: "commit_pet_observation_write".to_owned(),
+            question_text: "是否确认写入这条观察记录？".to_owned(),
+        }),
     };
 
     let encoded = serde_json::to_string(&pack).expect("serialize");

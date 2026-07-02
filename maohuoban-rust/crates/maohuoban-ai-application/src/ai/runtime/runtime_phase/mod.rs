@@ -1,7 +1,7 @@
 use futures_util::stream::BoxStream;
 use maohuoban_ai_domain::ai::{
-    AiResult, LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason, LlmStreamEvent,
-    LlmToolCall, LlmUsage, LoopToolResult,
+    AgentTurnTerminationReason, AiResult, LlmChatRequest, LlmDiagnosticsCorrelation,
+    LlmFinishReason, LlmStreamEvent, LlmToolCall, LlmUsage, LoopToolResult,
 };
 
 use super::streaming_model_purpose::StreamingModelPurpose;
@@ -29,11 +29,13 @@ pub(crate) enum RuntimePhase {
         assistant_reasoning_content: Option<String>,
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_calls: Vec<LlmToolCall>,
+        completed_tool_rounds: u8,
     },
     FollowupModel {
         assistant_reasoning_content: Option<String>,
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_results: Vec<LoopToolResult>,
+        completed_tool_rounds: u8,
     },
     OutputRepairModel {
         request: Box<LlmChatRequest>,
@@ -47,6 +49,7 @@ pub(crate) enum RuntimePhase {
         message_id: uuid::Uuid,
         final_text: String,
         status: maohuoban_ai_domain::ai::AgentTurnStatus,
+        termination_reason: AgentTurnTerminationReason,
         error_code: Option<String>,
     },
 }

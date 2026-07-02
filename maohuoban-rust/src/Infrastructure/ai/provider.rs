@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use maohuoban_ai_application::ai::ports::LlmProvider;
 #[cfg(test)]
-use maohuoban_ai_application::ai::stream::AiStreamPipeline;
-#[cfg(test)]
 use maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig;
 use maohuoban_ai_infrastructure::provider::{
     LlmProviderRegistryConfig, build_llm_provider_from_registry_config,
@@ -20,29 +18,15 @@ pub(crate) fn build_ai_llm_provider_from_provider_config(
     build_llm_provider_from_registry_config(config)
 }
 
-/// `build_ai_stream_pipeline_from_provider_config` 构建 AI 流式 pipeline
-/// 核心职责：
-/// - 从运营配置注册表选择启用的默认 Provider
-/// - 缺少可用配置时装配可降级的 Disabled Provider
-#[must_use]
-#[cfg(test)]
-pub(crate) fn build_ai_stream_pipeline_from_provider_config(
-    config: &LlmProviderRegistryConfig,
-) -> AiStreamPipeline {
-    let provider = build_ai_llm_provider_from_provider_config(config);
-    AiStreamPipeline::from_provider(provider)
-}
-
 #[cfg(test)]
 mod tests {
     use futures_util::StreamExt;
     use httpmock::MockServer;
     use maohuoban_ai_domain::ai::{
-        AiStreamEvent, LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole,
+        LlmChatRequest, LlmDiagnosticsCorrelation, LlmMessage, LlmRole, LlmStreamEvent,
     };
-    use uuid::Uuid;
 
-    use super::{OpenAiCompatibleConfig, build_ai_stream_pipeline_from_provider_config};
+    use super::{OpenAiCompatibleConfig, build_ai_llm_provider_from_provider_config};
     use maohuoban_ai_infrastructure::provider::{
         DeepSeekConfig, LlmProviderOperationalConfig, LlmProviderRegistryConfig,
     };
@@ -69,25 +53,13 @@ mod tests {
 
     #[tokio::test]
     async fn missing_provider_config_uses_disabled_provider() {
-        let pipeline =
-            build_ai_stream_pipeline_from_provider_config(&LlmProviderRegistryConfig::default());
-        let events: Vec<_> = pipeline
-            .run(
-                sample_request(),
-                Uuid::new_v4(),
-                Uuid::new_v4(),
-                "测试".to_owned(),
-            )
-            .collect()
-            .await;
+        let provider =
+            build_ai_llm_provider_from_provider_config(&LlmProviderRegistryConfig::default());
+        let events: Vec<_> = provider.stream(&sample_request()).collect().await;
 
         assert!(matches!(
             events.first(),
-            Some(Ok(AiStreamEvent::MessageStarted { .. }))
-        ));
-        assert!(matches!(
-            events.get(1),
-            Some(Ok(AiStreamEvent::Error { code, .. })) if code == "ai.provider.not_configured"
+            Some(Err(error)) if error.stable_code() == "ai.provider.not_configured"
         ));
     }
 
@@ -108,8 +80,8 @@ mod tests {
                 );
         });
 
-        let pipeline =
-            build_ai_stream_pipeline_from_provider_config(&LlmProviderRegistryConfig::new(vec![
+        let provider =
+            build_ai_llm_provider_from_provider_config(&LlmProviderRegistryConfig::new(vec![
                 LlmProviderOperationalConfig::from_openai_compatible_config(
                     "test-openai-compatible",
                     "Test OpenAI Compatible",
@@ -126,25 +98,16 @@ mod tests {
                     },
                 ),
             ]));
-        let events: Vec<_> = pipeline
-            .run(
-                sample_request(),
-                Uuid::new_v4(),
-                Uuid::new_v4(),
-                "测试".to_owned(),
-            )
-            .collect()
-            .await;
+        let events: Vec<_> = provider.stream(&sample_request()).collect().await;
 
         mock.assert();
         assert!(events.iter().any(|event| {
-            matches!(event, Ok(AiStreamEvent::Delta { text }) if text == "真实")
+            matches!(event, Ok(LlmStreamEvent::Delta { content }) if content == "真实")
         }));
         assert!(events.iter().any(|event| {
             matches!(
                 event,
-                Ok(AiStreamEvent::MessageCompleted { final_text, usage, .. })
-                    if final_text == "真实 Provider" && usage.total_tokens == 5
+                Ok(LlmStreamEvent::Finish { usage, .. }) if usage.total_tokens == 5
             )
         }));
     }
@@ -167,8 +130,8 @@ mod tests {
                 );
         });
 
-        let pipeline =
-            build_ai_stream_pipeline_from_provider_config(&LlmProviderRegistryConfig::new(vec![
+        let provider =
+            build_ai_llm_provider_from_provider_config(&LlmProviderRegistryConfig::new(vec![
                 LlmProviderOperationalConfig::from_deepseek_config(
                     "deepseek",
                     "DeepSeek",
@@ -185,23 +148,14 @@ mod tests {
                     },
                 ),
             ]));
-        let events: Vec<_> = pipeline
-            .run(
-                sample_request(),
-                Uuid::new_v4(),
-                Uuid::new_v4(),
-                "测试".to_owned(),
-            )
-            .collect()
-            .await;
+        let events: Vec<_> = provider.stream(&sample_request()).collect().await;
 
         mock.assert();
         assert!(events.iter().any(|event| {
-            matches!(
-                event,
-                Ok(AiStreamEvent::MessageCompleted { final_text, usage, .. })
-                    if final_text == "DeepSeek OK" && usage.total_tokens == 5
-            )
+            matches!(event, Ok(LlmStreamEvent::Delta { content }) if content == "DeepSeek")
+        }));
+        assert!(events.iter().any(|event| {
+            matches!(event, Ok(LlmStreamEvent::Finish { usage, .. }) if usage.total_tokens == 5)
         }));
     }
 }

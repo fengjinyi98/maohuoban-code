@@ -6,6 +6,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use maohuoban_ai_domain::ai::AiAnswerVerification;
 use maohuoban_ai_domain::ai::{AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmRole};
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use serde_json::Value;
@@ -49,6 +50,7 @@ impl AgentRuntimeDiagnostics {
     pub(super) fn record_model_request_prepared(
         chat_session_id: Uuid,
         phase: &'static str,
+        round: u8,
         request: &LlmChatRequest,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
@@ -67,6 +69,7 @@ impl AgentRuntimeDiagnostics {
         }
         event = event
             .metadata("phase", serde_json::json!(phase))
+            .metadata("round", serde_json::json!(round))
             .metadata("stream", serde_json::json!(request.stream))
             .metadata("tool_count", serde_json::json!(request.tools.len()))
             .metadata(
@@ -123,6 +126,7 @@ impl AgentRuntimeDiagnostics {
         chat_session_id: Uuid,
         correlation: &LlmDiagnosticsCorrelation,
         phase: &'static str,
+        round: u8,
         tool_count: u32,
         error: &AiError,
     ) {
@@ -140,6 +144,7 @@ impl AgentRuntimeDiagnostics {
         }
         event = event
             .metadata("phase", serde_json::json!(phase))
+            .metadata("round", serde_json::json!(round))
             .metadata("tool_count", serde_json::json!(tool_count))
             .metadata("stable_code", serde_json::json!(error.stable_code()))
             .metadata("retryable", serde_json::json!(error.is_retryable()))
@@ -170,6 +175,145 @@ impl AgentRuntimeDiagnostics {
                 serde_json::json!(error.to_string().chars().count()),
             );
         diagnostics.record(event);
+    }
+
+    /// record_loop_round_completed 记录 Runtime 单轮模型阶段完成
+    pub(super) fn record_loop_round_completed(
+        chat_session_id: Uuid,
+        correlation: &LlmDiagnosticsCorrelation,
+        phase: &'static str,
+        round: u8,
+        tool_calls_count: usize,
+        finish_reason: &str,
+        usage: &maohuoban_ai_domain::ai::LlmUsage,
+        accumulated_total_tokens: u32,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        let mut event = DiagnosticEvent::new(
+            EventKind::Analytics,
+            Severity::Info,
+            "ai.runtime.loop.round.completed",
+        )
+        .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
+        for (key, value) in runtime_correlation(chat_session_id, correlation).to_metadata() {
+            event = event.metadata(key, value);
+        }
+        event = event
+            .metadata("phase", serde_json::json!(phase))
+            .metadata("round", serde_json::json!(round))
+            .metadata("tool_calls_count", serde_json::json!(tool_calls_count))
+            .metadata("finish_reason", serde_json::json!(finish_reason))
+            .metadata("input_tokens", serde_json::json!(usage.input_tokens))
+            .metadata("output_tokens", serde_json::json!(usage.output_tokens))
+            .metadata(
+                "accumulated_total_tokens",
+                serde_json::json!(accumulated_total_tokens),
+            );
+        diagnostics.record(event);
+    }
+
+    /// record_turn_terminated 记录 Runtime turn 终止原因
+    pub(super) fn record_turn_terminated(
+        chat_session_id: Uuid,
+        termination_reason: &str,
+        total_rounds: u8,
+        final_status: &str,
+        accumulated_total_tokens: u32,
+        turn_token_budget: u32,
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        diagnostics.record(
+            DiagnosticEvent::new(
+                EventKind::Analytics,
+                Severity::Info,
+                "ai.runtime.turn.terminated",
+            )
+            .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+            .metadata("chat_session_id", serde_json::json!(chat_session_id))
+            .metadata("termination_reason", serde_json::json!(termination_reason))
+            .metadata("total_rounds", serde_json::json!(total_rounds))
+            .metadata("final_status", serde_json::json!(final_status))
+            .metadata(
+                "accumulated_total_tokens",
+                serde_json::json!(accumulated_total_tokens),
+            )
+            .metadata("turn_token_budget", serde_json::json!(turn_token_budget)),
+        );
+    }
+
+    /// record_output_guard_decided 记录输出守卫裁决
+    pub(super) fn record_output_guard_decided(
+        chat_session_id: Uuid,
+        verification: &AiAnswerVerification,
+        repair_attempt: u8,
+        candidate_answer: &str,
+        successful_write_tools: &[String],
+    ) {
+        let Some(diagnostics) = Diagnostics::current() else {
+            return;
+        };
+        diagnostics.record(
+            DiagnosticEvent::new(
+                EventKind::Analytics,
+                Severity::Info,
+                "ai.runtime.output_guard.decided",
+            )
+            .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG))
+            .metadata("chat_session_id", serde_json::json!(chat_session_id))
+            .metadata(
+                "verdict",
+                serde_json::json!(if verification.is_blocked() {
+                    "blocked"
+                } else {
+                    "passed"
+                }),
+            )
+            .metadata(
+                "blocked_reason",
+                serde_json::json!(verification.blocked_reason.map(|reason| reason.as_str())),
+            )
+            .metadata("repair_attempt", serde_json::json!(repair_attempt))
+            .metadata(
+                "successful_write_tools",
+                serde_json::json!(successful_write_tools),
+            )
+            .metadata(
+                "evidence_refs",
+                serde_json::json!(build_output_guard_evidence_refs(
+                    verification,
+                    successful_write_tools,
+                )),
+            )
+            .metadata(
+                "candidate_text_length_bucket",
+                serde_json::json!(length_bucket(candidate_answer.chars().count())),
+            ),
+        );
+    }
+}
+
+fn build_output_guard_evidence_refs(
+    verification: &AiAnswerVerification,
+    successful_write_tools: &[String],
+) -> Vec<String> {
+    match verification.blocked_reason {
+        Some(maohuoban_ai_domain::ai::AiBlockedReason::UnconfirmedWrite) => {
+            vec![format!(
+                "tool_ledger.successful_write_tools:{}",
+                successful_write_tools.join(",")
+            )]
+        }
+        Some(maohuoban_ai_domain::ai::AiBlockedReason::WeakHintMisuse) => {
+            vec!["fact_package.weak_hints".to_owned()]
+        }
+        Some(maohuoban_ai_domain::ai::AiBlockedReason::UnsupportedFact) => {
+            vec!["fact_package.strong_facts".to_owned()]
+        }
+        Some(maohuoban_ai_domain::ai::AiBlockedReason::PrivacyBlocked) | None => Vec::new(),
     }
 }
 

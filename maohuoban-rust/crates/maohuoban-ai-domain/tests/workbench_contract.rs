@@ -63,6 +63,7 @@ fn workbench_contract_roundtrip_preserves_agent_context_and_capabilities() {
                 species: "cat".to_owned(),
             }],
             session_summary: Some("用户正在询问豆包近期饮食变化".to_owned()),
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: vec![MemoryEntry {
@@ -111,6 +112,7 @@ fn workbench_contract_does_not_expose_internal_fields() {
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: Vec::new(),

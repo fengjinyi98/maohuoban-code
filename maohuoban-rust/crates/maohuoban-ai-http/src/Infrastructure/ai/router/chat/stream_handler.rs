@@ -1,6 +1,8 @@
 use axum::{Json, extract::State, response::Response};
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
-use maohuoban_ai_domain::ai::{AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent};
+use maohuoban_ai_domain::ai::{
+    AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent, ContextConfirmationTaskSummary,
+};
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -17,8 +19,8 @@ use super::loaders::history_summary_loader::load_history_and_summary;
 use super::persistence::finalizer_store::HttpFinalizerStore;
 use super::responses::gated_stream_response::gated_stream_response;
 use super::responses::pet_resolution_stream_response::pet_resolution_stream_response;
-use super::responses::stream_response::provider_stream_response;
-use super::runtime_stream_bridge::{RuntimeProviderStreamInput, runtime_provider_stream};
+use super::responses::stream_response::agent_stream_response;
+use super::runtime_stream_bridge::{RuntimeAgentStreamInput, runtime_agent_stream};
 use super::turn_preparation::{
     load_pet_catalog_initial_events, persist_prepared_chat_turn, prepare_chat_turn_context,
 };
@@ -93,13 +95,14 @@ pub async fn handle_chat_stream(
         .await;
     }
 
-    provider_response_for_context(
+    agent_response_for_context(
         &state,
         &req,
-        ProviderResponseInput {
+        AgentResponseInput {
             session_id: context.session_id,
             turn_id: context.turn_id,
             message_id: context.assistant_message_id,
+            confirmation_task_id: context.confirmation_task_id,
             title: context.title,
             actor_user_id,
             target_pet: context.target_pet,
@@ -110,14 +113,15 @@ pub async fn handle_chat_stream(
     .await
 }
 
-/// ProviderResponseInput Provider 响应构建输入
+/// AgentResponseInput Agent Runtime 响应构建输入
 /// 核心职责：
-/// - 承载 stream 主链路进入 Provider 分支所需上下文
+/// - 承载 stream 主链路进入 Agent Runtime 所需上下文
 /// - 控制 helper 参数数量并保持所有权边界清晰
-struct ProviderResponseInput {
+struct AgentResponseInput {
     session_id: Uuid,
     turn_id: maohuoban_ai_domain::ai::AgentTurnId,
     message_id: Uuid,
+    confirmation_task_id: Option<Uuid>,
     title: String,
     actor_user_id: Uuid,
     target_pet: Option<AiPetDisplaySnapshot>,
@@ -125,10 +129,10 @@ struct ProviderResponseInput {
     user_message_id: Uuid,
 }
 
-async fn provider_response_for_context(
+async fn agent_response_for_context(
     state: &AiHttpState,
     req: &ChatStreamRequest,
-    input: ProviderResponseInput,
+    input: AgentResponseInput,
 ) -> Response {
     record_provider_context_started(
         input.session_id,
@@ -157,7 +161,7 @@ async fn provider_response_for_context(
     {
         Ok(result) => result,
         Err(error) => {
-            return provider_stream_response(
+            return agent_stream_response(
                 futures_util::stream::iter(vec![Err(error)]),
                 Arc::new(HttpFinalizerStore::from_state(state)),
                 input.session_id,
@@ -178,7 +182,7 @@ async fn provider_response_for_context(
     {
         Ok(entries) => entries,
         Err(error) => {
-            return provider_stream_response(
+            return agent_stream_response(
                 futures_util::stream::iter(vec![Err(error)]),
                 Arc::new(HttpFinalizerStore::from_state(state)),
                 input.session_id,
@@ -194,16 +198,24 @@ async fn provider_response_for_context(
         req.surface,
         input.target_pet.as_ref(),
         session_summary,
+        input
+            .confirmation_task_id
+            .map(|task_id| ContextConfirmationTaskSummary {
+                confirmation_task_id: task_id,
+                tool_name: "commit_pet_observation_write".to_owned(),
+                question_text: "是否确认写入这条观察记录？".to_owned(),
+            }),
         memory_entries,
         recent_conversation,
     );
-    let stream = runtime_provider_stream(
+    let stream = runtime_agent_stream(
         state,
         req,
-        RuntimeProviderStreamInput {
+        RuntimeAgentStreamInput {
             session_id: input.session_id,
             turn_id: input.turn_id,
             message_id: input.message_id,
+            confirmation_task_id: input.confirmation_task_id,
             actor_user_id: input.actor_user_id,
             target_pet: input.target_pet,
             fact_package: None,
@@ -212,7 +224,7 @@ async fn provider_response_for_context(
         },
     );
 
-    provider_stream_response(
+    agent_stream_response(
         stream,
         Arc::new(HttpFinalizerStore::from_state(state)),
         input.session_id,

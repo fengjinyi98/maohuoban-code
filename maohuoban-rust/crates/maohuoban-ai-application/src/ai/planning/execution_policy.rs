@@ -21,7 +21,7 @@ impl ExecutionPolicy {
     pub const fn allows_direct_model_answer(self) -> bool {
         matches!(
             self.task_type,
-            TaskType::DirectAnswer | TaskType::ContextAnswer
+            TaskType::DirectAnswer | TaskType::ContextAnswer | TaskType::ConfirmationCommit
         )
     }
 
@@ -37,6 +37,7 @@ impl ExecutionPolicy {
         match self.task_type {
             TaskType::DirectAnswer => "allow_direct_answer",
             TaskType::ContextAnswer => "allow_context_answer",
+            TaskType::ConfirmationCommit => "allow_confirmation_commit",
             TaskType::RejectTask => "reject",
         }
     }

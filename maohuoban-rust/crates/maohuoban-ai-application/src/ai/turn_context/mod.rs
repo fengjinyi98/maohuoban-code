@@ -11,8 +11,8 @@ pub use temporal_context_provider::TemporalContextProvider;
 
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
-    AiPetDisplaySnapshot, CapabilityCatalog, CapabilityDomain, ContextPack, ContextPetSummary,
-    MemoryEntry, MemoryPack, ModelLabel, RecentConversationPack,
+    AiPetDisplaySnapshot, CapabilityCatalog, CapabilityDomain, ContextConfirmationTaskSummary,
+    ContextPack, ContextPetSummary, MemoryEntry, MemoryPack, ModelLabel, RecentConversationPack,
 };
 
 /// TurnContextBuilder Turn 前置上下文构建器
@@ -24,6 +24,7 @@ pub struct TurnContextBuilder {
     surface: AiConversationSurface,
     target_pet: Option<AiPetDisplaySnapshot>,
     session_summary: Option<String>,
+    pending_confirmation_task: Option<ContextConfirmationTaskSummary>,
     memory_entries: Vec<MemoryEntry>,
     recent_conversation: Option<RecentConversationPack>,
 }
@@ -36,6 +37,7 @@ impl TurnContextBuilder {
             surface,
             target_pet: None,
             session_summary: None,
+            pending_confirmation_task: None,
             memory_entries: Vec::new(),
             recent_conversation: None,
         }
@@ -52,6 +54,16 @@ impl TurnContextBuilder {
     #[must_use]
     pub fn with_session_summary(mut self, summary: Option<String>) -> Self {
         self.session_summary = summary;
+        self
+    }
+
+    /// with_pending_confirmation_task 设置当前待确认任务摘要
+    #[must_use]
+    pub fn with_pending_confirmation_task(
+        mut self,
+        task: Option<ContextConfirmationTaskSummary>,
+    ) -> Self {
+        self.pending_confirmation_task = task;
         self
     }
 
@@ -146,6 +158,7 @@ impl TurnContextBuilder {
                 selected_pet,
                 authorized_pets,
                 session_summary: self.session_summary,
+                pending_confirmation_task: self.pending_confirmation_task,
             },
             memory_pack,
         }

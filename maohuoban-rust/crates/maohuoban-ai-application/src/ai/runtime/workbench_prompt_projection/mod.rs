@@ -145,6 +145,14 @@ fn write_context_pack(prompt: &mut String, workbench: &AgentSessionWorkbench) {
     if let Some(summary) = &workbench.context_pack.session_summary {
         writeln!(prompt, "- 会话摘要: {summary}。").expect("write workbench prompt");
     }
+    if let Some(task) = &workbench.context_pack.pending_confirmation_task {
+        writeln!(
+            prompt,
+            "- 当前待确认任务: {}；确认工具: {}；任务 ID: {}。",
+            task.question_text, task.tool_name, task.confirmation_task_id
+        )
+        .expect("write workbench prompt");
+    }
 }
 
 /// write_memory_pack 写入记忆摘要

@@ -6,9 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use super::{
-    AuthMiddlewareState, AuthRejection, authenticate_session_context, authenticate_user,
-};
+use super::{AuthMiddlewareState, AuthRejection, authenticate_session_context, authenticate_user};
 
 /// require_authenticated_user 认证用户中间件
 /// 核心职责：

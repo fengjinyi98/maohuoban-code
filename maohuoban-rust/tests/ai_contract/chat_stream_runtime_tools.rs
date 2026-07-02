@@ -70,6 +70,205 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     assert_runtime_tool_diagnostics(&events);
 }
 
+/// Runtime 工具链支持 followup 再发第二次工具调用后再完成回答
+#[tokio::test]
+async fn ai_chat_stream_supports_chained_runtime_tool_calls() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139023", "ios-ai-runtime-tool-chain").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+    let (first_mock, second_mock, third_mock) =
+        install_chained_runtime_tool_call_mocks(&server, pet_id);
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "先读取毛球档案，再读取当前饮食后告诉我状态",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send chained runtime tool chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+
+    first_mock.assert();
+    second_mock.assert();
+    third_mock.assert();
+    assert!(
+        text.contains("已读取毛球档案和当前饮食，当前可以继续观察精神和食欲。"),
+        "SSE should complete after chained runtime tool calls, got: {text}"
+    );
+}
+
+/// Runtime 工具链可创建观察记录确认任务，并在确认后提交真实写入
+#[tokio::test]
+async fn ai_chat_stream_prepare_and_commit_observation_write() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    let diagnostics = install_runtime_tool_test_diagnostics();
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139024", "ios-ai-runtime-write").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_observation_write")
+            .body_contains("帮我记录今天拉稀");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"今天拉稀\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let prepare_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "帮我记录今天拉稀",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send prepare observation stream request");
+
+    assert_eq!(prepare_response.status(), StatusCode::OK);
+    let prepare_text = response_text(prepare_response).await;
+    assert!(
+        prepare_mock.hits() >= 1,
+        "prepare request should hit upstream at least once"
+    );
+    let confirmation_event = sse_event_data_all(&prepare_text, "confirmation_task")
+        .into_iter()
+        .next()
+        .expect("confirmation task event");
+    let confirmation_task_id = confirmation_event["confirmation_task_id"]
+        .as_str()
+        .expect("confirmation task id")
+        .to_owned();
+
+    let confirmation_count: i64 =
+        sqlx::query_scalar(r"SELECT COUNT(*) FROM agent_confirmation_tasks WHERE id = $1::uuid")
+            .bind(Uuid::parse_str(&confirmation_task_id).expect("parse confirmation task id"))
+            .fetch_one(app.pool())
+            .await
+            .expect("count confirmation task");
+    assert_eq!(confirmation_count, 1);
+
+    let commit_tool_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .matches(runtime_initial_model_request)
+            .body_contains("\"stream\":true")
+            .body_contains("当前待确认任务")
+            .body_contains("commit_pet_observation_write")
+            .body_contains(&confirmation_task_id);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_commit\",\"function\":{\"name\":\"commit_pet_observation_write\",\"arguments\":\"{\\\"confirmation_task_id\\\":\\\""
+                    .to_owned()
+                    + &confirmation_task_id
+                    + "\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let commit_answer_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"tool_call_id\":\"call_commit\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"已为毛球写入观察记录。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let commit_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "确认写入这条观察记录",
+                "surface": "home_private",
+                "selected_pet_id": pet_id,
+                "confirmation_task_id": confirmation_task_id
+            }),
+        ))
+        .await
+        .expect("send commit observation stream request");
+
+    assert_eq!(commit_response.status(), StatusCode::OK);
+    let commit_text = response_text(commit_response).await;
+    diagnostics.flush().expect("flush diagnostics");
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let runtime_requests: Vec<String> = events
+        .iter()
+        .filter(|event| event.message == "ai.runtime.model.request.prepared")
+        .filter_map(|event| serde_json::to_string(&event.metadata).ok())
+        .collect();
+    assert!(
+        commit_tool_mock.hits() >= 1,
+        "commit tool request should hit upstream at least once; runtime requests: {runtime_requests:?}"
+    );
+    assert!(
+        commit_answer_mock.hits() >= 1,
+        "commit answer followup request should hit upstream at least once; runtime requests: {runtime_requests:?}"
+    );
+    assert!(commit_text.contains("已为毛球写入观察记录。"));
+
+    let answered_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM agent_confirmation_tasks WHERE id = $1::uuid AND status = 'answered'"
+    )
+    .bind(Uuid::parse_str(&confirmation_task_id).expect("parse confirmation task id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count answered confirmation task");
+    assert_eq!(answered_count, 1);
+
+    let event_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM pet_events WHERE pet_id = $1::uuid AND event_subkind = 'agent_observation_note'"
+    )
+    .bind(Uuid::parse_str(pet_id).expect("parse pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count observation event");
+    assert_eq!(event_count, 1);
+}
+
 /// Runtime 工具进度在二次模型完成前通过 SSE 到达
 #[tokio::test]
 async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finishes() {
@@ -502,10 +701,63 @@ fn install_runtime_tool_call_mocks_with_followup_delay<'a>(
     (first_mock, second_mock)
 }
 
+fn install_chained_runtime_tool_call_mocks<'a>(
+    server: &'a MockServer,
+    pet_id: &str,
+) -> (Mock<'a>, Mock<'a>, Mock<'a>) {
+    let first_body = runtime_tool_call_response_body(pet_id, "load_pet_identity_context");
+    let second_body =
+        runtime_tool_call_response_body_with_id(pet_id, "load_pet_current_diet_context", "call_2");
+    let first_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .matches(runtime_first_model_request)
+            .body_contains("\"stream\":true")
+            .body_contains("\"tools\"")
+            .body_contains("load_pet_identity_context");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(first_body);
+    });
+    let second_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .matches(runtime_followup_model_request)
+            .body_contains("\"stream\":true")
+            .body_contains("\"tool_call_id\":\"call_1\"")
+            .body_contains("load_pet_current_diet_context");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(second_body);
+    });
+    let third_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .matches(runtime_second_followup_model_request)
+            .body_contains("\"stream\":true")
+            .body_contains("\"tool_call_id\":\"call_2\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(runtime_tool_chain_followup_response_body());
+    });
+    (first_mock, second_mock, third_mock)
+}
+
 fn runtime_tool_call_response_body(pet_id: &str, tool_name: &str) -> String {
+    runtime_tool_call_response_body_with_id(pet_id, tool_name, "call_1")
+}
+
+fn runtime_tool_call_response_body_with_id(
+    pet_id: &str,
+    tool_name: &str,
+    tool_call_id: &str,
+) -> String {
     let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
     format!(
-        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":{tool_name:?},\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":{tool_call_id:?},\"function\":{{\"name\":{tool_name:?},\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
          data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
          data: [DONE]\n\n"
     )
@@ -517,6 +769,12 @@ fn runtime_tool_followup_response_body() -> &'static str {
      data: [DONE]\n\n"
 }
 
+fn runtime_tool_chain_followup_response_body() -> &'static str {
+    "data: {\"choices\":[{\"delta\":{\"content\":\"已读取毛球档案和当前饮食，当前可以继续观察精神和食欲。\"}}]}\n\n\
+     data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":14,\"completion_tokens\":10,\"total_tokens\":24}}\n\n\
+     data: [DONE]\n\n"
+}
+
 fn runtime_first_model_request(req: &HttpMockRequest) -> bool {
     let body = request_body(req);
     body.contains("\"tools\"")
@@ -524,9 +782,19 @@ fn runtime_first_model_request(req: &HttpMockRequest) -> bool {
         && !body.contains("\"role\":\"tool\"")
 }
 
+fn runtime_initial_model_request(req: &HttpMockRequest) -> bool {
+    let body = request_body(req);
+    !body.contains("\"role\":\"tool\"") && !body.contains("\"tool_calls\"")
+}
+
 fn runtime_followup_model_request(req: &HttpMockRequest) -> bool {
     let body = request_body(req);
     body.contains("\"role\":\"tool\"") && body.contains("\"tool_call_id\":\"call_1\"")
+}
+
+fn runtime_second_followup_model_request(req: &HttpMockRequest) -> bool {
+    let body = request_body(req);
+    body.contains("\"role\":\"tool\"") && body.contains("\"tool_call_id\":\"call_2\"")
 }
 
 fn request_body(req: &HttpMockRequest) -> String {
@@ -555,6 +823,7 @@ fn test_gateway_context_with_audits(audits: Arc<Mutex<Vec<ToolExecutionAudit>>>)
             session_id: Some(Uuid::new_v4()),
             turn_id: Some(Uuid::new_v4()),
             message_id: Some(Uuid::new_v4()),
+            confirmation_task_id: None,
         },
         gateway_observer: Some(Arc::new(CapturingGatewayObserver { audits })),
     }

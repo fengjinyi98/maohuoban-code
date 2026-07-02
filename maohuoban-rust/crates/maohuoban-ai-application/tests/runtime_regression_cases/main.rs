@@ -302,6 +302,7 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: Vec::new(),

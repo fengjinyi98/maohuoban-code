@@ -17,7 +17,7 @@ use super::super::super::diagnostics::{
     record_chat_finalizer_completed, record_chat_provider_error, record_chat_stream_event_emitted,
 };
 
-const EMPTY_MODEL_OUTPUT_FALLBACK_TEXT: &str = "暂时无法获取回答，请稍后重试。";
+const EMPTY_MODEL_OUTPUT_FAILURE_TEXT: &str = "暂时无法获取回答，请稍后重试。";
 
 /// StreamFinalizerContext 流式 Finalizer 上下文
 /// 核心职责：
@@ -34,7 +34,7 @@ struct StreamFinalizerContext {
     engine_mode: &'static str,
 }
 
-pub(crate) fn provider_stream_response<S>(
+pub(crate) fn agent_stream_response<S>(
     stream: S,
     finalizer_store: Arc<dyn FinalizerStore>,
     session_id: Uuid,
@@ -116,7 +116,7 @@ async fn finalize_error_if_needed(event: &AiStreamEvent, context: &StreamFinaliz
         *retryable,
         safe_fallback_text.as_deref(),
     );
-    let safe_text = safe_fallback_text
+    let safe_failure_text = safe_fallback_text
         .clone()
         .unwrap_or_else(|| "暂时无法获取回答，请稍后重试。".to_owned());
     let receipt = TurnFinalizer::new(context.finalizer_store.clone())
@@ -128,7 +128,7 @@ async fn finalize_error_if_needed(event: &AiStreamEvent, context: &StreamFinaliz
             status: AiSessionTurnStatus::Failed,
             final_text: None,
             content_blocks: Vec::new(),
-            safe_failure_text: Some(safe_text),
+            safe_failure_text: Some(safe_failure_text),
             failure_code: Some(code.clone()),
             retryable: Some(*retryable),
             provider: Some(context.engine_mode.to_owned()),
@@ -251,10 +251,10 @@ fn normalize_stream_completion_event(event: AiStreamEvent) -> AiStreamEvent {
     if final_text.trim().is_empty() {
         return AiStreamEvent::Error {
             code: "ai.provider.invalid_response".to_owned(),
-            message: EMPTY_MODEL_OUTPUT_FALLBACK_TEXT.to_owned(),
+            message: EMPTY_MODEL_OUTPUT_FAILURE_TEXT.to_owned(),
             retryable: true,
             blocked_reason: None,
-            safe_fallback_text: Some(EMPTY_MODEL_OUTPUT_FALLBACK_TEXT.to_owned()),
+            safe_fallback_text: Some(EMPTY_MODEL_OUTPUT_FAILURE_TEXT.to_owned()),
         };
     }
 

@@ -512,6 +512,7 @@ fn contract_workbench_with_household_memory(household_id: Uuid) -> AgentSessionW
             }),
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: vec![MemoryEntry {

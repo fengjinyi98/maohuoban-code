@@ -1,7 +1,7 @@
 // safety Provider 安全与拦截场景
 // 核心职责：
 // - 验证 Provider 不安全回答被输出守卫拦截
-// - 验证 prompt_injection 被 gate 拦截并写入测试数据库日志
+// - 验证旧 prompt-injection 词表命中文案不再由 gate 拦截
 
 use axum::http::StatusCode;
 use httpmock::MockServer;
@@ -99,9 +99,9 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     );
 }
 
-/// `prompt_injection` 请求被 gate 拦截，返回特定安全文案
+/// 旧 prompt-injection 词表命中文案不再由 gate 拦截，运行时应继续进入主链
 #[tokio::test]
-async fn ai_chat_stream_blocks_prompt_injection_with_distinct_message() {
+async fn ai_chat_stream_allows_ignore_instructions_like_text_to_enter_runtime() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let access_token = login_and_get_token(&app, "13800139030", "ios-ai-blocked-pi").await;
@@ -119,30 +119,22 @@ async fn ai_chat_stream_blocks_prompt_injection_with_distinct_message() {
             }),
         ))
         .await
-        .expect("send prompt injection stream request");
+        .expect("send prompt injection-like stream request");
 
     assert_eq!(response.status(), StatusCode::OK);
     let text = response_text(response).await;
 
     assert!(
-        !text.contains("event: answer_delta"),
-        "blocked path must not call provider, got: {text}"
-    );
-    assert!(
-        text.contains("操作指令"),
-        "SSE should contain prompt_injection specific message, got: {text}"
-    );
-    assert!(
-        !text.contains("回答范围"),
-        "SSE should NOT contain cost_abuse message, got: {text}"
-    );
-    assert!(
         text.contains("event: message_started"),
-        "SSE should contain message_started, got: {text}"
+        "runtime path should still emit message_started, got: {text}"
     );
     assert!(
-        text.contains("event: message_completed"),
-        "SSE should contain message_completed, got: {text}"
+        text.contains("event: error"),
+        "provider not configured path should surface runtime error event, got: {text}"
+    );
+    assert!(
+        !text.contains("操作指令") && !text.contains("回答范围"),
+        "gate-specific canned messages should be retired, got: {text}"
     );
 
     let started = sse_event_data(&text, "message_started");
@@ -164,8 +156,8 @@ async fn ai_chat_stream_blocks_prompt_injection_with_distinct_message() {
     .await
     .expect("read latest gate log");
 
-    assert_eq!(row.0, "prompt_injection");
-    assert_eq!(row.1, "blocked");
+    assert_eq!(row.0, "allowed");
+    assert_eq!(row.1, "enter_workbench");
     assert!(!row.2);
-    assert!(row.3.is_some());
+    assert!(row.3.is_none());
 }

@@ -15,7 +15,6 @@ use diagnostics::{
 use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider};
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
-use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 use maohuoban_ai_http::ai::router::{
     AiHttpState, AiPetContextProviders, build_ai_chat_router, build_ai_history_router,
     build_ai_router_state,
@@ -32,9 +31,7 @@ use maohuoban_auth_domain::auth::{AuthResult, AuthUser};
 use maohuoban_auth_http::auth::{
     build_auth_public_router, build_auth_session_protected_router,
     build_auth_user_protected_router,
-    extractor::{
-        AuthMiddlewareState, require_authenticated_session, require_authenticated_user,
-    },
+    extractor::{AuthMiddlewareState, require_authenticated_session, require_authenticated_user},
 };
 use maohuoban_auth_infrastructure::{
     postgres::PostgresAuthRepository,
@@ -49,7 +46,8 @@ use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::{
-    PostgresDietRepository, PostgresFoodInventoryRepository, PostgresPetRepository,
+    PostgresAgentConfirmationTaskRepository, PostgresDietRepository,
+    PostgresFoodInventoryRepository, PostgresPetRepository,
 };
 use maohuoban_profile_application::profile::ProfileService;
 use maohuoban_profile_http::profile::build_profile_router;
@@ -67,7 +65,7 @@ use thiserror::Error;
 use crate::infrastructure::ai::{
     PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
     PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
-    PetServiceIdentityFactProvider,
+    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
 };
 
 /// `BackendConfig` 后端启动配置
@@ -209,6 +207,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let pet_repository = PostgresPetRepository::new(pool.clone());
     let food_inventory_repository = PostgresFoodInventoryRepository::new(pool.clone());
     let diet_repository = PostgresDietRepository::new(pool.clone());
+    let confirmation_task_repository = PostgresAgentConfirmationTaskRepository::new(pool.clone());
     let pet_service = Arc::new(PetService::new(
         Arc::new(pet_repository.clone()),
         Arc::new(pet_repository.clone()),
@@ -240,26 +239,23 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
             chat_turn_transaction: ai_chat_turn_transaction,
         },
         &pool,
+        Arc::new(confirmation_task_repository),
     );
     let auth_middleware_state = AuthMiddlewareState::new(auth_service.clone());
     let auth_public_routes =
         build_auth_public_router(auth_service.clone(), profile_service.clone());
-    let auth_user_protected_routes = build_auth_user_protected_router(
-        auth_service.clone(),
-        profile_service.clone(),
-    )
-    .route_layer(middleware::from_fn_with_state(
-        auth_middleware_state.clone(),
-        require_authenticated_user,
-    ));
-    let auth_session_protected_routes = build_auth_session_protected_router(
-        auth_service.clone(),
-        profile_service.clone(),
-    )
-    .route_layer(middleware::from_fn_with_state(
-        auth_middleware_state.clone(),
-        require_authenticated_session,
-    ));
+    let auth_user_protected_routes =
+        build_auth_user_protected_router(auth_service.clone(), profile_service.clone())
+            .route_layer(middleware::from_fn_with_state(
+                auth_middleware_state.clone(),
+                require_authenticated_user,
+            ));
+    let auth_session_protected_routes =
+        build_auth_session_protected_router(auth_service.clone(), profile_service.clone())
+            .route_layer(middleware::from_fn_with_state(
+                auth_middleware_state.clone(),
+                require_authenticated_session,
+            ));
     let protected_user_routes = build_home_router(home_service)
         .merge(build_profile_router(profile_service.clone()))
         .merge(build_pet_router(pet_service))
@@ -276,12 +272,10 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         .route_layer(middleware::from_fn(
             maohuoban_ai_http::ai::router::snapshot_ai_chat_request,
         ));
-    let ai_history_routes = build_ai_history_router().route_layer(
-        middleware::from_fn_with_state(
-            auth_middleware_state.clone(),
-            require_authenticated_user,
-        ),
-    );
+    let ai_history_routes = build_ai_history_router().route_layer(middleware::from_fn_with_state(
+        auth_middleware_state.clone(),
+        require_authenticated_user,
+    ));
     let mut router = auth_public_routes
         .merge(auth_user_protected_routes)
         .merge(auth_session_protected_routes)
@@ -328,7 +322,7 @@ struct AiHttpRepositories {
 
 /// `build_ai_http_state` 装配 AI HTTP 状态
 /// 核心职责：
-/// - 构建 LLM stream pipeline 和宠物上下文 provider
+/// - 构建 LLM Provider 和宠物上下文 provider
 /// - 保持 `build_backend_app` 的服务装配流程可读
 fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
@@ -336,16 +330,15 @@ fn build_ai_http_state(
     pet_service: Arc<PetService>,
     repos: AiHttpRepositories,
     ai_session_pool: &sqlx::PgPool,
+    confirmation_tasks: Arc<dyn maohuoban_pet_application::pet::AgentConfirmationTaskRepository>,
 ) -> AiHttpState {
     let ai_llm_provider =
         infrastructure::ai::build_ai_llm_provider_from_provider_config(provider_config);
-    let ai_stream_pipeline = Arc::new(AiStreamPipeline::from_provider(ai_llm_provider.clone()));
     let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
         pet_service.clone(),
     )));
 
     AiHttpState {
-        stream_pipeline: ai_stream_pipeline,
         llm_provider: ai_llm_provider,
         runtime_engine_mode,
         session_repository: Arc::new(repos.session_repository)
@@ -368,9 +361,17 @@ fn build_ai_http_state(
                 pet_service.clone(),
             )),
             Arc::new(PetServiceDietConfirmationCandidateProvider::new(
-                pet_service,
+                pet_service.clone(),
+            )),
+            Arc::new(PetServiceObservationWriteProvider::new(
+                pet_service.clone(),
+                confirmation_tasks.clone(),
             )),
         ),
+        observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
+            pet_service.clone(),
+            confirmation_tasks,
+        )),
     }
 }
 

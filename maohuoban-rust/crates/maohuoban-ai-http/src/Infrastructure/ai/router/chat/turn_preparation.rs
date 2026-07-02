@@ -27,6 +27,7 @@ pub(super) struct ChatTurnContext {
     pub(super) turn_id: AgentTurnId,
     pub(super) user_message_id: Uuid,
     pub(super) assistant_message_id: Uuid,
+    pub(super) confirmation_task_id: Option<Uuid>,
     pub(super) title: String,
     pub(super) gate_decision: AiGateDecision,
     pub(super) pet_resolution: Option<AiPetResolution>,
@@ -44,8 +45,15 @@ pub(super) async fn prepare_chat_turn_context(
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
 ) -> AiResult<ChatTurnContext> {
+    let requested_session =
+        validate_requested_session(state, req.chat_session_id, actor_user_id).await?;
     let gate_decision = AiIntentGate::new().classify(&req.message);
-    let effective_selected_pet_id = effective_selected_pet_id(state, req, actor_user_id).await;
+    if !gate_decision.allow_processing() {
+        return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
+            gate_decision.reason.clone(),
+        ));
+    }
+    let effective_selected_pet_id = effective_selected_pet_id(req, requested_session.as_ref());
     let pet_resolution = resolve_target_pet(
         state,
         req,
@@ -60,10 +68,15 @@ pub(super) async fn prepare_chat_turn_context(
     let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
 
     Ok(ChatTurnContext {
-        session_id: req.chat_session_id.unwrap_or_else(Uuid::new_v4),
+        session_id: requested_session
+            .as_ref()
+            .map(|session| session.id)
+            .or(req.chat_session_id)
+            .unwrap_or_else(Uuid::new_v4),
         turn_id: AgentTurnId::new(),
         user_message_id: Uuid::new_v4(),
         assistant_message_id: Uuid::new_v4(),
+        confirmation_task_id: req.confirmation_task_id,
         title: build_title(&req.message),
         gate_decision,
         pet_resolution,
@@ -196,26 +209,33 @@ pub(super) async fn load_pet_catalog_initial_events(
 /// 核心职责：
 /// - 优先使用请求显式 selected_pet_id
 /// - 历史会话继续对话时从归属当前用户的 session 恢复 primary_pet_id
-async fn effective_selected_pet_id(
-    state: &AiHttpState,
+fn effective_selected_pet_id(
     req: &ChatStreamRequest,
-    actor_user_id: Uuid,
+    requested_session: Option<&AiChatSession>,
 ) -> Option<Uuid> {
     if req.selected_pet_id.is_some() {
         return req.selected_pet_id;
     }
+    requested_session.and_then(|session| session.primary_pet_id)
+}
 
-    let session_id = req.chat_session_id?;
+async fn validate_requested_session(
+    state: &AiHttpState,
+    chat_session_id: Option<Uuid>,
+    actor_user_id: Uuid,
+) -> AiResult<Option<AiChatSession>> {
+    let Some(session_id) = chat_session_id else {
+        return Ok(None);
+    };
+
     let session = state
         .session_repository
         .get_session(session_id)
-        .await
-        .ok()??;
-    if session.actor_user_id == actor_user_id {
-        session.primary_pet_id
-    } else {
-        None
-    }
+        .await?
+        .filter(|session| session.actor_user_id == actor_user_id)
+        .ok_or(maohuoban_ai_domain::ai::AiError::Unauthorized)?;
+
+    Ok(Some(session))
 }
 
 /// resolve_target_pet 解析请求目标宠物

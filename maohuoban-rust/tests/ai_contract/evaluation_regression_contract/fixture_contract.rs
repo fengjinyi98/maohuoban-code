@@ -9,10 +9,16 @@ use super::{
     parse_replay_case,
 };
 
+const AI_HTTP_ROUTER_SOURCE: &str =
+    include_str!("../../../crates/maohuoban-ai-http/src/Infrastructure/ai/router/mod.rs");
+const AI_APPLICATION_STREAM_SOURCE: &str =
+    include_str!("../../../crates/maohuoban-ai-application/src/ai/stream/mod.rs");
+const ROOT_APP_SOURCE: &str = include_str!("../../../src/lib.rs");
+
 #[test]
 fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
     let cases = parse_eval_cases();
-    assert_eq!(cases.len(), 11);
+    assert_eq!(cases.len(), 18);
 
     let names = cases
         .iter()
@@ -28,10 +34,17 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
             "emotional_pet_context_miss",
             "app_support_edit_pet_profile",
             "off_topic_weather_chat",
-            "prompt_injection_ignore_instructions",
-            "cost_abuse_write_novel",
+            "gate_misfire_ignore_instructions_text",
+            "gate_misfire_write_novel_text",
             "provider_not_configured_pet_care",
             "unauthorized_pet_selected",
+            "misfire_ignore_litter_box",
+            "misfire_train_with_instruction",
+            "misfire_dog_license_permission",
+            "multi_hop_food_after_arrival",
+            "redline_prompt_injection_no_secret",
+            "redline_unconfirmed_weight_write",
+            "redline_system_prompt_extraction",
         ]
     );
 
@@ -39,7 +52,7 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
         .iter()
         .map(|case| case.expected_workbench.as_str())
         .collect::<BTreeSet<_>>();
-    assert_eq!(workbench_kinds, BTreeSet::from(["blocked", "runtime"]));
+    assert_eq!(workbench_kinds, BTreeSet::from(["runtime"]));
 
     let terminal_states = cases
         .iter()
@@ -47,7 +60,7 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
         .collect::<BTreeSet<_>>();
     assert_eq!(
         terminal_states,
-        BTreeSet::from(["blocked", "completed", "failed"])
+        BTreeSet::from(["awaiting_confirmation", "completed", "failed"])
     );
 
     assert!(
@@ -58,10 +71,7 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
         cases.iter().any(|case| case.expected_enters_workbench),
         "fixture must contain workbench-entering cases"
     );
-    assert!(
-        cases.iter().any(|case| !case.expected_enters_workbench),
-        "fixture must contain hard-blocked cases"
-    );
+    assert!(cases.iter().all(|case| case.expected_enters_workbench));
 
     for case in &cases {
         assert_eq!(case.surface, "home_private");
@@ -98,6 +108,56 @@ fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
             case.expected_pet_resolution.as_deref() == Some("unauthorized_or_not_found")
         }),
         "fixture must contain unauthorized pet case"
+    );
+
+    let groups = cases
+        .iter()
+        .filter_map(|case| case.eval_group.as_deref())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(groups, BTreeSet::from(["misfire", "multi_hop", "redline"]));
+    assert!(
+        cases.iter().any(|case| case
+            .expected_min_tool_rounds
+            .is_some_and(|rounds| rounds >= 2)),
+        "fixture must contain multi-hop tool round case"
+    );
+    assert!(
+        cases
+            .iter()
+            .any(|case| case.expected_tool_policy_decision.as_deref()
+                == Some("requires_confirmation")),
+        "fixture must contain unconfirmed write confirmation case"
+    );
+    assert!(
+        cases
+            .iter()
+            .filter(|case| {
+                case.expected_tool_policy_decision.as_deref() == Some("requires_confirmation")
+            })
+            .all(|case| case.expected_terminal_state == "awaiting_confirmation"),
+        "requires_confirmation eval cases must stop at awaiting_confirmation"
+    );
+    assert!(
+        cases
+            .iter()
+            .any(|case| case.expected_forbidden_tool_result == Some(true)),
+        "fixture must contain redline forbidden tool result case"
+    );
+}
+
+#[test]
+fn runtime_chat_state_does_not_keep_legacy_stream_pipeline() {
+    assert!(
+        !AI_HTTP_ROUTER_SOURCE.contains("stream_pipeline"),
+        "AiHttpState must not carry the retired AiStreamPipeline path"
+    );
+    assert!(
+        !ROOT_APP_SOURCE.contains("AiStreamPipeline::from_provider"),
+        "root app assembly must wire chat through Agent Runtime provider stream only"
+    );
+    assert!(
+        !AI_APPLICATION_STREAM_SOURCE.contains("struct AiStreamPipeline"),
+        "application layer must not keep the retired provider-to-SSE pipeline"
     );
 }
 

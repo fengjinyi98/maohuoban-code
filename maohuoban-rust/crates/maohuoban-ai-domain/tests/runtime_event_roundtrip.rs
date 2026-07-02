@@ -4,9 +4,9 @@
 // - 确保 Runtime 内部事件不依赖 HTTP/SSE 外部协议
 
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface,
-    InternalTurnEvent, LlmFinishReason, LlmUsage, LoopStep, ModelLabel, ProviderErrorCategory,
-    UserVisibleTurnEvent,
+    AgentEvent, AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AgentTurnTerminationReason,
+    AiConversationSurface, InternalTurnEvent, LlmFinishReason, LlmUsage, LoopStep, ModelLabel,
+    ProviderErrorCategory, UserVisibleTurnEvent,
 };
 use uuid::Uuid;
 
@@ -113,6 +113,7 @@ fn runtime_loop_step_roundtrip_preserves_failed_done_error_code() {
         message_id: Uuid::new_v4(),
         final_text: String::new(),
         status: AgentTurnStatus::Failed,
+        termination_reason: AgentTurnTerminationReason::OutputGuardFailed,
         error_code: Some("ai.output_guard.unrepaired".to_owned()),
     };
 
@@ -155,6 +156,7 @@ fn runtime_event_roundtrip_preserves_frozen_event_names() {
             message_id,
             final_text: "毛球今天精神不错".to_owned(),
             status: AgentTurnStatus::Completed,
+            termination_reason: None,
         },
     ];
 

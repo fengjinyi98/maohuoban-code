@@ -82,6 +82,47 @@ struct ConfirmationTool {
     execute_count: Arc<AtomicUsize>,
 }
 
+struct CommitObservationTool;
+
+#[async_trait]
+impl AiToolDefinition for CommitObservationTool {
+    fn name(&self) -> &'static str {
+        "commit_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "确认后提交宠物观察记录"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "confirmation_task_id": { "type": "string" }
+            },
+            "required": ["confirmation_task_id"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_commit".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(vec![])
+    }
+}
+
 #[async_trait]
 impl AiToolDefinition for ConfirmationTool {
     fn name(&self) -> &'static str {
@@ -188,4 +229,28 @@ async fn policy_guard_denies_unknown_or_unauthorized() {
     assert!(!unauthorized.is_success());
     assert!(unauthorized.facts().is_empty());
     assert!(unauthorized.citations().is_empty());
+}
+
+#[tokio::test]
+async fn policy_guard_denies_commit_without_matching_confirmation_task() {
+    let mut registry = ToolRegistry::new();
+    registry.register(CommitObservationTool);
+    let pet_id = Uuid::new_v4();
+    let mut ctx = test_tool_context(pet_id);
+    ctx.gateway_context.confirmation_task_id = Some("confirmed-task-1".to_owned());
+
+    let result = registry
+        .call(
+            "commit_pet_observation_write",
+            &ctx,
+            &json!({ "confirmation_task_id": "other-task" }),
+        )
+        .await;
+
+    assert!(!result.is_success());
+    assert!(
+        result
+            .denied_reason()
+            .is_some_and(|reason| reason.contains("confirmation task"))
+    );
 }

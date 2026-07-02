@@ -13,8 +13,14 @@ impl TaskClassifier {
         if !input.gate_decision.allow_processing() {
             return TaskType::RejectTask;
         }
+        if input.confirmation_task_present && input.write_tool_visible {
+            return TaskType::ConfirmationCommit;
+        }
 
-        Self::classify_runtime(input.selected_pet_present || input.gate_decision.context_loaded)
+        Self::classify_runtime(
+            input.selected_pet_present || input.gate_decision.context_loaded,
+            input.confirmation_task_present,
+        )
     }
 
     /// classify_runtime 根据 Runtime 可见信号分类任务
@@ -22,7 +28,13 @@ impl TaskClassifier {
     /// - 只区分通用模型回答和已授权上下文模型回答
     /// - 保持入口 Intent Gate 作为安全裁决来源
     #[must_use]
-    pub fn classify_runtime(selected_pet_present: bool) -> TaskType {
+    pub fn classify_runtime(
+        selected_pet_present: bool,
+        confirmation_task_present: bool,
+    ) -> TaskType {
+        if confirmation_task_present {
+            return TaskType::ConfirmationCommit;
+        }
         if selected_pet_present {
             return TaskType::ContextAnswer;
         }

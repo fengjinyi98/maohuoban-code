@@ -11,7 +11,7 @@ use maohuoban_ai_application::ai::tools::{
 };
 use maohuoban_ai_domain::ai::{
     AiCitation, AiCitationSourceKind, AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate,
-    LlmToolCall, ToolExecutionAudit, ToolProgressText, Toolset,
+    AiToolConfirmationRequirement, LlmToolCall, ToolExecutionAudit, ToolProgressText, Toolset,
 };
 use serde_json::json;
 use std::sync::{Arc, Mutex};
@@ -188,6 +188,96 @@ impl AiToolDefinition for HighRiskWriteTool {
     }
 }
 
+/// `PrepareObservationWriteTool` 测试用写提案工具
+struct PrepareObservationWriteTool;
+
+#[async_trait]
+impl AiToolDefinition for PrepareObservationWriteTool {
+    fn name(&self) -> &'static str {
+        "prepare_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "准备写入宠物观察记录"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "pet_id": { "type": "string", "format": "uuid" },
+                "note": { "type": "string" }
+            },
+            "required": ["pet_id", "note"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_prepare".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: true,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::requires_confirmation(AiToolConfirmationRequirement {
+            confirmation_task_id: "confirmation-prepare".to_owned(),
+            tool_name: "prepare_pet_observation_write".to_owned(),
+            question_text: "确认写入观察记录？".to_owned(),
+            args: json!({ "note": "今天拉稀" }),
+        })
+    }
+}
+
+/// `CommitObservationWriteTool` 测试用确认后提交工具
+struct CommitObservationWriteTool;
+
+#[async_trait]
+impl AiToolDefinition for CommitObservationWriteTool {
+    fn name(&self) -> &'static str {
+        "commit_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "确认后提交宠物观察记录写入"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "confirmation_task_id": { "type": "string" }
+            },
+            "required": ["confirmation_task_id"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_commit".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(vec![])
+    }
+}
+
 #[tokio::test]
 async fn tool_registry_rejects_unknown_tool() {
     let registry = ToolRegistry::new();
@@ -212,6 +302,42 @@ async fn registered_tool_executes_successfully() {
         .await;
     assert!(result.is_success());
     assert!(result.denied_reason().is_none());
+}
+
+#[tokio::test]
+async fn prepare_write_tool_returns_requires_confirmation() {
+    let mut registry = ToolRegistry::new();
+    registry.register(PrepareObservationWriteTool);
+    let pet_id = Uuid::new_v4();
+    let ctx = test_tool_context(pet_id);
+
+    let result = registry
+        .call(
+            "prepare_pet_observation_write",
+            &ctx,
+            &json!({ "pet_id": pet_id.to_string(), "note": "今天拉稀" }),
+        )
+        .await;
+
+    assert!(result.confirmation().is_some());
+}
+
+#[tokio::test]
+async fn commit_write_tool_without_confirmation_is_rejected() {
+    let mut registry = ToolRegistry::new();
+    registry.register(CommitObservationWriteTool);
+    let pet_id = Uuid::new_v4();
+    let ctx = test_tool_context(pet_id);
+
+    let result = registry
+        .call(
+            "commit_pet_observation_write",
+            &ctx,
+            &json!({ "confirmation_task_id": "missing-confirmation" }),
+        )
+        .await;
+
+    assert!(!result.is_success());
 }
 
 #[tokio::test]

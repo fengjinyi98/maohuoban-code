@@ -244,6 +244,47 @@ impl AiToolDefinition for WriteObservationTool {
     }
 }
 
+struct CommitObservationWriteTool;
+
+#[async_trait]
+impl AiToolDefinition for CommitObservationWriteTool {
+    fn name(&self) -> &'static str {
+        "commit_pet_observation_write"
+    }
+
+    fn description(&self) -> &'static str {
+        "确认后提交宠物观察记录写入"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "confirmation_task_id": { "type": "string" }
+            },
+            "required": ["confirmation_task_id"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.observation.write_commit".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["observation".to_owned()],
+            toolset: Toolset::Confirmation,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(Vec::new())
+    }
+}
+
 #[derive(Clone)]
 struct ToolCallProvider {
     requests: Arc<Mutex<Vec<LlmChatRequest>>>,
@@ -396,6 +437,116 @@ async fn write_tool_is_visible_without_keyword_workflow_skill() {
     assert!(
         !workbench_prompt.contains("workflow.write_requires_confirmation"),
         "runtime must not inject write workflow skill from user text: {workbench_prompt}"
+    );
+}
+
+#[tokio::test]
+async fn confirmation_task_summary_is_projected_into_workbench_prompt() {
+    let provider = CapturingProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(WriteObservationTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        test_tool_context(Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id")),
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::ConfirmationTask,
+        engine,
+    );
+
+    let mut workbench = private_pet_context_workbench();
+    workbench.context_pack.pending_confirmation_task =
+        Some(maohuoban_ai_domain::ai::ContextConfirmationTaskSummary {
+            confirmation_task_id: Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+                .expect("task id"),
+            tool_name: "commit_pet_observation_write".to_owned(),
+            question_text: "是否确认写入这条观察记录？".to_owned(),
+        });
+
+    session
+        .prompt_with_workbench("确认写入这条观察记录", workbench)
+        .await
+        .expect("prompt confirmation workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(workbench_prompt.contains("当前待确认任务"));
+    assert!(workbench_prompt.contains("commit_pet_observation_write"));
+    assert!(workbench_prompt.contains("是否确认写入这条观察记录？"));
+}
+
+#[tokio::test]
+async fn confirmation_task_workbench_selects_commit_task_type_in_planning_diagnostics() {
+    let provider = CapturingProvider::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(CommitObservationWriteTool);
+    let engine = AgentRuntimeLoopEngine::new(
+        Arc::new(provider.clone()),
+        Arc::new(registry),
+        AiToolContext {
+            actor_user_id: Uuid::new_v4(),
+            authorized_pet_id: Uuid::new_v4(),
+            gateway_context: ToolGatewayExecutionContext {
+                session_id: None,
+                turn_id: None,
+                message_id: None,
+                confirmation_task_id: Some(
+                    Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+                        .expect("task id")
+                        .to_string(),
+                ),
+            },
+            gateway_observer: None,
+        },
+        None,
+    );
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::ConfirmationTask,
+        engine,
+    );
+
+    let mut workbench = private_pet_context_workbench();
+    workbench.context_pack.pending_confirmation_task =
+        Some(maohuoban_ai_domain::ai::ContextConfirmationTaskSummary {
+            confirmation_task_id: Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+                .expect("task id"),
+            tool_name: "commit_pet_observation_write".to_owned(),
+            question_text: "是否确认写入这条观察记录？".to_owned(),
+        });
+
+    session
+        .prompt_with_workbench("确认写入这条观察记录", workbench)
+        .await
+        .expect("prompt confirmation workbench");
+
+    let requests = provider.take_requests();
+    let workbench_prompt = requests[0]
+        .messages
+        .iter()
+        .find(|message| message.content.contains("AgentSession Workbench"))
+        .expect("workbench prompt should be present")
+        .content
+        .as_str();
+
+    assert!(workbench_prompt.contains("当前待确认任务"));
+    assert!(
+        requests[0]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "commit_pet_observation_write")
     );
 }
 
@@ -666,6 +817,7 @@ fn public_pet_domain_workbench() -> AgentSessionWorkbench {
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: Vec::new(),

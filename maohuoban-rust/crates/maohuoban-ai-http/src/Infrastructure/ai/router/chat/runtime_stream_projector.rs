@@ -116,6 +116,7 @@ impl AgentEventSseProjector {
                 message_id,
                 final_text,
                 status,
+                ..
             } => Self::project_turn_finished(turn_id, message_id, final_text, status),
             AgentEvent::ProviderError {
                 turn_id,
@@ -341,6 +342,7 @@ impl AgentEventSseProjector {
         AiAnswerVerificationContext {
             identity_context_tool_required: self.identity_context_tool_required,
             identity_context_tool_succeeded: self.identity_context_tool_succeeded,
+            successful_write_tools: Vec::new(),
         }
     }
 

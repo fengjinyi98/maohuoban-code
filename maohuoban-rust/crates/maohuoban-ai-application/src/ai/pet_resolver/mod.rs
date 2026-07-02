@@ -59,10 +59,6 @@ impl AiPetResolver {
         // 无 selected pet
         match name_matches.len() {
             0 => {
-                // 没有授权宠物名匹配，检测是否消息引用了未知宠物名
-                if detect_unknown_pet_name_reference(message) {
-                    return Ok(AiPetResolution::UnauthorizedOrNotFound);
-                }
                 if candidates.len() == 1 {
                     Ok(resolved_from_candidate(&candidates[0]))
                 } else {
@@ -136,25 +132,6 @@ fn match_pets_by_name(candidates: &[AiPetCandidate], message: &str) -> Vec<AiPet
         .filter(|c| message.contains(c.name.as_str()))
         .cloned()
         .collect()
-}
-
-/// detect_unknown_pet_name_reference 检测消息是否引用了不在授权列表中的宠物名
-/// 核心职责：
-/// - 通过高置信触发词（今天、最近）和 2 字前缀模式识别宠物名引用
-/// - 帮助区分"用户提到了一个名字"与"用户只是在描述症状"
-fn detect_unknown_pet_name_reference(message: &str) -> bool {
-    const TRIGGERS: &[&str] = &["今天", "最近"];
-
-    for trigger in TRIGGERS {
-        if let Some(pos) = message.find(trigger) {
-            let prefix = &message[..pos];
-            let char_count = prefix.chars().count();
-            if char_count == 2 {
-                return true;
-            }
-        }
-    }
-    false
 }
 
 /// resolved_from_candidate 从候选构造 Resolved 结果

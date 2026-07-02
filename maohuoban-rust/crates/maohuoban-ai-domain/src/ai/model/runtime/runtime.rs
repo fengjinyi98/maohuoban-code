@@ -10,6 +10,20 @@ use super::{
     AiToolConfirmationRequirement, LlmFinishReason, LlmToolCall, LlmUsage, ModelLabel,
 };
 
+/// AgentTurnTerminationReason Runtime turn 终止原因
+/// 核心职责：
+/// - 区分自然停止、轮次上限、预算耗尽、澄清中断和输出守卫失败
+/// - 为 diagnostics、contract tests 和上层观测提供稳定编码
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentTurnTerminationReason {
+    ModelStop,
+    MaxToolRounds,
+    BudgetExhausted,
+    AwaitingClarification,
+    OutputGuardFailed,
+}
+
 /// InternalTurnEvent Agent turn 内部事件
 /// 核心职责：
 /// - 承载模型原始增量、工具规划和 Provider 草稿等内部信号
@@ -213,6 +227,7 @@ pub enum LoopStep {
         message_id: Uuid,
         final_text: String,
         status: AgentTurnStatus,
+        termination_reason: AgentTurnTerminationReason,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error_code: Option<String>,
     },
@@ -286,6 +301,7 @@ impl LoopStep {
             message_id,
             final_text,
             status,
+            termination_reason: AgentTurnTerminationReason::ModelStop,
             error_code: None,
         }
     }
@@ -569,12 +585,16 @@ pub enum AgentEvent {
         message_id: Uuid,
         final_text: String,
         status: AgentTurnStatus,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        termination_reason: Option<AgentTurnTerminationReason>,
     },
     TurnFailed {
         turn_id: AgentTurnId,
         error_code: String,
         retryable: bool,
         engine_mode: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        termination_reason: Option<AgentTurnTerminationReason>,
     },
 }
 

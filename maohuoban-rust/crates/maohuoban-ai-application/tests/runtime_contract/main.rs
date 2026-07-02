@@ -50,6 +50,7 @@ fn workbench_with_capabilities(capability_count: usize) -> AgentSessionWorkbench
             selected_pet: None,
             authorized_pets: Vec::new(),
             session_summary: None,
+            pending_confirmation_task: None,
         },
         memory_pack: MemoryPack {
             entries: Vec::new(),

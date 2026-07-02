@@ -1,6 +1,6 @@
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentToolStatus, AgentTurnStatus, LoopStep, LoopToolResult, LoopToolStatus,
-    ModelCallOutcome,
+    AgentEvent, AgentToolStatus, AgentTurnStatus, AgentTurnTerminationReason, LoopStep,
+    LoopToolResult, LoopToolStatus, ModelCallOutcome,
 };
 use uuid::Uuid;
 
@@ -46,19 +46,21 @@ pub(super) fn append_step_events(
                 reason,
                 suggested_actions,
             });
-            StepFlow::Stop
+            StepFlow::Continue
         }
         LoopStep::CallTools { tool_results } => append_tool_events(turn_id, tool_results, events),
         LoopStep::Done {
             message_id,
             final_text,
             status,
+            termination_reason,
             error_code,
         } => append_done_event(
             turn_id,
             message_id,
             final_text,
             status,
+            termination_reason,
             error_code,
             engine_mode,
             events,
@@ -118,6 +120,7 @@ fn append_model_events(
                 error_code,
                 retryable,
                 engine_mode: engine_mode.to_owned(),
+                termination_reason: None,
             });
             StepFlow::Stop
         }
@@ -220,6 +223,7 @@ fn append_done_event(
     message_id: Uuid,
     final_text: String,
     status: AgentTurnStatus,
+    termination_reason: AgentTurnTerminationReason,
     error_code: Option<String>,
     engine_mode: &str,
     events: &mut Vec<AgentEvent>,
@@ -230,6 +234,7 @@ fn append_done_event(
             error_code: error_code.unwrap_or_else(|| "ai.runtime_failed".to_owned()),
             retryable: false,
             engine_mode: engine_mode.to_owned(),
+            termination_reason: Some(termination_reason),
         });
     } else {
         events.push(AgentEvent::TurnFinished {
@@ -237,6 +242,7 @@ fn append_done_event(
             message_id,
             final_text,
             status,
+            termination_reason: Some(termination_reason),
         });
     }
 

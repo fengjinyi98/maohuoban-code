@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum AiIntent {
     Allowed,
-    PromptInjection,
-    CostAbuse,
+    InvalidInput,
 }
 
 impl AiIntent {
@@ -37,8 +36,7 @@ impl AiIntent {
     pub fn code(self) -> &'static str {
         match self {
             Self::Allowed => "allowed",
-            Self::PromptInjection => "prompt_injection",
-            Self::CostAbuse => "cost_abuse",
+            Self::InvalidInput => "invalid_input",
         }
     }
 }
@@ -58,7 +56,7 @@ pub struct AiGateDecision {
 impl AiGateDecision {
     /// allow_processing 判断该决策是否允许进入主 Agent 编排
     pub fn allow_processing(&self) -> bool {
-        !matches!(self.intent, AiIntent::PromptInjection | AiIntent::CostAbuse)
+        !matches!(self.intent, AiIntent::InvalidInput)
     }
 
     /// enters_workbench 判断该决策是否进入 AgentSession Workbench
@@ -85,7 +83,6 @@ impl AiGateDecision {
     /// gate_message 返回 gate 分支的安全提示
     /// 核心职责：
     /// - 根据 gate 决策属性返回对应边界文案
-    /// - 保持 PromptInjection 和 CostAbuse 的硬拦截文案区分
     /// - 避免调用方直接匹配 intent 枚举决定展示文本
     #[must_use]
     pub fn gate_message(&self) -> &'static str {
@@ -93,8 +90,7 @@ impl AiGateDecision {
             "允许进入毛球 Agent Runtime。"
         } else {
             match self.intent {
-                AiIntent::PromptInjection => "这个请求包含不受支持的操作指令，我不能继续处理。",
-                AiIntent::CostAbuse => "这个请求超出了毛球助手的回答范围，我不能继续处理。",
+                AiIntent::InvalidInput => "这个请求缺少有效内容，我不能继续处理。",
                 AiIntent::Allowed => "这个请求不符合毛球助手的安全边界，我不能继续处理。",
             }
         }
@@ -123,18 +119,13 @@ mod tests {
         }
     }
 
-    /// gate_message 对 PromptInjection 和 CostAbuse 返回不同文案
+    /// gate_message 对结构化 invalid_input 返回稳定文案
     #[test]
     fn gate_message_distinguishes_blocked_intents() {
-        let injection = blocked_decision(AiIntent::PromptInjection);
-        let cost_abuse = blocked_decision(AiIntent::CostAbuse);
+        let invalid = blocked_decision(AiIntent::InvalidInput);
+        let invalid_msg = invalid.gate_message();
 
-        let injection_msg = injection.gate_message();
-        let cost_abuse_msg = cost_abuse.gate_message();
-
-        assert_ne!(injection_msg, cost_abuse_msg);
-        assert!(injection_msg.contains("操作指令"));
-        assert!(cost_abuse_msg.contains("回答范围"));
+        assert!(invalid_msg.contains("缺少有效内容"));
     }
 
     /// gate_message 对非 blocked 路径保持原有文案不变
@@ -146,7 +137,7 @@ mod tests {
     }
 
     // gate_message 中 blocked 分支的 _ => 兜底文案在当前枚举下不可达：
-    // allow_processing() 只对 PromptInjection 和 CostAbuse 返回 false，
-    // 而这两个变体在 match 中均已显式处理。兜底分支仅作为防御性编程，
+    // allow_processing() 只对 InvalidInput 返回 false，
+    // 而该变体在 match 中已显式处理。兜底分支仅作为防御性编程，
     // 为未来新增 blocked 意图但忘记更新 gate_message 时提供安全边界。
 }

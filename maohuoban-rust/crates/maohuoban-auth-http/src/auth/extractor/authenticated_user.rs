@@ -1,7 +1,4 @@
-use axum::{
-    extract::FromRequestParts,
-    http::request::Parts,
-};
+use axum::{extract::FromRequestParts, http::request::Parts};
 use maohuoban_auth_domain::auth::AuthUser;
 use uuid::Uuid;
 

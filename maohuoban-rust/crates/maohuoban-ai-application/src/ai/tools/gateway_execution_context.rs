@@ -9,4 +9,5 @@ pub struct ToolGatewayExecutionContext {
     pub session_id: Option<Uuid>,
     pub turn_id: Option<Uuid>,
     pub message_id: Option<Uuid>,
+    pub confirmation_task_id: Option<String>,
 }

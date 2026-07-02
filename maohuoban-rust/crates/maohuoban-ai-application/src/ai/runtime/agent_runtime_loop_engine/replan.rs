@@ -2,9 +2,9 @@ use crate::ai::planning::{
     PlanningDiagnosticsSnapshot, ReplanAction, ReplanCause, ReplanDecision, ReplanPolicy,
 };
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AiError, LlmChatRequest, LlmDiagnosticsCorrelation, LlmFinishReason,
-    LlmRole, LlmUsage, LoopToolResult, LoopToolStatus, PROVIDER_USER_VISIBLE_FAILURE_MESSAGE,
-    ProviderError, ProviderErrorCategory,
+    AgentSessionState, AgentTurnTerminationReason, AiError, LlmChatRequest,
+    LlmDiagnosticsCorrelation, LlmFinishReason, LlmRole, LlmUsage, LoopToolResult, LoopToolStatus,
+    PROVIDER_USER_VISIBLE_FAILURE_MESSAGE, ProviderError, ProviderErrorCategory,
 };
 
 use super::super::{
@@ -130,6 +130,7 @@ pub(super) fn runtime_phase_for_tool_replan(
             message_id: uuid::Uuid::new_v4(),
             final_text: safe_tool_replan_message(tool_results),
             status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+            termination_reason: AgentTurnTerminationReason::OutputGuardFailed,
             error_code: None,
         },
     }

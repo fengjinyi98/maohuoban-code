@@ -17,6 +17,12 @@ impl StepPlanner {
                 StepKind::ModelReason,
                 StepKind::FinalizeAnswer,
             ],
+            TaskType::ConfirmationCommit => vec![
+                StepKind::LoadContext,
+                StepKind::ToolRead,
+                StepKind::ModelReason,
+                StepKind::FinalizeAnswer,
+            ],
             TaskType::RejectTask => vec![StepKind::FinalizeAnswer],
         };
         StepPlan::new(task_type, steps, ExecutionPolicy::for_task(task_type))

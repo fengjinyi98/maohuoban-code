@@ -1,6 +1,6 @@
 //! ai 毛球 Agent 应用层聚合模块
 //! 核心职责：
-//! - 汇聚端口、服务、意图闸门、宠物解析、工具、上下文、Prompt、校验和流式 pipeline
+//! - 汇聚端口、服务、意图、宠物解析、工具、上下文、Prompt、校验和 Runtime 输出 DTO
 
 pub mod citations;
 pub mod context;

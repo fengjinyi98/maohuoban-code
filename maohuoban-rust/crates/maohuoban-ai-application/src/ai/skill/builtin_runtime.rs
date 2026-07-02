@@ -126,7 +126,7 @@ fn domain_private_pet_context() -> SkillDefinition {
         100,
         SkillToolsetHints {
             allowed_toolsets: Vec::new(),
-            preferred_toolsets: vec![Toolset::PrivatePetContext],
+            preferred_toolsets: vec![Toolset::PrivatePetContext, Toolset::Confirmation],
             preferred_tools: Vec::new(),
         },
         Some(true),

@@ -11,7 +11,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
 };
 use maohuoban_ai_domain::ai::{
-    AiFactPackage, AiPetDisplaySnapshot, AiResult, ToolFailure, Toolset,
+    AiFactEntry, AiFactPackage, AiFactStrength, AiPetDisplaySnapshot, AiResult, ToolFailure,
+    Toolset,
 };
 use uuid::Uuid;
 
@@ -41,29 +42,71 @@ impl AiToolDefinition for RuntimePetContextTool {
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {},
-            "required": []
-        })
+        match self.kind {
+            RuntimePetContextToolKind::PrepareObservationWrite => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "note": { "type": "string" }
+                },
+                "required": ["note"]
+            }),
+            RuntimePetContextToolKind::CommitObservationWrite => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "confirmation_task_id": { "type": "string", "format": "uuid" }
+                },
+                "required": ["confirmation_task_id"]
+            }),
+            _ => serde_json::json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        }
     }
 
     fn metadata(&self) -> AiToolMetadata {
         AiToolMetadata {
             scope: self.kind.scope().to_owned(),
-            read_only: true,
-            concurrency_safe: true,
-            risk_level: AiToolRiskLevel::Low,
-            requires_confirmation: false,
+            read_only: !matches!(
+                self.kind,
+                RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::CommitObservationWrite
+            ),
+            concurrency_safe: !matches!(
+                self.kind,
+                RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::CommitObservationWrite
+            ),
+            risk_level: if matches!(
+                self.kind,
+                RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::CommitObservationWrite
+            ) {
+                AiToolRiskLevel::High
+            } else {
+                AiToolRiskLevel::Low
+            },
+            requires_confirmation: matches!(
+                self.kind,
+                RuntimePetContextToolKind::PrepareObservationWrite
+            ),
             domain_tags: vec![self.kind.domain_tag().to_owned()],
-            toolset: Toolset::PrivatePetContext,
+            toolset: if matches!(self.kind, RuntimePetContextToolKind::CommitObservationWrite) {
+                Toolset::Confirmation
+            } else {
+                Toolset::PrivatePetContext
+            },
             progress_text: self.kind.progress_text(),
             result_fact_schema: Some(self.kind.fact_schema()),
         }
     }
 
-    async fn execute(&self, ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        let result = self.load_package(ctx.actor_user_id).await;
+    async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
+        if self.kind == RuntimePetContextToolKind::PrepareObservationWrite {
+            return self.execute_prepare_observation_write(ctx, args).await;
+        }
+        let result = self.execute_kind(ctx, args).await;
         match result {
             Ok(package) => {
                 self.record_tool_access(ctx.actor_user_id, true, None, &package)
@@ -93,32 +136,103 @@ impl AiToolDefinition for RuntimePetContextTool {
 }
 
 impl RuntimePetContextTool {
-    /// load_package 按工具类型加载对应事实包
-    async fn load_package(&self, actor_user_id: Uuid) -> AiResult<AiFactPackage> {
+    async fn execute_kind(
+        &self,
+        ctx: &AiToolContext,
+        args: &serde_json::Value,
+    ) -> AiResult<AiFactPackage> {
         match self.kind {
             RuntimePetContextToolKind::Identity => {
                 self.providers
                     .identity_fact_provider
-                    .load_identity_fact_package(actor_user_id, &self.target_pet)
+                    .load_identity_fact_package(ctx.actor_user_id, &self.target_pet)
                     .await
             }
             RuntimePetContextToolKind::CurrentDiet => {
                 self.providers
                     .diet_fact_provider
-                    .load_current_diet_fact_package(actor_user_id, &self.target_pet)
+                    .load_current_diet_fact_package(ctx.actor_user_id, &self.target_pet)
                     .await
             }
             RuntimePetContextToolKind::FoodInventoryHints => {
                 self.providers
                     .food_inventory_hint_provider
-                    .load_food_inventory_hint_package(actor_user_id, &self.target_pet)
+                    .load_food_inventory_hint_package(ctx.actor_user_id, &self.target_pet)
                     .await
             }
             RuntimePetContextToolKind::DietConfirmationCandidates => {
                 self.providers
                     .diet_confirmation_candidate_provider
-                    .load_diet_confirmation_candidate_package(actor_user_id, &self.target_pet)
+                    .load_diet_confirmation_candidate_package(ctx.actor_user_id, &self.target_pet)
                     .await
+            }
+            RuntimePetContextToolKind::PrepareObservationWrite => {
+                unreachable!(
+                    "prepare observation write handled in execute_prepare_observation_write"
+                )
+            }
+            RuntimePetContextToolKind::CommitObservationWrite => {
+                let confirmation_task_id = args
+                    .get("confirmation_task_id")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|value| Uuid::parse_str(value).ok())
+                    .ok_or_else(|| {
+                        maohuoban_ai_domain::ai::AiError::InvalidInput("缺少确认任务 ID".to_owned())
+                    })?;
+                let committed = self
+                    .providers
+                    .observation_write_provider
+                    .commit_observation_write(
+                        ctx.actor_user_id,
+                        self.target_pet.pet_id,
+                        confirmation_task_id,
+                    )
+                    .await
+                    .map_err(|error| {
+                        maohuoban_ai_domain::ai::AiError::Infrastructure(error.to_string())
+                    })?;
+                Ok(observation_commit_fact_package(committed.event_id))
+            }
+        }
+    }
+
+    async fn execute_prepare_observation_write(
+        &self,
+        ctx: &AiToolContext,
+        args: &serde_json::Value,
+    ) -> AiToolResult {
+        let note = match args.get("note").and_then(serde_json::Value::as_str) {
+            Some(note) => note,
+            None => return AiToolResult::invalid_arguments_failure(),
+        };
+        match self
+            .providers
+            .observation_write_provider
+            .prepare_observation_write(ctx.actor_user_id, self.target_pet.pet_id, note.to_owned())
+            .await
+        {
+            Ok(prepared) => {
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    true,
+                    None,
+                    &observation_prepare_fact_package(
+                        prepared.confirmation.confirmation_task_id.clone(),
+                    ),
+                )
+                .await;
+                AiToolResult::requires_confirmation(prepared.confirmation)
+            }
+            Err(error) => {
+                let safe_message = error.to_string();
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    false,
+                    Some("pet.observation.write_prepare.failed".to_owned()),
+                    &AiFactPackage::empty(),
+                )
+                .await;
+                AiToolResult::failed(&safe_message)
             }
         }
     }
@@ -152,4 +266,28 @@ impl RuntimePetContextTool {
             })
             .await;
     }
+}
+
+fn observation_prepare_fact_package(confirmation_task_id: String) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.pending_confirmations.push(AiFactEntry {
+        key: "observation.write_prepare".to_owned(),
+        value: format!("confirmation_task_id={confirmation_task_id}"),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    });
+    package.fact_strength = AiFactStrength::PendingConfirmation;
+    package
+}
+
+fn observation_commit_fact_package(event_id: Uuid) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "observation.write_commit".to_owned(),
+        value: format!("event_id={event_id}"),
+        strength: AiFactStrength::Strong,
+        citation_id: Some(event_id),
+    });
+    package.fact_strength = AiFactStrength::Strong;
+    package
 }

@@ -346,6 +346,61 @@ async fn ai_chat_stream_restores_selected_pet_from_existing_session() {
     assert!(!row.2);
 }
 
+/// 历史会话续聊必须校验会话归属
+#[tokio::test]
+async fn ai_chat_stream_rejects_chat_session_of_other_user() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+
+    let access_token_a = login_and_get_token(&app, "13800139042", "ios-ai-session-owner-a").await;
+    let pet = create_pet(&app, &access_token_a, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let first_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token_a,
+            json!({
+                "message": "毛球今天怎么样",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send owner stream request");
+    assert_eq!(first_response.status(), StatusCode::OK);
+    let first_text = response_text(first_response).await;
+    let first_started = sse_event_data(&first_text, "message_started");
+    let chat_session_id = first_started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
+
+    let access_token_b = login_and_get_token(&app, "13800139043", "ios-ai-session-owner-b").await;
+    let second_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token_b,
+            json!({
+                "message": "继续刚才那轮",
+                "surface": "home_private",
+                "chat_session_id": chat_session_id
+            }),
+        ))
+        .await
+        .expect("send foreign session stream request");
+
+    assert_eq!(second_response.status(), StatusCode::FORBIDDEN);
+    let body = response_json(second_response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "ai.unauthorized");
+}
+
 async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,

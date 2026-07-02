@@ -29,10 +29,11 @@ use super::runtime_tool_gateway_observer::RuntimeToolGatewayObserver;
 use super::runtime_tools::{build_public_runtime_tool_registry, build_runtime_tool_registry};
 use super::visible_output_plan::plan_visible_output;
 
-pub(super) struct RuntimeProviderStreamInput {
+pub(super) struct RuntimeAgentStreamInput {
     pub session_id: Uuid,
     pub turn_id: AgentTurnId,
     pub message_id: Uuid,
+    pub confirmation_task_id: Option<Uuid>,
     pub actor_user_id: Uuid,
     pub target_pet: Option<AiPetDisplaySnapshot>,
     pub fact_package: Option<AiFactPackage>,
@@ -40,10 +41,10 @@ pub(super) struct RuntimeProviderStreamInput {
     pub workbench: AgentSessionWorkbench,
 }
 
-pub(super) fn runtime_provider_stream(
+pub(super) fn runtime_agent_stream(
     state: &AiHttpState,
     req: &ChatStreamRequest,
-    input: RuntimeProviderStreamInput,
+    input: RuntimeAgentStreamInput,
 ) -> futures_util::stream::BoxStream<'static, Result<AiStreamEvent, maohuoban_ai_domain::ai::AiError>>
 {
     let registry = build_runtime_registry(state, &input);
@@ -147,7 +148,7 @@ pub(super) fn runtime_provider_stream(
 
 fn build_runtime_registry(
     state: &AiHttpState,
-    input: &RuntimeProviderStreamInput,
+    input: &RuntimeAgentStreamInput,
 ) -> Arc<ToolRegistry> {
     Arc::new(match input.target_pet.as_ref() {
         Some(target_pet) => build_runtime_tool_registry(state, input.session_id, target_pet),
@@ -157,7 +158,7 @@ fn build_runtime_registry(
 
 fn record_runtime_stream_selection(
     state: &AiHttpState,
-    input: &RuntimeProviderStreamInput,
+    input: &RuntimeAgentStreamInput,
     registry: &ToolRegistry,
 ) {
     let tool_definitions = registry.list_definitions();
@@ -182,7 +183,13 @@ fn record_runtime_stream_selection(
         visible_tool_names.len(),
     );
     let selected_pet_id = input.workbench.context_pack.selected_pet.as_ref();
-    let task_type = TaskClassifier::classify_runtime(selected_pet_id.is_some());
+    let confirmation_task_present = input
+        .workbench
+        .context_pack
+        .pending_confirmation_task
+        .is_some();
+    let task_type =
+        TaskClassifier::classify_runtime(selected_pet_id.is_some(), confirmation_task_present);
     let plan = StepPlanner::plan(task_type);
     let snapshot =
         PlanningDiagnosticsSnapshot::new(input.session_id, input.turn_id, input.message_id, &plan);
@@ -191,7 +198,7 @@ fn record_runtime_stream_selection(
 
 fn build_runtime_engine(
     state: &AiHttpState,
-    input: &RuntimeProviderStreamInput,
+    input: &RuntimeAgentStreamInput,
     registry: Arc<ToolRegistry>,
 ) -> Box<dyn maohuoban_ai_application::ai::runtime::LoopEngine> {
     let tool_context = AiToolContext {
@@ -204,6 +211,7 @@ fn build_runtime_engine(
             session_id: Some(input.session_id),
             turn_id: Some(input.turn_id.as_uuid()),
             message_id: Some(input.message_id),
+            confirmation_task_id: input.confirmation_task_id.map(|id| id.to_string()),
         },
         gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
     };

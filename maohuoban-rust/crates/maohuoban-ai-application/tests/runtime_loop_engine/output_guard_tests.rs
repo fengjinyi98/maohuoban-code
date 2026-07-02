@@ -62,6 +62,10 @@ async fn invalid_final_answer_is_repaired_inside_runtime_before_turn_finished() 
             && repair_prompt.contains("2024-06-17"),
         "repair request should include verifier feedback and confirmed facts: {repair_prompt}"
     );
+    assert!(
+        repair_prompt.contains("blocked_reason: unsupported_fact"),
+        "repair request should include structured blocked reason: {repair_prompt}"
+    );
 
     let turn_finished = events
         .iter()
@@ -93,6 +97,7 @@ async fn invalid_repair_result_fails_turn_without_user_visible_fallback() {
     let provider = ScriptedProvider::new(vec![
         response_text("目前档案里没有生日记录，所以还不知道梅录多大。"),
         response_text("档案里没有记录梅录生日，所以无法计算年龄。"),
+        response_text("目前还是没有生日记录，所以无法计算年龄。"),
     ]);
     let registry = ToolRegistry::new();
     let fact_package = pet_identity_fact_package();
@@ -118,17 +123,20 @@ async fn invalid_repair_result_fails_turn_without_user_visible_fallback() {
     let requests = provider.take_requests();
     assert_eq!(
         requests.len(),
-        2,
-        "output guard should stop after one repair attempt"
+        3,
+        "output guard should stop after two repair attempts"
     );
     assert!(
         events.iter().any(|event| matches!(
             event,
             AgentEvent::TurnFailed {
                 error_code,
+                termination_reason,
                 retryable: false,
                 ..
             } if error_code == "ai.output_guard.unrepaired"
+                && *termination_reason
+                    == Some(maohuoban_ai_domain::ai::AgentTurnTerminationReason::OutputGuardFailed)
         )),
         "unrepaired output should produce output guard failure: {events:?}"
     );

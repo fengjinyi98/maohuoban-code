@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use maohuoban_ai_domain::ai::{
-    AgentSessionState, AiResult, LlmFinishReason, LlmStreamEvent, LlmUsage, LoopStep,
-    ModelCallOutcome, ModelLabel,
+    AgentSessionState, AgentTurnTerminationReason, AiResult, LlmFinishReason, LlmStreamEvent,
+    LlmUsage, LoopStep, ModelCallOutcome, ModelLabel,
 };
 
 use crate::ai::output::visible_text_from_model_output;
@@ -35,6 +35,9 @@ impl LoopEngine for AgentRuntimeLoopEngine {
         loop {
             match std::mem::replace(&mut self.phase, RuntimePhase::Model) {
                 RuntimePhase::Model => {
+                    self.current_round = 1;
+                    self.accumulated_total_tokens = 0;
+                    self.current_turn_successful_write_tools.clear();
                     let plan = self.plan_current_turn(state);
                     if let Some(plan) = plan.as_ref() {
                         self.record_planning_if_needed(state, plan);
@@ -57,6 +60,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     AgentRuntimeDiagnostics::record_model_request_prepared(
                         state.chat_session_id,
                         "initial",
+                        self.current_round,
                         &request,
                     );
                     let diagnostics_correlation = request.diagnostics_correlation.clone();
@@ -95,6 +99,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                     state.chat_session_id,
                                     &diagnostics_correlation,
                                     streaming_model_purpose_code(purpose),
+                                    self.current_round,
                                     tool_count,
                                     &error,
                                 );
@@ -204,7 +209,38 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         }
                     }
 
-                    if tool_calls.is_empty() || matches!(purpose, StreamingModelPurpose::Followup) {
+                    self.accumulated_total_tokens = self
+                        .accumulated_total_tokens
+                        .saturating_add(usage.total_tokens);
+                    AgentRuntimeDiagnostics::record_loop_round_completed(
+                        state.chat_session_id,
+                        &diagnostics_correlation,
+                        streaming_model_purpose_code(purpose),
+                        self.current_round,
+                        tool_calls.len(),
+                        match finish_reason {
+                            LlmFinishReason::Stop => "stop",
+                            LlmFinishReason::Length => "length",
+                            LlmFinishReason::ToolCalls => "tool_calls",
+                            LlmFinishReason::ContentFilter => "content_filter",
+                            LlmFinishReason::Error => "error",
+                        },
+                        &usage,
+                        self.accumulated_total_tokens,
+                    );
+
+                    if self.accumulated_total_tokens > self.turn_token_budget {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            termination_reason: AgentTurnTerminationReason::BudgetExhausted,
+                            error_code: Some("ai.runtime.budget_exhausted".to_owned()),
+                        };
+                        continue;
+                    }
+
+                    if tool_calls.is_empty() {
                         let visible_text = visible_text_from_model_output(&accumulated_text);
                         if visible_text.trim().is_empty() {
                             return Err(empty_assistant_content_error());
@@ -219,11 +255,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             self.fact_package.as_ref(),
                             &visible_text,
                             0,
+                            &self.current_turn_successful_write_tools,
                         ) {
                             OutputGuardDecision::Accept => RuntimePhase::Done {
                                 message_id: uuid::Uuid::new_v4(),
                                 final_text: visible_text,
                                 status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                                termination_reason: AgentTurnTerminationReason::ModelStop,
                                 error_code: None,
                             },
                             OutputGuardDecision::Repair { request, attempt } => {
@@ -233,6 +271,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                                 message_id: uuid::Uuid::new_v4(),
                                 final_text: String::new(),
                                 status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                                termination_reason: AgentTurnTerminationReason::OutputGuardFailed,
                                 error_code: Some("ai.output_guard.unrepaired".to_owned()),
                             },
                         };
@@ -254,6 +293,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         ),
                         assistant_tool_calls: tool_calls.clone(),
                         tool_calls: tool_calls.clone(),
+                        completed_tool_rounds: self.current_round.saturating_sub(1),
                     };
                     return Ok(Some(LoopStep::CallModel {
                         model_label: ModelLabel::Primary,
@@ -270,6 +310,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     assistant_reasoning_content,
                     assistant_tool_calls,
                     tool_calls,
+                    completed_tool_rounds,
                 } => {
                     return self
                         .advance_tool_execution_phase(
@@ -277,6 +318,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             assistant_reasoning_content,
                             assistant_tool_calls,
                             tool_calls,
+                            completed_tool_rounds,
                         )
                         .await;
                 }
@@ -284,8 +326,30 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     assistant_reasoning_content,
                     assistant_tool_calls,
                     tool_results,
+                    completed_tool_rounds,
                 } => {
+                    if self.accumulated_total_tokens > self.turn_token_budget {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            termination_reason: AgentTurnTerminationReason::BudgetExhausted,
+                            error_code: Some("ai.runtime.budget_exhausted".to_owned()),
+                        };
+                        continue;
+                    }
+                    if completed_tool_rounds > self.max_tool_rounds {
+                        self.phase = RuntimePhase::Done {
+                            message_id: uuid::Uuid::new_v4(),
+                            final_text: String::new(),
+                            status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                            termination_reason: AgentTurnTerminationReason::MaxToolRounds,
+                            error_code: None,
+                        };
+                        continue;
+                    }
                     let skill_bundle = self.current_skill_bundle_for_state(state);
+                    self.current_round = completed_tool_rounds.saturating_add(1);
                     let mut request = build_request(
                         state,
                         self.fact_package.as_ref(),
@@ -300,6 +364,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     AgentRuntimeDiagnostics::record_model_request_prepared(
                         state.chat_session_id,
                         "followup",
+                        self.current_round,
                         &request,
                     );
                     let diagnostics_correlation = request.diagnostics_correlation.clone();
@@ -328,11 +393,13 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         self.fact_package.as_ref(),
                         &visible_text,
                         attempt,
+                        &self.current_turn_successful_write_tools,
                     ) {
                         OutputGuardDecision::Accept => RuntimePhase::Done {
                             message_id: uuid::Uuid::new_v4(),
                             final_text: visible_text,
                             status: maohuoban_ai_domain::ai::AgentTurnStatus::Completed,
+                            termination_reason: AgentTurnTerminationReason::ModelStop,
                             error_code: None,
                         },
                         OutputGuardDecision::Repair { request, attempt } => {
@@ -342,6 +409,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                             message_id: uuid::Uuid::new_v4(),
                             final_text: String::new(),
                             status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                            termination_reason: AgentTurnTerminationReason::OutputGuardFailed,
                             error_code: Some("ai.output_guard.unrepaired".to_owned()),
                         },
                     };
@@ -364,6 +432,7 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         message_id: uuid::Uuid::new_v4(),
                         final_text: String::new(),
                         status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification,
+                        termination_reason: AgentTurnTerminationReason::AwaitingClarification,
                         error_code: None,
                     };
                     return Ok(Some(LoopStep::clarify_user(reason, suggested_actions)));
@@ -372,12 +441,41 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                     message_id,
                     final_text,
                     status,
+                    termination_reason,
                     error_code,
                 } => {
+                    AgentRuntimeDiagnostics::record_turn_terminated(
+                        state.chat_session_id,
+                        match termination_reason {
+                            AgentTurnTerminationReason::ModelStop => "model_stop",
+                            AgentTurnTerminationReason::MaxToolRounds => "max_tool_rounds",
+                            AgentTurnTerminationReason::BudgetExhausted => "budget_exhausted",
+                            AgentTurnTerminationReason::AwaitingClarification => {
+                                "awaiting_clarification"
+                            }
+                            AgentTurnTerminationReason::OutputGuardFailed => "output_guard_failed",
+                        },
+                        self.current_round,
+                        match status {
+                            maohuoban_ai_domain::ai::AgentTurnStatus::Running => "running",
+                            maohuoban_ai_domain::ai::AgentTurnStatus::Completed => "completed",
+                            maohuoban_ai_domain::ai::AgentTurnStatus::Failed => "failed",
+                            maohuoban_ai_domain::ai::AgentTurnStatus::Interrupted => "interrupted",
+                            maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation => {
+                                "awaiting_confirmation"
+                            }
+                            maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingClarification => {
+                                "awaiting_clarification"
+                            }
+                        },
+                        self.accumulated_total_tokens,
+                        self.turn_token_budget,
+                    );
                     return Ok(Some(LoopStep::Done {
                         message_id,
                         final_text,
                         status,
+                        termination_reason,
                         error_code,
                     }));
                 }

@@ -10,4 +10,5 @@ pub struct TaskClassificationInput<'a> {
     pub selected_pet_present: bool,
     pub evidence_tool_count: usize,
     pub write_tool_visible: bool,
+    pub confirmation_task_present: bool,
 }

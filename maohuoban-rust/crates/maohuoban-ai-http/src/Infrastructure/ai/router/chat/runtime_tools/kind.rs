@@ -9,21 +9,25 @@ use maohuoban_ai_domain::ai::{AiFactStrength, ToolFactField, ToolFactSchema, Too
 /// 核心职责：
 /// - 枚举四种宠物上下文工具类型
 /// - 每种类型携带完整的工具元数据和事实 schema
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RuntimePetContextToolKind {
     Identity,
     CurrentDiet,
     FoodInventoryHints,
     DietConfirmationCandidates,
+    PrepareObservationWrite,
+    CommitObservationWrite,
 }
 
 impl RuntimePetContextToolKind {
-    pub(super) fn all() -> [Self; 4] {
+    pub(super) fn all() -> [Self; 6] {
         [
             Self::Identity,
             Self::CurrentDiet,
             Self::FoodInventoryHints,
             Self::DietConfirmationCandidates,
+            Self::PrepareObservationWrite,
+            Self::CommitObservationWrite,
         ]
     }
 
@@ -33,6 +37,8 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => "load_pet_current_diet_context",
             Self::FoodInventoryHints => "load_food_inventory_change_hints",
             Self::DietConfirmationCandidates => "load_pet_diet_confirmation_candidates",
+            Self::PrepareObservationWrite => "prepare_pet_observation_write",
+            Self::CommitObservationWrite => "commit_pet_observation_write",
         }
     }
 
@@ -42,6 +48,8 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => "加载目标宠物当前饮食上下文",
             Self::FoodInventoryHints => "加载目标宠物储物柜变化弱线索",
             Self::DietConfirmationCandidates => "加载目标宠物饮食待确认候选",
+            Self::PrepareObservationWrite => "准备写入宠物观察记录并创建确认任务",
+            Self::CommitObservationWrite => "在用户确认后提交宠物观察记录写入",
         }
     }
 
@@ -51,6 +59,8 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => "pet.current_diet.read",
             Self::FoodInventoryHints => "food_inventory_change_hints.read",
             Self::DietConfirmationCandidates => "pet.diet_confirmation_candidates.read",
+            Self::PrepareObservationWrite => "pet.observation.write_prepare",
+            Self::CommitObservationWrite => "pet.observation.write_commit",
         }
     }
 
@@ -60,6 +70,8 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => "pet_current_diet",
             Self::FoodInventoryHints => "food_inventory_change_hints",
             Self::DietConfirmationCandidates => "pet_diet_confirmation_candidates",
+            Self::PrepareObservationWrite => "pet_observation_write_prepare",
+            Self::CommitObservationWrite => "pet_observation_write_commit",
         }
     }
 
@@ -69,6 +81,7 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => "diet",
             Self::FoodInventoryHints => "inventory",
             Self::DietConfirmationCandidates => "diet_confirmation",
+            Self::PrepareObservationWrite | Self::CommitObservationWrite => "observation",
         }
     }
 
@@ -90,6 +103,14 @@ impl RuntimePetContextToolKind {
                 started: "正在加载饮食待确认候选".to_owned(),
                 completed: "饮食待确认候选加载完成".to_owned(),
             },
+            Self::PrepareObservationWrite => ToolProgressText {
+                started: "正在准备观察记录写入".to_owned(),
+                completed: "观察记录确认任务已准备".to_owned(),
+            },
+            Self::CommitObservationWrite => ToolProgressText {
+                started: "正在提交观察记录写入".to_owned(),
+                completed: "观察记录写入完成".to_owned(),
+            },
         }
     }
 
@@ -99,6 +120,8 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => diet_fact_schema(),
             Self::FoodInventoryHints => inventory_hint_fact_schema(),
             Self::DietConfirmationCandidates => confirmation_candidate_fact_schema(),
+            Self::PrepareObservationWrite => observation_write_prepare_fact_schema(),
+            Self::CommitObservationWrite => observation_write_commit_fact_schema(),
         }
     }
 }
@@ -232,5 +255,36 @@ fn confirmation_candidate_fact_schema() -> ToolFactSchema {
             ],
         }],
         default_strength: Some(AiFactStrength::PendingConfirmation),
+    }
+}
+
+fn observation_write_prepare_fact_schema() -> ToolFactSchema {
+    ToolFactSchema {
+        fact_keys: vec!["observation.write_prepare".to_owned()],
+        description: "观察记录写提案".to_owned(),
+        natural_language_summary: "创建结构化确认任务，等待用户确认后才能真正写入宠物观察记录"
+            .to_owned(),
+        fields: vec![ToolFactField {
+            key: "observation.write_prepare".to_owned(),
+            label: "观察记录写提案".to_owned(),
+            meaning: "生成确认问题和确认任务 ID，不直接写入真实事件".to_owned(),
+            example_queries: vec!["帮我记一下今天拉稀".to_owned()],
+        }],
+        default_strength: Some(AiFactStrength::PendingConfirmation),
+    }
+}
+
+fn observation_write_commit_fact_schema() -> ToolFactSchema {
+    ToolFactSchema {
+        fact_keys: vec!["observation.write_commit".to_owned()],
+        description: "观察记录写提交结果".to_owned(),
+        natural_language_summary: "在用户确认后真正写入宠物观察记录，并返回写入结果".to_owned(),
+        fields: vec![ToolFactField {
+            key: "observation.write_commit".to_owned(),
+            label: "观察记录已写入".to_owned(),
+            meaning: "确认后已落真实 pet event 的写入结果".to_owned(),
+            example_queries: vec!["确认写入上一条观察记录".to_owned()],
+        }],
+        default_strength: Some(AiFactStrength::Strong),
     }
 }

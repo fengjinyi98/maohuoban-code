@@ -61,29 +61,25 @@ fn weak_hint_misuse_blocked() {
 }
 
 #[test]
-fn unsupported_fact_blocked() {
+fn unsupported_medication_fact_no_longer_blocked_by_verifier() {
     let package = package_with_strong_staple();
     let verifier = AiAnswerVerifier::new();
-    // 回答提到了事实包中不存在的药物
     let result = verifier.verify("毛球吃了阿莫西林效果好", &package);
-    assert!(result.is_blocked());
-    assert_eq!(
-        result.blocked_reason,
-        Some(AiBlockedReason::UnsupportedFact)
+    assert!(
+        !result.is_blocked(),
+        "药物名词表拦截已退役，应交给模型安全指令和 eval 红线组"
     );
 }
 
 #[test]
-fn medical_diagnosis_blocked() {
+fn medical_diagnosis_like_text_no_longer_blocked_by_verifier() {
     let package = package_with_strong_staple();
     let verifier = AiAnswerVerifier::new();
-    // 回答做了诊断
     let result = verifier.verify("毛球得了肠胃炎，需要吃甲硝唑", &package);
-    assert!(result.is_blocked());
-    assert!(matches!(
-        result.blocked_reason,
-        Some(AiBlockedReason::MedicalBlocked)
-    ));
+    assert!(
+        !result.is_blocked(),
+        "医疗越界表达不再由 verifier 词表拦截，应交给模型指令与 eval 红线组治理"
+    );
 }
 
 #[test]
@@ -168,6 +164,7 @@ fn missing_age_or_birthday_claim_without_identity_tool_success_blocked() {
     let context = AiAnswerVerificationContext {
         identity_context_tool_required: true,
         identity_context_tool_succeeded: false,
+        successful_write_tools: Vec::new(),
     };
 
     let result = verifier.verify_with_context(
@@ -180,5 +177,48 @@ fn missing_age_or_birthday_claim_without_identity_tool_success_blocked() {
     assert_eq!(
         result.blocked_reason,
         Some(AiBlockedReason::UnsupportedFact)
+    );
+}
+
+#[test]
+fn compliant_medical_escalation_text_passes() {
+    let package = package_with_strong_staple();
+    let verifier = AiAnswerVerifier::new();
+    let result = verifier.verify(
+        "我不能做诊断，建议继续观察精神和食欲变化，并尽快带毛球去医院由医生判断。",
+        &package,
+    );
+
+    assert!(!result.is_blocked(), "合规转诊表述不应被医疗词表误伤");
+}
+
+#[test]
+fn write_completion_claim_requires_successful_write_evidence() {
+    let package = package_with_strong_staple();
+    let verifier = AiAnswerVerifier::new();
+
+    let no_write_evidence = verifier.verify("我已经帮你记录了今天的拉稀情况。", &package);
+    assert!(no_write_evidence.is_blocked());
+    assert_eq!(
+        no_write_evidence.blocked_reason,
+        Some(AiBlockedReason::UnconfirmedWrite)
+    );
+}
+
+#[test]
+fn write_completion_claim_passes_with_successful_write_evidence() {
+    let package = package_with_strong_staple();
+    let verifier = AiAnswerVerifier::new();
+    let context = AiAnswerVerificationContext {
+        identity_context_tool_required: false,
+        identity_context_tool_succeeded: false,
+        successful_write_tools: vec!["record_pet_observation".to_owned()],
+    };
+
+    let result =
+        verifier.verify_with_context("我已经帮你记录了今天的拉稀情况。", &package, context);
+    assert!(
+        !result.is_blocked(),
+        "成功写工具证据存在时，写完成声明应通过 verifier"
     );
 }

@@ -14,7 +14,7 @@ use super::app::{
     create_pet, insert_user_memory, load_actor_user_id_by_phone, spawn_provider_test_app,
 };
 use super::diagnostics::{assert_provider_diagnostics, install_provider_test_diagnostics};
-use super::sse::{assert_provider_stream_response, sse_event_data, uuid_prefix_from_sse};
+use super::sse::{assert_agent_stream_response, sse_event_data, uuid_prefix_from_sse};
 
 /// 配置 `OpenAI` 兼容 Provider 后 `/api/v1/ai/chat/stream` 返回真实 Provider delta
 #[tokio::test]
@@ -70,7 +70,7 @@ async fn ai_chat_stream_uses_configured_openai_provider() {
     let text = response_text(response).await;
 
     mock.assert();
-    assert_provider_stream_response(&text);
+    assert_agent_stream_response(&text);
     let started = sse_event_data(&text, "message_started");
     let chat_session_id_prefix = uuid_prefix_from_sse(&started, "chat_session_id");
     let message_id_prefix = uuid_prefix_from_sse(&started, "message_id");

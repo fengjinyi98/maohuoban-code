@@ -23,7 +23,7 @@ impl AgentRuntimeRequestPolicy {
     /// visible_tool_schemas 返回本轮可投影给模型的工具 schema
     /// 核心职责：
     /// - 无私域上下文时隐藏宠物私域读取工具
-    /// - 保留未携带 Workbench 的旧路径兼容行为
+    /// - 无 Workbench 时仅暴露公共工具，保持私域工具默认不可见
     pub(crate) fn visible_tool_schemas(
         registry: &ToolRegistry,
         state: &AgentSessionState,
@@ -106,7 +106,10 @@ impl AgentRuntimeRequestPolicy {
         workbench: Option<&AgentSessionWorkbench>,
     ) -> bool {
         let Some(workbench) = workbench else {
-            return true;
+            return !matches!(
+                tool.toolset,
+                Toolset::PrivatePetContext | Toolset::Confirmation
+            );
         };
 
         if Self::workbench_has_private_context(workbench) {
@@ -135,7 +138,10 @@ impl AgentRuntimeRequestPolicy {
     }
 
     fn is_private_toolset(tool: &ToolDefinitionInfo) -> bool {
-        matches!(tool.toolset, Toolset::PrivatePetContext)
+        matches!(
+            tool.toolset,
+            Toolset::PrivatePetContext | Toolset::Confirmation
+        )
     }
 
     fn model_visible_tool_description(

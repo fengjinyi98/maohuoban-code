@@ -132,6 +132,7 @@ fn projector_streams_json_answer_text_incrementally_without_json_fields() {
         message_id,
         final_text: "豆包精神正常。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     });
     let deltas: Vec<&str> = completed_events
         .iter()
@@ -315,6 +316,7 @@ fn projector_emits_execution_trace_completed_before_answer_delta() {
         message_id,
         final_text: "豆包档案显示状态稳定。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     }));
 
     let event_names: Vec<&str> = events.iter().map(AiStreamEvent::event_name).collect();
@@ -359,6 +361,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
         message_id,
         final_text: "梅录的基本信息如下：".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     });
 
     let content_blocks = events
@@ -548,6 +551,7 @@ fn projector_does_not_emit_final_pet_profile_blocks_without_visible_plan() {
         message_id,
         final_text: "梅录状态稳定。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     }));
 
     let content_blocks = events
@@ -594,6 +598,7 @@ fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
         message_id,
         final_text: "这是梅录的宠物信息。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     }));
 
     let terminal_event = events
@@ -643,6 +648,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
         message_id,
         final_text: "这是梅录的宠物信息。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     }));
 
     let content_blocks = events
@@ -696,6 +702,7 @@ fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
         message_id,
         final_text: "好的，这是梅录的档案信息。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     }));
 
     assert!(
@@ -755,6 +762,7 @@ fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_compl
         message_id,
         final_text: "目前档案里没有生日记录，所以还不知道梅录多大。".to_owned(),
         status: AgentTurnStatus::Completed,
+        termination_reason: None,
     });
 
     let error = completed_events
@@ -796,6 +804,7 @@ fn projector_reports_failed_turn_without_empty_answer_completion() {
         message_id,
         final_text: String::new(),
         status: AgentTurnStatus::Failed,
+        termination_reason: None,
     });
 
     assert!(
@@ -891,6 +900,7 @@ fn replay_agent_event(event_name: &str, turn_id: AgentTurnId) -> AgentEvent {
             error_code: "ai.provider.not_configured".to_owned(),
             retryable: false,
             engine_mode: "openai".to_owned(),
+            termination_reason: None,
         },
         event => panic!("unsupported replay fixture event {event}"),
     }

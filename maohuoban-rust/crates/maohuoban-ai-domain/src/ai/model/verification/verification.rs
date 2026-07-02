@@ -15,7 +15,6 @@ pub enum AiVerificationStatus {
 pub enum AiBlockedReason {
     UnsupportedFact,
     WeakHintMisuse,
-    MedicalBlocked,
     PrivacyBlocked,
     UnconfirmedWrite,
 }
@@ -26,7 +25,6 @@ impl AiBlockedReason {
         match self {
             Self::UnsupportedFact => "unsupported_fact",
             Self::WeakHintMisuse => "weak_hint_misuse",
-            Self::MedicalBlocked => "medical_blocked",
             Self::PrivacyBlocked => "privacy_blocked",
             Self::UnconfirmedWrite => "unconfirmed_write",
         }

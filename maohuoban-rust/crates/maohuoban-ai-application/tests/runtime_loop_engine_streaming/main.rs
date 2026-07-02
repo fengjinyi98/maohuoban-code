@@ -18,9 +18,11 @@ use maohuoban_ai_application::ai::tools::{
     ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AiConversationSurface, AiFactEntry, AiFactStrength, LlmChatRequest,
-    LlmChatResponse, LlmFinishReason, LlmMessage, LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage,
-    ToolProgressText, Toolset,
+    AgentCapability, AgentDefinition, AgentEvent, AgentId, AgentSessionWorkbench,
+    AiConversationSurface, AiFactEntry, AiFactStrength, CapabilityCatalog, CapabilityDomain,
+    ContextPack, ContextPetSummary, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage,
+    LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, MemoryPack, ModelLabel, ToolProgressText,
+    Toolset,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -146,6 +148,55 @@ impl EchoIdentityTool {
     }
 }
 
+struct EchoDietTool;
+
+#[async_trait]
+impl AiToolDefinition for EchoDietTool {
+    fn name(&self) -> &'static str {
+        "load_pet_current_diet_context"
+    }
+
+    fn description(&self) -> &'static str {
+        "加载宠物当前饮食上下文"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "pet_id": { "type": "string", "format": "uuid" }
+            },
+            "required": ["pet_id"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.diet.read".to_owned(),
+            read_only: true,
+            concurrency_safe: true,
+            risk_level: AiToolRiskLevel::Low,
+            requires_confirmation: false,
+            domain_tags: vec!["diet".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed_with_facts(
+            vec![AiFactEntry {
+                key: "diet.current_food".to_owned(),
+                value: "渴望六种鱼".to_owned(),
+                strength: AiFactStrength::Strong,
+                citation_id: Some(Uuid::new_v4()),
+            }],
+            Vec::new(),
+        )
+    }
+}
+
 #[async_trait]
 impl AiToolDefinition for EchoIdentityTool {
     fn name(&self) -> &'static str {
@@ -222,7 +273,10 @@ async fn agent_session_stream_yields_tool_progress_before_followup_model_finishe
         AiConversationSurface::HomePrivate,
         engine,
     );
-    let mut stream = Box::pin(session.into_prompt_stream("查看毛球档案".to_owned()));
+    let mut stream = Box::pin(
+        session
+            .into_prompt_stream_with_workbench("查看毛球档案".to_owned(), private_pet_workbench()),
+    );
 
     let mut names = Vec::new();
     let tool_finished = tokio::time::timeout(Duration::from_millis(200), async {
@@ -275,7 +329,10 @@ async fn agent_session_stream_yields_tool_started_before_delayed_tool_finishes()
         AiConversationSurface::HomePrivate,
         engine,
     );
-    let mut stream = Box::pin(session.into_prompt_stream("查看毛球档案".to_owned()));
+    let mut stream = Box::pin(
+        session
+            .into_prompt_stream_with_workbench("查看毛球档案".to_owned(), private_pet_workbench()),
+    );
 
     let mut names = Vec::new();
     let tool_started = tokio::time::timeout(Duration::from_millis(200), async {
@@ -328,7 +385,10 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         engine,
     );
 
-    let events = session.prompt("查看毛球档案").await.expect("prompt");
+    let events = session
+        .prompt_with_workbench("查看毛球档案", private_pet_workbench())
+        .await
+        .expect("prompt");
     let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
 
     assert_eq!(
@@ -355,9 +415,10 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         requests[0].response_format.is_none(),
         "initial tool planning request must keep native tool calling unconstrained"
     );
-    assert!(
-        requests[1].tools.is_empty(),
-        "followup final answer request should not expose private tools again"
+    assert_eq!(
+        requests[1].tools.len(),
+        1,
+        "followup request must keep tool visibility so model can continue chaining tools"
     );
     assert!(
         requests[1].response_format.is_none(),
@@ -367,6 +428,70 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         requests[1].diagnostics_correlation.tool_call_id.as_deref(),
         Some("call_1"),
         "followup request diagnostics must correlate back to the executed tool call"
+    );
+}
+
+#[tokio::test]
+async fn agent_runtime_streaming_followup_can_chain_second_tool_call_before_final_answer() {
+    let provider = StreamingScriptedProvider::new(vec![
+        tool_response(),
+        diet_tool_response(),
+        final_response(),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool::immediate());
+    registry.register(EchoDietTool);
+
+    let engine = runtime_engine(provider.clone(), registry);
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("查看毛球年龄和当前主粮", private_pet_workbench())
+        .await
+        .expect("prompt");
+    let names: Vec<&'static str> = events.iter().map(AgentEvent::event_name).collect();
+
+    assert_eq!(
+        names,
+        vec![
+            "turn_started",
+            "model_call_started",
+            "model_call_finished",
+            "tool_started",
+            "tool_finished",
+            "model_call_started",
+            "model_call_finished",
+            "tool_started",
+            "tool_finished",
+            "message_delta",
+            "model_call_started",
+            "model_call_finished",
+            "turn_finished",
+        ]
+    );
+
+    let requests = provider.take_requests();
+    assert_eq!(requests.len(), 3);
+    assert!(
+        requests[1]
+            .tools
+            .iter()
+            .any(|tool| tool.name == "load_pet_current_diet_context")
+    );
+    let termination_reason = events.iter().find_map(|event| match event {
+        AgentEvent::TurnFinished {
+            termination_reason, ..
+        } => *termination_reason,
+        _ => None,
+    });
+    assert_eq!(
+        termination_reason,
+        Some(maohuoban_ai_domain::ai::AgentTurnTerminationReason::ModelStop)
     );
 }
 
@@ -384,7 +509,10 @@ async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
         engine,
     );
 
-    session.prompt("查看毛球档案").await.expect("prompt");
+    session
+        .prompt_with_workbench("查看毛球档案", private_pet_workbench())
+        .await
+        .expect("prompt");
 
     let requests = provider.take_requests();
     let followup_messages = &requests.get(1).expect("followup model request").messages;
@@ -472,6 +600,53 @@ fn runtime_engine(
     )
 }
 
+fn private_pet_workbench() -> AgentSessionWorkbench {
+    AgentSessionWorkbench {
+        agent_definition: AgentDefinition {
+            agent_id: AgentId::main_pet_care_agent(),
+            name: "毛球".to_owned(),
+            purpose: "宠物垂直照护与用户宠物私域助手".to_owned(),
+            default_model_label: ModelLabel::Primary,
+            capability_domains: vec![
+                CapabilityDomain::PublicPetDomain,
+                CapabilityDomain::PrivatePetContext,
+            ],
+        },
+        capability_catalog: CapabilityCatalog {
+            capabilities: vec![AgentCapability {
+                code: "private_pet_context".to_owned(),
+                domain: CapabilityDomain::PrivatePetContext,
+                title: "授权宠物私域上下文".to_owned(),
+                when_to_use: "用户询问已选宠物的档案、年龄、生日、陪伴、饮食或记录事实时使用"
+                    .to_owned(),
+                requires_private_context: true,
+            }],
+        },
+        context_pack: ContextPack {
+            surface: AiConversationSurface::HomePrivate,
+            locale: "zh-Hans".to_owned(),
+            timezone: "Asia/Shanghai".to_owned(),
+            temporal_context: None,
+            selected_pet: Some(ContextPetSummary {
+                pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+                name: "毛球".to_owned(),
+                species: "cat".to_owned(),
+            }),
+            authorized_pets: vec![ContextPetSummary {
+                pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("pet id"),
+                name: "毛球".to_owned(),
+                species: "cat".to_owned(),
+            }],
+            session_summary: None,
+            pending_confirmation_task: None,
+        },
+        memory_pack: MemoryPack {
+            entries: Vec::new(),
+        },
+        recent_conversation_pack: None,
+    }
+}
+
 fn tool_response() -> LlmChatResponse {
     LlmChatResponse {
         message: LlmMessage {
@@ -516,6 +691,34 @@ fn final_response() -> LlmChatResponse {
             total_tokens: 18,
         },
         finish_reason: LlmFinishReason::Stop,
+        provider: "scripted".to_owned(),
+        model: "primary".to_owned(),
+    }
+}
+
+fn diet_tool_response() -> LlmChatResponse {
+    LlmChatResponse {
+        message: LlmMessage {
+            role: LlmRole::Assistant,
+            content: String::new(),
+            reasoning_content: None,
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        tool_calls: vec![LlmToolCall {
+            id: "call_2".to_owned(),
+            name: "load_pet_current_diet_context".to_owned(),
+            arguments: json!({
+                "pet_id": "11111111-1111-1111-1111-111111111111"
+            })
+            .to_string(),
+        }],
+        usage: LlmUsage {
+            input_tokens: 10,
+            output_tokens: 2,
+            total_tokens: 12,
+        },
+        finish_reason: LlmFinishReason::ToolCalls,
         provider: "scripted".to_owned(),
         model: "primary".to_owned(),
     }

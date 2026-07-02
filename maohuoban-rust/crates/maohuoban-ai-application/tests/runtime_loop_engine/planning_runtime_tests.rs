@@ -254,6 +254,17 @@ async fn tool_invalid_arguments_replans_to_clarification_without_followup_model(
             .any(|event| matches!(event, AgentEvent::NeedsClarification { .. })),
         "invalid tool arguments should replan to clarification: {events:?}"
     );
+    let termination_reason = events.iter().find_map(|event| match event {
+        AgentEvent::TurnFinished {
+            termination_reason, ..
+        } => *termination_reason,
+        _ => None,
+    });
+    assert_eq!(
+        termination_reason,
+        Some(maohuoban_ai_domain::ai::AgentTurnTerminationReason::AwaitingClarification),
+        "clarification branch must terminate with awaiting_clarification"
+    );
 }
 
 #[tokio::test]

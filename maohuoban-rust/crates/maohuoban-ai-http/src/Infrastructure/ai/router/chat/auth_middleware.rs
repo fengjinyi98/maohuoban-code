@@ -6,16 +6,16 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use maohuoban_auth_http::auth::extractor::{
-    AuthMiddlewareState, AuthRejection, authenticate_user, auth_error_code,
+    AuthMiddlewareState, AuthRejection, auth_error_code, authenticate_user,
     authorization_header_diagnostics,
 };
 
-use super::composition::request::ChatStreamRequest;
 use super::super::diagnostics::{
     record_chat_non_stream_auth_failed, record_chat_non_stream_auth_succeeded,
     record_chat_non_stream_ingress_received, record_chat_stream_auth_failed,
     record_chat_stream_auth_succeeded, record_chat_stream_ingress_received,
 };
+use super::composition::request::ChatStreamRequest;
 
 /// `require_ai_chat_auth` AI chat 认证中间件
 /// 核心职责：

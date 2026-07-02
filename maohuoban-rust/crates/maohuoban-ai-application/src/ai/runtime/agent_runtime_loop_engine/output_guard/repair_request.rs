@@ -12,6 +12,7 @@ pub(super) fn build_output_repair_request(
     package: &AiFactPackage,
     candidate_answer: &str,
     verification: &AiAnswerVerification,
+    successful_write_tools: &[String],
 ) -> LlmChatRequest {
     let user_message = state.user_inputs.last().cloned().unwrap_or_default();
     LlmChatRequest {
@@ -27,7 +28,16 @@ pub(super) fn build_output_repair_request(
             LlmMessage {
                 role: LlmRole::User,
                 content: format!(
-                    "用户原始问题：\n{user_message}\n\n上一次候选回答未通过校验：\n{candidate_answer}\n\n校验反馈：\n{}\n\n请重新生成只给用户看的中文回答。",
+                    "用户原始问题：\n{user_message}\n\n上一次候选回答未通过校验：\n{candidate_answer}\n\n结构化裁决：\n- blocked_reason: {}\n- successful_write_tools: {}\n\n校验反馈：\n{}\n\n请重新生成只给用户看的中文回答。",
+                    verification
+                        .blocked_reason
+                        .map(|reason| reason.as_str())
+                        .unwrap_or("none"),
+                    if successful_write_tools.is_empty() {
+                        "[]".to_owned()
+                    } else {
+                        format!("[{}]", successful_write_tools.join(", "))
+                    },
                     verification
                         .safe_fallback_text
                         .as_deref()

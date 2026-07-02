@@ -16,6 +16,7 @@ impl AgentRuntimeLoopEngine {
         assistant_reasoning_content: Option<String>,
         assistant_tool_calls: Vec<LlmToolCall>,
         tool_calls: Vec<LlmToolCall>,
+        completed_tool_rounds: u8,
     ) -> AiResult<Option<LoopStep>> {
         if !tool_calls.is_empty() {
             self.record_planning_step(
@@ -27,6 +28,7 @@ impl AgentRuntimeLoopEngine {
                 assistant_reasoning_content,
                 assistant_tool_calls,
                 tool_calls: Vec::new(),
+                completed_tool_rounds,
             };
             return Ok(Some(LoopStep::call_tools(tool_calls)));
         }
@@ -50,6 +52,8 @@ impl AgentRuntimeLoopEngine {
                     message_id: uuid::Uuid::new_v4(),
                     final_text: safe_user_message,
                     status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                    termination_reason:
+                        maohuoban_ai_domain::ai::AgentTurnTerminationReason::OutputGuardFailed,
                     error_code: None,
                 };
             }
@@ -61,17 +65,44 @@ impl AgentRuntimeLoopEngine {
             return Ok(Some(LoopStep::CallTools { tool_results }));
         }
 
+        for result in tool_results
+            .iter()
+            .filter(|result| matches!(result.status, LoopToolStatus::Succeeded))
+        {
+            if self
+                .registry
+                .get(&result.tool_call.name)
+                .is_some_and(|tool| !tool.metadata().read_only)
+                && !self
+                    .current_turn_successful_write_tools
+                    .iter()
+                    .any(|name| name == &result.tool_call.name)
+            {
+                self.current_turn_successful_write_tools
+                    .push(result.tool_call.name.clone());
+            }
+        }
         self.merge_successful_tool_fact_packages(&tool_results);
 
         let needs_confirmation = tool_results
             .iter()
             .any(|result| matches!(result.status, LoopToolStatus::RequiresConfirmation));
 
-        if needs_confirmation {
+        if self.accumulated_total_tokens > self.turn_token_budget {
+            self.phase = RuntimePhase::Done {
+                message_id: uuid::Uuid::new_v4(),
+                final_text: String::new(),
+                status: maohuoban_ai_domain::ai::AgentTurnStatus::Failed,
+                termination_reason:
+                    maohuoban_ai_domain::ai::AgentTurnTerminationReason::BudgetExhausted,
+                error_code: Some("ai.runtime.budget_exhausted".to_owned()),
+            };
+        } else if needs_confirmation {
             self.phase = RuntimePhase::Done {
                 message_id: uuid::Uuid::new_v4(),
                 final_text: String::new(),
                 status: maohuoban_ai_domain::ai::AgentTurnStatus::AwaitingConfirmation,
+                termination_reason: maohuoban_ai_domain::ai::AgentTurnTerminationReason::ModelStop,
                 error_code: None,
             };
         } else {
@@ -79,6 +110,7 @@ impl AgentRuntimeLoopEngine {
                 assistant_reasoning_content,
                 assistant_tool_calls,
                 tool_results: tool_results.clone(),
+                completed_tool_rounds: completed_tool_rounds.saturating_add(1),
             };
         }
 

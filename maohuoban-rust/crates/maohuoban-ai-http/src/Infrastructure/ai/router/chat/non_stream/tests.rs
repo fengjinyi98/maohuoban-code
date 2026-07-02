@@ -40,6 +40,7 @@ mod tests {
                 message_id,
                 final_text: "目前档案里没有生日记录，所以还不知道梅录多大。".to_owned(),
                 status: AgentTurnStatus::Completed,
+                termination_reason: None,
             },
         ];
 
@@ -60,6 +61,7 @@ mod tests {
             message_id,
             final_text: String::new(),
             status: AgentTurnStatus::Failed,
+            termination_reason: None,
         }];
 
         let Err(err) = complete_from_runtime_events(events, None, true, VisibleOutputPlan::empty())
@@ -100,6 +102,7 @@ mod tests {
                 message_id,
                 final_text: "这是梅录的宠物信息。".to_owned(),
                 status: AgentTurnStatus::Completed,
+                termination_reason: None,
             },
         ];
 

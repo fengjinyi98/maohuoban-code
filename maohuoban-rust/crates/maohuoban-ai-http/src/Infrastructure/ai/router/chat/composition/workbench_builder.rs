@@ -2,8 +2,8 @@ use maohuoban_ai_application::ai::memory::{MemoryRecallBudget, MemoryRetriever};
 use maohuoban_ai_application::ai::ports::MemoryQuery;
 use maohuoban_ai_application::ai::turn_context::TurnContextBuilder;
 use maohuoban_ai_domain::ai::{
-    AgentSessionWorkbench, AiConversationSurface, AiPetDisplaySnapshot, MemoryEntry, MemoryPack,
-    MemoryScope, RecentConversationPack,
+    AgentSessionWorkbench, AiConversationSurface, AiPetDisplaySnapshot,
+    ContextConfirmationTaskSummary, MemoryEntry, MemoryPack, MemoryScope, RecentConversationPack,
 };
 use uuid::Uuid;
 
@@ -18,12 +18,14 @@ pub(crate) fn build_agent_session_workbench(
     surface: AiConversationSurface,
     target_pet: Option<&AiPetDisplaySnapshot>,
     session_summary: Option<String>,
+    pending_confirmation_task: Option<ContextConfirmationTaskSummary>,
     memory_entries: Vec<MemoryEntry>,
     recent_conversation: RecentConversationPack,
 ) -> AgentSessionWorkbench {
     TurnContextBuilder::new(surface)
         .with_target_pet(target_pet.cloned())
         .with_session_summary(session_summary)
+        .with_pending_confirmation_task(pending_confirmation_task)
         .with_memory_entries(memory_entries)
         .with_recent_conversation(recent_conversation)
         .build()

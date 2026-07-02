@@ -21,9 +21,7 @@ pub(crate) fn build_request(
     tool_results: &[LoopToolResult],
 ) -> LlmChatRequest {
     let is_followup_answer = !assistant_tool_calls.is_empty() || !tool_results.is_empty();
-    let tools = if is_followup_answer {
-        Vec::new()
-    } else if let Some(skill_bundle) = skill_bundle {
+    let tools = if let Some(skill_bundle) = skill_bundle {
         let base_visible_tools =
             AgentRuntimeRequestPolicy::base_visible_tool_definitions(registry, state);
         AgentRuntimeRequestPolicy::visible_tool_schemas_for_bundle(base_visible_tools, skill_bundle)

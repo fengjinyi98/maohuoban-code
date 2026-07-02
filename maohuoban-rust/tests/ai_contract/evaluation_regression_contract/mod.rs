@@ -160,6 +160,14 @@ struct EvalCase {
     expected_terminal_state: String,
     expected_error_code: Option<String>,
     expected_pet_resolution: Option<String>,
+    #[serde(default)]
+    eval_group: Option<String>,
+    #[serde(default)]
+    expected_min_tool_rounds: Option<u8>,
+    #[serde(default)]
+    expected_tool_policy_decision: Option<String>,
+    #[serde(default)]
+    expected_forbidden_tool_result: Option<bool>,
     forbidden_text: Vec<String>,
 }
 

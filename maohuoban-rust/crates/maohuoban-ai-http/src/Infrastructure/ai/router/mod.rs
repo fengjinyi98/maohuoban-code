@@ -3,7 +3,6 @@
 //! - 承载 /api/v1/ai/chat、/api/v1/ai/chat/stream、历史接口的 HTTP DTO 和路由
 //! - 用户身份只来自后端 token，不信任请求体 actor_user_id 字段
 
-mod auth;
 mod chat;
 mod diagnostics;
 mod diagnostics_common;
@@ -20,19 +19,18 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, ChatTurnTransactionPort, FoodInventoryHintProvider, LlmProvider,
     MemoryRepository, PetDietConfirmationCandidateProvider, PetDietFactProvider,
-    PetIdentityFactProvider, SessionSummaryRepository, SessionTurnRepository,
+    PetIdentityFactProvider, PetObservationWriteProvider, SessionSummaryRepository,
+    SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
-use maohuoban_ai_application::ai::stream::AiStreamPipeline;
 
 pub use self::chat::{require_ai_chat_auth, snapshot_ai_chat_request};
 /// AiHttpState AI HTTP 状态
 /// 核心职责：
-/// - 持有 AI stream pipeline、会话仓储和认证服务
+/// - 持有 LLM Provider、会话仓储和认证服务
 /// - 作为 axum handler 的共享状态
 #[derive(Clone)]
 pub struct AiHttpState {
-    pub stream_pipeline: Arc<AiStreamPipeline>,
     pub llm_provider: Arc<dyn LlmProvider>,
     pub runtime_engine_mode: AgentRuntimeEngineMode,
     pub session_repository: Arc<dyn AiSessionRepository>,
@@ -42,6 +40,7 @@ pub struct AiHttpState {
     pub memory_repository: Arc<dyn MemoryRepository>,
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
+    pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
 }
 
 /// AiPetContextProviders AI 宠物上下文 provider 集合
@@ -54,6 +53,7 @@ pub struct AiPetContextProviders {
     pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
     pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
+    pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
 }
 
 impl AiPetContextProviders {
@@ -64,12 +64,14 @@ impl AiPetContextProviders {
         diet_fact_provider: Arc<dyn PetDietFactProvider>,
         food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
         diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
+        observation_write_provider: Arc<dyn PetObservationWriteProvider>,
     ) -> Self {
         Self {
             identity_fact_provider,
             diet_fact_provider,
             food_inventory_hint_provider,
             diet_confirmation_candidate_provider,
+            observation_write_provider,
         }
     }
 }

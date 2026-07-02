@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum TaskType {
     DirectAnswer,
     ContextAnswer,
+    ConfirmationCommit,
     RejectTask,
 }
 
@@ -19,6 +20,7 @@ impl TaskType {
         match self {
             Self::DirectAnswer => "direct_answer",
             Self::ContextAnswer => "context_answer",
+            Self::ConfirmationCommit => "confirmation_commit",
             Self::RejectTask => "reject_task",
         }
     }

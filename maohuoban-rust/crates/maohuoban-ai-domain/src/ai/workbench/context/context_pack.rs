@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ai::AiConversationSurface;
 
-use super::{ContextPetSummary, TemporalContext};
+use super::{ContextConfirmationTaskSummary, ContextPetSummary, TemporalContext};
 
 /// ContextPack 本轮可见上下文包
 /// 核心职责：
@@ -21,6 +21,8 @@ pub struct ContextPack {
     pub authorized_pets: Vec<ContextPetSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_confirmation_task: Option<ContextConfirmationTaskSummary>,
 }
 
 impl ContextPack {
