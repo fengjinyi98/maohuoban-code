@@ -14,6 +14,7 @@ maohuoban-ai-application.workspace = true
 maohuoban-ai-domain.workspace = true
 maohuoban-auth-application.workspace = true
 maohuoban-auth-domain.workspace = true
+maohuoban-auth-http.workspace = true
 maohuoban_diagnostics.workspace = true
 serde.workspace = true
 serde_json.workspace = true

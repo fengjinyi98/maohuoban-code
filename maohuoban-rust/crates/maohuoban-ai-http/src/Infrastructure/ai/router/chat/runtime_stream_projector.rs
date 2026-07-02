@@ -14,7 +14,7 @@ use super::runtime_stream_helpers::{
     VerifiedCompletionInput, append_missing_profile_blocks_error, append_verified_completion,
     map_activity_status,
 };
-use super::visible_output_plan::VisibleOutputPlan;
+use super::visible_output_plan::{VisibleBlockKind, VisibleOutputPlan};
 
 pub(super) struct AgentEventSseProjector {
     package: AiFactPackage,
@@ -146,7 +146,11 @@ impl AgentEventSseProjector {
         let display_text = activity_text_for_tool(tool_name, &self.pet_name);
         self.tool_names_by_call_id
             .insert(tool_call_id.to_owned(), tool_name.to_owned());
-        if self.visible_output_plan.pet_profile_card && tool_name == "load_pet_identity_context" {
+        if self
+            .visible_output_plan
+            .allows(VisibleBlockKind::PetProfileCard)
+            && tool_name == "load_pet_identity_context"
+        {
             return vec![self.pet_profile_skeleton_event(display_text)];
         }
         vec![AiStreamEvent::ExecutionTraceStarted { display_text }]
@@ -240,7 +244,9 @@ impl AgentEventSseProjector {
                 final_text,
                 ..
             } => {
-                if self.visible_output_plan.pet_profile_card
+                if self
+                    .visible_output_plan
+                    .allows(VisibleBlockKind::PetProfileCard)
                     && self.requires_profile_content_blocks()
                     && super::content_block_projector::project_pet_profile_content_blocks(
                         &self.package,
@@ -259,7 +265,9 @@ impl AgentEventSseProjector {
                         package: &self.package,
                         verification_context: self.verification_context(),
                         streamed_delta_text: &self.streamed_delta_text,
-                        include_pet_profile_blocks: self.visible_output_plan.pet_profile_card,
+                        include_pet_profile_blocks: self
+                            .visible_output_plan
+                            .allows(VisibleBlockKind::PetProfileCard),
                     },
                     &mut output,
                 );

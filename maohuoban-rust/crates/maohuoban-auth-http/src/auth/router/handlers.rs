@@ -1,13 +1,9 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
-use maohuoban_auth_application::auth::AuthService;
-use maohuoban_auth_domain::auth::{
-    AuthError, AuthResult, AuthSession, AuthUser, AuthenticatedSession, OAuthProvider,
-};
+use maohuoban_auth_domain::auth::{AuthError, AuthSession, OAuthProvider};
 use maohuoban_profile_domain::profile::ProfileError;
 use serde_json::Value;
 use uuid::Uuid;
@@ -23,6 +19,7 @@ use super::dto::{
     VerifyPhoneCodeRequest,
 };
 use super::responses::{error_response, ok_response};
+use crate::auth::extractor::{AuthenticatedSessionContext, AuthenticatedUser};
 
 pub(super) async fn send_phone_code(
     State(state): State<AuthHttpState>,
@@ -80,16 +77,13 @@ pub(super) async fn password_login(
 
 pub(super) async fn account_security(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(user) = current_user(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
-    match state.auth.has_password(user.id).await {
+    match state.auth.has_password(actor.user_id()).await {
         Ok(has_password) => ok_response(
             "account.security_loaded",
             "账号安全信息已加载",
-            AccountSecurityData::from_user(&user, has_password),
+            AccountSecurityData::from_user(&actor.user, has_password),
         ),
         Err(error) => error_response(error),
     }
@@ -97,21 +91,22 @@ pub(super) async fn account_security(
 
 pub(super) async fn set_account_password(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<SetAccountPasswordRequest>,
 ) -> Response {
-    let Ok(user) = current_user(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
     match state
         .auth
-        .set_initial_password(&user, &request.new_password, &request.confirm_password)
+        .set_initial_password(
+            &actor.user,
+            &request.new_password,
+            &request.confirm_password,
+        )
         .await
     {
         Ok(()) => ok_response(
             "account.password_set",
             "登录密码已设置",
-            AccountSecurityData::from_user(&user, true),
+            AccountSecurityData::from_user(&actor.user, true),
         ),
         Err(error) => error_response(error),
     }
@@ -119,12 +114,9 @@ pub(super) async fn set_account_password(
 
 pub(super) async fn send_password_change_code(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(user) = current_user(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
-    match state.auth.send_password_change_code(&user).await {
+    match state.auth.send_password_change_code(&actor.user).await {
         Ok(challenge) => ok_response(
             "account.password_change_code_sent",
             "验证码已发送",
@@ -136,16 +128,13 @@ pub(super) async fn send_password_change_code(
 
 pub(super) async fn change_account_password(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<ChangeAccountPasswordRequest>,
 ) -> Response {
-    let Ok(user) = current_user(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
     match state
         .auth
         .change_password(
-            &user,
+            &actor.user,
             &request.current_password,
             &request.challenge_id,
             &request.code,
@@ -157,7 +146,7 @@ pub(super) async fn change_account_password(
         Ok(()) => ok_response(
             "account.password_changed",
             "登录密码已修改",
-            AccountSecurityData::from_user(&user, true),
+            AccountSecurityData::from_user(&actor.user, true),
         ),
         Err(error) => error_response(error),
     }
@@ -165,16 +154,13 @@ pub(super) async fn change_account_password(
 
 pub(super) async fn list_account_devices(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedSessionContext,
 ) -> Response {
-    let Ok(context) = current_auth_context(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
-    match state.auth.list_account_devices(context.user.id).await {
+    match state.auth.list_account_devices(actor.user_id()).await {
         Ok(devices) => ok_response(
             "account.devices_loaded",
             "登录设备已加载",
-            AccountDevicesData::from_sessions(devices, context.session_id),
+            AccountDevicesData::from_sessions(devices, actor.session_id()),
         ),
         Err(error) => error_response(error),
     }
@@ -182,21 +168,18 @@ pub(super) async fn list_account_devices(
 
 pub(super) async fn load_account_device(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedSessionContext,
     Path(session_id): Path<Uuid>,
 ) -> Response {
-    let Ok(context) = current_auth_context(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
     match state
         .auth
-        .load_account_device(context.user.id, session_id)
+        .load_account_device(actor.user_id(), session_id)
         .await
     {
         Ok(device) => ok_response(
             "account.device_loaded",
             "登录设备详情已加载",
-            AccountDeviceDetailData::from_session(device, context.session_id),
+            AccountDeviceDetailData::from_session(device, actor.session_id()),
         ),
         Err(error) => error_response(error),
     }
@@ -204,15 +187,12 @@ pub(super) async fn load_account_device(
 
 pub(super) async fn revoke_account_device(
     State(state): State<AuthHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedSessionContext,
     Path(session_id): Path<Uuid>,
 ) -> Response {
-    let Ok(context) = current_auth_context(&state.auth, &headers).await else {
-        return error_response(AuthError::AccessInvalid);
-    };
     match state
         .auth
-        .revoke_account_device(context.user.id, context.session_id, session_id)
+        .revoke_account_device(actor.user_id(), actor.session_id(), session_id)
         .await
     {
         Ok(()) => ok_response("account.device_revoked", "登录设备已移除", EmptyData {}),
@@ -322,27 +302,4 @@ async fn login_response(
 
 fn profile_error_to_auth_error(error: ProfileError) -> AuthError {
     AuthError::Infrastructure(error.to_string())
-}
-
-async fn current_user(auth: &AuthService, headers: &HeaderMap) -> AuthResult<AuthUser> {
-    let token = bearer_token(headers)?;
-    auth.authenticate_access_token(token).await
-}
-
-async fn current_auth_context(
-    auth: &AuthService,
-    headers: &HeaderMap,
-) -> AuthResult<AuthenticatedSession> {
-    let token = bearer_token(headers)?;
-    auth.authenticate_access_token_context(token).await
-}
-
-fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
-    let value = headers
-        .get("authorization")
-        .ok_or(AuthError::AccessInvalid)?;
-    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
-    raw.strip_prefix("Bearer ")
-        .filter(|token| !token.is_empty())
-        .ok_or(AuthError::AccessInvalid)
 }

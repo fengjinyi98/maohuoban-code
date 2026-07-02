@@ -2,19 +2,17 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Query, State},
-    http::HeaderMap,
+    extract::{FromRef, Query, State},
     response::Response,
     routing::{get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
-use maohuoban_auth_domain::auth::{AuthError, AuthResult};
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_samecity_application::samecity::SameCityService;
-use uuid::Uuid;
 
 use super::{
     dto::{BookHospitalAppointmentRequest, HospitalAppointmentData, HospitalsData, HospitalsQuery},
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 /// SameCityHttpState 同城 HTTP 状态
@@ -34,6 +32,12 @@ impl SameCityHttpState {
     }
 }
 
+impl FromRef<SameCityHttpState> for Arc<AuthService> {
+    fn from_ref(input: &SameCityHttpState) -> Self {
+        input.auth.clone()
+    }
+}
+
 /// build_samecity_router 构建同城路由
 /// 核心职责：
 /// - 注册同城医院列表和医院预约接口
@@ -50,13 +54,9 @@ pub fn build_samecity_router(samecity: Arc<SameCityService>, auth: Arc<AuthServi
 
 async fn list_hospitals(
     State(state): State<SameCityHttpState>,
-    headers: HeaderMap,
+    _actor: AuthenticatedUser,
     Query(query): Query<HospitalsQuery>,
 ) -> Response {
-    let Ok(_) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
     match state.samecity.list_verified_hospitals(&query.city).await {
         Ok(hospitals) => ok_response(
             "samecity.hospitals_loaded",
@@ -69,14 +69,10 @@ async fn list_hospitals(
 
 async fn create_hospital_appointment(
     State(state): State<SameCityHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<BookHospitalAppointmentRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
-
-    let input = request.into_input(owner_user_id);
+    let input = request.into_input(actor.user_id());
     match state.samecity.create_hospital_appointment(input).await {
         Ok(appointment) => created_response(
             "samecity.hospital_appointment_created",
@@ -85,20 +81,4 @@ async fn create_hospital_appointment(
         ),
         Err(error) => error_response(&error),
     }
-}
-
-async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
-    let token = bearer_token(headers)?;
-    let user = auth.authenticate_access_token(token).await?;
-    Ok(user.id)
-}
-
-fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
-    let value = headers
-        .get("authorization")
-        .ok_or(AuthError::AccessInvalid)?;
-    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
-    raw.strip_prefix("Bearer ")
-        .filter(|token| !token.is_empty())
-        .ok_or(AuthError::AccessInvalid)
 }

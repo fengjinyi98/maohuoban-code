@@ -1,29 +1,27 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     dto::{
         CreateMerchantPetRequest, MerchantAvailableStatusData, MerchantLitterDetailData,
         MerchantPetsData, MerchantPetsQuery, PetProfileData, PublishAvailableStatusRequest,
     },
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 pub(super) async fn list_merchant_pets(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(merchant_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Query(query): Query<MerchantPetsQuery>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state
         .pet
@@ -41,13 +39,11 @@ pub(super) async fn list_merchant_pets(
 
 pub(super) async fn create_merchant_pet(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(merchant_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<CreateMerchantPetRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_new_merchant_pet(merchant_id);
     match state.pet.create_merchant_pet(owner_user_id, input).await {
@@ -62,13 +58,11 @@ pub(super) async fn create_merchant_pet(
 
 pub(super) async fn publish_available_status(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path((merchant_id, pet_id)): Path<(Uuid, Uuid)>,
+    actor: AuthenticatedUser,
     Json(request): Json<PublishAvailableStatusRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_input(merchant_id, pet_id, owner_user_id);
     match state
@@ -87,12 +81,10 @@ pub(super) async fn publish_available_status(
 
 pub(super) async fn load_merchant_litter_detail(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path((merchant_id, litter_id)): Path<(Uuid, Uuid)>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state
         .pet

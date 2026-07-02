@@ -1,29 +1,27 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_pet_application::pet::RestorePetProfile;
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     diagnostics::{record_profile_http, record_profile_http_response},
     dto::{
         CreatePetProfileRequest, DeletePetProfileRequest, PetProfileData, PetProfilesData,
         TradePetImportData, TradePetImportRequest, UpdatePetProfileRequest,
     },
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 pub(super) async fn list_pet_profiles(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state.pet.list_pet_profiles(owner_user_id).await {
         Ok(profiles) => ok_response(
@@ -37,12 +35,10 @@ pub(super) async fn list_pet_profiles(
 
 pub(super) async fn load_pet_profile(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state.pet.load_pet_profile(owner_user_id, pet_id).await {
         Ok(profile) => ok_response(
@@ -56,13 +52,11 @@ pub(super) async fn load_pet_profile(
 
 pub(super) async fn update_pet_profile(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<UpdatePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_input(pet_id, owner_user_id);
     record_profile_http(
@@ -94,13 +88,11 @@ pub(super) async fn update_pet_profile(
 
 pub(super) async fn delete_pet_profile(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<DeletePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_input(pet_id, owner_user_id);
     match state.pet.delete_pet_profile(input).await {
@@ -115,12 +107,10 @@ pub(super) async fn delete_pet_profile(
 
 pub(super) async fn restore_pet_profile(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = RestorePetProfile {
         pet_id,
@@ -138,12 +128,10 @@ pub(super) async fn restore_pet_profile(
 
 pub(super) async fn create_pet_profile(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<CreatePetProfileRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_new_pet_profile(owner_user_id);
     record_profile_http(
@@ -169,12 +157,10 @@ pub(super) async fn create_pet_profile(
 
 pub(super) async fn import_trade_pet(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<TradePetImportRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_input(owner_user_id);
     match state.pet.import_trade_pet(input).await {
@@ -192,11 +178,9 @@ pub(super) async fn import_trade_pet(
 pub(super) async fn load_identity_context(
     State(state): State<PetHttpState>,
     Path(pet_id): Path<Uuid>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let user_id = actor.user_id();
 
     match state.pet.load_identity_context(user_id, pet_id).await {
         Ok(context) => ok_response("pet.identity_context_loaded", "身份上下文已加载", context),

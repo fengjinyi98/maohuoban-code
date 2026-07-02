@@ -18,7 +18,8 @@ use uuid::Uuid;
 
 use super::super::AiHttpState;
 use super::super::diagnostics::{
-    record_chat_planning_decided, record_chat_runtime_agent_event,
+    record_chat_content_blocks_emitted, record_chat_planning_decided,
+    record_chat_render_plan_selected, record_chat_runtime_agent_event,
     record_chat_runtime_engine_selected, record_chat_workbench_built,
 };
 use super::composition::request::ChatStreamRequest;
@@ -48,6 +49,14 @@ pub(super) fn runtime_provider_stream(
     let registry = build_runtime_registry(state, &input);
     record_runtime_stream_selection(state, &input, registry.as_ref());
     let visible_output_plan = plan_visible_output(req.surface, input.target_pet.as_ref());
+    let allowed_block_kinds = visible_output_plan.block_kind_codes();
+    record_chat_render_plan_selected(
+        input.session_id,
+        input.message_id,
+        req.surface,
+        input.target_pet.is_some(),
+        &allowed_block_kinds,
+    );
     let engine = build_runtime_engine(state, &input, registry);
     let session = AgentSession::new(
         input.session_id,
@@ -111,6 +120,18 @@ pub(super) fn runtime_provider_stream(
                     );
                     let projected_events = projector.project(agent_event);
                     for event in projected_events {
+                        if let AiStreamEvent::ContentBlockDelta { content_blocks }
+                        | AiStreamEvent::AnswerCompleted { content_blocks, .. }
+                        | AiStreamEvent::MessageCompleted { content_blocks, .. } = &event
+                            && !content_blocks.is_empty()
+                        {
+                            record_chat_content_blocks_emitted(
+                                chat_session_id,
+                                message_id,
+                                event.event_name(),
+                                content_blocks,
+                            );
+                        }
                         yield Ok(event);
                     }
                 }

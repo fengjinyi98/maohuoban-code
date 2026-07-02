@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Query, State},
-    http::{HeaderMap, StatusCode},
+    extract::{FromRef, Query, State},
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
 };
 use maohuoban_auth_application::auth::AuthService;
-use maohuoban_auth_domain::auth::{AuthError, AuthResult};
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
 use serde::{Deserialize, Serialize};
@@ -32,6 +32,12 @@ impl HomeHttpState {
     }
 }
 
+impl FromRef<HomeHttpState> for Arc<AuthService> {
+    fn from_ref(input: &HomeHttpState) -> Self {
+        input.auth.clone()
+    }
+}
+
 /// build_home_router 构建首页路由
 /// 核心职责：
 /// - 注册首页聚合快照接口
@@ -45,14 +51,11 @@ pub fn build_home_router(home: Arc<HomeDashboardService>, auth: Arc<AuthService>
 
 async fn get_home_dashboard(
     State(state): State<HomeHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Query(query): Query<HomeDashboardQuery>,
 ) -> Response {
-    let Ok(user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
     let context = HomeDashboardContext {
-        user_id: Some(user_id),
+        user_id: Some(actor.user_id()),
         selected_pet_id: selected_pet_id(&query),
     };
     match state.home.get_dashboard_snapshot(context).await {
@@ -72,22 +75,6 @@ async fn get_home_dashboard(
 #[derive(Debug, Deserialize)]
 struct HomeDashboardQuery {
     selected_pet_id: Option<String>,
-}
-
-async fn current_user_id(auth: &AuthService, headers: &HeaderMap) -> AuthResult<Uuid> {
-    let token = bearer_token(headers)?;
-    let user = auth.authenticate_access_token(token).await?;
-    Ok(user.id)
-}
-
-fn bearer_token(headers: &HeaderMap) -> AuthResult<&str> {
-    let value = headers
-        .get("authorization")
-        .ok_or(AuthError::AccessInvalid)?;
-    let raw = value.to_str().map_err(|_| AuthError::AccessInvalid)?;
-    raw.strip_prefix("Bearer ")
-        .filter(|token| !token.is_empty())
-        .ok_or(AuthError::AccessInvalid)
 }
 
 fn selected_pet_id(query: &HomeDashboardQuery) -> Option<Uuid> {
@@ -128,19 +115,6 @@ fn error_response(error: &HomeError) -> Response {
             success: false,
             code,
             message,
-            data: None,
-        }),
-    )
-        .into_response()
-}
-
-fn unauthorized_response() -> Response {
-    (
-        StatusCode::UNAUTHORIZED,
-        Json(ApiResponse::<Value> {
-            success: false,
-            code: "auth.session_expired",
-            message: "登录状态已过期，请重新登录".to_owned(),
             data: None,
         }),
     )

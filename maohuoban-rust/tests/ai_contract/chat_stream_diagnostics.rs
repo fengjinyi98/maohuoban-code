@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use httpmock::MockServer;
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
     PrivacyPolicy,
@@ -6,7 +7,10 @@ use maohuoban_diagnostics::{
 use serde_json::json;
 use tower::ServiceExt;
 
-use super::{authorized_json_request, diagnostics_test_lock, login_and_get_token, response_text};
+use super::{
+    authorized_json_request, diagnostics_test_lock, json_request, login_and_get_token,
+    response_json, response_text,
+};
 
 /// 流式聊天诊断事件允许开发期正文观测，但不能泄露认证敏感字段
 #[tokio::test]
@@ -66,6 +70,12 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
 
     assert!(events.iter().any(|event| {
         event.kind == EventKind::Analytics
+            && event.message == "ai.chat.stream.auth.succeeded"
+            && event.metadata["actor_user_id_prefix"].is_string()
+            && event.metadata["surface"] == json!("home_private")
+    }));
+    assert!(events.iter().any(|event| {
+        event.kind == EventKind::Analytics
             && event.message == "ai.chat.stream.request.received"
             && event.metadata["surface"] == json!("home_private")
             && event.metadata["message_length_bucket"] == json!("1_32")
@@ -96,6 +106,214 @@ async fn ai_chat_stream_diagnostics_do_not_leak_sensitive_text() {
         finalizer_event.metadata["async_failures"].is_array(),
         "finalizer diagnostics missing async_failures"
     );
+}
+
+/// 流式聊天即使在 401 鉴权短路时也必须留下 ingress 和 auth.failed 观测点
+#[tokio::test]
+async fn ai_chat_stream_diagnostics_records_unauthorized_ingress_and_auth_failure() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
+    app.reset().await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            json!({
+                "message": "我的宠物多大了啊",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send unauthorized stream diagnostics request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let _ = response_json(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let ingress = events
+        .iter()
+        .find(|event| event.message == "ai.chat.stream.ingress.received")
+        .expect("missing ai.chat.stream.ingress.received");
+    assert_eq!(ingress.metadata["surface"], json!("home_private"));
+    assert_eq!(ingress.metadata["message_length_bucket"], json!("1_32"));
+    assert_eq!(ingress.metadata["has_selected_pet"], json!(false));
+
+    let auth_failed = events
+        .iter()
+        .find(|event| event.message == "ai.chat.stream.auth.failed")
+        .expect("missing ai.chat.stream.auth.failed");
+    assert_eq!(auth_failed.metadata["surface"], json!("home_private"));
+    assert_eq!(auth_failed.metadata["has_authorization"], json!(false));
+    assert_eq!(auth_failed.metadata["bearer_prefix_present"], json!(false));
+    assert_eq!(
+        auth_failed.metadata["auth_error_code"],
+        json!("access_invalid")
+    );
+    assert!(
+        events
+            .iter()
+            .all(|event| event.message != "ai.chat.gate.decided"),
+        "unauthorized stream request must not emit gate decision"
+    );
+}
+
+/// 非流式聊天在 401 鉴权短路时也必须留下 ingress 和 auth.failed 观测点
+#[tokio::test]
+async fn ai_chat_non_stream_diagnostics_records_unauthorized_ingress_and_auth_failure() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
+    app.reset().await;
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/ai/chat",
+            json!({
+                "message": "我的宠物多大了啊",
+                "surface": "home_private"
+            }),
+        ))
+        .await
+        .expect("send unauthorized non-stream diagnostics request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let _ = response_json(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    let ingress = events
+        .iter()
+        .find(|event| event.message == "ai.chat.non_stream.ingress.received")
+        .expect("missing ai.chat.non_stream.ingress.received");
+    assert_eq!(ingress.metadata["surface"], json!("home_private"));
+    assert_eq!(ingress.metadata["message_length_bucket"], json!("1_32"));
+
+    let auth_failed = events
+        .iter()
+        .find(|event| event.message == "ai.chat.non_stream.auth.failed")
+        .expect("missing ai.chat.non_stream.auth.failed");
+    assert_eq!(auth_failed.metadata["has_authorization"], json!(false));
+    assert_eq!(auth_failed.metadata["bearer_prefix_present"], json!(false));
+    assert_eq!(
+        auth_failed.metadata["auth_error_code"],
+        json!("access_invalid")
+    );
+    assert!(
+        events
+            .iter()
+            .all(|event| event.message != "ai.chat.gate.decided"),
+        "unauthorized non-stream request must not emit gate decision"
+    );
+}
+
+/// 非流式聊天进入主链路时必须记录 auth、gate 和 provider 边界事件
+#[tokio::test]
+async fn ai_chat_non_stream_diagnostics_records_success_path_boundaries() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    let diagnostics = install_ai_test_diagnostics();
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139059", "ios-ai-non-stream-diag").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat",
+            &access_token,
+            json!({
+                "message": "毛球今天怎么样",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send non-stream diagnostics request");
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let _ = response_json(response).await;
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.non_stream.ingress.received"
+            && event.metadata["surface"] == json!("home_private")
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.non_stream.auth.succeeded"
+            && event.metadata["actor_user_id_prefix"].is_string()
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.gate.decided" && event.metadata["gate_decision"].is_string()
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.provider.started" && event.metadata["engine_mode"].is_string()
+    }));
+}
+
+/// 流式宠物身份工具成功后必须记录 render plan 和 content blocks 观测
+#[tokio::test]
+async fn ai_chat_stream_diagnostics_records_render_plan_and_content_blocks() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_render_test_app(&server).await;
+    let diagnostics = install_ai_test_diagnostics();
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139069", "ios-ai-render-diag").await;
+    let pet = create_pet(&app, &access_token, "梅录").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+    let (first_mock, second_mock) = install_runtime_tool_render_mocks(&server, pet_id);
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "我的宠物多大了",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send render diagnostics chat stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _ = response_text(response).await;
+    first_mock.assert();
+    second_mock.assert();
+    diagnostics.flush().expect("flush diagnostics");
+
+    let events = diagnostics.read_events().expect("diagnostics events");
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.render_plan.selected"
+            && event.metadata["surface"] == json!("home_private")
+            && event.metadata["allowed_block_kinds"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.content_blocks.emitted"
+            && event.metadata["block_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 2)
+            && event.metadata["block_kinds"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+    }));
 }
 
 /// 流式聊天诊断事件必须记录 gate 决策的四个必备字段
@@ -300,6 +518,68 @@ fn install_ai_test_diagnostics() -> Diagnostics {
         store: Box::new(store),
     })
     .expect("install diagnostics")
+}
+
+async fn spawn_runtime_tool_render_test_app(
+    server: &MockServer,
+) -> maohuoban_rust::test_support::AuthTestApp {
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await
+}
+
+fn install_runtime_tool_render_mocks<'a>(
+    server: &'a MockServer,
+    pet_id: &str,
+) -> (httpmock::Mock<'a>, httpmock::Mock<'a>) {
+    let first_body = runtime_tool_call_response_body(pet_id, "load_pet_identity_context");
+    let first_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"tools\"")
+            .body_contains("load_pet_identity_context")
+            .body_contains("我的宠物多大了")
+            .body_contains("\"role\":\"user\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(first_body);
+    });
+    let second_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"role\":\"tool\"")
+            .body_contains("\"tool_call_id\":\"call_1\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"已读取梅录档案，当前可以继续观察精神和食欲。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+    (first_mock, second_mock)
+}
+
+fn runtime_tool_call_response_body(pet_id: &str, tool_name: &str) -> String {
+    let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
+    format!(
+        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":{tool_name:?},\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
+         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
+         data: [DONE]\n\n"
+    )
 }
 
 async fn create_pet(

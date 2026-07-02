@@ -64,6 +64,7 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     first_mock.assert();
     second_mock.assert();
     assert_runtime_tool_stream_contract(&text);
+    assert_runtime_tool_profile_blocks(&text);
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
     assert_runtime_tool_diagnostics(&events);
@@ -105,18 +106,20 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     let mut body_stream = response.into_body().into_data_stream();
     let partial_text = read_sse_until_contains(
         &mut body_stream,
-        &["event: execution_trace_started", "正在整理毛球的宠物档案"],
+        &["event: content_block_delta", "pet_profile_card_skeleton"],
         Duration::from_secs(2),
     )
     .await;
 
     first_mock.assert();
-    let started_events = sse_event_data_all(&partial_text, "execution_trace_started");
+    let skeleton_events = sse_event_data_all(&partial_text, "content_block_delta");
     assert!(
-        started_events
-            .iter()
-            .any(|event| { event["display_text"] == "正在整理毛球的宠物档案" }),
-        "SSE should stream tool progress before followup model finishes, got: {started_events:?}"
+        skeleton_events.iter().any(|event| {
+            event["content_blocks"].as_array().is_some_and(|blocks| {
+                blocks.len() >= 2 && blocks[1]["type"] == json!("pet_profile_card_skeleton")
+            })
+        }),
+        "SSE should stream profile skeleton before followup model finishes, got: {skeleton_events:?}"
     );
     let mut full_text = partial_text;
     while let Some(chunk) = body_stream.next().await {
@@ -339,19 +342,20 @@ async fn spawn_runtime_tool_test_app(
 
 fn assert_runtime_tool_stream_contract(text: &str) {
     assert!(
-        text.contains("event: execution_trace_started")
-            && text.contains("event: execution_trace_completed")
+        text.contains("event: execution_trace_completed")
             && text.contains("正在整理毛球的宠物档案"),
-        "SSE should contain runtime execution trace events, got: {text}"
+        "SSE should contain runtime execution trace completion text, got: {text}"
     );
-    let started_events = sse_event_data_all(text, "execution_trace_started");
+    let content_block_deltas = sse_event_data_all(text, "content_block_delta");
     assert!(
-        started_events.iter().any(|event| {
-            event["display_text"]
-                .as_str()
-                .is_some_and(|text| text.contains("正在整理毛球的宠物档案"))
+        content_block_deltas.iter().any(|event| {
+            event["content_blocks"].as_array().is_some_and(|blocks| {
+                blocks.len() >= 2
+                    && blocks[0]["type"] == json!("section_heading")
+                    && blocks[1]["type"] == json!("pet_profile_card_skeleton")
+            })
         }),
-        "SSE should contain runtime execution trace start text, got: {started_events:?}"
+        "identity tool should emit pet profile skeleton content blocks, got: {content_block_deltas:?}"
     );
     let completed_events = sse_event_data_all(text, "execution_trace_completed");
     assert!(
@@ -366,13 +370,6 @@ fn assert_runtime_tool_stream_contract(text: &str) {
     assert!(
         !text.contains("runtime_tool") && !text.contains("load_pet_identity_context"),
         "SSE should not expose internal runtime tool names, got: {text}"
-    );
-    assert!(
-        started_events
-            .iter()
-            .chain(completed_events.iter())
-            .all(|event| event.get("tool_name").is_none()),
-        "execution trace should not expose internal tool names"
     );
     assert!(
         completed_events
@@ -390,6 +387,25 @@ fn assert_runtime_tool_stream_contract(text: &str) {
     );
 }
 
+fn assert_runtime_tool_profile_blocks(text: &str) {
+    let completed_events = sse_event_data_all(text, "answer_completed");
+    assert!(
+        completed_events.iter().any(|event| {
+            event["content_blocks"]
+                .as_array()
+                .is_some_and(|blocks| blocks.len() >= 2)
+        }),
+        "identity tool followup should include structured content blocks, got: {completed_events:?}"
+    );
+    assert!(
+        completed_events.iter().any(|event| {
+            event["content_blocks"][0]["type"] == json!("section_heading")
+                && event["content_blocks"][1]["type"] == json!("pet_profile_card")
+        }),
+        "identity tool followup should project pet profile UI blocks, got: {completed_events:?}"
+    );
+}
+
 fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
     assert_tool_gateway_diagnostic(events, "load_pet_identity_context", "success", None);
     assert!(events.iter().any(|event| {
@@ -399,6 +415,21 @@ fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEv
                 .as_u64()
                 .is_some_and(|count| count > 0)
             && event.metadata["citation_ids"].is_array()
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.render_plan.selected"
+            && event.metadata["allowed_block_kinds"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+    }));
+    assert!(events.iter().any(|event| {
+        event.message == "ai.chat.content_blocks.emitted"
+            && event.metadata["block_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 2)
+            && event.metadata["block_kinds"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
     }));
 }
 

@@ -1,5 +1,4 @@
 mod agent_diet;
-mod auth;
 mod diet_assignment;
 mod events;
 mod food_inventory;
@@ -11,7 +10,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::DefaultBodyLimit,
+    extract::{DefaultBodyLimit, FromRef},
     routing::{delete, get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
@@ -34,6 +33,12 @@ impl PetHttpState {
     #[must_use]
     pub const fn new(pet: Arc<PetService>, auth: Arc<AuthService>) -> Self {
         Self { pet, auth }
+    }
+}
+
+impl FromRef<PetHttpState> for Arc<AuthService> {
+    fn from_ref(input: &PetHttpState) -> Self {
+        input.auth.clone()
     }
 }
 

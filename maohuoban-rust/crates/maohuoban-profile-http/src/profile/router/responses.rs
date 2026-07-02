@@ -139,16 +139,3 @@ pub(super) fn error_response(error: &ProfileError) -> Response {
     )
         .into_response()
 }
-
-pub(super) fn unauthorized_response() -> Response {
-    (
-        StatusCode::UNAUTHORIZED,
-        Json(ApiResponse::<Value> {
-            success: false,
-            code: "auth.session_expired",
-            message: "登录状态已过期，请重新登录".to_owned(),
-            data: None,
-        }),
-    )
-        .into_response()
-}

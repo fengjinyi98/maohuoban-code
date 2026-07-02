@@ -499,16 +499,12 @@ fn projector_does_not_trigger_pet_profile_skeleton_from_activity_text_without_vi
 }
 
 #[test]
-fn visible_output_plan_does_not_use_identity_evidence_tool_for_pet_profile_card() {
+fn visible_output_plan_allows_pet_profile_card_on_home_private_with_target_pet() {
     let target_pet = pet_display_snapshot("豆包");
 
     let plan = plan_visible_output(AiConversationSurface::HomePrivate, Some(&target_pet));
 
-    assert_eq!(
-        plan,
-        VisibleOutputPlan::empty(),
-        "fact tools provide evidence only; they must not decide visible UI blocks"
-    );
+    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
 }
 
 #[test]
@@ -666,6 +662,73 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
             ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
         ),
         "identity tool package should project typed pet profile blocks: {content_blocks:?}"
+    );
+}
+
+#[test]
+fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let target_pet = pet_display_snapshot("梅录");
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        None,
+        "梅录",
+        true,
+        plan_visible_output(AiConversationSurface::HomePrivate, Some(&target_pet)),
+    );
+
+    let mut events = Vec::new();
+    events.extend(projector.project(AgentEvent::ToolStarted {
+        turn_id,
+        tool_call_id: "identity_call_home_private".to_owned(),
+        tool_name: "load_pet_identity_context".to_owned(),
+    }));
+    events.extend(projector.project(AgentEvent::ToolFinished {
+        turn_id,
+        tool_call_id: "identity_call_home_private".to_owned(),
+        status: AgentToolStatus::Succeeded,
+        citation_count: 1,
+        fact_package: Some(Box::new(identity_fact_package("梅录"))),
+    }));
+    events.extend(projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "好的，这是梅录的档案信息。".to_owned(),
+        status: AgentTurnStatus::Completed,
+    }));
+
+    assert!(
+        matches!(
+            events.first(),
+            Some(AiStreamEvent::ContentBlockDelta { content_blocks })
+                if matches!(
+                    content_blocks.as_slice(),
+                    [
+                        AiContentBlock::SectionHeading { text, .. },
+                        AiContentBlock::PetProfileCardSkeleton { .. }
+                    ] if text == "这是梅录的宠物信息"
+                )
+        ),
+        "home_private identity tool should emit heading plus skeleton first: {events:?}"
+    );
+
+    let completed_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("home_private identity tool should produce answer_completed");
+    assert!(
+        matches!(
+            completed_blocks.as_slice(),
+            [
+                AiContentBlock::SectionHeading { text, .. },
+                AiContentBlock::PetProfileCard { pet, .. },
+            ] if text == "这是梅录的宠物信息" && pet.name == "梅录"
+        ),
+        "home_private answer should include typed pet profile blocks: {completed_blocks:?}"
     );
 }
 

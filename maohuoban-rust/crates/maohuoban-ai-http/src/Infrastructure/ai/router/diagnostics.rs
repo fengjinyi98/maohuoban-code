@@ -6,8 +6,8 @@ use maohuoban_ai_application::ai::finalizer::{
 };
 use maohuoban_ai_application::ai::planning::PlanningDiagnosticsSnapshot;
 use maohuoban_ai_domain::ai::{
-    AgentSessionWorkbench, AiConversationSurface, AiGateDecision, AiSessionTurnStatus,
-    AiStreamEvent,
+    AgentSessionWorkbench, AiContentBlock, AiConversationSurface, AiGateDecision,
+    AiSessionTurnStatus, AiStreamEvent,
 };
 use maohuoban_diagnostics::Severity;
 use serde_json::{Value, json};
@@ -21,6 +21,25 @@ pub(crate) use super::history_diagnostics::{
     record_history_messages_loaded, record_history_mutation_completed,
     record_history_sessions_loaded,
 };
+
+/// record_chat_stream_ingress_received 记录流式入口到达
+/// 核心职责：
+/// - 在鉴权前记录 AI stream 请求已到达后端
+/// - 为鉴权短路场景补齐 AI 专项观测点
+pub(crate) fn record_chat_stream_ingress_received(
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+) {
+    record_chat_ingress_received(
+        "ai.chat.stream.ingress.received",
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+    );
+}
 
 /// record_chat_stream_request_received 记录流式聊天请求入口
 /// 核心职责：
@@ -55,6 +74,114 @@ pub(crate) fn record_chat_stream_request_received(
         ("has_selected_pet", json!(selected_pet_id.is_some())),
     ]);
     record_ai_event("ai.chat.stream.request.received", Severity::Info, metadata);
+}
+
+/// record_chat_stream_auth_succeeded 记录流式入口鉴权成功
+pub(crate) fn record_chat_stream_auth_succeeded(
+    actor_user_id: Uuid,
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+) {
+    record_chat_auth_result(
+        "ai.chat.stream.auth.succeeded",
+        Severity::Info,
+        Some(actor_user_id),
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+        None,
+        None,
+        None,
+    );
+}
+
+/// record_chat_stream_auth_failed 记录流式入口鉴权失败
+pub(crate) fn record_chat_stream_auth_failed(
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+    has_authorization: bool,
+    bearer_prefix_present: bool,
+    error_code: &str,
+) {
+    record_chat_auth_result(
+        "ai.chat.stream.auth.failed",
+        Severity::Error,
+        None,
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+        Some(has_authorization),
+        Some(bearer_prefix_present),
+        Some(error_code),
+    );
+}
+
+/// record_chat_non_stream_ingress_received 记录非流式入口到达
+pub(crate) fn record_chat_non_stream_ingress_received(
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+) {
+    record_chat_ingress_received(
+        "ai.chat.non_stream.ingress.received",
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+    );
+}
+
+/// record_chat_non_stream_auth_succeeded 记录非流式入口鉴权成功
+pub(crate) fn record_chat_non_stream_auth_succeeded(
+    actor_user_id: Uuid,
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+) {
+    record_chat_auth_result(
+        "ai.chat.non_stream.auth.succeeded",
+        Severity::Info,
+        Some(actor_user_id),
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+        None,
+        None,
+        None,
+    );
+}
+
+/// record_chat_non_stream_auth_failed 记录非流式入口鉴权失败
+pub(crate) fn record_chat_non_stream_auth_failed(
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+    has_authorization: bool,
+    bearer_prefix_present: bool,
+    error_code: &str,
+) {
+    record_chat_auth_result(
+        "ai.chat.non_stream.auth.failed",
+        Severity::Error,
+        None,
+        chat_session_id,
+        selected_pet_id,
+        surface,
+        message,
+        Some(has_authorization),
+        Some(bearer_prefix_present),
+        Some(error_code),
+    );
 }
 
 /// record_chat_gate_decided 记录 AI gate 决策
@@ -139,6 +266,25 @@ pub(crate) fn record_chat_runtime_engine_selected(
     record_ai_event("ai.chat.runtime.engine.selected", Severity::Info, metadata);
 }
 
+/// record_chat_render_plan_selected 记录本轮允许的结构化渲染块类型
+pub(crate) fn record_chat_render_plan_selected(
+    session_id: Uuid,
+    message_id: Uuid,
+    surface: AiConversationSurface,
+    target_pet_present: bool,
+    allowed_block_kinds: &[&str],
+) {
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        ("surface", json!(surface_code(surface))),
+        ("target_pet_present", json!(target_pet_present)),
+        ("allowed_block_kinds", json!(allowed_block_kinds)),
+    ]);
+    record_ai_event("ai.chat.render_plan.selected", Severity::Info, metadata);
+}
+
 /// record_chat_workbench_built 记录本轮 Workbench 观测基线
 /// 核心职责：
 /// - 固定能力目录、可见工具、上下文摘要和记忆/历史计数字段
@@ -220,6 +366,31 @@ pub(crate) fn record_chat_stream_event_emitted(session_id: Uuid, event: &AiStrea
         stream_event_severity(event),
         metadata,
     );
+}
+
+pub(crate) fn record_chat_content_blocks_emitted(
+    session_id: Uuid,
+    message_id: Uuid,
+    event_name: &str,
+    content_blocks: &[AiContentBlock],
+) {
+    let mut metadata = AiDiagnosticsCorrelation::for_session(session_id)
+        .with_message_id(message_id)
+        .to_metadata();
+    metadata.extend(vec![
+        ("event_name", json!(event_name)),
+        ("block_count", json!(content_blocks.len())),
+        (
+            "block_kinds",
+            json!(
+                content_blocks
+                    .iter()
+                    .map(content_block_kind_code)
+                    .collect::<Vec<_>>()
+            ),
+        ),
+    ]);
+    record_ai_event("ai.chat.content_blocks.emitted", Severity::Info, metadata);
 }
 
 pub(crate) fn record_chat_runtime_agent_event(
@@ -346,6 +517,87 @@ pub(crate) fn record_chat_finalizer_completed(
     record_ai_event("ai.chat.finalizer.completed", Severity::Info, metadata);
 }
 
+fn record_chat_ingress_received(
+    event_name: &str,
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+) {
+    record_ai_event(
+        event_name,
+        Severity::Info,
+        vec![
+            (
+                "chat_session_id_prefix",
+                json!(uuid_prefix(chat_session_id)),
+            ),
+            (
+                "selected_pet_id_prefix",
+                json!(uuid_prefix(selected_pet_id)),
+            ),
+            ("surface", json!(surface_code(surface))),
+            ("message", json!(redact_ai_diagnostics_text(message))),
+            (
+                "message_length_bucket",
+                json!(length_bucket(message.chars().count())),
+            ),
+            ("has_selected_pet", json!(selected_pet_id.is_some())),
+            (
+                "has_existing_chat_session",
+                json!(chat_session_id.is_some()),
+            ),
+        ],
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_chat_auth_result(
+    event_name: &str,
+    severity: Severity,
+    actor_user_id: Option<Uuid>,
+    chat_session_id: Option<Uuid>,
+    selected_pet_id: Option<Uuid>,
+    surface: AiConversationSurface,
+    message: &str,
+    has_authorization: Option<bool>,
+    bearer_prefix_present: Option<bool>,
+    error_code: Option<&str>,
+) {
+    let mut metadata = vec![
+        (
+            "chat_session_id_prefix",
+            json!(uuid_prefix(chat_session_id)),
+        ),
+        ("actor_user_id_prefix", json!(uuid_prefix(actor_user_id))),
+        (
+            "selected_pet_id_prefix",
+            json!(uuid_prefix(selected_pet_id)),
+        ),
+        ("surface", json!(surface_code(surface))),
+        ("message", json!(redact_ai_diagnostics_text(message))),
+        (
+            "message_length_bucket",
+            json!(length_bucket(message.chars().count())),
+        ),
+        ("has_selected_pet", json!(selected_pet_id.is_some())),
+        (
+            "has_existing_chat_session",
+            json!(chat_session_id.is_some()),
+        ),
+    ];
+    if let Some(value) = has_authorization {
+        metadata.push(("has_authorization", json!(value)));
+    }
+    if let Some(value) = bearer_prefix_present {
+        metadata.push(("bearer_prefix_present", json!(value)));
+    }
+    if let Some(value) = error_code {
+        metadata.push(("auth_error_code", json!(value)));
+    }
+    record_ai_event(event_name, severity, metadata);
+}
+
 fn turn_status_code(status: AiSessionTurnStatus) -> &'static str {
     status.as_str()
 }
@@ -365,5 +617,14 @@ fn async_job_code(job: FinalizerAsyncJobKind) -> &'static str {
         FinalizerAsyncJobKind::SessionSummary => "session_summary",
         FinalizerAsyncJobKind::MemoryCandidate => "memory_candidate",
         FinalizerAsyncJobKind::Evaluation => "evaluation",
+    }
+}
+
+fn content_block_kind_code(block: &AiContentBlock) -> &'static str {
+    match block {
+        AiContentBlock::SectionHeading { .. } => "section_heading",
+        AiContentBlock::Paragraph { .. } => "paragraph",
+        AiContentBlock::PetProfileCardSkeleton { .. } => "pet_profile_card_skeleton",
+        AiContentBlock::PetProfileCard { .. } => "pet_profile_card",
     }
 }

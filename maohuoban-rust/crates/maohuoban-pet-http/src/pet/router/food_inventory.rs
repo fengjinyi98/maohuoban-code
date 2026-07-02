@@ -1,18 +1,18 @@
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_pet_application::pet::UpdateFoodInventoryItem;
 use maohuoban_pet_domain::pet::{FoodInventoryCategory, FoodInventoryStatus, FoodScopeType};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     dto::{CreateFoodInventoryItemRequest, UpdateFoodInventoryItemRequest},
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 /// ListFoodInventoryQuery 食品资产列表查询
@@ -35,12 +35,10 @@ pub(super) struct FoodInventoryItemsData<T> {
 /// create_food_inventory_item 创建食品资产
 pub(super) async fn create_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Json(request): Json<CreateFoodInventoryItemRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     let input = request.into_new(FoodScopeType::User, actor_user_id, actor_user_id);
 
@@ -53,12 +51,10 @@ pub(super) async fn create_food_inventory_item(
 /// list_food_inventory_items 查询食品资产列表
 pub(super) async fn list_food_inventory_items(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Query(query): Query<ListFoodInventoryQuery>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .pet
@@ -82,12 +78,10 @@ pub(super) async fn list_food_inventory_items(
 /// get_food_inventory_item 获取单个食品资产
 pub(super) async fn get_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state.pet.find_food_inventory_item(item_id).await {
         Ok(item) if item.scope_type == FoodScopeType::User && item.scope_id == actor_user_id => {
@@ -101,13 +95,11 @@ pub(super) async fn get_food_inventory_item(
 /// update_food_inventory_item 编辑食品资产
 pub(super) async fn update_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<UpdateFoodInventoryItemRequest>,
 ) -> Response {
-    let Ok(editor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let editor_user_id = actor.user_id();
 
     let input = request.into_update(item_id, editor_user_id);
 
@@ -120,12 +112,10 @@ pub(super) async fn update_food_inventory_item(
 /// archive_food_inventory_item 归档食品资产
 pub(super) async fn archive_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(editor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let editor_user_id = actor.user_id();
 
     match state
         .pet
@@ -147,13 +137,11 @@ pub(super) struct RestockFoodInventoryRequest {
 /// restock_food_inventory_item 补库存
 pub(super) async fn restock_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<RestockFoodInventoryRequest>,
 ) -> Response {
-    let Ok(editor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let editor_user_id = actor.user_id();
 
     if request
         .inventory_status
@@ -206,13 +194,11 @@ pub(super) struct RestoreFoodInventoryRequest {
 /// restore_food_inventory_item 恢复食品资产
 pub(super) async fn restore_food_inventory_item(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<RestoreFoodInventoryRequest>,
 ) -> Response {
-    let Ok(editor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let editor_user_id = actor.user_id();
 
     match state
         .pet

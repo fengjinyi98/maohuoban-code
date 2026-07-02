@@ -30,9 +30,10 @@ use super::super::runtime_tools::{
     build_public_runtime_tool_registry, build_runtime_tool_registry,
 };
 use super::super::turn_preparation::ChatTurnContext;
-use super::super::visible_output_plan::{VisibleOutputPlan, plan_visible_output};
+use super::super::visible_output_plan::{VisibleBlockKind, VisibleOutputPlan, plan_visible_output};
 use super::history_loader::load_history_and_summary_non_stream;
 use crate::ai::router::diagnostics::{
+    record_chat_content_blocks_emitted, record_chat_render_plan_selected,
     record_chat_runtime_engine_selected, record_chat_workbench_built,
 };
 use maohuoban_ai_domain::ai::AiPetDisplaySnapshot;
@@ -73,6 +74,13 @@ pub(super) async fn complete_with_runtime(
         None => build_public_runtime_tool_registry(),
     });
     let visible_output_plan = plan_visible_output(req.surface, target_pet.as_ref());
+    record_chat_render_plan_selected(
+        context.session_id,
+        context.assistant_message_id,
+        req.surface,
+        target_pet.is_some(),
+        &visible_output_plan.block_kind_codes(),
+    );
     let visible_tool_names = registry
         .list_definitions()
         .into_iter()
@@ -126,12 +134,21 @@ pub(super) async fn complete_with_runtime(
             context.assistant_message_id,
         )
         .await?;
-    complete_from_runtime_events(
+    let complete = complete_from_runtime_events(
         events,
         fact_package,
         target_pet.is_some(),
         visible_output_plan,
-    )
+    )?;
+    if !complete.content_blocks.is_empty() {
+        record_chat_content_blocks_emitted(
+            context.session_id,
+            context.assistant_message_id,
+            "non_stream_completed",
+            &complete.content_blocks,
+        );
+    }
+    Ok(complete)
 }
 
 /// complete_from_runtime_events 聚合 Runtime 事件
@@ -221,13 +238,14 @@ pub(super) fn complete_from_runtime_events(
 
     let citations =
         maohuoban_ai_application::ai::citations::citations_for_answer(&final_text, &package);
+    let content_blocks = if visible_output_plan.allows(VisibleBlockKind::PetProfileCard) {
+        project_pet_profile_content_blocks(&package)
+    } else {
+        Vec::new()
+    };
     Ok(AiCompleteResult {
         final_text,
-        content_blocks: if visible_output_plan.pet_profile_card {
-            project_pet_profile_content_blocks(&package)
-        } else {
-            Vec::new()
-        },
+        content_blocks,
         usage,
         finish_reason,
         provider,

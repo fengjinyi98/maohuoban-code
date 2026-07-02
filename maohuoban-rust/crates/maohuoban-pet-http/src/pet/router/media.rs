@@ -1,12 +1,12 @@
 use axum::{
     Json,
     extract::{Multipart, Path, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     diagnostics::{
         record_binding_http_request, record_binding_http_response, record_upload_http_request,
@@ -16,17 +16,15 @@ use crate::pet::{
         BindUploadedPetMediaRequest, PetMediaUploadData, UploadPetLivePhotoRequest,
         UploadPetMediaRequest,
     },
-    response::{created_response, error_response, unauthorized_response},
+    response::{created_response, error_response},
 };
 
 pub(super) async fn upload_pending_pet_avatar(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let request = match UploadPetMediaRequest::from_multipart(multipart).await {
         Ok(request) => request,
@@ -49,13 +47,11 @@ pub(super) async fn upload_pending_pet_avatar(
 
 pub(super) async fn bind_uploaded_pet_media(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<BindUploadedPetMediaRequest>,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let input = request.into_input(pet_id, owner_user_id);
     record_binding_http_request(&input);
@@ -74,12 +70,10 @@ pub(super) async fn bind_uploaded_pet_media(
 
 pub(super) async fn upload_pending_pet_background_image(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let request = match UploadPetMediaRequest::from_multipart(multipart).await {
         Ok(request) => request,
@@ -102,12 +96,10 @@ pub(super) async fn upload_pending_pet_background_image(
 
 pub(super) async fn upload_pending_pet_background_video(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let request = match UploadPetMediaRequest::from_multipart(multipart).await {
         Ok(request) => request,
@@ -130,12 +122,10 @@ pub(super) async fn upload_pending_pet_background_video(
 
 pub(super) async fn upload_pending_pet_background_live_photo(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     multipart: Multipart,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     let request = match UploadPetLivePhotoRequest::from_multipart(multipart).await {
         Ok(request) => request,

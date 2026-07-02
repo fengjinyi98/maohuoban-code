@@ -1,26 +1,24 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     dto::{CreatePetEventRequest, PetEventData, PetTimelineData},
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 pub(super) async fn create_pet_event(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<CreatePetEventRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     let input = request.into_new_pet_event(pet_id, actor_user_id);
     match state.pet.create_pet_event(input).await {
@@ -35,12 +33,10 @@ pub(super) async fn create_pet_event(
 
 pub(super) async fn load_pet_timeline(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state.pet.load_pet_timeline(owner_user_id, pet_id).await {
         Ok(timeline) => ok_response(
@@ -54,12 +50,10 @@ pub(super) async fn load_pet_timeline(
 
 pub(super) async fn load_pet_event_detail(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(event_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(owner_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let owner_user_id = actor.user_id();
 
     match state
         .pet

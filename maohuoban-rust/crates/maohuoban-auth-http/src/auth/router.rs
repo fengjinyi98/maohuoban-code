@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
+    extract::FromRef,
     routing::{get, post},
 };
 use maohuoban_auth_application::auth::AuthService;
@@ -26,6 +27,12 @@ impl AuthHttpState {
     #[must_use]
     pub const fn new(auth: Arc<AuthService>, profile: Arc<ProfileService>) -> Self {
         Self { auth, profile }
+    }
+}
+
+impl FromRef<AuthHttpState> for Arc<AuthService> {
+    fn from_ref(input: &AuthHttpState) -> Self {
+        input.auth.clone()
     }
 }
 

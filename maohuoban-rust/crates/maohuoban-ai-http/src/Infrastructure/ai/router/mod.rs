@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use axum::{
     Router,
+    extract::FromRef,
     routing::{delete, get, patch, post},
 };
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
@@ -43,6 +44,12 @@ pub struct AiHttpState {
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
     pub auth: Arc<AuthService>,
+}
+
+impl FromRef<AiHttpState> for Arc<AuthService> {
+    fn from_ref(input: &AiHttpState) -> Self {
+        input.auth.clone()
+    }
 }
 
 /// AiPetContextProviders AI 宠物上下文 provider 集合

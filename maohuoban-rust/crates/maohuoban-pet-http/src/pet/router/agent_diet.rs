@@ -1,17 +1,17 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
 use chrono::{Duration, Utc};
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_pet_application::pet::ConfirmPetDietCandidateInput;
 use maohuoban_pet_domain::pet::FoodScopeType;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
-use crate::pet::response::{created_response, error_response, ok_response, unauthorized_response};
+use super::PetHttpState;
+use crate::pet::response::{created_response, error_response, ok_response};
 
 /// ConfirmPetDietCandidateRequest 确认饮食候选请求
 /// 核心职责：
@@ -44,12 +44,10 @@ impl ConfirmPetDietCandidateRequest {
 /// get_pet_current_diet_context 获取宠物当前饮食上下文（强事实）
 pub(super) async fn get_pet_current_diet_context(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .pet
@@ -64,11 +62,9 @@ pub(super) async fn get_pet_current_diet_context(
 /// get_food_inventory_change_hints 获取近期储物柜变化线索（弱线索）
 pub(super) async fn get_food_inventory_change_hints(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     // 查询过去 30 天的变化线索
     let since = Utc::now() - Duration::days(30);
@@ -90,12 +86,10 @@ pub(super) async fn get_food_inventory_change_hints(
 /// get_pet_diet_confirmation_candidates 获取宠物饮食待确认候选
 pub(super) async fn get_pet_diet_confirmation_candidates(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .pet
@@ -114,13 +108,11 @@ pub(super) async fn get_pet_diet_confirmation_candidates(
 /// confirm_pet_diet_candidate 确认宠物饮食候选
 pub(super) async fn confirm_pet_diet_candidate(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<ConfirmPetDietCandidateRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .pet

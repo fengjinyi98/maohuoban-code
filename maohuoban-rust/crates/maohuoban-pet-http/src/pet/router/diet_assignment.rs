@@ -2,28 +2,26 @@
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
+use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_pet_domain::pet::{DietAssignmentRole, PetError};
 use uuid::Uuid;
 
-use super::{PetHttpState, auth::current_user_id};
+use super::PetHttpState;
 use crate::pet::{
     dto::{SetPetCurrentStapleRequest, SetPetDietAssignmentRequest},
-    response::{created_response, error_response, ok_response, unauthorized_response},
+    response::{created_response, error_response, ok_response},
 };
 
 /// set_pet_current_staple 设为当前主粮
 pub(super) async fn set_pet_current_staple(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<SetPetCurrentStapleRequest>,
 ) -> Response {
-    let Ok(created_by_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let created_by_user_id = actor.user_id();
 
     let input = request.into_input(pet_id, created_by_user_id);
 
@@ -36,13 +34,11 @@ pub(super) async fn set_pet_current_staple(
 /// set_pet_diet_assignment 设置饮食配置
 pub(super) async fn set_pet_diet_assignment(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
     Json(request): Json<SetPetDietAssignmentRequest>,
 ) -> Response {
-    let Ok(created_by_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let created_by_user_id = actor.user_id();
 
     let input = request.into_input(pet_id, created_by_user_id);
     if matches!(input.role, DietAssignmentRole::CurrentStaple) {
@@ -60,12 +56,10 @@ pub(super) async fn set_pet_diet_assignment(
 /// list_active_diet_assignments 查询活跃饮食配置
 pub(super) async fn list_active_diet_assignments(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .pet
@@ -84,12 +78,10 @@ pub(super) async fn list_active_diet_assignments(
 /// end_diet_assignment 结束饮食配置
 pub(super) async fn end_diet_assignment(
     State(state): State<PetHttpState>,
-    headers: HeaderMap,
     Path((pet_id, assignment_id)): Path<(Uuid, Uuid)>,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(ended_by_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let ended_by_user_id = actor.user_id();
 
     match state
         .pet

@@ -21,16 +21,6 @@ where
     api_response(StatusCode::CREATED, true, code, message, Some(data))
 }
 
-pub(super) fn unauthorized_response() -> Response {
-    api_response::<Value>(
-        StatusCode::UNAUTHORIZED,
-        false,
-        "auth.session_expired",
-        "登录状态已过期，请重新登录",
-        None,
-    )
-}
-
 pub(super) fn error_response(error: &SameCityError) -> Response {
     let (status, code, message) = match error {
         SameCityError::InvalidInput(message) => (

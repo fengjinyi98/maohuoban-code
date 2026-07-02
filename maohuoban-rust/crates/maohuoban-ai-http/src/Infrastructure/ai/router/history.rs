@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use axum::{
     Json,
     extract::{Path, State},
-    http::HeaderMap,
     response::Response,
 };
 use chrono::{DateTime, Utc};
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::AiHttpState;
-use super::auth::current_user_id;
+use super::auth::AuthenticatedUser;
 use super::diagnostics::{
     record_history_messages_loaded, record_history_mutation_completed,
     record_history_sessions_loaded,
@@ -82,11 +81,9 @@ pub struct MessageDTO {
 /// handle_list_sessions 获取会话列表
 pub async fn handle_list_sessions(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     let sessions = state
         .session_repository
@@ -152,12 +149,10 @@ pub async fn handle_list_sessions(
 /// handle_get_session_messages 获取会话消息详情
 pub async fn handle_get_session_messages(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Path(session_id): Path<Uuid>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     // 校验 session 归属
     let session = match state.session_repository.get_session(session_id).await {
@@ -192,13 +187,11 @@ pub async fn handle_get_session_messages(
 /// handle_rename_session 重命名当前用户会话
 pub async fn handle_rename_session(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Path(session_id): Path<Uuid>,
     Json(req): Json<RenameChatSessionRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     let title = req.title.trim();
     if title.is_empty() || title.chars().count() > 60 {
@@ -235,13 +228,11 @@ pub async fn handle_rename_session(
 /// handle_pin_session 更新当前用户会话置顶状态
 pub async fn handle_pin_session(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Path(session_id): Path<Uuid>,
     Json(req): Json<PinChatSessionRequest>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .session_repository
@@ -270,12 +261,10 @@ pub async fn handle_pin_session(
 /// handle_delete_session 归档当前用户会话
 pub async fn handle_delete_session(
     State(state): State<AiHttpState>,
-    headers: HeaderMap,
+    actor: AuthenticatedUser,
     Path(session_id): Path<Uuid>,
 ) -> Response {
-    let Ok(actor_user_id) = current_user_id(&state.auth, &headers).await else {
-        return unauthorized_response();
-    };
+    let actor_user_id = actor.user_id();
 
     match state
         .session_repository
