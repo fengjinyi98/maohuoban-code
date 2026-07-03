@@ -11,6 +11,10 @@ use maohuoban_ai_infrastructure::repository::{
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
+#[path = "persistence/fixtures.rs"]
+mod fixtures;
+use fixtures::{insert_ai_message_fixture, insert_chat_session_fixture};
+
 use super::{authorized_json_request, login_and_get_token, response_json, response_text};
 
 /// AI chat stream 成功后 DB 中有 session、user message 和 assistant message
@@ -472,38 +476,4 @@ async fn ai_session_event_store_preserves_append_order_for_same_timestamp_events
     .await
     .expect("read event_index nullability");
     assert_eq!(column_is_nullable, "NO");
-}
-
-async fn insert_chat_session_fixture(pool: &sqlx::PgPool, session_id: uuid::Uuid) {
-    sqlx::query(
-        r"
-        INSERT INTO ai_chat_sessions
-            (id, actor_user_id, surface, title, status, created_at, updated_at)
-        VALUES ($1, $2, 'home_private', 'session event fixture', 'active', now(), now())
-        ",
-    )
-    .bind(session_id)
-    .bind(uuid::Uuid::new_v4())
-    .execute(pool)
-    .await
-    .expect("insert chat session fixture");
-}
-
-async fn insert_ai_message_fixture(
-    pool: &sqlx::PgPool,
-    session_id: uuid::Uuid,
-    message_id: uuid::Uuid,
-) {
-    sqlx::query(
-        r"
-        INSERT INTO ai_messages
-            (id, session_id, role, content, status, citations, created_at)
-        VALUES ($1, $2, 'assistant', '照护建议', 'completed', '[]'::jsonb, now())
-        ",
-    )
-    .bind(message_id)
-    .bind(session_id)
-    .execute(pool)
-    .await
-    .expect("insert ai message fixture");
 }

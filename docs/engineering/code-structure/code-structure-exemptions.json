@@ -266,9 +266,6 @@
     },
     "maohuoban-rust/tests/ai_contract/history.rs": {
       "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
-    },
-    "maohuoban-rust/tests/ai_contract/persistence.rs": {
-      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
     }
   },
   "multi_type_files": {
