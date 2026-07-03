@@ -122,6 +122,81 @@ async fn home_dashboard_derives_companionship_days_from_arrival_date() {
 }
 
 #[tokio::test]
+async fn home_dashboard_generates_default_pet_storylines_from_profile_dates() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138235").await;
+    let birthday = "2024-04-01";
+    let arrival_date = "2024-06-16";
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": birthday,
+                "arrival_date": arrival_date
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet with story dates");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+
+    let avatar_bytes = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("avatar png bytes");
+    let avatar_body = upload_pending_media(
+        &app,
+        "/api/v1/pet-media/avatar",
+        "avatar.png",
+        "image/png",
+        &avatar_bytes,
+        &user_id,
+    )
+    .await;
+    let avatar_asset_id = avatar_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("avatar asset id");
+    bind_uploaded_media(&app, pet_id, avatar_asset_id, &user_id).await;
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    let storylines = dashboard_body["data"]["storylines"]
+        .as_array()
+        .expect("storylines array");
+    let avatar_url = format!("/api/v1/media/assets/{avatar_asset_id}/content");
+
+    assert_eq!(storylines.len(), 2);
+    let birth = storylines
+        .iter()
+        .find(|storyline| storyline["kind"] == "birth")
+        .expect("birth storyline");
+    assert_eq!(birth["id"], format!("{pet_id}-birth"));
+    assert_eq!(birth["title"], "第一次来到这个世界");
+    assert_eq!(birth["anchor_date"], birthday);
+    assert_eq!(birth["cover_url"], avatar_url);
+    assert_eq!(birth["entry_count"], 0);
+
+    let homecoming = storylines
+        .iter()
+        .find(|storyline| storyline["kind"] == "homecoming")
+        .expect("homecoming storyline");
+    assert_eq!(homecoming["id"], format!("{pet_id}-homecoming"));
+    assert_eq!(homecoming["title"], "到家的第一天");
+    assert_eq!(homecoming["anchor_date"], arrival_date);
+    assert_eq!(homecoming["cover_url"], avatar_url);
+    assert_eq!(homecoming["entry_count"], 0);
+    assert!(dashboard_body["data"]["recent_timeline"].is_array());
+}
+
+#[tokio::test]
 async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;

@@ -87,8 +87,7 @@ extension HomeMockDashboardFixtures {
             ),
             emptyState: nil,
             recommendedContent: [],
-            petAlbums: nil,
-            galleryAlbums: nil
+            attentionHints: []
         )
     }
 }

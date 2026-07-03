@@ -167,8 +167,7 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertFalse(supplementedNewUser.recentTimeline.isEmpty)
         XCTAssertFalse(supplementedNewUser.reminders.isEmpty)
         XCTAssertFalse(supplementedNewUser.quickActions.isEmpty)
-        XCTAssertFalse(supplementedNewUser.petAlbums?.isEmpty ?? true)
-        XCTAssertFalse(supplementedNewUser.galleryAlbums?.isEmpty ?? true)
+        XCTAssertTrue(supplementedNewUser.storylines.isEmpty)
     }
 
     func testPetOwnerQuickActionsUseClientOwnedBaseEntries() {

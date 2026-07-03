@@ -90,20 +90,10 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
-            if let albums = snapshot.petAlbums, !albums.isEmpty {
-                HomePetAlbumsSection(
-                    albums: albums,
+            if !snapshot.storylines.isEmpty {
+                HomeStorylinesSection(
+                    storylines: snapshot.storylines,
                     petName: snapshot.selectedPet?.name
-                )
-            }
-
-            if let gallery = snapshot.galleryAlbums, !gallery.isEmpty {
-                HomePetGallerySection(
-                    albums: gallery,
-                    listRoute: .petAlbumList,
-                    detailRoute: { album in
-                        .petAlbumDetail(albumID: album.id)
-                    }
                 )
             }
 

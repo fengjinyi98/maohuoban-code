@@ -109,6 +109,67 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(dashboard.recentTimeline.first?.eventKind, .deworming)
     }
 
+    func testPetOwnerDashboardDecodesDefaultStorylines() throws {
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "code": "ok",
+              "message": "首页已加载",
+              "data": {
+                "identity": {
+                  "kind": "pet_owner",
+                  "display_name": "毛伙伴用户",
+                  "city": null,
+                  "verification_badge": null
+                },
+                "selected_pet": null,
+                "pet_switcher": [],
+                "reminders": [],
+                "quick_actions": [],
+                "partner_recommendation": null,
+                "recent_timeline": [],
+                "storylines": [
+                  {
+                    "id": "pet-1-birth",
+                    "kind": "birth",
+                    "title": "第一次来到这个世界",
+                    "anchor_date": "2024-04-01",
+                    "cover_url": "/api/v1/media/assets/avatar-1/content",
+                    "entry_count": 0
+                  },
+                  {
+                    "id": "pet-1-homecoming",
+                    "kind": "homecoming",
+                    "title": "到家的第一天",
+                    "anchor_date": "2024-06-16",
+                    "cover_url": "/api/v1/media/assets/avatar-1/content",
+                    "entry_count": 0
+                  }
+                ],
+                "merchant_dashboard": null,
+                "empty_state": null,
+                "recommended_content": []
+              }
+            }
+            """#.utf8
+        )
+
+        let response = try JSONDecoder().decode(
+            MHBAPIResponse<HomeDashboardSnapshot>.self,
+            from: data
+        )
+
+        let dashboard = try XCTUnwrap(response.data)
+        XCTAssertEqual(dashboard.storylines.count, 2)
+        XCTAssertEqual(dashboard.storylines[0].kind, .birth)
+        XCTAssertEqual(dashboard.storylines[0].anchorDate, "2024-04-01")
+        XCTAssertEqual(dashboard.storylines[0].coverURL, "/api/v1/media/assets/avatar-1/content")
+        XCTAssertEqual(dashboard.storylines[1].kind, .homecoming)
+        XCTAssertEqual(dashboard.storylines[1].anchorDate, "2024-06-16")
+        XCTAssertEqual(dashboard.storylines[1].entryCount, 0)
+    }
+
     @MainActor
     func testEditProfileMappingKeepsRemoteHeroImageURL() throws {
         let pet = HomeDashboardSnapshot.PetHeroSummary(

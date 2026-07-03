@@ -11,7 +11,9 @@ use crate::home_dashboard::{
         record_home_selected_pet_output,
     },
     merchant_summary::merchant_home_snapshot_from_workspace,
-    pet_summary::{media_asset_ids, pet_hero_summary, pet_switch_item, selected_pet},
+    pet_summary::{
+        media_asset_ids, pet_hero_summary, pet_storylines, pet_switch_item, selected_pet,
+    },
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
 use crate::home_event_projection::{reminders_from_events, timeline_event_summary};
@@ -166,6 +168,7 @@ impl HybridHomeDashboardProvider {
             .take(4)
             .map(timeline_event_summary)
             .collect();
+        snapshot.storylines = pet_storylines(selected_pet);
         snapshot.reminders = reminders_from_events(&timeline.events);
         snapshot.attention_hints = self
             .pet_service

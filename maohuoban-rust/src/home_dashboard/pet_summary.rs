@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use chrono::{Datelike, NaiveDate, Utc};
 use maohuoban_home_domain::home::{
-    HeroLivePhotoCrop, HeroLivePhotoSummary, PetHeroSummary,
-    PetNameEditPolicy as HomePetNameEditPolicy, PetNeuterStatus as HomePetNeuterStatus,
-    PetSex as HomePetSex, PetSpecies as HomePetSpecies, PetSwitchItem,
+    HeroLivePhotoCrop, HeroLivePhotoSummary, HomeStorylineKind, HomeStorylineSummary,
+    PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
+    PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
+    PetSwitchItem,
 };
 use maohuoban_pet_application::pet::MediaAssetDisplayMetadata;
 use maohuoban_pet_domain::pet::{
@@ -131,6 +132,31 @@ pub(super) fn pet_switch_item(
         name_edit_policy: pet.name_edit_policy.as_ref().map(home_name_edit_policy),
         is_selected,
     }
+}
+
+pub(super) fn pet_storylines(pet: &PetProfile) -> Vec<HomeStorylineSummary> {
+    let cover_url = pet.avatar_asset_id.map(media_asset_url);
+    [
+        pet.birthday.map(|anchor_date| HomeStorylineSummary {
+            id: format!("{}-birth", pet.id),
+            kind: HomeStorylineKind::Birth,
+            title: "第一次来到这个世界".to_owned(),
+            anchor_date,
+            cover_url: cover_url.clone(),
+            entry_count: 0,
+        }),
+        pet.arrival_date.map(|anchor_date| HomeStorylineSummary {
+            id: format!("{}-homecoming", pet.id),
+            kind: HomeStorylineKind::Homecoming,
+            title: "到家的第一天".to_owned(),
+            anchor_date,
+            cover_url,
+            entry_count: 0,
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 fn home_name_edit_policy(policy: &DomainPetNameEditPolicy) -> HomePetNameEditPolicy {

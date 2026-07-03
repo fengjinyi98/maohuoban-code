@@ -1,11 +1,5 @@
 import Foundation
 
-private extension Array {
-    var nonEmpty: [Element]? {
-        isEmpty ? nil : self
-    }
-}
-
 private extension Array where Element == HomeDashboardSnapshot.Action {
     func resolvedQuickActions(
         for identityKind: HomeDashboardSnapshot.IdentityKind,
@@ -62,11 +56,10 @@ extension HomeDashboardSnapshot {
             ),
             partnerRecommendation: partnerRecommendation ?? fallback.partnerRecommendation,
             recentTimeline: recentTimeline.toppingUpHomeTimeline(from: fallback.recentTimeline, minimumCount: 4),
+            storylines: storylines,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
-            petAlbums: petAlbums?.nonEmpty ?? fallback.petAlbums,
-            galleryAlbums: galleryAlbums?.nonEmpty ?? fallback.galleryAlbums,
             pantryItems: pantryItems,
             attentionHints: attentionHints
         )
@@ -88,11 +81,10 @@ extension HomeDashboardSnapshot {
             ),
             partnerRecommendation: partnerRecommendation,
             recentTimeline: recentTimeline,
+            storylines: storylines,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
             recommendedContent: recommendedContent,
-            petAlbums: petAlbums,
-            galleryAlbums: galleryAlbums,
             pantryItems: pantryItems,
             attentionHints: attentionHints
         )
@@ -235,11 +227,10 @@ extension HomeDashboardSnapshot {
             quickActions: quickActions,
             partnerRecommendation: partnerRecommendation,
             recentTimeline: recentTimeline,
+            storylines: storylines,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
             recommendedContent: recommendedContent,
-            petAlbums: petAlbums,
-            galleryAlbums: galleryAlbums,
             pantryItems: pantryItems,
             attentionHints: attentionHints
         )

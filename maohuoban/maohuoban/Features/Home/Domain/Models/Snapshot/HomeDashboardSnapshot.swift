@@ -12,11 +12,10 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let quickActions: [Action]
     let partnerRecommendation: PartnerRecommendation?
     let recentTimeline: [TimelineEvent]
+    let storylines: [StorylineSummary]
     let merchantDashboard: MerchantDashboardSummary?
     let emptyState: EmptyState?
     let recommendedContent: [RecommendedContent]
-    let petAlbums: [PetAlbumItem]?
-    let galleryAlbums: [PetGalleryAlbum]?
     let pantryItems: [PantryPreviewItem]?
     let attentionHints: [AttentionHint]
 
@@ -28,11 +27,10 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         quickActions: [Action],
         partnerRecommendation: PartnerRecommendation? = nil,
         recentTimeline: [TimelineEvent],
+        storylines: [StorylineSummary] = [],
         merchantDashboard: MerchantDashboardSummary?,
         emptyState: EmptyState?,
         recommendedContent: [RecommendedContent],
-        petAlbums: [PetAlbumItem]? = nil,
-        galleryAlbums: [PetGalleryAlbum]? = nil,
         pantryItems: [PantryPreviewItem]? = nil,
         attentionHints: [AttentionHint] = []
     ) {
@@ -43,11 +41,10 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.quickActions = quickActions
         self.partnerRecommendation = partnerRecommendation
         self.recentTimeline = recentTimeline
+        self.storylines = storylines
         self.merchantDashboard = merchantDashboard
         self.emptyState = emptyState
         self.recommendedContent = recommendedContent
-        self.petAlbums = petAlbums
-        self.galleryAlbums = galleryAlbums
         self.pantryItems = pantryItems
         self.attentionHints = attentionHints
     }
@@ -60,12 +57,34 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case quickActions = "quick_actions"
         case partnerRecommendation = "partner_recommendation"
         case recentTimeline = "recent_timeline"
+        case storylines
         case merchantDashboard = "merchant_dashboard"
         case emptyState = "empty_state"
         case recommendedContent = "recommended_content"
-        case petAlbums = "pet_albums"
-        case galleryAlbums = "gallery_albums"
         case pantryItems = "pantry_items"
         case attentionHints = "attention_hints"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        identity = try container.decode(Identity.self, forKey: .identity)
+        selectedPet = try container.decodeIfPresent(PetHeroSummary.self, forKey: .selectedPet)
+        petSwitcher = try container.decode([PetSwitchItem].self, forKey: .petSwitcher)
+        reminders = try container.decode([Reminder].self, forKey: .reminders)
+        quickActions = try container.decode([Action].self, forKey: .quickActions)
+        partnerRecommendation = try container.decodeIfPresent(
+            PartnerRecommendation.self,
+            forKey: .partnerRecommendation
+        )
+        recentTimeline = try container.decode([TimelineEvent].self, forKey: .recentTimeline)
+        storylines = try container.decodeIfPresent([StorylineSummary].self, forKey: .storylines) ?? []
+        merchantDashboard = try container.decodeIfPresent(
+            MerchantDashboardSummary.self,
+            forKey: .merchantDashboard
+        )
+        emptyState = try container.decodeIfPresent(EmptyState.self, forKey: .emptyState)
+        recommendedContent = try container.decode([RecommendedContent].self, forKey: .recommendedContent)
+        pantryItems = try container.decodeIfPresent([PantryPreviewItem].self, forKey: .pantryItems)
+        attentionHints = try container.decodeIfPresent([AttentionHint].self, forKey: .attentionHints) ?? []
     }
 }

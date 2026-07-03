@@ -114,53 +114,7 @@ extension HomeMockDashboardFixtures {
             ],
             merchantDashboard: nil,
             emptyState: nil,
-            recommendedContent: [],
-            petAlbums: [
-                HomeDashboardSnapshot.PetAlbumItem(
-                    id: "album-1",
-                    title: "第一天带回家",
-                    dateText: "2024年",
-                    coverImageAssetName: "HomePetAlbum1"
-                ),
-                HomeDashboardSnapshot.PetAlbumItem(
-                    id: "album-2",
-                    title: "在阳光下打盹",
-                    dateText: "2025年",
-                    coverImageAssetName: "HomePetAlbum2"
-                ),
-                HomeDashboardSnapshot.PetAlbumItem(
-                    id: "album-3",
-                    title: "抓蝴蝶失败",
-                    dateText: "2025年",
-                    coverImageAssetName: "HomePetAlbum3"
-                ),
-                HomeDashboardSnapshot.PetAlbumItem(
-                    id: "album-4",
-                    title: "冬日小棉袄",
-                    dateText: "2025年",
-                    coverImageAssetName: "HomePetAlbum4"
-                )
-            ],
-            galleryAlbums: [
-                HomeDashboardSnapshot.PetGalleryAlbum(
-                    id: "gallery-1",
-                    title: "睡颜大赏",
-                    dateText: "创建于 2024年",
-                    coverImageAssetName: "HomeGalleryAlbum1"
-                ),
-                HomeDashboardSnapshot.PetGalleryAlbum(
-                    id: "gallery-2",
-                    title: "户外冒险",
-                    dateText: "创建于 2025年",
-                    coverImageAssetName: "HomeGalleryAlbum2"
-                ),
-                HomeDashboardSnapshot.PetGalleryAlbum(
-                    id: "gallery-3",
-                    title: "吃货瞬间",
-                    dateText: "创建于 2025年",
-                    coverImageAssetName: "HomeGalleryAlbum3"
-                )
-            ]
+            recommendedContent: []
         )
     }
 

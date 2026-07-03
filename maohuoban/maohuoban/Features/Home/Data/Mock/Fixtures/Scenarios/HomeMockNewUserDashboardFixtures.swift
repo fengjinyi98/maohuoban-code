@@ -52,8 +52,7 @@ extension HomeMockDashboardFixtures {
                     sourceText: "毛伙伴精选"
                 )
             ],
-            petAlbums: nil,
-            galleryAlbums: nil
+            attentionHints: []
         )
     }
 }
