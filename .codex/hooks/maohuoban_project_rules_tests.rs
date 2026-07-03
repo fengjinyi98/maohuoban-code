@@ -93,11 +93,9 @@ fn allows_rust_workspace_layer_directories() {
 
     let findings = evaluate_file(&root, &path, ChangeKind::Updated);
 
-    assert!(
-        !findings
-            .iter()
-            .any(|finding| finding.rule == "missing_responsibility_directory")
-    );
+    assert!(!findings
+        .iter()
+        .any(|finding| finding.rule == "missing_responsibility_directory"));
 }
 
 #[test]
@@ -109,11 +107,9 @@ fn allows_multiple_public_rust_functions_in_module_file() {
 
     let findings = evaluate_file(&root, &path, ChangeKind::Updated);
 
-    assert!(
-        !findings
-            .iter()
-            .any(|finding| finding.rule == "multiple_primary_types")
-    );
+    assert!(!findings
+        .iter()
+        .any(|finding| finding.rule == "multiple_primary_types"));
 }
 
 #[test]
@@ -127,11 +123,9 @@ fn downgrades_updated_file_hard_limit_to_warning() {
     assert!(findings.iter().any(|finding| {
         finding.severity == Severity::Warning && finding.rule == "swift_file_too_large"
     }));
-    assert!(
-        !findings
-            .iter()
-            .any(|finding| finding.severity == Severity::Violation)
-    );
+    assert!(!findings
+        .iter()
+        .any(|finding| finding.severity == Severity::Violation));
 }
 
 #[test]
@@ -179,9 +173,7 @@ fn allows_file_with_explicit_structure_exemption_reason() {
 
     let findings = evaluate_file(&root, &path, ChangeKind::Updated);
 
-    assert!(
-        findings
-            .iter()
-            .all(|finding| finding.severity != Severity::Violation)
-    );
+    assert!(findings
+        .iter()
+        .all(|finding| finding.severity != Severity::Violation));
 }
