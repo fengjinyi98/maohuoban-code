@@ -276,9 +276,6 @@
     "maohuoban/maohuoban/Features/AI/Stores/Streaming/AIAssistantStore+Streaming.swift": {
       "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
     },
-    "maohuoban/maohuoban/Features/Profile/Presentation/ProfileRootScreen.swift": {
-      "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
-    },
     "maohuoban/maohuoban/Infrastructure/SwiftUI/Input/MHBStableMultilineTextInput.swift": {
       "reason": "Swift 存量大文件承载复杂 UI/SDK 运行时逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
     }
