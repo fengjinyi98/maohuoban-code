@@ -254,4 +254,33 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertEqual(supplemented.pantryItems?.map(\.id), ["food-real"])
         XCTAssertEqual(supplemented.pantryItems?.first?.title, "后端真实主粮")
     }
+
+    func testSupplementingMissingSectionsKeepsGalleryAlbumsEmptyForBackendSnapshot() {
+        let backendSnapshot = HomeDashboardSnapshot(
+            identity: HomeDashboardSnapshot.Identity(
+                kind: .petOwner,
+                displayName: "真实用户",
+                city: nil,
+                verificationBadge: nil
+            ),
+            selectedPet: nil,
+            petSwitcher: [],
+            reminders: [],
+            quickActions: [],
+            partnerRecommendation: nil,
+            recentTimeline: [],
+            galleryAlbums: [],
+            merchantDashboard: nil,
+            emptyState: nil,
+            recommendedContent: []
+        )
+        let mockSnapshot = HomeMockDashboardFixtures.snapshot(
+            scenario: .petOwner,
+            selectedPetID: nil
+        )
+
+        let supplemented = backendSnapshot.supplementingMissingSections(from: mockSnapshot)
+
+        XCTAssertTrue(supplemented.galleryAlbums.isEmpty)
+    }
 }

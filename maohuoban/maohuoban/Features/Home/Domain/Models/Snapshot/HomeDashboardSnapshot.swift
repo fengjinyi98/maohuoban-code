@@ -13,6 +13,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let partnerRecommendation: PartnerRecommendation?
     let recentTimeline: [TimelineEvent]
     let storylines: [StorylineSummary]
+    let galleryAlbums: [PetGalleryAlbum]
     let merchantDashboard: MerchantDashboardSummary?
     let emptyState: EmptyState?
     let recommendedContent: [RecommendedContent]
@@ -28,6 +29,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         partnerRecommendation: PartnerRecommendation? = nil,
         recentTimeline: [TimelineEvent],
         storylines: [StorylineSummary] = [],
+        galleryAlbums: [PetGalleryAlbum] = [],
         merchantDashboard: MerchantDashboardSummary?,
         emptyState: EmptyState?,
         recommendedContent: [RecommendedContent],
@@ -42,6 +44,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.partnerRecommendation = partnerRecommendation
         self.recentTimeline = recentTimeline
         self.storylines = storylines
+        self.galleryAlbums = galleryAlbums
         self.merchantDashboard = merchantDashboard
         self.emptyState = emptyState
         self.recommendedContent = recommendedContent
@@ -58,6 +61,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case partnerRecommendation = "partner_recommendation"
         case recentTimeline = "recent_timeline"
         case storylines
+        case galleryAlbums = "gallery_albums"
         case merchantDashboard = "merchant_dashboard"
         case emptyState = "empty_state"
         case recommendedContent = "recommended_content"
@@ -78,6 +82,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         )
         recentTimeline = try container.decode([TimelineEvent].self, forKey: .recentTimeline)
         storylines = try container.decodeIfPresent([StorylineSummary].self, forKey: .storylines) ?? []
+        galleryAlbums = try container.decodeIfPresent([PetGalleryAlbum].self, forKey: .galleryAlbums) ?? []
         merchantDashboard = try container.decodeIfPresent(
             MerchantDashboardSummary.self,
             forKey: .merchantDashboard

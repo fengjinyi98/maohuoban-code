@@ -97,6 +97,17 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
+            if snapshot.selectedPet != nil {
+                HomePetGallerySection(
+                    albums: snapshot.galleryAlbums,
+                    listRoute: .petAlbumList,
+                    createRoute: .createPetAlbum,
+                    detailRoute: { album in
+                        .petAlbumDetail(albumID: album.id)
+                    }
+                )
+            }
+
             if let merchantDashboard = snapshot.merchantDashboard {
                 HomeMerchantDashboardSection(summary: merchantDashboard)
             }

@@ -178,6 +178,24 @@ extension HomeDashboardSnapshot {
         }
     }
 
+    // PetGalleryAlbum 宠物相册摘要
+    // 核心职责：
+    // - 表达用户创建的照片分类相册
+    // - 与宠物故事线保持独立的数据边界
+    struct PetGalleryAlbum: Decodable, Equatable, Identifiable {
+        let id: String
+        let title: String
+        let dateText: String
+        let coverImageAssetName: String
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case title
+            case dateText = "date_text"
+            case coverImageAssetName = "cover_image_asset_name"
+        }
+    }
+
     // PantryPreviewItem 宠物储物柜精选物品
     // 核心职责：
     // - 表达宠物储物柜近期入库的物品

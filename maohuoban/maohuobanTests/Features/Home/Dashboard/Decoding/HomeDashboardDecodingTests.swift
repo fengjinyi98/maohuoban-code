@@ -107,6 +107,7 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(dashboard.reminders.first?.kind, .deworming)
         XCTAssertEqual(dashboard.reminders.first?.title, "内外驱虫")
         XCTAssertEqual(dashboard.recentTimeline.first?.eventKind, .deworming)
+        XCTAssertTrue(dashboard.galleryAlbums.isEmpty)
     }
 
     func testPetOwnerDashboardDecodesDefaultStorylines() throws {
