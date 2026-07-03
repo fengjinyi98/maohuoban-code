@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // PetAlbumDetailContent 相册详情滚动内容
 // 核心职责：
 // - 组合沉浸式轮播主图和三列照片网格
-// - 使用 loft 滚动边缘效果承载状态栏下方的沉浸式图片
+// - 让沉浸式主图直接扩展到状态栏区域
 struct PetAlbumDetailContent: View {
     let album: PetAlbumSummary
     let assets: [PetAlbumAsset]
@@ -57,7 +57,6 @@ struct PetAlbumDetailContent: View {
             }
             .coordinateSpace(name: "petAlbumDetailScrollView")
             .ignoresSafeArea(edges: .top)
-            .scrollEdgeEffectStyle(.loft, for: .top)
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.containerSize.height
             } action: { _, metrics in
