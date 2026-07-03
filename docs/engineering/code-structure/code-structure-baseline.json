@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T14:38:44",
+  "generated_at": "2026-07-03T14:41:46",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -968,11 +968,6 @@
         "limit": 500,
         "line_count": 509,
         "suffix": ".rs"
-      },
-      "maohuoban/maohuoban/Features/AI/Stores/Streaming/AIAssistantStore+Streaming.swift": {
-        "limit": 400,
-        "line_count": 432,
-        "suffix": ".swift"
       },
       "maohuoban/maohuoban/Infrastructure/SwiftUI/Input/MHBStableMultilineTextInput.swift": {
         "limit": 400,
@@ -3557,6 +3552,11 @@
       "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantScreen.swift": {
         "limit": 250,
         "line_count": 398,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/AI/Stores/Streaming/AIAssistantStore+Streaming.swift": {
+        "limit": 250,
+        "line_count": 395,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/Home/Data/Mock/Fixtures/Scenarios/HomeMockPetOwnerDashboardFixtures.swift": {

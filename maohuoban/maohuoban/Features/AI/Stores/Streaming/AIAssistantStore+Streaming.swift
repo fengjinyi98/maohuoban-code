@@ -392,41 +392,4 @@ extension AIAssistantStore {
         }
     }
 
-    func makeConversationTitle(from text: String) -> String {
-        let title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard title.count > 18 else { return title }
-        return "\(title.prefix(18))..."
-    }
-
-    func updateHistory(
-        _ id: String,
-        transform: (AIAssistantConversationHistory) -> AIAssistantConversationHistory
-    ) {
-        guard let index = histories.firstIndex(where: { $0.id == id }) else { return }
-        histories[index] = transform(histories[index])
-    }
-
-    func sortHistoriesByPinnedState() {
-        let pinned = histories.filter(\.isPinned)
-        let unpinned = histories.filter { !$0.isPinned }
-        histories = pinned + unpinned
-    }
-
-    func loadSessionMessages(sessionID: String) async {
-        do {
-            let response = try await repository.fetchSessionMessages(sessionID: sessionID)
-            guard currentChatSessionID == sessionID else { return }
-            if let data = response.data {
-                messages = data.map { dto in
-                    AIAssistantMessage(
-                        role: dto.role == "user" ? .user : .assistant,
-                        text: dto.content,
-                        contentBlocks: dto.contentBlocks
-                    )
-                }
-            }
-        } catch {
-            return
-        }
-    }
 }
