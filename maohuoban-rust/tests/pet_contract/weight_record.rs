@@ -120,6 +120,68 @@ async fn pet_weight_records_support_initial_create_update_and_delete() {
     assert_eq!(items[0]["source"], "profile_initial");
 }
 
+#[tokio::test]
+async fn pet_weight_records_repair_profile_weight_without_initial_event() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139202").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "年糕",
+                "species": "cat",
+                "sex": "female",
+                "weight_grams": 3600
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet with profile weight");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"].as_str().expect("pet id");
+
+    sqlx::query(
+        r#"
+        DELETE FROM pet_events
+        WHERE pet_id = $1::uuid
+          AND event_kind = 'health'
+          AND event_subkind = 'weight'
+        "#,
+    )
+    .bind(pet_id)
+    .execute(app.pool())
+    .await
+    .expect("remove legacy missing weight event");
+
+    let repaired_list = load_weight_records(&app, pet_id, &user_id).await;
+    let items = repaired_list["data"]["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["weight_grams"], 3600);
+    assert_eq!(items[0]["source"], "profile_initial");
+    assert_eq!(items[0]["note"], "创建宠物时记录的初始体重");
+
+    let persisted_count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM pet_events
+        WHERE pet_id = $1::uuid
+          AND event_kind = 'health'
+          AND event_subkind = 'weight'
+          AND event_payload->>'source' = 'profile_initial'
+        "#,
+    )
+    .bind(pet_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count repaired profile initial event");
+    assert_eq!(persisted_count, 1);
+}
+
 async fn load_weight_records(
     app: &maohuoban_rust::test_support::AuthTestApp,
     pet_id: &str,

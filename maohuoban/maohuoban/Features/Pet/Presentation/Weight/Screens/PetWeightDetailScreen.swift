@@ -49,13 +49,23 @@ struct PetWeightDetailScreen: View {
 
                 MHBScreenScrollView {
                     VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                        if store.isEmpty && !store.isLoading {
+                        if store.shouldShowEmptyState {
                             PetWeightEmptyState(
                                 title: store.emptyStateTitle,
                                 message: store.emptyStateMessage,
                                 buttonTitle: store.emptyStateButtonTitle,
                                 action: {
                                     isAddRecordSheetPresented = true
+                                }
+                            )
+                            .frame(maxWidth: .infinity, minHeight: max(proxy.size.height - topContentPadding(topInset: topInset) - bottomInset, 320))
+                        } else if store.shouldShowErrorState {
+                            PetWeightLoadErrorState(
+                                message: store.errorMessage ?? "体重记录加载失败",
+                                action: {
+                                    Task {
+                                        await store.load()
+                                    }
                                 }
                             )
                             .frame(maxWidth: .infinity, minHeight: max(proxy.size.height - topContentPadding(topInset: topInset) - bottomInset, 320))
@@ -93,16 +103,18 @@ struct PetWeightDetailScreen: View {
                 }
                 .allowsHitTesting(false)
 
-                MHBBottomFloatingActionCTA(
-                    title: "新增记录",
-                    systemImage: "plus",
-                    bottomInset: bottomInset,
-                    action: {
-                        isAddRecordSheetPresented = true
-                    }
-                )
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
-                .zIndex(2)
+                if store.shouldShowBottomCTA {
+                    MHBBottomFloatingActionCTA(
+                        title: "新增记录",
+                        systemImage: "plus",
+                        bottomInset: bottomInset,
+                        action: {
+                            isAddRecordSheetPresented = true
+                        }
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
+                    .zIndex(2)
+                }
 
                 PetWeightDetailTopChrome(
                     selectedItem: currentPetSwitcherItem,
@@ -205,6 +217,49 @@ struct PetWeightDetailScreen: View {
         )
     }
 
+}
+
+// PetWeightLoadErrorState 体重记录加载错误态
+// 核心职责：
+// - 避免请求失败被误展示为空记录
+// - 提供用户可恢复的重新加载入口
+private struct PetWeightLoadErrorState: View {
+    let message: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+                .frame(width: 72, height: 72)
+                .background(MHBTheme.ColorToken.warning.color.opacity(0.10), in: Circle())
+
+            VStack(spacing: MHBTheme.Spacing.s2) {
+                Text("体重记录加载失败")
+                    .font(MHBTheme.Typography.headline.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+
+                Text(message)
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: action) {
+                Text("重新加载")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .frame(height: 44)
+                    .background(MHBTheme.ColorToken.primary.color, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s6)
+        .accessibilityIdentifier("pet.weight.errorState")
+    }
 }
 
 // PetWeightRange 体重趋势周期

@@ -25,6 +25,18 @@ struct WeightRecordRow {
     updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// ProfileWeightSeedRow 档案体重补偿数据行
+/// 核心职责：
+/// - 读取历史宠物档案中的体重事实
+/// - 为缺失初始体重事件的旧数据生成事件账本种子
+#[derive(Debug, FromRow)]
+struct ProfileWeightSeedRow {
+    pet_id: Uuid,
+    owner_user_id: Uuid,
+    weight_grams: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
 impl TryFrom<WeightRecordRow> for PetWeightRecord {
     type Error = PetError;
 
@@ -88,6 +100,9 @@ impl PostgresPetRepository {
         pet_id: Uuid,
         limit: i64,
     ) -> PetResult<Vec<PetWeightRecord>> {
+        self.ensure_profile_initial_weight_event(owner_user_id, pet_id)
+            .await?;
+
         let rows = sqlx::query_as::<_, WeightRecordRow>(
             r#"
             SELECT
@@ -125,6 +140,61 @@ impl PostgresPetRepository {
         rows.into_iter()
             .map(TryInto::try_into)
             .collect::<PetResult<Vec<_>>>()
+    }
+
+    async fn ensure_profile_initial_weight_event(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<()> {
+        let seed = sqlx::query_as::<_, ProfileWeightSeedRow>(
+            r#"
+            SELECT p.id AS pet_id,
+                   p.owner_user_id,
+                   p.weight_grams,
+                   p.created_at
+            FROM pet_profiles p
+            WHERE p.id = $1
+              AND p.weight_grams IS NOT NULL
+              AND p.owner_user_id IS NOT NULL
+              AND (
+                  p.owner_user_id = $2
+                  OR EXISTS (
+                      SELECT 1 FROM pet_guardians g
+                      WHERE g.pet_id = p.id AND g.guardian_user_id = $2 AND g.status = 'active'
+                  )
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM pet_events e
+                  WHERE e.pet_id = p.id
+                    AND e.event_kind = 'health'
+                    AND e.event_subkind = 'weight'
+                    AND e.event_payload->>'source' = 'profile_initial'
+              )
+            "#,
+        )
+        .bind(pet_id)
+        .bind(owner_user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        if let Some(seed) = seed {
+            insert_weight_event(
+                &self.pool,
+                Uuid::new_v4(),
+                seed.pet_id,
+                seed.owner_user_id,
+                seed.weight_grams,
+                Some("创建宠物时记录的初始体重".to_owned()),
+                PetWeightRecordSource::ProfileInitial,
+                seed.created_at,
+                1,
+            )
+            .await?;
+        }
+
+        Ok(())
     }
 
     pub(super) async fn load_pet_weight_record_query(

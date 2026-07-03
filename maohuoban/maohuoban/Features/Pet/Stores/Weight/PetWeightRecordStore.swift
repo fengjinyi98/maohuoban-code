@@ -16,6 +16,7 @@ final class PetWeightRecordStore {
     private(set) var isLoading = false
     private(set) var isMutating = false
     private(set) var errorMessage: String?
+    private(set) var hasLoaded = false
 
     init(
         petID: String,
@@ -31,6 +32,18 @@ final class PetWeightRecordStore {
 
     var isEmpty: Bool {
         records.isEmpty
+    }
+
+    var shouldShowEmptyState: Bool {
+        hasLoaded && records.isEmpty && errorMessage == nil
+    }
+
+    var shouldShowErrorState: Bool {
+        errorMessage != nil && records.isEmpty
+    }
+
+    var shouldShowBottomCTA: Bool {
+        !shouldShowEmptyState && !shouldShowErrorState
     }
 
     var emptyStateTitle: String {
@@ -69,6 +82,7 @@ final class PetWeightRecordStore {
                 currentUserID: currentUserID
             )
             records = Self.sorted(response.data?.items ?? [])
+            hasLoaded = true
         } catch {
             errorMessage = error.toastMessage
         }

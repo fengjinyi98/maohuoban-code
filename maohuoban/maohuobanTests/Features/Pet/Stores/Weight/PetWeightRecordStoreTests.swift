@@ -28,6 +28,32 @@ final class PetWeightRecordStoreTests: XCTestCase {
         XCTAssertEqual(repository.receivedListWeightPetID, "pet-1")
     }
 
+    func testProfileInitialWeightRecordIsTreatedAsExistingRecord() async {
+        let repository = CapturingPetRepository()
+        repository.listWeightRecordsResult = .success(Self.listResponse(items: [
+            Self.record(
+                id: "weight-initial",
+                grams: 4200,
+                note: "创建宠物时记录的初始体重",
+                source: .profileInitial,
+                occurredAt: "2026-07-01T01:00:00Z"
+            )
+        ]))
+        let store = PetWeightRecordStore(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            repository: repository
+        )
+
+        await store.load()
+
+        XCTAssertFalse(store.shouldShowEmptyState)
+        XCTAssertFalse(store.shouldShowErrorState)
+        XCTAssertTrue(store.shouldShowBottomCTA)
+        XCTAssertEqual(store.currentWeightText, "4.20")
+        XCTAssertEqual(store.records.first?.source, .profileInitial)
+    }
+
     func testEmptyStateCopyGuidesFirstRecordCreation() async {
         let repository = CapturingPetRepository()
         repository.listWeightRecordsResult = .success(Self.listResponse(items: []))
@@ -40,9 +66,32 @@ final class PetWeightRecordStoreTests: XCTestCase {
         await store.load()
 
         XCTAssertTrue(store.isEmpty)
+        XCTAssertTrue(store.shouldShowEmptyState)
+        XCTAssertFalse(store.shouldShowBottomCTA)
         XCTAssertEqual(store.emptyStateTitle, "还没有体重记录")
         XCTAssertEqual(store.emptyStateMessage, "记录第一次称重后，就能看到毛伙伴的体重变化。")
         XCTAssertEqual(store.emptyStateButtonTitle, "添加体重记录")
+    }
+
+    func testLoadFailureDoesNotEnterEmptyState() async {
+        let repository = CapturingPetRepository()
+        repository.listWeightRecordsResult = .failure(.business(
+            code: "auth.session_expired",
+            message: "登录状态已过期，请重新登录",
+            statusCode: 401
+        ))
+        let store = PetWeightRecordStore(
+            petID: "pet-1",
+            currentUserID: "",
+            repository: repository
+        )
+
+        await store.load()
+
+        XCTAssertFalse(store.shouldShowEmptyState)
+        XCTAssertTrue(store.shouldShowErrorState)
+        XCTAssertFalse(store.shouldShowBottomCTA)
+        XCTAssertEqual(store.errorMessage, "登录状态已过期，请重新登录")
     }
 
     func testCreateAndUpdateRecordsUseRepositoryAndRefreshLocalItems() async {
@@ -137,6 +186,7 @@ final class PetWeightRecordStoreTests: XCTestCase {
         id: String,
         grams: Int,
         note: String,
+        source: PetWeightRecordSource = .manual,
         occurredAt: String
     ) -> PetWeightRecord {
         PetWeightRecord(
@@ -144,7 +194,7 @@ final class PetWeightRecordStoreTests: XCTestCase {
             petID: "pet-1",
             weightGrams: grams,
             note: note,
-            source: .manual,
+            source: source,
             occurredAt: occurredAt,
             recordRevision: 1,
             createdAt: occurredAt,
