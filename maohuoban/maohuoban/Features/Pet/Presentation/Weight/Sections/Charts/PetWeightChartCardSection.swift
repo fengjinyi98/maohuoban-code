@@ -31,15 +31,19 @@ struct PetWeightChartCard: View {
     @Binding var selectedRange: PetWeightRange
     let records: [PetWeightRecord]
 
+    private var presentation: PetWeightChartPresentation {
+        PetWeightChartPresentation(records: records, selectedRange: selectedRange)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             PetWeightRangePicker(selectedRange: $selectedRange)
 
-            PetWeightLineChart(records: records)
+            PetWeightLineChart(records: presentation.records)
                 .frame(height: 172)
 
             HStack {
-                ForEach(records.reversed()) { record in
+                ForEach(presentation.records.reversed()) { record in
                     Text(record.monthText)
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)

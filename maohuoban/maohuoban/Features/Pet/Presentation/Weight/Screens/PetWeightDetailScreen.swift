@@ -147,6 +147,7 @@ struct PetWeightDetailScreen: View {
                 PetWeightRecordDetailScreen(
                     recordID: recordID,
                     petName: currentPetName,
+                    petAvatarSubject: currentPetSwitcherItem?.avatarSubject,
                     store: store
                 )
             }

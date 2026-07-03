@@ -10,10 +10,15 @@ import MaohuobanDesignSystem
 struct HomeAttentionHintSection: View {
     let hints: [HomeDashboardSnapshot.AttentionHint]
     let petName: String?
+    let recordContext: PetRecordEntryContext
 
     var body: some View {
         if let topHint = hints.first {
-            HomeAttentionHintRow(hint: topHint, petName: petName)
+            HomeAttentionHintRow(
+                hint: topHint,
+                petName: petName,
+                recordContext: recordContext
+            )
         }
     }
 }
@@ -25,6 +30,7 @@ struct HomeAttentionHintSection: View {
 private struct HomeAttentionHintRow: View {
     let hint: HomeDashboardSnapshot.AttentionHint
     let petName: String?
+    let recordContext: PetRecordEntryContext
 
     var body: some View {
         NavigationLink(value: route) {
@@ -104,7 +110,7 @@ private struct HomeAttentionHintRow: View {
         case .abnormalDetail:
             return .petRecordDetail(.abnormal(recordID: recordID))
         case .weightRecord:
-            return .petRecordDetail(.weight(recordID: recordID))
+            return .petWeightRecordDetail(recordID: recordID, context: recordContext)
         case .reminderDetail:
             return .petRecordDetail(.unsupported(recordID: recordID))
         case .preventiveCareDetail:

@@ -125,6 +125,36 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
+    func testWeightTimelineEventRoutesToWeightRecordDetailWithPetContext() {
+        let event = HomeDashboardSnapshot.TimelineEvent(
+            id: "weight-record-1",
+            eventKind: .weight,
+            title: "记录体重",
+            subtitle: "4.20 kg",
+            occurredText: "09:30",
+            occurredAt: "2026-07-04T01:30:00Z"
+        )
+        let context = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/pet/avatar",
+            petSex: .female
+        )
+
+        let route = HomeTimelineRecordRouteResolver.route(
+            for: event,
+            recordContext: context
+        )
+
+        guard case .petWeightRecordDetail(let recordID, let routeContext) = route else {
+            XCTFail("Expected real weight record detail route")
+            return
+        }
+        XCTAssertEqual(recordID, "weight-record-1")
+        XCTAssertEqual(routeContext, context)
+    }
+
+    @MainActor
     func testMerchantReminderRoutesToMerchantTaskWhenMerchantContextExists() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "merchant-task-needs-record",

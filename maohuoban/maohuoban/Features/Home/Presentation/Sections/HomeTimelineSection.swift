@@ -9,6 +9,7 @@ import MaohuobanDesignSystem
 struct HomeTimelineSection: View {
     let events: [HomeDashboardSnapshot.TimelineEvent]
     let historyRoute: HomeRoute
+    let recordContext: PetRecordEntryContext
 
     private var displayedEvents: [HomeDashboardSnapshot.TimelineEvent] {
         Array(events.prefix(4))
@@ -49,7 +50,10 @@ struct HomeTimelineSection: View {
                         )
                         .accessibilityIdentifier("home.timeline.event.\(event.id)")
                     } else {
-                        NavigationLink(value: HomeRoute.petRecordDetail(event.recordDetailRoute)) {
+                        NavigationLink(value: HomeTimelineRecordRouteResolver.route(
+                            for: event,
+                            recordContext: recordContext
+                        )) {
                             HomeTimelineRow(
                                 event: event,
                                 isFirst: isFirst,
@@ -254,26 +258,6 @@ private struct HomeTimelineRow: View {
     }
 }
 
-// HomeTimelineRecordSemantic 首页时间线记录语义
-// 核心职责：
-// - 将 mock ID、真实记录标题和摘要收敛为稳定详情路由
-// - 避免后端生成记录 ID 后快速事实误入未接入占位页
-private enum HomeTimelineRecordSemantic {
-    case birth
-    case homecoming
-    case feeding
-    case poopNormal
-    case energyNormal
-    case appetiteNormal
-    case weight
-    case deworming
-    case walk
-    case vaccine
-    case abnormal
-    case clinicVisit
-    case unsupported
-}
-
 private extension String {
     var homeTimelineDate: Date? {
         let fractionalSecondsFormatter = ISO8601DateFormatter()
@@ -305,105 +289,6 @@ private extension String {
 private extension HomeDashboardSnapshot.TimelineEvent {
     var isLifecycleFact: Bool {
         id.hasSuffix("-birth") || id.hasSuffix("-homecoming")
-    }
-
-    var recordDetailRoute: PetRecordDetailRoute {
-        switch timelineSemantic {
-        case .birth, .homecoming:
-            return .unsupported(recordID: id)
-        case .feeding:
-            return .feeding(recordID: id)
-        case .poopNormal:
-            return .quickFact(.poopNormal)
-        case .energyNormal:
-            return .quickFact(.energyNormal)
-        case .appetiteNormal:
-            return .quickFact(.appetiteNormal)
-        case .weight:
-            return .weight(recordID: id)
-        case .deworming:
-            return .deworming(recordID: id)
-        case .walk:
-            return .walk(recordID: id)
-        case .vaccine:
-            return .vaccine(recordID: id)
-        case .abnormal:
-            return .abnormal(recordID: id)
-        case .clinicVisit:
-            return .clinicVisit(recordID: id)
-        case .unsupported:
-            return .unsupported(recordID: id)
-        }
-    }
-
-    var timelineSemantic: HomeTimelineRecordSemantic {
-        if id.hasSuffix("-birth") {
-            return .birth
-        }
-
-        if id.hasSuffix("-homecoming") {
-            return .homecoming
-        }
-
-        switch id {
-        case "event-feeding", "record-2026-06-feeding":
-            return .feeding
-        case "event-quick-poop-normal", "record-2026-06-poop-normal":
-            return .poopNormal
-        case "event-quick-energy-normal", "record-2026-06-energy-normal":
-            return .energyNormal
-        case "event-quick-appetite-normal", "record-2026-05-appetite":
-            return .appetiteNormal
-        case "event-weight", "record-2026-06-weight":
-            return .weight
-        case "event-deworming", "record-2026-06-deworming":
-            return .deworming
-        case "event-walk", "record-2026-05-walk":
-            return .walk
-        case "event-abnormal", "record-2026-06-abnormal":
-            return .abnormal
-        case "record-2026-04-hospital":
-            return .clinicVisit
-        default:
-            return inferredTimelineSemantic
-        }
-    }
-
-    private var inferredTimelineSemantic: HomeTimelineRecordSemantic {
-        let combinedText = "\(title) \(subtitle)"
-
-        if title.contains("喂") || subtitle.contains("喂食") {
-            return .feeding
-        }
-
-        if combinedText.contains("便便") || combinedText.contains("粪便") || combinedText.contains("排便") {
-            return .poopNormal
-        }
-
-        if combinedText.contains("精神") || combinedText.contains("活力") {
-            return .energyNormal
-        }
-
-        if combinedText.contains("食欲") {
-            return .appetiteNormal
-        }
-
-        switch eventKind {
-        case .weight:
-            return .weight
-        case .deworming:
-            return .deworming
-        case .vaccine:
-            return .vaccine
-        case .health where combinedText.contains("异常"):
-            return .abnormal
-        case .health where combinedText.contains("就诊") || combinedText.contains("医院"):
-            return .clinicVisit
-        case .daily where combinedText.contains("散步") || combinedText.contains("遛弯"):
-            return .walk
-        case .daily, .health, .merchant:
-            return .unsupported
-        }
     }
 }
 

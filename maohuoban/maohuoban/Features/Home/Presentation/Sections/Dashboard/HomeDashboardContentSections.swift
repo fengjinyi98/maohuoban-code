@@ -32,14 +32,16 @@ struct HomeDashboardContentSections: View {
                 if !snapshot.attentionHints.isEmpty {
                     HomeAttentionHintSection(
                         hints: snapshot.attentionHints,
-                        petName: snapshot.selectedPet?.name
+                        petName: snapshot.selectedPet?.name,
+                        recordContext: recordContext
                     )
                 }
 
                 if !snapshot.recentTimeline.isEmpty {
                     HomeTimelineSection(
                         events: snapshot.recentTimeline,
-                        historyRoute: recordHistoryRoute
+                        historyRoute: recordHistoryRoute,
+                        recordContext: recordContext
                     )
                 }
             }
@@ -57,13 +59,15 @@ struct HomeDashboardContentSections: View {
                 if !snapshot.attentionHints.isEmpty {
                     HomeAttentionHintSection(
                         hints: snapshot.attentionHints,
-                        petName: snapshot.selectedPet?.name
+                        petName: snapshot.selectedPet?.name,
+                        recordContext: recordContext
                     )
                 }
 
                 HomeTimelineSection(
                     events: snapshot.recentTimeline,
-                    historyRoute: recordHistoryRoute
+                    historyRoute: recordHistoryRoute,
+                    recordContext: recordContext
                 )
             }
 
@@ -108,6 +112,17 @@ struct HomeDashboardContentSections: View {
         .padding(.horizontal, MHBTheme.Spacing.s4)
         .padding(.top, showsTopSpacing ? MHBTheme.Spacing.s4 : 0)
         .padding(.bottom, MHBTheme.Spacing.s4)
+    }
+
+    private var recordContext: PetRecordEntryContext {
+        PetRecordEntryContext(
+            petID: routingContext.selectedPetID,
+            petName: routingContext.selectedPetName,
+            petAvatarURL: routingContext.selectedPetAvatarURL,
+            petSex: routingContext.selectedPetSex,
+            lifeStatus: routingContext.selectedPetLifeStatus,
+            availablePets: routingContext.availablePets
+        )
     }
 }
 

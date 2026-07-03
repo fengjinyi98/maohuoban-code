@@ -11,42 +11,69 @@ struct PetWeightRecordDetailScreen: View {
 
     let recordID: String
     let petName: String
+    let petAvatarSubject: MHBAvatarSubject?
     let store: PetWeightRecordStore
 
     @State private var isEditSheetPresented = false
     @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                if let record {
-                    let presentation = PetWeightRecordDetailPresentation(
-                        record: record,
-                        petName: petName,
-                        records: store.records
-                    )
-                    PetWeightRecordReceiptCard(presentation: presentation)
-                    PetWeightRecordNearbySection(records: presentation.nearbyRecords)
-                    PetWeightRecordDetailActions(
-                        onEdit: {
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
+
+            ZStack(alignment: .bottom) {
+                MHBScreenScrollView {
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                        if let record {
+                            let presentation = PetWeightRecordDetailPresentation(
+                                record: record,
+                                petName: petName,
+                                petAvatarSubject: petAvatarSubject,
+                                records: store.records
+                            )
+                            PetWeightRecordReceiptCard(presentation: presentation)
+                            PetWeightRecordNearbySection(records: presentation.nearbyRecords)
+                        } else {
+                            PetWeightRecordMissingState()
+                        }
+                    }
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .padding(.top, MHBTheme.Spacing.s6)
+                    .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                }
+                .frame(maxWidth: .infinity)
+
+                if record != nil {
+                    MHBBottomFloatingActionCTA(
+                        title: "修改记录信息",
+                        systemImage: "pencil",
+                        bottomInset: bottomInset,
+                        action: {
                             isEditSheetPresented = true
-                        },
-                        onDelete: {
-                            isDeleteConfirmationPresented = true
                         }
                     )
-                } else {
-                    PetWeightRecordMissingState()
+                    .zIndex(2)
                 }
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
-        .frame(maxWidth: .infinity)
+        .ignoresSafeArea(.container, edges: .bottom)
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("体重记录详情")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if record != nil {
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(MHBTheme.ColorToken.danger.color)
+                    }
+                    .accessibilityLabel("删除体重记录")
+                }
+            }
+        }
         .sheet(isPresented: $isEditSheetPresented) {
             if let record {
                 PetWeightRecordSheet(
@@ -89,12 +116,11 @@ private struct PetWeightRecordReceiptCard: View {
 
     var body: some View {
         VStack(alignment: .center, spacing: 0) {
-            Image(systemName: "scalemass.fill")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(presentation.tint)
-                .frame(width: 64, height: 64)
-                .background(presentation.tint.opacity(0.10))
-                .clipShape(Circle())
+            MHBAvatar(
+                subject: presentation.petAvatarSubject,
+                size: .large,
+                shape: .circle
+            )
                 .padding(.bottom, MHBTheme.Spacing.s5)
 
             Text("体重记录")
@@ -268,37 +294,6 @@ private struct PetWeightRecordNearbyRow: View {
             }
         }
         .padding(.vertical, MHBTheme.Spacing.s4)
-    }
-}
-
-// PetWeightRecordDetailActions 体重详情底部操作
-// 核心职责：
-// - 保留后续编辑和删除入口
-// - 与快速事实详情底部操作保持一致
-private struct PetWeightRecordDetailActions: View {
-    let onEdit: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("修改记录信息", action: onEdit)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.danger.color)
-                    .frame(width: 48, height: 48)
-                    .background(MHBTheme.ColorToken.danger.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-        }
-        .accessibilityIdentifier("pet.weightRecordDetail.actions")
     }
 }
 

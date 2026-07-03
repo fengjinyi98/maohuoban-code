@@ -54,6 +54,7 @@ struct PetWeightRecordDetailPresentation {
 
     let recordID: String
     let petName: String
+    let petAvatarSubject: MHBAvatarSubject
     let timeText: String
     let weightText: String
     let deltaText: String
@@ -62,11 +63,25 @@ struct PetWeightRecordDetailPresentation {
     let rows: [Row]
     let nearbyRecords: [NearbyRecord]
 
-    init(record: PetWeightRecord, petName: String, records: [PetWeightRecord]) {
+    init(
+        record: PetWeightRecord,
+        petName: String,
+        petAvatarSubject: MHBAvatarSubject?,
+        records: [PetWeightRecord]
+    ) {
         let deltaKind = DeltaKind(recordDeltaKind: record.deltaKind)
         let deltaText = record.deltaText == "--" ? "暂无变化" : record.deltaText
         self.recordID = record.id
         self.petName = petName
+        self.petAvatarSubject = petAvatarSubject ?? .pet(
+            MHBAvatarPet(
+                id: record.petID,
+                name: petName,
+                source: .empty,
+                species: .other,
+                sex: .unknown
+            )
+        )
         self.timeText = record.localTimeText
         self.weightText = record.weightText
         self.deltaText = deltaText
