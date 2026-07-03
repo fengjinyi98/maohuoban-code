@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T14:41:46",
+  "generated_at": "2026-07-03T14:46:17",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -7,7 +7,7 @@
     "swift_hard_line_limit": 400
   },
   "scan": {
-    "code_file_count": 1862,
+    "code_file_count": 1864,
     "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
@@ -968,11 +968,6 @@
         "limit": 500,
         "line_count": 509,
         "suffix": ".rs"
-      },
-      "maohuoban/maohuoban/Infrastructure/SwiftUI/Input/MHBStableMultilineTextInput.swift": {
-        "limit": 400,
-        "line_count": 494,
-        "suffix": ".swift"
       }
     },
     "exempted_multi_type_files": {
