@@ -4,129 +4,19 @@
 // - 验证 SessionSummary 安全前缀和压缩边界
 // - 验证 SessionSummaryCompressor 压缩流程（投影后送 LLM、持久化边界）
 // - 验证压缩后保留尾部消息和摘要写入
-//
-// MHB_STRUCTURE_EXEMPTION: session summary compressor contract 保持单入口，domain 阈值、压缩流程和 fake repository/provider 共用同一组消息 fixture；拆散会增加重复测试夹具。
-
-use std::future::Future;
-use std::pin::Pin;
-
-use futures_util::stream::BoxStream;
-use maohuoban_ai_application::ai::ports::{FakeLlmProvider, LlmProvider, SessionSummaryRepository};
+use maohuoban_ai_application::ai::ports::SessionSummaryRepository;
 use maohuoban_ai_application::ai::session_summary::{CompressedHistory, SessionSummaryCompressor};
-use maohuoban_ai_domain::ai::{
-    AiMessage, AiMessageRole, AiMessageStatus, AiResult, CompressionThreshold, CompressionTrigger,
-    LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmUsage, SessionSummary,
-    SessionSummaryScope,
-};
+use maohuoban_ai_domain::ai::{CompressionThreshold, CompressionTrigger, SessionSummary};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-fn session_id() -> Uuid {
-    Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("session id")
-}
+mod support;
 
-fn actor_user_id() -> Uuid {
-    Uuid::parse_str("22222222-2222-2222-2222-222222222222").expect("actor user id")
-}
-
-fn user_message(content: &str, ts: i64) -> AiMessage {
-    AiMessage {
-        id: Uuid::new_v4(),
-        session_id: session_id(),
-        turn_id: None,
-        role: AiMessageRole::User,
-        content: content.to_owned(),
-        status: AiMessageStatus::Completed,
-        citations: Vec::new(),
-        content_blocks: Vec::new(),
-        model: None,
-        provider: None,
-        finish_reason: None,
-        usage_input_tokens: None,
-        usage_output_tokens: None,
-        verification: None,
-        created_at: chrono::DateTime::from_timestamp(ts, 0).expect("ts"),
-    }
-}
-
-fn user_message_with_id(id: Uuid, content: &str, ts: i64) -> AiMessage {
-    AiMessage {
-        id,
-        session_id: session_id(),
-        turn_id: None,
-        role: AiMessageRole::User,
-        content: content.to_owned(),
-        status: AiMessageStatus::Completed,
-        citations: Vec::new(),
-        content_blocks: Vec::new(),
-        model: None,
-        provider: None,
-        finish_reason: None,
-        usage_input_tokens: None,
-        usage_output_tokens: None,
-        verification: None,
-        created_at: chrono::DateTime::from_timestamp(ts, 0).expect("ts"),
-    }
-}
-
-fn assistant_message(content: &str, ts: i64) -> AiMessage {
-    AiMessage {
-        id: Uuid::new_v4(),
-        session_id: session_id(),
-        turn_id: None,
-        role: AiMessageRole::Assistant,
-        content: content.to_owned(),
-        status: AiMessageStatus::Completed,
-        citations: Vec::new(),
-        content_blocks: Vec::new(),
-        model: Some("primary".to_owned()),
-        provider: Some("scripted".to_owned()),
-        finish_reason: Some("stop".to_owned()),
-        usage_input_tokens: Some(10),
-        usage_output_tokens: Some(5),
-        verification: None,
-        created_at: chrono::DateTime::from_timestamp(ts, 0).expect("ts"),
-    }
-}
-
-fn fake_llm(summary_text: &str) -> FakeLlmProvider {
-    FakeLlmProvider::new(
-        LlmChatResponse {
-            message: maohuoban_ai_domain::ai::LlmMessage {
-                role: maohuoban_ai_domain::ai::LlmRole::Assistant,
-                content: summary_text.to_owned(),
-                reasoning_content: None,
-                tool_call_id: None,
-                tool_calls: Vec::new(),
-            },
-            tool_calls: Vec::new(),
-            usage: LlmUsage {
-                input_tokens: 100,
-                output_tokens: 50,
-                total_tokens: 150,
-            },
-            finish_reason: LlmFinishReason::Stop,
-            provider: "fake".to_owned(),
-            model: "fake-model".to_owned(),
-        },
-        Vec::<LlmStreamEvent>::new(),
-    )
-}
-
-fn sample_summary() -> SessionSummary {
-    SessionSummary {
-        id: Uuid::new_v4(),
-        chat_session_id: session_id(),
-        scope_type: SessionSummaryScope::User,
-        scope_id: actor_user_id(),
-        summary_text: "test".to_owned(),
-        referenced_event_ids: Vec::new(),
-        token_budget_hint: None,
-        compressed_until_message_id: None,
-        created_at: chrono::Utc::now(),
-        superseded_at: None,
-    }
-}
+use support::{
+    CapturingLlmProvider, InMemorySummaryRepo, actor_user_id, assistant_message, fake_llm,
+    long_message_history, old_message_history, sample_summary, session_id, user_message,
+    user_message_with_id,
+};
 
 // === Domain 层测试 ===
 
@@ -248,11 +138,7 @@ async fn compressor_generates_summary_and_retains_tail() {
     let compressor = SessionSummaryCompressor::new(llm, repo.clone());
 
     // 构造超过阈值的历史（40+ 条消息）
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("用户消息{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("助手回复{i}"), i64::from(i) + 1));
-    }
+    let messages = long_message_history("用户消息", "助手回复");
 
     let result = compressor
         .try_compress(session_id(), actor_user_id(), &messages, 3, None)
@@ -280,11 +166,7 @@ async fn compressor_persists_compression_boundary() {
     let repo = Arc::new(InMemorySummaryRepo::new());
     let compressor = SessionSummaryCompressor::new(llm, repo.clone());
 
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("msg{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("reply{i}"), i64::from(i) + 1));
-    }
+    let messages = long_message_history("msg", "reply");
 
     let result = compressor
         .try_compress(session_id(), actor_user_id(), &messages, 3, None)
@@ -317,11 +199,7 @@ async fn compressor_strips_internal_fields_before_llm() {
     let repo = Arc::new(InMemorySummaryRepo::new());
     let compressor = SessionSummaryCompressor::new(llm, repo);
 
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("msg{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("reply{i}"), i64::from(i) + 1));
-    }
+    let messages = long_message_history("msg", "reply");
 
     compressor
         .try_compress(session_id(), actor_user_id(), &messages, 3, None)
@@ -350,11 +228,7 @@ async fn compressor_summary_contains_safety_prefix_when_injected() {
     let repo = Arc::new(InMemorySummaryRepo::new());
     let compressor = SessionSummaryCompressor::new(llm, repo);
 
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("msg{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("reply{i}"), i64::from(i) + 1));
-    }
+    let messages = long_message_history("msg", "reply");
 
     let result = compressor
         .try_compress(session_id(), actor_user_id(), &messages, 3, None)
@@ -373,11 +247,7 @@ async fn compressor_supersedes_previous_summaries() {
     let repo = Arc::new(InMemorySummaryRepo::new());
     let compressor = SessionSummaryCompressor::new(llm, repo.clone());
 
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("msg{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("reply{i}"), i64::from(i) + 1));
-    }
+    let messages = long_message_history("msg", "reply");
 
     // 第一次压缩
     let first = compressor
@@ -429,19 +299,7 @@ async fn compressor_triggers_on_long_session_resumed() {
     let compressor = SessionSummaryCompressor::new(llm, repo.clone());
 
     // 构造少量但很旧的消息（5条，最后一条在 10 天前）
-    let old_ts = chrono::Utc::now().timestamp() - 10 * 24 * 3600;
-    let mut messages = Vec::new();
-    for i in 0..5 {
-        messages.push(user_message_with_id(
-            Uuid::new_v4(),
-            &format!("旧消息{i}"),
-            old_ts + i * 60,
-        ));
-        messages.push(assistant_message(
-            &format!("旧回复{i}"),
-            old_ts + i * 60 + 30,
-        ));
-    }
+    let messages = old_message_history();
 
     let result = compressor
         .try_compress(session_id(), actor_user_id(), &messages, 2, None)
@@ -464,19 +322,7 @@ async fn compressor_triggers_resume_when_current_message_just_written() {
     let compressor = SessionSummaryCompressor::new(llm, repo.clone());
 
     // 旧消息：10 天前的对话
-    let old_ts = chrono::Utc::now().timestamp() - 10 * 24 * 3600;
-    let mut messages = Vec::new();
-    for i in 0..5 {
-        messages.push(user_message_with_id(
-            Uuid::new_v4(),
-            &format!("旧消息{i}"),
-            old_ts + i * 60,
-        ));
-        messages.push(assistant_message(
-            &format!("旧回复{i}"),
-            old_ts + i * 60 + 30,
-        ));
-    }
+    let mut messages = old_message_history();
 
     // 当前轮用户消息刚写入（age ≈ 0），模拟真实持久化后调用 try_compress
     let current_message_id = Uuid::new_v4();
@@ -539,11 +385,7 @@ async fn compressor_retained_tail_excludes_current_message() {
     let compressor = SessionSummaryCompressor::new(llm, repo);
 
     // 构造超过阈值的历史
-    let mut messages = Vec::new();
-    for i in 0..50 {
-        messages.push(user_message(&format!("msg{i}"), i64::from(i)));
-        messages.push(assistant_message(&format!("reply{i}"), i64::from(i) + 1));
-    }
+    let mut messages = long_message_history("msg", "reply");
 
     // 当前轮用户消息追加到末尾
     let current_message_id = Uuid::new_v4();
@@ -579,19 +421,7 @@ async fn compressor_retained_tail_excludes_current_message_on_resume() {
     let repo = Arc::new(InMemorySummaryRepo::new());
     let compressor = SessionSummaryCompressor::new(llm, repo);
 
-    let old_ts = chrono::Utc::now().timestamp() - 10 * 24 * 3600;
-    let mut messages = Vec::new();
-    for i in 0..5 {
-        messages.push(user_message_with_id(
-            Uuid::new_v4(),
-            &format!("旧消息{i}"),
-            old_ts + i * 60,
-        ));
-        messages.push(assistant_message(
-            &format!("旧回复{i}"),
-            old_ts + i * 60 + 30,
-        ));
-    }
+    let mut messages = old_message_history();
 
     let current_message_id = Uuid::new_v4();
     messages.push(user_message_with_id(
@@ -619,110 +449,5 @@ async fn compressor_retained_tail_excludes_current_message_on_resume() {
             entry.content, "继续上次话题",
             "retained_tail must not contain current turn message on resume"
         );
-    }
-}
-
-// === Fake 实现 ===
-
-struct InMemorySummaryRepo {
-    summaries: Mutex<Vec<SessionSummary>>,
-}
-
-impl InMemorySummaryRepo {
-    fn new() -> Self {
-        Self {
-            summaries: Mutex::new(Vec::new()),
-        }
-    }
-}
-
-#[async_trait::async_trait]
-impl SessionSummaryRepository for InMemorySummaryRepo {
-    async fn insert_summary(&self, summary: &SessionSummary) -> AiResult<()> {
-        self.summaries.lock().expect("lock").push(summary.clone());
-        Ok(())
-    }
-
-    async fn get_active_summary(&self, chat_session_id: Uuid) -> AiResult<Option<SessionSummary>> {
-        let summaries = self.summaries.lock().expect("lock");
-        Ok(summaries
-            .iter()
-            .rfind(|s| s.chat_session_id == chat_session_id && s.is_active())
-            .cloned())
-    }
-
-    async fn supersede_previous_summaries(
-        &self,
-        chat_session_id: Uuid,
-        superseded_at: chrono::DateTime<chrono::Utc>,
-    ) -> AiResult<()> {
-        let mut summaries = self.summaries.lock().expect("lock");
-        for s in summaries.iter_mut() {
-            if s.chat_session_id == chat_session_id && s.is_active() {
-                s.superseded_at = Some(superseded_at);
-            }
-        }
-        Ok(())
-    }
-}
-
-/// `CapturingLlmProvider` 捕获 LLM 请求内容的 fake provider
-/// 核心职责：
-/// - 记录收到的 LLM 请求文本，用于验证内部字段是否被过滤
-struct CapturingLlmProvider {
-    response: LlmChatResponse,
-    captured: Arc<Mutex<Option<String>>>,
-}
-
-impl CapturingLlmProvider {
-    fn new(summary_text: &str, captured: Arc<Mutex<Option<String>>>) -> Self {
-        Self {
-            response: LlmChatResponse {
-                message: maohuoban_ai_domain::ai::LlmMessage {
-                    role: maohuoban_ai_domain::ai::LlmRole::Assistant,
-                    content: summary_text.to_owned(),
-                    reasoning_content: None,
-                    tool_call_id: None,
-                    tool_calls: Vec::new(),
-                },
-                tool_calls: Vec::new(),
-                usage: LlmUsage {
-                    input_tokens: 100,
-                    output_tokens: 50,
-                    total_tokens: 150,
-                },
-                finish_reason: LlmFinishReason::Stop,
-                provider: "fake".to_owned(),
-                model: "fake-model".to_owned(),
-            },
-            captured,
-        }
-    }
-}
-
-impl LlmProvider for CapturingLlmProvider {
-    fn complete<'a>(
-        &'a self,
-        request: &'a maohuoban_ai_domain::ai::LlmChatRequest,
-    ) -> Pin<Box<dyn Future<Output = AiResult<LlmChatResponse>> + Send + 'a>> {
-        let captured = self.captured.clone();
-        let response = self.response.clone();
-        Box::pin(async move {
-            let text = request
-                .messages
-                .iter()
-                .map(|m| m.content.as_str())
-                .collect::<Vec<_>>()
-                .join("\n");
-            *captured.lock().expect("lock") = Some(text);
-            Ok(response)
-        })
-    }
-
-    fn stream<'a>(
-        &'a self,
-        _request: &'a maohuoban_ai_domain::ai::LlmChatRequest,
-    ) -> BoxStream<'a, AiResult<LlmStreamEvent>> {
-        Box::pin(futures_util::stream::empty())
     }
 }
