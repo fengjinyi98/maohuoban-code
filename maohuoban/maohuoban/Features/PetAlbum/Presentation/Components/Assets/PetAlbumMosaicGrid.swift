@@ -1,23 +1,35 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
-// PetAlbumMosaicGrid 相册详情马赛克照片墙
+// PetAlbumMosaicGrid 相册详情照片网格
 // 核心职责：
-// - 按固定 7 张一组的视觉节奏呈现照片墙
-// - 使用 LazyVStack 分组渲染降低长列表首屏压力
+// - 按手机相册三列网格呈现照片
+// - 在普通态提供大图预览，在选择态提供多选入口
 struct PetAlbumMosaicGrid: View {
     let assets: [PetAlbumAsset]
+    let uploadPlaceholders: [PetAlbumUploadPlaceholder]
+    let selectedAssetIDs: Set<String>
+    let isSelectionMode: Bool
+    let onToggleSelection: (PetAlbumAsset) -> Void
     let onDeleteAsset: (PetAlbumAsset) -> Void
 
     init(
         assets: [PetAlbumAsset],
+        uploadPlaceholders: [PetAlbumUploadPlaceholder] = [],
+        selectedAssetIDs: Set<String> = [],
+        isSelectionMode: Bool = false,
+        onToggleSelection: @escaping (PetAlbumAsset) -> Void = { _ in },
         onDeleteAsset: @escaping (PetAlbumAsset) -> Void = { _ in }
     ) {
         self.assets = assets
+        self.uploadPlaceholders = uploadPlaceholders
+        self.selectedAssetIDs = selectedAssetIDs
+        self.isSelectionMode = isSelectionMode
+        self.onToggleSelection = onToggleSelection
         self.onDeleteAsset = onDeleteAsset
     }
 
-    private let clusterSize = 7
     private var galleryID: String {
         assets.first?.albumID ?? "pet-album-empty"
     }
@@ -26,130 +38,184 @@ struct PetAlbumMosaicGrid: View {
         assets.map { asset in
             MHBImagePreviewAsset(
                 id: asset.id,
-                sourceKind: .localAsset(asset.imageAssetName),
-                pixelSize: CGSize(
-                    width: asset.pixelSize.width,
-                    height: asset.pixelSize.height
-                ),
+                sourceKind: PetAlbumImageSourceResolver.previewSourceKind(from: asset.imageAssetName),
+                pixelSize: asset.pixelSize.cgSize,
                 accessibilityLabel: asset.caption ?? "查看相册照片"
             )
         }
     }
 
     var body: some View {
-        LazyVStack(spacing: MHBTheme.Spacing.s2) {
-            ForEach(clusters) { cluster in
-                PetAlbumMosaicCluster(
-                    assets: cluster.assets,
-                    startIndex: cluster.startIndex,
-                    galleryID: galleryID,
+        LazyVGrid(
+            columns: gridColumns,
+            spacing: PetAlbumDetailLayout.gridSpacing
+        ) {
+            ForEach(assets.enumerated(), id: \.element.id) { index, asset in
+                PetAlbumMosaicTile(
+                    asset: asset,
                     previewAssets: previewAssets,
+                    previewIndex: index,
+                    galleryID: galleryID,
+                    isSelected: selectedAssetIDs.contains(asset.id),
+                    isSelectionMode: isSelectionMode,
+                    onToggleSelection: onToggleSelection,
                     onDeleteAsset: onDeleteAsset
                 )
+            }
+
+            ForEach(visibleUploadPlaceholders) { placeholder in
+                PetAlbumUploadPlaceholderTile(placeholder: placeholder)
+                    .id(placeholder.scrollAnchorID)
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: PetAlbumUploadPlaceholderFramePreferenceKey.self,
+                                value: [
+                                    placeholder.scrollAnchorID: proxy.frame(
+                                        in: .named("petAlbumDetailScrollView")
+                                    )
+                                ]
+                            )
+                        }
+                    }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("petAlbum.detail.mosaicGrid")
     }
 
-    private var clusters: [PetAlbumMosaicClusterData] {
-        stride(from: 0, to: assets.count, by: clusterSize).map { startIndex in
-            let endIndex = min(startIndex + clusterSize, assets.count)
-            let clusterAssets = Array(assets[startIndex..<endIndex])
-            return PetAlbumMosaicClusterData(
-                id: clusterAssets.first?.id ?? "empty-\(startIndex)",
-                startIndex: startIndex,
-                assets: clusterAssets
-            )
-        }
+    private var visibleUploadPlaceholders: [PetAlbumUploadPlaceholder] {
+        PetAlbumDetailLayout.visibleUploadPlaceholders(
+            assetCount: assets.count,
+            uploadPlaceholders: uploadPlaceholders
+        )
+    }
+
+    private var gridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: PetAlbumDetailLayout.gridSpacing),
+            count: PetAlbumDetailLayout.gridColumnCount
+        )
     }
 }
 
-// PetAlbumMosaicClusterData 照片墙分组数据
+// PetAlbumUploadPlaceholderTile 相册上传占位卡片
 // 核心职责：
-// - 为 LazyVStack 中的每个马赛克分组提供稳定身份
-// - 持有当前分组需要布局的照片集合
-private struct PetAlbumMosaicClusterData: Identifiable {
-    let id: String
-    let startIndex: Int
-    let assets: [PetAlbumAsset]
-}
-
-// PetAlbumMosaicCluster 单组马赛克布局
-// 核心职责：
-// - 按设计稿的大图、横图和竖图节奏摆放单组图片
-// - 将布局计算限制为当前分组的纯几何计算
-private struct PetAlbumMosaicCluster: View {
-    let assets: [PetAlbumAsset]
-    let startIndex: Int
-    let galleryID: String
-    let previewAssets: [MHBImagePreviewAsset]
-    let onDeleteAsset: (PetAlbumAsset) -> Void
+// - 在照片上传期间占住最终网格位置
+// - 展示本地预览、上传进度和失败状态
+private struct PetAlbumUploadPlaceholderTile: View {
+    let placeholder: PetAlbumUploadPlaceholder
 
     var body: some View {
         GeometryReader { proxy in
-            let frames = PetAlbumMosaicFramePlan.frames(
-                itemCount: assets.count,
-                containerWidth: proxy.size.width,
-                spacing: MHBTheme.Spacing.s2
-            )
+            ZStack {
+                previewImage
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
 
-            ZStack(alignment: .topLeading) {
-                ForEach(assets.enumerated(), id: \.element.id) { index, asset in
-                    if frames.indices.contains(index) {
-                        PetAlbumMosaicTile(
-                            asset: asset,
-                            previewAssets: previewAssets,
-                            previewIndex: startIndex + index,
-                            galleryID: galleryID,
-                            width: frames[index].width,
-                            height: frames[index].height,
-                            onDeleteAsset: onDeleteAsset
-                        )
-                        .offset(x: frames[index].minX, y: frames[index].minY)
-                    }
+                Rectangle()
+                    .fill(Color.black.opacity(0.22))
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+
+                VStack(spacing: MHBTheme.Spacing.s2) {
+                    progressView
+
+                    Text(statusText)
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .aspectRatio(PetAlbumMosaicFramePlan.clusterAspectRatio, contentMode: .fit)
+        .aspectRatio(1, contentMode: .fit)
+        .clipped()
+        .accessibilityLabel(statusText)
+    }
+
+    @ViewBuilder
+    private var previewImage: some View {
+        if let previewData = placeholder.previewData,
+           let image = UIImage(data: previewData) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            MHBTheme.ColorToken.separatorSoft.color
+        }
+    }
+
+    @ViewBuilder
+    private var progressView: some View {
+        switch placeholder.status {
+        case .failed:
+            Image(systemName: "exclamationmark")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 42, height: 42)
+                .background(Color.red.opacity(0.82), in: Circle())
+        case .uploading, .binding:
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.28), lineWidth: 4)
+
+                Circle()
+                    .trim(from: 0, to: placeholder.clampedProgress)
+                    .stroke(
+                        Color.white,
+                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Text("\(Int(placeholder.clampedProgress * 100))")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 42, height: 42)
+        }
+    }
+
+    private var statusText: String {
+        switch placeholder.status {
+        case .uploading:
+            return "上传中"
+        case .binding:
+            return "处理中"
+        case .failed:
+            return "上传失败"
+        }
     }
 }
 
 // PetAlbumMosaicTile 照片墙单图
 // 核心职责：
-// - 渲染单张图片及设计稿中的内描边
+// - 渲染无内嵌边框的正方形照片
 // - 提供图片来源与说明的无障碍描述
 private struct PetAlbumMosaicTile: View {
     let asset: PetAlbumAsset
     let previewAssets: [MHBImagePreviewAsset]
     let previewIndex: Int
     let galleryID: String
-    let width: CGFloat
-    let height: CGFloat
+    let isSelected: Bool
+    let isSelectionMode: Bool
+    let onToggleSelection: (PetAlbumAsset) -> Void
     let onDeleteAsset: (PetAlbumAsset) -> Void
 
     var body: some View {
-        MHBPreviewableImage(
-            galleryID: galleryID,
-            items: previewAssets,
-            index: previewIndex,
-            cornerRadius: MHBTheme.Radius.large,
-            contentMode: .fill
-        ) {
-            MHBTheme.ColorToken.separatorSoft.color
-        }
-            .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                    .strokeBorder(MHBTheme.ColorToken.labelPrimary.color.opacity(0.12), lineWidth: 3)
+        ZStack(alignment: .topTrailing) {
+            MHBPreviewableImage(
+                galleryID: galleryID,
+                items: previewAssets,
+                index: previewIndex,
+                cornerRadius: 0,
+                contentMode: .fill
+            ) {
+                MHBTheme.ColorToken.separatorSoft.color
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
-                    .strokeBorder(MHBTheme.ColorToken.separator.color, lineWidth: 1)
-            }
+            .aspectRatio(1, contentMode: .fill)
             .clipped()
+            .allowsHitTesting(!isSelectionMode)
             .contextMenu {
                 PetAlbumPhotoContextMenuContent(
                     actions: PetAlbumPhotoContextMenuActionResolver.actions(),
@@ -158,7 +224,24 @@ private struct PetAlbumMosaicTile: View {
                     }
                 )
             }
-            .accessibilityLabel(asset.caption ?? sourceAccessibilityText)
+
+            if isSelectionMode {
+                Rectangle()
+                    .fill(isSelected ? Color.black.opacity(0.12) : Color.black.opacity(0.04))
+                    .allowsHitTesting(false)
+
+                PetAlbumSelectionIndicator(isSelected: isSelected)
+                    .padding(6)
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelectionMode {
+                onToggleSelection(asset)
+            }
+        }
+        .accessibilityLabel(asset.caption ?? sourceAccessibilityText)
     }
 
     private func handlePhotoAction(_ action: PetAlbumPhotoContextMenuAction) {
@@ -180,32 +263,28 @@ private struct PetAlbumMosaicTile: View {
     }
 }
 
-// PetAlbumMosaicFramePlan 马赛克布局计算
+// PetAlbumSelectionIndicator 相册照片选择标记
 // 核心职责：
-// - 根据容器宽度计算单组图片 frame
-// - 保持布局函数纯计算，便于后续接入真实图片尺寸策略
-private enum PetAlbumMosaicFramePlan {
-    static let clusterAspectRatio: CGFloat = 0.72
+// - 在选择模式中展示照片是否已选
+// - 保持网格图片本身无不透明边框
+private struct PetAlbumSelectionIndicator: View {
+    let isSelected: Bool
 
-    static func frames(
-        itemCount: Int,
-        containerWidth: CGFloat,
-        spacing: CGFloat
-    ) -> [CGRect] {
-        let column = max((containerWidth - spacing * 2) / 3, 1)
-        let one = column
-        let two = column * 2 + spacing
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(isSelected ? MHBTheme.ColorToken.primary.color : Color.black.opacity(0.18))
+                .frame(width: 24, height: 24)
 
-        let pattern = [
-            CGRect(x: 0, y: 0, width: two, height: two),
-            CGRect(x: two + spacing, y: 0, width: one, height: one),
-            CGRect(x: two + spacing, y: one + spacing, width: one, height: one),
-            CGRect(x: 0, y: two + spacing, width: one, height: one),
-            CGRect(x: one + spacing, y: two + spacing, width: two, height: one),
-            CGRect(x: 0, y: two + one + spacing * 2, width: two, height: one),
-            CGRect(x: two + spacing, y: two + one + spacing * 2, width: one, height: one)
-        ]
+            Circle()
+                .stroke(Color.white.opacity(0.9), lineWidth: 2)
+                .frame(width: 24, height: 24)
 
-        return Array(pattern.prefix(itemCount))
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
     }
 }

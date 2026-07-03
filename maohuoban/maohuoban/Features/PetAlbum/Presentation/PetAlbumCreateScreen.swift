@@ -14,6 +14,7 @@ struct PetAlbumCreateScreen: View {
     @State private var isSubmitting = false
     @State private var selectedCoverImage: UIImage?
     @State private var isCoverPickerPresented = false
+    @State private var coverCropTarget: MHBIdentifiableUIImage?
 
     let store: PetAlbumStore
     let mode: PetAlbumCreateMode
@@ -73,6 +74,17 @@ struct PetAlbumCreateScreen: View {
                 onCancel: {
                     isCoverPickerPresented = false
                 }
+            )
+        }
+        .fullScreenCover(item: $coverCropTarget) { target in
+            MHBRectImageCropScreen(
+                originalImage: target.image,
+                title: "裁剪相册封面",
+                cropAspectRatio: 1,
+                onCancel: {
+                    coverCropTarget = nil
+                },
+                onSave: handleCroppedCover
             )
         }
         .accessibilityIdentifier("petAlbum.create.screen")
@@ -138,8 +150,17 @@ struct PetAlbumCreateScreen: View {
     private func handleCoverPickerResult(_ result: MHBMediaPickerResult) {
         isCoverPickerPresented = false
         if let coverImage = MHBCoverImageSelectionResolver.resolveImage(from: result) {
-            selectedCoverImage = coverImage
+            coverCropTarget = MHBIdentifiableUIImage(image: coverImage)
         }
+    }
+
+    // handleCroppedCover 处理相册封面裁剪结果
+    // 核心职责：
+    // - 关闭封面裁剪流程
+    // - 将裁剪后的正方形图片作为待上传封面
+    private func handleCroppedCover(_ image: UIImage) {
+        coverCropTarget = nil
+        selectedCoverImage = image
     }
 }
 

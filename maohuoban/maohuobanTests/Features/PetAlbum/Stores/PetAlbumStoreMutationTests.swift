@@ -169,6 +169,186 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         XCTAssertEqual(store.assets(for: album.id).map(\.id), ["album-asset-1", "album-asset-2"])
         XCTAssertEqual(store.assets(for: album.id).compactMap(\.localIdentifier), ["local-1", "local-2"])
         XCTAssertEqual(store.album(id: album.id)?.photoCount, 2)
+        XCTAssertEqual(store.uploadPlaceholders(for: album.id), [])
+    }
+
+    @MainActor
+    func testUploadPhotosShowsProgressPlaceholderDuringUpload() async {
+        let repository = PetAlbumStoreTestRepository()
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 0,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            albums: [album],
+            assetsByAlbumID: [album.id: []]
+        )
+        repository.onUploadProgressSent = {
+            let placeholders = store.uploadPlaceholders(for: album.id)
+            XCTAssertEqual(placeholders.count, 1)
+            XCTAssertEqual(placeholders.first?.localIdentifier, "local-1")
+            XCTAssertEqual(placeholders.first?.status, .uploading)
+            XCTAssertEqual(placeholders.first?.progress ?? 0, 0.41, accuracy: 0.001)
+        }
+
+        let didUpload = await store.uploadPhotos(
+            to: album.id,
+            drafts: [
+                PetAlbumPhotoUploadDraft(
+                    media: Self.uploadDraft(fileName: "photo-1.jpg"),
+                    localIdentifier: "local-1",
+                    previewData: Data([8, 8, 8])
+                )
+            ]
+        )
+
+        XCTAssertTrue(didUpload)
+        XCTAssertEqual(store.uploadPlaceholders(for: album.id), [])
+        XCTAssertEqual(store.assets(for: album.id).map(\.id), ["album-asset-1"])
+    }
+
+    @MainActor
+    func testUploadPhotosKeepsExistingAssetsBeforeProgressPlaceholder() async {
+        let repository = PetAlbumStoreTestRepository()
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 1,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let existingAsset = PetAlbumAsset(
+            id: "existing-asset",
+            albumID: album.id,
+            imageAssetName: "/media/existing.jpg",
+            pixelSize: PetAlbumImageSize(width: 1200, height: 900),
+            source: .userUpload,
+            caption: nil
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            albums: [album],
+            assetsByAlbumID: [album.id: [existingAsset]]
+        )
+        repository.onUploadProgressSent = {
+            XCTAssertEqual(store.assets(for: album.id).map(\.id), ["existing-asset"])
+            XCTAssertEqual(store.uploadPlaceholders(for: album.id).map(\.localIdentifier), ["local-2"])
+            XCTAssertEqual(store.uploadPlaceholders(for: album.id).map(\.targetAssetIndex), [1])
+        }
+
+        let didUpload = await store.uploadPhotos(
+            to: album.id,
+            drafts: [
+                PetAlbumPhotoUploadDraft(
+                    media: Self.uploadDraft(fileName: "photo-2.jpg"),
+                    localIdentifier: "local-2",
+                    previewData: Data([8, 8, 8])
+                )
+            ]
+        )
+
+        XCTAssertTrue(didUpload)
+        XCTAssertEqual(store.assets(for: album.id).map(\.id), ["existing-asset", "album-asset-1"])
+        XCTAssertEqual(store.uploadPlaceholders(for: album.id), [])
+    }
+
+    @MainActor
+    func testUploadPhotosAssignsStableTargetIndexesForPlaceholders() async {
+        let repository = PetAlbumStoreTestRepository()
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 1,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let existingAsset = PetAlbumAsset(
+            id: "existing-asset",
+            albumID: album.id,
+            imageAssetName: "/media/existing.jpg",
+            pixelSize: PetAlbumImageSize(width: 1200, height: 900),
+            source: .userUpload,
+            caption: nil
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            albums: [album],
+            assetsByAlbumID: [album.id: [existingAsset]]
+        )
+        var firstObservedPlaceholderIndexes: [Int] = []
+        repository.onUploadProgressSent = {
+            if firstObservedPlaceholderIndexes.isEmpty {
+                firstObservedPlaceholderIndexes = store.uploadPlaceholders(for: album.id).map(\.targetAssetIndex)
+            }
+        }
+
+        _ = await store.uploadPhotos(
+            to: album.id,
+            drafts: [
+                PetAlbumPhotoUploadDraft(
+                    media: Self.uploadDraft(fileName: "photo-2.jpg"),
+                    localIdentifier: "local-2",
+                    previewData: Data([8, 8, 8])
+                ),
+                PetAlbumPhotoUploadDraft(
+                    media: Self.uploadDraft(fileName: "photo-3.jpg"),
+                    localIdentifier: "local-3",
+                    previewData: Data([9, 9, 9])
+                )
+            ]
+        )
+
+        XCTAssertEqual(firstObservedPlaceholderIndexes, [1, 2])
+    }
+
+    @MainActor
+    func testUploadPhotosKeepsFailedPlaceholderWhenUploadFails() async {
+        let repository = PetAlbumStoreTestRepository()
+        repository.uploadError = .transport("upload failed")
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 0,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            albums: [album],
+            assetsByAlbumID: [album.id: []]
+        )
+
+        let didUpload = await store.uploadPhotos(
+            to: album.id,
+            drafts: [
+                PetAlbumPhotoUploadDraft(
+                    media: Self.uploadDraft(fileName: "photo-1.jpg"),
+                    localIdentifier: "local-1",
+                    previewData: Data([8, 8, 8])
+                )
+            ]
+        )
+
+        XCTAssertFalse(didUpload)
+        XCTAssertEqual(store.assets(for: album.id), [])
+        XCTAssertEqual(store.uploadPlaceholders(for: album.id).count, 1)
+        XCTAssertEqual(store.uploadPlaceholders(for: album.id).first?.status, .failed)
     }
 }
 
@@ -194,6 +374,8 @@ private extension PetAlbumStoreMutationTests {
     // - 记录 Store 发起的后端命令语义
     final class PetAlbumStoreTestRepository: PetAlbumRepository {
         var recordedEvents: [RepositoryEvent] = []
+        var onUploadProgressSent: (() -> Void)?
+        var uploadError: MHBAPIError?
 
         func listAlbums(
             currentUserID: String,
@@ -312,6 +494,11 @@ private extension PetAlbumStoreMutationTests {
             onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
         ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
             recordedEvents.append(.uploadMedia(fileName: draft.fileName))
+            onUploadProgress(0.5)
+            onUploadProgressSent?()
+            if let uploadError {
+                throw uploadError
+            }
             return MHBAPIResponse(
                 success: true,
                 code: "pet_album_media.uploaded",

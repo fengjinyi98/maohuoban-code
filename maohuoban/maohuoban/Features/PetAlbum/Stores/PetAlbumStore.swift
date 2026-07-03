@@ -11,6 +11,7 @@ import Observation
 final class PetAlbumStore {
     private(set) var albums: [PetAlbumSummary] = []
     private(set) var assetsByAlbumID: [String: [PetAlbumAsset]] = [:]
+    private(set) var uploadPlaceholdersByAlbumID: [String: [PetAlbumUploadPlaceholder]] = [:]
     private(set) var isLoadingAlbums = false
     private(set) var loadingAssetAlbumIDs: Set<String> = []
     private(set) var mutationInFlight = false
@@ -50,6 +51,10 @@ final class PetAlbumStore {
 
     func assets(for albumID: String) -> [PetAlbumAsset] {
         assetsByAlbumID[albumID] ?? []
+    }
+
+    func uploadPlaceholders(for albumID: String) -> [PetAlbumUploadPlaceholder] {
+        uploadPlaceholdersByAlbumID[albumID] ?? []
     }
 
     func loadAlbums(force: Bool = false) async {
@@ -161,12 +166,47 @@ final class PetAlbumStore {
 
         mutationInFlight = true
         errorMessage = nil
+        let initialAssetCount = nextUploadPlaceholderTargetIndex(in: albumID)
+        let placeholders = drafts.enumerated().map { index, draft in
+            PetAlbumUploadPlaceholder(
+                albumID: albumID,
+                localIdentifier: draft.localIdentifier,
+                previewData: draft.previewData,
+                targetAssetIndex: initialAssetCount + index,
+                progress: 0.02,
+                status: .uploading
+            )
+        }
+        uploadPlaceholdersByAlbumID[albumID, default: []].append(contentsOf: placeholders)
         defer { mutationInFlight = false }
 
         do {
-            var appendedAssets = assetsByAlbumID[albumID] ?? []
-            for draft in drafts {
-                let upload = try await uploadAlbumMedia(draft: draft.media, currentUserID: currentUserID)
+            for (index, draft) in drafts.enumerated() {
+                let placeholderID = placeholders[index].id
+                setUploadPlaceholder(
+                    id: placeholderID,
+                    in: albumID,
+                    progress: 0.02,
+                    status: .uploading
+                )
+                let upload = try await uploadAlbumMedia(
+                    draft: draft.media,
+                    currentUserID: currentUserID,
+                    onUploadProgress: { [weak self] progress in
+                        self?.setUploadPlaceholder(
+                            id: placeholderID,
+                            in: albumID,
+                            progress: max(progress * 0.82, 0.02),
+                            status: .uploading
+                        )
+                    }
+                )
+                setUploadPlaceholder(
+                    id: placeholderID,
+                    in: albumID,
+                    progress: 0.9,
+                    status: .binding
+                )
                 let response = try await repository.addAsset(
                     albumID: albumID,
                     assetID: upload.asset.id,
@@ -174,16 +214,20 @@ final class PetAlbumStore {
                     currentUserID: currentUserID
                 )
                 if let asset = response.data {
-                    appendedAssets.append(asset.asset(localIdentifier: draft.localIdentifier))
+                    var appendedAssets = assetsByAlbumID[albumID] ?? []
+                    let targetIndex = min(max(placeholders[index].targetAssetIndex, 0), appendedAssets.count)
+                    appendedAssets.insert(asset.asset(localIdentifier: draft.localIdentifier), at: targetIndex)
+                    assetsByAlbumID[albumID] = appendedAssets
+                    updateAlbum(albumID: albumID) { album in
+                        album.replacing(photoCount: appendedAssets.count)
+                    }
                 }
-            }
-            assetsByAlbumID[albumID] = appendedAssets
-            updateAlbum(albumID: albumID) { album in
-                album.replacing(photoCount: appendedAssets.count)
+                removeUploadPlaceholder(id: placeholderID, in: albumID)
             }
             PetAlbumMutationSignal.post()
             return true
         } catch {
+            markUploadingPlaceholdersFailed(placeholders.map(\.id), in: albumID)
             errorMessage = Self.toastMessage(for: error)
         }
         return false
@@ -318,16 +362,65 @@ final class PetAlbumStore {
 
     private func uploadAlbumMedia(
         draft: PetMediaUploadDraft,
-        currentUserID: String
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void = { _ in }
     ) async throws(MHBAPIError) -> PetMediaUploadResult {
         let response = try await repository.uploadAlbumMedia(
             draft: draft,
             currentUserID: currentUserID
-        ) { _ in }
+        ) { progress in
+            onUploadProgress(progress)
+        }
         guard let upload = response.data else {
             throw MHBAPIError.invalidResponse
         }
         return upload
+    }
+
+    private func nextUploadPlaceholderTargetIndex(in albumID: String) -> Int {
+        let assetCount = assetsByAlbumID[albumID]?.count ?? 0
+        let nextPlaceholderIndex = (uploadPlaceholdersByAlbumID[albumID] ?? [])
+            .map(\.targetAssetIndex)
+            .max()
+            .map { $0 + 1 } ?? assetCount
+        return max(assetCount, nextPlaceholderIndex)
+    }
+
+    private func setUploadPlaceholder(
+        id: String,
+        in albumID: String,
+        progress: Double,
+        status: PetAlbumUploadPlaceholder.Status
+    ) {
+        guard var placeholders = uploadPlaceholdersByAlbumID[albumID],
+              let index = placeholders.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        placeholders[index].progress = progress
+        placeholders[index].status = status
+        uploadPlaceholdersByAlbumID[albumID] = placeholders
+    }
+
+    private func removeUploadPlaceholder(id: String, in albumID: String) {
+        guard var placeholders = uploadPlaceholdersByAlbumID[albumID] else {
+            return
+        }
+
+        placeholders.removeAll { $0.id == id }
+        uploadPlaceholdersByAlbumID[albumID] = placeholders
+    }
+
+    private func markUploadingPlaceholdersFailed(_ placeholderIDs: [String], in albumID: String) {
+        guard var placeholders = uploadPlaceholdersByAlbumID[albumID] else {
+            return
+        }
+
+        let failedIDs = Set(placeholderIDs)
+        for index in placeholders.indices where failedIDs.contains(placeholders[index].id) {
+            placeholders[index].status = .failed
+        }
+        uploadPlaceholdersByAlbumID[albumID] = placeholders
     }
 
     private static func toastMessage(for error: any Error) -> String {

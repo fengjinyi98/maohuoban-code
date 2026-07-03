@@ -95,7 +95,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
             return Self.albumAssetResponse(request: request)
         }
 
-        _ = try await repository.addAsset(
+        let response = try await repository.addAsset(
             albumID: "album-1",
             assetID: "asset-photo-1",
             caption: "睡颜",
@@ -109,6 +109,33 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         XCTAssertEqual(json["asset_id"] as? String, "asset-photo-1")
         XCTAssertEqual(json["caption"] as? String, "睡颜")
+        XCTAssertEqual(response.data?.asset().pixelSize.width, 1200)
+        XCTAssertEqual(response.data?.asset().pixelSize.height, 900)
+    }
+
+    func testAlbumAssetMissingSizeStaysUnknown() throws {
+        let data = #"""
+        {
+          "id": "album-asset-1",
+          "album_id": "album-1",
+          "pet_id": null,
+          "asset_id": "asset-photo-1",
+          "asset_url": "/media/photo-1.jpg",
+          "added_by_user_id": "user-1",
+          "caption": null,
+          "sort_taken_at": "2026-07-01T12:00:00Z",
+          "removed_at": null,
+          "created_at": "2026-07-01T12:00:00Z",
+          "updated_at": "2026-07-01T12:00:00Z"
+        }
+        """#.data(using: .utf8)!
+
+        let dto = try JSONDecoder().decode(PetAlbumDTO.AssetData.self, from: data)
+        let asset = dto.asset()
+
+        XCTAssertNil(asset.pixelSize.width)
+        XCTAssertNil(asset.pixelSize.height)
+        XCTAssertNil(asset.pixelSize.cgSize)
     }
 
     @MainActor

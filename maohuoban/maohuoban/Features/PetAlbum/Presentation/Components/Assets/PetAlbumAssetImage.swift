@@ -10,7 +10,7 @@ struct PetAlbumAssetImage: View {
     let imageAssetName: String
 
     var body: some View {
-        if let url = remoteURL {
+        if let url = PetAlbumImageSourceResolver.remoteURL(from: imageAssetName) {
             MHBRemoteImage(url: url) {
                 placeholder
             }
@@ -23,14 +23,6 @@ struct PetAlbumAssetImage: View {
         } else {
             placeholder
         }
-    }
-
-    private var remoteURL: URL? {
-        let source = imageAssetName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard source.hasPrefix("/") || source.hasPrefix("http://") || source.hasPrefix("https://") else {
-            return nil
-        }
-        return MHBBackendEndpoint.resolve(source)
     }
 
     private var placeholder: some View {

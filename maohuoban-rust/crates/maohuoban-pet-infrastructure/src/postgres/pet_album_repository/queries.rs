@@ -197,6 +197,8 @@ const ALBUM_ASSET_SELECT_SQL: &str = r#"
         album_asset.album_id,
         album_asset.pet_id,
         album_asset.asset_id,
+        media.width,
+        media.height,
         album_asset.added_by_user_id,
         album_asset.caption,
         album_asset.sort_taken_at,
@@ -205,6 +207,7 @@ const ALBUM_ASSET_SELECT_SQL: &str = r#"
         album_asset.updated_at
     FROM pet_album_assets album_asset
     INNER JOIN pet_albums album ON album.id = album_asset.album_id
+    INNER JOIN media_assets media ON media.id = album_asset.asset_id
     WHERE album_asset.album_id = $1
       AND album_asset.removed_at IS NULL
       AND album.archived_at IS NULL

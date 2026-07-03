@@ -160,27 +160,44 @@ impl PostgresPetAlbumRepository {
 
         let row = sqlx::query_as::<_, PetAlbumAssetRow>(
             r#"
-            INSERT INTO pet_album_assets (
-                id,
-                album_id,
-                pet_id,
-                asset_id,
-                added_by_user_id,
-                caption,
-                sort_taken_at
+            WITH inserted AS (
+                INSERT INTO pet_album_assets (
+                    id,
+                    album_id,
+                    pet_id,
+                    asset_id,
+                    added_by_user_id,
+                    caption,
+                    sort_taken_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))
+                RETURNING
+                    id,
+                    album_id,
+                    pet_id,
+                    asset_id,
+                    added_by_user_id,
+                    caption,
+                    sort_taken_at,
+                    removed_at,
+                    created_at,
+                    updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))
-            RETURNING
-                id,
-                album_id,
-                pet_id,
-                asset_id,
-                added_by_user_id,
-                caption,
-                sort_taken_at,
-                removed_at,
-                created_at,
-                updated_at
+            SELECT
+                inserted.id,
+                inserted.album_id,
+                inserted.pet_id,
+                inserted.asset_id,
+                media.width,
+                media.height,
+                inserted.added_by_user_id,
+                inserted.caption,
+                inserted.sort_taken_at,
+                inserted.removed_at,
+                inserted.created_at,
+                inserted.updated_at
+            FROM inserted
+            INNER JOIN media_assets media ON media.id = inserted.asset_id
             "#,
         )
         .bind(Uuid::new_v4())

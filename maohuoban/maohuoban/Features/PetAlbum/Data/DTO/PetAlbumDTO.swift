@@ -118,7 +118,7 @@ enum PetAlbumDTO {
                 id: id,
                 albumID: albumID,
                 imageAssetName: assetURL,
-                pixelSize: PetAlbumImageSize(width: width ?? 1, height: height ?? 1),
+                pixelSize: PetAlbumImageSize(width: width, height: height),
                 source: .userUpload,
                 caption: caption,
                 localIdentifier: localIdentifier

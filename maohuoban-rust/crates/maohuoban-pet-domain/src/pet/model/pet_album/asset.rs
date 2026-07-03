@@ -14,6 +14,8 @@ pub struct PetAlbumAsset {
     pub pet_id: Option<Uuid>,
     pub asset_id: Uuid,
     pub asset_url: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
     pub added_by_user_id: Uuid,
     pub caption: Option<String>,
     pub sort_taken_at: DateTime<Utc>,

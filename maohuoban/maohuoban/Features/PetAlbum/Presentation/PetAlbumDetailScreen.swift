@@ -7,44 +7,90 @@ import UIKit
 // - 展示单个相册的标题、数量和照片墙
 // - 通过相册 Store 加载并展示后端照片资源
 struct PetAlbumDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let albumID: String
     let store: PetAlbumStore
     @State private var pendingDeleteAsset: PetAlbumAsset?
-    @State private var isNavigationTitleVisible = false
     @State private var isPhotoPickerPresented = false
+    @State private var isSelectionMode = false
+    @State private var selectedAssetIDs: Set<String> = []
+    @State private var windowSafeAreaInsets = UIEdgeInsets.zero
+    @State private var isDeleteSelectionConfirmationPresented = false
 
     var body: some View {
         let album = resolvedAlbum
         let assets = store.assets(for: album.id)
-        let toolbarMenuActions = PetAlbumDetailToolbarMenuActionResolver.actions()
+        let uploadPlaceholders = store.uploadPlaceholders(for: album.id)
 
-        MHBScreenScrollView {
-            LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetAlbumDetailHeader(
-                    title: album.title,
-                    subtitle: "\(album.petName) · \(album.photoCountText)"
-                )
+        GeometryReader { proxy in
+            let topInset = max(proxy.safeAreaInsets.top, windowSafeAreaInsets.top)
+            let bottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
+            let heroHeight = PetAlbumDetailLayout.heroHeight(viewportHeight: proxy.size.height)
 
-                PetAlbumMosaicGrid(
+            ZStack(alignment: .topLeading) {
+                MHBTheme.ColorToken.cardSolid.color
+                    .ignoresSafeArea()
+
+                PetAlbumDetailContent(
+                    album: album,
                     assets: assets,
+                    heroHeight: heroHeight,
+                    containerWidth: proxy.size.width,
+                    containerHeight: proxy.size.height,
+                    bottomContentInset: bottomContentInset(bottomInset: bottomInset),
+                    uploadPlaceholders: uploadPlaceholders,
+                    selectedAssetIDs: selectedAssetIDs,
+                    isSelectionMode: isSelectionMode,
+                    onToggleSelection: toggleSelection,
                     onDeleteAsset: { asset in
                         pendingDeleteAsset = asset
+                    },
+                    onUpload: {
+                        isPhotoPickerPresented = true
                     }
                 )
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .zIndex(0)
+
+                MHBWindowSafeAreaReader { insets in
+                    windowSafeAreaInsets = insets
+                }
+                .allowsHitTesting(false)
+
+                PetAlbumDetailTopChrome(
+                    isSelectionMode: isSelectionMode,
+                    onBack: { dismiss() },
+                    onToggleSelectionMode: toggleSelectionMode,
+                    onSelectAll: { selectAll(assets: assets) },
+                    onShare: handleShareTodo
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s4)
+                .padding(.top, topInset + MHBTheme.Spacing.s1)
+                .frame(width: proxy.size.width, alignment: .top)
+                .zIndex(3)
+
+                PetAlbumDetailBottomChrome(
+                    isSelectionMode: isSelectionMode,
+                    selectedCount: selectedAssetIDs.count,
+                    bottomInset: bottomInset,
+                    onUpload: {
+                        isPhotoPickerPresented = true
+                    },
+                    onShare: handleShareTodo,
+                    onDeleteSelection: {
+                        requestDeleteSelectedAssets()
+                    }
+                )
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
+                .zIndex(3)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s3)
-            .padding(.bottom, MHBTheme.Spacing.s8)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
         .task(id: albumID) {
             await store.loadAssets(for: albumID)
         }
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            max(geometry.contentOffset.y, 0)
-        } action: { _, offset in
-            updateNavigationTitleVisibility(offset)
-        }
-        .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .mhbImagePreviewHost()
         .fullScreenCover(isPresented: $isPhotoPickerPresented) {
             MHBMediaPickerScreen(
@@ -78,30 +124,22 @@ struct PetAlbumDetailScreen: View {
         } message: { _ in
             Text("将从当前相册中删除这张照片。")
         }
-        .navigationTitle(isNavigationTitleVisible ? album.title : "")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    ForEach(toolbarMenuActions) { action in
-                        Button {
-                            handleToolbarMenuAction(action)
-                        } label: {
-                            Label {
-                                Text(action.title)
-                            } icon: {
-                                Image(systemName: action.systemImageName)
-                            }
-                        }
-                        .accessibilityIdentifier("petAlbum.detail.menu.\(action.id)")
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("相册操作")
-                .accessibilityIdentifier("petAlbum.detail.addMenu")
+        .alert(
+            "删除已选照片",
+            isPresented: $isDeleteSelectionConfirmationPresented
+        ) {
+            Button("删除照片", role: .destructive) {
+                deleteSelectedAssets(assets: assets)
             }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将从当前相册中删除已选的 \(selectedAssetIDs.count) 张照片。")
         }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .accessibilityIdentifier("petAlbum.detail.screen")
     }
 
@@ -131,37 +169,65 @@ struct PetAlbumDetailScreen: View {
         )
     }
 
-    private func updateNavigationTitleVisibility(_ scrollOffset: CGFloat) {
-        let showThreshold: CGFloat = MHBTheme.Spacing.s8
-        let hideThreshold: CGFloat = MHBTheme.Spacing.s5
-        let nextValue: Bool
-
-        if isNavigationTitleVisible {
-            nextValue = scrollOffset >= hideThreshold
-        } else {
-            nextValue = scrollOffset >= showThreshold
-        }
-
-        guard nextValue != isNavigationTitleVisible else {
-            return
-        }
-
-        withAnimation(.easeInOut(duration: 0.22)) {
-            isNavigationTitleVisible = nextValue
-        }
-    }
-
     private var disabledLocalIdentifiers: Set<String> {
         Set(store.assets(for: albumID).compactMap(\.localIdentifier))
     }
 
-    private func handleToolbarMenuAction(_ action: PetAlbumDetailToolbarMenuAction) {
-        switch action {
-        case .uploadPhotos:
-            isPhotoPickerPresented = true
-        case .shareAlbum:
-            break
+    private func bottomContentInset(bottomInset: CGFloat) -> CGFloat {
+        PetAlbumDetailLayout.chromeIconSize + bottomInset
+    }
+
+    private func toggleSelectionMode() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isSelectionMode.toggle()
+            if !isSelectionMode {
+                selectedAssetIDs.removeAll()
+                isDeleteSelectionConfirmationPresented = false
+            }
         }
+    }
+
+    private func selectAll(assets: [PetAlbumAsset]) {
+        selectedAssetIDs = Set(assets.map(\.id))
+    }
+
+    private func toggleSelection(_ asset: PetAlbumAsset) {
+        guard isSelectionMode else {
+            return
+        }
+
+        if selectedAssetIDs.contains(asset.id) {
+            selectedAssetIDs.remove(asset.id)
+        } else {
+            selectedAssetIDs.insert(asset.id)
+        }
+    }
+
+    private func requestDeleteSelectedAssets() {
+        guard selectedAssetIDs.isEmpty == false else {
+            return
+        }
+
+        isDeleteSelectionConfirmationPresented = true
+    }
+
+    private func deleteSelectedAssets(assets: [PetAlbumAsset]) {
+        let selectedAssets = assets.filter { selectedAssetIDs.contains($0.id) }
+        guard !selectedAssets.isEmpty else {
+            return
+        }
+
+        Task {
+            for asset in selectedAssets {
+                await store.deleteAsset(id: asset.id, in: asset.albumID)
+            }
+            selectedAssetIDs.removeAll()
+            isSelectionMode = false
+        }
+    }
+
+    private func handleShareTodo() {
+        // TODO: 接入相册分享流程。
     }
 
     // handlePhotoPickerResult 处理相册照片选择结果
@@ -212,6 +278,10 @@ struct PetAlbumDetailScreen: View {
             content: encoded.data,
             sourceClient: "ios"
         )
-        return PetAlbumPhotoUploadDraft(media: media, localIdentifier: localIdentifier)
+        return PetAlbumPhotoUploadDraft(
+            media: media,
+            localIdentifier: localIdentifier,
+            previewData: encoded.data
+        )
     }
 }

@@ -16,15 +16,29 @@ enum PetAlbumSource: Equatable, Hashable {
 // - 承载后端返回的图片像素宽高
 // - 为相册详情页布局提供纯计算输入
 struct PetAlbumImageSize: Equatable, Hashable {
-    let width: Int
-    let height: Int
+    let width: Int?
+    let height: Int?
 
     var aspectRatio: CGFloat {
-        guard width > 0, height > 0 else {
+        guard let width,
+              let height,
+              width > 0,
+              height > 0 else {
             return 1
         }
 
         return CGFloat(width) / CGFloat(height)
+    }
+
+    var cgSize: CGSize? {
+        guard let width,
+              let height,
+              width > 0,
+              height > 0 else {
+            return nil
+        }
+
+        return CGSize(width: width, height: height)
     }
 }
 
@@ -123,12 +137,61 @@ struct PetAlbumAsset: Identifiable, Equatable, Hashable {
 struct PetAlbumPhotoUploadDraft: Equatable {
     let media: PetMediaUploadDraft
     let localIdentifier: String?
+    let previewData: Data?
 
     init(
         media: PetMediaUploadDraft,
-        localIdentifier: String? = nil
+        localIdentifier: String? = nil,
+        previewData: Data? = nil
     ) {
         self.media = media
         self.localIdentifier = localIdentifier
+        self.previewData = previewData
+    }
+}
+
+// PetAlbumUploadPlaceholder 相册上传占位
+// 核心职责：
+// - 表达当前上传会话中的本地照片占位和进度
+// - 与后端真实相册资产分离，避免污染单一事实数据流
+struct PetAlbumUploadPlaceholder: Identifiable, Equatable {
+    enum Status: Equatable {
+        case uploading
+        case binding
+        case failed
+    }
+
+    let id: String
+    let albumID: String
+    let localIdentifier: String?
+    let previewData: Data?
+    let targetAssetIndex: Int
+    var progress: Double
+    var status: Status
+
+    init(
+        id: String = UUID().uuidString,
+        albumID: String,
+        localIdentifier: String?,
+        previewData: Data?,
+        targetAssetIndex: Int = 0,
+        progress: Double = 0,
+        status: Status = .uploading
+    ) {
+        self.id = id
+        self.albumID = albumID
+        self.localIdentifier = localIdentifier
+        self.previewData = previewData
+        self.targetAssetIndex = max(targetAssetIndex, 0)
+        self.progress = progress
+        self.status = status
+    }
+
+    var clampedProgress: Double {
+        min(max(progress, 0), 1)
+    }
+
+    var scrollAnchorID: String {
+        "pet-album-upload-placeholder-\(id)"
     }
 }
