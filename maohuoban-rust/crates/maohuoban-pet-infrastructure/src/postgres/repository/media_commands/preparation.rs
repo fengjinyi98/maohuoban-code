@@ -143,6 +143,11 @@ impl PostgresPetRepository {
         let asset_id = Uuid::new_v4();
         let created_at = Utc::now();
         let bucket = media_store.default_bucket().to_owned();
+        let sha256_hex = sha256_hex(input.content);
+        let byte_size = i64::try_from(input.content.len())
+            .map_err(|_| PetError::InvalidInput("媒体内容过大".to_owned()))?;
+        let (width, height) = image_dimensions(input.content)?;
+        validate_required_image_dimensions(input, width, height)?;
         let object_key = traceable_media_object_key(
             input.owner_user_id,
             asset_id,
@@ -155,11 +160,6 @@ impl PostgresPetRepository {
             .put(&bucket, &object_key, input.content)
             .await
             .map_err(|error| PetError::Infrastructure(error.to_string()))?;
-        let sha256_hex = sha256_hex(input.content);
-        let byte_size = i64::try_from(input.content.len())
-            .map_err(|_| PetError::InvalidInput("媒体内容过大".to_owned()))?;
-        let (width, height) = image_dimensions(input.content)?;
-        validate_required_image_dimensions(input, width, height)?;
 
         Ok(PreparedMediaObject {
             asset_id,

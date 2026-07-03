@@ -133,6 +133,7 @@ async fn pet_album_photo_upload_rejects_non_image_content() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800139105").await;
+    let object_count_before = app.media_object_file_count();
 
     let response = app
         .router()
@@ -151,6 +152,7 @@ async fn pet_album_photo_upload_rejects_non_image_content() {
     let body = response_json(response).await;
     assert_eq!(body["code"], "pet.invalid_input");
     assert_eq!(body["message"], "相册照片必须是可解析图片");
+    assert_eq!(app.media_object_file_count(), object_count_before);
 }
 
 #[tokio::test]

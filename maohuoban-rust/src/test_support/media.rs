@@ -47,6 +47,15 @@ impl AuthTestApp {
             .expect("read media object content")
     }
 
+    /// `media_object_file_count` 统计本地对象文件数量
+    /// 核心职责：
+    /// - 观察失败上传是否遗留无数据库记录的对象
+    /// - 为可追溯媒资合同提供对象层断言
+    #[must_use]
+    pub fn media_object_file_count(&self) -> usize {
+        count_files(&media_storage_root())
+    }
+
     /// `media_asset_storage_state` 读取媒体资产存储测试状态
     /// 核心职责：
     /// - 暴露对象路径和尺寸元数据
@@ -109,4 +118,24 @@ fn media_storage_root() -> PathBuf {
         |_| env::temp_dir().join("maohuoban-code-rustfs-media"),
         PathBuf::from,
     )
+}
+
+fn count_files(root: &std::path::Path) -> usize {
+    let Ok(entries) = fs::read_dir(root) else {
+        return 0;
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                count_files(&path)
+            } else if path.is_file() {
+                1
+            } else {
+                0
+            }
+        })
+        .sum()
 }
