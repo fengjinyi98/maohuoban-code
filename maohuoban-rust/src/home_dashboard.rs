@@ -12,7 +12,8 @@ use crate::home_dashboard::{
     },
     merchant_summary::merchant_home_snapshot_from_workspace,
     pet_summary::{
-        media_asset_ids, pet_hero_summary, pet_storylines, pet_switch_item, selected_pet,
+        media_asset_ids, pet_hero_summary, pet_lifecycle_timeline_events, pet_switch_item,
+        selected_pet,
     },
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
@@ -23,11 +24,11 @@ use maohuoban_home_application::home::{
 };
 use maohuoban_home_domain::home::{
     HomeDashboardSnapshot, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
-    HomePantryPreviewItem,
+    HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError,
+    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError, PetEvent, PetProfile,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -163,13 +164,7 @@ impl HybridHomeDashboardProvider {
             .iter()
             .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id, &media_metadata))
             .collect();
-        snapshot.recent_timeline = timeline
-            .events
-            .iter()
-            .take(4)
-            .map(timeline_event_summary)
-            .collect();
-        snapshot.storylines = pet_storylines(selected_pet);
+        snapshot.recent_timeline = recent_home_timeline(&timeline.events, selected_pet);
         snapshot.gallery_albums = self
             .gallery_album_summaries(user_id, selected_pet.id)
             .await?;
@@ -260,6 +255,23 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
         }
         self.fallback.get_dashboard_snapshot(context).await
     }
+}
+
+/// `recent_home_timeline` 生成首页最近时间线摘要
+/// 核心职责：
+/// - 优先展示用户真实记录
+/// - 在新建宠物无记录时展示出生和到家事实
+fn recent_home_timeline(events: &[PetEvent], selected_pet: &PetProfile) -> Vec<HomeTimelineEvent> {
+    let recent_events = events
+        .iter()
+        .take(4)
+        .map(timeline_event_summary)
+        .collect::<Vec<_>>();
+    if recent_events.is_empty() {
+        return pet_lifecycle_timeline_events(selected_pet);
+    }
+
+    recent_events
 }
 
 fn to_home_error(error: &PetError) -> HomeError {

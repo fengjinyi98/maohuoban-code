@@ -122,7 +122,7 @@ async fn home_dashboard_derives_companionship_days_from_arrival_date() {
 }
 
 #[tokio::test]
-async fn home_dashboard_generates_default_pet_storylines_from_profile_dates() {
+async fn home_dashboard_projects_profile_dates_into_empty_timeline() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138235").await;
@@ -145,55 +145,33 @@ async fn home_dashboard_generates_default_pet_storylines_from_profile_dates() {
             Some(&user_id),
         ))
         .await
-        .expect("create pet with story dates");
+        .expect("create pet with profile dates");
     assert_eq!(create_response.status(), StatusCode::CREATED);
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    let avatar_bytes = STANDARD
-        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
-        .expect("avatar png bytes");
-    let avatar_body = upload_pending_media(
-        &app,
-        "/api/v1/pet-media/avatar",
-        "avatar.png",
-        "image/png",
-        &avatar_bytes,
-        &user_id,
-    )
-    .await;
-    let avatar_asset_id = avatar_body["data"]["asset"]["id"]
-        .as_str()
-        .expect("avatar asset id");
-    bind_uploaded_media(&app, pet_id, avatar_asset_id, &user_id).await;
-
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
-    let storylines = dashboard_body["data"]["storylines"]
+    assert!(dashboard_body["data"].get("storylines").is_none());
+    let timeline = dashboard_body["data"]["recent_timeline"]
         .as_array()
-        .expect("storylines array");
-    let avatar_url = format!("/api/v1/media/assets/{avatar_asset_id}/content");
+        .expect("recent timeline array");
 
-    assert_eq!(storylines.len(), 2);
-    let birth = storylines
-        .iter()
-        .find(|storyline| storyline["kind"] == "birth")
-        .expect("birth storyline");
+    assert_eq!(timeline.len(), 2);
+    let birth = &timeline[0];
     assert_eq!(birth["id"], format!("{pet_id}-birth"));
+    assert_eq!(birth["event_kind"], "daily");
     assert_eq!(birth["title"], "第一次来到这个世界");
-    assert_eq!(birth["anchor_date"], birthday);
-    assert_eq!(birth["cover_url"], avatar_url);
-    assert_eq!(birth["entry_count"], 0);
+    assert_eq!(birth["subtitle"], "糯米在这一天出生");
+    assert_eq!(birth["occurred_text"], birthday);
+    assert_eq!(birth["occurred_at"], "2024-04-01T00:00:00Z");
 
-    let homecoming = storylines
-        .iter()
-        .find(|storyline| storyline["kind"] == "homecoming")
-        .expect("homecoming storyline");
+    let homecoming = &timeline[1];
     assert_eq!(homecoming["id"], format!("{pet_id}-homecoming"));
+    assert_eq!(homecoming["event_kind"], "daily");
     assert_eq!(homecoming["title"], "到家的第一天");
-    assert_eq!(homecoming["anchor_date"], arrival_date);
-    assert_eq!(homecoming["cover_url"], avatar_url);
-    assert_eq!(homecoming["entry_count"], 0);
-    assert!(dashboard_body["data"]["recent_timeline"].is_array());
+    assert_eq!(homecoming["subtitle"], "糯米来到你身边");
+    assert_eq!(homecoming["occurred_text"], arrival_date);
+    assert_eq!(homecoming["occurred_at"], "2024-06-16T00:00:00Z");
 }
 
 #[tokio::test]

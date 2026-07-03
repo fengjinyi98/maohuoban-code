@@ -14,9 +14,26 @@ struct HomeTimelineSection: View {
         Array(events.prefix(4))
     }
 
+    private var timelineTitle: String {
+        displayedEvents.allSatisfy(\.isLifecycleFact) ? "时间线" : "今天"
+    }
+
+    private var timelineSubtitle: String {
+        displayedEvents.allSatisfy(\.isLifecycleFact) ? "关键时刻" : currentYearText
+    }
+
+    private var currentYearText: String {
+        let year = Calendar.current.component(.year, from: Date())
+        return "\(year)年"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            HomeTimelineHeader(historyRoute: historyRoute)
+            HomeTimelineHeader(
+                title: timelineTitle,
+                subtitle: timelineSubtitle,
+                historyRoute: historyRoute
+            )
 
             // 时间轴垂直列表
             VStack(spacing: 0) {
@@ -24,15 +41,24 @@ struct HomeTimelineSection: View {
                     let isFirst = index == 0
                     let isLast = index == displayedEvents.count - 1
 
-                    NavigationLink(value: HomeRoute.petRecordDetail(event.recordDetailRoute)) {
+                    if event.isLifecycleFact {
                         HomeTimelineRow(
                             event: event,
                             isFirst: isFirst,
                             isLast: isLast
                         )
+                        .accessibilityIdentifier("home.timeline.event.\(event.id)")
+                    } else {
+                        NavigationLink(value: HomeRoute.petRecordDetail(event.recordDetailRoute)) {
+                            HomeTimelineRow(
+                                event: event,
+                                isFirst: isFirst,
+                                isLast: isLast
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("home.timeline.event.\(event.id)")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.timeline.event.\(event.id)")
                 }
             }
         }
@@ -46,21 +72,18 @@ struct HomeTimelineSection: View {
 // - 展示今天标题和年份角标
 // - 保持查看全部入口与标题区分层
 private struct HomeTimelineHeader: View {
+    let title: String
+    let subtitle: String
     let historyRoute: HomeRoute
-
-    private var currentYearText: String {
-        let year = Calendar.current.component(.year, from: Date())
-        return "\(year)年"
-    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s3) {
             HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s1) {
-                Text("今天")
+                Text(title)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text(currentYearText)
+                Text(subtitle)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.45))
                     .padding(.bottom, 1)
@@ -141,6 +164,10 @@ private struct HomeTimelineRow: View {
 
     private var iconName: String {
         switch event.timelineSemantic {
+        case .birth:
+            return "birthday.cake.fill"
+        case .homecoming:
+            return "house.fill"
         case .feeding:
             return "fork.knife"
         case .poopNormal:
@@ -168,6 +195,10 @@ private struct HomeTimelineRow: View {
 
     private var iconFgColor: Color {
         switch event.timelineSemantic {
+        case .birth:
+            return Color(mhbHex: "F687B3")
+        case .homecoming:
+            return Color(mhbHex: "68D391")
         case .feeding:
             return Color(mhbHex: "0093DD")
         case .poopNormal:
@@ -198,6 +229,8 @@ private struct HomeTimelineRow: View {
     @ViewBuilder
     private var rightDecorationView: some View {
         switch event.timelineSemantic {
+        case .birth, .homecoming:
+            EmptyView()
         case .feeding:
             Image("HomePetFoodBowl")
                 .resizable()
@@ -226,6 +259,8 @@ private struct HomeTimelineRow: View {
 // - 将 mock ID、真实记录标题和摘要收敛为稳定详情路由
 // - 避免后端生成记录 ID 后快速事实误入未接入占位页
 private enum HomeTimelineRecordSemantic {
+    case birth
+    case homecoming
     case feeding
     case poopNormal
     case energyNormal
@@ -268,8 +303,14 @@ private extension String {
 }
 
 private extension HomeDashboardSnapshot.TimelineEvent {
+    var isLifecycleFact: Bool {
+        id.hasSuffix("-birth") || id.hasSuffix("-homecoming")
+    }
+
     var recordDetailRoute: PetRecordDetailRoute {
         switch timelineSemantic {
+        case .birth, .homecoming:
+            return .unsupported(recordID: id)
         case .feeding:
             return .feeding(recordID: id)
         case .poopNormal:
@@ -296,6 +337,14 @@ private extension HomeDashboardSnapshot.TimelineEvent {
     }
 
     var timelineSemantic: HomeTimelineRecordSemantic {
+        if id.hasSuffix("-birth") {
+            return .birth
+        }
+
+        if id.hasSuffix("-homecoming") {
+            return .homecoming
+        }
+
         switch id {
         case "event-feeding", "record-2026-06-feeding":
             return .feeding

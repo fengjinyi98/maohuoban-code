@@ -46,14 +46,13 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
             distance_text: Some("同城 · 2km".to_owned()),
         }),
         recent_timeline: vec![HomeTimelineEvent {
-            id: seed_uuid("c1d2a27a-923e-43fb-8a10-232f5185f0c1"),
+            id: seed_uuid("c1d2a27a-923e-43fb-8a10-232f5185f0c1").to_string(),
             event_kind: HomeTimelineEventKind::Weight,
             title: "体重记录".to_owned(),
             subtitle: "5.2kg，较上次稳定".to_owned(),
             occurred_text: "今天 09:20".to_owned(),
             occurred_at: None,
         }],
-        storylines: Vec::new(),
         gallery_albums: Vec::new(),
         merchant_dashboard: None,
         empty_state: None,
@@ -86,7 +85,6 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
         }],
         partner_recommendation: None,
         recent_timeline: Vec::new(),
-        storylines: Vec::new(),
         gallery_albums: Vec::new(),
         merchant_dashboard: None,
         empty_state: Some(HomeEmptyState {
@@ -140,7 +138,6 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         ],
         partner_recommendation: None,
         recent_timeline: Vec::new(),
-        storylines: Vec::new(),
         gallery_albums: Vec::new(),
         merchant_dashboard: Some(MerchantDashboardSummary {
             merchant_id: seed_uuid("3a85d5e7-1d03-41a1-9f8f-7c34a1e5a71f"),
@@ -177,7 +174,7 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
                 due_text: "今天".to_owned(),
             }],
             recent_events: vec![HomeTimelineEvent {
-                id: seed_uuid("0d2972a6-37a9-4681-8220-2a6de291e3ee"),
+                id: seed_uuid("0d2972a6-37a9-4681-8220-2a6de291e3ee").to_string(),
                 event_kind: HomeTimelineEventKind::Merchant,
                 title: "A 窝更新照片".to_owned(),
                 subtitle: "买家可见时间线已更新".to_owned(),

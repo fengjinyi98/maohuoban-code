@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -90,7 +90,7 @@ pub enum PartnerRelationshipKind {
 /// - 隔离完整事件账本和首页展示模型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HomeTimelineEvent {
-    pub id: Uuid,
+    pub id: String,
     pub event_kind: HomeTimelineEventKind,
     pub title: String,
     pub subtitle: String,
@@ -112,31 +112,6 @@ pub enum HomeTimelineEventKind {
     Deworming,
     Health,
     Merchant,
-}
-
-/// HomeStorylineSummary 首页故事线摘要
-/// 核心职责：
-/// - 承载宠物生命阶段故事线入口
-/// - 与首页照护记录时间线保持独立契约
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct HomeStorylineSummary {
-    pub id: String,
-    pub kind: HomeStorylineKind,
-    pub title: String,
-    pub anchor_date: NaiveDate,
-    pub cover_url: Option<String>,
-    pub entry_count: u32,
-}
-
-/// HomeStorylineKind 首页故事线类型
-/// 核心职责：
-/// - 固定系统默认生成的宠物故事线类型
-/// - 为客户端故事详情路由提供稳定语义
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum HomeStorylineKind {
-    Birth,
-    Homecoming,
 }
 
 /// HomeEmptyState 首页空态

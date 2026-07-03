@@ -126,7 +126,7 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertEqual(supplemented.petSwitcher.first?.personalityTags, ["真实标签"])
         XCTAssertEqual(supplemented.petSwitcher.first?.note, "真实备注")
         XCTAssertNotNil(supplemented.partnerRecommendation)
-        XCTAssertFalse(supplemented.recentTimeline.isEmpty)
+        XCTAssertTrue(supplemented.recentTimeline.isEmpty)
         XCTAssertFalse(supplemented.reminders.isEmpty)
         XCTAssertFalse(supplemented.quickActions.isEmpty)
 
@@ -164,10 +164,9 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
         XCTAssertTrue(supplementedNewUser.petSwitcher.isEmpty)
         XCTAssertEqual(supplementedNewUser.emptyState?.title, "创建第一只宠物")
         XCTAssertNotNil(supplementedNewUser.partnerRecommendation)
-        XCTAssertFalse(supplementedNewUser.recentTimeline.isEmpty)
+        XCTAssertTrue(supplementedNewUser.recentTimeline.isEmpty)
         XCTAssertFalse(supplementedNewUser.reminders.isEmpty)
         XCTAssertFalse(supplementedNewUser.quickActions.isEmpty)
-        XCTAssertTrue(supplementedNewUser.storylines.isEmpty)
     }
 
     func testPetOwnerQuickActionsUseClientOwnedBaseEntries() {

@@ -9,7 +9,7 @@ use maohuoban_pet_domain::pet::{EventKind, PetEvent};
 /// - 统一健康、驱虫、疫苗等事件的首页视觉类型
 pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
     HomeTimelineEvent {
-        id: event.id,
+        id: event.id.to_string(),
         event_kind: home_timeline_event_kind(event),
         title: event.title.clone(),
         subtitle: event

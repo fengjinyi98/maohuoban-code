@@ -151,37 +151,10 @@ extension HomeDashboardSnapshot {
         }
     }
 
-    // StorylineSummary 宠物故事线摘要
-    // 核心职责：
-    // - 承载后端生成或聚合的宠物故事入口
-    // - 与首页照护记录时间线保持数据边界
-    struct StorylineSummary: Decodable, Equatable, Identifiable {
-        let id: String
-        let kind: Kind
-        let title: String
-        let anchorDate: String
-        let coverURL: String?
-        let entryCount: Int
-
-        enum Kind: String, Decodable, Equatable {
-            case birth
-            case homecoming
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case id
-            case kind
-            case title
-            case anchorDate = "anchor_date"
-            case coverURL = "cover_url"
-            case entryCount = "entry_count"
-        }
-    }
-
     // PetGalleryAlbum 宠物相册摘要
     // 核心职责：
     // - 表达用户创建的照片分类相册
-    // - 与宠物故事线保持独立的数据边界
+    // - 为首页相册入口提供轻量展示数据
     struct PetGalleryAlbum: Decodable, Equatable, Identifiable {
         let id: String
         let title: String

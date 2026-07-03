@@ -10,8 +10,8 @@ mod pet;
 
 pub use activity::{
     HomeAction, HomeActionKind, HomeEmptyState, HomeEmptyStateKind, HomeReminder, HomeReminderKind,
-    HomeStorylineKind, HomeStorylineSummary, HomeTimelineEvent, HomeTimelineEventKind,
-    PartnerRecommendation, PartnerRelationshipKind, RecommendedContent, RecommendedContentKind,
+    HomeTimelineEvent, HomeTimelineEventKind, PartnerRecommendation, PartnerRelationshipKind,
+    RecommendedContent, RecommendedContentKind,
 };
 pub use attention_hint::{
     AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
@@ -42,7 +42,6 @@ pub struct HomeDashboardSnapshot {
     pub quick_actions: Vec<HomeAction>,
     pub partner_recommendation: Option<PartnerRecommendation>,
     pub recent_timeline: Vec<HomeTimelineEvent>,
-    pub storylines: Vec<HomeStorylineSummary>,
     pub gallery_albums: Vec<HomeGalleryAlbumSummary>,
     pub merchant_dashboard: Option<MerchantDashboardSummary>,
     pub empty_state: Option<HomeEmptyState>,

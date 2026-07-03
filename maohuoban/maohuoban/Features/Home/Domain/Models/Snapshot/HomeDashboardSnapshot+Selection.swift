@@ -55,8 +55,7 @@ extension HomeDashboardSnapshot {
                 fallback: fallback.quickActions
             ),
             partnerRecommendation: partnerRecommendation ?? fallback.partnerRecommendation,
-            recentTimeline: recentTimeline.toppingUpHomeTimeline(from: fallback.recentTimeline, minimumCount: 4),
-            storylines: storylines,
+            recentTimeline: recentTimeline,
             galleryAlbums: galleryAlbums,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
@@ -82,7 +81,6 @@ extension HomeDashboardSnapshot {
             ),
             partnerRecommendation: partnerRecommendation,
             recentTimeline: recentTimeline,
-            storylines: storylines,
             galleryAlbums: galleryAlbums,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,
@@ -90,41 +88,6 @@ extension HomeDashboardSnapshot {
             pantryItems: pantryItems,
             attentionHints: attentionHints
         )
-    }
-}
-
-private extension Array where Element == HomeDashboardSnapshot.TimelineEvent {
-    func toppingUpHomeTimeline(
-        from fallback: [HomeDashboardSnapshot.TimelineEvent],
-        minimumCount: Int
-    ) -> [HomeDashboardSnapshot.TimelineEvent] {
-        guard count < minimumCount else {
-            return self
-        }
-
-        var result = self
-        var existingIDs = Set(map(\.id))
-        var existingFingerprints = Set(map(\.homeTimelineSupplementFingerprint))
-
-        for event in fallback
-        where !existingIDs.contains(event.id)
-            && !existingFingerprints.contains(event.homeTimelineSupplementFingerprint) {
-            result.append(event)
-            existingIDs.insert(event.id)
-            existingFingerprints.insert(event.homeTimelineSupplementFingerprint)
-
-            if result.count >= minimumCount {
-                break
-            }
-        }
-
-        return result.isEmpty ? fallback : result
-    }
-}
-
-private extension HomeDashboardSnapshot.TimelineEvent {
-    var homeTimelineSupplementFingerprint: String {
-        "\(eventKind.rawValue)|\(title)|\(subtitle)"
     }
 }
 
@@ -229,7 +192,6 @@ extension HomeDashboardSnapshot {
             quickActions: quickActions,
             partnerRecommendation: partnerRecommendation,
             recentTimeline: recentTimeline,
-            storylines: storylines,
             galleryAlbums: galleryAlbums,
             merchantDashboard: merchantDashboard,
             emptyState: emptyState,

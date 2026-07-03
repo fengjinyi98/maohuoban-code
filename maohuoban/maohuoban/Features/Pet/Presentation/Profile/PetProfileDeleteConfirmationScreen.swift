@@ -108,7 +108,7 @@ private struct PetProfileDeleteWarningSection: View {
                     .padding(.bottom, MHBTheme.Spacing.s1)
 
                 PetProfileDeleteWarningRow(text: "删除后，毛伙伴不会继续保留该宠物的档案数据。")
-                PetProfileDeleteWarningRow(text: "该宠物关联的健康记录、日常记录、相册故事和相关内容也会一并删除。")
+                PetProfileDeleteWarningRow(text: "该宠物关联的健康记录、日常记录、相册和相关内容也会一并删除。")
                 PetProfileDeleteWarningRow(text: "后续会接入更完整的删除保护、备份和申诉流程。")
             }
         }

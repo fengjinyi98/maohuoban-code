@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use maohuoban_home_domain::home::{
-    HeroLivePhotoCrop, HeroLivePhotoSummary, HomeStorylineKind, HomeStorylineSummary,
+    HeroLivePhotoCrop, HeroLivePhotoSummary, HomeTimelineEvent, HomeTimelineEventKind,
     PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
     PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
     PetSwitchItem,
@@ -134,29 +134,40 @@ pub(super) fn pet_switch_item(
     }
 }
 
-pub(super) fn pet_storylines(pet: &PetProfile) -> Vec<HomeStorylineSummary> {
-    let cover_url = pet.avatar_asset_id.map(media_asset_url);
+pub(super) fn pet_lifecycle_timeline_events(pet: &PetProfile) -> Vec<HomeTimelineEvent> {
     [
-        pet.birthday.map(|anchor_date| HomeStorylineSummary {
+        pet.birthday.map(|occurred_date| HomeTimelineEvent {
             id: format!("{}-birth", pet.id),
-            kind: HomeStorylineKind::Birth,
+            event_kind: HomeTimelineEventKind::Daily,
             title: "第一次来到这个世界".to_owned(),
-            anchor_date,
-            cover_url: cover_url.clone(),
-            entry_count: 0,
+            subtitle: format!("{}在这一天出生", pet.name),
+            occurred_text: occurred_date.to_string(),
+            occurred_at: Some(timeline_midnight_utc(occurred_date)),
         }),
-        pet.arrival_date.map(|anchor_date| HomeStorylineSummary {
+        pet.arrival_date.map(|occurred_date| HomeTimelineEvent {
             id: format!("{}-homecoming", pet.id),
-            kind: HomeStorylineKind::Homecoming,
+            event_kind: HomeTimelineEventKind::Daily,
             title: "到家的第一天".to_owned(),
-            anchor_date,
-            cover_url,
-            entry_count: 0,
+            subtitle: format!("{}来到你身边", pet.name),
+            occurred_text: occurred_date.to_string(),
+            occurred_at: Some(timeline_midnight_utc(occurred_date)),
         }),
     ]
     .into_iter()
     .flatten()
     .collect()
+}
+
+/// `timeline_midnight_utc` 将日期事实转换为首页时间线锚点
+/// 核心职责：
+/// - 为出生、到家等日期级事实提供稳定排序时间
+/// - 避免把日期事实误表达成用户记录的具体发生时间
+fn timeline_midnight_utc(date: NaiveDate) -> chrono::DateTime<Utc> {
+    Utc.from_utc_datetime(
+        &date
+            .and_hms_opt(0, 0, 0)
+            .expect("midnight is valid for every NaiveDate"),
+    )
 }
 
 fn home_name_edit_policy(policy: &DomainPetNameEditPolicy) -> HomePetNameEditPolicy {

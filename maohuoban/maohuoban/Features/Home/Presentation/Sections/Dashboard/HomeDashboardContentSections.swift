@@ -89,13 +89,6 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
-            if !snapshot.storylines.isEmpty {
-                HomeStorylinesSection(
-                    storylines: snapshot.storylines,
-                    petName: snapshot.selectedPet?.name
-                )
-            }
-
             if snapshot.selectedPet != nil {
                 HomePetGallerySection(
                     albums: snapshot.galleryAlbums,
