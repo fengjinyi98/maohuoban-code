@@ -92,7 +92,10 @@ struct PetRecordHistoryScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(item: $detailRoute) { route in
-            PetRecordDetailDestinationScreen(route: route)
+            PetRecordDetailDestinationScreen(
+                route: route,
+                recordContext: context
+            )
         }
         .accessibilityIdentifier("pet.recordHistory")
     }

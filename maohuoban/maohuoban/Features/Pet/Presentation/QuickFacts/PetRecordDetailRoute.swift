@@ -75,6 +75,7 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 struct PetRecordDetailDestinationScreen: View {
     let route: PetRecordDetailRoute
     var currentUserID: String? = nil
+    var recordContext: PetRecordEntryContext? = nil
 
     var body: some View {
         switch route {
@@ -106,13 +107,22 @@ struct PetRecordDetailDestinationScreen: View {
                 subtitle: "就诊记录会独立展示医院、检查项目、诊断、费用和附件。",
                 accessibilityIdentifier: "pet.recordDetail.clinicVisit.placeholder"
             )
-        case .walk:
-            PetRecordDetailPlaceholderScreen(
-                systemImage: "figure.walk",
-                title: "遛弯记录详情",
-                subtitle: "遛弯记录会进入遛弯模块详情，展示时长、距离和轨迹。",
-                accessibilityIdentifier: "pet.recordDetail.walk.placeholder"
-            )
+        case .walk(let recordID):
+            if let record = PetWalkRecordDetailResolver.record(for: recordID) {
+                PetWalkHistoryDetailScreen(
+                    record: record,
+                    petName: walkPetName,
+                    petAvatarURL: walkPetAvatarURL,
+                    petSex: recordContext?.petSex ?? .unknown
+                )
+            } else {
+                PetRecordDetailPlaceholderScreen(
+                    systemImage: "figure.walk",
+                    title: "遛弯记录详情",
+                    subtitle: "遛弯记录会进入遛弯模块详情，展示时长、距离和轨迹。",
+                    accessibilityIdentifier: "pet.recordDetail.walk.placeholder"
+                )
+            }
         case .unsupported:
             PetRecordDetailPlaceholderScreen(
                 systemImage: "doc.text.magnifyingglass",
@@ -121,6 +131,18 @@ struct PetRecordDetailDestinationScreen: View {
                 accessibilityIdentifier: "pet.recordDetail.unsupported.placeholder"
             )
         }
+    }
+
+    private var walkPetName: String {
+        recordContext?.petName ?? recordContext?.selectedSwitchPet?.name ?? "当前宠物"
+    }
+
+    private var walkPetAvatarURL: URL? {
+        guard let avatarURL = recordContext?.petAvatarURL ?? recordContext?.selectedSwitchPet?.avatarURL else {
+            return nil
+        }
+
+        return MHBBackendEndpoint.resolve(avatarURL)
     }
 }
 
