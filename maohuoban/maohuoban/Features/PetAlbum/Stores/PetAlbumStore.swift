@@ -127,6 +127,7 @@ final class PetAlbumStore {
                 throw MHBAPIError.invalidResponse
             }
             albums.insert(album.summary(), at: 0)
+            PetAlbumMutationSignal.post()
             return true
         } catch {
             errorMessage = Self.toastMessage(for: error)
@@ -154,6 +155,7 @@ final class PetAlbumStore {
                 throw MHBAPIError.invalidResponse
             }
             replaceAlbum(album.summary())
+            PetAlbumMutationSignal.post()
             return true
         } catch {
             errorMessage = Self.toastMessage(for: error)
@@ -178,6 +180,7 @@ final class PetAlbumStore {
             )
             albums.removeAll { $0.id == albumID }
             assetsByAlbumID[albumID] = nil
+            PetAlbumMutationSignal.post()
         } catch {
             errorMessage = Self.toastMessage(for: error)
         }
@@ -204,6 +207,7 @@ final class PetAlbumStore {
             updateAlbum(albumID: albumID) { album in
                 album.replacing(photoCount: assets.count)
             }
+            PetAlbumMutationSignal.post()
         } catch {
             errorMessage = Self.toastMessage(for: error)
         }
@@ -233,6 +237,7 @@ final class PetAlbumStore {
                 throw MHBAPIError.invalidResponse
             }
             replaceAlbum(album.summary())
+            PetAlbumMutationSignal.post()
         } catch {
             errorMessage = Self.toastMessage(for: error)
         }

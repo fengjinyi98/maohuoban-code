@@ -133,9 +133,23 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .petAlbum(let context):
-            PetAlbumRootScreen(
+            PetAlbumRootScreen<HomeRoute>(
                 context: context,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                createRoute: .petAlbumDestination(context: context, destination: .create),
+                detailRoute: { album in
+                    .petAlbumDestination(context: context, destination: .detail(album))
+                },
+                editRoute: { editContext in
+                    .petAlbumDestination(context: context, destination: .edit(editContext))
+                },
+                onOpenRoute: onRouteRequested
+            )
+        case .petAlbumDestination(let context, let destination):
+            PetAlbumRouteDestinationScreen(
+                context: context,
+                currentUserID: currentUserID,
+                destination: destination
             )
         case .petPantry(let context):
             PetPantryScreen(

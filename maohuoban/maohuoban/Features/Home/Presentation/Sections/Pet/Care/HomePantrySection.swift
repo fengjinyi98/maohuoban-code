@@ -47,6 +47,7 @@ struct HomePantrySection: View {
                             .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
                             .foregroundStyle(MHBTheme.ColorToken.separator.color)
                     )
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("home.pantry.emptyState")

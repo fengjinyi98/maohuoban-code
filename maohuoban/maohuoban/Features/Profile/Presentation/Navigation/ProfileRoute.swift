@@ -21,6 +21,7 @@ enum ProfileRoute: Hashable {
     case badges(selectedBadgeID: String?)
     case feedDetail(postID: String)
     case petAlbumList
+    case petAlbumDestination(context: PetAlbumEntryContext, destination: PetAlbumRouteDestination)
     case followedTopics
     case topicDetail(topicID: String)
     case topicFeedDetail(postID: String)

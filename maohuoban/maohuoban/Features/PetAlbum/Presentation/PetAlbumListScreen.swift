@@ -11,6 +11,7 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
     let createRoute: DetailRoute
     let detailRoute: (PetAlbumSummary) -> DetailRoute
     let editRoute: (PetAlbumEditContext) -> DetailRoute
+    let onOpenRoute: (DetailRoute) -> Void
 
     private let columns = [
         GridItem(.flexible(), spacing: MHBTheme.Spacing.s4),
@@ -21,25 +22,31 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         store: PetAlbumStore,
         createRoute: DetailRoute,
         detailRoute: @escaping (PetAlbumSummary) -> DetailRoute,
-        editRoute: @escaping (PetAlbumEditContext) -> DetailRoute
+        editRoute: @escaping (PetAlbumEditContext) -> DetailRoute,
+        onOpenRoute: @escaping (DetailRoute) -> Void
     ) {
         self.store = store
         self.createRoute = createRoute
         self.detailRoute = detailRoute
         self.editRoute = editRoute
+        self.onOpenRoute = onOpenRoute
     }
 
     var body: some View {
         MHBScreenScrollView {
             LazyVGrid(columns: columns, alignment: .center, spacing: MHBTheme.Spacing.s5) {
-                NavigationLink(value: createRoute) {
+                Button {
+                    onOpenRoute(createRoute)
+                } label: {
                     PetAlbumCreateCard()
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("petAlbum.list.create")
 
                 ForEach(store.albums) { album in
-                    NavigationLink(value: detailRoute(album)) {
+                    Button {
+                        onOpenRoute(detailRoute(album))
+                    } label: {
                         PetAlbumPhotoStackCard(
                             title: album.title,
                             photoCountText: album.photoCountText,
@@ -54,6 +61,7 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
                         PetAlbumListContextMenuContent(
                             actions: PetAlbumContextMenuActionResolver.actions(isPinned: album.isPinned),
                             editRoute: editRoute(PetAlbumEditContext(album: album)),
+                            onOpenRoute: onOpenRoute,
                             onAction: { action in
                                 handleMenuAction(action, album: album)
                             }
@@ -68,6 +76,13 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
         }
         .task {
             await store.loadAlbums()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: PetAlbumMutationSignal.notificationName)
+        ) { _ in
+            Task {
+                await store.loadAlbums(force: true)
+            }
         }
         .alert(
             "删除相册",
@@ -145,13 +160,16 @@ struct PetAlbumListScreen<DetailRoute: Hashable>: View {
 private struct PetAlbumListContextMenuContent<EditRoute: Hashable>: View {
     let actions: [PetAlbumContextMenuAction]
     let editRoute: EditRoute
+    let onOpenRoute: (EditRoute) -> Void
     let onAction: (PetAlbumContextMenuAction) -> Void
 
     var body: some View {
         ForEach(actions) { action in
             switch action {
             case .edit:
-                NavigationLink(value: editRoute) {
+                Button {
+                    onOpenRoute(editRoute)
+                } label: {
                     Label(action.title, systemImage: action.systemImageName)
                 }
             case .deleteAlbum:
