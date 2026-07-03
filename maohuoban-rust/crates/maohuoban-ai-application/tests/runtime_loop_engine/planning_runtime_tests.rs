@@ -3,23 +3,13 @@
 //! - 验证模型规划、ReplanPolicy 和规划诊断进入真实 Runtime 路径
 //! - 固定工具确认、重规划和 step transition 的可观测行为
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, LazyLock};
 
-use async_trait::async_trait;
-use futures_util::StreamExt;
-use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
-use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel, ToolRegistry,
-};
+use maohuoban_ai_application::ai::tools::ToolRegistry;
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentId, AgentTurnId, AiConversationSurface, AiError,
-    AiToolConfirmationRequirement, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmMessage,
-    LlmRole, LlmStreamEvent, LlmToolCall, LlmUsage, ProviderError, ProviderErrorCategory,
-    ToolFactField, ToolFactSchema, ToolFailure, ToolProgressText, Toolset,
-};
-use maohuoban_diagnostics::{
-    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy,
+    AgentEvent, AgentId, AgentTurnId, AiConversationSurface, LlmChatResponse, LlmFinishReason,
+    LlmMessage, LlmRole, LlmToolCall, LlmUsage,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -31,6 +21,12 @@ use super::workbenches::{
     final_response, private_pet_context_workbench, public_pet_domain_workbench,
     workbench_with_recent_history,
 };
+use planning::{
+    ContextLimitProvider, FailingIdentityFactTool, WriteObservationTool, install_test_diagnostics,
+};
+
+#[path = "planning/mod.rs"]
+mod planning;
 
 static DIAGNOSTICS_TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
@@ -372,199 +368,4 @@ async fn planning_diagnostics_records_real_step_transition() {
         }),
         "planning diagnostics should include real step transition: {planning_events:?}"
     );
-}
-
-#[derive(Clone)]
-struct WriteObservationTool;
-
-#[async_trait]
-impl AiToolDefinition for WriteObservationTool {
-    fn name(&self) -> &'static str {
-        "write_pet_observation"
-    }
-
-    fn description(&self) -> &'static str {
-        "写入宠物观察记录"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "pet_id": { "type": "string", "format": "uuid" },
-                "note": { "type": "string" }
-            },
-            "required": ["pet_id", "note"]
-        })
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "pet.observation.write".to_owned(),
-            read_only: false,
-            concurrency_safe: false,
-            risk_level: AiToolRiskLevel::High,
-            requires_confirmation: true,
-            domain_tags: vec!["observation".to_owned()],
-            toolset: Toolset::Confirmation,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::requires_confirmation(AiToolConfirmationRequirement {
-            confirmation_task_id: Uuid::new_v4().to_string(),
-            tool_name: "write_pet_observation".to_owned(),
-            question_text: "是否确认写入这条观察记录？".to_owned(),
-            args: json!({
-                "pet_id": AUTHORIZED_PET_ID,
-                "note": "今天拉稀"
-            }),
-        })
-    }
-}
-
-#[derive(Clone)]
-struct FailingIdentityFactTool;
-
-#[async_trait]
-impl AiToolDefinition for FailingIdentityFactTool {
-    fn name(&self) -> &'static str {
-        "load_pet_identity_context"
-    }
-
-    fn description(&self) -> &'static str {
-        "加载宠物身份上下文"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "pet_id": { "type": "string", "format": "uuid" }
-            },
-            "required": ["pet_id"]
-        })
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "pet.identity.read".to_owned(),
-            read_only: true,
-            concurrency_safe: true,
-            risk_level: AiToolRiskLevel::Low,
-            requires_confirmation: false,
-            domain_tags: vec!["identity".to_owned()],
-            toolset: Toolset::PrivatePetContext,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: Some(ToolFactSchema {
-                fact_keys: vec!["pet_identity.world_days".to_owned()],
-                description: "宠物基础档案事实".to_owned(),
-                natural_language_summary: "可回答宠物多大了、几岁了、出生多久了等问题".to_owned(),
-                fields: vec![ToolFactField {
-                    key: "pet_identity.world_days".to_owned(),
-                    label: "年龄/出生至今天数".to_owned(),
-                    meaning: "宠物从出生到今天经过的天数，可用于回答多大了、几岁了".to_owned(),
-                    example_queries: vec!["多大了".to_owned(), "几岁了".to_owned()],
-                }],
-                default_strength: None,
-            }),
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::failed_with_failure(ToolFailure::new(
-            "tool.internal_error",
-            false,
-            "工具执行失败",
-            "identity store unavailable",
-        ))
-    }
-}
-
-#[derive(Clone)]
-struct ContextLimitProvider {
-    requests: Arc<Mutex<Vec<LlmChatRequest>>>,
-    attempts: Arc<Mutex<u32>>,
-}
-
-impl ContextLimitProvider {
-    fn new() -> Self {
-        Self {
-            requests: Arc::new(Mutex::new(Vec::new())),
-            attempts: Arc::new(Mutex::new(0)),
-        }
-    }
-
-    fn take_requests(&self) -> Vec<LlmChatRequest> {
-        self.requests.lock().expect("requests").clone()
-    }
-}
-
-impl LlmProvider for ContextLimitProvider {
-    fn complete<'a>(
-        &'a self,
-        _request: &'a LlmChatRequest,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = maohuoban_ai_domain::ai::AiResult<LlmChatResponse>>
-                + Send
-                + 'a,
-        >,
-    > {
-        Box::pin(async {
-            Err(AiError::Provider(ProviderError::new(
-                ProviderErrorCategory::InvalidResponse,
-                "maximum context length exceeded",
-            )))
-        })
-    }
-
-    fn stream<'a>(
-        &'a self,
-        request: &'a LlmChatRequest,
-    ) -> futures_util::stream::BoxStream<'a, maohuoban_ai_domain::ai::AiResult<LlmStreamEvent>>
-    {
-        self.requests
-            .lock()
-            .expect("requests")
-            .push(request.clone());
-        let mut attempts = self.attempts.lock().expect("attempts");
-        *attempts += 1;
-        let events = if *attempts == 1 {
-            vec![Err(AiError::Provider(ProviderError::new(
-                ProviderErrorCategory::InvalidResponse,
-                "maximum context length exceeded",
-            )))]
-        } else {
-            vec![
-                Ok(LlmStreamEvent::Delta {
-                    content: "压缩上下文后回答。".to_owned(),
-                }),
-                Ok(LlmStreamEvent::Finish {
-                    finish_reason: LlmFinishReason::Stop,
-                    usage: LlmUsage::default(),
-                }),
-            ]
-        };
-        futures_util::stream::iter(events).boxed()
-    }
-}
-
-fn install_test_diagnostics() -> Diagnostics {
-    let root = std::env::temp_dir().join(format!(
-        "maohuoban-planning-runtime-diagnostics-{}",
-        Uuid::new_v4()
-    ));
-    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
-    Diagnostics::install(DiagnosticsConfig {
-        service_name: "maohuoban-rust".to_owned(),
-        environment: "test".to_owned(),
-        privacy: PrivacyPolicy::default(),
-        capture: CapturePolicy::default(),
-        cleanup: CleanupPolicy::default(),
-        store: Box::new(store),
-    })
-    .expect("install diagnostics")
 }
