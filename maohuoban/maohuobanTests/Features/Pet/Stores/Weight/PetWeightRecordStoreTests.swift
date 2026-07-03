@@ -54,6 +54,47 @@ final class PetWeightRecordStoreTests: XCTestCase {
         XCTAssertEqual(store.records.first?.source, .profileInitial)
     }
 
+    func testRecentHistoryPresentationLimitsRecordsToFour() async {
+        let repository = CapturingPetRepository()
+        repository.listWeightRecordsResult = .success(Self.listResponse(items: [
+            Self.record(id: "weight-5", grams: 4500, note: "第五次", occurredAt: "2026-07-05T01:00:00Z"),
+            Self.record(id: "weight-4", grams: 4400, note: "第四次", occurredAt: "2026-07-04T01:00:00Z"),
+            Self.record(id: "weight-3", grams: 4300, note: "第三次", occurredAt: "2026-07-03T01:00:00Z"),
+            Self.record(id: "weight-2", grams: 4200, note: "第二次", occurredAt: "2026-07-02T01:00:00Z"),
+            Self.record(id: "weight-1", grams: 4100, note: "第一次", occurredAt: "2026-07-01T01:00:00Z")
+        ]))
+        let store = PetWeightRecordStore(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            repository: repository
+        )
+
+        await store.load()
+
+        XCTAssertEqual(store.recentHistory.records.map(\.id), ["weight-5", "weight-4", "weight-3", "weight-2"])
+        XCTAssertTrue(store.recentHistory.showsFullHistoryEntry)
+    }
+
+    func testRecentHistoryPresentationHidesFullHistoryEntryWhenRecordsAreNotMoreThanFour() async {
+        let repository = CapturingPetRepository()
+        repository.listWeightRecordsResult = .success(Self.listResponse(items: [
+            Self.record(id: "weight-4", grams: 4400, note: "第四次", occurredAt: "2026-07-04T01:00:00Z"),
+            Self.record(id: "weight-3", grams: 4300, note: "第三次", occurredAt: "2026-07-03T01:00:00Z"),
+            Self.record(id: "weight-2", grams: 4200, note: "第二次", occurredAt: "2026-07-02T01:00:00Z"),
+            Self.record(id: "weight-1", grams: 4100, note: "第一次", occurredAt: "2026-07-01T01:00:00Z")
+        ]))
+        let store = PetWeightRecordStore(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            repository: repository
+        )
+
+        await store.load()
+
+        XCTAssertEqual(store.recentHistory.records.map(\.id), ["weight-4", "weight-3", "weight-2", "weight-1"])
+        XCTAssertFalse(store.recentHistory.showsFullHistoryEntry)
+    }
+
     func testEmptyStateCopyGuidesFirstRecordCreation() async {
         let repository = CapturingPetRepository()
         repository.listWeightRecordsResult = .success(Self.listResponse(items: []))
@@ -69,7 +110,6 @@ final class PetWeightRecordStoreTests: XCTestCase {
         XCTAssertTrue(store.shouldShowEmptyState)
         XCTAssertFalse(store.shouldShowBottomCTA)
         XCTAssertEqual(store.emptyStateTitle, "还没有体重记录")
-        XCTAssertEqual(store.emptyStateMessage, "记录第一次称重后，就能看到毛伙伴的体重变化。")
         XCTAssertEqual(store.emptyStateButtonTitle, "添加体重记录")
     }
 

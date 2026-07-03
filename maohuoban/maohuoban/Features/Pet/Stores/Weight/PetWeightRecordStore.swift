@@ -50,10 +50,6 @@ final class PetWeightRecordStore {
         "还没有体重记录"
     }
 
-    var emptyStateMessage: String {
-        "记录第一次称重后，就能看到毛伙伴的体重变化。"
-    }
-
     var emptyStateButtonTitle: String {
         "添加体重记录"
     }
@@ -68,6 +64,10 @@ final class PetWeightRecordStore {
         guard deltaGrams != 0 else { return "持平" }
         let sign = deltaGrams > 0 ? "+" : "-"
         return "\(sign) \(String(format: "%.2f", abs(Double(deltaGrams)) / 1000)) kg"
+    }
+
+    var recentHistory: PetWeightRecentHistoryPresentation {
+        PetWeightRecentHistoryPresentation(records: records)
     }
 
     func load() async {

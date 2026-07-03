@@ -89,8 +89,7 @@ pub(super) fn pet_hero_summary(
         world_days,
         weight_grams: weight_projection
             .as_ref()
-            .map(|projection| projection.latest_weight_grams)
-            .or(pet.weight_grams),
+            .map(|projection| projection.latest_weight_grams),
         stats: weight_projection.map(HomeWeightProjection::into_stats),
         neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
         personality_tags: pet.personality_tags.clone(),
@@ -136,7 +135,7 @@ impl HomeWeightProjection {
 /// `home_weight_projection` 生成首页体重投影
 /// 核心职责：
 /// - 只读取当前宠物时间线中的体重事件
-/// - 使用最新记录覆盖宠物档案初始体重展示
+/// - 删除全部体重记录后不回退到宠物档案初始体重
 pub(super) fn home_weight_projection(events: &[PetEvent]) -> Option<HomeWeightProjection> {
     let mut weight_records = events
         .iter()

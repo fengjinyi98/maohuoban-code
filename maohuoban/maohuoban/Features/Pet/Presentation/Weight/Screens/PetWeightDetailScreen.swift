@@ -41,7 +41,7 @@ struct PetWeightDetailScreen: View {
     var body: some View {
         GeometryReader { proxy in
             let topInset = effectiveTopInset(geometrySafeAreaTop: proxy.safeAreaInsets.top)
-            let bottomInset = max(proxy.safeAreaInsets.bottom, windowSafeAreaInsets.bottom)
+            let bottomInset = proxy.safeAreaInsets.bottom
 
             ZStack(alignment: .topLeading) {
                 MHBTheme.ColorToken.background.color
@@ -52,7 +52,7 @@ struct PetWeightDetailScreen: View {
                         if store.shouldShowEmptyState {
                             PetWeightEmptyState(
                                 title: store.emptyStateTitle,
-                                message: store.emptyStateMessage,
+                                message: emptyStateMessage,
                                 buttonTitle: store.emptyStateButtonTitle,
                                 action: {
                                     isAddRecordSheetPresented = true
@@ -81,7 +81,7 @@ struct PetWeightDetailScreen: View {
                             )
 
                             PetWeightHistorySection(
-                                records: Array(store.records.prefix(6)),
+                                presentation: store.recentHistory,
                                 onOpenRecord: { record in
                                     pathRoute = .recordDetail(record.id)
                                 },
@@ -141,7 +141,7 @@ struct PetWeightDetailScreen: View {
                 PetWeightHistoryScreen(
                     context: context.recordContext,
                     fallbackPetName: currentPetName,
-                    records: store.records
+                    store: store
                 )
             case .recordDetail(let recordID):
                 PetWeightRecordDetailScreen(
@@ -184,6 +184,10 @@ struct PetWeightDetailScreen: View {
 
     private var currentPetName: String {
         selectedPet?.name ?? context.petName
+    }
+
+    private var emptyStateMessage: String {
+        "记录第一次称重后，就能看到\(currentPetName)的体重变化。"
     }
 
     private var availablePets: [PetRecordSwitchPet] {

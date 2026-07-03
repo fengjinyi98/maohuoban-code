@@ -10,10 +10,10 @@ struct PetWeightHistoryScreen: View {
 
     let context: PetRecordEntryContext
     let fallbackPetName: String
-    let records: [PetWeightRecord]
+    let store: PetWeightRecordStore
 
     @State private var selectedPet: PetRecordSwitchPet?
-    @State private var detailRoute: PetRecordDetailRoute?
+    @State private var detailRecordID: String?
 
     var body: some View {
         GeometryReader { proxy in
@@ -26,7 +26,7 @@ struct PetWeightHistoryScreen: View {
                         Section {
                             ForEach(group.records) { record in
                                 Button {
-                                    detailRoute = .weight(recordID: record.id)
+                                    detailRecordID = record.id
                                 } label: {
                                     PetWeightHistoryListRow(record: record)
                                 }
@@ -76,8 +76,12 @@ struct PetWeightHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(item: $detailRoute) { route in
-            PetRecordDetailDestinationScreen(route: route)
+        .navigationDestination(item: $detailRecordID) { recordID in
+            PetWeightRecordDetailScreen(
+                recordID: recordID,
+                petName: currentPetName,
+                store: store
+            )
         }
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
@@ -97,6 +101,10 @@ struct PetWeightHistoryScreen: View {
 
     private var currentPetID: String? {
         selectedPet?.id ?? context.petID
+    }
+
+    private var currentPetName: String {
+        selectedPet?.name ?? context.petName ?? fallbackPetName
     }
 
     private var availablePets: [PetRecordSwitchPet] {
@@ -126,7 +134,7 @@ struct PetWeightHistoryScreen: View {
     private var groupedRecords: [(id: String, year: String, month: String, records: [PetWeightRecord])] {
         var groups: [(id: String, year: String, month: String, records: [PetWeightRecord])] = []
 
-        for record in records {
+        for record in store.records {
             let groupID = "\(record.yearText)-\(record.monthText)"
             if let index = groups.firstIndex(where: { $0.id == groupID }) {
                 groups[index].records.append(record)

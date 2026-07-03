@@ -157,6 +157,55 @@ pub(crate) async fn append_home_test_weight_record(
     assert_eq!(response.status(), StatusCode::CREATED);
 }
 
+/// `load_home_test_weight_record_ids` 读取首页契约测试体重记录 ID
+/// 核心职责：
+/// - 复用真实体重记录列表接口
+/// - 支持首页聚合测试删除初始体重记录
+pub(crate) async fn load_home_test_weight_record_ids(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+) -> Vec<String> {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/weight-records"),
+            Some(user_id),
+        ))
+        .await
+        .expect("load pet weight records");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    body["data"]["items"]
+        .as_array()
+        .expect("weight record items")
+        .iter()
+        .map(|item| item["id"].as_str().expect("weight record id").to_owned())
+        .collect()
+}
+
+/// `delete_home_test_weight_record` 删除首页契约测试体重记录
+/// 核心职责：
+/// - 复用真实体重记录删除接口
+/// - 保持首页 state 卡片测试覆盖体重账本删除语义
+pub(crate) async fn delete_home_test_weight_record(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    record_id: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-weight-records/{record_id}"),
+            Some(user_id),
+        ))
+        .await
+        .expect("delete pet weight record");
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
 /// `load_user_home_dashboard` 读取带用户上下文的首页快照
 /// 核心职责：
 /// - 固定首页读取请求

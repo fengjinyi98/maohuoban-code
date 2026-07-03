@@ -214,6 +214,41 @@ async fn home_dashboard_projects_latest_weight_records_into_pet_stats() {
 }
 
 #[tokio::test]
+async fn home_dashboard_clears_weight_stats_when_all_weight_records_are_deleted() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138237").await;
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "cat",
+                "sex": "female",
+                "weight_grams": 4200
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet with initial weight");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let pet_id = create_body["data"]["id"].as_str().expect("pet id");
+    let record_ids = load_home_test_weight_record_ids(&app, &user_id, pet_id).await;
+    assert_eq!(record_ids.len(), 1);
+
+    delete_home_test_weight_record(&app, &user_id, &record_ids[0]).await;
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, pet_id).await;
+    let selected_pet = &dashboard_body["data"]["selected_pet"];
+    assert!(selected_pet["weight_grams"].is_null());
+    assert!(selected_pet["stats"].is_null());
+}
+
+#[tokio::test]
 async fn home_dashboard_uses_selected_pet_id_for_multi_pet_switching() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;

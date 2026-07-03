@@ -15,9 +15,7 @@ struct PetWeightEmptyState: View {
         VStack(spacing: MHBTheme.Spacing.s4) {
             Image(systemName: "scalemass")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                .frame(width: 72, height: 72)
-                .background(MHBTheme.ColorToken.primary.color.opacity(0.10), in: Circle())
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
             VStack(spacing: MHBTheme.Spacing.s2) {
                 Text(title)

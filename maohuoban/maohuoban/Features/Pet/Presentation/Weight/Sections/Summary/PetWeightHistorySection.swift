@@ -8,7 +8,7 @@ import MaohuobanDesignSystem
 // - 展示最近几条体重记录
 // - 提供完整历史入口占位
 struct PetWeightHistorySection: View {
-    let records: [PetWeightRecord]
+    let presentation: PetWeightRecentHistoryPresentation
     let onOpenRecord: (PetWeightRecord) -> Void
     let onOpenHistory: () -> Void
 
@@ -19,7 +19,7 @@ struct PetWeightHistorySection: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
             VStack(spacing: 0) {
-                ForEach(records) { record in
+                ForEach(presentation.records) { record in
                     Button {
                         onOpenRecord(record)
                     } label: {
@@ -28,27 +28,29 @@ struct PetWeightHistorySection: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("pet.weightDetail.recentRecord.\(record.id)")
 
-                    if record.id != records.last?.id {
+                    if record.id != presentation.records.last?.id {
                         Rectangle()
                             .fill(MHBTheme.ColorToken.separatorSoft.color)
                             .frame(height: 1)
                     }
                 }
 
-                Button {
-                    onOpenHistory()
-                } label: {
-                    HStack(spacing: MHBTheme.Spacing.s1) {
-                        Text("查看完整历史数据")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                if presentation.showsFullHistoryEntry {
+                    Button {
+                        onOpenHistory()
+                    } label: {
+                        HStack(spacing: MHBTheme.Spacing.s1) {
+                            Text("查看完整历史数据")
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, MHBTheme.Spacing.s4)
                     }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, MHBTheme.Spacing.s4)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, MHBTheme.Spacing.s4)
             .background(MHBTheme.ColorToken.cardSolid.color)
