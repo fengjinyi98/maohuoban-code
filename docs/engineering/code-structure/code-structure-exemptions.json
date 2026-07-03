@@ -225,9 +225,6 @@
     "maohuoban-rust/crates/maohuoban-ai-application/tests/runtime_workbench_prompt_projection/main.rs": {
       "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
     },
-    "maohuoban-rust/crates/maohuoban-ai-application/tests/tool_registry/main.rs": {
-      "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
-    },
     "maohuoban-rust/crates/maohuoban-ai-domain/src/ai/model/runtime/runtime.rs": {
       "reason": "Rust 存量大文件承载合同、仓储或运行时聚合逻辑；本轮保持行为稳定，行数继续增长由扫描基线阻断。"
     },
