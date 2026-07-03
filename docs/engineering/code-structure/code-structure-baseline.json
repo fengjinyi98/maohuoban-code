@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T14:24:29",
+  "generated_at": "2026-07-03T14:28:47",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -7,7 +7,7 @@
     "swift_hard_line_limit": 400
   },
   "scan": {
-    "code_file_count": 1853,
+    "code_file_count": 1855,
     "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
@@ -987,11 +987,6 @@
       "maohuoban/maohuoban/Infrastructure/SwiftUI/Input/MHBStableMultilineTextInput.swift": {
         "limit": 400,
         "line_count": 494,
-        "suffix": ".swift"
-      },
-      "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
-        "limit": 400,
-        "line_count": 426,
         "suffix": ".swift"
       }
     },
@@ -3211,11 +3206,6 @@
         "primary_type_count": 3,
         "suffix": ".swift"
       },
-      "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
-        "line_count": 426,
-        "primary_type_count": 2,
-        "suffix": ".swift"
-      },
       "maohuoban/maohuobanTests/Features/SameCity/HospitalBookingStoreTests.swift": {
         "line_count": 143,
         "primary_type_count": 2,
@@ -3982,6 +3972,11 @@
       "maohuoban/maohuobanTests/Features/Profile/Repository/CurrentUserProfileRepositoryTests.swift": {
         "limit": 250,
         "line_count": 344,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuobanTests/Features/Profile/UserEdit/ProfileUserEditStoreTests.swift": {
+        "limit": 250,
+        "line_count": 271,
         "suffix": ".swift"
       },
       "maohuoban/maohuobanWidgets/PetWalkLiveActivityWidget.swift": {
