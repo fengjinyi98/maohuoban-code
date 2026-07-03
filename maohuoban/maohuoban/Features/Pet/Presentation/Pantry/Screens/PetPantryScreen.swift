@@ -1,14 +1,13 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// PetPantryScreen 宠物储物柜页面
+// PetPantryScreen 用户储物柜页面
 // 核心职责：
-// - 展示宠物食品物资的分类卡片
+// - 展示用户级食品物资的分类卡片
 // - 提供搜索和添加入口
-
+// - 使用入口宠物上下文展示饮食摘要
 struct PetPantryScreen<Route: Hashable>: View {
-    let petID: String
-    let petName: String
+    let context: PetPantryEntryContext
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
 
@@ -38,12 +37,14 @@ struct PetPantryScreen<Route: Hashable>: View {
             ZStack(alignment: .bottom) {
                 MHBScreenScrollView {
                     VStack(spacing: MHBTheme.Spacing.s5) {
-                        PetPantryDietSummarySection(
-                            petName: petName,
-                            rows: store.dietSummaryRows
-                        )
-                        .padding(.horizontal, MHBTheme.Spacing.s5)
-                        .padding(.top, MHBTheme.Spacing.s4)
+                        if let sourcePetName = context.sourcePetName, context.sourcePetID != nil {
+                            PetPantryDietSummarySection(
+                                petName: sourcePetName,
+                                rows: store.dietSummaryRows
+                            )
+                            .padding(.horizontal, MHBTheme.Spacing.s5)
+                            .padding(.top, MHBTheme.Spacing.s4)
+                        }
 
                         categoriesGrid
                             .padding(.horizontal, MHBTheme.Spacing.s5)
@@ -66,7 +67,7 @@ struct PetPantryScreen<Route: Hashable>: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: currentUserID) {
             guard let currentUserID else { return }
-            await store.loadItems(currentUserID: currentUserID, petID: petID)
+            await store.loadItems(currentUserID: currentUserID, contextPetID: context.sourcePetID)
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -75,7 +76,7 @@ struct PetPantryScreen<Route: Hashable>: View {
         ) { _ in
             guard let currentUserID else { return }
             Task {
-                await store.loadItems(currentUserID: currentUserID, petID: petID)
+                await store.loadItems(currentUserID: currentUserID, contextPetID: context.sourcePetID)
             }
         }
         .toolbar {

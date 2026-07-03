@@ -23,11 +23,33 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         )
         let store = PetFoodInventoryStore(repository: repository)
 
-        await store.loadItems(currentUserID: "user-1", petID: "pet-1")
+        await store.loadItems(currentUserID: "user-1", contextPetID: "pet-1")
 
         XCTAssertEqual(repository.loadedDietContextPetID, "pet-1")
         XCTAssertEqual(store.feedingOptions.first(where: { $0.id == "food-b" })?.isDefault, true)
         XCTAssertEqual(store.feedingOptions.first(where: { $0.id == "food-a" })?.isDefault, false)
+    }
+
+    func testLoadItemsWithoutContextPetStillLoadsUserPantryAssets() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "用户共享囤粮", status: .sealed)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryStore(repository: repository)
+
+        await store.loadItems(currentUserID: "user-1")
+
+        XCTAssertEqual(store.items.map(\.id), ["food-a"])
+        XCTAssertNil(repository.loadedDietContextPetID)
+        XCTAssertTrue(store.dietSummaryRows.isEmpty)
     }
 
     func testCreateItemPostsFoodInventoryMutationSignal() async {
@@ -76,7 +98,7 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             )
         )
         let store = PetFoodInventoryStore(repository: repository)
-        await store.loadItems(currentUserID: "user-1", petID: "pet-1")
+        await store.loadItems(currentUserID: "user-1", contextPetID: "pet-1")
 
         let assignment = await store.setCurrentStaple(
             petID: "pet-1",

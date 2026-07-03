@@ -36,6 +36,7 @@ async fn food_inventory_crud_persists_user_scoped_assets() {
     assert_eq!(create_body["data"]["inventory_status"], "sealed");
     assert_eq!(create_body["data"]["scope_type"], "user");
     assert_eq!(create_body["data"]["scope_id"], user_id);
+    assert!(create_body["data"].get("pet_id").is_none());
     let item_id = create_body["data"]["id"]
         .as_str()
         .expect("item id")
@@ -58,6 +59,7 @@ async fn food_inventory_crud_persists_user_scoped_assets() {
         1
     );
     assert_eq!(list_body["data"]["items"][0]["id"], item_id);
+    assert!(list_body["data"]["items"][0].get("pet_id").is_none());
 
     let update_response = app
         .router()

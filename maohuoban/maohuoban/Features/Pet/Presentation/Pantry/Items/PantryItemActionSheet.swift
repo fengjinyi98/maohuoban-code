@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 提供状态流转、编辑和删除等操作入口
 struct PantryItemActionSheet: View {
     let item: PantryItem
+    let allowsDietAssignment: Bool
     let onMarkSealed: (String) -> Void
     let onEdit: (PantryItem) -> Void
     let onArchive: (String) -> Void
@@ -23,6 +24,7 @@ struct PantryItemActionSheet: View {
 
     init(
         item: PantryItem,
+        allowsDietAssignment: Bool = true,
         onMarkSealed: @escaping (String) -> Void = { _ in },
         onEdit: @escaping (PantryItem) -> Void = { _ in },
         onArchive: @escaping (String) -> Void = { _ in },
@@ -34,6 +36,7 @@ struct PantryItemActionSheet: View {
         onSetNotSuitable: @escaping (String) -> Void = { _ in }
     ) {
         self.item = item
+        self.allowsDietAssignment = allowsDietAssignment
         self.onMarkSealed = onMarkSealed
         self.onEdit = onEdit
         self.onArchive = onArchive
@@ -138,7 +141,9 @@ struct PantryItemActionSheet: View {
                 dismiss()
             }
 
-            dietAssignmentActions
+            if allowsDietAssignment {
+                dietAssignmentActions
+            }
             
             actionButton(
                 icon: "plus.circle",

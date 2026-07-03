@@ -74,10 +74,10 @@ struct HomeDashboardLoadedView: View {
                                     onOpenRoute(recordHistoryRoute(routingContext: routingContext))
                                 },
                                 onOpenPantry: {
-                                    onOpenRoute(.petPantry(
-                                        petID: selectedPet.id,
-                                        petName: selectedPet.name
-                                    ))
+                                    onOpenRoute(.petPantry(PetPantryEntryContext(
+                                        sourcePetID: selectedPet.id,
+                                        sourcePetName: selectedPet.name
+                                    )))
                                 },
                                 onOpenPreventiveCare: {
                                     onOpenRoute(preventiveCareRoute(

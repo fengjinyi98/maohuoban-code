@@ -153,7 +153,7 @@ struct MHBAppShell: View {
         Task {
             await homeFoodInventoryStore.loadItems(
                 currentUserID: userID,
-                petID: petID
+                contextPetID: petID
             )
         }
     }

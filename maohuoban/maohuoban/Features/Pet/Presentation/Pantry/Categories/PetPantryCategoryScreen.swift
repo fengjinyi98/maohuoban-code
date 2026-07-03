@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// PetPantryCategoryScreen 宠物储物柜分类详情页
+// PetPantryCategoryScreen 用户储物柜分类详情页
 // 核心职责：
-// - 展示特定分类下的物品列表
+// - 展示用户储物柜中特定分类下的物品列表
+// - 在入口携带宠物上下文时提供饮食配置动作
 struct PetPantryCategoryScreen<Route: Hashable>: View {
-    let petID: String
-    let petName: String
+    let context: PetPantryEntryContext
     let category: PantryCategory
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
@@ -67,7 +67,7 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: currentUserID) {
             guard let currentUserID else { return }
-            await store.loadItems(currentUserID: currentUserID, petID: petID)
+            await store.loadItems(currentUserID: currentUserID, contextPetID: context.sourcePetID)
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -76,7 +76,7 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
         ) { _ in
             guard let currentUserID else { return }
             Task {
-                await store.loadItems(currentUserID: currentUserID, petID: petID)
+                await store.loadItems(currentUserID: currentUserID, contextPetID: context.sourcePetID)
             }
         }
         .toolbar {
@@ -97,7 +97,10 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                 onSaved: {
                     guard let currentUserID else { return }
                     Task {
-                        await store.loadItems(currentUserID: currentUserID, petID: petID)
+                        await store.loadItems(
+                            currentUserID: currentUserID,
+                            contextPetID: context.sourcePetID
+                        )
                     }
                 }
             )
@@ -124,6 +127,7 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
         .sheet(item: $selectedItem) { item in
             PantryItemActionSheet(
                 item: item,
+                allowsDietAssignment: context.sourcePetID != nil,
                 onMarkSealed: { itemID in
                     guard let currentUserID else { return }
                     Task {
@@ -154,10 +158,10 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                     }
                 },
                 onSetCurrentStaple: { itemID in
-                    guard let currentUserID else { return }
+                    guard let currentUserID, let sourcePetID = context.sourcePetID else { return }
                     Task {
                         _ = await store.setCurrentStaple(
-                            petID: petID,
+                            petID: sourcePetID,
                             foodItemID: itemID,
                             currentUserID: currentUserID
                         )
@@ -183,10 +187,10 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
     }
 
     private func setFoodAssignment(itemID: String, role: PetDietAssignmentRole) {
-        guard let currentUserID else { return }
+        guard let currentUserID, let sourcePetID = context.sourcePetID else { return }
         Task {
             _ = await store.setFoodAssignment(
-                petID: petID,
+                petID: sourcePetID,
                 foodItemID: itemID,
                 role: role,
                 currentUserID: currentUserID

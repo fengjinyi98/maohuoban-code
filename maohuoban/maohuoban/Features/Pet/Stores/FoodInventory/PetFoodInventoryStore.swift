@@ -5,7 +5,7 @@ import Observation
 // 核心职责：
 // - 持有储物柜食品资产列表和加载状态
 // - 提供创建、更新、归档、补库存命令
-// - 当前阶段使用 DefaultPetRepository 调用后端 API
+// - 将用户级食品资产加载和宠物级饮食上下文加载收敛到单一状态出口
 @MainActor
 @Observable
 final class PetFoodInventoryStore {
@@ -36,7 +36,11 @@ final class PetFoodInventoryStore {
         self.repository = repository
     }
 
-    func loadItems(currentUserID: String, petID: String? = nil) async {
+    // loadItems 加载用户储物柜资产和可选宠物饮食摘要
+    // 核心职责：
+    // - 始终按当前用户加载储物柜资产
+    // - 仅在入口携带宠物上下文时追加加载饮食配置摘要
+    func loadItems(currentUserID: String, contextPetID: String? = nil) async {
         isLoading = true
         errorMessage = nil
         items = []
@@ -44,9 +48,9 @@ final class PetFoodInventoryStore {
         dietSummaryRows = []
         do {
             items = try await repository.listFoodInventoryItems(currentUserID: currentUserID)
-            if let petID {
+            if let contextPetID {
                 let context = try await repository.loadPetCurrentDietContext(
-                    petID: petID,
+                    petID: contextPetID,
                     currentUserID: currentUserID
                 )
                 currentStapleFoodItemID = context.currentStaple?.foodItemID

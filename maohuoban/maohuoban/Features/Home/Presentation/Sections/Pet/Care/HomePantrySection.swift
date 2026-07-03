@@ -3,11 +3,10 @@ import MaohuobanDesignSystem
 
 // HomePantrySection 首页储物柜精选模块
 // 核心职责：
-// - 展示宠物储物柜的近期物品
+// - 展示用户储物柜的近期物品
 // - 呈现 Apple Music "专辑" 风格的横滑列表卡片，参考故事 section 的布局
 struct HomePantrySection: View {
     let items: [HomeDashboardSnapshot.PantryPreviewItem]
-    let petName: String?
     let route: HomeRoute
     let addRoute: HomeRoute
 

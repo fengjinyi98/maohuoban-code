@@ -25,9 +25,9 @@ enum HomeRoute: Hashable {
     case merchantTask(merchantID: String, reminderID: String)
     case petRecordDetail(PetRecordDetailRoute)
     case petAlbum(PetAlbumEntryContext)
-    case petPantry(petID: String, petName: String)
-    case pantryCategoryDetail(petID: String, petName: String, category: PantryCategory)
-    case addPantryItem(petID: String)
+    case petPantry(PetPantryEntryContext)
+    case pantryCategoryDetail(context: PetPantryEntryContext, category: PantryCategory)
+    case addPantryItem
 }
 
 extension HomeRoute {
@@ -80,7 +80,7 @@ extension HomeRoute {
         case .petRecordDetail: "记录详情"
         case .petAlbum: "宠物相册"
         case .petPantry: "储物柜"
-        case .pantryCategoryDetail(_, _, let category): .init(stringLiteral: category.displayName)
+        case .pantryCategoryDetail(_, let category): .init(stringLiteral: category.displayName)
         case .addPantryItem: "添加物品"
         }
     }
@@ -106,7 +106,7 @@ extension HomeRoute {
         case .merchantTask: "处理商家工作台待办"
         case .petRecordDetail: "查看宠物记录详情"
         case .petAlbum: "进入宠物相册"
-        case .petPantry: "查看宠物所有储物柜物品"
+        case .petPantry: "进入用户储物柜"
         case .pantryCategoryDetail: "查看该分类下的物品"
         case .addPantryItem: "添加新物品到储物柜"
         }

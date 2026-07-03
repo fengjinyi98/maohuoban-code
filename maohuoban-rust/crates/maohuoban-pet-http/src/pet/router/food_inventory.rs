@@ -33,6 +33,9 @@ pub(super) struct FoodInventoryItemsData<T> {
 }
 
 /// create_food_inventory_item 创建食品资产
+/// 核心职责：
+/// - 将前端入库请求落到当前用户的储物柜空间
+/// - 保持食品资产归属为 user scope，不接收 pet_id 作为资产归属
 pub(super) async fn create_food_inventory_item(
     State(state): State<PetHttpState>,
     actor: AuthenticatedUser,
@@ -49,6 +52,9 @@ pub(super) async fn create_food_inventory_item(
 }
 
 /// list_food_inventory_items 查询食品资产列表
+/// 核心职责：
+/// - 查询当前用户储物柜空间内的食品资产
+/// - 只支持 category/status 过滤，宠物维度由饮食配置接口表达
 pub(super) async fn list_food_inventory_items(
     State(state): State<PetHttpState>,
     actor: AuthenticatedUser,

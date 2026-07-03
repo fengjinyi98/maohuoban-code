@@ -1,4 +1,5 @@
 import XCTest
+@testable import maohuoban
 
 // PetPantryScreenMockBoundaryTests 储物柜页面 Mock 边界测试
 // 核心职责：
@@ -6,7 +7,7 @@ import XCTest
 // - 固定 Phase2 真实数据路径不依赖本地演示菜单
 final class PetPantryScreenMockBoundaryTests: XCTestCase {
     func testPetPantryScreenDoesNotExposeMockContextMenuActions() throws {
-        let source = try String(contentsOfFile: petPantryScreenPath(), encoding: .utf8)
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("Mock 演示交互"))
         XCTAssertFalse(source.contains("删除储物柜"))
@@ -14,22 +15,39 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
     }
 
     func testPetPantryScreenUsesSpaceLevelTitleAndDietSummary() throws {
-        let source = try String(contentsOfFile: petPantryScreenPath(), encoding: .utf8)
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("\\(petName)的储物柜"))
         XCTAssertTrue(source.contains("家庭储物柜"))
         XCTAssertTrue(source.contains("PetPantryDietSummarySection"))
     }
 
+    @MainActor
+    func testPetPantryScreensAcceptEntryContextAtCompileTime() {
+        let context = PetPantryEntryContext(sourcePetID: "pet-1", sourcePetName: "糯米")
+
+        _ = PetPantryScreen<PetPantryRoute>(
+            context: context,
+            currentUserID: nil,
+            onNavigate: { $0 }
+        )
+        _ = PetPantryCategoryScreen<PetPantryRoute>(
+            context: context,
+            category: .mainFood,
+            currentUserID: nil,
+            onNavigate: { $0 }
+        )
+    }
+
     func testPetPantryScreenDoesNotDefineProductionMockData() throws {
-        let source = try String(contentsOfFile: petPantryScreenPath(), encoding: .utf8)
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("enum PetPantryMockData"))
         XCTAssertFalse(source.contains("picsum.photos"))
     }
 
     func testPetPantryCategoryScreenExposesArchivedRestoreAction() throws {
-        let source = try String(contentsOfFile: petPantryCategoryScreenPath(), encoding: .utf8)
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Categories/PetPantryCategoryScreen.swift")
 
         XCTAssertTrue(source.contains("archivedPantryItems(for: category)"))
         XCTAssertTrue(source.contains("restoreItem("))
@@ -37,11 +55,8 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
     }
 
     func testPetPantryCategoryScreenExposesDietAssignmentActions() throws {
-        let source = try String(contentsOfFile: petPantryCategoryScreenPath(), encoding: .utf8)
-        let actionSheetSource = try String(
-            contentsOfFile: sourcePath("Features/Pet/Presentation/Pantry/PantryItemActionSheet.swift"),
-            encoding: .utf8
-        )
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Categories/PetPantryCategoryScreen.swift")
+        let actionSheetSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift")
 
         XCTAssertTrue(source.contains("setCurrentStaple("))
         XCTAssertTrue(source.contains("setFoodAssignment("))
@@ -53,12 +68,12 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertTrue(source.contains("role: .notSuitable"))
     }
 
-    private func petPantryScreenPath() -> String {
-        sourcePath("Features/Pet/Presentation/Pantry/PetPantryScreen.swift")
-    }
-
-    private func petPantryCategoryScreenPath() -> String {
-        sourcePath("Features/Pet/Presentation/Pantry/PetPantryCategoryScreen.swift")
+    private func sourceContents(_ relativePath: String) throws -> String {
+        let path = sourcePath(relativePath)
+        guard FileManager.default.fileExists(atPath: path) else {
+            throw XCTSkip("源码文件在当前测试宿主不可访问: \(relativePath)")
+        }
+        return try String(contentsOfFile: path, encoding: .utf8)
     }
 
     private func sourcePath(_ relativePath: String) -> String {
@@ -68,7 +83,7 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
             return testFile.path
         }
         let projectRoot = URL(
-            fileURLWithPath: components[..<testsIndex].joined(separator: "/")
+            fileURLWithPath: "/" + components[..<testsIndex].dropFirst().joined(separator: "/")
         )
         return projectRoot
             .appendingPathComponent("maohuoban")

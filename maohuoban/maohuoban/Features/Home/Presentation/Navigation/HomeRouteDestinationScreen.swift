@@ -137,33 +137,31 @@ struct HomeRouteDestinationScreen: View {
                 context: context,
                 currentUserID: currentUserID
             )
-        case .petPantry(let petID, let petName):
+        case .petPantry(let context):
             PetPantryScreen(
-                petID: petID,
-                petName: petName,
+                context: context,
                 currentUserID: currentUserID,
                 onNavigate: { route -> HomeRoute in
                     switch route {
                     case .addItem:
-                        return HomeRoute.addPantryItem(petID: petID)
+                        return HomeRoute.addPantryItem
                     case .categoryDetail(let category):
-                        return HomeRoute.pantryCategoryDetail(petID: petID, petName: petName, category: category)
+                        return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
                 }
             )
-        case .pantryCategoryDetail(let petID, let petName, let category):
+        case .pantryCategoryDetail(let context, let category):
             PetPantryCategoryScreen(
-                petID: petID,
-                petName: petName,
+                context: context,
                 category: category,
                 currentUserID: currentUserID,
                 onNavigate: { route -> HomeRoute in
                     switch route {
                     case .addItem:
-                        return HomeRoute.addPantryItem(petID: petID)
+                        return HomeRoute.addPantryItem
                     case .categoryDetail:
                         // 该页面内不产生新的分类跳转，保持当前分类上下文。
-                        return HomeRoute.pantryCategoryDetail(petID: petID, petName: petName, category: category)
+                        return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
                 }
             )

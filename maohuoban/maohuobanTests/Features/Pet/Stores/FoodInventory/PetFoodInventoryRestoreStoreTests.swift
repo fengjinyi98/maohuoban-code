@@ -81,7 +81,7 @@ final class PetFoodInventoryRestoreStoreTests: XCTestCase {
         )
         let store = PetFoodInventoryStore(repository: repository)
 
-        await store.loadItems(currentUserID: "user-1", petID: "pet-1")
+        await store.loadItems(currentUserID: "user-1", contextPetID: "pet-1")
 
         XCTAssertEqual(store.dietSummaryRows.map(\.title), ["当前主粮", "尝试中"])
         XCTAssertEqual(store.dietSummaryRows.map(\.value), ["渴望六种鱼", "纽翠斯鸡肉"])

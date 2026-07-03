@@ -84,6 +84,25 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
+    func testPetPantryRouteCarriesEntryContextWithoutOwningPetScope() {
+        let context = PetPantryEntryContext(
+            sourcePetID: "pet-1",
+            sourcePetName: "糯米"
+        )
+        let route = HomeRoute.petPantry(context)
+
+        guard case .petPantry(let actualContext) = route else {
+            XCTFail("Expected pantry entry route")
+            return
+        }
+
+        XCTAssertEqual(actualContext, context)
+        XCTAssertEqual(actualContext.sourcePetID, "pet-1")
+        XCTAssertEqual(actualContext.sourcePetName, "糯米")
+        XCTAssertEqual(route.subtitle, "进入用户储物柜")
+    }
+
+    @MainActor
     func testHealthReminderRoutesToTimelineEventDetail() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "event-1",

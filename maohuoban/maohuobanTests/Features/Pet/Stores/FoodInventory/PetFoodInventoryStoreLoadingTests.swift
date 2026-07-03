@@ -23,7 +23,7 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
         ]
 
         let task = Task {
-            await store.loadItems(currentUserID: "user-1", petID: "pet-2")
+            await store.loadItems(currentUserID: "user-1", contextPetID: "pet-2")
         }
         await repository.waitUntilListStarted()
 
