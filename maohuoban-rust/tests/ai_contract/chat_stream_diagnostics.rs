@@ -1,15 +1,20 @@
 use axum::http::StatusCode;
 use httpmock::MockServer;
-use maohuoban_diagnostics::{
-    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
-    PrivacyPolicy,
-};
+use maohuoban_diagnostics::EventKind;
 use serde_json::json;
 use tower::ServiceExt;
+
+#[path = "chat_stream_diagnostics/support.rs"]
+mod support;
 
 use super::{
     authorized_json_request, diagnostics_test_lock, json_request, login_and_get_token,
     response_json, response_text,
+};
+use support::{
+    assert_diagnostics_field_present, assert_gate_decision_metadata_complete, create_pet,
+    install_ai_test_diagnostics, install_runtime_tool_render_mocks,
+    spawn_runtime_tool_render_test_app,
 };
 
 /// 流式聊天诊断事件允许开发期正文观测，但不能泄露认证敏感字段
@@ -353,31 +358,7 @@ async fn ai_chat_stream_diagnostics_records_gate_decision_fields() {
         .find(|event| event.message == "ai.chat.gate.decided")
         .expect("missing ai.chat.gate.decided diagnostics event");
 
-    // 验证 gate 诊断事件必备字段存在且非空
-    assert!(
-        gate_event.metadata["intent"]
-            .as_str()
-            .is_some_and(|v| !v.is_empty()),
-        "gate diagnostics missing intent field"
-    );
-    assert!(
-        gate_event.metadata["gate_decision"]
-            .as_str()
-            .is_some_and(|v| !v.is_empty()),
-        "gate diagnostics missing gate_decision field"
-    );
-    assert!(
-        gate_event.metadata["context_loaded"].is_boolean(),
-        "gate diagnostics missing context_loaded bool field"
-    );
-    assert!(
-        gate_event.metadata["risk_signal_present"].is_boolean(),
-        "gate diagnostics missing risk_signal_present bool field"
-    );
-    assert!(
-        gate_event.metadata["allow_processing"].is_boolean(),
-        "gate diagnostics missing allow_processing bool field"
-    );
+    assert_gate_decision_metadata_complete(&gate_event.metadata);
 }
 
 /// 流式聊天诊断事件必须记录 planning 决策字段
@@ -430,10 +411,7 @@ async fn ai_chat_stream_diagnostics_records_planning_decision_fields() {
         "policy_decision",
     ];
     for field in &required_fields {
-        assert!(
-            !planning_event.metadata[*field].is_null(),
-            "planning diagnostics missing required field: {field}"
-        );
+        assert_diagnostics_field_present(&planning_event.metadata, field, "planning");
     }
     assert!(
         planning_event.metadata["step_list"]
@@ -498,114 +476,6 @@ async fn ai_chat_stream_diagnostics_gate_fields_present_for_all_intents() {
         "allow_processing",
     ];
     for field in &required_fields {
-        assert!(
-            !gate_event.metadata[*field].is_null(),
-            "gate diagnostics missing required field: {field}"
-        );
+        assert_diagnostics_field_present(&gate_event.metadata, field, "gate");
     }
-}
-
-fn install_ai_test_diagnostics() -> Diagnostics {
-    let root =
-        std::env::temp_dir().join(format!("maohuoban-ai-diagnostics-{}", uuid::Uuid::new_v4()));
-    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
-    Diagnostics::install(DiagnosticsConfig {
-        service_name: "maohuoban-rust".to_owned(),
-        environment: "test".to_owned(),
-        privacy: PrivacyPolicy::default(),
-        capture: CapturePolicy::default(),
-        cleanup: CleanupPolicy::default(),
-        store: Box::new(store),
-    })
-    .expect("install diagnostics")
-}
-
-async fn spawn_runtime_tool_render_test_app(
-    server: &MockServer,
-) -> maohuoban_rust::test_support::AuthTestApp {
-    let mut config = maohuoban_rust::BackendConfig::local_test();
-    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
-        base_url: server.base_url(),
-        api_key: "contract-api-key".to_owned(),
-        model: "contract-model".to_owned(),
-        timeout_secs: 5,
-        temperature: 0.2,
-        max_output_tokens: None,
-        response_format: None,
-    }
-    .into();
-    maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await
-}
-
-fn install_runtime_tool_render_mocks<'a>(
-    server: &'a MockServer,
-    pet_id: &str,
-) -> (httpmock::Mock<'a>, httpmock::Mock<'a>) {
-    let first_body = runtime_tool_call_response_body(pet_id, "load_pet_identity_context");
-    let first_mock = server.mock(|when, then| {
-        when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions")
-            .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":true")
-            .body_contains("\"tools\"")
-            .body_contains("load_pet_identity_context")
-            .body_contains("我的宠物多大了")
-            .body_contains("\"role\":\"user\"");
-        then.status(200)
-            .header("content-type", "text/event-stream")
-            .body(first_body);
-    });
-    let second_mock = server.mock(|when, then| {
-        when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions")
-            .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":true")
-            .body_contains("\"role\":\"tool\"")
-            .body_contains("\"tool_call_id\":\"call_1\"");
-        then.status(200)
-            .header("content-type", "text/event-stream")
-            .body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"已读取梅录档案，当前可以继续观察精神和食欲。\"}}]}\n\n\
-                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
-                 data: [DONE]\n\n",
-            );
-    });
-    (first_mock, second_mock)
-}
-
-fn runtime_tool_call_response_body(pet_id: &str, tool_name: &str) -> String {
-    let arguments = serde_json::json!({ "pet_id": pet_id }).to_string();
-    format!(
-        "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"call_1\",\"function\":{{\"name\":{tool_name:?},\"arguments\":{arguments:?}}}}}]}}}}]}}\n\n\
-         data: {{\"choices\":[{{\"finish_reason\":\"tool_calls\"}}],\"usage\":{{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}}}\n\n\
-         data: [DONE]\n\n"
-    )
-}
-
-async fn create_pet(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    access_token: &str,
-    name: &str,
-) -> serde_json::Value {
-    let response = app
-        .router()
-        .clone()
-        .oneshot(super::authorized_json_request(
-            "POST",
-            "/api/v1/pets",
-            access_token,
-            json!({
-                "name": name,
-                "species": "cat",
-                "breed": "英短",
-                "sex": "male",
-                "birthday": "2024-01-01",
-                "arrival_date": "2024-03-01"
-            }),
-        ))
-        .await
-        .expect("create pet");
-
-    assert_eq!(response.status(), StatusCode::CREATED);
-    super::response_json(response).await["data"].clone()
 }
