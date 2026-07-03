@@ -170,7 +170,7 @@ struct PetAlbumDetailScreen: View {
     }
 
     private var disabledLocalIdentifiers: Set<String> {
-        Set(store.assets(for: albumID).compactMap(\.localIdentifier))
+        store.disabledLocalIdentifiers(for: albumID)
     }
 
     private func bottomContentInset(bottomInset: CGFloat) -> CGFloat {

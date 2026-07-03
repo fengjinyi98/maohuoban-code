@@ -104,7 +104,9 @@ extension PetAlbumSummary {
 struct PetAlbumAsset: Identifiable, Equatable, Hashable {
     let id: String
     let albumID: String
+    let serverAssetID: String
     let imageAssetName: String
+    let fingerprint: String?
     let pixelSize: PetAlbumImageSize
     let source: PetAlbumSource
     let caption: String?
@@ -113,7 +115,9 @@ struct PetAlbumAsset: Identifiable, Equatable, Hashable {
     init(
         id: String,
         albumID: String,
+        serverAssetID: String,
         imageAssetName: String,
+        fingerprint: String? = nil,
         pixelSize: PetAlbumImageSize,
         source: PetAlbumSource,
         caption: String?,
@@ -121,7 +125,9 @@ struct PetAlbumAsset: Identifiable, Equatable, Hashable {
     ) {
         self.id = id
         self.albumID = albumID
+        self.serverAssetID = serverAssetID
         self.imageAssetName = imageAssetName
+        self.fingerprint = fingerprint
         self.pixelSize = pixelSize
         self.source = source
         self.caption = caption

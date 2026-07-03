@@ -88,6 +88,7 @@ enum PetAlbumDTO {
         let petID: String?
         let assetID: String
         let assetURL: String
+        let sha256Hex: String?
         let addedByUserID: String
         let caption: String?
         let width: Int?
@@ -103,6 +104,7 @@ enum PetAlbumDTO {
             case petID = "pet_id"
             case assetID = "asset_id"
             case assetURL = "asset_url"
+            case sha256Hex = "sha256_hex"
             case addedByUserID = "added_by_user_id"
             case caption
             case width
@@ -117,7 +119,9 @@ enum PetAlbumDTO {
             PetAlbumAsset(
                 id: id,
                 albumID: albumID,
+                serverAssetID: assetID,
                 imageAssetName: assetURL,
+                fingerprint: sha256Hex,
                 pixelSize: PetAlbumImageSize(width: width, height: height),
                 source: .userUpload,
                 caption: caption,

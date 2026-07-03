@@ -51,6 +51,7 @@ struct MHBPhotoLibraryPickerScreen: View {
                     disabledAssetIDs: store.disabledAssetIDs,
                     service: store.service,
                     onSelectAsset: handleSelectAsset,
+                    onSelectDisabledAsset: handleSelectDisabledAsset,
                     onOpenSettings: openSettings,
                     onOpenLimitedPicker: {
                         isLimitedPickerPresented = true
@@ -153,6 +154,11 @@ struct MHBPhotoLibraryPickerScreen: View {
             onComplete(result)
             dismiss()
         }
+    }
+
+    private func handleSelectDisabledAsset(_ asset: MHBPhotoLibraryAsset) {
+        store.handleDisabledSelection(for: asset)
+        MHBToastPresenter().warning(store.inlineMessage ?? "这张照片已在当前相册中")
     }
 
     private func handleConfirm() {

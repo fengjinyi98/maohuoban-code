@@ -20,6 +20,7 @@ final class PetAlbumStore {
     private(set) var nextAssetCursorByAlbumID: [String: String] = [:]
 
     @ObservationIgnored private let repository: PetAlbumRepository
+    @ObservationIgnored private let localAssetLinkStore: PetAlbumLocalAssetLinkStore
     @ObservationIgnored private let context: PetAlbumEntryContext
     @ObservationIgnored private let currentUserID: String?
 
@@ -35,12 +36,14 @@ final class PetAlbumStore {
         context: PetAlbumEntryContext = PetAlbumEntryContext(),
         currentUserID: String? = nil,
         repository: PetAlbumRepository = DefaultPetAlbumRepository(),
+        localAssetLinkStore: PetAlbumLocalAssetLinkStore = UserDefaultsPetAlbumLocalAssetLinkStore(),
         albums: [PetAlbumSummary] = [],
         assetsByAlbumID: [String: [PetAlbumAsset]] = [:]
     ) {
         self.context = context
         self.currentUserID = currentUserID
         self.repository = repository
+        self.localAssetLinkStore = localAssetLinkStore
         self.albums = albums
         self.assetsByAlbumID = assetsByAlbumID
     }
@@ -55,6 +58,20 @@ final class PetAlbumStore {
 
     func uploadPlaceholders(for albumID: String) -> [PetAlbumUploadPlaceholder] {
         uploadPlaceholdersByAlbumID[albumID] ?? []
+    }
+
+    func disabledLocalIdentifiers(for albumID: String) -> Set<String> {
+        guard let currentUserID else {
+            return []
+        }
+
+        let loadedIdentifiers = Set(assets(for: albumID).compactMap(\.localIdentifier))
+        let persistedIdentifiers = Set(
+            localAssetLinkStore
+                .links(userID: currentUserID, albumID: albumID)
+                .map(\.localIdentifier)
+        )
+        return loadedIdentifiers.union(persistedIdentifiers)
     }
 
     func loadAlbums(force: Bool = false) async {
@@ -102,7 +119,11 @@ final class PetAlbumStore {
             guard let data = response.data else {
                 throw MHBAPIError.invalidResponse
             }
-            assetsByAlbumID[albumID] = data.items.map { $0.asset() }
+            assetsByAlbumID[albumID] = restoreLocalIdentifiers(
+                for: albumID,
+                assets: data.items.map { $0.asset() },
+                currentUserID: currentUserID
+            )
             nextAssetCursorByAlbumID[albumID] = data.nextCursor
             updateAlbum(albumID: albumID) { album in
                 album.replacing(photoCount: data.items.count)
@@ -216,7 +237,20 @@ final class PetAlbumStore {
                 if let asset = response.data {
                     var appendedAssets = assetsByAlbumID[albumID] ?? []
                     let targetIndex = min(max(placeholders[index].targetAssetIndex, 0), appendedAssets.count)
-                    appendedAssets.insert(asset.asset(localIdentifier: draft.localIdentifier), at: targetIndex)
+                    let albumAsset = asset.asset(localIdentifier: draft.localIdentifier)
+                    if let localIdentifier = draft.localIdentifier {
+                        localAssetLinkStore.upsert(
+                            PetAlbumLocalAssetLink(
+                                userID: currentUserID,
+                                albumID: albumID,
+                                serverAssetID: albumAsset.serverAssetID,
+                                localIdentifier: localIdentifier,
+                                fingerprint: albumAsset.fingerprint ?? upload.asset.sha256Hex,
+                                createdAt: Date()
+                            )
+                        )
+                    }
+                    appendedAssets.insert(albumAsset, at: targetIndex)
                     assetsByAlbumID[albumID] = appendedAssets
                     updateAlbum(albumID: albumID) { album in
                         album.replacing(photoCount: appendedAssets.count)
@@ -278,6 +312,7 @@ final class PetAlbumStore {
             )
             albums.removeAll { $0.id == albumID }
             assetsByAlbumID[albumID] = nil
+            localAssetLinkStore.removeAlbum(userID: currentUserID, albumID: albumID)
             PetAlbumMutationSignal.post()
         } catch {
             errorMessage = Self.toastMessage(for: error)
@@ -295,6 +330,9 @@ final class PetAlbumStore {
         defer { mutationInFlight = false }
 
         do {
+            let removedServerAssetID = assetsByAlbumID[albumID]?
+                .first(where: { $0.id == assetID })?
+                .serverAssetID
             _ = try await repository.removeAsset(
                 albumAssetID: assetID,
                 currentUserID: currentUserID
@@ -302,6 +340,13 @@ final class PetAlbumStore {
             var assets = assetsByAlbumID[albumID] ?? []
             assets.removeAll { $0.id == assetID }
             assetsByAlbumID[albumID] = assets
+            if let removedServerAssetID {
+                localAssetLinkStore.remove(
+                    userID: currentUserID,
+                    albumID: albumID,
+                    serverAssetID: removedServerAssetID
+                )
+            }
             updateAlbum(albumID: albumID) { album in
                 album.replacing(photoCount: assets.count)
             }
@@ -358,6 +403,43 @@ final class PetAlbumStore {
             return
         }
         albums[index] = album
+    }
+
+    private func restoreLocalIdentifiers(
+        for albumID: String,
+        assets: [PetAlbumAsset],
+        currentUserID: String
+    ) -> [PetAlbumAsset] {
+        let linksByServerAssetID = localAssetLinkStore
+            .links(userID: currentUserID, albumID: albumID)
+            .reduce(into: [String: PetAlbumLocalAssetLink]()) { result, link in
+                guard let existing = result[link.serverAssetID] else {
+                    result[link.serverAssetID] = link
+                    return
+                }
+                if link.createdAt >= existing.createdAt {
+                    result[link.serverAssetID] = link
+                }
+            }
+
+        return assets.map { asset in
+            guard asset.localIdentifier == nil,
+                  let localIdentifier = linksByServerAssetID[asset.serverAssetID]?.localIdentifier else {
+                return asset
+            }
+
+            return PetAlbumAsset(
+                id: asset.id,
+                albumID: asset.albumID,
+                serverAssetID: asset.serverAssetID,
+                imageAssetName: asset.imageAssetName,
+                fingerprint: asset.fingerprint,
+                pixelSize: asset.pixelSize,
+                source: asset.source,
+                caption: asset.caption,
+                localIdentifier: localIdentifier
+            )
+        }
     }
 
     private func uploadAlbumMedia(

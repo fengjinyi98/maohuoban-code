@@ -142,6 +142,10 @@ async fn pet_album_assets_upload_and_page_by_album() {
     assert_eq!(assets_body["code"], "pet_album.assets_loaded");
     assert_eq!(assets_body["data"]["items"].as_array().unwrap().len(), 1);
     assert_eq!(assets_body["data"]["items"][0]["asset_id"], second_asset_id);
+    assert_eq!(
+        assets_body["data"]["items"][0]["sha256_hex"],
+        second_storage.sha256_hex
+    );
     assert_eq!(assets_body["data"]["items"][0]["width"], 1);
     assert_eq!(assets_body["data"]["items"][0]["height"], 1);
     assert!(assets_body["data"]["next_cursor"].is_string());

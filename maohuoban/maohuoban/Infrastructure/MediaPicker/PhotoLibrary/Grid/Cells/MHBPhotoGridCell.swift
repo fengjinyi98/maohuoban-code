@@ -75,19 +75,6 @@ final class MHBPhotoGridCell: UICollectionViewCell {
         return view
     }()
 
-    private let disabledBadge: UIImageView = {
-        let configuration = UIImage.SymbolConfiguration(pointSize: 15, weight: .bold)
-        let view = UIImageView(image: UIImage(systemName: "checkmark", withConfiguration: configuration))
-        view.tintColor = .white
-        view.backgroundColor = UIColor.systemGreen
-        view.contentMode = .center
-        view.layer.cornerRadius = 12
-        view.clipsToBounds = true
-        view.isHidden = true
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-
     private let activityIndicator: UIActivityIndicatorView = {
         let view = UIActivityIndicatorView(style: .medium)
         view.color = .white
@@ -149,7 +136,6 @@ final class MHBPhotoGridCell: UICollectionViewCell {
 
     func updateDisabledState(_ isDisabled: Bool) {
         disabledOverlay.isHidden = !isDisabled
-        disabledBadge.isHidden = !isDisabled
     }
 
     override func prepareForReuse() {
@@ -170,7 +156,6 @@ final class MHBPhotoGridCell: UICollectionViewCell {
         contentView.addSubview(videoBadge)
         contentView.addSubview(selectionBadge)
         contentView.addSubview(disabledOverlay)
-        contentView.addSubview(disabledBadge)
         contentView.addSubview(selectionOverlay)
         selectionOverlay.addSubview(activityIndicator)
 
@@ -199,11 +184,6 @@ final class MHBPhotoGridCell: UICollectionViewCell {
             disabledOverlay.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             disabledOverlay.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             disabledOverlay.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-
-            disabledBadge.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 7),
-            disabledBadge.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -7),
-            disabledBadge.widthAnchor.constraint(equalToConstant: 24),
-            disabledBadge.heightAnchor.constraint(equalToConstant: 24),
 
             selectionOverlay.topAnchor.constraint(equalTo: contentView.topAnchor),
             selectionOverlay.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),

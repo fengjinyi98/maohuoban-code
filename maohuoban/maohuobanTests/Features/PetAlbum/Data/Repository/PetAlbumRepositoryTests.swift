@@ -111,6 +111,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         XCTAssertEqual(json["caption"] as? String, "睡颜")
         XCTAssertEqual(response.data?.asset().pixelSize.width, 1200)
         XCTAssertEqual(response.data?.asset().pixelSize.height, 900)
+        XCTAssertEqual(response.data?.asset().fingerprint, "sha-photo-1")
     }
 
     func testAlbumAssetMissingSizeStaysUnknown() throws {
@@ -121,6 +122,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
           "pet_id": null,
           "asset_id": "asset-photo-1",
           "asset_url": "/media/photo-1.jpg",
+          "sha256_hex": "sha-photo-1",
           "added_by_user_id": "user-1",
           "caption": null,
           "sort_taken_at": "2026-07-01T12:00:00Z",
@@ -257,6 +259,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
                 "pet_id": null,
                 "asset_id": "asset-photo-1",
                 "asset_url": "/media/photo-1.jpg",
+                "sha256_hex": "sha-photo-1",
                 "added_by_user_id": "user-1",
                 "caption": "睡颜",
                 "width": 1200,

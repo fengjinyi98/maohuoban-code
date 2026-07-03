@@ -188,6 +188,7 @@ impl PostgresPetAlbumRepository {
                 inserted.album_id,
                 inserted.pet_id,
                 inserted.asset_id,
+                media.sha256_hex,
                 media.width,
                 media.height,
                 inserted.added_by_user_id,

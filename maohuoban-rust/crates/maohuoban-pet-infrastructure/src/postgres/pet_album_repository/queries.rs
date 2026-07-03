@@ -197,6 +197,7 @@ const ALBUM_ASSET_SELECT_SQL: &str = r#"
         album_asset.album_id,
         album_asset.pet_id,
         album_asset.asset_id,
+        media.sha256_hex,
         media.width,
         media.height,
         album_asset.added_by_user_id,

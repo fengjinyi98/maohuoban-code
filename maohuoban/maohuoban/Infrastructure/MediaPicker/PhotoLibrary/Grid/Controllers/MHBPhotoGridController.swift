@@ -19,6 +19,7 @@ final class MHBPhotoGridController: NSObject {
     var selectedAssetIDs: [String: Int] = [:]
     var disabledAssetIDs: Set<String> = []
     var onSelectAsset: ((MHBPhotoLibraryAsset) -> Void)?
+    var onSelectDisabledAsset: ((MHBPhotoLibraryAsset) -> Void)?
     var onScrollDateChanged: ((MHBPhotoGridScrollDateSnapshot?) -> Void)?
 
     private let service: MHBPhotoLibraryService
@@ -206,6 +207,7 @@ extension MHBPhotoGridController: UICollectionViewDelegate {
         }
         guard !disabledAssetIDs.contains(assets[indexPath.item].id) else {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            onSelectDisabledAsset?(assets[indexPath.item])
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

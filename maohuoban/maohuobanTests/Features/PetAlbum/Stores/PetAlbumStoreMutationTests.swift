@@ -19,6 +19,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         let firstAsset = PetAlbumAsset(
             id: "asset-1",
             albumID: album.id,
+            serverAssetID: "server-asset-1",
             imageAssetName: "HomeGalleryAlbum1",
             pixelSize: PetAlbumImageSize(width: 100, height: 100),
             source: .userUpload,
@@ -27,6 +28,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         let secondAsset = PetAlbumAsset(
             id: "asset-2",
             albumID: album.id,
+            serverAssetID: "server-asset-2",
             imageAssetName: "HomeGalleryAlbum2",
             pixelSize: PetAlbumImageSize(width: 100, height: 100),
             source: .userUpload,
@@ -126,7 +128,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         XCTAssertTrue(didCreate)
         XCTAssertEqual(repository.recordedEvents, [
             .uploadMedia(fileName: "cover.jpg"),
-            .createAlbum(coverAssetID: "asset-uploaded")
+            .createAlbum(coverAssetID: "asset-uploaded-1")
         ])
         XCTAssertEqual(store.albums.first?.coverImageAssetName, "/media/uploaded.jpg")
     }
@@ -134,6 +136,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
     @MainActor
     func testUploadPhotosUploadsAndBindsAssetsToAlbum() async {
         let repository = PetAlbumStoreTestRepository()
+        let localLinkStore = PetAlbumLocalAssetLinkMemoryStore()
         let album = PetAlbumSummary(
             id: "album",
             title: "成长记录",
@@ -146,6 +149,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
             context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
             currentUserID: "user-1",
             repository: repository,
+            localAssetLinkStore: localLinkStore,
             albums: [album],
             assetsByAlbumID: [album.id: []]
         )
@@ -161,15 +165,138 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         XCTAssertTrue(didUpload)
         XCTAssertEqual(repository.recordedEvents, [
             .uploadMedia(fileName: "photo-1.jpg"),
-            .addAsset(assetID: "asset-uploaded", albumID: "album"),
+            .addAsset(assetID: "asset-uploaded-1", albumID: "album"),
             .uploadMedia(fileName: "photo-2.jpg"),
-            .addAsset(assetID: "asset-uploaded", albumID: "album")
+            .addAsset(assetID: "asset-uploaded-2", albumID: "album")
         ])
         XCTAssertEqual(store.assets(for: album.id).count, 2)
         XCTAssertEqual(store.assets(for: album.id).map(\.id), ["album-asset-1", "album-asset-2"])
         XCTAssertEqual(store.assets(for: album.id).compactMap(\.localIdentifier), ["local-1", "local-2"])
+        XCTAssertEqual(store.disabledLocalIdentifiers(for: album.id), ["local-1", "local-2"])
+        XCTAssertEqual(
+            localLinkStore.links(userID: "user-1", albumID: album.id).map(\.localIdentifier),
+            ["local-1", "local-2"]
+        )
         XCTAssertEqual(store.album(id: album.id)?.photoCount, 2)
         XCTAssertEqual(store.uploadPlaceholders(for: album.id), [])
+    }
+
+    @MainActor
+    func testLoadAssetsRestoresDisabledLocalIdentifiersFromPersistedLinks() async {
+        let repository = PetAlbumStoreTestRepository()
+        repository.listAssetItems = [
+            PetAlbumDTO.AssetData(
+                id: "album-asset-1",
+                albumID: "album",
+                petID: nil,
+                assetID: "asset-photo-1",
+                assetURL: "/media/photo-1.jpg",
+                sha256Hex: "sha-photo-1",
+                addedByUserID: "user-1",
+                caption: nil,
+                width: 1200,
+                height: 900,
+                sortTakenAt: "2026-07-01T12:00:00Z",
+                removedAt: nil,
+                createdAt: "2026-07-01T12:00:00Z",
+                updatedAt: "2026-07-01T12:00:00Z"
+            )
+        ]
+        let localLinkStore = PetAlbumLocalAssetLinkMemoryStore()
+        localLinkStore.upsert(
+            PetAlbumLocalAssetLink(
+                userID: "user-1",
+                albumID: "album",
+                serverAssetID: "asset-photo-1",
+                localIdentifier: "local-photo-1",
+                fingerprint: "sha-photo-1",
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        )
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 1,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            localAssetLinkStore: localLinkStore,
+            albums: [album]
+        )
+
+        await store.loadAssets(for: album.id, force: true)
+
+        XCTAssertEqual(store.assets(for: album.id).compactMap(\.localIdentifier), ["local-photo-1"])
+        XCTAssertEqual(store.disabledLocalIdentifiers(for: album.id), ["local-photo-1"])
+    }
+
+    @MainActor
+    func testLoadAssetsRestoresLatestLocalIdentifierWhenPersistedLinksAreDuplicated() async {
+        let repository = PetAlbumStoreTestRepository()
+        repository.listAssetItems = [
+            PetAlbumDTO.AssetData(
+                id: "album-asset-1",
+                albumID: "album",
+                petID: nil,
+                assetID: "asset-photo-1",
+                assetURL: "/media/photo-1.jpg",
+                sha256Hex: "sha-photo-1",
+                addedByUserID: "user-1",
+                caption: nil,
+                width: 1200,
+                height: 900,
+                sortTakenAt: "2026-07-01T12:00:00Z",
+                removedAt: nil,
+                createdAt: "2026-07-01T12:00:00Z",
+                updatedAt: "2026-07-01T12:00:00Z"
+            )
+        ]
+        let localLinkStore = PetAlbumLocalAssetLinkMemoryStore()
+        localLinkStore.appendWithoutDeduplication(
+            PetAlbumLocalAssetLink(
+                userID: "user-1",
+                albumID: "album",
+                serverAssetID: "asset-photo-1",
+                localIdentifier: "local-photo-old",
+                fingerprint: "sha-photo-1",
+                createdAt: Date(timeIntervalSince1970: 1)
+            )
+        )
+        localLinkStore.appendWithoutDeduplication(
+            PetAlbumLocalAssetLink(
+                userID: "user-1",
+                albumID: "album",
+                serverAssetID: "asset-photo-1",
+                localIdentifier: "local-photo-new",
+                fingerprint: "sha-photo-1",
+                createdAt: Date(timeIntervalSince1970: 2)
+            )
+        )
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 1,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            localAssetLinkStore: localLinkStore,
+            albums: [album]
+        )
+
+        await store.loadAssets(for: album.id, force: true)
+
+        XCTAssertEqual(store.assets(for: album.id).compactMap(\.localIdentifier), ["local-photo-new"])
+        XCTAssertEqual(store.disabledLocalIdentifiers(for: album.id), ["local-photo-old", "local-photo-new"])
     }
 
     @MainActor
@@ -228,6 +355,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         let existingAsset = PetAlbumAsset(
             id: "existing-asset",
             albumID: album.id,
+            serverAssetID: "server-existing-asset",
             imageAssetName: "/media/existing.jpg",
             pixelSize: PetAlbumImageSize(width: 1200, height: 900),
             source: .userUpload,
@@ -276,6 +404,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         let existingAsset = PetAlbumAsset(
             id: "existing-asset",
             albumID: album.id,
+            serverAssetID: "server-existing-asset",
             imageAssetName: "/media/existing.jpg",
             pixelSize: PetAlbumImageSize(width: 1200, height: 900),
             source: .userUpload,
@@ -376,6 +505,8 @@ private extension PetAlbumStoreMutationTests {
         var recordedEvents: [RepositoryEvent] = []
         var onUploadProgressSent: (() -> Void)?
         var uploadError: MHBAPIError?
+        var listAssetItems: [PetAlbumDTO.AssetData] = []
+        private var uploadCount = 0
 
         func listAlbums(
             currentUserID: String,
@@ -472,7 +603,7 @@ private extension PetAlbumStoreMutationTests {
                 success: true,
                 code: "pet_album.assets_loaded",
                 message: "照片已加载",
-                data: PetAlbumDTO.AssetListData(items: [], nextCursor: nil)
+                data: PetAlbumDTO.AssetListData(items: listAssetItems, nextCursor: nil)
             )
         }
 
@@ -499,13 +630,15 @@ private extension PetAlbumStoreMutationTests {
             if let uploadError {
                 throw uploadError
             }
+            uploadCount += 1
+            let uploadedAssetID = "asset-uploaded-\(uploadCount)"
             return MHBAPIResponse(
                 success: true,
                 code: "pet_album_media.uploaded",
                 message: "媒资已上传",
                 data: PetMediaUploadResult(
                     asset: PetMediaAsset(
-                        id: "asset-uploaded",
+                        id: uploadedAssetID,
                         url: "/media/uploaded.jpg",
                         uploadedByUserID: currentUserID,
                         ownerPetID: nil,
@@ -516,7 +649,7 @@ private extension PetAlbumStoreMutationTests {
                         byteSize: draft.content.count,
                         sha256Hex: "sha-uploaded",
                         bucket: "media",
-                        objectKey: "users/user-1/albums/asset-uploaded/original.jpg",
+                        objectKey: "users/user-1/albums/\(uploadedAssetID)/original.jpg",
                         status: .uploaded,
                         width: 1200,
                         height: 900,
@@ -549,6 +682,7 @@ private extension PetAlbumStoreMutationTests {
                     petID: nil,
                     assetID: assetID,
                     assetURL: "/media/uploaded-\(assetIndex).jpg",
+                    sha256Hex: "sha-uploaded",
                     addedByUserID: currentUserID,
                     caption: caption,
                     width: 1200,

@@ -18,6 +18,7 @@ final class MHBPhotoLibraryPickerStore {
     var isLoading = false
     var isResolvingSelection = false
     var errorMessage: String?
+    var inlineMessage: String?
 
     var hasSelection: Bool {
         !selectedAssets.isEmpty
@@ -86,7 +87,7 @@ final class MHBPhotoLibraryPickerStore {
 
     func toggleSelection(for asset: MHBPhotoLibraryAsset) {
         guard !isDisabled(asset) else {
-            errorMessage = "这张照片已在当前相册中"
+            inlineMessage = "这张照片已在当前相册中"
             return
         }
 
@@ -105,7 +106,7 @@ final class MHBPhotoLibraryPickerStore {
 
     func resolveSelection(for asset: MHBPhotoLibraryAsset) async -> MHBMediaPickerResult? {
         guard !isDisabled(asset) else {
-            errorMessage = "这张照片已在当前相册中"
+            inlineMessage = "这张照片已在当前相册中"
             return nil
         }
 
@@ -119,6 +120,13 @@ final class MHBPhotoLibraryPickerStore {
             return nil
         }
         return result
+    }
+
+    func handleDisabledSelection(for asset: MHBPhotoLibraryAsset) {
+        guard isDisabled(asset) else {
+            return
+        }
+        inlineMessage = "这张照片已在当前相册中"
     }
 
     func resolveSelectedAssets() async -> MHBMediaPickerResult? {

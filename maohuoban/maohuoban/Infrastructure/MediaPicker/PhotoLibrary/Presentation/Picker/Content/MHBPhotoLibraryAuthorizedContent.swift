@@ -14,6 +14,7 @@ struct MHBPhotoLibraryAuthorizedContent: View {
     let disabledAssetIDs: Set<String>
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
+    let onSelectDisabledAsset: (MHBPhotoLibraryAsset) -> Void
     let onOpenLimitedPicker: () -> Void
 
     var body: some View {
@@ -33,7 +34,8 @@ struct MHBPhotoLibraryAuthorizedContent: View {
                     selectedAssetIDs: selectedAssetIDs,
                     disabledAssetIDs: disabledAssetIDs,
                     service: service,
-                    onSelectAsset: onSelectAsset
+                    onSelectAsset: onSelectAsset,
+                    onSelectDisabledAsset: onSelectDisabledAsset
                 )
                 .disabled(isResolvingSelection)
             }

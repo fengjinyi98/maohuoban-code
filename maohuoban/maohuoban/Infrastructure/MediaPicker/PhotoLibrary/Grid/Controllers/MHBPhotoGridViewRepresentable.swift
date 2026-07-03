@@ -12,6 +12,7 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
     let disabledAssetIDs: Set<String>
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
+    let onSelectDisabledAsset: (MHBPhotoLibraryAsset) -> Void
 
     func makeUIViewController(context: Context) -> MHBPhotoGridContainerController {
         let controller = MHBPhotoGridController(service: service)
@@ -20,6 +21,7 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
         controller.selectedAssetIDs = selectedAssetIDs
         controller.disabledAssetIDs = disabledAssetIDs
         controller.onSelectAsset = onSelectAsset
+        controller.onSelectDisabledAsset = onSelectDisabledAsset
         context.coordinator.controller = controller
         return MHBPhotoGridContainerController(gridController: controller)
     }
@@ -36,6 +38,7 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
             controller.assets = assets
         }
         controller.onSelectAsset = onSelectAsset
+        controller.onSelectDisabledAsset = onSelectDisabledAsset
         controller.updateResolvingAssetID(resolvingAssetID)
         controller.updateSelectedAssetIDs(selectedAssetIDs)
         controller.updateDisabledAssetIDs(disabledAssetIDs)
