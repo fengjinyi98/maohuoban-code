@@ -23,9 +23,10 @@ impl PostgresPetAlbumRepository {
                 title,
                 description,
                 is_private,
-                is_pinned
+                is_pinned,
+                cover_asset_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING
                 id,
                 pet_id,
@@ -48,6 +49,7 @@ impl PostgresPetAlbumRepository {
         .bind(input.description)
         .bind(input.is_private)
         .bind(input.is_pinned)
+        .bind(input.cover_asset_id)
         .fetch_one(&self.pool)
         .await
         .map_err(to_infrastructure_error)?;

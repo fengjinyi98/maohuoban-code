@@ -44,6 +44,39 @@ async fn pet_album_crud_lists_with_cursor_pagination() {
 }
 
 #[tokio::test]
+async fn pet_album_create_persists_cover_asset() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139106").await;
+    let cover_asset_id = upload_album_photo(&app, &user_id, "cover.png", &tiny_png()).await;
+
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pet-albums",
+            json!({
+                "title": "封面相册",
+                "is_private": false,
+                "cover_asset_id": cover_asset_id
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create album with cover asset");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "pet_album.created");
+    assert_eq!(body["data"]["cover_asset_id"], cover_asset_id);
+    assert!(
+        body["data"]["cover_url"]
+            .as_str()
+            .is_some_and(|url| { url == format!("/api/v1/media/assets/{cover_asset_id}/content") })
+    );
+}
+
+#[tokio::test]
 async fn pet_album_assets_upload_and_page_by_album() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

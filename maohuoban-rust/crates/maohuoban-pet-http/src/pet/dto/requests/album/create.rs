@@ -16,6 +16,7 @@ pub(crate) struct CreatePetAlbumRequest {
     is_private: bool,
     #[serde(default)]
     is_pinned: bool,
+    cover_asset_id: Option<Uuid>,
 }
 
 impl CreatePetAlbumRequest {
@@ -31,6 +32,7 @@ impl CreatePetAlbumRequest {
             description: self.description,
             is_private: self.is_private,
             is_pinned: self.is_pinned,
+            cover_asset_id: self.cover_asset_id,
         }
     }
 }
