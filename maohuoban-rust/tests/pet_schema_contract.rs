@@ -77,6 +77,24 @@ async fn constraint_exists(pool: &PgPool, constraint_name: &str) -> bool {
     .expect("read constraint existence")
 }
 
+/// `constraint_definition` 读取约束定义
+/// 核心职责：
+/// - 查询 `PostgreSQL` 约束表达式
+/// - 验证追加型迁移保留既有合法取值
+async fn constraint_definition(pool: &PgPool, constraint_name: &str) -> Option<String> {
+    sqlx::query_scalar(
+        r"
+        SELECT pg_get_constraintdef(oid)
+        FROM pg_constraint
+        WHERE conname = $1
+        ",
+    )
+    .bind(constraint_name)
+    .fetch_optional(pool)
+    .await
+    .expect("read constraint definition")
+}
+
 /// `table_exists` 判断表是否存在
 /// 核心职责：
 /// - 查询 `PostgreSQL` information_schema
@@ -264,6 +282,30 @@ async fn pet_profile_media_migration_adds_media_lifecycle_tables() {
         assert!(
             constraint_exists(&pool, constraint_name).await,
             "{constraint_name} should exist"
+        );
+    }
+}
+
+#[tokio::test]
+async fn media_assets_usage_kind_constraint_preserves_profile_and_pet_album_values() {
+    let pool = migrated_pool().await;
+
+    let definition = constraint_definition(&pool, "ck_media_assets_usage_kind")
+        .await
+        .expect("media_assets usage_kind constraint should exist");
+
+    for usage_kind in [
+        "pet.avatar",
+        "pet.background.image",
+        "pet.background.video",
+        "pet.background.live_photo",
+        "user.avatar",
+        "user.cover.image",
+        "pet.album.photo",
+    ] {
+        assert!(
+            definition.contains(usage_kind),
+            "media_assets usage_kind constraint should allow {usage_kind}"
         );
     }
 }

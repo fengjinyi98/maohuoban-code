@@ -6,6 +6,8 @@ ALTER TABLE media_assets
             'pet.background.image',
             'pet.background.video',
             'pet.background.live_photo',
+            'user.avatar',
+            'user.cover.image',
             'pet.album.photo'
         ));
 
