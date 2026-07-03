@@ -8,6 +8,7 @@ mod validation;
 
 use std::sync::Arc;
 
+use chrono::Utc;
 use maohuoban_pet_domain::pet::{
     EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
 };
@@ -19,9 +20,11 @@ use self::validation::{
 };
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetProfile,
-    FoodInventoryRepository, NewPetEvent, NewPetProfile, PetDietConfirmationCandidates,
-    PetProfileDiagnostics, PetRepository, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile, UpdatePetProfileResult, record_pet_profile,
+    DeletePetWeightRecord, DeletedPetWeightRecord, FoodInventoryRepository, NewPetEvent,
+    NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates, PetProfileDiagnostics,
+    PetRepository, PetWeightRecord, PetWeightRecordSource, RestorePetProfile, TradePetImport,
+    TradePetImportInput, UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord,
+    record_pet_profile,
 };
 use super::{
     FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
@@ -75,6 +78,7 @@ impl PetService {
             breed: breed.as_deref(),
             success: true,
         });
+        let initial_weight_grams = input.weight_grams;
         let result = self.repository.create_pet_profile(input).await;
         match &result {
             Ok(profile) => record_pet_profile(PetProfileDiagnostics {
@@ -93,6 +97,12 @@ impl PetService {
                 breed: breed.as_deref(),
                 success: false,
             }),
+        }
+        if let Ok(profile) = &result
+            && let Some(weight_grams) = initial_weight_grams
+        {
+            self.create_initial_weight_record(profile.id, owner_user_id, weight_grams)
+                .await?;
         }
         result
     }
@@ -224,6 +234,84 @@ impl PetService {
         }
 
         Ok(event)
+    }
+
+    pub async fn create_pet_weight_record(
+        &self,
+        input: NewPetWeightRecord,
+    ) -> PetResult<PetWeightRecord> {
+        validate_optional_weight(Some(input.weight_grams))?;
+        if self
+            .repository
+            .authorize_pet_access(input.pet_id, input.actor_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository.create_pet_weight_record(input).await
+    }
+
+    pub async fn list_pet_weight_records(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<Vec<PetWeightRecord>> {
+        if self
+            .repository
+            .authorize_pet_access(pet_id, owner_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository
+            .list_pet_weight_records(owner_user_id, pet_id, 100)
+            .await
+    }
+
+    pub async fn load_pet_weight_record(
+        &self,
+        owner_user_id: Uuid,
+        record_id: Uuid,
+    ) -> PetResult<PetWeightRecord> {
+        self.repository
+            .load_pet_weight_record(owner_user_id, record_id)
+            .await?
+            .ok_or(PetError::WeightRecordNotFound)
+    }
+
+    pub async fn update_pet_weight_record(
+        &self,
+        input: UpdatePetWeightRecord,
+    ) -> PetResult<PetWeightRecord> {
+        validate_optional_weight(Some(input.weight_grams))?;
+        self.repository.update_pet_weight_record(input).await
+    }
+
+    pub async fn delete_pet_weight_record(
+        &self,
+        input: DeletePetWeightRecord,
+    ) -> PetResult<DeletedPetWeightRecord> {
+        self.repository.delete_pet_weight_record(input).await
+    }
+
+    async fn create_initial_weight_record(
+        &self,
+        pet_id: Uuid,
+        actor_user_id: Uuid,
+        weight_grams: i32,
+    ) -> PetResult<PetWeightRecord> {
+        self.repository
+            .create_pet_weight_record(NewPetWeightRecord {
+                pet_id,
+                actor_user_id,
+                weight_grams,
+                note: Some("创建宠物时记录的初始体重".to_owned()),
+                source: PetWeightRecordSource::ProfileInitial,
+                occurred_at: Utc::now(),
+            })
+            .await
     }
 
     pub async fn import_trade_pet(

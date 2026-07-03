@@ -150,6 +150,43 @@ final class CapturingPetMediaUploadRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func listWeightRecords(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecordList> {
+        throw .invalidResponse
+    }
+
+    func createWeightRecord(
+        petID: String,
+        draft: PetWeightRecordDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord> {
+        throw .invalidResponse
+    }
+
+    func loadWeightRecord(
+        recordID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord> {
+        throw .invalidResponse
+    }
+
+    func updateWeightRecord(
+        recordID: String,
+        draft: PetWeightRecordDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord> {
+        throw .invalidResponse
+    }
+
+    func deleteWeightRecord(
+        recordID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetWeightRecord> {
+        throw .invalidResponse
+    }
+
     func loadIdentityContext(
         petID: String,
         currentUserID: String

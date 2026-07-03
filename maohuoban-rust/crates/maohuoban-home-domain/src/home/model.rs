@@ -24,8 +24,8 @@ pub use merchant::{
 };
 pub use pantry::HomePantryPreviewItem;
 pub use pet::{
-    HeroLivePhotoCrop, HeroLivePhotoSummary, PetHeroSummary, PetNameEditPolicy, PetNeuterStatus,
-    PetSex, PetSpecies, PetSwitchItem,
+    HeroLivePhotoCrop, HeroLivePhotoSummary, PetHeroStats, PetHeroSummary, PetNameEditPolicy,
+    PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem, PreventiveCareKind, PreventiveCareSummary,
 };
 
 /// HomeDashboardSnapshot 首页聚合快照

@@ -88,8 +88,13 @@ struct PetRecordDetailDestinationScreen: View {
                 recordID: recordID,
                 currentUserID: currentUserID
             )
-        case .weight(let recordID):
-            PetWeightRecordDetailScreen(recordID: recordID)
+        case .weight:
+            PetRecordDetailPlaceholderScreen(
+                systemImage: "scalemass.fill",
+                title: "体重记录详情",
+                subtitle: "请从体重详情页进入单条体重记录，查看备注、趋势和编辑入口。",
+                accessibilityIdentifier: "pet.recordDetail.weight.placeholder"
+            )
         case .deworming(let recordID):
             PetPreventiveCareRecordDetailScreen(
                 recordID: recordID,

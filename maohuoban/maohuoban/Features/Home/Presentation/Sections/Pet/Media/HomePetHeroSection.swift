@@ -13,7 +13,8 @@ struct HomePetHeroSection: View {
     let onOpenPreventiveCare: () -> Void
 
     var body: some View {
-        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.mock
+        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.empty
+        let weightDisplay = HomePetHeroWeightDisplay(pet: pet)
         let preventiveCare = HomePetHeroPreventiveCareDisplay(stats: stats)
 
         HStack(alignment: .center, spacing: 0) {
@@ -23,9 +24,9 @@ struct HomePetHeroSection: View {
             } label: {
                 HomePetHeroStatColumn(
                     title: "体重",
-                    value: stats.weightVal,
+                    value: weightDisplay.value,
                     unit: "kg",
-                    subtitle: stats.weightChange
+                    subtitle: weightDisplay.subtitle
                 )
                 .padding(.leading, MHBTheme.Spacing.s1)
             }

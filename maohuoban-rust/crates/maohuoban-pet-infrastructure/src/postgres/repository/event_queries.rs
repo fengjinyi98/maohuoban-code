@@ -135,13 +135,15 @@ impl PostgresPetRepository {
                 e.updated_at
             FROM pet_events e
             INNER JOIN pet_profiles p ON p.id = e.pet_id
-            WHERE e.pet_id = $1 AND (
-                p.owner_user_id = $2
-                OR EXISTS (
-                    SELECT 1 FROM pet_guardians g
-                    WHERE g.pet_id = p.id AND g.guardian_user_id = $2 AND g.status = 'active'
-                )
-            )
+            WHERE e.pet_id = $1
+              AND e.superseded_by_event_id IS NULL
+              AND (
+                  p.owner_user_id = $2
+                  OR EXISTS (
+                      SELECT 1 FROM pet_guardians g
+                      WHERE g.pet_id = p.id AND g.guardian_user_id = $2 AND g.status = 'active'
+                  )
+              )
             ORDER BY e.occurred_at DESC, e.created_at DESC
             LIMIT $3
             "#,
@@ -189,6 +191,7 @@ impl PostgresPetRepository {
             LEFT JOIN merchant_profiles merchant
                 ON merchant.id = COALESCE(p.merchant_id, l.merchant_id)
             WHERE e.id = $1
+                AND e.superseded_by_event_id IS NULL
                 AND (
                     p.owner_user_id = $2
                     OR e.actor_user_id = $2

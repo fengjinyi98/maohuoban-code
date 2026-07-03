@@ -130,6 +130,33 @@ pub(crate) async fn append_home_test_event(
     assert_eq!(response.status(), StatusCode::CREATED);
 }
 
+/// `append_home_test_weight_record` 写入首页契约测试体重记录
+/// 核心职责：
+/// - 固定体重记录请求路径
+/// - 让首页 state 卡片聚合测试复用真实 CRUD 接口
+pub(crate) async fn append_home_test_weight_record(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+    weight_grams: i32,
+    occurred_at: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/weight-records"),
+            json!({
+                "weight_grams": weight_grams,
+                "occurred_at": occurred_at
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create pet weight record");
+    assert_eq!(response.status(), StatusCode::CREATED);
+}
+
 /// `load_user_home_dashboard` 读取带用户上下文的首页快照
 /// 核心职责：
 /// - 固定首页读取请求

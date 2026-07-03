@@ -41,6 +41,7 @@ final class HomeGenderSymbolTests: XCTestCase {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
         let view = HomeDashboardLoadedView(
             snapshot: snapshot,
+            currentUserID: "user-1",
             currentUserDisplayName: "小林",
             onSelectPet: { _ in },
             onOpenRoute: { _ in },

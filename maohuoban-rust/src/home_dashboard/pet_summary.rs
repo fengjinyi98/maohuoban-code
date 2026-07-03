@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use maohuoban_home_domain::home::{
     HeroLivePhotoCrop, HeroLivePhotoSummary, HomeTimelineEvent, HomeTimelineEventKind,
-    PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
+    PetHeroStats, PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
     PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
     PetSwitchItem,
 };
 use maohuoban_pet_application::pet::MediaAssetDisplayMetadata;
 use maohuoban_pet_domain::pet::{
-    PetBackgroundMediaKind, PetNameEditPolicy as DomainPetNameEditPolicy,
+    EventKind, PetBackgroundMediaKind, PetEvent, PetNameEditPolicy as DomainPetNameEditPolicy,
     PetNeuterStatus as DomainPetNeuterStatus, PetProfile, PetSex as DomainPetSex,
     PetSpecies as DomainPetSpecies, days_since_date,
 };
@@ -34,6 +34,7 @@ pub(super) fn media_asset_ids(pets: &[PetProfile]) -> Vec<Uuid> {
 pub(super) fn pet_hero_summary(
     pet: &PetProfile,
     media_metadata: &HashMap<Uuid, MediaAssetDisplayMetadata>,
+    weight_projection: Option<HomeWeightProjection>,
 ) -> PetHeroSummary {
     let companionship_start_date = pet
         .arrival_date
@@ -86,13 +87,130 @@ pub(super) fn pet_hero_summary(
         birthday: pet.birthday,
         arrival_date: pet.arrival_date,
         world_days,
-        weight_grams: pet.weight_grams,
+        weight_grams: weight_projection
+            .as_ref()
+            .map(|projection| projection.latest_weight_grams)
+            .or(pet.weight_grams),
+        stats: weight_projection.map(HomeWeightProjection::into_stats),
         neuter_status: Some(home_pet_neuter_status(pet.neuter_status)),
         personality_tags: pet.personality_tags.clone(),
         note: pet.note.clone(),
         name_edit_policy: pet.name_edit_policy.as_ref().map(home_name_edit_policy),
         companionship_days,
     }
+}
+
+/// HomeWeightProjection 首页体重聚合
+/// 核心职责：
+/// - 从体重事件中提取首页 state 卡片展示值
+/// - 保持首页卡片跟随体重 CRUD 的最新记录
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct HomeWeightProjection {
+    latest_weight_grams: i32,
+    previous_weight_grams: Option<i32>,
+    latest_occurred_date: NaiveDate,
+}
+
+impl HomeWeightProjection {
+    fn into_stats(self) -> PetHeroStats {
+        PetHeroStats {
+            weight_val: format_weight_value(self.latest_weight_grams),
+            weight_change: format_weight_change(
+                self.latest_weight_grams,
+                self.previous_weight_grams,
+            ),
+            record_days: 0,
+            record_streak_text: format!(
+                "最近记录 {}",
+                self.latest_occurred_date.format("%Y-%m-%d")
+            ),
+            pantry_item_count: 0,
+            pantry_last_added_date: "待建立".to_owned(),
+            deworming_days_left: 0,
+            deworming_date: "待记录".to_owned(),
+            preventive_care: None,
+        }
+    }
+}
+
+/// `home_weight_projection` 生成首页体重投影
+/// 核心职责：
+/// - 只读取当前宠物时间线中的体重事件
+/// - 使用最新记录覆盖宠物档案初始体重展示
+pub(super) fn home_weight_projection(events: &[PetEvent]) -> Option<HomeWeightProjection> {
+    let mut weight_records = events
+        .iter()
+        .filter(|event| {
+            event.event_kind == EventKind::Health
+                && event.event_subkind.as_deref() == Some("weight")
+        })
+        .filter_map(weight_record_from_event)
+        .collect::<Vec<_>>();
+
+    weight_records.sort_by(|left, right| {
+        right
+            .occurred_at
+            .cmp(&left.occurred_at)
+            .then_with(|| right.created_at.cmp(&left.created_at))
+    });
+
+    let latest = weight_records.first()?;
+    let previous_weight_grams = weight_records
+        .iter()
+        .skip(1)
+        .next()
+        .map(|record| record.weight_grams);
+
+    Some(HomeWeightProjection {
+        latest_weight_grams: latest.weight_grams,
+        previous_weight_grams,
+        latest_occurred_date: latest.occurred_at.date_naive(),
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HomeWeightRecord {
+    weight_grams: i32,
+    occurred_at: chrono::DateTime<Utc>,
+    created_at: chrono::DateTime<Utc>,
+}
+
+fn weight_record_from_event(event: &PetEvent) -> Option<HomeWeightRecord> {
+    let weight_grams = event
+        .event_payload
+        .get("weight_grams")
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .or_else(|| {
+            event
+                .event_payload
+                .get("weight_kg")
+                .and_then(serde_json::Value::as_f64)
+                .map(|value| (value * 1000.0).round() as i32)
+        })?;
+
+    Some(HomeWeightRecord {
+        weight_grams,
+        occurred_at: event.occurred_at,
+        created_at: event.created_at,
+    })
+}
+
+fn format_weight_value(weight_grams: i32) -> String {
+    format!("{:.2}", f64::from(weight_grams) / 1000.0)
+}
+
+fn format_weight_change(latest_weight_grams: i32, previous_weight_grams: Option<i32>) -> String {
+    let Some(previous_weight_grams) = previous_weight_grams else {
+        return "暂无变化".to_owned();
+    };
+    let delta_grams = latest_weight_grams - previous_weight_grams;
+    if delta_grams == 0 {
+        return "较上次持平".to_owned();
+    }
+
+    let sign = if delta_grams > 0 { "+" } else { "-" };
+    format!("{sign} {:.2} kg", f64::from(delta_grams.abs()) / 1000.0)
 }
 
 /// `days_since_for_home` 转换宠物领域天数为首页 DTO 数值

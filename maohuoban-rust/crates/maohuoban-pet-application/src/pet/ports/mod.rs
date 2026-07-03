@@ -122,6 +122,90 @@ pub struct NewPetEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
+/// PetWeightRecordSource 体重记录来源
+/// 核心职责：
+/// - 区分建档初始体重和用户手动新增记录
+/// - 为客户端展示和审计提供稳定语义
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PetWeightRecordSource {
+    ProfileInitial,
+    Manual,
+}
+
+impl PetWeightRecordSource {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ProfileInitial => "profile_initial",
+            Self::Manual => "manual",
+        }
+    }
+}
+
+/// PetWeightRecord 宠物体重记录
+/// 核心职责：
+/// - 表达体重专用读模型
+/// - 隔离底层事件账本和客户端体重页面
+#[derive(Debug, Clone)]
+pub struct PetWeightRecord {
+    pub id: Uuid,
+    pub pet_id: Uuid,
+    pub weight_grams: i32,
+    pub note: Option<String>,
+    pub source: PetWeightRecordSource,
+    pub occurred_at: DateTime<Utc>,
+    pub record_revision: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// NewPetWeightRecord 新建体重记录输入
+/// 核心职责：
+/// - 承载体重数值、备注和发生时间
+/// - 由应用服务统一校验并映射为事件账本
+#[derive(Debug, Clone)]
+pub struct NewPetWeightRecord {
+    pub pet_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub weight_grams: i32,
+    pub note: Option<String>,
+    pub source: PetWeightRecordSource,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// UpdatePetWeightRecord 更新体重记录输入
+/// 核心职责：
+/// - 表达体重记录编辑态提交内容
+/// - 保留原记录 id 作为稳定详情路由
+#[derive(Debug, Clone)]
+pub struct UpdatePetWeightRecord {
+    pub record_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub weight_grams: i32,
+    pub note: Option<String>,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// DeletePetWeightRecord 删除体重记录输入
+/// 核心职责：
+/// - 表达用户删除体重记录意图
+/// - 保留 actor 用于权限判断
+#[derive(Debug, Clone)]
+pub struct DeletePetWeightRecord {
+    pub record_id: Uuid,
+    pub actor_user_id: Uuid,
+}
+
+/// DeletedPetWeightRecord 删除体重记录结果
+/// 核心职责：
+/// - 返回被删除记录 id
+/// - 为 HTTP 层提供稳定成功响应
+#[derive(Debug, Clone)]
+pub struct DeletedPetWeightRecord {
+    pub id: Uuid,
+    pub deleted: bool,
+}
+
 /// TradePetImportInput 交易宠物导入输入
 /// 核心职责：
 /// - 汇总交易完成后创建宠物档案所需字段
@@ -298,6 +382,34 @@ pub trait PetRepository: Send + Sync {
     ) -> PetResult<()>;
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
+
+    async fn create_pet_weight_record(
+        &self,
+        input: NewPetWeightRecord,
+    ) -> PetResult<PetWeightRecord>;
+
+    async fn list_pet_weight_records(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+        limit: i64,
+    ) -> PetResult<Vec<PetWeightRecord>>;
+
+    async fn load_pet_weight_record(
+        &self,
+        owner_user_id: Uuid,
+        record_id: Uuid,
+    ) -> PetResult<Option<PetWeightRecord>>;
+
+    async fn update_pet_weight_record(
+        &self,
+        input: UpdatePetWeightRecord,
+    ) -> PetResult<PetWeightRecord>;
+
+    async fn delete_pet_weight_record(
+        &self,
+        input: DeletePetWeightRecord,
+    ) -> PetResult<DeletedPetWeightRecord>;
 
     async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport>;
 

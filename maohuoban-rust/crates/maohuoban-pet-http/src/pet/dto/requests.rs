@@ -7,6 +7,7 @@ mod media;
 mod merchant;
 mod profile;
 mod trade;
+mod weight_record;
 
 pub(crate) use album::{AddPetAlbumAssetRequest, CreatePetAlbumRequest, UpdatePetAlbumRequest};
 pub(crate) use binding::BindUploadedPetMediaRequest;
@@ -19,3 +20,4 @@ pub(crate) use profile::{
     CreatePetProfileRequest, DeletePetProfileRequest, UpdatePetProfileRequest,
 };
 pub(crate) use trade::TradePetImportRequest;
+pub(crate) use weight_record::{CreatePetWeightRecordRequest, UpdatePetWeightRecordRequest};

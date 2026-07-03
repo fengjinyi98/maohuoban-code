@@ -71,7 +71,7 @@ struct PetWeightHistoryRow: View {
                     .font(MHBTheme.Typography.callout.weight(.semibold))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                Text(record.note)
+                Text(record.noteText)
                     .font(MHBTheme.Typography.caption)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
             }

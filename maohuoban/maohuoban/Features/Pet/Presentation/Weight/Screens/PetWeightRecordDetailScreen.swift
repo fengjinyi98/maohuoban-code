@@ -3,22 +3,41 @@ import MaohuobanDesignSystem
 
 // PetWeightRecordDetailScreen 单条体重记录详情页
 // 核心职责：
-// - 展示单次体重记录的宠物、体重、变化、标签和备注
+// - 展示单次体重记录的宠物、体重、变化和备注
 // - 与快速事实详情保持小票式详情结构
 // - 区分体重总览页和单条记录详情页的产品边界
 struct PetWeightRecordDetailScreen: View {
-    let recordID: String
+    @Environment(\.dismiss) private var dismiss
 
-    private var presentation: PetWeightRecordDetailPresentation {
-        PetWeightRecordDetailPresentation.mock(recordID: recordID)
-    }
+    let recordID: String
+    let petName: String
+    let store: PetWeightRecordStore
+
+    @State private var isEditSheetPresented = false
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetWeightRecordReceiptCard(presentation: presentation)
-                PetWeightRecordNearbySection(records: presentation.nearbyRecords)
-                PetWeightRecordDetailActions()
+                if let record {
+                    let presentation = PetWeightRecordDetailPresentation(
+                        record: record,
+                        petName: petName,
+                        records: store.records
+                    )
+                    PetWeightRecordReceiptCard(presentation: presentation)
+                    PetWeightRecordNearbySection(records: presentation.nearbyRecords)
+                    PetWeightRecordDetailActions(
+                        onEdit: {
+                            isEditSheetPresented = true
+                        },
+                        onDelete: {
+                            isDeleteConfirmationPresented = true
+                        }
+                    )
+                } else {
+                    PetWeightRecordMissingState()
+                }
             }
             .padding(.horizontal, MHBTheme.Spacing.s5)
             .padding(.top, MHBTheme.Spacing.s6)
@@ -28,7 +47,36 @@ struct PetWeightRecordDetailScreen: View {
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("体重记录详情")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isEditSheetPresented) {
+            if let record {
+                PetWeightRecordSheet(
+                    petName: petName,
+                    initialWeightText: record.weightText,
+                    mode: .edit(record),
+                    onSave: { draft in
+                        await store.update(recordID: record.id, draft: draft)
+                    }
+                )
+            }
+        }
+        .alert("删除体重记录", isPresented: $isDeleteConfirmationPresented) {
+            Button("删除记录", role: .destructive) {
+                Task {
+                    if await store.delete(recordID: recordID) {
+                        dismiss()
+                    }
+                }
+            }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除这条体重记录，删除后无法在体重趋势中查看。")
+        }
         .accessibilityIdentifier("pet.weightRecordDetail.screen")
+    }
+
+    private var record: PetWeightRecord? {
+        store.record(id: recordID)
     }
 }
 
@@ -150,19 +198,6 @@ private struct PetWeightRecordReceiptRowValue: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .multilineTextAlignment(.trailing)
-        case .pet(let pet):
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                MHBAvatar(
-                    subject: .pet(pet.avatarPet),
-                    size: .custom(28),
-                    shape: .circle
-                )
-
-                Text(pet.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
-            }
         }
     }
 }
@@ -201,7 +236,7 @@ private struct PetWeightRecordNearbySection: View {
 
 // PetWeightRecordNearbyRow 附近体重记录行
 // 核心职责：
-// - 展示相邻体重记录的日期、标签和数值
+// - 展示相邻体重记录的日期、备注和数值
 // - 标记当前正在查看的记录
 private struct PetWeightRecordNearbyRow: View {
     let record: PetWeightRecordDetailPresentation.NearbyRecord
@@ -241,9 +276,12 @@ private struct PetWeightRecordNearbyRow: View {
 // - 保留后续编辑和删除入口
 // - 与快速事实详情底部操作保持一致
 private struct PetWeightRecordDetailActions: View {
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("修改记录信息") {}
+            Button("修改记录信息", action: onEdit)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .frame(maxWidth: .infinity)
@@ -251,7 +289,7 @@ private struct PetWeightRecordDetailActions: View {
                 .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .buttonStyle(.plain)
 
-            Button(role: .destructive) {} label: {
+            Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(MHBTheme.ColorToken.danger.color)
@@ -261,6 +299,20 @@ private struct PetWeightRecordDetailActions: View {
             .buttonStyle(.plain)
         }
         .accessibilityIdentifier("pet.weightRecordDetail.actions")
+    }
+}
+
+// PetWeightRecordMissingState 体重记录缺失状态
+// 核心职责：
+// - 在记录被删除或未加载时给出轻量反馈
+// - 避免详情页继续展示过期 mock 数据
+private struct PetWeightRecordMissingState: View {
+    var body: some View {
+        Text("这条体重记录暂时不可用")
+            .font(MHBTheme.Typography.callout)
+            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+            .frame(maxWidth: .infinity, minHeight: 220)
+            .multilineTextAlignment(.center)
     }
 }
 

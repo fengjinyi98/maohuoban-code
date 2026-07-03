@@ -50,6 +50,8 @@ pub struct PetHeroSummary {
     #[serde(default)]
     pub weight_grams: Option<i32>,
     #[serde(default)]
+    pub stats: Option<PetHeroStats>,
+    #[serde(default)]
     pub neuter_status: Option<PetNeuterStatus>,
     #[serde(default)]
     pub personality_tags: Vec<String>,
@@ -58,6 +60,47 @@ pub struct PetHeroSummary {
     #[serde(default)]
     pub name_edit_policy: Option<PetNameEditPolicy>,
     pub companionship_days: Option<i32>,
+}
+
+/// PetHeroStats 宠物主卡核心指标
+/// 核心职责：
+/// - 承载首页 state 卡片需要的轻量聚合结果
+/// - 让客户端展示体重、记录、储物柜和护理入口时只依赖后端投影
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PetHeroStats {
+    pub weight_val: String,
+    pub weight_change: String,
+    pub record_days: i32,
+    pub record_streak_text: String,
+    pub pantry_item_count: i32,
+    pub pantry_last_added_date: String,
+    pub deworming_days_left: i32,
+    pub deworming_date: String,
+    #[serde(default)]
+    pub preventive_care: Option<PreventiveCareSummary>,
+}
+
+/// PreventiveCareSummary 预防护理最近到期摘要
+/// 核心职责：
+/// - 表达首页预防护理入口的最近到期类型
+/// - 为后续疫苗和驱虫聚合保留稳定契约
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PreventiveCareSummary {
+    pub kind: PreventiveCareKind,
+    pub days_delta: Option<i32>,
+    pub due_date_text: Option<String>,
+}
+
+/// PreventiveCareKind 预防护理类型
+/// 核心职责：
+/// - 标识最近到期项来自疫苗、驱虫或同日到期
+/// - 避免客户端猜测事件类型组合
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PreventiveCareKind {
+    Vaccine,
+    Deworming,
+    Both,
 }
 
 /// HeroLivePhotoSummary 首页 Live Photo 背景摘要

@@ -12,8 +12,8 @@ use crate::home_dashboard::{
     },
     merchant_summary::merchant_home_snapshot_from_workspace,
     pet_summary::{
-        media_asset_ids, pet_hero_summary, pet_lifecycle_timeline_events, pet_switch_item,
-        selected_pet,
+        home_weight_projection, media_asset_ids, pet_hero_summary, pet_lifecycle_timeline_events,
+        pet_switch_item, selected_pet,
     },
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
@@ -151,7 +151,11 @@ impl HybridHomeDashboardProvider {
             city: None,
             verification_badge: None,
         };
-        let selected_summary = pet_hero_summary(selected_pet, &media_metadata);
+        let selected_summary = pet_hero_summary(
+            selected_pet,
+            &media_metadata,
+            home_weight_projection(&timeline.events),
+        );
         record_home_selected_pet_output(
             user_id,
             selected_pet,

@@ -6,6 +6,7 @@ mod food_inventory;
 mod media;
 mod merchant;
 mod profile;
+mod weight_record;
 
 use std::sync::Arc;
 
@@ -180,6 +181,17 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route(
             "/api/v1/pets/{pet_id}/events",
             post(events::create_pet_event),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/weight-records",
+            get(weight_record::list_pet_weight_records)
+                .post(weight_record::create_pet_weight_record),
+        )
+        .route(
+            "/api/v1/pet-weight-records/{record_id}",
+            get(weight_record::load_pet_weight_record)
+                .patch(weight_record::update_pet_weight_record)
+                .delete(weight_record::delete_pet_weight_record),
         )
         .route(
             "/api/v1/pets/{pet_id}/timeline",

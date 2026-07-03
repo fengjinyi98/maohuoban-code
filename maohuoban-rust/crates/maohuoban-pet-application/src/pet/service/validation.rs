@@ -52,6 +52,7 @@ pub(super) fn pet_error_kind(error: &PetError) -> &'static str {
         PetError::PetNotFound => "pet_not_found",
         PetError::PetAlbumNotFound => "pet_album_not_found",
         PetError::PetAlbumAssetNotFound => "pet_album_asset_not_found",
+        PetError::WeightRecordNotFound => "weight_record_not_found",
         PetError::FoodInventoryNotFound => "food_inventory_not_found",
         PetError::DietAssignmentConflict(_) => "diet_assignment_conflict",
         PetError::DietAssignmentNotFound => "diet_assignment_not_found",

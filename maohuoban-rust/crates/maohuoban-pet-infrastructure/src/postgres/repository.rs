@@ -2,11 +2,12 @@ use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
     AbnormalSymptomEventInput, AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput,
-    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile,
-    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository,
+    DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, NewPetWeightRecord,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository, PetWeightRecord,
     ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile,
+    UpdatePetProfile, UpdatePetWeightRecord,
 };
+use maohuoban_pet_application::pet::{DeletePetWeightRecord, DeletedPetWeightRecord};
 use maohuoban_pet_domain::pet::{
     IdentifierStatus, LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian,
     PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile,
@@ -32,6 +33,7 @@ mod profile_update;
 mod rows;
 mod storage;
 mod trade_import;
+mod weight_records;
 
 use storage::to_infrastructure_error;
 
@@ -265,6 +267,46 @@ impl PetRepository for PostgresPetRepository {
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         self.create_pet_event_command(input).await
+    }
+
+    async fn create_pet_weight_record(
+        &self,
+        input: NewPetWeightRecord,
+    ) -> PetResult<PetWeightRecord> {
+        self.create_pet_weight_record_command(input).await
+    }
+
+    async fn list_pet_weight_records(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+        limit: i64,
+    ) -> PetResult<Vec<PetWeightRecord>> {
+        self.list_pet_weight_records_query(owner_user_id, pet_id, limit)
+            .await
+    }
+
+    async fn load_pet_weight_record(
+        &self,
+        owner_user_id: Uuid,
+        record_id: Uuid,
+    ) -> PetResult<Option<PetWeightRecord>> {
+        self.load_pet_weight_record_query(owner_user_id, record_id)
+            .await
+    }
+
+    async fn update_pet_weight_record(
+        &self,
+        input: UpdatePetWeightRecord,
+    ) -> PetResult<PetWeightRecord> {
+        self.update_pet_weight_record_command(input).await
+    }
+
+    async fn delete_pet_weight_record(
+        &self,
+        input: DeletePetWeightRecord,
+    ) -> PetResult<DeletedPetWeightRecord> {
+        self.delete_pet_weight_record_command(input).await
     }
 
     async fn import_trade_pet(&self, input: TradePetImportInput) -> PetResult<TradePetImport> {

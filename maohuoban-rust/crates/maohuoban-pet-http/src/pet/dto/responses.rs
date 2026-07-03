@@ -1,4 +1,6 @@
-use maohuoban_pet_application::pet::{PetAlbumAssetPage, PetAlbumListPage, TradePetImport};
+use maohuoban_pet_application::pet::{
+    DeletedPetWeightRecord, PetAlbumAssetPage, PetAlbumListPage, PetWeightRecord, TradePetImport,
+};
 use maohuoban_pet_domain::pet::{
     PetAlbum, PetAlbumAsset, PetEvent, PetMediaUploadResult, PetProfile, PetTimeline,
 };
@@ -192,5 +194,74 @@ pub(crate) struct PetTimelineData {
 impl From<PetTimeline> for PetTimelineData {
     fn from(timeline: PetTimeline) -> Self {
         Self { timeline }
+    }
+}
+
+/// PetWeightRecordData 宠物体重记录响应
+/// 核心职责：
+/// - 返回体重专用读模型字段
+/// - 避免客户端直接解析事件 payload
+#[derive(Debug, Serialize)]
+pub(crate) struct PetWeightRecordData {
+    id: uuid::Uuid,
+    pet_id: uuid::Uuid,
+    weight_grams: i32,
+    note: Option<String>,
+    source: &'static str,
+    occurred_at: chrono::DateTime<chrono::Utc>,
+    record_revision: i32,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<PetWeightRecord> for PetWeightRecordData {
+    fn from(record: PetWeightRecord) -> Self {
+        Self {
+            id: record.id,
+            pet_id: record.pet_id,
+            weight_grams: record.weight_grams,
+            note: record.note,
+            source: record.source.as_str(),
+            occurred_at: record.occurred_at,
+            record_revision: record.record_revision,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
+/// PetWeightRecordListData 宠物体重记录列表响应
+/// 核心职责：
+/// - 返回当前宠物体重记录列表
+/// - 为后续分页保留 items 包裹结构
+#[derive(Debug, Serialize)]
+pub(crate) struct PetWeightRecordListData {
+    items: Vec<PetWeightRecordData>,
+}
+
+impl From<Vec<PetWeightRecord>> for PetWeightRecordListData {
+    fn from(records: Vec<PetWeightRecord>) -> Self {
+        Self {
+            items: records.into_iter().map(PetWeightRecordData::from).collect(),
+        }
+    }
+}
+
+/// DeletedPetWeightRecordData 删除体重记录响应
+/// 核心职责：
+/// - 返回删除结果
+/// - 让客户端可以精确移除本地记录
+#[derive(Debug, Serialize)]
+pub(crate) struct DeletedPetWeightRecordData {
+    id: uuid::Uuid,
+    deleted: bool,
+}
+
+impl From<DeletedPetWeightRecord> for DeletedPetWeightRecordData {
+    fn from(record: DeletedPetWeightRecord) -> Self {
+        Self {
+            id: record.id,
+            deleted: record.deleted,
+        }
     }
 }

@@ -68,6 +68,33 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail>
 
+    func listWeightRecords(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecordList>
+
+    func createWeightRecord(
+        petID: String,
+        draft: PetWeightRecordDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord>
+
+    func loadWeightRecord(
+        recordID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord>
+
+    func updateWeightRecord(
+        recordID: String,
+        draft: PetWeightRecordDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetWeightRecord>
+
+    func deleteWeightRecord(
+        recordID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetWeightRecord>
+
     /// 加载 Agent 身份上下文（聚合身份、关系、标识、生命周期）
     /// Phase 1 占位：后端 endpoint 就绪后接入真实数据
     func loadIdentityContext(

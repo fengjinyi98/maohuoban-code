@@ -14,6 +14,7 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
         let context = PetWeightDetailContext(
             petID: "pet-1",
             petName: "小喵",
+            currentUserID: "user-1",
             currentWeightText: "4.20",
             weightChangeText: "-0.15 kg",
             recordContext: PetRecordEntryContext(petID: "pet-1")
@@ -29,6 +30,7 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
         let ctx1 = PetWeightDetailContext(
             petID: "pet-1",
             petName: "小喵",
+            currentUserID: "user-1",
             currentWeightText: "4.20",
             weightChangeText: "-0.15 kg",
             recordContext: PetRecordEntryContext(petID: "pet-1")
@@ -36,6 +38,7 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
         let ctx2 = PetWeightDetailContext(
             petID: "pet-1",
             petName: "小喵",
+            currentUserID: "user-1",
             currentWeightText: "4.20",
             weightChangeText: "-0.15 kg",
             recordContext: PetRecordEntryContext(petID: "pet-1")
@@ -44,38 +47,27 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
         XCTAssertEqual(ctx1, ctx2)
     }
 
-    // MARK: - PetWeightRecord mock 数据
+    // MARK: - PetWeightRecord 后端数据展示派生
 
-    func testPetWeightRecordMockDataCount() {
-        XCTAssertEqual(PetWeightRecord.mockRecords.count, 6)
-    }
+    func testPetWeightRecordDisplayFieldsComeFromBackendData() {
+        let record = PetWeightRecord(
+            id: "weight-1",
+            petID: "pet-1",
+            weightGrams: 4200,
+            note: "晨间称重",
+            source: .manual,
+            occurredAt: "2026-06-24T01:15:00Z",
+            recordRevision: 1,
+            createdAt: "2026-06-24T01:15:00Z",
+            updatedAt: "2026-06-24T01:15:00Z"
+        )
 
-    func testPetWeightRecordMockDataFirstRecord() {
-        guard let first = PetWeightRecord.mockRecords.first else {
-            XCTFail("Expected at least one mock record")
-            return
-        }
-
-        XCTAssertEqual(first.id, "weight-2026-06")
-        XCTAssertEqual(first.dateText, "6月24日")
-        XCTAssertEqual(first.note, "例行称重")
-        XCTAssertEqual(first.weight, 4.20, accuracy: 0.001)
-        XCTAssertEqual(first.deltaText, "- 0.15 kg")
-        XCTAssertEqual(first.deltaKind, .down)
-    }
-
-    func testPetWeightRecordMockDataLastRecord() {
-        guard let last = PetWeightRecord.mockRecords.last else {
-            XCTFail("Expected at least one mock record")
-            return
-        }
-
-        XCTAssertEqual(last.id, "weight-2026-01")
-        XCTAssertEqual(last.dateText, "1月12日")
-        XCTAssertEqual(last.note, "月度记录")
-        XCTAssertEqual(last.weight, 3.98, accuracy: 0.001)
-        XCTAssertEqual(last.deltaText, "--")
-        XCTAssertEqual(last.deltaKind, .none)
+        XCTAssertEqual(record.id, "weight-1")
+        XCTAssertEqual(record.noteText, "晨间称重")
+        XCTAssertEqual(record.weight, 4.20, accuracy: 0.001)
+        XCTAssertEqual(record.weightText, "4.20")
+        XCTAssertEqual(record.deltaText, "--")
+        XCTAssertEqual(record.deltaKind, .none)
     }
 
     // MARK: - PetWeightRecord DeltaKind
@@ -101,6 +93,7 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
         let context = PetWeightDetailContext(
             petID: "pet-1",
             petName: "小喵",
+            currentUserID: "user-1",
             currentWeightText: "4.20",
             weightChangeText: "-0.15 kg",
             recordContext: PetRecordEntryContext(petID: "pet-1")
@@ -110,14 +103,19 @@ final class PetWeightDetailScreenBaselineTests: XCTestCase {
     }
 
     func testPetWeightRecordExtractedToSeparateFile() {
-        // PetWeightRecord 应从超大文件提取到独立文件
-        // mock 数据仍可通过模块作用域访问
-        XCTAssertEqual(PetWeightRecord.mockRecords.count, 6)
-        guard let first = PetWeightRecord.mockRecords.first else {
-            XCTFail("Expected mock records")
-            return
-        }
-        XCTAssertEqual(first.weight, 4.20, accuracy: 0.001)
+        let record = PetWeightRecord(
+            id: "weight-1",
+            petID: "pet-1",
+            weightGrams: 4200,
+            note: nil,
+            source: .profileInitial,
+            occurredAt: "2026-06-24T01:15:00Z",
+            recordRevision: 1,
+            createdAt: "2026-06-24T01:15:00Z",
+            updatedAt: "2026-06-24T01:15:00Z"
+        )
+        XCTAssertEqual(record.noteText, "未填写备注")
+        XCTAssertEqual(record.weightText, "4.20")
     }
 
     // 源文件字符串检查已由等价构建验证取代

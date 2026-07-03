@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct PetWeightDetailContext: Hashable, Sendable {
     let petID: String
     let petName: String
+    let currentUserID: String?
     let currentWeightText: String
     let weightChangeText: String
     let recordContext: PetRecordEntryContext

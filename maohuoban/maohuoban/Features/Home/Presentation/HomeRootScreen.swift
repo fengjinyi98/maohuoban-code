@@ -41,6 +41,7 @@ struct HomeRootScreen: View {
             case .loaded(let snapshot):
                 HomeDashboardLoadedView(
                     snapshot: snapshot,
+                    currentUserID: currentUserID,
                     currentUserDisplayName: currentUserStore.displayName,
                     onSelectPet: { petID in
                         selectedPetID = petID

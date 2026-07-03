@@ -20,14 +20,15 @@ pub use merchant::{
 pub use ports::{
     AbnormalSymptomEventInput, AddPetAlbumAssetInput, AddPetExternalIdentifier, AddPetGuardian,
     BindUploadedPetMediaInput, ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult,
-    CreatePetAlbumInput, DeletePetProfile, DietContextItem, DietRepository,
-    FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,
-    MediaAssetDisplayMetadata, MediaCropMetadata, NewFoodInventoryItem, NewPetEvent, NewPetProfile,
-    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetAlbumAssetPage,
-    PetAlbumListPage, PetAlbumRepository, PetCurrentDietContext, PetDietConfirmationCandidate,
-    PetDietConfirmationCandidates, PetRepository, RecentDietChangeFact, RecentFeedingFact,
+    CreatePetAlbumInput, DeletePetProfile, DeletePetWeightRecord, DeletedPetWeightRecord,
+    DietContextItem, DietRepository, FoodInventoryChangeHint, FoodInventoryChangeHints,
+    FoodInventoryRepository, MediaAssetDisplayMetadata, MediaCropMetadata, NewFoodInventoryItem,
+    NewPetEvent, NewPetProfile, NewPetWeightRecord, PendingPetLivePhotoUploadInput,
+    PendingPetMediaUploadInput, PetAlbumAssetPage, PetAlbumListPage, PetAlbumRepository,
+    PetCurrentDietContext, PetDietConfirmationCandidate, PetDietConfirmationCandidates,
+    PetRepository, PetWeightRecord, PetWeightRecordSource, RecentDietChangeFact, RecentFeedingFact,
     ReplacePetExternalIdentifier, RestorePetProfile, SetPetCurrentStapleInput,
     SetPetDietAssignmentInput, TradePetImport, TradePetImportInput, UpdateFoodInventoryItem,
-    UpdatePetAlbumInput, UpdatePetProfile, UpdatePetProfileResult,
+    UpdatePetAlbumInput, UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord,
 };
 pub use service::PetService;

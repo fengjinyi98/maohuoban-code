@@ -27,12 +27,15 @@ struct PetWeightDetailScreen: View {
     @State private var isAddRecordSheetPresented = false
     @State private var pathRoute: PetWeightDetailRoute?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
-
-    private let records = PetWeightRecord.mockRecords
+    @State private var store: PetWeightRecordStore
 
     init(context: PetWeightDetailContext) {
         self.context = context
         self._selectedPet = State(initialValue: context.recordContext.selectedSwitchPet)
+        self._store = State(initialValue: PetWeightRecordStore(
+            petID: context.petID,
+            currentUserID: context.currentUserID ?? ""
+        ))
     }
 
     var body: some View {
@@ -46,26 +49,38 @@ struct PetWeightDetailScreen: View {
 
                 MHBScreenScrollView {
                     VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                        PetWeightHeroCard(
-                            currentWeightText: context.currentWeightText,
-                            changeText: context.weightChangeText
-                        )
+                        if store.isEmpty && !store.isLoading {
+                            PetWeightEmptyState(
+                                title: store.emptyStateTitle,
+                                message: store.emptyStateMessage,
+                                buttonTitle: store.emptyStateButtonTitle,
+                                action: {
+                                    isAddRecordSheetPresented = true
+                                }
+                            )
+                            .frame(maxWidth: .infinity, minHeight: max(proxy.size.height - topContentPadding(topInset: topInset) - bottomInset, 320))
+                        } else {
+                            PetWeightHeroCard(
+                                currentWeightText: store.currentWeightText,
+                                changeText: store.weightChangeText
+                            )
 
-                        PetWeightChartCard(
-                            selectedRange: $selectedRange,
-                            records: records
-                        )
+                            PetWeightChartCard(
+                                selectedRange: $selectedRange,
+                                records: store.records
+                            )
 
-                        PetWeightHistorySection(
-                            records: Array(records.prefix(6)),
-                            onOpenRecord: { record in
-                                pathRoute = .recordDetail(record.id)
-                            },
-                            onOpenHistory: {
-                                pathRoute = .history
-                            }
-                        )
-                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
+                            PetWeightHistorySection(
+                                records: Array(store.records.prefix(6)),
+                                onOpenRecord: { record in
+                                    pathRoute = .recordDetail(record.id)
+                                },
+                                onOpenHistory: {
+                                    pathRoute = .history
+                                }
+                            )
+                            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
+                        }
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
                     .padding(.top, topContentPadding(topInset: topInset))
@@ -114,16 +129,26 @@ struct PetWeightDetailScreen: View {
                 PetWeightHistoryScreen(
                     context: context.recordContext,
                     fallbackPetName: currentPetName,
-                    records: records
+                    records: store.records
                 )
             case .recordDetail(let recordID):
-                PetWeightRecordDetailScreen(recordID: recordID)
+                PetWeightRecordDetailScreen(
+                    recordID: recordID,
+                    petName: currentPetName,
+                    store: store
+                )
             }
+        }
+        .task(id: context.petID) {
+            await store.load()
         }
         .sheet(isPresented: $isAddRecordSheetPresented) {
             PetWeightRecordSheet(
                 petName: currentPetName,
-                initialWeightText: context.currentWeightText
+                initialWeightText: store.currentWeightText == "--" ? "" : store.currentWeightText,
+                onSave: { draft in
+                    await store.create(draft: draft)
+                }
             )
         }
         .accessibilityIdentifier("pet.weightDetail")

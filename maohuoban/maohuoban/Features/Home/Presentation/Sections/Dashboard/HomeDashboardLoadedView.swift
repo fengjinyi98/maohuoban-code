@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 保持 HomeRootScreen 只负责状态切换
 struct HomeDashboardLoadedView: View {
     let snapshot: HomeDashboardSnapshot
+    let currentUserID: String?
     let currentUserDisplayName: String
     let onSelectPet: (String) -> Void
     let onOpenRoute: (HomeRoute) -> Void
@@ -242,12 +243,14 @@ struct HomeDashboardLoadedView: View {
         for pet: HomeDashboardSnapshot.PetHeroSummary,
         routingContext: HomeActionRoutingContext
     ) -> HomeRoute {
-        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.mock
+        let stats = pet.stats ?? HomeDashboardSnapshot.PetHeroStats.empty
+        let weightDisplay = HomePetHeroWeightDisplay(pet: pet)
         return .petWeightDetail(
             PetWeightDetailContext(
                 petID: pet.id,
                 petName: pet.name,
-                currentWeightText: stats.weightVal,
+                currentUserID: currentUserID,
+                currentWeightText: weightDisplay.value == "--" ? "" : weightDisplay.value,
                 weightChangeText: stats.weightChange,
                 recordContext: PetRecordEntryContext(
                     petID: routingContext.selectedPetID,

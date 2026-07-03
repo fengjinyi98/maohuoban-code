@@ -39,3 +39,5 @@ mod profile_crud;
 mod profile_delete;
 #[path = "pet_contract/profile_events.rs"]
 mod profile_events;
+#[path = "pet_contract/weight_record.rs"]
+mod weight_record;

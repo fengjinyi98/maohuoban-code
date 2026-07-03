@@ -7,7 +7,7 @@ pub use model::{
     HomeEmptyStateKind, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
     HomePantryPreviewItem, HomeReminder, HomeReminderKind, HomeTimelineEvent,
     HomeTimelineEventKind, MerchantDashboardSummary, MerchantLitterSummary, MerchantPetStatus,
-    MerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind, PetHeroSummary,
-    PetNameEditPolicy, PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem, RecommendedContent,
-    RecommendedContentKind,
+    MerchantStatusCount, PartnerRecommendation, PartnerRelationshipKind, PetHeroStats,
+    PetHeroSummary, PetNameEditPolicy, PetNeuterStatus, PetSex, PetSpecies, PetSwitchItem,
+    PreventiveCareKind, PreventiveCareSummary, RecommendedContent, RecommendedContentKind,
 };

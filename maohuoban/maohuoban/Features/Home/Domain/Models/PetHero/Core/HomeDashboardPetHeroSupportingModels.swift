@@ -1,7 +1,7 @@
 import Foundation
 
 extension HomeDashboardSnapshot {
-    // PetHeroStats 宠物主卡核心指标 (Mock 数据支持)
+    // PetHeroStats 宠物主卡核心指标
     struct PetHeroStats: Decodable, Equatable {
         let weightVal: String
         let weightChange: String
@@ -95,6 +95,17 @@ extension HomeDashboardSnapshot {
                 daysDelta: 3,
                 dueDateText: "2026.06.28"
             )
+        )
+
+        static let empty = PetHeroStats(
+            weightVal: "",
+            weightChange: "",
+            recordDays: 0,
+            recordStreakText: "尚未记录",
+            pantryItemCount: 0,
+            pantryLastAddedDate: "待建立",
+            dewormingDaysLeft: 0,
+            dewormingDate: "待记录"
         )
     }
 
