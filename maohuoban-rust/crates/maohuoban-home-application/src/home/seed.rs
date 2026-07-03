@@ -54,6 +54,7 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
             occurred_at: None,
         }],
         storylines: Vec::new(),
+        gallery_albums: Vec::new(),
         merchant_dashboard: None,
         empty_state: None,
         recommended_content: Vec::new(),
@@ -86,6 +87,7 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
         partner_recommendation: None,
         recent_timeline: Vec::new(),
         storylines: Vec::new(),
+        gallery_albums: Vec::new(),
         merchant_dashboard: None,
         empty_state: Some(HomeEmptyState {
             kind: HomeEmptyStateKind::CreateFirstPet,
@@ -139,6 +141,7 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         partner_recommendation: None,
         recent_timeline: Vec::new(),
         storylines: Vec::new(),
+        gallery_albums: Vec::new(),
         merchant_dashboard: Some(MerchantDashboardSummary {
             merchant_id: seed_uuid("3a85d5e7-1d03-41a1-9f8f-7c34a1e5a71f"),
             merchant_name: "梧桐猫舍".to_owned(),

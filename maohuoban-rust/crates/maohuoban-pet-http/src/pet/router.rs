@@ -1,4 +1,5 @@
 mod agent_diet;
+mod album;
 mod diet_assignment;
 mod events;
 mod food_inventory;
@@ -58,6 +59,30 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         .route(
             "/api/v1/pets/{pet_id}/diet-context",
             get(agent_diet::get_pet_current_diet_context),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/albums",
+            get(album::list_pet_albums).post(album::create_pet_album),
+        )
+        .route(
+            "/api/v1/pets/{pet_id}/album-media",
+            post(album::upload_pending_pet_album_photo).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::ugc_image().body_limit_bytes,
+            )),
+        )
+        .route(
+            "/api/v1/pet-albums/{album_id}",
+            get(album::load_pet_album)
+                .patch(album::update_pet_album)
+                .delete(album::archive_pet_album),
+        )
+        .route(
+            "/api/v1/pet-albums/{album_id}/assets",
+            get(album::list_pet_album_assets).post(album::add_pet_album_asset),
+        )
+        .route(
+            "/api/v1/pet-album-assets/{album_asset_id}",
+            delete(album::remove_pet_album_asset),
         )
         .route(
             "/api/v1/pets/{pet_id}/diet-confirmation-candidates",

@@ -14,6 +14,10 @@ pub enum PetError {
     NameEditLimitExceeded,
     #[error("pet not found")]
     PetNotFound,
+    #[error("pet album not found")]
+    PetAlbumNotFound,
+    #[error("pet album asset not found")]
+    PetAlbumAssetNotFound,
     #[error("food inventory item not found")]
     FoodInventoryNotFound,
     #[error("diet assignment conflict: {0}")]

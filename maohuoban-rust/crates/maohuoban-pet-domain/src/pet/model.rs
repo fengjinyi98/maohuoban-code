@@ -9,6 +9,7 @@ mod identity_context;
 mod life_days;
 mod lifecycle_event;
 mod media;
+mod pet_album;
 mod pet_guardian;
 mod profile;
 mod profile_enums;
@@ -40,6 +41,7 @@ pub use media::{
     MediaAsset, MediaAssetComponent, MediaAssetComponentKind, MediaAssetStatus, MediaBinding,
     MediaBindingStatus, MediaDerivative, MediaDerivativeKind, MediaUsageKind, PetMediaUploadResult,
 };
+pub use pet_album::{HomeGalleryAlbumSummary, PetAlbum, PetAlbumAsset};
 pub use pet_guardian::{GuardianRole, GuardianStatus, GuardianType, PetGuardian};
 pub use profile::{PetNameEditPolicy, PetProfile};
 pub use profile_enums::{

@@ -37,6 +37,7 @@ pub(super) fn merchant_home_snapshot_from_workspace(
         partner_recommendation: None,
         recent_timeline: Vec::new(),
         storylines: Vec::new(),
+        gallery_albums: Vec::new(),
         merchant_dashboard: Some(HomeMerchantDashboardSummary {
             merchant_id: workspace.merchant.id,
             merchant_name: workspace.merchant.name.clone(),

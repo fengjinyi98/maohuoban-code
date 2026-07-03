@@ -6,13 +6,15 @@ pub(super) use merchant::{
     MerchantAvailableStatusData, MerchantLitterDetailData, MerchantPetsData, MerchantPetsQuery,
 };
 pub(super) use requests::{
-    BindUploadedPetMediaRequest, CreateFoodInventoryItemRequest, CreateMerchantPetRequest,
-    CreatePetEventRequest, CreatePetProfileRequest, DeletePetProfileRequest,
-    PublishAvailableStatusRequest, SetPetCurrentStapleRequest, SetPetDietAssignmentRequest,
-    TradePetImportRequest, UpdateFoodInventoryItemRequest, UpdatePetProfileRequest,
+    AddPetAlbumAssetRequest, BindUploadedPetMediaRequest, CreateFoodInventoryItemRequest,
+    CreateMerchantPetRequest, CreatePetAlbumRequest, CreatePetEventRequest,
+    CreatePetProfileRequest, DeletePetProfileRequest, PublishAvailableStatusRequest,
+    SetPetCurrentStapleRequest, SetPetDietAssignmentRequest, TradePetImportRequest,
+    UpdateFoodInventoryItemRequest, UpdatePetAlbumRequest, UpdatePetProfileRequest,
     UploadPetLivePhotoRequest, UploadPetMediaRequest,
 };
 pub(super) use responses::{
+    PetAlbumAssetData, PetAlbumAssetListData, PetAlbumData, PetAlbumDetailData, PetAlbumListData,
     PetEventData, PetMediaUploadData, PetProfileData, PetProfilesData, PetTimelineData,
     TradePetImportData,
 };

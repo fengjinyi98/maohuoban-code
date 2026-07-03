@@ -1,3 +1,4 @@
+mod album;
 mod diet;
 mod food_inventory;
 mod food_inventory_delegation;
@@ -34,6 +35,7 @@ use maohuoban_pet_domain::pet::{FoodScopeType, PetDietAssignment, PetIdentityCon
 /// - 编排商家多宠工作台、窝次和关系追溯读取
 pub struct PetService {
     repository: Arc<dyn PetRepository>,
+    album_repository: Arc<dyn super::PetAlbumRepository>,
     merchant_repository: Arc<dyn super::MerchantRepository>,
     food_inventory: Arc<dyn FoodInventoryRepository>,
     diet: Arc<dyn super::DietRepository>,
@@ -43,12 +45,14 @@ impl PetService {
     #[must_use]
     pub fn new(
         repository: Arc<dyn PetRepository>,
+        album_repository: Arc<dyn super::PetAlbumRepository>,
         merchant_repository: Arc<dyn super::MerchantRepository>,
         food_inventory: Arc<dyn FoodInventoryRepository>,
         diet: Arc<dyn super::DietRepository>,
     ) -> Self {
         Self {
             repository,
+            album_repository,
             merchant_repository,
             food_inventory,
             diet,

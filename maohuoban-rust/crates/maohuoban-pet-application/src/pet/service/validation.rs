@@ -50,6 +50,8 @@ pub(super) fn pet_error_kind(error: &PetError) -> &'static str {
         PetError::InvalidInput(_) => "invalid_input",
         PetError::NameEditLimitExceeded => "name_edit_limit_exceeded",
         PetError::PetNotFound => "pet_not_found",
+        PetError::PetAlbumNotFound => "pet_album_not_found",
+        PetError::PetAlbumAssetNotFound => "pet_album_asset_not_found",
         PetError::FoodInventoryNotFound => "food_inventory_not_found",
         PetError::DietAssignmentConflict(_) => "diet_assignment_conflict",
         PetError::DietAssignmentNotFound => "diet_assignment_not_found",

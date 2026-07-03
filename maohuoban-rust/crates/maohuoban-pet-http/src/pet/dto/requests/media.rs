@@ -115,7 +115,7 @@ impl UploadPetMediaRequest {
         self.into_pending_input(owner_user_id, MediaUsageKind::PetBackgroundVideo)
     }
 
-    fn into_pending_input(
+    pub(in crate::pet::dto::requests) fn into_pending_input(
         self,
         owner_user_id: Uuid,
         usage_kind: MediaUsageKind,

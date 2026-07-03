@@ -47,7 +47,7 @@ use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_http::pet::build_pet_router;
 use maohuoban_pet_infrastructure::postgres::{
     PostgresAgentConfirmationTaskRepository, PostgresDietRepository,
-    PostgresFoodInventoryRepository, PostgresPetRepository,
+    PostgresFoodInventoryRepository, PostgresPetAlbumRepository, PostgresPetRepository,
 };
 use maohuoban_profile_application::profile::ProfileService;
 use maohuoban_profile_http::profile::build_profile_router;
@@ -205,11 +205,13 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
     let pet_repository = PostgresPetRepository::new(pool.clone());
+    let pet_album_repository = PostgresPetAlbumRepository::new(pool.clone());
     let food_inventory_repository = PostgresFoodInventoryRepository::new(pool.clone());
     let diet_repository = PostgresDietRepository::new(pool.clone());
     let confirmation_task_repository = PostgresAgentConfirmationTaskRepository::new(pool.clone());
     let pet_service = Arc::new(PetService::new(
         Arc::new(pet_repository.clone()),
+        Arc::new(pet_album_repository),
         Arc::new(pet_repository.clone()),
         Arc::new(food_inventory_repository),
         Arc::new(diet_repository),

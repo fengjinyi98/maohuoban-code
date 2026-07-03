@@ -186,6 +186,7 @@ impl PostgresPetRepository {
             MediaUsageKind::PetAvatar
                 | MediaUsageKind::PetBackgroundImage
                 | MediaUsageKind::PetBackgroundLivePhoto
+                | MediaUsageKind::PetAlbumPhoto
         ) {
             return Ok(Vec::new());
         }

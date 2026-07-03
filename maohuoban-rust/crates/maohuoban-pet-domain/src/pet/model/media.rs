@@ -102,7 +102,7 @@ pub struct PetMediaUploadResult {
 
 /// MediaUsageKind 媒体业务用途
 /// 核心职责：
-/// - 固定头像和背景媒体用途
+/// - 固定头像、背景和相册媒体用途
 /// - 驱动绑定替换和清理候选策略
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -115,6 +115,8 @@ pub enum MediaUsageKind {
     PetBackgroundVideo,
     #[serde(rename = "pet.background.live_photo")]
     PetBackgroundLivePhoto,
+    #[serde(rename = "pet.album.photo")]
+    PetAlbumPhoto,
 }
 
 impl MediaUsageKind {
@@ -125,6 +127,7 @@ impl MediaUsageKind {
             Self::PetBackgroundImage => "pet.background.image",
             Self::PetBackgroundVideo => "pet.background.video",
             Self::PetBackgroundLivePhoto => "pet.background.live_photo",
+            Self::PetAlbumPhoto => "pet.album.photo",
         }
     }
 }
@@ -138,6 +141,7 @@ impl TryFrom<&str> for MediaUsageKind {
             "pet.background.image" => Ok(Self::PetBackgroundImage),
             "pet.background.video" => Ok(Self::PetBackgroundVideo),
             "pet.background.live_photo" => Ok(Self::PetBackgroundLivePhoto),
+            "pet.album.photo" => Ok(Self::PetAlbumPhoto),
             _ => Err(PetErrorKind::MediaUsageKind),
         }
     }

@@ -1,3 +1,4 @@
+mod album;
 mod binding;
 mod diet_assignment;
 mod event;
@@ -7,6 +8,7 @@ mod merchant;
 mod profile;
 mod trade;
 
+pub(crate) use album::{AddPetAlbumAssetRequest, CreatePetAlbumRequest, UpdatePetAlbumRequest};
 pub(crate) use binding::BindUploadedPetMediaRequest;
 pub(crate) use diet_assignment::{SetPetCurrentStapleRequest, SetPetDietAssignmentRequest};
 pub(crate) use event::CreatePetEventRequest;

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 mod activity;
 mod attention_hint;
+mod gallery;
 mod identity;
 mod merchant;
 mod pantry;
@@ -16,6 +17,7 @@ pub use attention_hint::{
     AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
     AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone,
 };
+pub use gallery::HomeGalleryAlbumSummary;
 pub use identity::{HomeIdentity, HomeIdentityKind};
 pub use merchant::{
     MerchantDashboardSummary, MerchantLitterSummary, MerchantPetStatus, MerchantStatusCount,
@@ -41,6 +43,7 @@ pub struct HomeDashboardSnapshot {
     pub partner_recommendation: Option<PartnerRecommendation>,
     pub recent_timeline: Vec<HomeTimelineEvent>,
     pub storylines: Vec<HomeStorylineSummary>,
+    pub gallery_albums: Vec<HomeGalleryAlbumSummary>,
     pub merchant_dashboard: Option<MerchantDashboardSummary>,
     pub empty_state: Option<HomeEmptyState>,
     pub recommended_content: Vec<RecommendedContent>,

@@ -22,7 +22,8 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeIdentity, HomeIdentityKind, HomePantryPreviewItem,
+    HomeDashboardSnapshot, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
+    HomePantryPreviewItem,
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
@@ -169,6 +170,9 @@ impl HybridHomeDashboardProvider {
             .map(timeline_event_summary)
             .collect();
         snapshot.storylines = pet_storylines(selected_pet);
+        snapshot.gallery_albums = self
+            .gallery_album_summaries(user_id, selected_pet.id)
+            .await?;
         snapshot.reminders = reminders_from_events(&timeline.events);
         snapshot.attention_hints = self
             .pet_service
@@ -229,6 +233,18 @@ impl HybridHomeDashboardProvider {
         record_home_empty_state(user_id);
         snapshot
     }
+
+    async fn gallery_album_summaries(
+        &self,
+        user_id: Uuid,
+        pet_id: Uuid,
+    ) -> HomeResult<Vec<HomeGalleryAlbumSummary>> {
+        self.pet_service
+            .list_home_gallery_album_summaries(pet_id, user_id, 4)
+            .await
+            .map_err(|error| to_home_error(&error))
+            .map(|summaries| summaries.into_iter().map(gallery_album_summary).collect())
+    }
 }
 
 #[async_trait::async_trait]
@@ -281,6 +297,19 @@ fn diet_role_labels(
         labels.insert(item.food_item_id, "常用营养品".to_owned());
     }
     labels
+}
+
+fn gallery_album_summary(
+    summary: maohuoban_pet_domain::pet::HomeGalleryAlbumSummary,
+) -> HomeGalleryAlbumSummary {
+    HomeGalleryAlbumSummary {
+        id: summary.id,
+        pet_id: summary.pet_id,
+        title: summary.title,
+        cover_asset_id: summary.cover_asset_id,
+        cover_url: summary.cover_url,
+        photo_count: summary.photo_count,
+    }
 }
 
 fn pantry_category_title(category: FoodInventoryCategory) -> &'static str {

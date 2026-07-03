@@ -38,6 +38,16 @@ pub(super) fn error_response(error: &PetError) -> Response {
             "pet.not_found",
             "宠物档案不存在".to_owned(),
         ),
+        PetError::PetAlbumNotFound => (
+            StatusCode::NOT_FOUND,
+            "pet.album_not_found",
+            "宠物相册不存在".to_owned(),
+        ),
+        PetError::PetAlbumAssetNotFound => (
+            StatusCode::NOT_FOUND,
+            "pet.album_asset_not_found",
+            "相册照片不存在".to_owned(),
+        ),
         PetError::FoodInventoryNotFound => (
             StatusCode::NOT_FOUND,
             "pet.food_inventory_not_found",

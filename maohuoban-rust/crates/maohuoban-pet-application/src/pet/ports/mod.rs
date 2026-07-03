@@ -1,6 +1,11 @@
+mod album;
 mod diet;
 mod media;
 
+pub use album::{
+    AddPetAlbumAssetInput, CreatePetAlbumInput, PetAlbumAssetPage, PetAlbumListPage,
+    PetAlbumRepository, UpdatePetAlbumInput,
+};
 pub use diet::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietContextItem, DietRepository,
     FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,

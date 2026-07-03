@@ -73,6 +73,7 @@ impl PostgresPetRepository {
                 Some(asset_id),
                 Some(PetBackgroundMediaKind::LivePhoto.as_str()),
             ),
+            MediaUsageKind::PetAlbumPhoto => (None, None, None),
         };
         sqlx::query(
             r#"
