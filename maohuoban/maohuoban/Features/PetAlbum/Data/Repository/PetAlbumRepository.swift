@@ -1,19 +1,18 @@
 import Foundation
 
-// PetAlbumRepository 宠物相册仓库协议
+// PetAlbumRepository 用户级宠物相册仓库协议
 // 核心职责：
-// - 定义相册列表、详情和变更接口
+// - 定义用户相册空间的列表、详情和变更接口
 // - 隔离 HTTP DTO 与展示状态
+// - 将宠物上下文保留在入口层，避免作为相册数据源边界
 protocol PetAlbumRepository {
     func listAlbums(
-        petID: String,
         currentUserID: String,
         limit: Int,
         cursor: String?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumListData>
 
     func createAlbum(
-        petID: String,
         draft: PetAlbumCreateDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumData>

@@ -15,7 +15,6 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         }
 
         let response = try await repository.listAlbums(
-            petID: "pet-1",
             currentUserID: "user-1",
             limit: 20,
             cursor: "cursor-1"
@@ -26,7 +25,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
         let components = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false))
-        XCTAssertEqual(components.path, "/api/v1/pets/pet-1/albums")
+        XCTAssertEqual(components.path, "/api/v1/pet-albums")
         XCTAssertEqual(components.queryItems?.first(where: { $0.name == "limit" })?.value, "20")
         XCTAssertEqual(components.queryItems?.first(where: { $0.name == "cursor" })?.value, "cursor-1")
         XCTAssertEqual(response.data?.items.first?.coverURL, "/media/album-cover.jpg")
@@ -42,14 +41,13 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         }
 
         _ = try await repository.createAlbum(
-            petID: "pet-1",
             draft: PetAlbumCreateDraft(name: " 成长记录 ", isPrivate: true),
             currentUserID: "user-1"
         )
 
         let request = try XCTUnwrap(requestBox.request)
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.path, "/api/v1/pets/pet-1/albums")
+        XCTAssertEqual(request.url?.path, "/api/v1/pet-albums")
         let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         XCTAssertEqual(json["title"] as? String, "成长记录")
@@ -75,7 +73,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
                 "items": [
                   {
                     "id": "album-1",
-                    "pet_id": "pet-1",
+                    "pet_id": null,
                     "owner_user_id": "user-1",
                     "title": "成长记录",
                     "description": null,
@@ -106,7 +104,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
               "message": "相册已创建",
               "data": {
                 "id": "album-1",
-                "pet_id": "pet-1",
+                    "pet_id": null,
                 "owner_user_id": "user-1",
                 "title": "成长记录",
                 "description": null,

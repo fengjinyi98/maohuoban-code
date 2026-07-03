@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, FromRow)]
 pub(crate) struct PetAlbumRow {
     pub(crate) id: Uuid,
-    pub(crate) pet_id: Uuid,
+    pub(crate) pet_id: Option<Uuid>,
     pub(crate) owner_user_id: Uuid,
     pub(crate) title: String,
     pub(crate) description: Option<String>,

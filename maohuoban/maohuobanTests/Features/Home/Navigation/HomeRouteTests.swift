@@ -66,7 +66,7 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
-    func testPetAlbumRouteCarriesOnlyEntryContext() {
+    func testPetAlbumRouteCarriesEntrySourceContext() {
         let context = PetAlbumEntryContext(
             petID: "pet-1",
             petName: "糯米"

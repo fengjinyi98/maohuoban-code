@@ -1,8 +1,8 @@
 import Foundation
 
-// DefaultPetAlbumRepository 默认宠物相册仓库
+// DefaultPetAlbumRepository 默认用户级宠物相册仓库
 // 核心职责：
-// - 使用 MHBHTTPClient 调用 Rust 相册接口
+// - 使用 MHBHTTPClient 调用 Rust 用户相册空间接口
 // - 在请求中传递当前用户上下文
 struct DefaultPetAlbumRepository: PetAlbumRepository {
     let client: MHBHTTPClient
@@ -14,25 +14,23 @@ struct DefaultPetAlbumRepository: PetAlbumRepository {
     }
 
     func listAlbums(
-        petID: String,
         currentUserID: String,
         limit: Int,
         cursor: String?
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumListData> {
         try await client.get(
-            path: "/api/v1/pets/\(petID)/albums",
+            path: "/api/v1/pet-albums",
             queryItems: paginationQueryItems(limit: limit, cursor: cursor),
             headers: userHeaders(currentUserID: currentUserID)
         )
     }
 
     func createAlbum(
-        petID: String,
         draft: PetAlbumCreateDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumData> {
         try await client.post(
-            path: "/api/v1/pets/\(petID)/albums",
+            path: "/api/v1/pet-albums",
             body: PetAlbumDTO.CreateAlbumRequest(draft: draft),
             headers: userHeaders(currentUserID: currentUserID)
         )

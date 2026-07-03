@@ -5,7 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, FromRow)]
 pub(crate) struct HomeGalleryAlbumSummaryRow {
     id: Uuid,
-    pet_id: Uuid,
+    pet_id: Option<Uuid>,
     title: String,
     cover_asset_id: Option<Uuid>,
     photo_count: i32,

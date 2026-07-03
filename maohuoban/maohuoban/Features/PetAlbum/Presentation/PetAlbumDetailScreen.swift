@@ -108,7 +108,7 @@ struct PetAlbumDetailScreen: View {
         return PetAlbumSummary(
             id: albumID,
             title: "宠物相册",
-            petName: "毛伙伴",
+            petName: "全部宠物",
             updatedText: "刚刚更新",
             photoCount: 0,
             coverImageAssetName: "photo.on.rectangle.angled"

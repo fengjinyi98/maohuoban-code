@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub(crate) struct PetAlbumAssetRow {
     pub(crate) id: Uuid,
     pub(crate) album_id: Uuid,
-    pub(crate) pet_id: Uuid,
+    pub(crate) pet_id: Option<Uuid>,
     pub(crate) asset_id: Uuid,
     pub(crate) added_by_user_id: Uuid,
     pub(crate) caption: Option<String>,

@@ -42,7 +42,7 @@ impl PostgresPetAlbumRepository {
             "#,
         )
         .bind(Uuid::new_v4())
-        .bind(input.pet_id)
+        .bind(input.source_pet_id)
         .bind(input.owner_user_id)
         .bind(input.title)
         .bind(input.description)
@@ -69,21 +69,9 @@ impl PostgresPetAlbumRepository {
                 is_pinned = COALESCE($6, album.is_pinned),
                 cover_asset_id = COALESCE($7, album.cover_asset_id),
                 updated_at = now()
-            FROM pet_profiles pet
             WHERE album.id = $1
-              AND pet.id = album.pet_id
               AND album.archived_at IS NULL
-              AND pet.deleted_at IS NULL
-              AND (
-                  pet.owner_user_id = $2
-                  OR EXISTS (
-                      SELECT 1
-                      FROM pet_guardians guardian
-                      WHERE guardian.pet_id = pet.id
-                        AND guardian.guardian_user_id = $2
-                        AND guardian.status = 'active'
-                  )
-              )
+              AND album.owner_user_id = $2
             RETURNING
                 album.id,
                 album.pet_id,
@@ -123,21 +111,9 @@ impl PostgresPetAlbumRepository {
             r#"
             UPDATE pet_albums album
             SET archived_at = now(), updated_at = now()
-            FROM pet_profiles pet
             WHERE album.id = $1
-              AND pet.id = album.pet_id
               AND album.archived_at IS NULL
-              AND pet.deleted_at IS NULL
-              AND (
-                  pet.owner_user_id = $2
-                  OR EXISTS (
-                      SELECT 1
-                      FROM pet_guardians guardian
-                      WHERE guardian.pet_id = pet.id
-                        AND guardian.guardian_user_id = $2
-                        AND guardian.status = 'active'
-                  )
-              )
+              AND album.owner_user_id = $2
             RETURNING
                 album.id,
                 album.pet_id,
@@ -168,13 +144,14 @@ impl PostgresPetAlbumRepository {
         input: AddPetAlbumAssetInput,
     ) -> PetResult<PetAlbumAsset> {
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
-        let pet_id = lock_album_pet_id(&mut transaction, input.album_id, input.owner_user_id)
-            .await?
-            .ok_or(PetError::PetAlbumNotFound)?;
+        let source_pet_id =
+            lock_album_source_pet_id(&mut transaction, input.album_id, input.owner_user_id)
+                .await?
+                .ok_or(PetError::PetAlbumNotFound)?;
         bind_album_media_asset(
             &mut transaction,
             input.asset_id,
-            pet_id,
+            source_pet_id,
             input.owner_user_id,
         )
         .await?;
@@ -206,7 +183,7 @@ impl PostgresPetAlbumRepository {
         )
         .bind(Uuid::new_v4())
         .bind(input.album_id)
-        .bind(pet_id)
+        .bind(source_pet_id)
         .bind(input.asset_id)
         .bind(input.owner_user_id)
         .bind(input.caption)
@@ -262,29 +239,18 @@ impl PostgresPetAlbumRepository {
     }
 }
 
-async fn lock_album_pet_id(
+async fn lock_album_source_pet_id(
     transaction: &mut Transaction<'_, Postgres>,
     album_id: Uuid,
     owner_user_id: Uuid,
-) -> PetResult<Option<Uuid>> {
-    sqlx::query_scalar::<_, Uuid>(
+) -> PetResult<Option<Option<Uuid>>> {
+    sqlx::query_scalar::<_, Option<Uuid>>(
         r#"
         SELECT album.pet_id
         FROM pet_albums album
-        INNER JOIN pet_profiles pet ON pet.id = album.pet_id
         WHERE album.id = $1
           AND album.archived_at IS NULL
-          AND pet.deleted_at IS NULL
-          AND (
-              pet.owner_user_id = $2
-              OR EXISTS (
-                  SELECT 1
-                  FROM pet_guardians guardian
-                  WHERE guardian.pet_id = pet.id
-                    AND guardian.guardian_user_id = $2
-                    AND guardian.status = 'active'
-              )
-          )
+          AND album.owner_user_id = $2
         FOR UPDATE OF album
         "#,
     )
@@ -298,7 +264,7 @@ async fn lock_album_pet_id(
 async fn bind_album_media_asset(
     transaction: &mut Transaction<'_, Postgres>,
     asset_id: Uuid,
-    pet_id: Uuid,
+    source_pet_id: Option<Uuid>,
     owner_user_id: Uuid,
 ) -> PetResult<()> {
     let updated_asset_id = sqlx::query_scalar::<_, Uuid>(
@@ -313,7 +279,7 @@ async fn bind_album_media_asset(
         "#,
     )
     .bind(asset_id)
-    .bind(pet_id)
+    .bind(source_pet_id)
     .bind(owner_user_id)
     .fetch_optional(&mut **transaction)
     .await
@@ -357,21 +323,10 @@ async fn lock_album_asset_for_remove(
         SELECT album_asset.album_id, album_asset.asset_id
         FROM pet_album_assets album_asset
         INNER JOIN pet_albums album ON album.id = album_asset.album_id
-        INNER JOIN pet_profiles pet ON pet.id = album.pet_id
         WHERE album_asset.id = $1
           AND album_asset.removed_at IS NULL
           AND album.archived_at IS NULL
-          AND pet.deleted_at IS NULL
-          AND (
-              pet.owner_user_id = $2
-              OR EXISTS (
-                  SELECT 1
-                  FROM pet_guardians guardian
-                  WHERE guardian.pet_id = pet.id
-                    AND guardian.guardian_user_id = $2
-                    AND guardian.status = 'active'
-              )
-          )
+          AND album.owner_user_id = $2
         FOR UPDATE OF album_asset, album
         "#,
     )

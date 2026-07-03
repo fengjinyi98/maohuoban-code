@@ -32,6 +32,7 @@ struct PetAlbumImageSize: Equatable, Hashable {
 // 核心职责：
 // - 表达相册列表卡片所需的最小展示字段
 // - 使用稳定 ID 支撑 SwiftUI 列表 diff 和导航
+// - 使用 petName 字段展示相册空间范围，当前默认为用户级全部宠物
 struct PetAlbumSummary: Identifiable, Equatable, Hashable {
     let id: String
     let title: String

@@ -1,9 +1,10 @@
 import Foundation
 
-// PetAlbumDTO 宠物相册接口 DTO 命名空间
+// PetAlbumDTO 用户级宠物相册接口 DTO 命名空间
 // 核心职责：
-// - 承接后端相册 JSON 响应和请求体
+// - 承接后端用户相册 JSON 响应和请求体
 // - 提供 DTO 到展示模型的映射
+// - 将 pet_id 解析为可选来源宠物字段
 enum PetAlbumDTO {
     struct AlbumListData: Decodable {
         let items: [AlbumData]
@@ -21,7 +22,7 @@ enum PetAlbumDTO {
 
     struct AlbumData: Decodable, Equatable {
         let id: String
-        let petID: String
+        let petID: String?
         let ownerUserID: String
         let title: String
         let description: String?
@@ -50,16 +51,11 @@ enum PetAlbumDTO {
             case updatedAt = "updated_at"
         }
 
-        func summary(petName: String?) -> PetAlbumSummary {
-            let displayPetName = if let petName, !petName.isEmpty {
-                petName
-            } else {
-                "毛伙伴"
-            }
+        func summary() -> PetAlbumSummary {
             return PetAlbumSummary(
                 id: id,
                 title: title,
-                petName: displayPetName,
+                petName: "全部宠物",
                 updatedText: Self.displayText(from: updatedAt),
                 photoCount: photoCount,
                 coverImageAssetName: coverURL ?? "photo.on.rectangle.angled",
@@ -89,7 +85,7 @@ enum PetAlbumDTO {
     struct AssetData: Decodable, Equatable {
         let id: String
         let albumID: String
-        let petID: String
+        let petID: String?
         let assetID: String
         let assetURL: String
         let addedByUserID: String

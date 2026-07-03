@@ -13,10 +13,10 @@ use maohuoban_pet_domain::pet::{HomeGalleryAlbumSummary, PetAlbum, PetAlbumAsset
 use sqlx::PgPool;
 use uuid::Uuid;
 
-/// PostgresPetAlbumRepository PostgreSQL 宠物相册仓储
+/// PostgresPetAlbumRepository PostgreSQL 用户相册仓储
 /// 核心职责：
-/// - 持久化宠物相册和相册照片关系
-/// - 为 Pet 域与首页入口提供分页读模型
+/// - 持久化用户级相册空间和相册照片关系
+/// - 保留宠物作为可选来源上下文与首页入口筛选提示
 #[derive(Debug, Clone)]
 pub struct PostgresPetAlbumRepository {
     pool: PgPool,
@@ -35,14 +35,13 @@ impl PetAlbumRepository for PostgresPetAlbumRepository {
         self.create_pet_album_command(input).await
     }
 
-    async fn list_pet_albums(
+    async fn list_user_pet_albums(
         &self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
         limit: i64,
         cursor: Option<String>,
     ) -> PetResult<PetAlbumListPage> {
-        self.list_pet_albums_query(pet_id, owner_user_id, limit, cursor)
+        self.list_user_pet_albums_query(owner_user_id, limit, cursor)
             .await
     }
 

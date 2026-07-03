@@ -7,15 +7,15 @@ use crate::pet::UpdatePetAlbumInput;
 
 /// PetAlbumRepository 宠物相册仓储端口
 /// 核心职责：
-/// - 持久化宠物相册与相册照片
+/// - 持久化用户相册空间与相册照片
+/// - 保留可选来源宠物作为筛选上下文
 /// - 为首页提供相册摘要投影
 #[async_trait]
 pub trait PetAlbumRepository: Send + Sync {
     async fn create_pet_album(&self, input: CreatePetAlbumInput) -> PetResult<PetAlbum>;
 
-    async fn list_pet_albums(
+    async fn list_user_pet_albums(
         &self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
         limit: i64,
         cursor: Option<String>,

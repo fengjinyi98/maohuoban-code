@@ -36,6 +36,28 @@ async fn column_type(pool: &PgPool, table: &str, column: &str) -> Option<String>
     .expect("read column type")
 }
 
+/// `column_is_nullable` 判断字段是否允许为空
+/// 核心职责：
+/// - 从 `information_schema` 查询字段空值契约
+/// - 锁定用户级相册与可选宠物来源的边界
+async fn column_is_nullable(pool: &PgPool, table: &str, column: &str) -> Option<bool> {
+    sqlx::query_scalar::<_, String>(
+        r"
+        SELECT is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+          AND column_name = $2
+        ",
+    )
+    .bind(table)
+    .bind(column)
+    .fetch_optional(pool)
+    .await
+    .expect("read column nullability")
+    .map(|value| value == "YES")
+}
+
 /// `index_exists` 判断索引是否存在
 /// 核心职责：
 /// - 查询 `PostgreSQL` 索引目录
@@ -308,4 +330,24 @@ async fn media_assets_usage_kind_constraint_preserves_profile_and_pet_album_valu
             "media_assets usage_kind constraint should allow {usage_kind}"
         );
     }
+}
+
+#[tokio::test]
+async fn pet_album_schema_models_user_album_space_with_optional_pet_source() {
+    let pool = migrated_pool().await;
+
+    assert_eq!(
+        column_is_nullable(&pool, "pet_albums", "pet_id").await,
+        Some(true),
+        "pet_albums.pet_id should be optional source pet, not album ownership"
+    );
+    assert_eq!(
+        column_is_nullable(&pool, "pet_album_assets", "pet_id").await,
+        Some(true),
+        "pet_album_assets.pet_id should be optional photo source pet"
+    );
+    assert!(
+        index_exists(&pool, "idx_pet_albums_owner_keyset").await,
+        "user album list should use owner_user_id keyset index"
+    );
 }

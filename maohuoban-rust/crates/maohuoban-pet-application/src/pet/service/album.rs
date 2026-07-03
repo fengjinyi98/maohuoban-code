@@ -19,21 +19,25 @@ impl PetService {
         input.title = normalize_compact_text(&input.title);
         input.description = normalize_optional_compact_text(input.description);
         validate_text("相册标题", &input.title)?;
-        self.ensure_pet_access(input.pet_id, input.owner_user_id)
-            .await?;
+        if let Some(source_pet_id) = input.source_pet_id {
+            self.ensure_pet_access(source_pet_id, input.owner_user_id)
+                .await?;
+        }
         self.album_repository.create_pet_album(input).await
     }
 
-    pub async fn list_pet_albums(
+    /// list_user_pet_albums 查询用户相册空间
+    /// 核心职责：
+    /// - 按 owner_user_id 返回用户所有宠物相册
+    /// - 不把当前宠物作为相册所有权或数据源边界
+    pub async fn list_user_pet_albums(
         &self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
         limit: Option<i64>,
         cursor: Option<String>,
     ) -> PetResult<PetAlbumListPage> {
-        self.ensure_pet_access(pet_id, owner_user_id).await?;
         self.album_repository
-            .list_pet_albums(pet_id, owner_user_id, page_limit(limit), cursor)
+            .list_user_pet_albums(owner_user_id, page_limit(limit), cursor)
             .await
     }
 
@@ -65,10 +69,19 @@ impl PetService {
 
     pub async fn upload_pending_pet_album_photo(
         &self,
-        pet_id: Uuid,
         mut input: PendingPetMediaUploadInput,
     ) -> PetResult<PetMediaUploadResult> {
-        self.ensure_pet_access(pet_id, input.owner_user_id).await?;
+        input.usage_kind = MediaUsageKind::PetAlbumPhoto;
+        self.upload_pending_pet_media(input).await
+    }
+
+    pub async fn upload_pending_pet_album_photo_with_source_pet(
+        &self,
+        source_pet_id: Uuid,
+        mut input: PendingPetMediaUploadInput,
+    ) -> PetResult<PetMediaUploadResult> {
+        self.ensure_pet_access(source_pet_id, input.owner_user_id)
+            .await?;
         input.usage_kind = MediaUsageKind::PetAlbumPhoto;
         self.upload_pending_pet_media(input).await
     }

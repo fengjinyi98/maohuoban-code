@@ -65,8 +65,18 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(album::list_pet_albums).post(album::create_pet_album),
         )
         .route(
+            "/api/v1/pet-albums",
+            get(album::list_user_pet_albums).post(album::create_user_pet_album),
+        )
+        .route(
             "/api/v1/pets/{pet_id}/album-media",
             post(album::upload_pending_pet_album_photo).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::ugc_image().body_limit_bytes,
+            )),
+        )
+        .route(
+            "/api/v1/pet-album-media",
+            post(album::upload_pending_user_pet_album_photo).layer(DefaultBodyLimit::max(
                 MediaUploadPolicy::ugc_image().body_limit_bytes,
             )),
         )

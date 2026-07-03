@@ -105,7 +105,7 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         await store.loadAlbums(force: true)
 
         XCTAssertEqual(store.albums.map(\.id), ["album"])
-        XCTAssertEqual(store.album(id: "album")?.petName, "糯米")
+        XCTAssertEqual(store.album(id: "album")?.petName, "全部宠物")
         XCTAssertNil(store.errorMessage)
     }
 }
@@ -117,7 +117,6 @@ private extension PetAlbumStoreMutationTests {
     // - 记录 Store 发起的后端命令语义
     final class PetAlbumStoreTestRepository: PetAlbumRepository {
         func listAlbums(
-            petID: String,
             currentUserID: String,
             limit: Int,
             cursor: String?
@@ -134,7 +133,6 @@ private extension PetAlbumStoreMutationTests {
         }
 
         func createAlbum(
-            petID: String,
             draft: PetAlbumCreateDraft,
             currentUserID: String
         ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumData> {
@@ -229,7 +227,7 @@ private extension PetAlbumStoreMutationTests {
         ) -> PetAlbumDTO.AlbumData {
             PetAlbumDTO.AlbumData(
                 id: "album",
-                petID: "pet-1",
+                petID: nil,
                 ownerUserID: "user-1",
                 title: title,
                 description: nil,

@@ -5,16 +5,15 @@ async fn pet_album_crud_lists_with_cursor_pagination() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800139101").await;
-    let pet_id = create_album_test_pet(&app, &user_id).await;
 
-    let first_album = create_album(&app, &user_id, &pet_id, "糯米睡颜", false).await;
-    let second_album = create_album(&app, &user_id, &pet_id, "成长记录", true).await;
+    let first_album = create_album(&app, &user_id, "糯米睡颜", false).await;
+    let second_album = create_album(&app, &user_id, "成长记录", true).await;
 
     let list_response = app
         .router()
         .oneshot(empty_request(
             "GET",
-            &format!("/api/v1/pets/{pet_id}/albums?limit=1"),
+            "/api/v1/pet-albums?limit=1",
             Some(&user_id),
         ))
         .await
@@ -32,7 +31,7 @@ async fn pet_album_crud_lists_with_cursor_pagination() {
         .router()
         .oneshot(empty_request(
             "GET",
-            &format!("/api/v1/pets/{pet_id}/albums?limit=1&cursor={cursor}"),
+            &format!("/api/v1/pet-albums?limit=1&cursor={cursor}"),
             Some(&user_id),
         ))
         .await
@@ -49,12 +48,11 @@ async fn pet_album_assets_upload_and_page_by_album() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800139102").await;
-    let pet_id = create_album_test_pet(&app, &user_id).await;
-    let album = create_album(&app, &user_id, &pet_id, "户外散步", false).await;
+    let album = create_album(&app, &user_id, "户外散步", false).await;
     let album_id = album["id"].as_str().expect("album id");
 
-    let first_asset_id = upload_album_photo(&app, &user_id, &pet_id, b"first-photo").await;
-    let second_asset_id = upload_album_photo(&app, &user_id, &pet_id, b"second-photo").await;
+    let first_asset_id = upload_album_photo(&app, &user_id, b"first-photo").await;
+    let second_asset_id = upload_album_photo(&app, &user_id, b"second-photo").await;
     add_album_asset(&app, &user_id, album_id, &first_asset_id, "草地上").await;
     let second_album_asset =
         add_album_asset(&app, &user_id, album_id, &second_asset_id, "回家路上").await;
@@ -115,8 +113,7 @@ async fn pet_album_rejects_cross_user_access() {
     app.reset().await;
     let owner_user_id = login_user_id(&app, "13800139103").await;
     let other_user_id = login_user_id(&app, "13800139104").await;
-    let pet_id = create_album_test_pet(&app, &owner_user_id).await;
-    let album = create_album(&app, &owner_user_id, &pet_id, "只给主人看", true).await;
+    let album = create_album(&app, &owner_user_id, "只给主人看", true).await;
     let album_id = album["id"].as_str().expect("album id");
 
     let response = app
@@ -131,35 +128,9 @@ async fn pet_album_rejects_cross_user_access() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-async fn create_album_test_pet(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    user_id: &str,
-) -> String {
-    let response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            "/api/v1/pets",
-            json!({
-                "name": "糯米",
-                "species": "cat",
-                "sex": "female"
-            }),
-            Some(user_id),
-        ))
-        .await
-        .expect("create album test pet");
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"]["id"]
-        .as_str()
-        .expect("pet id")
-        .to_owned()
-}
-
 async fn create_album(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
-    pet_id: &str,
     title: &str,
     is_private: bool,
 ) -> Value {
@@ -167,7 +138,7 @@ async fn create_album(
         .router()
         .oneshot(json_request(
             "POST",
-            &format!("/api/v1/pets/{pet_id}/albums"),
+            "/api/v1/pet-albums",
             json!({
                 "title": title,
                 "is_private": is_private
@@ -180,7 +151,7 @@ async fn create_album(
     let body = response_json(response).await;
     assert_eq!(body["code"], "pet_album.created");
     assert_eq!(body["data"]["title"], title);
-    assert_eq!(body["data"]["pet_id"], pet_id);
+    assert!(body["data"]["pet_id"].is_null());
     assert_eq!(body["data"]["photo_count"], 0);
     body["data"].clone()
 }
@@ -188,12 +159,11 @@ async fn create_album(
 async fn upload_album_photo(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
-    pet_id: &str,
     content: &[u8],
 ) -> String {
     let body = upload_pending_media(
         app,
-        &format!("/api/v1/pets/{pet_id}/album-media"),
+        "/api/v1/pet-album-media",
         "album-photo.txt",
         "text/plain",
         content,

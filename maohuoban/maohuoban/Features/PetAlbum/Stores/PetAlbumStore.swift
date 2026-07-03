@@ -1,10 +1,11 @@
 import Foundation
 import Observation
 
-// PetAlbumStore 宠物相册展示状态
+// PetAlbumStore 用户级宠物相册展示状态
 // 核心职责：
-// - 作为相册模块列表、创建、详情页的单一状态源
+// - 作为用户相册空间列表、创建、详情页的单一状态源
 // - 通过仓库执行后端读写并更新展示状态
+// - 只把入口宠物作为来源上下文，不作为相册归属或数据源边界
 @MainActor
 @Observable
 final class PetAlbumStore {
@@ -25,7 +26,7 @@ final class PetAlbumStore {
         context.petName
     }
 
-    var petID: String? {
+    var sourcePetID: String? {
         context.petID
     }
 
@@ -53,8 +54,8 @@ final class PetAlbumStore {
 
     func loadAlbums(force: Bool = false) async {
         guard force || albums.isEmpty else { return }
-        guard let petID, let currentUserID else {
-            errorMessage = "请先选择宠物并登录"
+        guard let currentUserID else {
+            errorMessage = "请先登录"
             return
         }
 
@@ -62,7 +63,6 @@ final class PetAlbumStore {
         errorMessage = nil
         do {
             let response = try await repository.listAlbums(
-                petID: petID,
                 currentUserID: currentUserID,
                 limit: 30,
                 cursor: nil
@@ -70,12 +70,10 @@ final class PetAlbumStore {
             guard let data = response.data else {
                 throw MHBAPIError.invalidResponse
             }
-            albums = data.items.map { $0.summary(petName: context.petName) }
+            albums = data.items.map { $0.summary() }
             nextAlbumCursor = data.nextCursor
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
         isLoadingAlbums = false
     }
@@ -104,17 +102,15 @@ final class PetAlbumStore {
             updateAlbum(albumID: albumID) { album in
                 album.replacing(photoCount: data.items.count)
             }
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
         loadingAssetAlbumIDs.remove(albumID)
     }
 
     func createAlbum(draft: PetAlbumCreateDraft) async -> Bool {
-        guard let petID, let currentUserID else {
-            errorMessage = "请先选择宠物并登录"
+        guard let currentUserID else {
+            errorMessage = "请先登录"
             return false
         }
 
@@ -124,19 +120,16 @@ final class PetAlbumStore {
 
         do {
             let response = try await repository.createAlbum(
-                petID: petID,
                 draft: draft,
                 currentUserID: currentUserID
             )
             guard let album = response.data else {
                 throw MHBAPIError.invalidResponse
             }
-            albums.insert(album.summary(petName: context.petName), at: 0)
+            albums.insert(album.summary(), at: 0)
             return true
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
         return false
     }
@@ -160,12 +153,10 @@ final class PetAlbumStore {
             guard let album = response.data else {
                 throw MHBAPIError.invalidResponse
             }
-            replaceAlbum(album.summary(petName: context.petName))
+            replaceAlbum(album.summary())
             return true
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
         return false
     }
@@ -187,10 +178,8 @@ final class PetAlbumStore {
             )
             albums.removeAll { $0.id == albumID }
             assetsByAlbumID[albumID] = nil
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
     }
 
@@ -215,10 +204,8 @@ final class PetAlbumStore {
             updateAlbum(albumID: albumID) { album in
                 album.replacing(photoCount: assets.count)
             }
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
     }
 
@@ -245,11 +232,9 @@ final class PetAlbumStore {
             guard let album = response.data else {
                 throw MHBAPIError.invalidResponse
             }
-            replaceAlbum(album.summary(petName: context.petName))
-        } catch let error as MHBAPIError {
-            errorMessage = error.toastMessage
+            replaceAlbum(album.summary())
         } catch {
-            errorMessage = MHBAPIError.transport(error.localizedDescription).toastMessage
+            errorMessage = Self.toastMessage(for: error)
         }
     }
 
@@ -270,5 +255,12 @@ final class PetAlbumStore {
             return
         }
         albums[index] = album
+    }
+
+    private static func toastMessage(for error: any Error) -> String {
+        if let apiError = error as? MHBAPIError {
+            return apiError.toastMessage
+        }
+        return MHBAPIError.transport(error.localizedDescription).toastMessage
     }
 }

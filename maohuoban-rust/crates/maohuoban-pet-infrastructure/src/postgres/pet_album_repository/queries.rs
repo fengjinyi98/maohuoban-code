@@ -10,16 +10,14 @@ use super::errors::to_infrastructure_error;
 use super::rows::{HomeGalleryAlbumSummaryRow, PetAlbumAssetRow, PetAlbumRow};
 
 impl PostgresPetAlbumRepository {
-    pub(super) async fn list_pet_albums_query(
+    pub(super) async fn list_user_pet_albums_query(
         &self,
-        pet_id: Uuid,
         owner_user_id: Uuid,
         limit: i64,
         cursor: Option<String>,
     ) -> PetResult<PetAlbumListPage> {
         let (cursor_pinned, cursor_updated_at, cursor_id) = decode_album_cursor(cursor)?;
         let rows = sqlx::query_as::<_, PetAlbumRow>(ALBUM_SELECT_SQL)
-            .bind(pet_id)
             .bind(owner_user_id)
             .bind(limit + 1)
             .bind(cursor_pinned)
@@ -73,7 +71,7 @@ impl PostgresPetAlbumRepository {
 
     pub(super) async fn list_home_gallery_album_summaries_query(
         &self,
-        pet_id: Uuid,
+        _pet_id: Uuid,
         owner_user_id: Uuid,
         limit: i64,
     ) -> PetResult<Vec<HomeGalleryAlbumSummary>> {
@@ -86,25 +84,12 @@ impl PostgresPetAlbumRepository {
                 album.cover_asset_id,
                 album.photo_count
             FROM pet_albums album
-            INNER JOIN pet_profiles pet ON pet.id = album.pet_id
-            WHERE album.pet_id = $1
+            WHERE album.owner_user_id = $1
               AND album.archived_at IS NULL
-              AND pet.deleted_at IS NULL
-              AND (
-                  pet.owner_user_id = $2
-                  OR EXISTS (
-                      SELECT 1
-                      FROM pet_guardians guardian
-                      WHERE guardian.pet_id = pet.id
-                        AND guardian.guardian_user_id = $2
-                        AND guardian.status = 'active'
-                  )
-              )
             ORDER BY album.is_pinned DESC, album.updated_at DESC, album.id DESC
-            LIMIT $3
+            LIMIT $2
             "#,
         )
-        .bind(pet_id)
         .bind(owner_user_id)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -172,30 +157,18 @@ const ALBUM_SELECT_SQL: &str = r#"
         album.created_at,
         album.updated_at
     FROM pet_albums album
-    INNER JOIN pet_profiles pet ON pet.id = album.pet_id
-    WHERE album.pet_id = $1
+    WHERE album.owner_user_id = $1
       AND album.archived_at IS NULL
-      AND pet.deleted_at IS NULL
       AND (
-          pet.owner_user_id = $2
-          OR EXISTS (
-              SELECT 1
-              FROM pet_guardians guardian
-              WHERE guardian.pet_id = pet.id
-                AND guardian.guardian_user_id = $2
-                AND guardian.status = 'active'
-          )
-      )
-      AND (
-          $4::boolean IS NULL
-          OR album.is_pinned < $4
+          $3::boolean IS NULL
+          OR album.is_pinned < $3
           OR (
-              album.is_pinned = $4
-              AND (album.updated_at, album.id) < ($5::timestamptz, $6::uuid)
+              album.is_pinned = $3
+              AND (album.updated_at, album.id) < ($4::timestamptz, $5::uuid)
           )
       )
     ORDER BY album.is_pinned DESC, album.updated_at DESC, album.id DESC
-    LIMIT $3
+    LIMIT $2
     "#;
 
 const ALBUM_DETAIL_SQL: &str = r#"
@@ -213,20 +186,9 @@ const ALBUM_DETAIL_SQL: &str = r#"
         album.created_at,
         album.updated_at
     FROM pet_albums album
-    INNER JOIN pet_profiles pet ON pet.id = album.pet_id
     WHERE album.id = $1
       AND album.archived_at IS NULL
-      AND pet.deleted_at IS NULL
-      AND (
-          pet.owner_user_id = $2
-          OR EXISTS (
-              SELECT 1
-              FROM pet_guardians guardian
-              WHERE guardian.pet_id = pet.id
-                AND guardian.guardian_user_id = $2
-                AND guardian.status = 'active'
-          )
-      )
+      AND album.owner_user_id = $2
     "#;
 
 const ALBUM_ASSET_SELECT_SQL: &str = r#"
@@ -243,21 +205,10 @@ const ALBUM_ASSET_SELECT_SQL: &str = r#"
         album_asset.updated_at
     FROM pet_album_assets album_asset
     INNER JOIN pet_albums album ON album.id = album_asset.album_id
-    INNER JOIN pet_profiles pet ON pet.id = album.pet_id
     WHERE album_asset.album_id = $1
       AND album_asset.removed_at IS NULL
       AND album.archived_at IS NULL
-      AND pet.deleted_at IS NULL
-      AND (
-          pet.owner_user_id = $2
-          OR EXISTS (
-              SELECT 1
-              FROM pet_guardians guardian
-              WHERE guardian.pet_id = pet.id
-                AND guardian.guardian_user_id = $2
-                AND guardian.status = 'active'
-          )
-      )
+      AND album.owner_user_id = $2
       AND (
           $4::timestamptz IS NULL
           OR album_asset.sort_taken_at < $4
