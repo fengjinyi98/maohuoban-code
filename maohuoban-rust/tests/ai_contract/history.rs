@@ -1,16 +1,21 @@
 use axum::http::StatusCode;
-use maohuoban_diagnostics::{
-    CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, EventKind, FileSegmentStore,
-    PrivacyPolicy,
-};
+use maohuoban_diagnostics::EventKind;
 use serde_json::json;
 use std::time::Duration;
 use tower::ServiceExt;
 
+#[path = "history/support.rs"]
+mod support;
+
 use super::{
     authorized_delete_request, authorized_get_request, authorized_json_request,
-    authorized_multipart_media_request, diagnostics_test_lock, login_and_get_token, response_json,
-    response_text,
+    diagnostics_test_lock, login_and_get_token, response_json, response_text,
+};
+use support::{
+    create_chat_session, create_pet_with_avatar, current_user_id, get_session_messages,
+    insert_persisted_content_blocks_fixture, install_ai_history_test_diagnostics,
+    list_chat_sessions, unauthorized_ai_sessions_request, unauthorized_session_messages_request,
+    upload_pending_avatar,
 };
 
 /// GET /api/v1/ai/chat-sessions 未登录返回 401
@@ -22,13 +27,7 @@ async fn ai_chat_sessions_unauthorized_without_token() {
     let response = app
         .router()
         .clone()
-        .oneshot(
-            axum::http::Request::builder()
-                .method("GET")
-                .uri("/api/v1/ai/chat-sessions")
-                .body(axum::body::Body::empty())
-                .expect("build request"),
-        )
+        .oneshot(unauthorized_ai_sessions_request())
         .await
         .expect("send request");
 
@@ -45,13 +44,7 @@ async fn ai_session_messages_unauthorized_without_token() {
     let response = app
         .router()
         .clone()
-        .oneshot(
-            axum::http::Request::builder()
-                .method("GET")
-                .uri(format!("/api/v1/ai/chat-sessions/{session_id}/messages"))
-                .body(axum::body::Body::empty())
-                .expect("build request"),
-        )
+        .oneshot(unauthorized_session_messages_request(session_id))
         .await
         .expect("send unauthorized messages request");
 
@@ -125,17 +118,7 @@ async fn ai_chat_history_records_backend_diagnostics_counts() {
             .is_some_and(|items| !items.is_empty())
     );
 
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_get_request(
-            &format!("/api/v1/ai/chat-sessions/{session_id}/messages"),
-            &access_token,
-        ))
-        .await
-        .expect("get session messages");
-    assert_eq!(response.status(), StatusCode::OK);
-    let _ = response_json(response).await;
+    let _ = get_session_messages(&app, &access_token, &session_id).await;
 
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
@@ -276,18 +259,7 @@ async fn ai_session_messages_returns_messages() {
     let session_id = list_body["data"][0]["id"].as_str().expect("session id");
 
     // 获取消息详情
-    let msg_response = app
-        .router()
-        .clone()
-        .oneshot(authorized_get_request(
-            &format!("/api/v1/ai/chat-sessions/{session_id}/messages"),
-            &access_token,
-        ))
-        .await
-        .expect("get messages");
-
-    assert_eq!(msg_response.status(), StatusCode::OK);
-    let msg_body = response_json(msg_response).await;
+    let msg_body = get_session_messages(&app, &access_token, session_id).await;
     assert_eq!(msg_body["success"], true);
     let messages = msg_body["data"].as_array().expect("messages array");
     assert!(!messages.is_empty(), "should have at least 1 message");
@@ -307,76 +279,10 @@ async fn ai_session_messages_returns_persisted_content_blocks() {
     let actor_user_id = current_user_id(app.pool(), "13800139106").await;
     let session_id = uuid::Uuid::new_v4();
     let message_id = uuid::Uuid::new_v4();
+    insert_persisted_content_blocks_fixture(app.pool(), actor_user_id, session_id, message_id)
+        .await;
 
-    sqlx::query(
-        r"
-        INSERT INTO ai_chat_sessions
-            (id, actor_user_id, surface, title, status, created_at, updated_at)
-        VALUES ($1, $2, 'home_private', '宠物信息', 'active', now(), now())
-        ",
-    )
-    .bind(session_id)
-    .bind(actor_user_id)
-    .execute(app.pool())
-    .await
-    .expect("insert session fixture");
-
-    sqlx::query(
-        r"
-        INSERT INTO ai_messages
-            (id, session_id, role, content, status, citations, content_blocks, created_at)
-        VALUES ($1, $2, 'assistant', '这是梅录的宠物信息', 'completed', '[]'::jsonb, $3, now())
-        ",
-    )
-    .bind(message_id)
-    .bind(session_id)
-    .bind(json!([
-        {
-            "type": "section_heading",
-            "id": "pet-profile-heading",
-            "text": "这是梅录的宠物信息"
-        },
-        {
-            "type": "pet_profile_card",
-            "id": "pet-profile-card",
-            "pet": {
-                "id": "pet-1",
-                "name": "梅录",
-                "species": "cat",
-                "species_text": "猫",
-                "sex": "female",
-                "sex_text": "母猫",
-                "breed": "英短",
-                "avatar_url": null,
-                "birth_date": "2024-06-17",
-                "arrival_date": "2025-06-17"
-            },
-            "computed": {
-                "age_text": "当前年龄约 2岁15天",
-                "companionship_text": "到家陪伴 380 天"
-            },
-            "narrative": {
-                "birth": "梅录在 2024-06-17 来到这个世界。",
-                "arrival": "2025-06-17 是梅录到家的日子。"
-            }
-        }
-    ]))
-    .execute(app.pool())
-    .await
-    .expect("insert message fixture");
-
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_get_request(
-            &format!("/api/v1/ai/chat-sessions/{session_id}/messages"),
-            &access_token,
-        ))
-        .await
-        .expect("get messages");
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = response_json(response).await;
+    let body = get_session_messages(&app, &access_token, &session_id.to_string()).await;
     let messages = body["data"].as_array().expect("messages array");
     let assistant = messages
         .iter()
@@ -515,159 +421,6 @@ async fn ai_chat_session_mutation_rejects_other_user() {
         .expect("rename other user session");
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-}
-
-/// `upload_pending_avatar` 上传待绑定宠物头像
-/// 核心职责：
-/// - 为 AI 历史契约创建真实媒体资产
-/// - 返回可绑定到宠物档案的 asset id
-async fn upload_pending_avatar(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    access_token: &str,
-) -> String {
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_multipart_media_request(
-            "/api/v1/pet-media/avatar",
-            "ai-history-avatar.txt",
-            "text/plain",
-            b"ai-history-avatar",
-            "ios",
-            access_token,
-        ))
-        .await
-        .expect("upload pending avatar");
-
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let body = response_json(response).await;
-    body["data"]["asset"]["id"]
-        .as_str()
-        .expect("avatar asset id")
-        .to_owned()
-}
-
-/// `create_pet_with_avatar` 创建带头像的宠物档案
-/// 核心职责：
-/// - 复用真实宠物创建接口绑定头像资产
-/// - 返回后续 AI 会话使用的宠物档案数据
-async fn create_pet_with_avatar(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    access_token: &str,
-    name: &str,
-    avatar_asset_id: &str,
-) -> serde_json::Value {
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_json_request(
-            "POST",
-            "/api/v1/pets",
-            access_token,
-            json!({
-                "name": name,
-                "species": "cat",
-                "breed": "英短",
-                "sex": "male",
-                "birthday": "2024-01-01",
-                "arrival_date": "2024-03-01",
-                "avatar_asset_id": avatar_asset_id
-            }),
-        ))
-        .await
-        .expect("create pet with avatar");
-
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"].clone()
-}
-
-/// `create_chat_session` 通过真实聊天流创建 AI 会话
-/// 核心职责：
-/// - 复用当前历史契约的会话创建路径
-/// - 返回最新会话 ID 供后续会话操作接口测试
-async fn create_chat_session(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    access_token: &str,
-    message: &str,
-) -> String {
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_json_request(
-            "POST",
-            "/api/v1/ai/chat/stream",
-            access_token,
-            json!({
-                "message": message,
-                "surface": "home_private"
-            }),
-        ))
-        .await
-        .expect("send chat stream");
-    assert_eq!(response.status(), StatusCode::OK);
-    let _ = response_text(response).await;
-
-    let body = list_chat_sessions(app, access_token).await;
-    body["data"][0]["id"]
-        .as_str()
-        .expect("session id")
-        .to_owned()
-}
-
-/// `list_chat_sessions` 读取当前用户 AI 历史列表
-/// 核心职责：
-/// - 固定历史契约测试的列表请求
-/// - 返回完整 JSON 方便测试断言排序和字段
-async fn list_chat_sessions(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    access_token: &str,
-) -> serde_json::Value {
-    let response = app
-        .router()
-        .clone()
-        .oneshot(authorized_get_request(
-            "/api/v1/ai/chat-sessions",
-            access_token,
-        ))
-        .await
-        .expect("get sessions");
-
-    assert_eq!(response.status(), StatusCode::OK);
-    response_json(response).await
-}
-
-/// `current_user_id` 读取测试登录用户 ID
-/// 核心职责：
-/// - 让历史契约测试可直接插入归属当前用户的会话 fixture
-async fn current_user_id(pool: &sqlx::PgPool, phone: &str) -> uuid::Uuid {
-    sqlx::query_scalar::<_, uuid::Uuid>(
-        r"
-        SELECT user_id
-        FROM user_identities
-        WHERE provider = 'phone' AND identifier = $1
-        ",
-    )
-    .bind(phone)
-    .fetch_one(pool)
-    .await
-    .expect("read current user id")
-}
-
-fn install_ai_history_test_diagnostics() -> Diagnostics {
-    let root = std::env::temp_dir().join(format!(
-        "maohuoban-ai-history-diagnostics-{}",
-        uuid::Uuid::new_v4()
-    ));
-    let store = FileSegmentStore::new(root.join("segments"), 1024 * 1024).expect("store");
-    Diagnostics::install(DiagnosticsConfig {
-        service_name: "maohuoban-rust".to_owned(),
-        environment: "test".to_owned(),
-        privacy: PrivacyPolicy::default(),
-        capture: CapturePolicy::default(),
-        cleanup: CleanupPolicy::default(),
-        store: Box::new(store),
-    })
-    .expect("install diagnostics")
 }
 
 /// 其他用户不能访问不属于自己的会话消息

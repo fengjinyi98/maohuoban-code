@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T15:20:36",
+  "generated_at": "2026-07-03T15:25:18",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -7,7 +7,7 @@
     "swift_hard_line_limit": 400
   },
   "scan": {
-    "code_file_count": 1890,
+    "code_file_count": 1891,
     "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
@@ -927,11 +927,6 @@
       "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_compatible.rs": {
         "limit": 500,
         "line_count": 764,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/tests/ai_contract/history.rs": {
-        "limit": 500,
-        "line_count": 721,
         "suffix": ".rs"
       }
     },
@@ -3462,6 +3457,11 @@
       "maohuoban-rust/tests/ai_contract/evaluation_regression_contract/fixture_contract.rs": {
         "limit": 300,
         "line_count": 404,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/tests/ai_contract/history.rs": {
+        "limit": 300,
+        "line_count": 474,
         "suffix": ".rs"
       },
       "maohuoban-rust/tests/ai_contract/persistence.rs": {
