@@ -193,6 +193,33 @@ extension HomeDashboardSnapshot {
             case title
             case dateText = "date_text"
             case coverImageAssetName = "cover_image_asset_name"
+            case coverURL = "cover_url"
+            case photoCount = "photo_count"
+        }
+
+        init(
+            id: String,
+            title: String,
+            dateText: String,
+            coverImageAssetName: String
+        ) {
+            self.id = id
+            self.title = title
+            self.dateText = dateText
+            self.coverImageAssetName = coverImageAssetName
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            title = try container.decode(String.self, forKey: .title)
+            let photoCount = try container.decodeIfPresent(Int.self, forKey: .photoCount)
+            dateText = try container.decodeIfPresent(String.self, forKey: .dateText)
+                ?? photoCount.map { "\($0) 张照片" }
+                ?? "相册"
+            coverImageAssetName = try container.decodeIfPresent(String.self, forKey: .coverImageAssetName)
+                ?? container.decodeIfPresent(String.self, forKey: .coverURL)
+                ?? ""
         }
     }
 

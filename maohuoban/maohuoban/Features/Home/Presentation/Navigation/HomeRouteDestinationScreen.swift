@@ -132,23 +132,11 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
-        case .petAlbumList:
-            PetAlbumListScreen(
-                createRoute: HomeRoute.createPetAlbum,
-                detailRoute: { album in
-                    HomeRoute.petAlbumDetail(albumID: album.id)
-                },
-                editRoute: { context in
-                    HomeRoute.editPetAlbum(context)
-                },
-                onOpenRoute: onRouteRequested
+        case .petAlbum(let context):
+            PetAlbumRootScreen(
+                context: context,
+                currentUserID: currentUserID
             )
-        case .createPetAlbum:
-            PetAlbumCreateScreen()
-        case .editPetAlbum(let context):
-            PetAlbumCreateScreen(mode: .edit(context))
-        case .petAlbumDetail(let albumID):
-            PetAlbumDetailScreen(albumID: albumID)
         case .petPantry(let petID, let petName):
             PetPantryScreen(
                 petID: petID,
@@ -174,7 +162,7 @@ struct HomeRouteDestinationScreen: View {
                     case .addItem:
                         return HomeRoute.addPantryItem(petID: petID)
                     case .categoryDetail:
-                        // Shouldn't happen from here, or loop back
+                        // 该页面内不产生新的分类跳转，保持当前分类上下文。
                         return HomeRoute.pantryCategoryDetail(petID: petID, petName: petName, category: category)
                     }
                 }

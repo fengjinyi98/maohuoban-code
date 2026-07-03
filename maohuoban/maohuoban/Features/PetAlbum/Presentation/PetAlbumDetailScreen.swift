@@ -4,10 +4,10 @@ import MaohuobanDesignSystem
 // PetAlbumDetailScreen 宠物相册详情页
 // 核心职责：
 // - 展示单个相册的标题、数量和照片墙
-// - 使用 Mock 数据模拟后端返回图片尺寸后的展示结构
+// - 通过相册 Store 加载并展示后端照片资源
 struct PetAlbumDetailScreen: View {
     let albumID: String
-    @State private var store = PetAlbumStore()
+    let store: PetAlbumStore
     @State private var pendingDeleteAsset: PetAlbumAsset?
     @State private var isNavigationTitleVisible = false
 
@@ -34,6 +34,9 @@ struct PetAlbumDetailScreen: View {
             .padding(.top, MHBTheme.Spacing.s3)
             .padding(.bottom, MHBTheme.Spacing.s8)
         }
+        .task(id: albumID) {
+            await store.loadAssets(for: albumID)
+        }
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             max(geometry.contentOffset.y, 0)
         } action: { _, offset in
@@ -47,7 +50,9 @@ struct PetAlbumDetailScreen: View {
             presenting: pendingDeleteAsset
         ) { asset in
             Button("删除照片", role: .destructive) {
-                store.deleteAsset(id: asset.id, in: asset.albumID)
+                Task {
+                    await store.deleteAsset(id: asset.id, in: asset.albumID)
+                }
                 pendingDeleteAsset = nil
             }
 
@@ -106,7 +111,7 @@ struct PetAlbumDetailScreen: View {
             petName: "毛伙伴",
             updatedText: "刚刚更新",
             photoCount: 0,
-            coverImageAssetName: "HomeGalleryAlbum1"
+            coverImageAssetName: "photo.on.rectangle.angled"
         )
     }
 

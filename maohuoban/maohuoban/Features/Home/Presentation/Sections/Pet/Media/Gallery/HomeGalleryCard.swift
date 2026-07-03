@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // HomeGalleryCard 宠物相册卡片
 // 核心职责：
@@ -9,9 +10,7 @@ struct HomeGalleryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Image(album.coverImageAssetName)
-                .resizable()
-                .scaledToFill()
+            HomeGalleryCoverImage(source: album.coverImageAssetName)
                 .frame(width: 240, height: 135)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
@@ -34,5 +33,44 @@ struct HomeGalleryCard: View {
             }
         }
         .frame(width: 240)
+    }
+}
+
+// HomeGalleryCoverImage 首页相册封面图
+// 核心职责：
+// - 优先渲染后端返回的远程封面
+// - 在无有效封面时展示稳定占位
+private struct HomeGalleryCoverImage: View {
+    let source: String
+
+    var body: some View {
+        if let url = remoteURL {
+            MHBRemoteImage(url: url) {
+                placeholder
+            }
+        } else if UIImage(named: source) != nil {
+            Image(source)
+                .resizable()
+                .scaledToFill()
+        } else {
+            placeholder
+        }
+    }
+
+    private var remoteURL: URL? {
+        let value = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.hasPrefix("/") || value.hasPrefix("http://") || value.hasPrefix("https://") else {
+            return nil
+        }
+        return MHBBackendEndpoint.resolve(value)
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            Color.white.opacity(0.08)
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.45))
+        }
     }
 }

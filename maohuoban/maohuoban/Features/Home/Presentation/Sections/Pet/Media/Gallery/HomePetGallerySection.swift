@@ -7,13 +7,11 @@ import MaohuobanDesignSystem
 // - 在相册为空时保留首页入口占位
 struct HomePetGallerySection: View {
     let albums: [HomeDashboardSnapshot.PetGalleryAlbum]
-    let listRoute: HomeRoute
-    let createRoute: HomeRoute
-    let detailRoute: (HomeDashboardSnapshot.PetGalleryAlbum) -> HomeRoute
+    let entryRoute: HomeRoute
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            NavigationLink(value: listRoute) {
+            NavigationLink(value: entryRoute) {
                 HStack(spacing: MHBTheme.Spacing.s1) {
                     Text("相册")
                         .font(.system(size: 18, weight: .bold))
@@ -29,7 +27,7 @@ struct HomePetGallerySection: View {
             .accessibilityIdentifier("home.petGallery.header")
 
             if albums.isEmpty {
-                NavigationLink(value: createRoute) {
+                NavigationLink(value: entryRoute) {
                     VStack(spacing: MHBTheme.Spacing.s2) {
                         Image(systemName: "photo.on.rectangle.angled")
                             .font(.system(size: 24))
@@ -54,7 +52,7 @@ struct HomePetGallerySection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: MHBTheme.Spacing.s3) {
                         ForEach(albums) { album in
-                            NavigationLink(value: detailRoute(album)) {
+                            NavigationLink(value: entryRoute) {
                                 HomeGalleryCard(album: album)
                             }
                             .buttonStyle(.plain)

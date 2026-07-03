@@ -24,10 +24,7 @@ enum HomeRoute: Hashable {
     case merchantLitter(merchantID: String, litterID: String)
     case merchantTask(merchantID: String, reminderID: String)
     case petRecordDetail(PetRecordDetailRoute)
-    case petAlbumList
-    case createPetAlbum
-    case editPetAlbum(PetAlbumEditContext)
-    case petAlbumDetail(albumID: String)
+    case petAlbum(PetAlbumEntryContext)
     case petPantry(petID: String, petName: String)
     case pantryCategoryDetail(petID: String, petName: String, category: PantryCategory)
     case addPantryItem(petID: String)
@@ -54,10 +51,7 @@ extension HomeRoute {
         case .merchantLitter: "point.3.connected.trianglepath.dotted"
         case .merchantTask: "checklist"
         case .petRecordDetail: "clock.arrow.circlepath"
-        case .petAlbumList: "photo.on.rectangle.angled"
-        case .createPetAlbum: "plus.square.on.square"
-        case .editPetAlbum: "pencil"
-        case .petAlbumDetail: "photo"
+        case .petAlbum: "photo.on.rectangle.angled"
         case .petPantry: "archivebox.fill"
         case .pantryCategoryDetail: "archivebox.fill"
         case .addPantryItem: "plus.circle.fill"
@@ -84,10 +78,7 @@ extension HomeRoute {
         case .merchantLitter: "窝次详情"
         case .merchantTask: "待处理任务"
         case .petRecordDetail: "记录详情"
-        case .petAlbumList: "宠物相册"
-        case .createPetAlbum: "新建相册"
-        case .editPetAlbum: "编辑相册"
-        case .petAlbumDetail: "相册详情"
+        case .petAlbum: "宠物相册"
         case .petPantry: "储物柜"
         case .pantryCategoryDetail(_, _, let category): .init(stringLiteral: category.displayName)
         case .addPantryItem: "添加物品"
@@ -114,10 +105,7 @@ extension HomeRoute {
         case .merchantLitter: "查看出生批次、父母和同窝关系"
         case .merchantTask: "处理商家工作台待办"
         case .petRecordDetail: "查看宠物记录详情"
-        case .petAlbumList: "查看宠物照片相册"
-        case .createPetAlbum: "新建宠物照片相册"
-        case .editPetAlbum: "编辑相册标题和封面"
-        case .petAlbumDetail: "查看单个相册中的照片"
+        case .petAlbum: "进入宠物相册"
         case .petPantry: "查看宠物所有储物柜物品"
         case .pantryCategoryDetail: "查看该分类下的物品"
         case .addPantryItem: "添加新物品到储物柜"

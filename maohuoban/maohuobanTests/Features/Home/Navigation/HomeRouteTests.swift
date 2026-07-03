@@ -66,6 +66,24 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
+    func testPetAlbumRouteCarriesOnlyEntryContext() {
+        let context = PetAlbumEntryContext(
+            petID: "pet-1",
+            petName: "糯米"
+        )
+        let route = HomeRoute.petAlbum(context)
+
+        guard case .petAlbum(let actualContext) = route else {
+            XCTFail("Expected pet album entry route")
+            return
+        }
+
+        XCTAssertEqual(actualContext, context)
+        XCTAssertEqual(route.systemImage, "photo.on.rectangle.angled")
+        XCTAssertEqual(route.title, "宠物相册")
+    }
+
+    @MainActor
     func testHealthReminderRoutesToTimelineEventDetail() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "event-1",

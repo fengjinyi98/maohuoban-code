@@ -11,18 +11,19 @@ struct PetAlbumCreateScreen: View {
     @State private var name = ""
     @State private var isPrivate = false
     @State private var isInputComposing = false
+    @State private var isSubmitting = false
     @State private var selectedCoverImage: UIImage?
     @State private var isCoverPickerPresented = false
 
+    let store: PetAlbumStore
     let mode: PetAlbumCreateMode
-    let onSubmit: (PetAlbumCreateDraft) -> Void
 
     init(
+        store: PetAlbumStore,
         mode: PetAlbumCreateMode = .create,
-        onSubmit: @escaping (PetAlbumCreateDraft) -> Void = { _ in }
     ) {
+        self.store = store
         self.mode = mode
-        self.onSubmit = onSubmit
         _name = State(initialValue: mode.initialName)
         _isPrivate = State(initialValue: mode.initialIsPrivate)
     }
@@ -61,7 +62,7 @@ struct PetAlbumCreateScreen: View {
                 }
                 .font(MHBTheme.Typography.callout.weight(.bold))
                 .foregroundStyle(createButtonColor)
-                .disabled(!canCreate)
+                .disabled(!canCreate || isSubmitting)
                 .accessibilityIdentifier("petAlbum.create.submitButton")
             }
         }
@@ -91,8 +92,20 @@ struct PetAlbumCreateScreen: View {
 
     private func createIfNeeded() {
         guard canCreate else { return }
-        onSubmit(draft)
-        dismiss()
+        isSubmitting = true
+        Task {
+            let didSubmit: Bool
+            switch mode {
+            case .create:
+                didSubmit = await store.createAlbum(draft: draft)
+            case .edit(let context):
+                didSubmit = await store.updateAlbum(albumID: context.albumID, draft: draft)
+            }
+            isSubmitting = false
+            if didSubmit {
+                dismiss()
+            }
+        }
     }
 
     // handleCoverPickerResult 处理封面选择结果

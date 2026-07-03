@@ -89,24 +89,10 @@ extension ProfileRootScreen {
                 }
             )
         case .petAlbumList:
-            PetAlbumListScreen(
-                createRoute: ProfileRoute.createPetAlbum,
-                detailRoute: { album in
-                    ProfileRoute.petAlbumDetail(albumID: album.id)
-                },
-                editRoute: { context in
-                    ProfileRoute.editPetAlbum(context)
-                },
-                onOpenRoute: { route in
-                    tabState.appendProfileRoute(route)
-                }
+            PetAlbumRootScreen(
+                context: PetAlbumEntryContext(),
+                currentUserID: currentUserStore.userID
             )
-        case .createPetAlbum:
-            PetAlbumCreateScreen()
-        case .editPetAlbum(let context):
-            PetAlbumCreateScreen(mode: .edit(context))
-        case .petAlbumDetail(let albumID):
-            PetAlbumDetailScreen(albumID: albumID)
         case .followedTopics:
             TopicFollowedListScreen(store: topicStore) { topic in
                 ProfileRoute.topicDetail(topicID: topic.id)
