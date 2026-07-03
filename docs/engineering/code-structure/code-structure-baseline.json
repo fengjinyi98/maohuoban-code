@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T14:32:40",
+  "generated_at": "2026-07-03T14:38:44",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -7,7 +7,7 @@
     "swift_hard_line_limit": 400
   },
   "scan": {
-    "code_file_count": 1856,
+    "code_file_count": 1862,
     "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
@@ -969,11 +969,6 @@
         "line_count": 509,
         "suffix": ".rs"
       },
-      "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift": {
-        "limit": 400,
-        "line_count": 428,
-        "suffix": ".swift"
-      },
       "maohuoban/maohuoban/Features/AI/Stores/Streaming/AIAssistantStore+Streaming.swift": {
         "limit": 400,
         "line_count": 432,
@@ -1717,8 +1712,8 @@
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift": {
-        "line_count": 428,
-        "primary_type_count": 9,
+        "line_count": 348,
+        "primary_type_count": 3,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/AI/Data/AIStreamEventParser.swift": {
@@ -3547,6 +3542,11 @@
       "maohuoban/Packages/MaohuobanDesignSystem/Sources/MaohuobanDesignSystem/UIKit/KeyboardTextView/MHBKeyboardTextView.swift": {
         "limit": 250,
         "line_count": 380,
+        "suffix": ".swift"
+      },
+      "maohuoban/maohuoban/Features/AI/Data/AIAssistantRepository.swift": {
+        "limit": 250,
+        "line_count": 348,
         "suffix": ".swift"
       },
       "maohuoban/maohuoban/Features/AI/Presentation/AIAssistantHistoryScreen.swift": {
