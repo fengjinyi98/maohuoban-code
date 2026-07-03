@@ -35,6 +35,10 @@ final class MHBPhotoLibraryPickerStore {
         )
     }
 
+    var disabledAssetIDs: Set<String> {
+        request.disabledLocalIdentifiers
+    }
+
     init(
         request: MHBMediaPickerRequest = .singleImage,
         service: MHBPhotoLibraryService = MHBPhotoLibraryService()
@@ -76,7 +80,16 @@ final class MHBPhotoLibraryPickerStore {
         selectedAssets.firstIndex(where: { $0.id == asset.id }).map { $0 + 1 }
     }
 
+    func isDisabled(_ asset: MHBPhotoLibraryAsset) -> Bool {
+        request.disabledLocalIdentifiers.contains(asset.id)
+    }
+
     func toggleSelection(for asset: MHBPhotoLibraryAsset) {
+        guard !isDisabled(asset) else {
+            errorMessage = "这张照片已在当前相册中"
+            return
+        }
+
         if let index = selectedAssets.firstIndex(where: { $0.id == asset.id }) {
             selectedAssets.remove(at: index)
             return
@@ -91,6 +104,11 @@ final class MHBPhotoLibraryPickerStore {
     }
 
     func resolveSelection(for asset: MHBPhotoLibraryAsset) async -> MHBMediaPickerResult? {
+        guard !isDisabled(asset) else {
+            errorMessage = "这张照片已在当前相册中"
+            return nil
+        }
+
         isResolvingSelection = true
         errorMessage = nil
         defer { isResolvingSelection = false }

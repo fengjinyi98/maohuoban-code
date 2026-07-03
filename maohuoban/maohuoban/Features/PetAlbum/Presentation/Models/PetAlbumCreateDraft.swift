@@ -9,6 +9,17 @@ struct PetAlbumCreateDraft: Equatable {
 
     let name: String
     let isPrivate: Bool
+    let coverAssetID: String?
+
+    init(
+        name: String,
+        isPrivate: Bool,
+        coverAssetID: String? = nil
+    ) {
+        self.name = name
+        self.isPrivate = isPrivate
+        self.coverAssetID = coverAssetID
+    }
 
     var normalizedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)

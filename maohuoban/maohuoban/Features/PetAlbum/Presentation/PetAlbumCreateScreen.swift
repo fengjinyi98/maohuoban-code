@@ -97,7 +97,7 @@ struct PetAlbumCreateScreen: View {
             let didSubmit: Bool
             switch mode {
             case .create:
-                didSubmit = await store.createAlbum(draft: draft)
+                didSubmit = await store.createAlbum(draft: draft, coverUploadDraft: coverUploadDraft())
             case .edit(let context):
                 didSubmit = await store.updateAlbum(albumID: context.albumID, draft: draft)
             }
@@ -106,6 +106,29 @@ struct PetAlbumCreateScreen: View {
                 dismiss()
             }
         }
+    }
+
+    // coverUploadDraft 构建相册封面上传草稿
+    // 核心职责：
+    // - 在用户提交事件中将本地封面图编码为上传文件
+    // - 复用统一媒资上传编码策略
+    private func coverUploadDraft() -> PetMediaUploadDraft? {
+        guard let selectedCoverImage,
+              let encoded = MHBMediaUploadEncoder.encode(
+                image: selectedCoverImage,
+                purpose: .ugcImage,
+                fileName: "pet-album-cover"
+              )
+        else {
+            return nil
+        }
+
+        return PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
+        )
     }
 
     // handleCoverPickerResult 处理封面选择结果

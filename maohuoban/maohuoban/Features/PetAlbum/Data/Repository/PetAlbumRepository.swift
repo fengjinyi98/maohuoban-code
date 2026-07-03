@@ -50,4 +50,17 @@ protocol PetAlbumRepository {
         albumAssetID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumDetailData>
+
+    func uploadAlbumMedia(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
+    func addAsset(
+        albumID: String,
+        assetID: String,
+        caption: String?,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AssetData>
 }

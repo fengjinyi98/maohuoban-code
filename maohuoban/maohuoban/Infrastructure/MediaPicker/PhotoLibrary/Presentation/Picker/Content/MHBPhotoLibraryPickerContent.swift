@@ -11,6 +11,7 @@ struct MHBPhotoLibraryPickerContent: View {
     let assets: [MHBPhotoLibraryAsset]
     let resolvingAssetID: String?
     let selectedAssetIDs: [String: Int]
+    let disabledAssetIDs: Set<String>
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
     let onOpenSettings: () -> Void
@@ -30,6 +31,7 @@ struct MHBPhotoLibraryPickerContent: View {
                 assets: assets,
                 resolvingAssetID: resolvingAssetID,
                 selectedAssetIDs: selectedAssetIDs,
+                disabledAssetIDs: disabledAssetIDs,
                 service: service,
                 onSelectAsset: onSelectAsset,
                 onOpenLimitedPicker: onOpenLimitedPicker

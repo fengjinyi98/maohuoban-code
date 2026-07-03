@@ -6,7 +6,18 @@ import UIKit
 // - 为解析逻辑提供可测试的纯输入模型
 struct MHBResolvedPhotoLibrarySelection {
     let image: UIImage?
+    let imageLocalIdentifier: String?
     let livePhoto: MHBPickedLivePhoto?
+
+    init(
+        image: UIImage?,
+        imageLocalIdentifier: String? = nil,
+        livePhoto: MHBPickedLivePhoto?
+    ) {
+        self.image = image
+        self.imageLocalIdentifier = imageLocalIdentifier
+        self.livePhoto = livePhoto
+    }
 }
 
 // MHBPhotoLibrarySelectionResolver PhotoKit 选择结果解析器
@@ -20,7 +31,10 @@ enum MHBPhotoLibrarySelectionResolver {
         }
 
         if let image = selection.image {
-            return MHBMediaPickerResult(images: [image])
+            return MHBMediaPickerResult(
+                images: [image],
+                imageLocalIdentifiers: [selection.imageLocalIdentifier]
+            )
         }
 
         return MHBMediaPickerResult()

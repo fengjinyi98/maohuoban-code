@@ -20,4 +20,15 @@ final class MHBMediaPickerRequestTests: XCTestCase {
         XCTAssertEqual(request.maxSelectionCount, 9)
         XCTAssertEqual(request.filter, .images)
     }
+
+    func testRequestCarriesDisabledPhotoLibraryAssetIdentifiers() {
+        let request = MHBMediaPickerRequest(
+            maxSelectionCount: 9,
+            filter: .images,
+            disabledLocalIdentifiers: ["local-1", "local-2"]
+        )
+
+        XCTAssertTrue(request.disabledLocalIdentifiers.contains("local-1"))
+        XCTAssertTrue(request.disabledLocalIdentifiers.contains("local-2"))
+    }
 }

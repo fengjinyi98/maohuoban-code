@@ -41,7 +41,7 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         }
 
         _ = try await repository.createAlbum(
-            draft: PetAlbumCreateDraft(name: " 成长记录 ", isPrivate: true),
+            draft: PetAlbumCreateDraft(name: " 成长记录 ", isPrivate: true, coverAssetID: "asset-cover-1"),
             currentUserID: "user-1"
         )
 
@@ -52,6 +52,63 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         XCTAssertEqual(json["title"] as? String, "成长记录")
         XCTAssertEqual(json["is_private"] as? Bool, true)
+        XCTAssertEqual(json["cover_asset_id"] as? String, "asset-cover-1")
+    }
+
+    @MainActor
+    func testUploadAlbumMediaPostsMultipartToAlbumMediaEndpoint() async throws {
+        let requestBox = RequestBox()
+        let repository = makeAlbumRepository { request in
+            requestBox.request = request
+            return Self.mediaUploadResponse(request: request)
+        }
+
+        let response = try await repository.uploadAlbumMedia(
+            draft: PetMediaUploadDraft(
+                fileName: "album-cover.jpg",
+                mimeType: "image/jpeg",
+                content: Data([1, 2, 3]),
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        ) { _ in }
+
+        let request = try XCTUnwrap(requestBox.request)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/pet-album-media")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+        XCTAssertTrue(request.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/form-data") == true)
+        let body = String(data: try XCTUnwrap(request.bodyDataForPetRepositoryTest()), encoding: .utf8)
+        XCTAssertTrue(body?.contains("name=\"file\"; filename=\"album-cover.jpg\"") == true)
+        XCTAssertTrue(body?.contains("name=\"source_client\"") == true)
+        XCTAssertEqual(response.data?.asset.id, "asset-album-cover")
+        XCTAssertEqual(response.data?.asset.width, 1200)
+        XCTAssertEqual(response.data?.asset.height, 900)
+        XCTAssertEqual(response.data?.asset.sha256Hex, "sha-cover")
+    }
+
+    @MainActor
+    func testAddAssetPostsAssetBindingToAlbumEndpoint() async throws {
+        let requestBox = RequestBox()
+        let repository = makeAlbumRepository { request in
+            requestBox.request = request
+            return Self.albumAssetResponse(request: request)
+        }
+
+        _ = try await repository.addAsset(
+            albumID: "album-1",
+            assetID: "asset-photo-1",
+            caption: "睡颜",
+            currentUserID: "user-1"
+        )
+
+        let request = try XCTUnwrap(requestBox.request)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/pet-albums/album-1/assets")
+        let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["asset_id"] as? String, "asset-photo-1")
+        XCTAssertEqual(json["caption"] as? String, "睡颜")
     }
 
     @MainActor
@@ -116,6 +173,71 @@ final class PetAlbumRepositoryTests: PetRepositoryTestCase {
                 "archived_at": null,
                 "created_at": "2026-07-01T12:00:00Z",
                 "updated_at": "2026-07-03T12:00:00Z"
+              }
+            }
+            """#
+        )
+    }
+
+    private static func mediaUploadResponse(request: URLRequest) -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: 201,
+            body: #"""
+            {
+              "success": true,
+              "code": "pet_album_media.uploaded",
+              "message": "媒资已上传",
+              "data": {
+                "asset": {
+                  "id": "asset-album-cover",
+                  "url": "/media/album-cover.jpg",
+                  "uploaded_by_user_id": "user-1",
+                  "owner_pet_id": null,
+                  "usage_kind": "pet.album.photo",
+                  "source_client": "ios",
+                  "original_file_name": "album-cover.jpg",
+                  "mime_type": "image/jpeg",
+                  "byte_size": 3,
+                  "sha256_hex": "sha-cover",
+                  "bucket": "media",
+                  "object_key": "users/user-1/albums/asset-album-cover/original.jpg",
+                  "status": "uploaded",
+                  "width": 1200,
+                  "height": 900,
+                  "created_at": "2026-07-01T12:00:00Z",
+                  "updated_at": "2026-07-01T12:00:00Z"
+                },
+                "binding": null,
+                "derivatives": [],
+                "components": []
+              }
+            }
+            """#
+        )
+    }
+
+    private static func albumAssetResponse(request: URLRequest) -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: 201,
+            body: #"""
+            {
+              "success": true,
+              "code": "pet_album.asset_added",
+              "message": "照片已加入相册",
+              "data": {
+                "id": "album-asset-1",
+                "album_id": "album-1",
+                "pet_id": null,
+                "asset_id": "asset-photo-1",
+                "asset_url": "/media/photo-1.jpg",
+                "added_by_user_id": "user-1",
+                "caption": "睡颜",
+                "width": 1200,
+                "height": 900,
+                "sort_taken_at": "2026-07-01T12:00:00Z",
+                "removed_at": null,
+                "created_at": "2026-07-01T12:00:00Z",
+                "updated_at": "2026-07-01T12:00:00Z"
               }
             }
             """#

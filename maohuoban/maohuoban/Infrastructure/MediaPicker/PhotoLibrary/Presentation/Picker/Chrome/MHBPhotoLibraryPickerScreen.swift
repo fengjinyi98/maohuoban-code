@@ -48,6 +48,7 @@ struct MHBPhotoLibraryPickerScreen: View {
                     assets: store.assets,
                     resolvingAssetID: resolvingAssetID,
                     selectedAssetIDs: store.selectedAssetIDMap,
+                    disabledAssetIDs: store.disabledAssetIDs,
                     service: store.service,
                     onSelectAsset: handleSelectAsset,
                     onOpenSettings: openSettings,

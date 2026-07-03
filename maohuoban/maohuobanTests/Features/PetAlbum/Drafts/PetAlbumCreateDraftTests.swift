@@ -17,11 +17,20 @@ final class PetAlbumCreateDraftTests: XCTestCase {
 
     @MainActor
     func testValidNameCanCreateAfterTrimmingWhitespace() {
-        let draft = PetAlbumCreateDraft(name: " 糯米睡颜 ", isPrivate: true)
+        let draft = PetAlbumCreateDraft(name: " 糯米睡颜 ", isPrivate: true, coverAssetID: "asset-cover-1")
 
         XCTAssertTrue(draft.canCreate)
         XCTAssertEqual(draft.normalizedName, "糯米睡颜")
         XCTAssertTrue(draft.isPrivate)
+        XCTAssertEqual(draft.coverAssetID, "asset-cover-1")
+    }
+
+    @MainActor
+    func testCoverAssetIDDoesNotAffectCreateValidation() {
+        let draft = PetAlbumCreateDraft(name: "成长记录", isPrivate: false, coverAssetID: nil)
+
+        XCTAssertTrue(draft.canCreate)
+        XCTAssertNil(draft.coverAssetID)
     }
 
     @MainActor

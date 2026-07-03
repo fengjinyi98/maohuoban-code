@@ -94,4 +94,41 @@ struct PetAlbumAsset: Identifiable, Equatable, Hashable {
     let pixelSize: PetAlbumImageSize
     let source: PetAlbumSource
     let caption: String?
+    let localIdentifier: String?
+
+    init(
+        id: String,
+        albumID: String,
+        imageAssetName: String,
+        pixelSize: PetAlbumImageSize,
+        source: PetAlbumSource,
+        caption: String?,
+        localIdentifier: String? = nil
+    ) {
+        self.id = id
+        self.albumID = albumID
+        self.imageAssetName = imageAssetName
+        self.pixelSize = pixelSize
+        self.source = source
+        self.caption = caption
+        self.localIdentifier = localIdentifier
+    }
+}
+
+// PetAlbumPhotoUploadDraft 相册照片上传草稿
+// 核心职责：
+// - 携带实际媒资上传文件
+// - 保留本机 PhotoKit 标识用于同设备重复选择置灰
+// - 将跨设备去重交给后端媒资指纹，不把本机标识作为业务事实
+struct PetAlbumPhotoUploadDraft: Equatable {
+    let media: PetMediaUploadDraft
+    let localIdentifier: String?
+
+    init(
+        media: PetMediaUploadDraft,
+        localIdentifier: String? = nil
+    ) {
+        self.media = media
+        self.localIdentifier = localIdentifier
+    }
 }

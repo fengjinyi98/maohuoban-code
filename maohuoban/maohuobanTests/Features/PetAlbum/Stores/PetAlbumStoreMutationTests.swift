@@ -108,14 +108,93 @@ final class PetAlbumStoreMutationTests: XCTestCase {
         XCTAssertEqual(store.album(id: "album")?.petName, "全部宠物")
         XCTAssertNil(store.errorMessage)
     }
+
+    @MainActor
+    func testCreateAlbumUploadsCoverBeforeCreatingAlbum() async {
+        let repository = PetAlbumStoreTestRepository()
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository
+        )
+
+        let didCreate = await store.createAlbum(
+            draft: PetAlbumCreateDraft(name: "成长记录", isPrivate: false),
+            coverUploadDraft: Self.uploadDraft(fileName: "cover.jpg")
+        )
+
+        XCTAssertTrue(didCreate)
+        XCTAssertEqual(repository.recordedEvents, [
+            .uploadMedia(fileName: "cover.jpg"),
+            .createAlbum(coverAssetID: "asset-uploaded")
+        ])
+        XCTAssertEqual(store.albums.first?.coverImageAssetName, "/media/uploaded.jpg")
+    }
+
+    @MainActor
+    func testUploadPhotosUploadsAndBindsAssetsToAlbum() async {
+        let repository = PetAlbumStoreTestRepository()
+        let album = PetAlbumSummary(
+            id: "album",
+            title: "成长记录",
+            petName: "全部宠物",
+            updatedText: "今天更新",
+            photoCount: 0,
+            coverImageAssetName: "photo.on.rectangle.angled"
+        )
+        let store = PetAlbumStore(
+            context: PetAlbumEntryContext(petID: "pet-1", petName: "糯米"),
+            currentUserID: "user-1",
+            repository: repository,
+            albums: [album],
+            assetsByAlbumID: [album.id: []]
+        )
+
+        let didUpload = await store.uploadPhotos(
+            to: album.id,
+            drafts: [
+                PetAlbumPhotoUploadDraft(media: Self.uploadDraft(fileName: "photo-1.jpg"), localIdentifier: "local-1"),
+                PetAlbumPhotoUploadDraft(media: Self.uploadDraft(fileName: "photo-2.jpg"), localIdentifier: "local-2")
+            ]
+        )
+
+        XCTAssertTrue(didUpload)
+        XCTAssertEqual(repository.recordedEvents, [
+            .uploadMedia(fileName: "photo-1.jpg"),
+            .addAsset(assetID: "asset-uploaded", albumID: "album"),
+            .uploadMedia(fileName: "photo-2.jpg"),
+            .addAsset(assetID: "asset-uploaded", albumID: "album")
+        ])
+        XCTAssertEqual(store.assets(for: album.id).count, 2)
+        XCTAssertEqual(store.assets(for: album.id).map(\.id), ["album-asset-1", "album-asset-2"])
+        XCTAssertEqual(store.assets(for: album.id).compactMap(\.localIdentifier), ["local-1", "local-2"])
+        XCTAssertEqual(store.album(id: album.id)?.photoCount, 2)
+    }
 }
 
 private extension PetAlbumStoreMutationTests {
+    static func uploadDraft(fileName: String) -> PetMediaUploadDraft {
+        PetMediaUploadDraft(
+            fileName: fileName,
+            mimeType: "image/jpeg",
+            content: Data([1, 2, 3]),
+            sourceClient: "ios"
+        )
+    }
+
+    enum RepositoryEvent: Equatable {
+        case uploadMedia(fileName: String)
+        case createAlbum(coverAssetID: String?)
+        case addAsset(assetID: String, albumID: String)
+    }
+
     // PetAlbumStoreTestRepository 相册 Store 测试仓库
     // 核心职责：
     // - 返回固定相册和照片数据
     // - 记录 Store 发起的后端命令语义
     final class PetAlbumStoreTestRepository: PetAlbumRepository {
+        var recordedEvents: [RepositoryEvent] = []
+
         func listAlbums(
             currentUserID: String,
             limit: Int,
@@ -136,11 +215,18 @@ private extension PetAlbumStoreMutationTests {
             draft: PetAlbumCreateDraft,
             currentUserID: String
         ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AlbumData> {
-            MHBAPIResponse(
+            recordedEvents.append(.createAlbum(coverAssetID: draft.coverAssetID))
+            return MHBAPIResponse(
                 success: true,
                 code: "pet_album.created",
                 message: "相册已创建",
-                data: Self.albumData(title: draft.normalizedName, isPinned: false, photoCount: 0)
+                data: Self.albumData(
+                    title: draft.normalizedName,
+                    isPinned: false,
+                    coverAssetID: draft.coverAssetID,
+                    coverURL: draft.coverAssetID == nil ? nil : "/media/uploaded.jpg",
+                    photoCount: 0
+                )
             )
         }
 
@@ -220,9 +306,79 @@ private extension PetAlbumStoreMutationTests {
             )
         }
 
+        func uploadAlbumMedia(
+            draft: PetMediaUploadDraft,
+            currentUserID: String,
+            onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+        ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+            recordedEvents.append(.uploadMedia(fileName: draft.fileName))
+            return MHBAPIResponse(
+                success: true,
+                code: "pet_album_media.uploaded",
+                message: "媒资已上传",
+                data: PetMediaUploadResult(
+                    asset: PetMediaAsset(
+                        id: "asset-uploaded",
+                        url: "/media/uploaded.jpg",
+                        uploadedByUserID: currentUserID,
+                        ownerPetID: nil,
+                        usageKind: .albumPhoto,
+                        sourceClient: draft.sourceClient,
+                        originalFileName: draft.fileName,
+                        mimeType: draft.mimeType,
+                        byteSize: draft.content.count,
+                        sha256Hex: "sha-uploaded",
+                        bucket: "media",
+                        objectKey: "users/user-1/albums/asset-uploaded/original.jpg",
+                        status: .uploaded,
+                        width: 1200,
+                        height: 900,
+                        createdAt: "2026-07-01T12:00:00Z",
+                        updatedAt: "2026-07-01T12:00:00Z"
+                    ),
+                    binding: nil
+                )
+            )
+        }
+
+        func addAsset(
+            albumID: String,
+            assetID: String,
+            caption: String?,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AssetData> {
+            recordedEvents.append(.addAsset(assetID: assetID, albumID: albumID))
+            let assetIndex = recordedEvents.compactMap { event in
+                if case .addAsset = event { return event }
+                return nil
+            }.count
+            return MHBAPIResponse(
+                success: true,
+                code: "pet_album.asset_added",
+                message: "照片已加入相册",
+                data: PetAlbumDTO.AssetData(
+                    id: "album-asset-\(assetIndex)",
+                    albumID: albumID,
+                    petID: nil,
+                    assetID: assetID,
+                    assetURL: "/media/uploaded-\(assetIndex).jpg",
+                    addedByUserID: currentUserID,
+                    caption: caption,
+                    width: 1200,
+                    height: 900,
+                    sortTakenAt: "2026-07-01T12:00:00Z",
+                    removedAt: nil,
+                    createdAt: "2026-07-01T12:00:00Z",
+                    updatedAt: "2026-07-01T12:00:00Z"
+                )
+            )
+        }
+
         private static func albumData(
             title: String = "成长记录",
             isPinned: Bool,
+            coverAssetID: String? = nil,
+            coverURL: String? = "/media/cover.jpg",
             photoCount: Int
         ) -> PetAlbumDTO.AlbumData {
             PetAlbumDTO.AlbumData(
@@ -233,8 +389,8 @@ private extension PetAlbumStoreMutationTests {
                 description: nil,
                 isPrivate: false,
                 isPinned: isPinned,
-                coverAssetID: nil,
-                coverURL: "/media/cover.jpg",
+                coverAssetID: coverAssetID,
+                coverURL: coverURL,
                 photoCount: photoCount,
                 archivedAt: nil,
                 createdAt: "2026-07-01T12:00:00Z",

@@ -17,6 +17,7 @@ final class MHBPhotoGridController: NSObject {
     }
     var resolvingAssetID: String?
     var selectedAssetIDs: [String: Int] = [:]
+    var disabledAssetIDs: Set<String> = []
     var onSelectAsset: ((MHBPhotoLibraryAsset) -> Void)?
     var onScrollDateChanged: ((MHBPhotoGridScrollDateSnapshot?) -> Void)?
 
@@ -47,6 +48,11 @@ final class MHBPhotoGridController: NSObject {
         updateVisibleCellStates()
     }
 
+    func updateDisabledAssetIDs(_ disabledAssetIDs: Set<String>) {
+        self.disabledAssetIDs = disabledAssetIDs
+        updateVisibleCellStates()
+    }
+
     private func updateVisibleCellStates() {
         collectionView.indexPathsForVisibleItems.forEach { indexPath in
             guard indexPath.item < assets.count,
@@ -57,6 +63,7 @@ final class MHBPhotoGridController: NSObject {
             let asset = assets[indexPath.item]
             cell.updateResolvingState(asset.id == resolvingAssetID)
             cell.updateSelectionIndex(selectedAssetIDs[asset.id])
+            cell.updateDisabledState(disabledAssetIDs.contains(asset.id))
         }
     }
 
@@ -175,7 +182,8 @@ extension MHBPhotoGridController: UICollectionViewDataSource {
             isVideo: asset.isVideo,
             durationText: asset.duration.map(Self.formatDuration(_:)),
             selectionIndex: selectedAssetIDs[asset.id],
-            isResolving: asset.id == resolvingAssetID
+            isResolving: asset.id == resolvingAssetID,
+            isDisabled: disabledAssetIDs.contains(asset.id)
         )
         _ = service.requestThumbnail(for: asset) { [weak cell] image in
             cell?.updateImage(image, for: asset.id)
@@ -194,6 +202,10 @@ extension MHBPhotoGridController: UICollectionViewDataSource {
 extension MHBPhotoGridController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard indexPath.item < assets.count else {
+            return
+        }
+        guard !disabledAssetIDs.contains(assets[indexPath.item].id) else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

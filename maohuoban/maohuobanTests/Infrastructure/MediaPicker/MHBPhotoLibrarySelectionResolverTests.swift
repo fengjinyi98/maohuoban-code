@@ -12,6 +12,7 @@ final class MHBPhotoLibrarySelectionResolverTests: XCTestCase {
         let image = UIImage()
         let selection = MHBResolvedPhotoLibrarySelection(
             image: image,
+            imageLocalIdentifier: "local-image-1",
             livePhoto: nil
         )
 
@@ -22,6 +23,7 @@ final class MHBPhotoLibrarySelectionResolverTests: XCTestCase {
 
         XCTAssertEqual(images.count, 1)
         XCTAssertTrue(images.first === image)
+        XCTAssertEqual(result.imageLocalIdentifiers, ["local-image-1"])
         XCTAssertTrue(videos.isEmpty)
         XCTAssertTrue(livePhotos.isEmpty)
     }

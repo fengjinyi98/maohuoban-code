@@ -108,7 +108,10 @@ final class PetAlbumStore {
         loadingAssetAlbumIDs.remove(albumID)
     }
 
-    func createAlbum(draft: PetAlbumCreateDraft) async -> Bool {
+    func createAlbum(
+        draft: PetAlbumCreateDraft,
+        coverUploadDraft: PetMediaUploadDraft? = nil
+    ) async -> Bool {
         guard let currentUserID else {
             errorMessage = "请先登录"
             return false
@@ -119,14 +122,65 @@ final class PetAlbumStore {
         defer { mutationInFlight = false }
 
         do {
+            let resolvedDraft: PetAlbumCreateDraft
+            if let coverUploadDraft {
+                let upload = try await uploadAlbumMedia(draft: coverUploadDraft, currentUserID: currentUserID)
+                resolvedDraft = PetAlbumCreateDraft(
+                    name: draft.name,
+                    isPrivate: draft.isPrivate,
+                    coverAssetID: upload.asset.id
+                )
+            } else {
+                resolvedDraft = draft
+            }
             let response = try await repository.createAlbum(
-                draft: draft,
+                draft: resolvedDraft,
                 currentUserID: currentUserID
             )
             guard let album = response.data else {
                 throw MHBAPIError.invalidResponse
             }
             albums.insert(album.summary(), at: 0)
+            PetAlbumMutationSignal.post()
+            return true
+        } catch {
+            errorMessage = Self.toastMessage(for: error)
+        }
+        return false
+    }
+
+    func uploadPhotos(to albumID: String, drafts: [PetAlbumPhotoUploadDraft]) async -> Bool {
+        guard !drafts.isEmpty else {
+            return true
+        }
+
+        guard let currentUserID else {
+            errorMessage = "请先登录"
+            return false
+        }
+
+        mutationInFlight = true
+        errorMessage = nil
+        defer { mutationInFlight = false }
+
+        do {
+            var appendedAssets = assetsByAlbumID[albumID] ?? []
+            for draft in drafts {
+                let upload = try await uploadAlbumMedia(draft: draft.media, currentUserID: currentUserID)
+                let response = try await repository.addAsset(
+                    albumID: albumID,
+                    assetID: upload.asset.id,
+                    caption: nil,
+                    currentUserID: currentUserID
+                )
+                if let asset = response.data {
+                    appendedAssets.append(asset.asset(localIdentifier: draft.localIdentifier))
+                }
+            }
+            assetsByAlbumID[albumID] = appendedAssets
+            updateAlbum(albumID: albumID) { album in
+                album.replacing(photoCount: appendedAssets.count)
+            }
             PetAlbumMutationSignal.post()
             return true
         } catch {
@@ -260,6 +314,20 @@ final class PetAlbumStore {
             return
         }
         albums[index] = album
+    }
+
+    private func uploadAlbumMedia(
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> PetMediaUploadResult {
+        let response = try await repository.uploadAlbumMedia(
+            draft: draft,
+            currentUserID: currentUserID
+        ) { _ in }
+        guard let upload = response.data else {
+            throw MHBAPIError.invalidResponse
+        }
+        return upload
     }
 
     private static func toastMessage(for error: any Error) -> String {

@@ -90,6 +90,8 @@ enum PetAlbumDTO {
         let assetURL: String
         let addedByUserID: String
         let caption: String?
+        let width: Int?
+        let height: Int?
         let sortTakenAt: String
         let removedAt: String?
         let createdAt: String
@@ -103,20 +105,23 @@ enum PetAlbumDTO {
             case assetURL = "asset_url"
             case addedByUserID = "added_by_user_id"
             case caption
+            case width
+            case height
             case sortTakenAt = "sort_taken_at"
             case removedAt = "removed_at"
             case createdAt = "created_at"
             case updatedAt = "updated_at"
         }
 
-        func asset() -> PetAlbumAsset {
+        func asset(localIdentifier: String? = nil) -> PetAlbumAsset {
             PetAlbumAsset(
                 id: id,
                 albumID: albumID,
                 imageAssetName: assetURL,
-                pixelSize: PetAlbumImageSize(width: 1, height: 1),
+                pixelSize: PetAlbumImageSize(width: width ?? 1, height: height ?? 1),
                 source: .userUpload,
-                caption: caption
+                caption: caption,
+                localIdentifier: localIdentifier
             )
         }
     }
@@ -126,12 +131,14 @@ enum PetAlbumDTO {
         let description: String?
         let isPrivate: Bool
         let isPinned: Bool
+        let coverAssetID: String?
 
         init(draft: PetAlbumCreateDraft) {
             title = draft.normalizedName
             description = nil
             isPrivate = draft.isPrivate
             isPinned = false
+            coverAssetID = draft.coverAssetID
         }
 
         enum CodingKeys: String, CodingKey {
@@ -139,6 +146,7 @@ enum PetAlbumDTO {
             case description
             case isPrivate = "is_private"
             case isPinned = "is_pinned"
+            case coverAssetID = "cover_asset_id"
         }
     }
 
@@ -165,6 +173,16 @@ enum PetAlbumDTO {
 
         enum CodingKeys: String, CodingKey {
             case isPinned = "is_pinned"
+        }
+    }
+
+    struct AddAssetRequest: Encodable {
+        let assetID: String
+        let caption: String?
+
+        enum CodingKeys: String, CodingKey {
+            case assetID = "asset_id"
+            case caption
         }
     }
 }

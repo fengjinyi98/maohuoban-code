@@ -105,6 +105,33 @@ struct DefaultPetAlbumRepository: PetAlbumRepository {
         )
     }
 
+    func uploadAlbumMedia(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await client.postMultipart(
+            path: "/api/v1/pet-album-media",
+            file: multipartFile(from: draft),
+            fields: multipartFields(from: draft),
+            headers: userHeaders(currentUserID: currentUserID),
+            onUploadProgress: onUploadProgress
+        )
+    }
+
+    func addAsset(
+        albumID: String,
+        assetID: String,
+        caption: String?,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetAlbumDTO.AssetData> {
+        try await client.post(
+            path: "/api/v1/pet-albums/\(albumID)/assets",
+            body: PetAlbumDTO.AddAssetRequest(assetID: assetID, caption: caption),
+            headers: userHeaders(currentUserID: currentUserID)
+        )
+    }
+
     private func userHeaders(currentUserID: String) throws(MHBAPIError) -> [String: String] {
         guard !currentUserID.isEmpty else {
             throw .business(
@@ -114,6 +141,19 @@ struct DefaultPetAlbumRepository: PetAlbumRepository {
             )
         }
         return ["x-maohuoban-user-id": currentUserID]
+    }
+
+    private func multipartFile(from draft: PetMediaUploadDraft) -> MHBMultipartFile {
+        MHBMultipartFile(
+            fieldName: "file",
+            fileName: draft.fileName,
+            mimeType: draft.mimeType,
+            data: draft.content
+        )
+    }
+
+    private func multipartFields(from draft: PetMediaUploadDraft) -> [String: String] {
+        ["source_client": draft.sourceClient]
     }
 
     private func paginationQueryItems(limit: Int, cursor: String?) -> [URLQueryItem] {

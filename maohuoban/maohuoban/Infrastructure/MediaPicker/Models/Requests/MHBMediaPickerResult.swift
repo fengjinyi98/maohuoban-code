@@ -6,15 +6,18 @@ import UIKit
 // - 为图片、视频和 Live Photo 选择结果提供统一边界
 struct MHBMediaPickerResult {
     let images: [UIImage]
+    let imageLocalIdentifiers: [String?]
     let videos: [MHBPickedVideo]
     let livePhotos: [MHBPickedLivePhoto]
 
     init(
         images: [UIImage] = [],
+        imageLocalIdentifiers: [String?] = [],
         videos: [MHBPickedVideo] = [],
         livePhotos: [MHBPickedLivePhoto] = []
     ) {
         self.images = images
+        self.imageLocalIdentifiers = imageLocalIdentifiers
         self.videos = videos
         self.livePhotos = livePhotos
     }
@@ -26,6 +29,7 @@ struct MHBMediaPickerResult {
     static func merging(_ results: [MHBMediaPickerResult]) -> MHBMediaPickerResult {
         MHBMediaPickerResult(
             images: results.flatMap(\.images),
+            imageLocalIdentifiers: results.flatMap(\.imageLocalIdentifiers),
             videos: results.flatMap(\.videos),
             livePhotos: results.flatMap(\.livePhotos)
         )

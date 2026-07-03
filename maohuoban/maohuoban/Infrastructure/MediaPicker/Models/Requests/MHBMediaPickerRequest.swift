@@ -4,10 +4,12 @@ import Foundation
 // 核心职责：
 // - 统一描述媒体选择器的选择数量和类型约束
 // - 为头像、背景和后续 UGC 发布流程提供共用入口
+// - 支持用 PhotoKit 本机标识做同设备禁选提示
 struct MHBMediaPickerRequest: Hashable {
     let maxSelectionCount: Int
     let filter: MHBMediaPickerFilter
     let autoConfirmSingleSelection: Bool
+    let disabledLocalIdentifiers: Set<String>
 
     static let singleImage = MHBMediaPickerRequest(
         maxSelectionCount: 1,
@@ -30,10 +32,12 @@ struct MHBMediaPickerRequest: Hashable {
     init(
         maxSelectionCount: Int,
         filter: MHBMediaPickerFilter,
-        autoConfirmSingleSelection: Bool = false
+        autoConfirmSingleSelection: Bool = false,
+        disabledLocalIdentifiers: Set<String> = []
     ) {
         self.maxSelectionCount = max(maxSelectionCount, 1)
         self.filter = filter
         self.autoConfirmSingleSelection = autoConfirmSingleSelection
+        self.disabledLocalIdentifiers = disabledLocalIdentifiers
     }
 }

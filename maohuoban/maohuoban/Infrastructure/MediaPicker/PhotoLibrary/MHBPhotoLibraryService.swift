@@ -132,6 +132,7 @@ final class MHBPhotoLibraryService {
         return MHBPhotoLibrarySelectionResolver.resolve(
             MHBResolvedPhotoLibrarySelection(
                 image: image,
+                imageLocalIdentifier: image == nil ? nil : asset.id,
                 livePhoto: livePhoto
             )
         )

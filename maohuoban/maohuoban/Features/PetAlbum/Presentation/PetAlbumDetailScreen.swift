@@ -1,5 +1,6 @@
 import SwiftUI
 import MaohuobanDesignSystem
+import UIKit
 
 // PetAlbumDetailScreen 宠物相册详情页
 // 核心职责：
@@ -10,6 +11,7 @@ struct PetAlbumDetailScreen: View {
     let store: PetAlbumStore
     @State private var pendingDeleteAsset: PetAlbumAsset?
     @State private var isNavigationTitleVisible = false
+    @State private var isPhotoPickerPresented = false
 
     var body: some View {
         let album = resolvedAlbum
@@ -44,6 +46,20 @@ struct PetAlbumDetailScreen: View {
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
         .mhbImagePreviewHost()
+        .fullScreenCover(isPresented: $isPhotoPickerPresented) {
+            MHBMediaPickerScreen(
+                title: "上传照片",
+                request: MHBMediaPickerRequest(
+                    maxSelectionCount: 9,
+                    filter: .images,
+                    disabledLocalIdentifiers: disabledLocalIdentifiers
+                ),
+                onComplete: handlePhotoPickerResult,
+                onCancel: {
+                    isPhotoPickerPresented = false
+                }
+            )
+        }
         .alert(
             "删除照片",
             isPresented: deleteAssetAlertBinding,
@@ -135,12 +151,67 @@ struct PetAlbumDetailScreen: View {
         }
     }
 
+    private var disabledLocalIdentifiers: Set<String> {
+        Set(store.assets(for: albumID).compactMap(\.localIdentifier))
+    }
+
     private func handleToolbarMenuAction(_ action: PetAlbumDetailToolbarMenuAction) {
         switch action {
         case .uploadPhotos:
-            break
+            isPhotoPickerPresented = true
         case .shareAlbum:
             break
         }
+    }
+
+    // handlePhotoPickerResult 处理相册照片选择结果
+    // 核心职责：
+    // - 将媒体选择器返回的图片编码为相册上传草稿
+    // - 通过 Store 完成上传与相册绑定
+    private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
+        isPhotoPickerPresented = false
+        var drafts: [PetAlbumPhotoUploadDraft] = []
+        for (index, image) in result.images.enumerated() {
+            let localIdentifier = result.imageLocalIdentifiers.indices.contains(index)
+                ? result.imageLocalIdentifiers[index]
+                : nil
+            guard let draft = photoUploadDraft(
+                from: image,
+                localIdentifier: localIdentifier,
+                index: index
+            ) else {
+                continue
+            }
+            drafts.append(draft)
+        }
+        guard !drafts.isEmpty else {
+            return
+        }
+
+        Task {
+            _ = await store.uploadPhotos(to: albumID, drafts: drafts)
+        }
+    }
+
+    private func photoUploadDraft(
+        from image: UIImage,
+        localIdentifier: String?,
+        index: Int
+    ) -> PetAlbumPhotoUploadDraft? {
+        guard let encoded = MHBMediaUploadEncoder.encode(
+            image: image,
+            purpose: .ugcImage,
+            fileName: "pet-album-photo-\(index + 1)"
+        ) else {
+            return nil
+        }
+
+        let media = PetMediaUploadDraft(
+            fileName: encoded.fileName,
+            mimeType: encoded.mimeType,
+            content: encoded.data,
+            sourceClient: "ios"
+        )
+        return PetAlbumPhotoUploadDraft(media: media, localIdentifier: localIdentifier)
     }
 }
