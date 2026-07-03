@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T16:08:09",
+  "generated_at": "2026-07-03T16:14:55",
   "policy": {
     "flat_directory_direct_code_file_limit": 3,
     "governance": "存量问题进入基线，新增或扩大的违规由扫描器阻断。",
@@ -7,7 +7,7 @@
     "swift_hard_line_limit": 400
   },
   "scan": {
-    "code_file_count": 1940,
+    "code_file_count": 1950,
     "exempted_flat_directories": {
       "maohuoban-diagnostics-sdk/collector/src": {
         "file_count": 8,
@@ -882,11 +882,6 @@
       "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/diagnostics.rs": {
         "limit": 500,
         "line_count": 630,
-        "suffix": ".rs"
-      },
-      "maohuoban-rust/crates/maohuoban-ai-http/tests/runtime_stream_projector.rs": {
-        "limit": 500,
-        "line_count": 968,
         "suffix": ".rs"
       },
       "maohuoban-rust/crates/maohuoban-ai-infrastructure/tests/openai_compatible.rs": {
@@ -3307,6 +3302,11 @@
       "maohuoban-rust/crates/maohuoban-ai-http/src/Infrastructure/ai/router/history.rs": {
         "limit": 300,
         "line_count": 378,
+        "suffix": ".rs"
+      },
+      "maohuoban-rust/crates/maohuoban-ai-http/tests/runtime_stream_projector/cases/profile/profile_cases.rs": {
+        "limit": 300,
+        "line_count": 462,
         "suffix": ".rs"
       },
       "maohuoban-rust/crates/maohuoban-ai-infrastructure/src/Infrastructure/provider/openai/diagnostics.rs": {
