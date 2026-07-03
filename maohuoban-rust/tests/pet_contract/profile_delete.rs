@@ -27,9 +27,9 @@ async fn pet_profile_delete_is_soft_and_recoverable() {
     let upload_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/avatar",
-        "restore-avatar.txt",
-        "text/plain",
-        b"avatar-before-delete",
+        "restore-avatar.png",
+        "image/png",
+        &tiny_png(),
         &user_id,
     )
     .await;

@@ -30,9 +30,9 @@ async fn active_co_caretaker_can_bind_uploaded_pet_media() {
     let upload_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/avatar",
-        "caretaker-avatar.txt",
-        "text/plain",
-        b"caretaker-avatar-bytes",
+        "caretaker-avatar.png",
+        "image/png",
+        &tiny_png(),
         &co_caretaker_user_id,
     )
     .await;
@@ -89,9 +89,9 @@ async fn pet_avatar_upload_creates_traceable_media_binding() {
     let upload_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/avatar",
-        "avatar.txt",
-        "text/plain",
-        b"avatar-bytes",
+        "avatar.png",
+        "image/png",
+        &tiny_png(),
         &user_id,
     )
     .await;
@@ -118,10 +118,15 @@ async fn pet_avatar_upload_creates_traceable_media_binding() {
     let object_key = upload_body["data"]["asset"]["object_key"]
         .as_str()
         .expect("asset object key");
-    assert_eq!(
-        app.media_object_content(bucket, object_key),
-        b"avatar-bytes"
+    assert!(
+        object_key.starts_with(&format!("media/users/{user_id}/")),
+        "object key should use traceable user prefix, got {object_key}"
     );
+    assert!(
+        object_key.contains(&format!("/{asset_id}/original.")),
+        "object key should include asset id and fixed original file name, got {object_key}"
+    );
+    assert_eq!(app.media_object_content(bucket, object_key), tiny_png());
 }
 
 #[tokio::test]
@@ -171,9 +176,9 @@ async fn create_pet_profile_binds_uploaded_media_assets() {
         .router()
         .oneshot(multipart_media_request(
             "/api/v1/pet-media/avatar",
-            "avatar.txt",
-            "text/plain",
-            b"avatar-before-create",
+            "avatar.png",
+            "image/png",
+            &tiny_png(),
             "ios",
             &user_id,
         ))
@@ -189,9 +194,9 @@ async fn create_pet_profile_binds_uploaded_media_assets() {
         .router()
         .oneshot(multipart_media_request(
             "/api/v1/pet-media/background-image",
-            "background.txt",
-            "text/plain",
-            b"background-before-create",
+            "background.png",
+            "image/png",
+            &tiny_png(),
             "ios",
             &user_id,
         ))

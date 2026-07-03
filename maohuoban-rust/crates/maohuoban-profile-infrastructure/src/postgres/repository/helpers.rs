@@ -29,24 +29,6 @@ pub(super) fn sha256_hex(content: &[u8]) -> String {
     })
 }
 
-pub(super) fn sanitized_file_name(file_name: &str) -> String {
-    let sanitized = file_name
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>();
-    if sanitized.is_empty() {
-        Uuid::new_v4().to_string()
-    } else {
-        sanitized
-    }
-}
-
 pub(super) fn to_i32_dimension(value: u32) -> ProfileResult<i32> {
     i32::try_from(value)
         .ok()

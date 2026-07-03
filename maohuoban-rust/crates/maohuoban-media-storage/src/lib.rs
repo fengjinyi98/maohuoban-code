@@ -1,6 +1,10 @@
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
 pub mod media_upload_policy;
+#[path = "Infrastructure/ObjectKey/object_key.rs"]
+pub mod object_key;
+
+pub use object_key::{MediaObjectKind, traceable_media_object_key};
 
 use std::{env, fs, io, path::PathBuf};
 

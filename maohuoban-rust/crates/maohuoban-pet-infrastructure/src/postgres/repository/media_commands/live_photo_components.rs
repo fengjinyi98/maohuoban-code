@@ -1,11 +1,11 @@
-use maohuoban_media_storage::MediaObjectStore;
+use maohuoban_media_storage::{MediaObjectKind, MediaObjectStore, traceable_media_object_key};
 use maohuoban_pet_domain::pet::{MediaAssetComponentKind, PetError, PetResult};
 use uuid::Uuid;
 
 use super::image_metadata::image_dimensions;
 use super::{PreparedMediaComponent, PreparedMediaObject};
 use crate::postgres::repository::PostgresPetRepository;
-use crate::postgres::repository::storage::{sanitized_file_name, sha256_hex};
+use crate::postgres::repository::storage::sha256_hex;
 
 impl PostgresPetRepository {
     pub(super) fn prepared_still_component_from_primary(
@@ -35,16 +35,15 @@ impl PostgresPetRepository {
         content: &[u8],
     ) -> PetResult<PreparedMediaComponent> {
         let id = Uuid::new_v4();
-        let object_prefix = media
-            .object_key
-            .rsplit_once('/')
-            .map_or(media.object_key.as_str(), |(prefix, _)| prefix);
-        let object_key = format!(
-            "{}/live_photo/{}/{}",
-            object_prefix,
-            component_kind.as_str(),
-            sanitized_file_name(file_name)
-        );
+        let object_key = match component_kind {
+            MediaAssetComponentKind::Still => media.object_key.clone(),
+            MediaAssetComponentKind::PairedVideo => traceable_media_object_key(
+                media.owner_user_id,
+                media.asset_id,
+                media.created_at,
+                MediaObjectKind::PairedVideo { file_name },
+            ),
+        };
         media_store
             .put(&media.bucket, &object_key, content)
             .await

@@ -51,11 +51,32 @@ async fn pet_album_assets_upload_and_page_by_album() {
     let album = create_album(&app, &user_id, "户外散步", false).await;
     let album_id = album["id"].as_str().expect("album id");
 
-    let first_asset_id = upload_album_photo(&app, &user_id, b"first-photo").await;
-    let second_asset_id = upload_album_photo(&app, &user_id, b"second-photo").await;
+    let first_photo = tiny_png();
+    let second_photo = tiny_png();
+    let first_asset_id = upload_album_photo(&app, &user_id, "first-photo.png", &first_photo).await;
+    let second_asset_id =
+        upload_album_photo(&app, &user_id, "second-photo.png", &second_photo).await;
     add_album_asset(&app, &user_id, album_id, &first_asset_id, "草地上").await;
     let second_album_asset =
         add_album_asset(&app, &user_id, album_id, &second_asset_id, "回家路上").await;
+    let first_storage = app.media_asset_storage_state(&first_asset_id).await;
+    assert_eq!(first_storage.mime_type, "image/png");
+    assert_eq!(
+        first_storage.byte_size,
+        i64::try_from(first_photo.len()).unwrap()
+    );
+    assert_eq!(first_storage.sha256_hex.len(), 64);
+    assert_eq!(first_storage.width, Some(1));
+    assert_eq!(first_storage.height, Some(1));
+    let second_storage = app.media_asset_storage_state(&second_asset_id).await;
+    assert_eq!(second_storage.mime_type, "image/png");
+    assert_eq!(
+        second_storage.byte_size,
+        i64::try_from(second_photo.len()).unwrap()
+    );
+    assert_eq!(second_storage.sha256_hex.len(), 64);
+    assert_eq!(second_storage.width, Some(1));
+    assert_eq!(second_storage.height, Some(1));
 
     let detail_response = app
         .router()
@@ -105,6 +126,31 @@ async fn pet_album_assets_upload_and_page_by_album() {
     let remove_body = response_json(remove_response).await;
     assert_eq!(remove_body["code"], "pet_album.asset_removed");
     assert_eq!(remove_body["data"]["album"]["photo_count"], 1);
+}
+
+#[tokio::test]
+async fn pet_album_photo_upload_rejects_non_image_content() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139105").await;
+
+    let response = app
+        .router()
+        .oneshot(multipart_media_request(
+            "/api/v1/pet-album-media",
+            "album-photo.txt",
+            "text/plain",
+            b"not-image",
+            "ios",
+            &user_id,
+        ))
+        .await
+        .expect("upload invalid album photo");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "pet.invalid_input");
+    assert_eq!(body["message"], "相册照片必须是可解析图片");
 }
 
 #[tokio::test]
@@ -159,13 +205,14 @@ async fn create_album(
 async fn upload_album_photo(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
+    file_name: &str,
     content: &[u8],
 ) -> String {
     let body = upload_pending_media(
         app,
         "/api/v1/pet-album-media",
-        "album-photo.txt",
-        "text/plain",
+        file_name,
+        "image/png",
         content,
         user_id,
     )

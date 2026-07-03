@@ -2,6 +2,18 @@ use std::{env, fs, process::Command};
 
 use super::*;
 
+/// `tiny_png` 返回 1x1 像素 PNG 字节
+/// 核心职责：
+/// - 提供可解码图片媒资测试夹具
+/// - 固定图片上传合同中的宽高元数据来源
+pub(crate) fn tiny_png() -> Vec<u8> {
+    STANDARD
+        .decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+        )
+        .expect("decode tiny png")
+}
+
 /// `upload_pending_media` 上传未绑定媒体并返回响应数据
 /// 核心职责：
 /// - 固定宠物媒体 pending 上传测试流程

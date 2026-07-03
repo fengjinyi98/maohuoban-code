@@ -3,7 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use maohuoban_media_storage::MediaObjectStore;
+use maohuoban_media_storage::{MediaObjectKind, MediaObjectStore, traceable_media_object_key};
 use maohuoban_pet_domain::pet::{MediaDerivativeKind, PetError, PetResult};
 use serde_json::Value;
 use uuid::Uuid;
@@ -134,22 +134,32 @@ pub(super) async fn prepare_derivative_object(
     media_store: &MediaObjectStore,
     media: &PreparedMediaObject,
     derivative_kind: MediaDerivativeKind,
-    file_name: &str,
+    _file_name: &str,
     mime_type: &str,
     content: Vec<u8>,
     metadata: Value,
 ) -> PetResult<PreparedMediaDerivative> {
     let id = Uuid::new_v4();
-    let object_prefix = media
-        .object_key
-        .rsplit_once('/')
-        .map_or(media.object_key.as_str(), |(prefix, _)| prefix);
-    let object_key = format!(
-        "{}/derivatives/{}/{}",
-        object_prefix,
-        derivative_kind.as_str(),
-        file_name
-    );
+    let object_key = match derivative_kind {
+        MediaDerivativeKind::Thumbnail => traceable_media_object_key(
+            media.owner_user_id,
+            media.asset_id,
+            media.created_at,
+            MediaObjectKind::Thumbnail,
+        ),
+        MediaDerivativeKind::ThemeColorFrame => traceable_media_object_key(
+            media.owner_user_id,
+            media.asset_id,
+            media.created_at,
+            MediaObjectKind::ThemeColor,
+        ),
+        MediaDerivativeKind::VideoCoverFrame => traceable_media_object_key(
+            media.owner_user_id,
+            media.asset_id,
+            media.created_at,
+            MediaObjectKind::VideoCoverFrame,
+        ),
+    };
     media_store
         .put(&media.bucket, &object_key, &content)
         .await

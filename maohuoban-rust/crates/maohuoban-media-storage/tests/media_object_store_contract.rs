@@ -1,6 +1,9 @@
 use std::{env, path::PathBuf};
 
-use maohuoban_media_storage::{MediaObjectStore, MediaStorageConfig};
+use chrono::{TimeZone, Utc};
+use maohuoban_media_storage::{
+    MediaObjectKind, MediaObjectStore, MediaStorageConfig, traceable_media_object_key,
+};
 use uuid::Uuid;
 
 #[tokio::test]
@@ -76,6 +79,56 @@ fn s3_config_allows_cache_control_override() {
     .with_cache_control(Some("public, max-age=60".to_owned()));
 
     assert_eq!(config.cache_control(), Some("public, max-age=60"));
+}
+
+#[test]
+fn traceable_media_object_key_uses_user_date_asset_and_fixed_names() {
+    let user_id = Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("user uuid");
+    let asset_id = Uuid::parse_str("22222222-2222-2222-2222-222222222222").expect("asset uuid");
+    let uploaded_at = Utc
+        .with_ymd_and_hms(2026, 7, 3, 12, 30, 0)
+        .single()
+        .expect("uploaded at");
+
+    assert_eq!(
+        traceable_media_object_key(
+            user_id,
+            asset_id,
+            uploaded_at,
+            MediaObjectKind::Original {
+                file_name: "猫猫封面.JPG"
+            }
+        ),
+        "media/users/11111111-1111-1111-1111-111111111111/2026/07/22222222-2222-2222-2222-222222222222/original.jpg"
+    );
+    assert_eq!(
+        traceable_media_object_key(user_id, asset_id, uploaded_at, MediaObjectKind::Thumbnail),
+        "media/users/11111111-1111-1111-1111-111111111111/2026/07/22222222-2222-2222-2222-222222222222/thumbnail.png"
+    );
+    assert_eq!(
+        traceable_media_object_key(user_id, asset_id, uploaded_at, MediaObjectKind::ThemeColor),
+        "media/users/11111111-1111-1111-1111-111111111111/2026/07/22222222-2222-2222-2222-222222222222/theme-color.json"
+    );
+    assert_eq!(
+        traceable_media_object_key(
+            user_id,
+            asset_id,
+            uploaded_at,
+            MediaObjectKind::PairedVideo {
+                file_name: "live-motion.MOV"
+            }
+        ),
+        "media/users/11111111-1111-1111-1111-111111111111/2026/07/22222222-2222-2222-2222-222222222222/paired-video.mov"
+    );
+    assert_eq!(
+        traceable_media_object_key(
+            user_id,
+            asset_id,
+            uploaded_at,
+            MediaObjectKind::VideoCoverFrame
+        ),
+        "media/users/11111111-1111-1111-1111-111111111111/2026/07/22222222-2222-2222-2222-222222222222/video-cover-frame.png"
+    );
 }
 
 #[tokio::test]

@@ -9,6 +9,7 @@ mod persistence;
 mod preparation;
 mod upload;
 
+use chrono::{DateTime, Utc};
 use maohuoban_pet_application::pet::{MediaCropMetadata, PendingPetMediaUploadInput};
 use maohuoban_pet_domain::pet::{MediaAssetComponentKind, MediaDerivativeKind, MediaUsageKind};
 use serde_json::Value;
@@ -20,12 +21,14 @@ use uuid::Uuid;
 /// - 避免上传命令在事务内重复计算对象元数据
 pub(super) struct PreparedMediaObject {
     pub(super) asset_id: Uuid,
+    pub(super) owner_user_id: Uuid,
     pub(super) bucket: String,
     pub(super) object_key: String,
     pub(super) sha256_hex: String,
     pub(super) byte_size: i64,
     pub(super) width: Option<i32>,
     pub(super) height: Option<i32>,
+    pub(super) created_at: DateTime<Utc>,
 }
 
 /// MediaUploadObjectInput 媒体对象写入上下文

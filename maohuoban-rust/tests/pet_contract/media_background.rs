@@ -27,9 +27,9 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
     let image_upload_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/background-image",
-        "background.jpg",
-        "image/jpeg",
-        b"image-bytes",
+        "background.png",
+        "image/png",
+        &tiny_png(),
         &user_id,
     )
     .await;
@@ -65,7 +65,13 @@ async fn pet_background_uploads_support_image_and_video_media_bindings() {
         video_body["data"]["asset"]["object_key"]
             .as_str()
             .unwrap()
-            .contains("background/video")
+            .starts_with(&format!("media/users/{user_id}/"))
+    );
+    assert!(
+        video_body["data"]["asset"]["object_key"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("/{video_asset_id}/original.mp4"))
     );
 }
 
@@ -121,7 +127,7 @@ async fn pet_background_uploads_support_live_photo_media_bindings() {
             && item["object_key"]
                 .as_str()
                 .expect("paired video object key")
-                .contains("live_photo/paired_video")
+                .contains("/paired-video.mov")
     }));
 
     let live_asset_id = upload_body["data"]["asset"]["id"]

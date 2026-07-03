@@ -58,6 +58,30 @@ async fn profile_me_uploads_avatar_and_cover_media() {
     assert_eq!(avatar_body["code"], "profile.avatar_uploaded");
     assert_eq!(avatar_body["message"], "头像已保存");
     assert_profile_media(&avatar_body["data"]["avatar"], "image/png", 1, 1);
+    let avatar_asset_id = avatar_body["data"]["avatar"]["asset_id"]
+        .as_str()
+        .expect("avatar asset id");
+    let avatar_storage = app.media_asset_storage_state(avatar_asset_id).await;
+    assert!(
+        avatar_storage.object_key.starts_with("media/users/"),
+        "profile avatar should use traceable media object key, got {}",
+        avatar_storage.object_key
+    );
+    assert!(
+        avatar_storage
+            .object_key
+            .contains(&format!("/{avatar_asset_id}/original.")),
+        "profile avatar object key should include asset id and original filename, got {}",
+        avatar_storage.object_key
+    );
+    assert_eq!(avatar_storage.mime_type, "image/png");
+    assert_eq!(avatar_storage.width, Some(1));
+    assert_eq!(avatar_storage.height, Some(1));
+    assert_eq!(
+        avatar_storage.byte_size,
+        i64::try_from(image_content.len()).unwrap()
+    );
+    assert_eq!(avatar_storage.sha256_hex.len(), 64);
 
     let cover_response = app
         .router()

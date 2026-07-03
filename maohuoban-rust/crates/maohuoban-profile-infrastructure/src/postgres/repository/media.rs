@@ -1,4 +1,5 @@
-use maohuoban_media_storage::MediaObjectStore;
+use chrono::Utc;
+use maohuoban_media_storage::{MediaObjectKind, MediaObjectStore, traceable_media_object_key};
 use maohuoban_profile_application::profile::{
     ProfileMediaUploadDiagnostics, UploadProfileMediaInput, profile_media_content_signature,
     record_profile_media_upload,
@@ -8,9 +9,7 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use super::PostgresProfileRepository;
-use super::helpers::{
-    image_error_kind, sanitized_file_name, sha256_hex, to_i32_dimension, to_profile_error,
-};
+use super::helpers::{image_error_kind, sha256_hex, to_i32_dimension, to_profile_error};
 
 impl PostgresProfileRepository {
     pub(super) async fn upload_profile_media_row(
@@ -27,12 +26,13 @@ impl PostgresProfileRepository {
         let asset_id = Uuid::new_v4();
         let media_store = Self::profile_media_store_from_env(&input, asset_id, width, height)?;
         let bucket = media_store.default_bucket().to_owned();
-        let object_key = format!(
-            "users/{}/profile/{}/{}/{}",
+        let object_key = traceable_media_object_key(
             input.user_id,
-            input.kind.path_segment(),
             asset_id,
-            sanitized_file_name(&input.file_name)
+            Utc::now(),
+            MediaObjectKind::Original {
+                file_name: &input.file_name,
+            },
         );
         Self::put_profile_media_object(
             &media_store,

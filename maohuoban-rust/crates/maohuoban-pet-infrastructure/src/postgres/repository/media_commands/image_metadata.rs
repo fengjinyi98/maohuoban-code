@@ -2,19 +2,6 @@ use maohuoban_pet_application::pet::MediaCropMetadata;
 use maohuoban_pet_domain::pet::{PetError, PetResult};
 use serde_json::Value;
 
-use super::MediaUploadObjectInput;
-
-/// media_object_prefix 生成媒体对象根路径
-/// 核心职责：
-/// - 已绑定上传进入宠物目录
-/// - 建档前上传进入用户 pending 目录
-pub(super) fn media_object_prefix(input: &MediaUploadObjectInput<'_>) -> String {
-    input.pet_id.map_or_else(
-        || format!("pet-media/pending/{}", input.owner_user_id),
-        |pet_id| format!("pets/{pet_id}"),
-    )
-}
-
 /// image_dimensions 读取原始图片尺寸
 /// 核心职责：
 /// - 为可解码图片资产提供原始宽高

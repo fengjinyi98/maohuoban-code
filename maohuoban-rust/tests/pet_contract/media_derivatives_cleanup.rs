@@ -35,7 +35,7 @@ async fn pet_background_image_upload_generates_derivatives_and_theme_color() {
         theme["object_key"]
             .as_str()
             .expect("theme object key")
-            .contains("theme_color_frame")
+            .ends_with("/theme-color.json")
     );
 }
 
@@ -61,11 +61,18 @@ async fn pet_background_video_upload_generates_cover_frame_and_theme_color() {
     assert_eq!(body["data"]["asset"]["height"], 16);
     let derivatives = body["data"]["derivatives"].as_array().expect("derivatives");
 
+    let cover_frame = derivatives
+        .iter()
+        .find(|item| item["derivative_kind"] == "video_cover_frame")
+        .expect("video cover frame derivative");
     assert!(
-        derivatives
-            .iter()
-            .any(|item| item["derivative_kind"] == "video_cover_frame")
+        cover_frame["object_key"]
+            .as_str()
+            .expect("video cover frame object key")
+            .ends_with("/video-cover-frame.png")
     );
+    assert_eq!(cover_frame["metadata"]["width"], 16);
+    assert_eq!(cover_frame["metadata"]["height"], 16);
     let theme = derivatives
         .iter()
         .find(|item| item["derivative_kind"] == "theme_color_frame")
@@ -100,9 +107,9 @@ async fn replacing_avatar_queues_previous_media_for_cleanup() {
     let first_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/avatar",
-        "avatar-1.txt",
-        "text/plain",
-        b"avatar-one",
+        "avatar-1.png",
+        "image/png",
+        &tiny_png(),
         &user_id,
     )
     .await;
@@ -114,9 +121,9 @@ async fn replacing_avatar_queues_previous_media_for_cleanup() {
     let second_body = upload_pending_media(
         &app,
         "/api/v1/pet-media/avatar",
-        "avatar-2.txt",
-        "text/plain",
-        b"avatar-two",
+        "avatar-2.png",
+        "image/png",
+        &tiny_png(),
         &user_id,
     )
     .await;

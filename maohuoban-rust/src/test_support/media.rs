@@ -46,6 +46,36 @@ impl AuthTestApp {
         fs::read(media_storage_root().join(bucket).join(object_key))
             .expect("read media object content")
     }
+
+    /// `media_asset_storage_state` 读取媒体资产存储测试状态
+    /// 核心职责：
+    /// - 暴露对象路径和尺寸元数据
+    /// - 为跨业务媒资可追溯契约测试提供断言入口
+    ///
+    /// # Panics
+    ///
+    /// 当 `asset_id` 不是合法 UUID，或数据库查询失败时触发。
+    pub async fn media_asset_storage_state(&self, asset_id: &str) -> MediaAssetStorageState {
+        let asset_id = Uuid::parse_str(asset_id).expect("asset id");
+        sqlx::query_as::<_, MediaAssetStorageState>(
+            r"
+            SELECT
+                bucket,
+                object_key,
+                mime_type,
+                byte_size,
+                sha256_hex,
+                width,
+                height
+            FROM media_assets
+            WHERE id = $1
+            ",
+        )
+        .bind(asset_id)
+        .fetch_one(&self.app.pool)
+        .await
+        .expect("read media asset storage state")
+    }
 }
 
 /// `MediaCleanupState` 媒体清理测试状态
@@ -57,6 +87,21 @@ pub struct MediaCleanupState {
     pub asset_status: String,
     pub binding_status: String,
     pub job_status: String,
+}
+
+/// `MediaAssetStorageState` 媒体资产存储测试状态
+/// 核心职责：
+/// - 暴露对象存储定位字段
+/// - 暴露审计需要的基础媒体元数据
+#[derive(Debug, sqlx::FromRow)]
+pub struct MediaAssetStorageState {
+    pub bucket: String,
+    pub object_key: String,
+    pub mime_type: String,
+    pub byte_size: i64,
+    pub sha256_hex: String,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
 }
 
 fn media_storage_root() -> PathBuf {

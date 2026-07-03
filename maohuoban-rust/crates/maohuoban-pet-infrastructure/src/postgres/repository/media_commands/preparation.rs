@@ -1,7 +1,8 @@
 use std::io::Cursor;
 
+use chrono::Utc;
 use image::ImageFormat;
-use maohuoban_media_storage::MediaObjectStore;
+use maohuoban_media_storage::{MediaObjectKind, MediaObjectStore, traceable_media_object_key};
 use maohuoban_pet_domain::pet::{MediaDerivativeKind, MediaUsageKind, PetError, PetResult};
 use uuid::Uuid;
 
@@ -12,11 +13,11 @@ use super::derivatives::{
 use super::diagnostics::{record_upload_failure, record_upload_stage};
 use super::image_metadata::{
     crop_display_image, crop_metadata_json, image_dimensions, media_derivative_metadata,
-    media_object_prefix, metadata_i32, to_i32_dimension,
+    metadata_i32, to_i32_dimension,
 };
 use super::{MediaUploadObjectInput, PreparedMediaDerivative, PreparedMediaObject};
 use crate::postgres::repository::PostgresPetRepository;
-use crate::postgres::repository::storage::{sanitized_file_name, sha256_hex};
+use crate::postgres::repository::storage::sha256_hex;
 
 impl PostgresPetRepository {
     pub(super) async fn prepare_upload_derivatives(
@@ -140,13 +141,15 @@ impl PostgresPetRepository {
         input: &MediaUploadObjectInput<'_>,
     ) -> PetResult<PreparedMediaObject> {
         let asset_id = Uuid::new_v4();
+        let created_at = Utc::now();
         let bucket = media_store.default_bucket().to_owned();
-        let object_key = format!(
-            "{}/{}/{}/{}",
-            media_object_prefix(input),
-            input.usage_kind.as_str().replace('.', "/"),
+        let object_key = traceable_media_object_key(
+            input.owner_user_id,
             asset_id,
-            sanitized_file_name(input.file_name)
+            created_at,
+            MediaObjectKind::Original {
+                file_name: input.file_name,
+            },
         );
         media_store
             .put(&bucket, &object_key, input.content)
@@ -156,15 +159,18 @@ impl PostgresPetRepository {
         let byte_size = i64::try_from(input.content.len())
             .map_err(|_| PetError::InvalidInput("媒体内容过大".to_owned()))?;
         let (width, height) = image_dimensions(input.content)?;
+        validate_required_image_dimensions(input, width, height)?;
 
         Ok(PreparedMediaObject {
             asset_id,
+            owner_user_id: input.owner_user_id,
             bucket,
             object_key,
             sha256_hex,
             byte_size,
             width,
             height,
+            created_at,
         })
     }
 
@@ -247,5 +253,32 @@ impl PostgresPetRepository {
             )
             .await?,
         ])
+    }
+}
+
+/// validate_required_image_dimensions 校验图片媒资尺寸
+/// 核心职责：
+/// - 固定图片类业务用途必须保留宽高元数据
+/// - 阻止不可解析内容进入相册、头像和图片背景资产表
+fn validate_required_image_dimensions(
+    input: &MediaUploadObjectInput<'_>,
+    width: Option<i32>,
+    height: Option<i32>,
+) -> PetResult<()> {
+    if width.is_some() && height.is_some() {
+        return Ok(());
+    }
+
+    match input.usage_kind {
+        MediaUsageKind::PetAlbumPhoto => Err(PetError::InvalidInput(
+            "相册照片必须是可解析图片".to_owned(),
+        )),
+        MediaUsageKind::PetAvatar => Err(PetError::InvalidInput(
+            "宠物头像必须是可解析图片".to_owned(),
+        )),
+        MediaUsageKind::PetBackgroundImage => Err(PetError::InvalidInput(
+            "宠物背景图必须是可解析图片".to_owned(),
+        )),
+        MediaUsageKind::PetBackgroundLivePhoto | MediaUsageKind::PetBackgroundVideo => Ok(()),
     }
 }
