@@ -1,112 +1,21 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use async_trait::async_trait;
-use futures_util::StreamExt;
-use maohuoban_ai_application::ai::ports::LlmProvider;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
-    AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
-    DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
+    AiToolContext, DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
     CapabilityCatalog, CapabilityDomain, ContextConfirmationTaskSummary, ContextPack,
-    ContextPetSummary, LlmChatRequest, LlmChatResponse, LlmFinishReason, LlmStreamEvent, LlmUsage,
-    MemoryPack, ModelLabel, ToolProgressText, Toolset,
+    ContextPetSummary, MemoryPack, ModelLabel,
+};
+use support::{
+    CommitObservationWriteTool, PrepareObservationWriteTool, PrivateIdentityTool,
+    RecordingStreamProvider, SneakyPrivateTool,
 };
 use uuid::Uuid;
 
-#[derive(Clone, Default)]
-struct RecordingStreamProvider {
-    requests: Arc<Mutex<Vec<LlmChatRequest>>>,
-}
-
-impl RecordingStreamProvider {
-    fn take_requests(&self) -> Vec<LlmChatRequest> {
-        self.requests.lock().expect("requests").clone()
-    }
-}
-
-impl LlmProvider for RecordingStreamProvider {
-    fn complete<'a>(
-        &'a self,
-        _request: &'a LlmChatRequest,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<Output = maohuoban_ai_domain::ai::AiResult<LlmChatResponse>>
-                + Send
-                + 'a,
-        >,
-    > {
-        Box::pin(async {
-            Err(maohuoban_ai_domain::ai::AiError::Infrastructure(
-                "complete should not be used".to_owned(),
-            ))
-        })
-    }
-
-    fn stream<'a>(
-        &'a self,
-        request: &'a LlmChatRequest,
-    ) -> futures_util::stream::BoxStream<'a, maohuoban_ai_domain::ai::AiResult<LlmStreamEvent>>
-    {
-        self.requests
-            .lock()
-            .expect("requests")
-            .push(request.clone());
-        futures_util::stream::iter(vec![
-            Ok(LlmStreamEvent::Delta {
-                content: "公共回答".to_owned(),
-            }),
-            Ok(LlmStreamEvent::Finish {
-                finish_reason: LlmFinishReason::Stop,
-                usage: LlmUsage::default(),
-            }),
-        ])
-        .boxed()
-    }
-}
-
-struct PrivateIdentityTool;
-
-#[async_trait]
-impl AiToolDefinition for PrivateIdentityTool {
-    fn name(&self) -> &'static str {
-        "load_pet_identity_context"
-    }
-
-    fn description(&self) -> &'static str {
-        "加载宠物身份上下文"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "pet_id": { "type": "string", "format": "uuid" }
-            },
-            "required": ["pet_id"]
-        })
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "pet.identity.read".to_owned(),
-            read_only: true,
-            concurrency_safe: true,
-            risk_level: AiToolRiskLevel::Low,
-            requires_confirmation: false,
-            domain_tags: vec!["identity".to_owned()],
-            toolset: Toolset::PrivatePetContext,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::failed("unexpected")
-    }
-}
+mod support;
 
 #[tokio::test]
 async fn private_tools_hidden_without_selected_pet_even_if_catalog_mentions_private_context() {
@@ -152,111 +61,6 @@ async fn private_tools_hidden_without_selected_pet_even_if_catalog_mentions_priv
 /// `SneakyPrivateTool` scope 和 `domain_tags` 都不命中旧规则，但 toolset 是 `PrivatePetContext`
 /// 核心职责：
 /// - 验证 `toolset` 参与可见性决策，不能只靠 `scope`/`domain_tags`
-struct SneakyPrivateTool;
-
-#[async_trait]
-impl AiToolDefinition for SneakyPrivateTool {
-    fn name(&self) -> &'static str {
-        "load_health_summary"
-    }
-
-    fn description(&self) -> &'static str {
-        "加载宠物健康摘要"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type": "object"})
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "health.summary".to_owned(),
-            read_only: true,
-            concurrency_safe: true,
-            risk_level: AiToolRiskLevel::Low,
-            requires_confirmation: false,
-            domain_tags: vec!["health".to_owned()],
-            toolset: Toolset::PrivatePetContext,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::failed("unexpected")
-    }
-}
-
-struct PrepareObservationWriteTool;
-
-#[async_trait]
-impl AiToolDefinition for PrepareObservationWriteTool {
-    fn name(&self) -> &'static str {
-        "prepare_pet_observation_write"
-    }
-
-    fn description(&self) -> &'static str {
-        "准备写入宠物观察记录"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type": "object"})
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "pet.observation.write_prepare".to_owned(),
-            read_only: false,
-            concurrency_safe: false,
-            risk_level: AiToolRiskLevel::High,
-            requires_confirmation: true,
-            domain_tags: vec!["observation".to_owned()],
-            toolset: Toolset::PrivatePetContext,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::failed("unexpected")
-    }
-}
-
-struct CommitObservationWriteTool;
-
-#[async_trait]
-impl AiToolDefinition for CommitObservationWriteTool {
-    fn name(&self) -> &'static str {
-        "commit_pet_observation_write"
-    }
-
-    fn description(&self) -> &'static str {
-        "确认后写入宠物观察记录"
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type": "object"})
-    }
-
-    fn metadata(&self) -> AiToolMetadata {
-        AiToolMetadata {
-            scope: "pet.observation.write_commit".to_owned(),
-            read_only: false,
-            concurrency_safe: false,
-            risk_level: AiToolRiskLevel::High,
-            requires_confirmation: false,
-            domain_tags: vec!["observation".to_owned()],
-            toolset: Toolset::Confirmation,
-            progress_text: ToolProgressText::default(),
-            result_fact_schema: None,
-        }
-    }
-
-    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
-        AiToolResult::failed("unexpected")
-    }
-}
-
 #[tokio::test]
 async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss_old_rules() {
     // 旧规则只检查 scope.starts_with("pet.") 和 domain_tags in [identity, diet, inventory, diet_confirmation]
