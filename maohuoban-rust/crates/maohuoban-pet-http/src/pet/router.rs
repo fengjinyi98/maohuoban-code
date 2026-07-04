@@ -180,7 +180,9 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
         )
         .route(
             "/api/v1/pet-events/{event_id}",
-            get(events::load_pet_event_detail).delete(events::delete_pet_event),
+            get(events::load_pet_event_detail)
+                .patch(events::update_pet_event)
+                .delete(events::delete_pet_event),
         )
         .route(
             "/api/v1/pets/{pet_id}/events",

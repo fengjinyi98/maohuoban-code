@@ -2,13 +2,18 @@ import SwiftUI
 import UIKit
 import MaohuobanDesignSystem
 
-// PetPreventiveCareAddRecordSheet 新增疫苗驱虫记录弹层
+// PetPreventiveCareAddRecordSheet 疫苗驱虫记录表单弹层
 // 核心职责：
-// - 通过原生 sheet 收集疫苗或驱虫记录的核心字段
-// - 在快速 UI 阶段提供可交互表单，保存后关闭并等待后续接入真实写入
+// - 复用同一表单承载新增和编辑疫苗驱虫记录
+// - 通过即时上传附件资产后提交事件写入命令
 struct PetPreventiveCareAddRecordSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isNameFocused: Bool
+
+    let mode: PetPreventiveCareFormMode
+    let currentUserID: String?
+    let isSubmitting: Bool
+    let onSave: (PetPreventiveCareFormMode, PetPreventiveCareDraft) -> Void
 
     @State private var selectedKind: PetPreventiveCareKind = .vaccine
     @State private var nameText = ""
@@ -18,8 +23,29 @@ struct PetPreventiveCareAddRecordSheet: View {
     @State private var executionMethod = PetPreventiveCareExecutionMethod.hospital
     @State private var executionName = ""
     @State private var note = ""
-    @State private var photoAttachments: [PetEventAttachmentDraft] = []
+    @State private var attachmentStore = PetEventAttachmentUploadStore(maxAttachmentCount: 5)
     @State private var isPhotoPickerPresented = false
+
+    init(
+        mode: PetPreventiveCareFormMode = .create,
+        currentUserID: String?,
+        isSubmitting: Bool,
+        onSave: @escaping (PetPreventiveCareFormMode, PetPreventiveCareDraft) -> Void
+    ) {
+        self.mode = mode
+        self.currentUserID = currentUserID
+        self.isSubmitting = isSubmitting
+        self.onSave = onSave
+        let initialDraft = mode.initialDraft
+        self._selectedKind = State(initialValue: initialDraft.kind)
+        self._nameText = State(initialValue: initialDraft.name)
+        self._completedAt = State(initialValue: initialDraft.completedAt)
+        self._reminderEnabled = State(initialValue: initialDraft.reminderEnabled)
+        self._reminderAt = State(initialValue: initialDraft.reminderAt)
+        self._executionMethod = State(initialValue: initialDraft.executionMethod)
+        self._executionName = State(initialValue: initialDraft.executionName)
+        self._note = State(initialValue: initialDraft.note)
+    }
 
     var body: some View {
         NavigationStack {
@@ -58,13 +84,20 @@ struct PetPreventiveCareAddRecordSheet: View {
                             PetPreventiveCareNoteSection(note: $note)
 
                             PetPreventiveCarePhotoSection(
-                                attachments: photoAttachments,
-                                canAddMore: remainingPhotoCount > 0,
+                                attachments: attachmentStore.attachments,
+                                canAddMore: attachmentStore.canAddMore,
                                 onAdd: {
                                     isPhotoPickerPresented = true
                                 },
-                                onRemove: removePhotoAttachment,
-                                onRetry: { _ in }
+                                onRemove: attachmentStore.removeAttachment(id:),
+                                onRetry: { id in
+                                    Task {
+                                        await attachmentStore.retryAttachment(
+                                            id: id,
+                                            currentUserID: currentUserID
+                                        )
+                                    }
+                                }
                             )
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s5)
@@ -74,7 +107,7 @@ struct PetPreventiveCareAddRecordSheet: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
 
                     MHBBottomFloatingActionCTA(
-                        title: "保存记录",
+                        title: submitButtonTitle,
                         systemImage: "checkmark",
                         bottomInset: bottomInset,
                         action: saveRecord
@@ -83,6 +116,7 @@ struct PetPreventiveCareAddRecordSheet: View {
                     .zIndex(2)
 
                     PetPreventiveCareAddRecordTopChrome(
+                        title: mode.title,
                         onClose: { dismiss() }
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -106,9 +140,9 @@ struct PetPreventiveCareAddRecordSheet: View {
             MHBMediaPickerScreen(
                 title: "添加照片",
                 request: MHBMediaPickerRequest(
-                    maxSelectionCount: remainingPhotoCount,
+                    maxSelectionCount: attachmentStore.remainingSelectionCount,
                     filter: .images,
-                    autoConfirmSingleSelection: remainingPhotoCount == 1,
+                    autoConfirmSingleSelection: attachmentStore.remainingSelectionCount == 1,
                     showsCameraEntry: true
                 ),
                 onComplete: handlePhotoPickerResult(_:),
@@ -117,17 +151,14 @@ struct PetPreventiveCareAddRecordSheet: View {
                 }
             )
         }
+        .task {
+            attachmentStore.replaceWithUploadedAssets(mode.initialDraft.attachmentAssetIDs)
+        }
         .accessibilityIdentifier("pet.preventiveCare.addRecordSheet")
     }
 
     private var topContentPadding: CGFloat {
         MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
-    }
-
-    private static let maxPhotoCount = 5
-
-    private var remainingPhotoCount: Int {
-        max(0, Self.maxPhotoCount - photoAttachments.count)
     }
 
     private func applyDefaults(for kind: PetPreventiveCareKind) {
@@ -145,27 +176,48 @@ struct PetPreventiveCareAddRecordSheet: View {
     }
 
     private func saveRecord() {
-        dismiss()
+        guard !isSubmitting,
+              !attachmentStore.isUploading,
+              !attachmentStore.hasFailedUploads else { return }
+        onSave(mode, currentDraft)
     }
 
     private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
         isPhotoPickerPresented = false
-        let selectedImages = Array(result.images.prefix(remainingPhotoCount))
-        guard selectedImages.isEmpty == false else { return }
-
-        let newAttachments = selectedImages.enumerated().map { offset, image in
-            let localIdentifier = result.imageLocalIdentifiers.indices.contains(offset) ? result.imageLocalIdentifiers[offset] : nil
-            return PetEventAttachmentDraft(
-                localIdentifier: localIdentifier,
-                previewImage: image,
-                uploadState: .uploaded
+        Task {
+            await attachmentStore.uploadPickedImages(
+                result.images,
+                localIdentifiers: result.imageLocalIdentifiers,
+                currentUserID: currentUserID
             )
         }
-        photoAttachments.append(contentsOf: newAttachments)
     }
 
-    private func removePhotoAttachment(id: UUID) {
-        photoAttachments.removeAll { $0.id == id }
+    private var currentDraft: PetPreventiveCareDraft {
+        PetPreventiveCareDraft(
+            kind: selectedKind,
+            name: nameText,
+            completedAt: completedAt,
+            reminderEnabled: reminderEnabled,
+            reminderAt: reminderAt,
+            executionMethod: executionMethod,
+            executionName: executionName,
+            note: note,
+            attachmentAssetIDs: attachmentStore.uploadedAssetIDs
+        )
+    }
+
+    private var submitButtonTitle: String {
+        if isSubmitting {
+            return "保存中"
+        }
+        if attachmentStore.isUploading {
+            return "照片上传中"
+        }
+        if attachmentStore.hasFailedUploads {
+            return "照片需处理"
+        }
+        return mode.submitTitle
     }
 }
 
@@ -174,11 +226,12 @@ struct PetPreventiveCareAddRecordSheet: View {
 // - 在原生 sheet 内固定标题和关闭入口
 // - 保持底部 CTA 与喂食 sheet 使用一致的全屏布局模型
 private struct PetPreventiveCareAddRecordTopChrome: View {
+    let title: LocalizedStringResource
     let onClose: () -> Void
 
     var body: some View {
         ZStack {
-            Text("新增记录")
+            Text(title)
                 .font(MHBTheme.Typography.headline.weight(.semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .frame(maxWidth: .infinity)
@@ -199,6 +252,72 @@ private struct PetPreventiveCareAddRecordTopChrome: View {
             }
         }
         .frame(height: 48)
+    }
+}
+
+// PetPreventiveCareFormMode 疫苗驱虫表单入口模式
+// 核心职责：
+// - 区分新增和编辑记录的初始草稿与提交文案
+// - 保持同一表单页面复用创建和更新流程
+enum PetPreventiveCareFormMode: Equatable, Identifiable {
+    case create
+    case edit(PetPreventiveCareRecord)
+
+    var id: String {
+        switch self {
+        case .create:
+            "create"
+        case .edit(let record):
+            "edit-\(record.id)"
+        }
+    }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .create:
+            "新增记录"
+        case .edit:
+            "修改记录"
+        }
+    }
+
+    var submitTitle: String {
+        switch self {
+        case .create:
+            "保存记录"
+        case .edit:
+            "保存修改"
+        }
+    }
+
+    var initialDraft: PetPreventiveCareDraft {
+        switch self {
+        case .create:
+            let now = Date()
+            return PetPreventiveCareDraft(
+                kind: .vaccine,
+                name: "",
+                completedAt: now,
+                reminderEnabled: true,
+                reminderAt: Calendar.current.date(byAdding: .year, value: 1, to: now) ?? now,
+                executionMethod: .hospital,
+                executionName: "",
+                note: "",
+                attachmentAssetIDs: []
+            )
+        case .edit(let record):
+            return PetPreventiveCareDraft(
+                kind: record.kind,
+                name: record.title,
+                completedAt: record.completedAt,
+                reminderEnabled: record.nextDueAt != nil,
+                reminderAt: record.nextDueAt ?? Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date(),
+                executionMethod: PetPreventiveCareExecutionMethod(rawValue: record.executionMethodRawValue ?? "") ?? .hospital,
+                executionName: record.executionName ?? "",
+                note: record.note ?? "",
+                attachmentAssetIDs: record.attachmentAssetIDs
+            )
+        }
     }
 }
 

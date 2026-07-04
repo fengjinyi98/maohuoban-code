@@ -2,7 +2,7 @@ import Foundation
 
 // PetEventDetailPayload 宠物事件详情载荷
 // 核心职责：
-// - 承载后端 event_payload 中已知的异常追踪和喂食字段
+// - 承载后端 event_payload 中已知的异常追踪、喂食和预防护理字段
 // - 使用宽松解码，未知 key 自动忽略，缺失字段返回 nil
 struct PetEventDetailPayload: Decodable, Equatable {
     let foodItemID: String?
@@ -16,6 +16,12 @@ struct PetEventDetailPayload: Decodable, Equatable {
     let note: String?
     let episodeID: String?
     let attachmentAssetIDs: [String]?
+    let name: String?
+    let executionMethod: String?
+    let executionName: String?
+    let completedAt: String?
+    let nextDueAt: String?
+    let dueText: String?
 
     // FoodSnapshot 喂食食品快照
     // 核心职责：
@@ -40,6 +46,12 @@ struct PetEventDetailPayload: Decodable, Equatable {
         case note
         case episodeID = "episode_id"
         case attachmentAssetIDs = "attachment_asset_ids"
+        case name
+        case executionMethod = "execution_method"
+        case executionName = "execution_name"
+        case completedAt = "completed_at"
+        case nextDueAt = "next_due_at"
+        case dueText = "due_text"
     }
 
     init(from decoder: Decoder) throws {
@@ -55,5 +67,11 @@ struct PetEventDetailPayload: Decodable, Equatable {
         note = try container.decodeIfPresent(String.self, forKey: .note)
         episodeID = try container.decodeIfPresent(String.self, forKey: .episodeID)
         attachmentAssetIDs = try container.decodeIfPresent([String].self, forKey: .attachmentAssetIDs)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        executionMethod = try container.decodeIfPresent(String.self, forKey: .executionMethod)
+        executionName = try container.decodeIfPresent(String.self, forKey: .executionName)
+        completedAt = try container.decodeIfPresent(String.self, forKey: .completedAt)
+        nextDueAt = try container.decodeIfPresent(String.self, forKey: .nextDueAt)
+        dueText = try container.decodeIfPresent(String.self, forKey: .dueText)
     }
 }

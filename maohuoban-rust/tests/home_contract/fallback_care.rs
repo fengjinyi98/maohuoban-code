@@ -81,3 +81,53 @@ async fn home_dashboard_derives_reminders_without_care_summary_from_pet_events()
         "deworming"
     );
 }
+
+#[tokio::test]
+async fn home_dashboard_returns_all_preventive_care_reminders_sorted_by_due_date() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138230").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+
+    for (event_subkind, title, occurred_at, next_due_at) in [
+        ("vaccine", "狂犬疫苗", "2026-06-01T09:00:00Z", "2026-08-15"),
+        (
+            "deworming",
+            "体内外驱虫",
+            "2026-06-02T09:00:00Z",
+            "2026-07-01",
+        ),
+        ("vaccine", "妙三多", "2026-06-03T09:00:00Z", "2026-07-20"),
+        ("deworming", "拜宠清", "2026-06-04T09:00:00Z", "2026-09-01"),
+    ] {
+        append_home_test_event(
+            &app,
+            &user_id,
+            &pet_id,
+            json!({
+                "event_kind": "health",
+                "event_subkind": event_subkind,
+                "title": title,
+                "summary": format!("{title}已完成"),
+                "visibility": "private",
+                "occurred_at": occurred_at,
+                "event_payload": {
+                    "next_due_at": next_due_at,
+                    "due_text": "待提醒"
+                }
+            }),
+        )
+        .await;
+    }
+
+    let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    let reminders = dashboard_body["data"]["reminders"]
+        .as_array()
+        .expect("home reminders");
+
+    assert_eq!(reminders.len(), 4);
+    assert_eq!(reminders[0]["subtitle"], "预计 2026-07-01 提醒");
+    assert_eq!(reminders[1]["subtitle"], "预计 2026-07-20 提醒");
+    assert_eq!(reminders[2]["subtitle"], "预计 2026-08-15 提醒");
+    assert_eq!(reminders[3]["subtitle"], "预计 2026-09-01 提醒");
+}

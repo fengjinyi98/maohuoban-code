@@ -5,22 +5,32 @@ import MaohuobanDesignSystem
 // PetPreventiveCareScreen 疫苗驱虫管理页
 // 核心职责：
 // - 展示疫苗/驱虫的最近到期状态和计划摘要
-// - 用 mock 列表承载历史记录浏览和后续新增入口
+// - 读取真实事件列表承载历史记录浏览和后续新增入口
 struct PetPreventiveCareScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let context: PetPreventiveCareContext
+    let currentUserID: String?
+    var onRecordDeleted: (String) -> Void = { _ in }
+    var onMutationCompleted: () -> Void = {}
 
     @State private var selectedKind: PetPreventiveCareKind = .all
     @State private var selectedPet: PetRecordSwitchPet?
-    @State private var isAddRecordSheetPresented = false
+    @State private var formMode: PetPreventiveCareFormMode?
     @State private var detailRoute: PetRecordDetailRoute?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
+    @State private var store = PetPreventiveCareStore()
 
-    private let records = PetPreventiveCareRecord.mockRecords
-
-    init(context: PetPreventiveCareContext) {
+    init(
+        context: PetPreventiveCareContext,
+        currentUserID: String? = nil,
+        onRecordDeleted: @escaping (String) -> Void = { _ in },
+        onMutationCompleted: @escaping () -> Void = {}
+    ) {
         self.context = context
+        self.currentUserID = currentUserID
+        self.onRecordDeleted = onRecordDeleted
+        self.onMutationCompleted = onMutationCompleted
         self._selectedPet = State(initialValue: context.recordContext.selectedSwitchPet)
     }
 
@@ -34,24 +44,9 @@ struct PetPreventiveCareScreen: View {
                     .ignoresSafeArea()
 
                 MHBScreenScrollView {
-                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                        PetPreventiveCareOverviewSection(
-                            nearestRecord: nearestRecord,
-                            vaccineRecord: latestRecord(kind: .vaccine),
-                            dewormingRecord: latestRecord(kind: .deworming)
-                        )
-
-                        PetPreventiveCareHistorySection(
-                            selectedKind: $selectedKind,
-                            groups: groupedRecords,
-                            onOpenRecord: { record in
-                                detailRoute = detailRoute(for: record)
-                            }
-                        )
-                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
-                    }
-                    .padding(.horizontal, MHBTheme.Spacing.s5)
-                    .padding(.top, topContentPadding(topInset: topInset))
+                    contentView
+                        .padding(.horizontal, MHBTheme.Spacing.s5)
+                        .padding(.top, topContentPadding(topInset: topInset))
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
@@ -66,7 +61,7 @@ struct PetPreventiveCareScreen: View {
                     systemImage: "plus",
                     bottomInset: bottomInset,
                     action: {
-                        isAddRecordSheetPresented = true
+                        formMode = .create
                     }
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
@@ -92,12 +87,64 @@ struct PetPreventiveCareScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(item: $detailRoute) { route in
-            PetRecordDetailDestinationScreen(route: route)
+            PetRecordDetailDestinationScreen(
+                route: route,
+                currentUserID: currentUserID,
+                onRecordDeleted: { recordID in
+                    store.removeRecord(id: recordID)
+                    onRecordDeleted(recordID)
+                    onMutationCompleted()
+                }
+            )
         }
-        .sheet(isPresented: $isAddRecordSheetPresented) {
-            PetPreventiveCareAddRecordSheet()
+        .sheet(item: $formMode) { mode in
+            PetPreventiveCareAddRecordSheet(
+                mode: mode,
+                currentUserID: currentUserID,
+                isSubmitting: store.isMutating,
+                onSave: saveRecord(mode:draft:)
+            )
+        }
+        .task(id: currentPetID) {
+            await store.load(petID: currentPetID, currentUserID: currentUserID)
         }
         .accessibilityIdentifier("pet.preventiveCare")
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch store.phase {
+        case .idle, .loading:
+            PetPreventiveCareLoadingState()
+                .padding(.bottom, MHBTheme.Spacing.s8)
+        case .failed(let message):
+            PetPreventiveCareErrorState(message: message) {
+                Task {
+                    await store.load(petID: currentPetID, currentUserID: currentUserID)
+                }
+            }
+            .padding(.bottom, MHBTheme.Spacing.s8)
+        case .loaded:
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                PetPreventiveCareOverviewSection(
+                    nearestRecord: nearestRecord,
+                    vaccineRecord: latestRecord(kind: .vaccine),
+                    dewormingRecord: latestRecord(kind: .deworming)
+                )
+
+                PetPreventiveCareHistorySection(
+                    selectedKind: $selectedKind,
+                    groups: groupedRecords,
+                    onOpenRecord: { record in
+                        detailRoute = detailRoute(for: record)
+                    },
+                    onEditRecord: { record in
+                        formMode = .edit(record)
+                    }
+                )
+                .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
+            }
+        }
     }
 
     private var topChromeHeight: CGFloat {
@@ -114,6 +161,10 @@ struct PetPreventiveCareScreen: View {
 
     private var currentPetID: String? {
         selectedPet?.id ?? context.recordContext.petID
+    }
+
+    private var records: [PetPreventiveCareRecord] {
+        store.records
     }
 
     private var availablePets: [PetRecordSwitchPet] {
@@ -187,9 +238,9 @@ struct PetPreventiveCareScreen: View {
     private func detailRoute(for record: PetPreventiveCareRecord) -> PetRecordDetailRoute {
         switch record.kind {
         case .vaccine:
-            .vaccine(recordID: record.id)
+            .vaccine(recordID: record.id, context: currentRecordContext)
         case .deworming:
-            .deworming(recordID: record.id)
+            .deworming(recordID: record.id, context: currentRecordContext)
         case .all:
             .unsupported(recordID: record.id)
         }
@@ -204,8 +255,44 @@ struct PetPreventiveCareScreen: View {
             breed: pet.breed,
             avatarURL: pet.avatarURL,
             sex: pet.sex,
+            lifeStatus: pet.lifeStatus,
             isSelected: true
         )
+    }
+
+    private var currentRecordContext: PetRecordEntryContext {
+        PetRecordEntryContext(
+            petID: currentPetID,
+            petName: selectedPet?.name ?? context.recordContext.petName,
+            petAvatarURL: selectedPet?.avatarURL ?? context.recordContext.petAvatarURL,
+            petSex: selectedPet?.sex ?? context.recordContext.petSex,
+            lifeStatus: selectedPet?.lifeStatus ?? context.recordContext.lifeStatus,
+            availablePets: availablePets
+        )
+    }
+
+    private func saveRecord(mode: PetPreventiveCareFormMode, draft: PetPreventiveCareDraft) {
+        Task {
+            let didSave: Bool
+            switch mode {
+            case .create:
+                didSave = await store.create(
+                    petID: currentPetID,
+                    currentUserID: currentUserID,
+                    draft: draft
+                )
+            case .edit(let record):
+                didSave = await store.update(
+                    eventID: record.id,
+                    petID: currentPetID,
+                    currentUserID: currentUserID,
+                    draft: draft
+                )
+            }
+            guard didSave else { return }
+            formMode = nil
+            onMutationCompleted()
+        }
     }
 }
 
@@ -218,4 +305,46 @@ struct PetPreventiveCareHistoryGroup: Identifiable, Hashable {
     let year: String
     let month: String
     var records: [PetPreventiveCareRecord]
+}
+
+// PetPreventiveCareLoadingState 疫苗驱虫加载态
+// 核心职责：
+// - 展示真实记录加载反馈
+// - 避免页面回落到演示数据
+private struct PetPreventiveCareLoadingState: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            ProgressView()
+            Text("正在加载疫苗驱虫记录")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetPreventiveCareErrorState 疫苗驱虫错误态
+// 核心职责：
+// - 展示真实记录加载失败原因
+// - 提供显式重试入口
+private struct PetPreventiveCareErrorState: View {
+    let message: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+            Text(message)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+            Button("重试", action: onRetry)
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
 }

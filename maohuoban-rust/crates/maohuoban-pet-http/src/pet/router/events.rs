@@ -8,7 +8,10 @@ use uuid::Uuid;
 
 use super::PetHttpState;
 use crate::pet::{
-    dto::{CreatePetEventRequest, DeletedPetEventData, PetEventData, PetTimelineData},
+    dto::{
+        CreatePetEventRequest, DeletedPetEventData, PetEventData, PetTimelineData,
+        UpdatePetEventRequest,
+    },
     response::{created_response, error_response, ok_response},
 };
 use maohuoban_pet_application::pet::DeletePetEvent;
@@ -64,6 +67,25 @@ pub(super) async fn load_pet_event_detail(
         Ok(event) => ok_response(
             "pet.event_loaded",
             "宠物事件已加载",
+            PetEventData::from(event),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+pub(super) async fn update_pet_event(
+    State(state): State<PetHttpState>,
+    Path(event_id): Path<Uuid>,
+    actor: AuthenticatedUser,
+    Json(request): Json<UpdatePetEventRequest>,
+) -> Response {
+    let actor_user_id = actor.user_id();
+
+    let input = request.into_update_pet_event(event_id, actor_user_id);
+    match state.pet.update_pet_event(input).await {
+        Ok(event) => ok_response(
+            "pet.event_updated",
+            "宠物事件已更新",
             PetEventData::from(event),
         ),
         Err(error) => error_response(&error),

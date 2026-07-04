@@ -19,18 +19,21 @@ struct HomeRemindersSection: View {
 
                 Spacer()
 
-                HStack(spacing: 4) {
-                    Text("查看全部")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
+                NavigationLink(value: HomeRoute.allReminders(reminders: reminders, context: routingContext)) {
+                    HStack(spacing: 4) {
+                        Text("查看全部")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
                 }
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.6))
+                .buttonStyle(.plain)
             }
 
             // 垂直扁平列表
             VStack(spacing: 0) {
-                ForEach(Array(reminders.enumerated()), id: \.element.id) { index, reminder in
+                ForEach(Array(visibleReminders.enumerated()), id: \.element.id) { index, reminder in
                     let isFirst = index == 0
                     if let route = HomeReminderRouteResolver.route(for: reminder, context: routingContext) {
                         NavigationLink(value: route) {
@@ -44,7 +47,7 @@ struct HomeRemindersSection: View {
                     }
 
                     // 绘制细分底线，起始点对齐右侧文本开头（偏移 88pt）
-                    if index < reminders.count - 1 {
+                    if index < visibleReminders.count - 1 {
                         HStack(spacing: 0) {
                             Spacer()
                                 .frame(width: 88)
@@ -58,6 +61,10 @@ struct HomeRemindersSection: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.remindersSection")
+    }
+
+    private var visibleReminders: [HomeDashboardSnapshot.Reminder] {
+        Array(reminders.prefix(3))
     }
 }
 

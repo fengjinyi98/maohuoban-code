@@ -11,8 +11,8 @@ pub(super) use requests::{
     CreatePetProfileRequest, CreatePetWeightRecordRequest, DeletePetProfileRequest,
     PublishAvailableStatusRequest, SetPetCurrentStapleRequest, SetPetDietAssignmentRequest,
     TradePetImportRequest, UpdateFoodInventoryItemRequest, UpdatePetAlbumRequest,
-    UpdatePetProfileRequest, UpdatePetWeightRecordRequest, UploadPetLivePhotoRequest,
-    UploadPetMediaRequest,
+    UpdatePetEventRequest, UpdatePetProfileRequest, UpdatePetWeightRecordRequest,
+    UploadPetLivePhotoRequest, UploadPetMediaRequest,
 };
 pub(super) use responses::{
     DeletedPetEventData, DeletedPetWeightRecordData, PetAlbumAssetData, PetAlbumAssetListData,

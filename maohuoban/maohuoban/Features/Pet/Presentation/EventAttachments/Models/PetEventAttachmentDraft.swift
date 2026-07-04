@@ -28,4 +28,14 @@ struct PetEventAttachmentDraft: Identifiable {
         self.remoteURLString = remoteURLString
         self.uploadState = uploadState
     }
+
+    init(assetID: String) {
+        self.init(
+            localIdentifier: nil,
+            previewImage: UIImage(),
+            assetID: assetID,
+            remoteURLString: "/api/v1/media/assets/\(assetID)/content",
+            uploadState: .uploaded
+        )
+    }
 }

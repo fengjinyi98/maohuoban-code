@@ -122,6 +122,23 @@ pub struct NewPetEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
+/// UpdatePetEvent 更新宠物事件输入
+/// 核心职责：
+/// - 表达通用事件详情编辑态提交内容
+/// - 保留事件 ID 作为稳定详情路由
+#[derive(Debug, Clone)]
+pub struct UpdatePetEvent {
+    pub event_id: Uuid,
+    pub actor_user_id: Uuid,
+    pub event_kind: EventKind,
+    pub event_subkind: Option<String>,
+    pub title: String,
+    pub summary: Option<String>,
+    pub visibility: EventVisibility,
+    pub event_payload: Value,
+    pub occurred_at: DateTime<Utc>,
+}
+
 /// PetWeightRecordSource 体重记录来源
 /// 核心职责：
 /// - 区分建档初始体重和用户手动新增记录
@@ -402,6 +419,8 @@ pub trait PetRepository: Send + Sync {
     ) -> PetResult<()>;
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
+
+    async fn update_pet_event(&self, input: UpdatePetEvent) -> PetResult<PetEvent>;
 
     async fn create_pet_weight_record(
         &self,

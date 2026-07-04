@@ -154,6 +154,7 @@ struct PetPreventiveCareHistorySection: View {
     @Binding var selectedKind: PetPreventiveCareKind
     let groups: [PetPreventiveCareHistoryGroup]
     let onOpenRecord: (PetPreventiveCareRecord) -> Void
+    let onEditRecord: (PetPreventiveCareRecord) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -170,7 +171,8 @@ struct PetPreventiveCareHistorySection: View {
                     ForEach(groups) { group in
                         PetPreventiveCareHistoryMonthGroup(
                             group: group,
-                            onOpenRecord: onOpenRecord
+                            onOpenRecord: onOpenRecord,
+                            onEditRecord: onEditRecord
                         )
                     }
                 }
@@ -248,6 +250,7 @@ private struct PetPreventiveCareFilterTag: View {
 private struct PetPreventiveCareHistoryMonthGroup: View {
     let group: PetPreventiveCareHistoryGroup
     let onOpenRecord: (PetPreventiveCareRecord) -> Void
+    let onEditRecord: (PetPreventiveCareRecord) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
@@ -265,12 +268,15 @@ private struct PetPreventiveCareHistoryMonthGroup: View {
 
             VStack(spacing: MHBTheme.Spacing.s2) {
                 ForEach(group.records) { record in
-                    Button {
-                        onOpenRecord(record)
-                    } label: {
-                        PetPreventiveCareHistoryRow(record: record)
-                    }
-                    .buttonStyle(.plain)
+                    PetPreventiveCareHistoryRow(
+                        record: record,
+                        onOpenRecord: {
+                            onOpenRecord(record)
+                        },
+                        onEditRecord: {
+                            onEditRecord(record)
+                        }
+                    )
                 }
             }
         }
@@ -283,44 +289,57 @@ private struct PetPreventiveCareHistoryMonthGroup: View {
 // - 保留右侧箭头表达可进入详情
 private struct PetPreventiveCareHistoryRow: View {
     let record: PetPreventiveCareRecord
+    let onOpenRecord: () -> Void
+    let onEditRecord: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
-            Image(systemName: record.kind.systemImage)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(record.kind.tint)
-                .frame(width: 34, height: 34)
-                .background(record.kind.tint.opacity(0.12), in: Circle())
+            Button(action: onOpenRecord) {
+                HStack(alignment: .center, spacing: MHBTheme.Spacing.s3) {
+                    Image(systemName: record.kind.systemImage)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(record.kind.tint)
+                        .frame(width: 34, height: 34)
+                        .background(record.kind.tint.opacity(0.12), in: Circle())
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                Text(record.title)
-                    .font(MHBTheme.Typography.callout.weight(.semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                        Text(record.title)
+                            .font(MHBTheme.Typography.callout.weight(.semibold))
+                            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                Text(record.subtitle)
-                    .font(MHBTheme.Typography.caption)
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .lineLimit(1)
-            }
+                        Text(record.subtitle)
+                            .font(MHBTheme.Typography.caption)
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineLimit(1)
+                    }
 
-            Spacer(minLength: MHBTheme.Spacing.s3)
+                    Spacer(minLength: MHBTheme.Spacing.s3)
 
-            VStack(alignment: .trailing, spacing: MHBTheme.Spacing.s1 / 2) {
-                Text(record.dateText)
-                    .font(MHBTheme.Typography.caption.weight(.medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    VStack(alignment: .trailing, spacing: MHBTheme.Spacing.s1 / 2) {
+                        Text(record.dateText)
+                            .font(MHBTheme.Typography.caption.weight(.medium))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
-                if let nextDueText = record.nextDueText {
-                    Text("下次 \(nextDueText)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(record.status.tint)
-                        .lineLimit(1)
+                        if let nextDueText = record.nextDueText {
+                            Text("下次 \(nextDueText)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(record.status.tint)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
+            .buttonStyle(.plain)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+            Button(action: onEditRecord) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("修改记录")
         }
         .padding(MHBTheme.Spacing.s4)
         .background(MHBTheme.ColorToken.cardSolid.color)

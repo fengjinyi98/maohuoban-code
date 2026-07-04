@@ -38,11 +38,17 @@ enum HomeTimelineRecordRouteResolver {
             }
             return .petRecordDetail(.quickFact(recordID: event.id, kind: .appetiteNormal, context: recordContext))
         case .deworming:
-            return .petRecordDetail(.deworming(recordID: event.id))
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
+            return .petRecordDetail(.deworming(recordID: event.id, context: recordContext))
         case .walk:
             return .petRecordDetail(.walk(recordID: event.id))
         case .vaccine:
-            return .petRecordDetail(.vaccine(recordID: event.id))
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
+            return .petRecordDetail(.vaccine(recordID: event.id, context: recordContext))
         case .abnormal:
             guard let recordContext else {
                 return .petRecordDetail(.unsupported(recordID: event.id))

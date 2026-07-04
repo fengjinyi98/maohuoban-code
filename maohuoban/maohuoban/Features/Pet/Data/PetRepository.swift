@@ -16,6 +16,12 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventSummary>
 
+    func updateEvent(
+        eventID: String,
+        draft: PetEventDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail>
+
     func importTradePet(
         draft: TradePetImportDraft,
         currentUserID: String

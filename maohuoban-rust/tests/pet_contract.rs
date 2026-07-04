@@ -35,6 +35,8 @@ mod merchant;
 mod pet_album;
 #[path = "pet_contract/pet_event_attachments.rs"]
 mod pet_event_attachments;
+#[path = "pet_contract/preventive_care_event.rs"]
+mod preventive_care_event;
 #[path = "pet_contract/profile_crud.rs"]
 mod profile_crud;
 #[path = "pet_contract/profile_delete.rs"]

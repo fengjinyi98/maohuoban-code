@@ -23,6 +23,18 @@ extension DefaultPetRepository {
         )
     }
 
+    func updateEvent(
+        eventID: String,
+        draft: PetEventDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
+        try await client.patch(
+            path: "/api/v1/pet-events/\(eventID)",
+            body: draft,
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+    }
+
     func loadTimeline(
         petID: String,
         currentUserID: String

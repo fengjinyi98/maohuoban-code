@@ -1,5 +1,6 @@
 use maohuoban_pet_application::pet::{
     DeletePetEvent, DeletedPetEvent, NewPetEvent, TradePetImport, TradePetImportInput,
+    UpdatePetEvent,
 };
 use maohuoban_pet_domain::pet::{PetError, PetEvent, PetResult, PetTimeline, PetTimelineEntry};
 use uuid::Uuid;
@@ -238,6 +239,77 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         row.map(TryInto::try_into).transpose()
+    }
+
+    pub(super) async fn update_pet_event_command(
+        &self,
+        input: UpdatePetEvent,
+    ) -> PetResult<PetEvent> {
+        let current = self
+            .load_pet_event_detail_query(input.actor_user_id, input.event_id)
+            .await?
+            .ok_or(PetError::PetEventNotFound)?;
+        let pet_id = current.pet_id.ok_or(PetError::PetEventNotFound)?;
+
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
+        Self::bind_event_attachment_assets_in_transaction(
+            &mut transaction,
+            pet_id,
+            input.actor_user_id,
+            &input.event_payload,
+        )
+        .await?;
+
+        let row = sqlx::query_as::<_, PetEventRow>(
+            r#"
+            UPDATE pet_events
+            SET event_kind = $2,
+                event_subkind = $3,
+                title = $4,
+                summary = $5,
+                visibility = $6,
+                event_payload = $7,
+                occurred_at = $8,
+                record_revision = record_revision + 1,
+                updated_at = now()
+            WHERE id = $1
+              AND superseded_by_event_id IS NULL
+            RETURNING
+                id,
+                pet_id,
+                litter_id,
+                event_kind,
+                event_subkind,
+                title,
+                summary,
+                visibility,
+                event_payload,
+                occurred_at,
+                actor_user_id,
+                evidence_snapshot_id,
+                record_revision,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(input.event_id)
+        .bind(input.event_kind.as_str())
+        .bind(input.event_subkind)
+        .bind(input.title)
+        .bind(input.summary)
+        .bind(input.visibility.as_str())
+        .bind(input.event_payload)
+        .bind(input.occurred_at)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(to_pet_event_write_error)?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
+
+        row.ok_or(PetError::PetEventNotFound)?.try_into()
     }
 
     pub(super) async fn delete_pet_event_command(

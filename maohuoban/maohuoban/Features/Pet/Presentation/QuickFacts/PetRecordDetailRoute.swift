@@ -11,8 +11,8 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
     case feeding(recordID: String, context: PetRecordEntryContext)
     case abnormal(recordID: String, context: PetRecordEntryContext)
     case weight(recordID: String, context: PetRecordEntryContext)
-    case deworming(recordID: String)
-    case vaccine(recordID: String)
+    case deworming(recordID: String, context: PetRecordEntryContext)
+    case vaccine(recordID: String, context: PetRecordEntryContext)
     case clinicVisit(recordID: String)
     case walk(recordID: String)
     case unsupported(recordID: String)
@@ -27,9 +27,9 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
             "abnormal-\(recordID)"
         case .weight(let recordID, _):
             "weight-\(recordID)"
-        case .deworming(let recordID):
+        case .deworming(let recordID, _):
             "deworming-\(recordID)"
-        case .vaccine(let recordID):
+        case .vaccine(let recordID, _):
             "vaccine-\(recordID)"
         case .clinicVisit(let recordID):
             "clinicVisit-\(recordID)"
@@ -82,15 +82,21 @@ struct PetRecordDetailDestinationScreen: View {
                 currentUserID: currentUserID,
                 onDeleted: onRecordDeleted
             )
-        case .deworming(let recordID):
+        case .deworming(let recordID, let context):
             PetPreventiveCareRecordDetailScreen(
                 recordID: recordID,
-                fallbackKind: .deworming
+                fallbackKind: .deworming,
+                currentUserID: currentUserID,
+                recordContext: context,
+                onDeleted: onRecordDeleted
             )
-        case .vaccine(let recordID):
+        case .vaccine(let recordID, let context):
             PetPreventiveCareRecordDetailScreen(
                 recordID: recordID,
-                fallbackKind: .vaccine
+                fallbackKind: .vaccine,
+                currentUserID: currentUserID,
+                recordContext: context,
+                onDeleted: onRecordDeleted
             )
         case .clinicVisit:
             PetRecordDetailPlaceholderScreen(

@@ -5,7 +5,7 @@ use maohuoban_pet_application::pet::{
     DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, NewPetWeightRecord,
     PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository, PetWeightRecord,
     ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetProfile, UpdatePetWeightRecord,
+    UpdatePetEvent, UpdatePetProfile, UpdatePetWeightRecord,
 };
 use maohuoban_pet_application::pet::{
     DeletePetEvent, DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord,
@@ -270,6 +270,10 @@ impl PetRepository for PostgresPetRepository {
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
         self.create_pet_event_command(input).await
+    }
+
+    async fn update_pet_event(&self, input: UpdatePetEvent) -> PetResult<PetEvent> {
+        self.update_pet_event_command(input).await
     }
 
     async fn create_pet_weight_record(

@@ -24,6 +24,7 @@ enum HomeRoute: Hashable {
     case merchantPets(merchantID: String, status: String)
     case merchantLitter(merchantID: String, litterID: String)
     case merchantTask(merchantID: String, reminderID: String)
+    case allReminders(reminders: [HomeDashboardSnapshot.Reminder], context: HomeActionRoutingContext)
     case petRecordDetail(PetRecordDetailRoute)
     case petAlbum(PetAlbumEntryContext)
     case petAlbumDestination(context: PetAlbumEntryContext, destination: PetAlbumRouteDestination)
@@ -52,7 +53,7 @@ extension HomeRoute {
         case .publishAvailableStatus: "tag.fill"
         case .merchantPets: "pawprint"
         case .merchantLitter: "point.3.connected.trianglepath.dotted"
-        case .merchantTask: "checklist"
+        case .merchantTask, .allReminders: "checklist"
         case .petRecordDetail: "clock.arrow.circlepath"
         case .petAlbum, .petAlbumDestination: "photo.on.rectangle.angled"
         case .petPantry: "archivebox.fill"
@@ -82,6 +83,7 @@ extension HomeRoute {
         case .merchantPets: "商家宠物筛选"
         case .merchantLitter: "窝次详情"
         case .merchantTask: "待处理任务"
+        case .allReminders: "全部提醒"
         case .petRecordDetail: "记录详情"
         case .petAlbum: "宠物相册"
         case .petAlbumDestination(_, let destination): destination.title
@@ -112,6 +114,7 @@ extension HomeRoute {
         case .merchantPets: "查看指定状态下的在管宠物"
         case .merchantLitter: "查看出生批次、父母和同窝关系"
         case .merchantTask: "处理商家工作台待办"
+        case .allReminders: "查看当前宠物所有疫苗、驱虫和复诊提醒"
         case .petRecordDetail: "查看宠物记录详情"
         case .petAlbum: "进入宠物相册"
         case .petAlbumDestination: "查看宠物相册页面"

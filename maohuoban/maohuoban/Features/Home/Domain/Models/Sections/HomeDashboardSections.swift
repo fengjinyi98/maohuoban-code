@@ -6,7 +6,7 @@ extension HomeDashboardSnapshot {
     // - 承载近期待处理提醒
     // - 连接完整提醒模块入口
     // - 通过 sourceRef 关联业务记录，提醒系统保持通用能力
-    struct Reminder: Decodable, Equatable, Identifiable {
+    struct Reminder: Decodable, Equatable, Hashable, Identifiable {
         let id: String
         let kind: Kind
         let title: String
@@ -25,7 +25,7 @@ extension HomeDashboardSnapshot {
             case sourceRef = "source_ref"
         }
 
-        enum Kind: String, Decodable, Equatable {
+        enum Kind: String, Decodable, Equatable, Hashable {
             case vaccine
             case deworming
             case followUp = "follow_up"

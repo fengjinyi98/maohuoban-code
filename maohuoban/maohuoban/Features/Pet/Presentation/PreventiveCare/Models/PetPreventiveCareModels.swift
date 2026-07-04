@@ -53,11 +53,22 @@ enum PetPreventiveCareKind: String, CaseIterable, Hashable, Identifiable {
         case .deworming: MHBTheme.ColorToken.success.color
         }
     }
+
+    init?(eventSubkind: String?) {
+        switch eventSubkind {
+        case "vaccine":
+            self = .vaccine
+        case "deworming":
+            self = .deworming
+        default:
+            return nil
+        }
+    }
 }
 
 // PetPreventiveCareRecord 疫苗驱虫记录展示模型
 // 核心职责：
-// - 承载快速 UI 阶段的疫苗/驱虫 mock 记录
+// - 承载后端疫苗/驱虫事件投影
 // - 为顶部状态、计划摘要和历史列表提供统一输入
 struct PetPreventiveCareRecord: Identifiable, Hashable {
     let id: String
@@ -70,6 +81,12 @@ struct PetPreventiveCareRecord: Identifiable, Hashable {
     let nextDueText: String?
     let daysDelta: Int?
     let status: Status
+    let completedAt: Date
+    let nextDueAt: Date?
+    let executionMethodRawValue: String?
+    let executionName: String?
+    let note: String?
+    let attachmentAssetIDs: [String]
 
     enum Status: Hashable {
         case normal
@@ -93,55 +110,4 @@ struct PetPreventiveCareRecord: Identifiable, Hashable {
         }
     }
 
-    static let mockRecords: [PetPreventiveCareRecord] = [
-        PetPreventiveCareRecord(
-            id: "vaccine-rabies-2026-06",
-            kind: .vaccine,
-            title: "狂犬疫苗",
-            subtitle: "年度加强",
-            dateText: "6月20日",
-            yearText: "2026年",
-            monthText: "6月",
-            nextDueText: "2026.06.28",
-            daysDelta: 3,
-            status: .dueSoon
-        ),
-        PetPreventiveCareRecord(
-            id: "deworming-2026-06",
-            kind: .deworming,
-            title: "体内驱虫",
-            subtitle: "拜宠清",
-            dateText: "6月10日",
-            yearText: "2026年",
-            monthText: "6月",
-            nextDueText: "2026.07.10",
-            daysDelta: 15,
-            status: .normal
-        ),
-        PetPreventiveCareRecord(
-            id: "vaccine-triple-2026-05",
-            kind: .vaccine,
-            title: "猫三联",
-            subtitle: "妙三多 第 3 针",
-            dateText: "5月18日",
-            yearText: "2026年",
-            monthText: "5月",
-            nextDueText: "2027.05.18",
-            daysDelta: 327,
-            status: .normal
-        ),
-        PetPreventiveCareRecord(
-            id: "deworming-2026-04",
-            kind: .deworming,
-            title: "内外同驱",
-            subtitle: "大宠爱",
-            dateText: "4月12日",
-            yearText: "2026年",
-            monthText: "4月",
-            nextDueText: "2026.05.12",
-            daysDelta: -44,
-            status: .overdue
-        )
-    ]
 }
-

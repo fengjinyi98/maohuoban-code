@@ -199,7 +199,15 @@ async fn home_dashboard_projects_latest_weight_records_into_pet_stats() {
     let create_body = response_json(create_response).await;
     let pet_id = create_body["data"]["id"].as_str().expect("pet id");
 
-    append_home_test_weight_record(&app, &user_id, pet_id, 4350, "2026-07-04T10:30:00Z").await;
+    let latest_weight_recorded_at = chrono::Utc::now() + chrono::Duration::hours(1);
+    append_home_test_weight_record(
+        &app,
+        &user_id,
+        pet_id,
+        4350,
+        &latest_weight_recorded_at.to_rfc3339(),
+    )
+    .await;
 
     let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, pet_id).await;
     let selected_pet = &dashboard_body["data"]["selected_pet"];
@@ -209,7 +217,7 @@ async fn home_dashboard_projects_latest_weight_records_into_pet_stats() {
     assert_eq!(selected_pet["stats"]["weight_change"], "+ 0.15 kg");
     assert_eq!(
         selected_pet["stats"]["record_streak_text"],
-        "最近记录 2026-07-04"
+        format!("最近记录 {}", latest_weight_recorded_at.format("%Y-%m-%d"))
     );
     assert_eq!(selected_pet["stats"]["record_days"], 2);
     assert_eq!(selected_pet["stats"]["deworming_date"], "待记录");

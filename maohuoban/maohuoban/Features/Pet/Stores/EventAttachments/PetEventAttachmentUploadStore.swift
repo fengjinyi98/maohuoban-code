@@ -8,13 +8,17 @@ import UIKit
 @MainActor
 @Observable
 final class PetEventAttachmentUploadStore {
-    static let maxAttachmentCount = 3
+    let maxAttachmentCount: Int
 
     private(set) var attachments: [PetEventAttachmentDraft] = []
 
     let repository: PetRepository
 
-    init(repository: PetRepository = DefaultPetRepository()) {
+    init(
+        maxAttachmentCount: Int = 3,
+        repository: PetRepository = DefaultPetRepository()
+    ) {
+        self.maxAttachmentCount = maxAttachmentCount
         self.repository = repository
     }
 
@@ -34,11 +38,11 @@ final class PetEventAttachmentUploadStore {
     }
 
     var canAddMore: Bool {
-        attachments.count < Self.maxAttachmentCount
+        attachments.count < maxAttachmentCount
     }
 
     var remainingSelectionCount: Int {
-        max(0, Self.maxAttachmentCount - attachments.count)
+        max(0, maxAttachmentCount - attachments.count)
     }
 
     func uploadPickedImages(
@@ -72,6 +76,10 @@ final class PetEventAttachmentUploadStore {
 
     func removeAttachment(id: UUID) {
         attachments.removeAll { $0.id == id }
+    }
+
+    func replaceWithUploadedAssets(_ assetIDs: [String]) {
+        attachments = assetIDs.prefix(maxAttachmentCount).map(PetEventAttachmentDraft.init(assetID:))
     }
 
     func retryAttachment(id: UUID, currentUserID: String?) async {

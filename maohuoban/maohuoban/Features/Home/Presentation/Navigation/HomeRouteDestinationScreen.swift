@@ -73,7 +73,17 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .petPreventiveCare(let context):
-            PetPreventiveCareScreen(context: context)
+            PetPreventiveCareScreen(
+                context: context,
+                currentUserID: currentUserID,
+                onRecordDeleted: { deletedRecordID in
+                    onRecordDeleted(deletedRecordID)
+                    onHomeMutationCompleted(nil)
+                },
+                onMutationCompleted: {
+                    onHomeMutationCompleted(nil)
+                }
+            )
         case .petRecordHistory(let context):
             PetRecordHistoryScreen(
                 context: context,
@@ -134,6 +144,12 @@ struct HomeRouteDestinationScreen: View {
                 merchantID: merchantID,
                 status: .needsRecord,
                 currentUserID: currentUserID
+            )
+        case .allReminders(let reminders, let context):
+            HomeAllRemindersScreen(
+                reminders: reminders,
+                routingContext: context,
+                onOpenRoute: onRouteRequested
             )
         case .importTradePet:
             PetTradeImportScreen(

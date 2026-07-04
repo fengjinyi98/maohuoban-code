@@ -47,6 +47,29 @@ impl PostgresPetRepository {
             return Ok(());
         }
 
+        let accessible_asset_ids = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT id
+            FROM media_assets
+            WHERE id = ANY($1)
+              AND uploaded_by_user_id = $3
+              AND owner_pet_id = $2
+              AND usage_kind = 'pet.event.attachment'
+              AND status = 'bound'
+              AND deleted_at IS NULL
+            "#,
+        )
+        .bind(&asset_ids)
+        .bind(pet_id)
+        .bind(actor_user_id)
+        .fetch_all(&mut **transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        if accessible_asset_ids.len() == asset_ids.len() {
+            return Ok(());
+        }
+
         Err(PetError::PetNotFound)
     }
 }

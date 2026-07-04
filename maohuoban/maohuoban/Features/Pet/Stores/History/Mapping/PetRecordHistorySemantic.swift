@@ -106,11 +106,11 @@ struct PetRecordHistorySemantic {
         case .weight:
             .weight(recordID: recordID, context: context)
         case .deworming:
-            .deworming(recordID: recordID)
+            .deworming(recordID: recordID, context: context)
         case .walk:
             .walk(recordID: recordID)
         case .vaccine:
-            .vaccine(recordID: recordID)
+            .vaccine(recordID: recordID, context: context)
         case .abnormal:
             .abnormal(recordID: recordID, context: context)
         case .clinicVisit:

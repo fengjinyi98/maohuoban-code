@@ -29,7 +29,7 @@ pub use ports::{
     PetDietConfirmationCandidates, PetRepository, PetWeightRecord, PetWeightRecordSource,
     RecentDietChangeFact, RecentFeedingFact, ReplacePetExternalIdentifier, RestorePetProfile,
     SetPetCurrentStapleInput, SetPetDietAssignmentInput, TradePetImport, TradePetImportInput,
-    UpdateFoodInventoryItem, UpdatePetAlbumInput, UpdatePetProfile, UpdatePetProfileResult,
-    UpdatePetWeightRecord,
+    UpdateFoodInventoryItem, UpdatePetAlbumInput, UpdatePetEvent, UpdatePetProfile,
+    UpdatePetProfileResult, UpdatePetWeightRecord,
 };
 pub use service::PetService;

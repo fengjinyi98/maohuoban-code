@@ -4,7 +4,7 @@ import Foundation
 // 核心职责：
 // - 从首页快照提取当前宠物和商家主体 ID
 // - 让动作映射不直接依赖完整首页快照
-struct HomeActionRoutingContext: Equatable {
+struct HomeActionRoutingContext: Hashable {
     let selectedPetID: String?
     let selectedPetName: String?
     let selectedPetAvatarURL: String?
@@ -164,7 +164,7 @@ enum HomeReminderRouteResolver {
         for reminder: HomeDashboardSnapshot.Reminder,
         context: HomeActionRoutingContext
     ) -> HomeRoute? {
-        if let sourceRoute = route(for: reminder.sourceRef) {
+        if let sourceRoute = route(for: reminder.sourceRef, context: context) {
             return sourceRoute
         }
 
@@ -175,9 +175,25 @@ enum HomeReminderRouteResolver {
             }
             return .merchantTask(merchantID: merchantID, reminderID: reminder.id)
         case .vaccine:
-            return .petRecordDetail(.vaccine(recordID: reminder.id))
+            let recordContext = PetRecordEntryContext(
+                petID: context.selectedPetID,
+                petName: context.selectedPetName,
+                petAvatarURL: context.selectedPetAvatarURL,
+                petSex: context.selectedPetSex,
+                lifeStatus: context.selectedPetLifeStatus,
+                availablePets: context.availablePets
+            )
+            return .petRecordDetail(.vaccine(recordID: reminder.id, context: recordContext))
         case .deworming:
-            return .petRecordDetail(.deworming(recordID: reminder.id))
+            let recordContext = PetRecordEntryContext(
+                petID: context.selectedPetID,
+                petName: context.selectedPetName,
+                petAvatarURL: context.selectedPetAvatarURL,
+                petSex: context.selectedPetSex,
+                lifeStatus: context.selectedPetLifeStatus,
+                availablePets: context.availablePets
+            )
+            return .petRecordDetail(.deworming(recordID: reminder.id, context: recordContext))
         case .followUp:
             return .petRecordDetail(.clinicVisit(recordID: reminder.id))
         case .completeHealthRecord:
@@ -187,14 +203,25 @@ enum HomeReminderRouteResolver {
         }
     }
 
-    private static func route(for sourceRef: HomeDashboardSnapshot.Reminder.SourceRef?) -> HomeRoute? {
+    private static func route(
+        for sourceRef: HomeDashboardSnapshot.Reminder.SourceRef?,
+        context: HomeActionRoutingContext
+    ) -> HomeRoute? {
         guard let sourceRef else { return nil }
+        let recordContext = PetRecordEntryContext(
+            petID: context.selectedPetID,
+            petName: context.selectedPetName,
+            petAvatarURL: context.selectedPetAvatarURL,
+            petSex: context.selectedPetSex,
+            lifeStatus: context.selectedPetLifeStatus,
+            availablePets: context.availablePets
+        )
 
         switch (sourceRef.domain, sourceRef.type) {
         case (.preventiveCare, .vaccine):
-            return .petRecordDetail(.vaccine(recordID: sourceRef.recordID))
+            return .petRecordDetail(.vaccine(recordID: sourceRef.recordID, context: recordContext))
         case (.preventiveCare, .deworming):
-            return .petRecordDetail(.deworming(recordID: sourceRef.recordID))
+            return .petRecordDetail(.deworming(recordID: sourceRef.recordID, context: recordContext))
         case (.clinicVisit, .followUp):
             return .petRecordDetail(.clinicVisit(recordID: sourceRef.recordID))
         case (.custom, _), (_, .custom), (.preventiveCare, .followUp), (.clinicVisit, .vaccine), (.clinicVisit, .deworming):

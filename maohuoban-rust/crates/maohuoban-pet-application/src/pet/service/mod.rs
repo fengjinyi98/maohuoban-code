@@ -23,7 +23,7 @@ use super::{
     DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
     NewPetEvent, NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates,
     PetProfileDiagnostics, PetRepository, PetWeightRecord, PetWeightRecordSource,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetEvent, UpdatePetProfile,
     UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
 };
 use super::{
@@ -374,6 +374,12 @@ impl PetService {
             .ok_or(PetError::PetEventNotFound)
     }
 
+    pub async fn update_pet_event(&self, input: UpdatePetEvent) -> PetResult<PetEvent> {
+        validate_text("事件标题", &input.title)?;
+        validate_quick_fact_update_payload(&input)?;
+        self.repository.update_pet_event(input).await
+    }
+
     pub async fn delete_pet_event(&self, input: DeletePetEvent) -> PetResult<DeletedPetEvent> {
         self.repository.delete_pet_event(input).await
     }
@@ -505,6 +511,23 @@ fn validate_quick_fact_payload(input: &NewPetEvent) -> PetResult<()> {
     Uuid::parse_str(submission_id)
         .map(|_| ())
         .map_err(|_| PetError::InvalidInput("快捷状态提交标识无效".to_owned()))
+}
+
+fn validate_quick_fact_update_payload(input: &UpdatePetEvent) -> PetResult<()> {
+    if input.event_subkind.as_deref() != Some("quick_fact") {
+        return Ok(());
+    }
+
+    let quick_fact_kind = input
+        .event_payload
+        .get("quick_fact_kind")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| PetError::InvalidInput("快捷状态缺少类型".to_owned()))?;
+
+    match quick_fact_kind {
+        "poop_normal" | "energy_normal" | "appetite_normal" => Ok(()),
+        _ => Err(PetError::InvalidInput("快捷状态类型无效".to_owned())),
+    }
 }
 
 /// merged_timeline_entries 合并宠物事件与生命周期事实
