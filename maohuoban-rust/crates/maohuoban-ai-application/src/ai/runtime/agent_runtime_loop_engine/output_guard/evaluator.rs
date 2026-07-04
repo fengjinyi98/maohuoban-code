@@ -23,7 +23,7 @@ pub(in crate::ai::runtime::agent_runtime_loop_engine) fn evaluate_output_guard(
     let verification = AiAnswerVerifier::new().verify_with_context(
         candidate_answer,
         &package,
-        AiAnswerVerificationContext {
+        &AiAnswerVerificationContext {
             identity_context_tool_required: package.target_pet.is_some(),
             identity_context_tool_succeeded: package.target_pet.is_some(),
             successful_write_tools: successful_write_tools.to_vec(),

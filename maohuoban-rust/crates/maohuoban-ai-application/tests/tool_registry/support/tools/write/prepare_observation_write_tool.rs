@@ -7,7 +7,7 @@ use serde_json::json;
 
 /// `PrepareObservationWriteTool` 测试用写提案工具
 /// 核心职责：
-/// - 固定 requires_confirmation 工具 metadata
+/// - 固定 `requires_confirmation` 工具 metadata
 /// - 返回观察记录写入确认任务
 pub struct PrepareObservationWriteTool;
 

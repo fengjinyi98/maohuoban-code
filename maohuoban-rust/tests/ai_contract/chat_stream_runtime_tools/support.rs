@@ -20,7 +20,7 @@ use crate::{authorized_json_request, response_json};
 /// `create_pet` 创建流式 Runtime 工具合同测试宠物
 /// 核心职责：
 /// - 为当前登录用户创建授权宠物
-/// - 返回接口 data 供后续 AI 请求携带 selected_pet_id
+/// - 返回接口 data 供后续 AI 请求携带 `selected_pet_id`
 pub async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,
@@ -175,7 +175,7 @@ pub fn assert_runtime_tool_stream_contract(text: &str) {
 
 /// `assert_runtime_tool_profile_blocks` 断言宠物档案 UI blocks
 /// 核心职责：
-/// - 验证 answer_completed 携带结构化 content_blocks
+/// - 验证 `answer_completed` 携带结构化 `content_blocks`
 /// - 验证宠物身份工具结果投影为宠物档案卡片
 pub fn assert_runtime_tool_profile_blocks(text: &str) {
     let completed_events = sse_event_data_all(text, "answer_completed");

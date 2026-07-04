@@ -154,7 +154,7 @@ fn runtime_followup_model_request(req: &HttpMockRequest) -> bool {
 /// `create_pet` 创建流式诊断合同测试宠物
 /// 核心职责：
 /// - 为当前登录用户创建授权宠物
-/// - 返回接口 data 供后续 AI 请求携带 selected_pet_id
+/// - 返回接口 data 供后续 AI 请求携带 `selected_pet_id`
 pub async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,

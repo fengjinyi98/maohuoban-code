@@ -8,7 +8,7 @@ use crate::{authorized_json_request, response_json};
 /// `create_pet` 创建非流式 AI 合同测试宠物
 /// 核心职责：
 /// - 为当前登录用户创建授权宠物
-/// - 返回接口 data 供后续 AI 请求携带 selected_pet_id
+/// - 返回接口 data 供后续 AI 请求携带 `selected_pet_id`
 pub async fn create_pet(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,
@@ -101,7 +101,7 @@ fn runtime_followup_model_request(req: &HttpMockRequest) -> bool {
 
 /// `load_actor_user_id_by_phone` 按手机号读取测试用户 ID
 /// 核心职责：
-/// - 从 user_identities 读取登录后 actor_user_id
+/// - 从 `user_identities` 读取登录后 `actor_user_id`
 /// - 为记忆写入合同测试提供用户上下文
 pub async fn load_actor_user_id_by_phone(
     app: &maohuoban_rust::test_support::AuthTestApp,
@@ -147,8 +147,8 @@ pub async fn insert_user_memory(
 
 /// `assert_non_stream_session_header_finalized` 断言会话头被 finalizer 更新
 /// 核心职责：
-/// - 验证 last_message_at、last_turn_id 和 primary_pet_id
-/// - 验证 assistant message 关联同一 turn_id
+/// - 验证 `last_message_at、last_turn_id` 和 `primary_pet_id`
+/// - 验证 assistant message 关联同一 `turn_id`
 pub async fn assert_non_stream_session_header_finalized(
     app: &maohuoban_rust::test_support::AuthTestApp,
     body: &Value,

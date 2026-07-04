@@ -49,7 +49,7 @@ pub fn final_text_response(text: &str) -> LlmChatResponse {
 /// `tool_call_response` 构造工具调用模型响应
 /// 核心职责：
 /// - 固定单个工具调用 ID
-/// - 固定 tool_calls finish reason
+/// - 固定 `tool_calls` finish reason
 #[allow(clippy::needless_pass_by_value)]
 pub fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatResponse {
     LlmChatResponse {
@@ -74,7 +74,7 @@ pub fn tool_call_response(tool_name: &str, args: serde_json::Value) -> LlmChatRe
 
 /// `json_response` 构造 JSON 包裹答案响应
 /// 核心职责：
-/// - 固定 answer_text JSON 响应格式
+/// - 固定 `answer_text` JSON 响应格式
 /// - 验证 runtime finalizer 会提取可见答案
 pub fn json_response(answer_text: &str) -> LlmChatResponse {
     let content = serde_json::json!({"answer_text": answer_text}).to_string();

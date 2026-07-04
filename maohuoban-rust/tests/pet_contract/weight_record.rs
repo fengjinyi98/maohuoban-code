@@ -1,6 +1,7 @@
 use super::*;
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn pet_weight_records_support_initial_create_update_and_delete() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -146,12 +147,12 @@ async fn pet_weight_records_repair_profile_weight_without_initial_event() {
     let pet_id = create_pet_body["data"]["id"].as_str().expect("pet id");
 
     sqlx::query(
-        r#"
+        r"
         DELETE FROM pet_events
         WHERE pet_id = $1::uuid
           AND event_kind = 'health'
           AND event_subkind = 'weight'
-        "#,
+        ",
     )
     .bind(pet_id)
     .execute(app.pool())
@@ -166,14 +167,14 @@ async fn pet_weight_records_repair_profile_weight_without_initial_event() {
     assert_eq!(items[0]["note"], "创建宠物时记录的初始体重");
 
     let persisted_count: i64 = sqlx::query_scalar(
-        r#"
+        r"
         SELECT COUNT(*)
         FROM pet_events
         WHERE pet_id = $1::uuid
           AND event_kind = 'health'
           AND event_subkind = 'weight'
           AND event_payload->>'source' = 'profile_initial'
-        "#,
+        ",
     )
     .bind(pet_id)
     .fetch_one(app.pool())

@@ -37,7 +37,7 @@ impl AiAnswerVerifier {
     /// - 按优先级检查：写完成声明 > 弱线索误用 > 无来源事实
     #[must_use]
     pub fn verify(&self, answer: &str, package: &AiFactPackage) -> AiAnswerVerification {
-        self.verify_with_context(answer, package, AiAnswerVerificationContext::default())
+        self.verify_with_context(answer, package, &AiAnswerVerificationContext::default())
     }
 
     /// verify_with_context 携带运行时上下文校验回答
@@ -49,7 +49,7 @@ impl AiAnswerVerifier {
         &self,
         answer: &str,
         package: &AiFactPackage,
-        context: AiAnswerVerificationContext,
+        context: &AiAnswerVerificationContext,
     ) -> AiAnswerVerification {
         // 1. 检查写完成声明是否具备成功写工具证据
         if Self::detect_unconfirmed_write(answer) && context.successful_write_tools.is_empty() {
@@ -150,7 +150,7 @@ impl AiAnswerVerifier {
     /// detect_identity_missing_claim_without_tool_evidence 检测未查档案时的缺失声明
     fn detect_identity_missing_claim_without_tool_evidence(
         answer: &str,
-        context: AiAnswerVerificationContext,
+        context: &AiAnswerVerificationContext,
     ) -> bool {
         context.identity_context_tool_required
             && !context.identity_context_tool_succeeded

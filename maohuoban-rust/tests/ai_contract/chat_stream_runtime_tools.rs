@@ -116,6 +116,7 @@ async fn ai_chat_stream_supports_chained_runtime_tool_calls() {
 
 /// Runtime 工具链可创建观察记录确认任务，并在确认后提交真实写入
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn ai_chat_stream_prepare_and_commit_observation_write() {
     let _guard = diagnostics_test_lock().lock_owned().await;
     let server = MockServer::start();

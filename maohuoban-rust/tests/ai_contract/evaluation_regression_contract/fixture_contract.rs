@@ -16,6 +16,7 @@ const AI_APPLICATION_STREAM_SOURCE: &str =
 const ROOT_APP_SOURCE: &str = include_str!("../../../src/lib.rs");
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn eval_fixture_freezes_workbench_context_and_terminal_expectations() {
     let cases = parse_eval_cases();
     assert_eq!(cases.len(), 18);

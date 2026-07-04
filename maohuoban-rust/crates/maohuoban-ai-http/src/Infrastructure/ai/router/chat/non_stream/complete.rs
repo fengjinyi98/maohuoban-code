@@ -111,17 +111,7 @@ pub(super) async fn complete_with_runtime(
         target_pet.is_some(),
         tool_count,
     );
-    let tool_context = AiToolContext {
-        actor_user_id,
-        authorized_pet_id: target_pet.as_ref().map_or_else(Uuid::nil, |pet| pet.pet_id),
-        gateway_context: ToolGatewayExecutionContext {
-            session_id: Some(context.session_id),
-            turn_id: Some(context.turn_id.as_uuid()),
-            message_id: Some(context.assistant_message_id),
-            confirmation_task_id: context.confirmation_task_id.map(|id| id.to_string()),
-        },
-        gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
-    };
+    let tool_context = build_non_stream_tool_context(actor_user_id, context, target_pet.as_ref());
     let engine =
         AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {
             provider: state.llm_provider.clone(),
@@ -149,15 +139,46 @@ pub(super) async fn complete_with_runtime(
         target_pet.is_some(),
         visible_output_plan,
     )?;
-    if !complete.content_blocks.is_empty() {
-        record_chat_content_blocks_emitted(
-            context.session_id,
-            context.assistant_message_id,
-            "non_stream_completed",
-            &complete.content_blocks,
-        );
-    }
+    record_non_stream_content_blocks(context, &complete);
     Ok(complete)
+}
+
+/// record_non_stream_content_blocks 记录非流式内容块诊断
+/// 核心职责：
+/// - 仅在 Runtime 产出结构化内容块时写诊断
+/// - 保持完成主流程只表达聚合与返回
+fn record_non_stream_content_blocks(context: &ChatTurnContext, complete: &AiCompleteResult) {
+    if complete.content_blocks.is_empty() {
+        return;
+    }
+    record_chat_content_blocks_emitted(
+        context.session_id,
+        context.assistant_message_id,
+        "non_stream_completed",
+        &complete.content_blocks,
+    );
+}
+
+/// build_non_stream_tool_context 构造非流式 Runtime 工具上下文
+/// 核心职责：
+/// - 绑定当前用户、宠物和 turn 诊断关联 ID
+/// - 安装 Runtime Tool Gateway 观测器
+fn build_non_stream_tool_context(
+    actor_user_id: Uuid,
+    context: &ChatTurnContext,
+    target_pet: Option<&AiPetDisplaySnapshot>,
+) -> AiToolContext {
+    AiToolContext {
+        actor_user_id,
+        authorized_pet_id: target_pet.map_or_else(Uuid::nil, |pet| pet.pet_id),
+        gateway_context: ToolGatewayExecutionContext {
+            session_id: Some(context.session_id),
+            turn_id: Some(context.turn_id.as_uuid()),
+            message_id: Some(context.assistant_message_id),
+            confirmation_task_id: context.confirmation_task_id.map(|id| id.to_string()),
+        },
+        gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
+    }
 }
 
 /// complete_from_runtime_events 聚合 Runtime 事件
@@ -238,7 +259,7 @@ pub(super) fn complete_from_runtime_events(
         successful_write_tools: Vec::new(),
     };
     let verification =
-        AiAnswerVerifier::new().verify_with_context(&final_text, &package, verification_ctx);
+        AiAnswerVerifier::new().verify_with_context(&final_text, &package, &verification_ctx);
 
     if verification.is_blocked() {
         return Err(AiError::Infrastructure(

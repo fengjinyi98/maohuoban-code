@@ -214,7 +214,7 @@ async fn home_dashboard_projects_latest_weight_records_into_pet_stats() {
 }
 
 #[tokio::test]
-async fn home_dashboard_clears_weight_stats_when_all_weight_records_are_deleted() {
+async fn home_dashboard_clears_weight_projection_when_all_weight_records_are_deleted() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138237").await;
@@ -245,7 +245,9 @@ async fn home_dashboard_clears_weight_stats_when_all_weight_records_are_deleted(
     let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, pet_id).await;
     let selected_pet = &dashboard_body["data"]["selected_pet"];
     assert!(selected_pet["weight_grams"].is_null());
-    assert!(selected_pet["stats"].is_null());
+    assert_eq!(selected_pet["stats"]["weight_val"], "");
+    assert_eq!(selected_pet["stats"]["record_streak_text"], "尚未记录");
+    assert_eq!(selected_pet["stats"]["pantry_item_count"], 0);
 }
 
 #[tokio::test]
@@ -321,6 +323,13 @@ async fn home_dashboard_returns_recent_food_inventory_preview() {
     .await;
 
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
+    let pet_stats = &dashboard_body["data"]["selected_pet"]["stats"];
+    assert_eq!(pet_stats["pantry_item_count"], 3);
+    assert_eq!(
+        pet_stats["pantry_last_added_date"],
+        chrono::Utc::now().format("%Y-%m-%d").to_string()
+    );
+
     let pantry_items = dashboard_body["data"]["pantry_items"]
         .as_array()
         .expect("pantry preview items");

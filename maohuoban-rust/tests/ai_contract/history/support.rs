@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use axum::{body::Body, http::Request};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use maohuoban_diagnostics::{
     CapturePolicy, CleanupPolicy, Diagnostics, DiagnosticsConfig, FileSegmentStore, PrivacyPolicy,
 };
@@ -41,14 +42,17 @@ pub async fn upload_pending_avatar(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,
 ) -> String {
+    let avatar_bytes = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("avatar png bytes");
     let response = app
         .router()
         .clone()
         .oneshot(authorized_multipart_media_request(
             "/api/v1/pet-media/avatar",
-            "ai-history-avatar.txt",
-            "text/plain",
-            b"ai-history-avatar",
+            "ai-history-avatar.png",
+            "image/png",
+            &avatar_bytes,
             "ios",
             access_token,
         ))
@@ -93,8 +97,10 @@ pub async fn create_pet_with_avatar(
         .await
         .expect("create pet with avatar");
 
-    assert_eq!(response.status(), StatusCode::CREATED);
-    response_json(response).await["data"].clone()
+    let status = response.status();
+    let body = response_json(response).await;
+    assert_eq!(status, StatusCode::CREATED, "create pet body: {body}");
+    body["data"].clone()
 }
 
 /// `create_chat_session` 通过真实聊天流创建 AI 会话
@@ -195,7 +201,7 @@ pub async fn current_user_id(pool: &sqlx::PgPool, phone: &str) -> uuid::Uuid {
 /// `insert_persisted_content_blocks_fixture` 写入历史消息内容块夹具
 /// 核心职责：
 /// - 创建归属当前用户的 AI 会话
-/// - 写入带 pet_profile_card 的 assistant 消息用于回放验证
+/// - 写入带 `pet_profile_card` 的 assistant 消息用于回放验证
 pub async fn insert_persisted_content_blocks_fixture(
     pool: &sqlx::PgPool,
     actor_user_id: uuid::Uuid,

@@ -13,7 +13,7 @@ use maohuoban_pet_domain::pet::{
 };
 use uuid::Uuid;
 
-/// PetServiceObservationWriteProvider 观察记录写工具适配器
+/// `PetServiceObservationWriteProvider` 观察记录写工具适配器
 /// 核心职责：
 /// - prepare 阶段创建结构化确认任务
 /// - commit 阶段校验确认任务并落真实 pet event

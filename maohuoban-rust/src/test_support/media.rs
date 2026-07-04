@@ -131,10 +131,8 @@ fn count_files(root: &std::path::Path) -> usize {
             let path = entry.path();
             if path.is_dir() {
                 count_files(&path)
-            } else if path.is_file() {
-                1
             } else {
-                0
+                usize::from(path.is_file())
             }
         })
         .sum()

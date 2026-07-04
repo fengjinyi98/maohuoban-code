@@ -504,6 +504,7 @@ async fn food_inventory_restock_with_invalid_status_does_not_change_quantity() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn food_inventory_change_hints_track_mutation_kinds() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

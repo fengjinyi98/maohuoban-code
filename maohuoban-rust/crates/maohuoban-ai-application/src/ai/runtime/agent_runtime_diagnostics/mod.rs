@@ -19,6 +19,21 @@ use crate::ai::planning::PlanningDiagnosticsSnapshot;
 
 const AI_RUNTIME_FAIL_DEBUG_TAG: &str = "[DEBUG:AiRuntimeFail]";
 
+/// LoopRoundCompletion Runtime 单轮模型完成摘要
+/// 核心职责：
+/// - 聚合模型阶段完成诊断字段
+/// - 降低诊断记录入口参数数量
+#[derive(Clone, Copy)]
+pub(super) struct LoopRoundCompletion<'a> {
+    pub(super) correlation: &'a LlmDiagnosticsCorrelation,
+    pub(super) phase: &'static str,
+    pub(super) round: u8,
+    pub(super) tool_calls_count: usize,
+    pub(super) finish_reason: &'a str,
+    pub(super) usage: &'a maohuoban_ai_domain::ai::LlmUsage,
+    pub(super) accumulated_total_tokens: u32,
+}
+
 /// AgentRuntimeDiagnostics Runtime 模型调用诊断
 /// 核心职责：
 /// - 记录模型请求和模型流错误摘要
@@ -180,13 +195,7 @@ impl AgentRuntimeDiagnostics {
     /// record_loop_round_completed 记录 Runtime 单轮模型阶段完成
     pub(super) fn record_loop_round_completed(
         chat_session_id: Uuid,
-        correlation: &LlmDiagnosticsCorrelation,
-        phase: &'static str,
-        round: u8,
-        tool_calls_count: usize,
-        finish_reason: &str,
-        usage: &maohuoban_ai_domain::ai::LlmUsage,
-        accumulated_total_tokens: u32,
+        completion: LoopRoundCompletion<'_>,
     ) {
         let Some(diagnostics) = Diagnostics::current() else {
             return;
@@ -197,19 +206,30 @@ impl AgentRuntimeDiagnostics {
             "ai.runtime.loop.round.completed",
         )
         .metadata("debug_tag", serde_json::json!(AI_RUNTIME_FAIL_DEBUG_TAG));
-        for (key, value) in runtime_correlation(chat_session_id, correlation).to_metadata() {
+        for (key, value) in
+            runtime_correlation(chat_session_id, completion.correlation).to_metadata()
+        {
             event = event.metadata(key, value);
         }
         event = event
-            .metadata("phase", serde_json::json!(phase))
-            .metadata("round", serde_json::json!(round))
-            .metadata("tool_calls_count", serde_json::json!(tool_calls_count))
-            .metadata("finish_reason", serde_json::json!(finish_reason))
-            .metadata("input_tokens", serde_json::json!(usage.input_tokens))
-            .metadata("output_tokens", serde_json::json!(usage.output_tokens))
+            .metadata("phase", serde_json::json!(completion.phase))
+            .metadata("round", serde_json::json!(completion.round))
+            .metadata(
+                "tool_calls_count",
+                serde_json::json!(completion.tool_calls_count),
+            )
+            .metadata("finish_reason", serde_json::json!(completion.finish_reason))
+            .metadata(
+                "input_tokens",
+                serde_json::json!(completion.usage.input_tokens),
+            )
+            .metadata(
+                "output_tokens",
+                serde_json::json!(completion.usage.output_tokens),
+            )
             .metadata(
                 "accumulated_total_tokens",
-                serde_json::json!(accumulated_total_tokens),
+                serde_json::json!(completion.accumulated_total_tokens),
             );
         diagnostics.record(event);
     }
@@ -272,7 +292,11 @@ impl AgentRuntimeDiagnostics {
             )
             .metadata(
                 "blocked_reason",
-                serde_json::json!(verification.blocked_reason.map(|reason| reason.as_str())),
+                serde_json::json!(
+                    verification
+                        .blocked_reason
+                        .map(maohuoban_ai_domain::ai::AiBlockedReason::as_str)
+                ),
             )
             .metadata("repair_attempt", serde_json::json!(repair_attempt))
             .metadata(

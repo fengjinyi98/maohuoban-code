@@ -80,13 +80,13 @@ pub(super) fn append_missing_profile_blocks_error(output: &mut Vec<AiStreamEvent
 }
 
 pub(super) fn append_verified_completion(
-    input: VerifiedCompletionInput<'_>,
+    input: &VerifiedCompletionInput<'_>,
     output: &mut Vec<AiStreamEvent>,
 ) {
     let verification = AiAnswerVerifier::new().verify_with_context(
         &input.final_text,
         input.package,
-        input.verification_context,
+        &input.verification_context,
     );
 
     if verification.is_blocked() {

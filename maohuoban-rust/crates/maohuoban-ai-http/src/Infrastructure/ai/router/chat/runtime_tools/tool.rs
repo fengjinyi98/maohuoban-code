@@ -201,9 +201,8 @@ impl RuntimePetContextTool {
         ctx: &AiToolContext,
         args: &serde_json::Value,
     ) -> AiToolResult {
-        let note = match args.get("note").and_then(serde_json::Value::as_str) {
-            Some(note) => note,
-            None => return AiToolResult::invalid_arguments_failure(),
+        let Some(note) = args.get("note").and_then(serde_json::Value::as_str) else {
+            return AiToolResult::invalid_arguments_failure();
         };
         match self
             .providers
@@ -216,9 +215,7 @@ impl RuntimePetContextTool {
                     ctx.actor_user_id,
                     true,
                     None,
-                    &observation_prepare_fact_package(
-                        prepared.confirmation.confirmation_task_id.clone(),
-                    ),
+                    &observation_prepare_fact_package(&prepared.confirmation.confirmation_task_id),
                 )
                 .await;
                 AiToolResult::requires_confirmation(prepared.confirmation)
@@ -268,7 +265,7 @@ impl RuntimePetContextTool {
     }
 }
 
-fn observation_prepare_fact_package(confirmation_task_id: String) -> AiFactPackage {
+fn observation_prepare_fact_package(confirmation_task_id: &str) -> AiFactPackage {
     let mut package = AiFactPackage::empty();
     package.pending_confirmations.push(AiFactEntry {
         key: "observation.write_prepare".to_owned(),

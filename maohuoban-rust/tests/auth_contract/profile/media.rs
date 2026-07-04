@@ -10,6 +10,7 @@ use super::{
 
 /// 头像/封面上传返回 `CREATED`，响应含 `asset_id`/`url`/`mime_type`/`width`/`height`；后续 `GET` 可读到
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn profile_me_uploads_avatar_and_cover_media() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

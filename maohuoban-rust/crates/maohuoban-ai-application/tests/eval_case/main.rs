@@ -39,6 +39,7 @@ struct EvalCase {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn eval_case_parses_fixture() {
     let cases = parse_eval_cases();
     let names = case_names(&cases);

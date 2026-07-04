@@ -56,12 +56,14 @@ pub(super) fn append_step_events(
             termination_reason,
             error_code,
         } => append_done_event(
-            turn_id,
-            message_id,
-            final_text,
-            status,
-            termination_reason,
-            error_code,
+            DoneEventInput {
+                turn_id,
+                message_id,
+                final_text,
+                status,
+                termination_reason,
+                error_code,
+            },
             engine_mode,
             events,
         ),
@@ -214,35 +216,45 @@ fn append_tool_finished(
     });
 }
 
-/// append_done_event 追加 turn 终态事件
+/// DoneEventInput Turn 终态事件输入
 /// 核心职责：
-/// - 将 Done step 映射为完成或失败事件
-/// - 结束当前 turn 推进
-fn append_done_event(
+/// - 聚合 Done step 的事件字段
+/// - 保持事件追加函数参数稳定
+struct DoneEventInput {
     turn_id: maohuoban_ai_domain::ai::AgentTurnId,
     message_id: Uuid,
     final_text: String,
     status: AgentTurnStatus,
     termination_reason: AgentTurnTerminationReason,
     error_code: Option<String>,
+}
+
+/// append_done_event 追加 turn 终态事件
+/// 核心职责：
+/// - 将 Done step 映射为完成或失败事件
+/// - 结束当前 turn 推进
+fn append_done_event(
+    input: DoneEventInput,
     engine_mode: &str,
     events: &mut Vec<AgentEvent>,
 ) -> StepFlow {
-    if status == AgentTurnStatus::Failed {
+    if input.status == AgentTurnStatus::Failed {
         events.push(AgentEvent::TurnFailed {
-            turn_id,
-            error_code: error_code.unwrap_or_else(|| "ai.runtime_failed".to_owned()),
+            turn_id: input.turn_id,
+            error_code: input
+                .error_code
+                .unwrap_or_else(|| "ai.runtime_failed".to_owned()),
             retryable: false,
             engine_mode: engine_mode.to_owned(),
-            termination_reason: Some(termination_reason),
+            termination_reason: Some(input.termination_reason),
         });
     } else {
         events.push(AgentEvent::TurnFinished {
-            turn_id,
-            message_id,
-            final_text,
-            status,
-            termination_reason: Some(termination_reason),
+            turn_id: input.turn_id,
+            message_id: input.message_id,
+            final_text: input.final_text,
+            status: input.status,
+            termination_reason: Some(input.termination_reason),
         });
     }
 

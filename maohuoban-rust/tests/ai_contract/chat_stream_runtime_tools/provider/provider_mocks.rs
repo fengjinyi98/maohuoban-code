@@ -138,7 +138,7 @@ fn runtime_first_model_request(req: &HttpMockRequest) -> bool {
 /// `runtime_initial_model_request` 匹配确认提交前的初始模型请求
 /// 核心职责：
 /// - 区分初始用户请求和工具回灌请求
-/// - 排除已经携带 tool_calls 的历史请求
+/// - 排除已经携带 `tool_calls` 的历史请求
 pub fn runtime_initial_model_request(req: &HttpMockRequest) -> bool {
     let body = request_body(req);
     !body.contains("\"role\":\"tool\"") && !body.contains("\"tool_calls\"")

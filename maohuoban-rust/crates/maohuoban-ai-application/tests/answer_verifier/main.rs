@@ -170,7 +170,7 @@ fn missing_age_or_birthday_claim_without_identity_tool_success_blocked() {
     let result = verifier.verify_with_context(
         "目前档案里没有生日记录，所以还不知道梅录多大。",
         &package,
-        context,
+        &context,
     );
 
     assert!(result.is_blocked());
@@ -216,7 +216,7 @@ fn write_completion_claim_passes_with_successful_write_evidence() {
     };
 
     let result =
-        verifier.verify_with_context("我已经帮你记录了今天的拉稀情况。", &package, context);
+        verifier.verify_with_context("我已经帮你记录了今天的拉稀情况。", &package, &context);
     assert!(
         !result.is_blocked(),
         "成功写工具证据存在时，写完成声明应通过 verifier"

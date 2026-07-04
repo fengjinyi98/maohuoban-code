@@ -15,8 +15,8 @@ use crate::home_dashboard::{
     },
     merchant_summary::merchant_home_snapshot_from_workspace,
     pet_summary::{
-        home_weight_projection, media_asset_ids, pet_hero_summary, pet_lifecycle_timeline_events,
-        pet_switch_item, selected_pet,
+        HomeWeightProjection, home_pet_stats, home_weight_projection, media_asset_ids,
+        pet_hero_summary, pet_lifecycle_timeline_events, pet_switch_item, selected_pet,
     },
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
@@ -146,6 +146,12 @@ impl HybridHomeDashboardProvider {
             .load_pet_timeline(user_id, selected_pet.id)
             .await
             .map_err(|error| to_home_error(&error))?;
+        let food_inventory_items = self
+            .pet_service
+            .list_food_inventory_items(FoodScopeType::User, user_id, None, None)
+            .await
+            .map_err(|error| to_home_error(&error))?;
+        let weight_projection = home_weight_projection(&timeline.events);
 
         let mut snapshot = pet_owner_home_template();
         snapshot.identity = HomeIdentity {
@@ -157,7 +163,8 @@ impl HybridHomeDashboardProvider {
         let selected_summary = pet_hero_summary(
             selected_pet,
             &media_metadata,
-            home_weight_projection(&timeline.events),
+            home_pet_stats(weight_projection, &food_inventory_items),
+            weight_projection.map(HomeWeightProjection::latest_weight_grams),
         );
         record_home_selected_pet_output(
             user_id,
@@ -200,19 +207,7 @@ impl HybridHomeDashboardProvider {
             .await
             .map(diet_role_labels)
             .map_err(|error| to_home_error(&error))?;
-        snapshot.pantry_items = self
-            .pet_service
-            .list_food_inventory_items(FoodScopeType::User, user_id, None, None)
-            .await
-            .map_err(|error| to_home_error(&error))?
-            .into_iter()
-            .filter({
-                let mut seen_categories = HashSet::new();
-                move |item| seen_categories.insert(item.category.as_str())
-            })
-            .take(4)
-            .map(|item| pantry_preview_item(item, &diet_role_labels))
-            .collect();
+        snapshot.pantry_items = home_pantry_preview_items(food_inventory_items, &diet_role_labels);
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
@@ -302,6 +297,21 @@ fn pantry_preview_item(
         cover_url: item.cover_url,
         diet_role_label,
     }
+}
+
+fn home_pantry_preview_items(
+    items: Vec<FoodInventoryItem>,
+    diet_role_labels: &HashMap<Uuid, String>,
+) -> Vec<HomePantryPreviewItem> {
+    items
+        .into_iter()
+        .filter({
+            let mut seen_categories = HashSet::new();
+            move |item| seen_categories.insert(item.category.as_str())
+        })
+        .take(4)
+        .map(|item| pantry_preview_item(item, diet_role_labels))
+        .collect()
 }
 
 fn diet_role_labels(

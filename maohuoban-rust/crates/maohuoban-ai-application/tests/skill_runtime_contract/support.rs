@@ -12,7 +12,7 @@ use uuid::Uuid;
 /// `system_skill` 构造系统层测试 skill
 /// 核心职责：
 /// - 固定系统层默认匹配条件
-/// - 为排序和诊断合同测试提供最小 SkillDefinition
+/// - 为排序和诊断合同测试提供最小 `SkillDefinition`
 pub fn system_skill(id: &str, priority: i32, instruction: &str) -> SkillDefinition {
     SkillDefinition {
         skill_id: id.to_owned(),
@@ -76,7 +76,7 @@ pub fn workflow_skill(
 
 /// `personalization_skill` 构造个性化层测试 skill
 /// 核心职责：
-/// - 固定 actor_user_id 匹配条件
+/// - 固定 `actor_user_id` 匹配条件
 /// - 为授权边界和层级顺序测试提供输入
 pub fn personalization_skill(
     id: &str,

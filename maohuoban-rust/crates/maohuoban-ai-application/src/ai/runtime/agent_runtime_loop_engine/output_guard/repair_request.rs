@@ -31,8 +31,7 @@ pub(super) fn build_output_repair_request(
                     "用户原始问题：\n{user_message}\n\n上一次候选回答未通过校验：\n{candidate_answer}\n\n结构化裁决：\n- blocked_reason: {}\n- successful_write_tools: {}\n\n校验反馈：\n{}\n\n请重新生成只给用户看的中文回答。",
                     verification
                         .blocked_reason
-                        .map(|reason| reason.as_str())
-                        .unwrap_or("none"),
+                        .map_or("none", maohuoban_ai_domain::ai::AiBlockedReason::as_str),
                     if successful_write_tools.is_empty() {
                         "[]".to_owned()
                     } else {

@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 /// `session_id` 返回会话摘要合同测试固定会话 ID
 /// 核心职责：
-/// - 固定测试中的 chat_session_id
+/// - 固定测试中的 `chat_session_id`
 /// - 保持摘要、消息和压缩边界断言稳定
 pub fn session_id() -> Uuid {
     Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("session id")
@@ -15,7 +15,7 @@ pub fn session_id() -> Uuid {
 
 /// `actor_user_id` 返回会话摘要合同测试固定用户 ID
 /// 核心职责：
-/// - 固定测试中的 actor_user_id
+/// - 固定测试中的 `actor_user_id`
 /// - 保持摘要 scope 归属断言稳定
 pub fn actor_user_id() -> Uuid {
     Uuid::parse_str("22222222-2222-2222-2222-222222222222").expect("actor user id")
@@ -112,7 +112,7 @@ pub fn long_message_history(user_prefix: &str, assistant_prefix: &str) -> Vec<Ai
 /// `old_message_history` 构造旧会话恢复历史
 /// 核心职责：
 /// - 固定 10 天前的 5 轮历史消息
-/// - 为 LongSessionResumed 触发测试提供可复用历史
+/// - 为 `LongSessionResumed` 触发测试提供可复用历史
 pub fn old_message_history() -> Vec<AiMessage> {
     let old_ts = chrono::Utc::now().timestamp() - 10 * 24 * 3600;
     let mut messages = Vec::new();

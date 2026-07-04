@@ -10,7 +10,7 @@ use crate::ai::planning::StepKind;
 
 use super::super::{
     LoopEngine,
-    agent_runtime_diagnostics::AgentRuntimeDiagnostics,
+    agent_runtime_diagnostics::{AgentRuntimeDiagnostics, LoopRoundCompletion},
     runtime_phase::RuntimePhase,
     runtime_request::{build_request, request_tool_count},
     streaming_model_purpose::{StreamingModelPurpose, streaming_model_purpose_code},
@@ -214,19 +214,21 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         .saturating_add(usage.total_tokens);
                     AgentRuntimeDiagnostics::record_loop_round_completed(
                         state.chat_session_id,
-                        &diagnostics_correlation,
-                        streaming_model_purpose_code(purpose),
-                        self.current_round,
-                        tool_calls.len(),
-                        match finish_reason {
-                            LlmFinishReason::Stop => "stop",
-                            LlmFinishReason::Length => "length",
-                            LlmFinishReason::ToolCalls => "tool_calls",
-                            LlmFinishReason::ContentFilter => "content_filter",
-                            LlmFinishReason::Error => "error",
+                        LoopRoundCompletion {
+                            correlation: &diagnostics_correlation,
+                            phase: streaming_model_purpose_code(purpose),
+                            round: self.current_round,
+                            tool_calls_count: tool_calls.len(),
+                            finish_reason: match finish_reason {
+                                LlmFinishReason::Stop => "stop",
+                                LlmFinishReason::Length => "length",
+                                LlmFinishReason::ToolCalls => "tool_calls",
+                                LlmFinishReason::ContentFilter => "content_filter",
+                                LlmFinishReason::Error => "error",
+                            },
+                            usage: &usage,
+                            accumulated_total_tokens: self.accumulated_total_tokens,
                         },
-                        &usage,
-                        self.accumulated_total_tokens,
                     );
 
                     if tool_calls.is_empty() {

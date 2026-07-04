@@ -152,7 +152,7 @@ pub async fn run_prompt<E: LoopEngine>(
 
 /// `final_text` 从 Runtime 事件中提取最终文本
 /// 核心职责：
-/// - 查找 TurnFinished 事件
+/// - 查找 `TurnFinished` 事件
 /// - 返回可见最终回答文本
 pub fn final_text(events: &[AgentEvent]) -> String {
     events
@@ -166,7 +166,7 @@ pub fn final_text(events: &[AgentEvent]) -> String {
 
 /// `has_tool_started` 判断指定工具是否开始执行
 /// 核心职责：
-/// - 查找 ToolStarted 事件
+/// - 查找 `ToolStarted` 事件
 /// - 按工具名过滤
 pub fn has_tool_started(events: &[AgentEvent], tool_name: &str) -> bool {
     events
@@ -176,7 +176,7 @@ pub fn has_tool_started(events: &[AgentEvent], tool_name: &str) -> bool {
 
 /// `has_tool_finished` 判断是否出现指定工具完成状态
 /// 核心职责：
-/// - 查找 ToolFinished 事件
+/// - 查找 `ToolFinished` 事件
 /// - 按工具状态过滤
 pub fn has_tool_finished(events: &[AgentEvent], status: AgentToolStatus) -> bool {
     events

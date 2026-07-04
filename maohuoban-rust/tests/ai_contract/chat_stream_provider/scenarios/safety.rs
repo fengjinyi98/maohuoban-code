@@ -13,9 +13,9 @@ use crate::{authorized_json_request, login_and_get_token, response_text};
 use super::app::{create_pet, spawn_provider_test_app};
 use super::sse::sse_event_data;
 
-/// Provider 输出医疗诊断时由输出守卫阻断用户可见完成
+/// Provider 输出未确认写完成声明时由输出守卫修复
 #[tokio::test]
-async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
+async fn ai_chat_stream_verifies_and_repairs_unconfirmed_write_completion() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -25,7 +25,7 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"毛球得了肠胃炎，需要吃阿莫西林。\"}}]}\n\n\
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我已经帮你记录了今天的拉稀情况。\"}}]}\n\n\
                  data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":8,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
@@ -36,7 +36,7 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":false")
             .body_contains("上一次候选回答未通过校验")
-            .body_contains("不能进行诊断或开具药物");
+            .body_contains("写操作需要用户确认后才能执行");
         then.status(200)
             .header("content-type", "application/json")
             .json_body(json!({
@@ -86,8 +86,8 @@ async fn ai_chat_stream_verifies_and_blocks_medical_diagnosis() {
     mock.assert();
     repair_mock.assert();
     assert!(
-        !text.contains("阿莫西林") && !text.contains("得了肠胃炎"),
-        "unsafe provider diagnosis should not be streamed, got: {text}"
+        !text.contains("我已经帮你记录"),
+        "unconfirmed write completion should not be streamed, got: {text}"
     );
     assert!(
         text.contains("event: answer_completed") && text.contains("请尽快联系兽医"),

@@ -38,7 +38,7 @@ async fn ai_chat_non_stream_unauthorized_without_token() {
     assert_eq!(body["code"], "auth.session_expired");
 }
 
-/// `/api/v1/ai/chat` 超长消息返回结构化 invalid_input
+/// `/api/v1/ai/chat` 超长消息返回结构化 `invalid_input`
 #[tokio::test]
 async fn ai_chat_non_stream_rejects_overlong_message() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;

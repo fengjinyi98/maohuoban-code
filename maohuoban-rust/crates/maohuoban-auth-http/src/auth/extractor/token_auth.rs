@@ -8,6 +8,10 @@ use super::AuthorizationHeaderDiagnostics;
 /// 核心职责：
 /// - 从 Authorization header 提取 Bearer token
 /// - 返回当前已鉴权用户
+///
+/// # Errors
+///
+/// 当 Authorization header 缺失、格式无效或 access token 无法通过认证时返回错误。
 pub async fn authenticate_user(auth: &AuthService, headers: &HeaderMap) -> AuthResult<AuthUser> {
     let token = bearer_token(headers)?;
     auth.authenticate_access_token(token).await
@@ -17,6 +21,10 @@ pub async fn authenticate_user(auth: &AuthService, headers: &HeaderMap) -> AuthR
 /// 核心职责：
 /// - 从 Authorization header 提取 Bearer token
 /// - 返回用户与当前 session 的组合上下文
+///
+/// # Errors
+///
+/// 当 Authorization header 缺失、格式无效或 access token/session 无法通过认证时返回错误。
 pub async fn authenticate_session_context(
     auth: &AuthService,
     headers: &HeaderMap,
@@ -26,6 +34,7 @@ pub async fn authenticate_session_context(
 }
 
 /// authorization_header_diagnostics 返回 Authorization 头基础观测
+#[must_use]
 pub fn authorization_header_diagnostics(headers: &HeaderMap) -> AuthorizationHeaderDiagnostics {
     let raw = headers
         .get("authorization")
@@ -37,6 +46,7 @@ pub fn authorization_header_diagnostics(headers: &HeaderMap) -> AuthorizationHea
 }
 
 /// auth_error_code 返回稳定认证错误码
+#[must_use]
 pub const fn auth_error_code(error: &AuthError) -> &'static str {
     match error {
         AuthError::InvalidPhone => "invalid_phone",

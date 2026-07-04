@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 /// `session_id` 返回 Session/Turn 合同测试固定会话 ID
 /// 核心职责：
-/// - 固定测试中的 session_id
+/// - 固定测试中的 `session_id`
 /// - 保持 turn、message 和 session 关联断言稳定
 pub fn session_id() -> Uuid {
     Uuid::parse_str("11111111-1111-1111-1111-111111111111").expect("session id")
@@ -14,7 +14,7 @@ pub fn session_id() -> Uuid {
 
 /// `actor_user_id` 返回 Session/Turn 合同测试固定用户 ID
 /// 核心职责：
-/// - 固定测试中的 actor_user_id
+/// - 固定测试中的 `actor_user_id`
 /// - 保持 session 与 turn 归属断言稳定
 pub fn actor_user_id() -> Uuid {
     Uuid::parse_str("22222222-2222-2222-2222-222222222222").expect("actor user id")
@@ -22,7 +22,7 @@ pub fn actor_user_id() -> Uuid {
 
 /// `turn_id` 返回 Session/Turn 合同测试固定 Turn ID
 /// 核心职责：
-/// - 固定测试中的 turn_id
+/// - 固定测试中的 `turn_id`
 /// - 保持 replay 和状态更新断言稳定
 pub fn turn_id() -> Uuid {
     Uuid::parse_str("33333333-3333-3333-3333-333333333333").expect("turn id")
@@ -30,7 +30,7 @@ pub fn turn_id() -> Uuid {
 
 /// `user_message_id` 返回固定用户消息 ID
 /// 核心职责：
-/// - 固定测试中的 user_message_id
+/// - 固定测试中的 `user_message_id`
 /// - 保持 turn 与用户消息关联断言稳定
 pub fn user_message_id() -> Uuid {
     Uuid::parse_str("44444444-4444-4444-4444-444444444444").expect("user message id")
@@ -38,7 +38,7 @@ pub fn user_message_id() -> Uuid {
 
 /// `assistant_message_id` 返回固定助手消息 ID
 /// 核心职责：
-/// - 固定测试中的 assistant_message_id
+/// - 固定测试中的 `assistant_message_id`
 /// - 保持 turn 与助手消息关联断言稳定
 pub fn assistant_message_id() -> Uuid {
     Uuid::parse_str("55555555-5555-5555-5555-555555555555").expect("assistant message id")
@@ -72,7 +72,7 @@ pub fn running_turn() -> AiSessionTurn {
 /// `user_message_with_turn` 构造带 Turn 关联的用户消息
 /// 核心职责：
 /// - 固定用户消息基础字段
-/// - 验证 message.turn_id 与 session turn 的关联一致性
+/// - 验证 `message.turn_id` 与 session turn 的关联一致性
 pub fn user_message_with_turn(turn: Uuid) -> AiMessage {
     AiMessage {
         id: user_message_id(),

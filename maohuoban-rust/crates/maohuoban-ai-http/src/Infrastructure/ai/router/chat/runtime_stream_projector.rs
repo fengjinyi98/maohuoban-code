@@ -258,7 +258,7 @@ impl AgentEventSseProjector {
                     return output;
                 }
                 append_verified_completion(
-                    VerifiedCompletionInput {
+                    &VerifiedCompletionInput {
                         message_id,
                         final_text,
                         usage: self.latest_usage,
@@ -320,10 +320,11 @@ impl AgentEventSseProjector {
             return Vec::new();
         }
 
+        let verification_context = self.verification_context();
         let verification = AiAnswerVerifier::new().verify_with_context(
             &visible_text,
             &self.package,
-            self.verification_context(),
+            &verification_context,
         );
         if verification.is_blocked() {
             self.suppress_model_delta = true;

@@ -177,31 +177,14 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let redis_client = redis::Client::open(config.redis_url.as_str())?;
     let redis_connection = redis_client.get_connection_manager().await?;
 
-    let repository = PostgresAuthRepository::new(pool.clone());
-    let otp_store =
-        RedisOtpChallengeStore::new(redis_connection.clone(), config.redis_key_prefix.clone());
-    let password_service = Argon2PasswordCredentialService;
-    let token_issuer = JwtTokenIssuer::new(
-        config.jwt_secret,
-        config.access_token_ttl_seconds,
-        config.refresh_token_ttl_seconds,
-    );
     let profile_repository = PostgresProfileRepository::new(pool.clone());
     let profile_service = Arc::new(ProfileService::new(Arc::new(profile_repository.clone())));
-    let auth_profile_initializer = AuthProfileInitializer::new(profile_service.clone());
-
-    let auth_service = Arc::new(AuthService::new(
-        AuthServiceConfig::default(),
-        AuthServiceDependencies {
-            otp_store: Arc::new(otp_store),
-            users: Arc::new(repository.clone()),
-            passwords: Arc::new(password_service.clone()),
-            sessions: Arc::new(repository.clone()),
-            tokens: Arc::new(token_issuer.clone()),
-            events: Arc::new(repository.clone()),
-            profiles: Arc::new(auth_profile_initializer),
-        },
-    ));
+    let AuthComponents {
+        repository,
+        password_service,
+        token_issuer,
+        service: auth_service,
+    } = build_auth_components(&pool, &redis_connection, &config, profile_service.clone());
     let legal_repository = PostgresLegalDocumentRepository::new(pool.clone());
     let legal_service = Arc::new(LegalDocumentService::new(Arc::new(legal_repository)));
     let pet_repository = PostgresPetRepository::new(pool.clone());
@@ -234,7 +217,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     let ai_http_state = build_ai_http_state(
         &config.ai_llm_provider_config,
         config.ai_runtime_engine_mode,
-        pet_service.clone(),
+        &pet_service,
         AiHttpRepositories {
             session_repository: ai_session_repository.clone(),
             session_turn_repository: ai_session_turn_repository.clone(),
@@ -244,50 +227,24 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         Arc::new(confirmation_task_repository),
     );
     let auth_middleware_state = AuthMiddlewareState::new(auth_service.clone());
-    let auth_public_routes =
-        build_auth_public_router(auth_service.clone(), profile_service.clone());
-    let auth_user_protected_routes =
-        build_auth_user_protected_router(auth_service.clone(), profile_service.clone())
-            .route_layer(middleware::from_fn_with_state(
-                auth_middleware_state.clone(),
-                require_authenticated_user,
-            ));
-    let auth_session_protected_routes =
-        build_auth_session_protected_router(auth_service.clone(), profile_service.clone())
-            .route_layer(middleware::from_fn_with_state(
-                auth_middleware_state.clone(),
-                require_authenticated_session,
-            ));
-    let protected_user_routes = build_home_router(home_service)
-        .merge(build_profile_router(profile_service.clone()))
-        .merge(build_pet_router(pet_service))
-        .merge(build_samecity_router(samecity_service))
-        .route_layer(middleware::from_fn_with_state(
-            auth_middleware_state.clone(),
-            require_authenticated_user,
-        ));
-    let ai_chat_routes = build_ai_chat_router()
-        .route_layer(middleware::from_fn_with_state(
-            auth_middleware_state.clone(),
-            maohuoban_ai_http::ai::router::require_ai_chat_auth,
-        ))
-        .route_layer(middleware::from_fn(
-            maohuoban_ai_http::ai::router::snapshot_ai_chat_request,
-        ));
-    let ai_history_routes = build_ai_history_router().route_layer(middleware::from_fn_with_state(
+    let auth_routes = build_auth_routes(
+        auth_service.clone(),
+        profile_service.clone(),
         auth_middleware_state.clone(),
-        require_authenticated_user,
-    ));
-    let mut router = auth_public_routes
-        .merge(auth_user_protected_routes)
-        .merge(auth_session_protected_routes)
+    );
+    let protected_user_routes = build_protected_user_routes(
+        home_service,
+        profile_service,
+        pet_service,
+        samecity_service,
+        auth_middleware_state.clone(),
+    );
+    let ai_routes = build_authenticated_ai_routes(auth_middleware_state, ai_http_state);
+    let mut router = auth_routes
         .merge(build_legal_router(legal_service))
         .merge(build_media_content_router(pool.clone()))
         .merge(protected_user_routes)
-        .merge(build_ai_router_state(
-            ai_chat_routes.merge(ai_history_routes),
-            ai_http_state,
-        ));
+        .merge(ai_routes);
     if config.diagnostics_ingest_enabled {
         router = router.merge(build_diagnostics_ingest_router(
             diagnostics_ingest_config_from_env(),
@@ -312,6 +269,129 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
     })
 }
 
+/// `AuthComponents` 认证服务装配结果
+/// 核心职责：
+/// - 聚合认证仓储、密码服务、令牌签发器和应用服务
+/// - 保留 `BackendApp` 测试访问所需基础设施句柄
+struct AuthComponents {
+    repository: PostgresAuthRepository,
+    password_service: Argon2PasswordCredentialService,
+    token_issuer: JwtTokenIssuer,
+    service: Arc<AuthService>,
+}
+
+/// `build_auth_components` 装配认证服务依赖
+/// 核心职责：
+/// - 基于数据库、Redis 和配置创建认证应用服务
+/// - 将用户 profile 初始化器注入注册/登录流程
+fn build_auth_components(
+    pool: &PgPool,
+    redis_connection: &ConnectionManager,
+    config: &BackendConfig,
+    profile_service: Arc<ProfileService>,
+) -> AuthComponents {
+    let repository = PostgresAuthRepository::new(pool.clone());
+    let otp_store =
+        RedisOtpChallengeStore::new(redis_connection.clone(), config.redis_key_prefix.clone());
+    let password_service = Argon2PasswordCredentialService;
+    let token_issuer = JwtTokenIssuer::new(
+        config.jwt_secret.clone(),
+        config.access_token_ttl_seconds,
+        config.refresh_token_ttl_seconds,
+    );
+    let auth_profile_initializer = AuthProfileInitializer::new(profile_service);
+    let service = Arc::new(AuthService::new(
+        AuthServiceConfig::default(),
+        AuthServiceDependencies {
+            otp_store: Arc::new(otp_store),
+            users: Arc::new(repository.clone()),
+            passwords: Arc::new(password_service.clone()),
+            sessions: Arc::new(repository.clone()),
+            tokens: Arc::new(token_issuer.clone()),
+            events: Arc::new(repository.clone()),
+            profiles: Arc::new(auth_profile_initializer),
+        },
+    ));
+
+    AuthComponents {
+        repository,
+        password_service,
+        token_issuer,
+        service,
+    }
+}
+
+/// `build_auth_routes` 装配认证相关路由
+/// 核心职责：
+/// - 合并公开认证路由、用户认证路由和 session 认证路由
+/// - 在受保护认证路由上安装对应认证中间件
+fn build_auth_routes(
+    auth_service: Arc<AuthService>,
+    profile_service: Arc<ProfileService>,
+    auth_middleware_state: AuthMiddlewareState,
+) -> Router {
+    build_auth_public_router(auth_service.clone(), profile_service.clone())
+        .merge(
+            build_auth_user_protected_router(auth_service.clone(), profile_service.clone())
+                .route_layer(middleware::from_fn_with_state(
+                    auth_middleware_state.clone(),
+                    require_authenticated_user,
+                )),
+        )
+        .merge(
+            build_auth_session_protected_router(auth_service, profile_service).route_layer(
+                middleware::from_fn_with_state(
+                    auth_middleware_state,
+                    require_authenticated_session,
+                ),
+            ),
+        )
+}
+
+/// `build_protected_user_routes` 装配用户级受保护业务路由
+/// 核心职责：
+/// - 合并首页、用户资料、宠物和同城业务路由
+/// - 统一安装用户认证中间件
+fn build_protected_user_routes(
+    home_service: Arc<HomeDashboardService>,
+    profile_service: Arc<ProfileService>,
+    pet_service: Arc<PetService>,
+    samecity_service: Arc<SameCityService>,
+    auth_middleware_state: AuthMiddlewareState,
+) -> Router {
+    build_home_router(home_service)
+        .merge(build_profile_router(profile_service))
+        .merge(build_pet_router(pet_service))
+        .merge(build_samecity_router(samecity_service))
+        .route_layer(middleware::from_fn_with_state(
+            auth_middleware_state,
+            require_authenticated_user,
+        ))
+}
+
+/// `build_authenticated_ai_routes` 装配 AI 认证路由
+/// 核心职责：
+/// - 为聊天流路由安装 AI 专用认证和请求快照中间件
+/// - 为历史路由安装普通用户认证中间件并注入 AI 状态
+fn build_authenticated_ai_routes(
+    auth_middleware_state: AuthMiddlewareState,
+    ai_http_state: AiHttpState,
+) -> Router {
+    let ai_chat_routes = build_ai_chat_router()
+        .route_layer(middleware::from_fn_with_state(
+            auth_middleware_state.clone(),
+            maohuoban_ai_http::ai::router::require_ai_chat_auth,
+        ))
+        .route_layer(middleware::from_fn(
+            maohuoban_ai_http::ai::router::snapshot_ai_chat_request,
+        ));
+    let ai_history_routes = build_ai_history_router().route_layer(middleware::from_fn_with_state(
+        auth_middleware_state,
+        require_authenticated_user,
+    ));
+    build_ai_router_state(ai_chat_routes.merge(ai_history_routes), ai_http_state)
+}
+
 /// `AiHttpRepositories` AI HTTP 仓储集合
 /// 核心职责：
 /// - 聚合 session、turn 和事务端口的仓储实现
@@ -329,7 +409,7 @@ struct AiHttpRepositories {
 fn build_ai_http_state(
     provider_config: &LlmProviderRegistryConfig,
     runtime_engine_mode: AgentRuntimeEngineMode,
-    pet_service: Arc<PetService>,
+    pet_service: &Arc<PetService>,
     repos: AiHttpRepositories,
     ai_session_pool: &sqlx::PgPool,
     confirmation_tasks: Arc<dyn maohuoban_pet_application::pet::AgentConfirmationTaskRepository>,
@@ -337,7 +417,7 @@ fn build_ai_http_state(
     let ai_llm_provider =
         infrastructure::ai::build_ai_llm_provider_from_provider_config(provider_config);
     let ai_pet_resolver = Arc::new(AiPetResolver::new(PetServiceAuthorizedPetCatalog::new(
-        pet_service.clone(),
+        Arc::clone(pet_service),
     )));
 
     AiHttpState {
@@ -357,21 +437,21 @@ fn build_ai_http_state(
             as Arc<dyn maohuoban_ai_application::ai::ports::MemoryRepository>,
         pet_resolver: ai_pet_resolver,
         pet_context_providers: AiPetContextProviders::new(
-            Arc::new(PetServiceIdentityFactProvider::new(pet_service.clone())),
-            Arc::new(PetServiceDietFactProvider::new(pet_service.clone())),
-            Arc::new(PetServiceFoodInventoryHintProvider::new(
-                pet_service.clone(),
-            )),
+            Arc::new(PetServiceIdentityFactProvider::new(Arc::clone(pet_service))),
+            Arc::new(PetServiceDietFactProvider::new(Arc::clone(pet_service))),
+            Arc::new(PetServiceFoodInventoryHintProvider::new(Arc::clone(
+                pet_service,
+            ))),
             Arc::new(PetServiceDietConfirmationCandidateProvider::new(
-                pet_service.clone(),
+                Arc::clone(pet_service),
             )),
             Arc::new(PetServiceObservationWriteProvider::new(
-                pet_service.clone(),
+                Arc::clone(pet_service),
                 confirmation_tasks.clone(),
             )),
         ),
         observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
-            pet_service.clone(),
+            Arc::clone(pet_service),
             confirmation_tasks,
         )),
     }
