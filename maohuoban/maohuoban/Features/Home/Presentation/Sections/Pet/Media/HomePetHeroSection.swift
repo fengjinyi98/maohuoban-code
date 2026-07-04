@@ -76,6 +76,7 @@ struct HomePetHeroSection: View {
                     title: preventiveCare.title,
                     value: preventiveCare.value,
                     unit: preventiveCare.unit,
+                    valueStyle: preventiveCare.valueStyle,
                     subtitle: "疫苗/驱虫"
                 )
                 .padding(.leading, MHBTheme.Spacing.s3)
@@ -105,6 +106,7 @@ private struct HomePetHeroPreventiveCareDisplay {
     let title: String
     let value: String
     let unit: String
+    let valueStyle: HomePetHeroStatColumn.ValueStyle
 
     init(stats: HomeDashboardSnapshot.PetHeroStats) {
         if let preventiveCare = stats.preventiveCare {
@@ -112,20 +114,26 @@ private struct HomePetHeroPreventiveCareDisplay {
         } else if let dewormingDaysLeft = stats.dewormingDaysLeft {
             self.init(title: "距驱虫", value: "\(dewormingDaysLeft)", unit: "天")
         } else {
-            self.init(title: "预防护理", value: "待补录", unit: "")
+            self.init(title: "预防护理", value: "待补录", unit: "", valueStyle: .compactStatus)
         }
     }
 
-    private init(title: String, value: String, unit: String) {
+    private init(
+        title: String,
+        value: String,
+        unit: String,
+        valueStyle: HomePetHeroStatColumn.ValueStyle = .metric
+    ) {
         self.title = title
         self.value = value
         self.unit = unit
+        self.valueStyle = valueStyle
     }
 
     private init(preventiveCare: HomeDashboardSnapshot.PetHeroStats.PreventiveCareSummary) {
         let name = preventiveCare.kind.displayName
         guard let daysDelta = preventiveCare.daysDelta else {
-            self.init(title: name, value: "待补录", unit: "")
+            self.init(title: name, value: "待补录", unit: "", valueStyle: .compactStatus)
             return
         }
 
@@ -141,9 +149,15 @@ private struct HomePetHeroPreventiveCareDisplay {
 
 // HomePetHeroStatColumn 单个指标列组件
 private struct HomePetHeroStatColumn: View {
+    enum ValueStyle {
+        case metric
+        case compactStatus
+    }
+
     let title: String
     let value: String
     let unit: String
+    var valueStyle: ValueStyle = .metric
     let subtitle: String
 
     var body: some View {
@@ -155,8 +169,9 @@ private struct HomePetHeroStatColumn: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(valueFont)
+                    .foregroundStyle(valueForegroundStyle)
+                    .lineLimit(1)
 
                 Text(unit)
                     .font(.system(size: 12, weight: .medium))
@@ -169,5 +184,23 @@ private struct HomePetHeroStatColumn: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var valueFont: Font {
+        switch valueStyle {
+        case .metric:
+            .system(size: 26, weight: .bold, design: .rounded)
+        case .compactStatus:
+            .system(size: 12, weight: .medium)
+        }
+    }
+
+    private var valueForegroundStyle: Color {
+        switch valueStyle {
+        case .metric:
+            .white
+        case .compactStatus:
+            .white.opacity(0.8)
+        }
     }
 }
