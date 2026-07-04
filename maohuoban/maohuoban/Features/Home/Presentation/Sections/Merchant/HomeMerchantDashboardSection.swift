@@ -86,11 +86,8 @@ struct HomeMerchantDashboardSection: View {
                 HomeSectionTitle("店内宠物动态")
 
                 ForEach(summary.recentEvents) { event in
-                    NavigationLink(value: HomeTimelineRecordRouteResolver.route(for: event, recordContext: nil)) {
-                        HomeMerchantEventRow(event: event)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.merchant.recentEvent.\(event.id)")
+                    HomeMerchantEventRow(event: event)
+                        .accessibilityIdentifier("home.merchant.recentEvent.\(event.id)")
                 }
             }
         }

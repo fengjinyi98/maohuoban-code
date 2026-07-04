@@ -5,7 +5,10 @@ import Foundation
 // - 将后端统一时间线条目转换为历史列表展示模型
 // - 保持 View 不承担业务语义和日期格式化
 enum PetRecordHistoryItemMapper {
-    static func item(for entry: PetTimelineEntry) -> PetRecordHistoryItem {
+    static func item(
+        for entry: PetTimelineEntry,
+        context: PetRecordEntryContext
+    ) -> PetRecordHistoryItem {
         let date = MHBUTCDateDisplayFormatter.date(fromUTCString: entry.occurredAt)
         let display = PetRecordHistoryDateDisplay(date: date, fallback: entry.occurredAt)
         let semantic = PetRecordHistorySemantic(entry: entry)
@@ -21,7 +24,7 @@ enum PetRecordHistoryItemMapper {
             kindText: semantic.kindText,
             systemImage: semantic.systemImage,
             tint: semantic.tint,
-            route: entry.source == .event ? semantic.route(recordID: entry.id) : nil
+            route: entry.source == .event ? semantic.route(recordID: entry.id, context: context) : nil
         )
     }
 }

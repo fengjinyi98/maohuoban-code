@@ -47,6 +47,14 @@ struct PetRecordEntryContext: Hashable, Sendable {
             isSelected: true
         )
     }
+
+    var resolvedPetID: String? {
+        petID ?? selectedSwitchPet?.id
+    }
+
+    var resolvedPetName: String? {
+        petName ?? selectedSwitchPet?.name
+    }
 }
 
 // PetRecordSwitchPet 记录流程可切换宠物

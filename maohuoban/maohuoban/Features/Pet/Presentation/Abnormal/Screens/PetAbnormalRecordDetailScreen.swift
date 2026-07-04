@@ -12,7 +12,7 @@ struct PetAbnormalRecordDetailScreen: View {
 
     let recordID: String
     let currentUserID: String?
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
 
     @State private var store = PetAbnormalDetailStore()
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
@@ -148,7 +148,7 @@ private struct PetAbnormalDetailErrorView: View {
 private struct PetAbnormalDetailContentView: View {
     let event: PetEventDetail
     let store: PetAbnormalDetailStore
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
     let onSelectAction: (PetAbnormalRecordDetailAction) -> Void
 
     private var payload: PetEventDetailPayload? {
@@ -296,9 +296,9 @@ private struct PetAbnormalRecordPetIdentity: Equatable {
     let name: String
     let avatarSource: MHBAvatarSource
 
-    init(event: PetEventDetail, context: PetRecordEntryContext?) {
-        self.id = context?.petID ?? event.petID ?? "current-pet"
-        self.name = context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物"
+    init(event: PetEventDetail, context: PetRecordEntryContext) {
+        self.id = context.resolvedPetID ?? event.petID ?? ""
+        self.name = context.resolvedPetName ?? ""
         self.avatarSource = Self.avatarSource(context: context)
     }
 
@@ -312,8 +312,8 @@ private struct PetAbnormalRecordPetIdentity: Equatable {
         )
     }
 
-    private static func avatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
-        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+    private static func avatarSource(context: PetRecordEntryContext) -> MHBAvatarSource {
+        guard let avatarURLString = context.petAvatarURL ?? context.selectedSwitchPet?.avatarURL,
               let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
             return .empty
         }

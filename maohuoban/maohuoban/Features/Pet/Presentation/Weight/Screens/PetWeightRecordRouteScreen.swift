@@ -38,7 +38,7 @@ struct PetWeightRecordRouteScreen: View {
     }
 
     private var petName: String {
-        context.petName ?? context.selectedSwitchPet?.name ?? "当前宠物"
+        context.resolvedPetName ?? ""
     }
 
     private var petAvatarSubject: MHBAvatarSubject? {

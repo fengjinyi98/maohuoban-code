@@ -18,7 +18,20 @@ final class PetRecordHistoryStoreTests: XCTestCase {
                     petID: "pet-1",
                     events: [
                         PetTimelineEntry(
-                            id: "event-1",
+                            id: "weight-1",
+                            petID: "pet-1",
+                            kind: .health,
+                            subkind: "weight",
+                            title: "体重记录",
+                            summary: "4.35kg",
+                            visibility: .private,
+                            occurredAt: "2026-06-14T09:20:00Z",
+                            recordRevision: 1,
+                            source: .event,
+                            eventPayload: nil
+                        ),
+                        PetTimelineEntry(
+                            id: "quick-1",
                             petID: "pet-1",
                             kind: .health,
                             subkind: "appetite_normal",
@@ -49,39 +62,61 @@ final class PetRecordHistoryStoreTests: XCTestCase {
         )
         let store = PetRecordHistoryStore(repository: repository)
 
-        await store.load(petID: "pet-1", currentUserID: "user-1")
+        let recordContext = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/avatar.png",
+            petSex: .female
+        )
+
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
 
         XCTAssertEqual(repository.receivedTimelinePetID, "pet-1")
         XCTAssertEqual(repository.receivedTimelineUserID, "user-1")
         guard case .loaded(let records) = store.phase else {
             return XCTFail("expected loaded phase")
         }
-        XCTAssertEqual(records.map(\.id), ["event-1", "pet-1-homecoming"])
+        XCTAssertEqual(records.map(\.id), ["weight-1", "quick-1", "pet-1-homecoming"])
         XCTAssertEqual(records[0].yearText, "2026")
         XCTAssertEqual(records[0].monthText, "6月")
-        XCTAssertEqual(records[0].dateText, "06/13")
+        XCTAssertEqual(records[0].dateText, "06/14")
         XCTAssertEqual(records[0].timeText, "17:20")
-        XCTAssertEqual(records[0].title, "食欲正常")
-        XCTAssertEqual(records[0].subtitle, "今天食欲正常")
-        XCTAssertEqual(records[0].kindText, "快速记录")
-        XCTAssertEqual(records[0].systemImage, "takeoutbag.and.cup.and.straw.fill")
-        XCTAssertEqual(records[0].route, .quickFact(recordID: "event-1", kind: .appetiteNormal, context: nil))
-        XCTAssertEqual(records[1].yearText, "2024")
-        XCTAssertEqual(records[1].monthText, "6月")
-        XCTAssertEqual(records[1].dateText, "06/16")
-        XCTAssertEqual(records[1].timeText, "08:00")
-        XCTAssertEqual(records[1].title, "到家的第一天")
-        XCTAssertEqual(records[1].subtitle, "糯米来到你身边")
-        XCTAssertEqual(records[1].kindText, "关键时刻")
-        XCTAssertEqual(records[1].systemImage, "house.fill")
-        XCTAssertNil(records[1].route)
+        XCTAssertEqual(records[0].title, "体重记录")
+        XCTAssertEqual(records[0].subtitle, "4.35kg")
+        XCTAssertEqual(records[0].kindText, "体重")
+        XCTAssertEqual(records[0].systemImage, "scalemass.fill")
+        XCTAssertEqual(records[0].route, .weight(recordID: "weight-1", context: recordContext))
+        XCTAssertEqual(records[1].route, .quickFact(recordID: "quick-1", kind: .appetiteNormal, context: recordContext))
+        XCTAssertEqual(records[2].yearText, "2024")
+        XCTAssertEqual(records[2].monthText, "6月")
+        XCTAssertEqual(records[2].dateText, "06/16")
+        XCTAssertEqual(records[2].timeText, "08:00")
+        XCTAssertEqual(records[2].title, "到家的第一天")
+        XCTAssertEqual(records[2].subtitle, "糯米来到你身边")
+        XCTAssertEqual(records[2].kindText, "关键时刻")
+        XCTAssertEqual(records[2].systemImage, "house.fill")
+        XCTAssertNil(records[2].route)
     }
 
     func testLoadWithoutPetIDFailsBeforeRepositoryCall() async {
         let repository = CapturingPetRepository()
         let store = PetRecordHistoryStore(repository: repository)
+        let recordContext = PetRecordEntryContext(
+            petID: nil,
+            petName: nil,
+            petAvatarURL: nil,
+            petSex: .unknown
+        )
 
-        await store.load(petID: nil, currentUserID: "user-1")
+        await store.load(
+            petID: nil,
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
 
         XCTAssertEqual(store.phase, .failed("请先选择宠物"))
         XCTAssertNil(repository.receivedTimelinePetID)

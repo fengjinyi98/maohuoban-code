@@ -7,10 +7,10 @@ import MaohuobanDesignSystem
 // - 明确快速事实详情页只承载便便正常、精神不错、食欲正常三类记录
 // - 将喂食、异常、体重、驱虫、疫苗、就诊和遛弯分发给各自详情页，避免通用详情页漂移
 enum PetRecordDetailRoute: Hashable, Identifiable {
-    case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext?)
-    case feeding(recordID: String, context: PetRecordEntryContext? = nil)
-    case abnormal(recordID: String, context: PetRecordEntryContext? = nil)
-    case weight(recordID: String)
+    case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext)
+    case feeding(recordID: String, context: PetRecordEntryContext)
+    case abnormal(recordID: String, context: PetRecordEntryContext)
+    case weight(recordID: String, context: PetRecordEntryContext)
     case deworming(recordID: String)
     case vaccine(recordID: String)
     case clinicVisit(recordID: String)
@@ -25,7 +25,7 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
             "feeding-\(recordID)"
         case .abnormal(let recordID, _):
             "abnormal-\(recordID)"
-        case .weight(let recordID):
+        case .weight(let recordID, _):
             "weight-\(recordID)"
         case .deworming(let recordID):
             "deworming-\(recordID)"
@@ -49,7 +49,6 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 struct PetRecordDetailDestinationScreen: View {
     let route: PetRecordDetailRoute
     var currentUserID: String? = nil
-    var recordContext: PetRecordEntryContext? = nil
 
     var body: some View {
         switch route {
@@ -58,24 +57,24 @@ struct PetRecordDetailDestinationScreen: View {
                 recordID: recordID,
                 kind: kind,
                 currentUserID: currentUserID,
-                recordContext: context ?? recordContext
+                recordContext: context
             )
         case .feeding(let recordID, let context):
             PetFeedingDetailScreen(
                 recordID: recordID,
                 currentUserID: currentUserID,
-                recordContext: context ?? recordContext
+                recordContext: context
             )
         case .abnormal(let recordID, let context):
             PetAbnormalRecordDetailScreen(
                 recordID: recordID,
                 currentUserID: currentUserID,
-                recordContext: context ?? recordContext
+                recordContext: context
             )
-        case .weight(let recordID):
+        case .weight(let recordID, let context):
             PetWeightRecordRouteScreen(
                 recordID: recordID,
-                context: recordContext ?? PetRecordEntryContext(petID: nil),
+                context: context,
                 currentUserID: currentUserID
             )
         case .deworming(let recordID):
@@ -95,22 +94,13 @@ struct PetRecordDetailDestinationScreen: View {
                 subtitle: "就诊记录会独立展示医院、检查项目、诊断、费用和附件。",
                 accessibilityIdentifier: "pet.recordDetail.clinicVisit.placeholder"
             )
-        case .walk(let recordID):
-            if let record = PetWalkRecordDetailResolver.record(for: recordID) {
-                PetWalkHistoryDetailScreen(
-                    record: record,
-                    petName: walkPetName,
-                    petAvatarURL: walkPetAvatarURL,
-                    petSex: recordContext?.petSex ?? .unknown
-                )
-            } else {
-                PetRecordDetailPlaceholderScreen(
-                    systemImage: "figure.walk",
-                    title: "遛弯记录详情",
-                    subtitle: "遛弯记录会进入遛弯模块详情，展示时长、距离和轨迹。",
-                    accessibilityIdentifier: "pet.recordDetail.walk.placeholder"
-                )
-            }
+        case .walk:
+            PetRecordDetailPlaceholderScreen(
+                systemImage: "figure.walk",
+                title: "遛弯记录详情",
+                subtitle: "遛弯记录会进入遛弯模块详情，展示时长、距离和轨迹。",
+                accessibilityIdentifier: "pet.recordDetail.walk.placeholder"
+            )
         case .unsupported:
             PetRecordDetailPlaceholderScreen(
                 systemImage: "doc.text.magnifyingglass",
@@ -121,17 +111,6 @@ struct PetRecordDetailDestinationScreen: View {
         }
     }
 
-    private var walkPetName: String {
-        recordContext?.petName ?? recordContext?.selectedSwitchPet?.name ?? "当前宠物"
-    }
-
-    private var walkPetAvatarURL: URL? {
-        guard let avatarURL = recordContext?.petAvatarURL ?? recordContext?.selectedSwitchPet?.avatarURL else {
-            return nil
-        }
-
-        return MHBBackendEndpoint.resolve(avatarURL)
-    }
 }
 
 // PetQuickFactDetailKind 快速事实详情类型

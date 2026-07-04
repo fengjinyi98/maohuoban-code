@@ -13,7 +13,7 @@ struct PetQuickFactDetailScreen: View {
     let recordID: String
     let kind: PetQuickFactDetailKind
     let currentUserID: String?
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
 
     @State private var store = PetEventDetailStore()
     @State private var isDeleteConfirmationPresented = false
@@ -119,7 +119,7 @@ private struct PetQuickFactDetailErrorView: View {
 private struct PetQuickFactDetailContentView: View {
     let event: PetEventDetail
     let kind: PetQuickFactDetailKind
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {

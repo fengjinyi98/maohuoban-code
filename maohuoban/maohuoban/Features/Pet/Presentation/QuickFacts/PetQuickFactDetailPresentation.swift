@@ -44,7 +44,7 @@ struct PetQuickFactDetailPresentation {
     init(
         event: PetEventDetail,
         kind: PetQuickFactDetailKind,
-        recordContext: PetRecordEntryContext?
+        recordContext: PetRecordEntryContext
     ) {
         let eventTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let summaryText = event.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -71,17 +71,17 @@ struct PetQuickFactDetailPresentation {
 
     private static func petIdentity(
         event: PetEventDetail,
-        context: PetRecordEntryContext?
+        context: PetRecordEntryContext
     ) -> PetIdentity {
         PetIdentity(
-            id: context?.petID ?? event.petID ?? "current-pet",
-            name: context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物",
+            id: context.resolvedPetID ?? event.petID ?? "",
+            name: context.resolvedPetName ?? "",
             avatarSource: petAvatarSource(context: context)
         )
     }
 
-    private static func petAvatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
-        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+    private static func petAvatarSource(context: PetRecordEntryContext) -> MHBAvatarSource {
+        guard let avatarURLString = context.petAvatarURL ?? context.selectedSwitchPet?.avatarURL,
               let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
             return .empty
         }

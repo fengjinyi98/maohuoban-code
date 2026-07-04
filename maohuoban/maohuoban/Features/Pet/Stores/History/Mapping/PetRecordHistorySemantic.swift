@@ -91,20 +91,20 @@ struct PetRecordHistorySemantic {
         }
     }
 
-    func route(recordID: String) -> PetRecordDetailRoute? {
+    func route(recordID: String, context: PetRecordEntryContext) -> PetRecordDetailRoute? {
         switch semantic {
         case .birth, .homecoming:
             nil
         case .feeding:
-            .feeding(recordID: recordID)
+            .feeding(recordID: recordID, context: context)
         case .poopNormal:
-            .quickFact(recordID: recordID, kind: .poopNormal, context: nil)
+            .quickFact(recordID: recordID, kind: .poopNormal, context: context)
         case .energyNormal:
-            .quickFact(recordID: recordID, kind: .energyNormal, context: nil)
+            .quickFact(recordID: recordID, kind: .energyNormal, context: context)
         case .appetiteNormal:
-            .quickFact(recordID: recordID, kind: .appetiteNormal, context: nil)
+            .quickFact(recordID: recordID, kind: .appetiteNormal, context: context)
         case .weight:
-            .weight(recordID: recordID)
+            .weight(recordID: recordID, context: context)
         case .deworming:
             .deworming(recordID: recordID)
         case .walk:
@@ -112,7 +112,7 @@ struct PetRecordHistorySemantic {
         case .vaccine:
             .vaccine(recordID: recordID)
         case .abnormal:
-            .abnormal(recordID: recordID)
+            .abnormal(recordID: recordID, context: context)
         case .clinicVisit:
             .clinicVisit(recordID: recordID)
         case .unsupported:

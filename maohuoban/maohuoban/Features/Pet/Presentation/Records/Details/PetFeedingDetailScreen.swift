@@ -12,7 +12,7 @@ struct PetFeedingDetailScreen: View {
 
     let recordID: String
     let currentUserID: String?
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
 
     @State private var store = PetEventDetailStore()
     @State private var isDeleteConfirmationPresented = false
@@ -116,7 +116,7 @@ private struct PetFeedingDetailErrorView: View {
 // - 组合喂食数据、关联食品和备注照片分区
 private struct PetFeedingDetailContentView: View {
     let event: PetEventDetail
-    let recordContext: PetRecordEntryContext?
+    let recordContext: PetRecordEntryContext
 
     private var presentation: PetFeedingDetailPresentation {
         PetFeedingDetailPresentation(event: event, recordContext: recordContext)
@@ -372,7 +372,7 @@ private struct PetFeedingDetailPresentation {
     let note: String
     let attachmentAssetIDs: [String]
 
-    init(event: PetEventDetail, recordContext: PetRecordEntryContext?) {
+    init(event: PetEventDetail, recordContext: PetRecordEntryContext) {
         let payload = event.eventPayload
         let eventTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let noteText = payload?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -390,17 +390,17 @@ private struct PetFeedingDetailPresentation {
 
     private static func petIdentity(
         event: PetEventDetail,
-        context: PetRecordEntryContext?
+        context: PetRecordEntryContext
     ) -> Pet {
         Pet(
-            id: context?.petID ?? event.petID ?? "current-pet",
-            name: context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物",
+            id: context.resolvedPetID ?? event.petID ?? "",
+            name: context.resolvedPetName ?? "",
             avatarSource: petAvatarSource(context: context)
         )
     }
 
-    private static func petAvatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
-        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+    private static func petAvatarSource(context: PetRecordEntryContext) -> MHBAvatarSource {
+        guard let avatarURLString = context.petAvatarURL ?? context.selectedSwitchPet?.avatarURL,
               let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
             return .empty
         }

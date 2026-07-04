@@ -84,18 +84,15 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
 
         _ = PetRecordDetailDestinationScreen(
             route: .quickFact(recordID: "quick-fact-event-1", kind: .poopNormal, context: context),
-            currentUserID: "user-1",
-            recordContext: context
+            currentUserID: "user-1"
         )
         _ = PetRecordDetailDestinationScreen(
             route: .feeding(recordID: "feeding-event-1", context: context),
-            currentUserID: "user-1",
-            recordContext: context
+            currentUserID: "user-1"
         )
         _ = PetRecordDetailDestinationScreen(
             route: .abnormal(recordID: "abnormal-event-1", context: context),
-            currentUserID: "user-1",
-            recordContext: context
+            currentUserID: "user-1"
         )
     }
 }

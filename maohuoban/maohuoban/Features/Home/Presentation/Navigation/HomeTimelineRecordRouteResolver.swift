@@ -18,12 +18,24 @@ enum HomeTimelineRecordRouteResolver {
         case .birth, .homecoming:
             return .petRecordDetail(.unsupported(recordID: event.id))
         case .feeding:
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
             return .petRecordDetail(.feeding(recordID: event.id, context: recordContext))
         case .poopNormal:
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
             return .petRecordDetail(.quickFact(recordID: event.id, kind: .poopNormal, context: recordContext))
         case .energyNormal:
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
             return .petRecordDetail(.quickFact(recordID: event.id, kind: .energyNormal, context: recordContext))
         case .appetiteNormal:
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
             return .petRecordDetail(.quickFact(recordID: event.id, kind: .appetiteNormal, context: recordContext))
         case .deworming:
             return .petRecordDetail(.deworming(recordID: event.id))
@@ -32,6 +44,9 @@ enum HomeTimelineRecordRouteResolver {
         case .vaccine:
             return .petRecordDetail(.vaccine(recordID: event.id))
         case .abnormal:
+            guard let recordContext else {
+                return .petRecordDetail(.unsupported(recordID: event.id))
+            }
             return .petRecordDetail(.abnormal(recordID: event.id, context: recordContext))
         case .clinicVisit:
             return .petRecordDetail(.clinicVisit(recordID: event.id))

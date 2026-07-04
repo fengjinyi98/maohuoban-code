@@ -124,7 +124,8 @@ struct PetRecordHistoryScreen: View {
         .task(id: currentPetID) {
             await store.load(
                 petID: currentPetID,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                recordContext: currentRecordContext
             )
         }
         .accessibilityIdentifier("pet.recordHistory")
@@ -208,9 +209,21 @@ struct PetRecordHistoryScreen: View {
         Task {
             await store.load(
                 petID: currentPetID,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                recordContext: currentRecordContext
             )
         }
+    }
+
+    private var currentRecordContext: PetRecordEntryContext {
+        PetRecordEntryContext(
+            petID: currentPetID,
+            petName: selectedPet?.name ?? context.petName,
+            petAvatarURL: selectedPet?.avatarURL ?? context.petAvatarURL,
+            petSex: selectedPet?.sex ?? context.petSex,
+            lifeStatus: selectedPet?.lifeStatus ?? context.lifeStatus,
+            availablePets: availablePets
+        )
     }
 
 }

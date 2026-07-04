@@ -16,7 +16,11 @@ final class PetRecordHistoryStore {
         self.repository = repository
     }
 
-    func load(petID: String?, currentUserID: String?) async {
+    func load(
+        petID: String?,
+        currentUserID: String?,
+        recordContext: PetRecordEntryContext
+    ) async {
         guard let currentUserID, !currentUserID.isEmpty else {
             phase = .failed("请先登录")
             return
@@ -34,7 +38,9 @@ final class PetRecordHistoryStore {
                 currentUserID: currentUserID
             )
             let entries = response.data?.events ?? []
-            phase = .loaded(entries.map(PetRecordHistoryItemMapper.item))
+            phase = .loaded(entries.map { entry in
+                PetRecordHistoryItemMapper.item(for: entry, context: recordContext)
+            })
         } catch {
             phase = .failed(error.toastMessage)
         }
