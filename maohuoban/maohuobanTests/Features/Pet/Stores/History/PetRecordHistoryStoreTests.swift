@@ -121,4 +121,56 @@ final class PetRecordHistoryStoreTests: XCTestCase {
         XCTAssertEqual(store.phase, .failed("请先选择宠物"))
         XCTAssertNil(repository.receivedTimelinePetID)
     }
+
+    func testLoadSkipsSameContextAfterLoadedToPreserveListState() async {
+        let repository = CapturingPetRepository()
+        repository.loadTimelineResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.timeline_loaded",
+                message: "宠物时间线已加载",
+                data: PetTimeline(
+                    petID: "pet-1",
+                    events: [
+                        PetTimelineEntry(
+                            id: "quick-1",
+                            petID: "pet-1",
+                            kind: .health,
+                            subkind: "appetite_normal",
+                            title: "食欲正常",
+                            summary: "今天食欲正常",
+                            visibility: .private,
+                            occurredAt: "2026-06-13T09:20:00Z",
+                            recordRevision: 1,
+                            source: .event,
+                            eventPayload: nil
+                        )
+                    ]
+                )
+            )
+        )
+        let store = PetRecordHistoryStore(repository: repository)
+        let recordContext = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/avatar.png",
+            petSex: .female
+        )
+
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
+        let loadedPhase = store.phase
+
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
+
+        XCTAssertEqual(repository.loadTimelineCallCount, 1)
+        XCTAssertEqual(store.phase, loadedPhase)
+    }
 }

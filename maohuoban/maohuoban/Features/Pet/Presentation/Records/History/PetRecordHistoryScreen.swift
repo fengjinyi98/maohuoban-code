@@ -210,7 +210,8 @@ struct PetRecordHistoryScreen: View {
             await store.load(
                 petID: currentPetID,
                 currentUserID: currentUserID,
-                recordContext: currentRecordContext
+                recordContext: currentRecordContext,
+                force: true
             )
         }
     }

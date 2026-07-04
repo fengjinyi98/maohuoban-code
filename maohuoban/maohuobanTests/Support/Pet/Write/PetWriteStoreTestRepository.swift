@@ -42,6 +42,7 @@ final class CapturingPetRepository: PetRepository {
     private(set) var receivedLoadWeightUserID: String?
     private(set) var receivedTimelinePetID: String?
     private(set) var receivedTimelineUserID: String?
+    private(set) var loadTimelineCallCount = 0
     private(set) var receivedUpdateWeightRecordID: String?
     private(set) var receivedUpdateWeightDraft: PetWeightRecordDraft?
     private(set) var receivedUpdateWeightUserID: String?
@@ -92,6 +93,7 @@ final class CapturingPetRepository: PetRepository {
         petID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline> {
+        loadTimelineCallCount += 1
         receivedTimelinePetID = petID
         receivedTimelineUserID = currentUserID
         switch loadTimelineResult {
