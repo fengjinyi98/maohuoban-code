@@ -8,6 +8,8 @@ struct HomeRouteDestinationScreen: View {
     let route: HomeRoute
     let currentUserID: String?
     var onRouteRequested: (HomeRoute) -> Void = { _ in }
+    var deletedRecordID: String? = nil
+    var onRecordDeleted: (String) -> Void = { _ in }
     let onHomeMutationCompleted: (String?) -> Void
 
     var body: some View {
@@ -68,7 +70,11 @@ struct HomeRouteDestinationScreen: View {
             PetWeightRecordRouteScreen(
                 recordID: recordID,
                 context: context,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                onDeleted: { deletedRecordID in
+                    onRecordDeleted(deletedRecordID)
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .petPreventiveCare(let context):
             PetPreventiveCareScreen(context: context)
@@ -76,6 +82,7 @@ struct HomeRouteDestinationScreen: View {
             PetRecordHistoryScreen(
                 context: context,
                 currentUserID: currentUserID,
+                deletedRecordID: deletedRecordID,
                 onOpenRecordDetail: { detailRoute in
                     onRouteRequested(.petRecordDetail(detailRoute))
                 }
@@ -112,7 +119,11 @@ struct HomeRouteDestinationScreen: View {
         case .petRecordDetail(let route):
             PetRecordDetailDestinationScreen(
                 route: route,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                onRecordDeleted: { recordID in
+                    onRecordDeleted(recordID)
+                    onHomeMutationCompleted(nil)
+                }
             )
         case .publishAvailableStatus(let merchantID):
             MerchantAvailableStatusScreen(

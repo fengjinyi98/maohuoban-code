@@ -49,6 +49,7 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 struct PetRecordDetailDestinationScreen: View {
     let route: PetRecordDetailRoute
     var currentUserID: String? = nil
+    var onRecordDeleted: (String) -> Void = { _ in }
 
     var body: some View {
         switch route {
@@ -57,25 +58,29 @@ struct PetRecordDetailDestinationScreen: View {
                 recordID: recordID,
                 kind: kind,
                 currentUserID: currentUserID,
-                recordContext: context
+                recordContext: context,
+                onDeleted: onRecordDeleted
             )
         case .feeding(let recordID, let context):
             PetFeedingDetailScreen(
                 recordID: recordID,
                 currentUserID: currentUserID,
-                recordContext: context
+                recordContext: context,
+                onDeleted: onRecordDeleted
             )
         case .abnormal(let recordID, let context):
             PetAbnormalRecordDetailScreen(
                 recordID: recordID,
                 currentUserID: currentUserID,
-                recordContext: context
+                recordContext: context,
+                onDeleted: onRecordDeleted
             )
         case .weight(let recordID, let context):
             PetWeightRecordRouteScreen(
                 recordID: recordID,
                 context: context,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                onDeleted: onRecordDeleted
             )
         case .deworming(let recordID):
             PetPreventiveCareRecordDetailScreen(

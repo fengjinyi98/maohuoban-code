@@ -13,6 +13,7 @@ struct PetAbnormalRecordDetailScreen: View {
     let recordID: String
     let currentUserID: String?
     let recordContext: PetRecordEntryContext
+    var onDeleted: (String) -> Void = { _ in }
 
     @State private var store = PetAbnormalDetailStore()
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
@@ -62,6 +63,7 @@ struct PetAbnormalRecordDetailScreen: View {
             Button("删除记录", role: .destructive) {
                 Task {
                     if await store.delete(eventID: recordID, currentUserID: currentUserID) {
+                        onDeleted(recordID)
                         dismiss()
                     }
                 }

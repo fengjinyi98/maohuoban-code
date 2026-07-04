@@ -12,6 +12,7 @@ struct PetRecordHistoryScreen: View {
     let context: PetRecordEntryContext
     let currentUserID: String?
     let onOpenRecordDetail: (PetRecordDetailRoute) -> Void
+    let deletedRecordID: String?
 
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
@@ -20,10 +21,12 @@ struct PetRecordHistoryScreen: View {
     init(
         context: PetRecordEntryContext,
         currentUserID: String? = nil,
+        deletedRecordID: String? = nil,
         onOpenRecordDetail: @escaping (PetRecordDetailRoute) -> Void = { _ in }
     ) {
         self.context = context
         self.currentUserID = currentUserID
+        self.deletedRecordID = deletedRecordID
         self.onOpenRecordDetail = onOpenRecordDetail
         self._selectedPet = State(initialValue: context.selectedSwitchPet)
     }
@@ -127,6 +130,10 @@ struct PetRecordHistoryScreen: View {
                 currentUserID: currentUserID,
                 recordContext: currentRecordContext
             )
+        }
+        .onChange(of: deletedRecordID) { _, recordID in
+            guard let recordID else { return }
+            store.removeRecord(id: recordID)
         }
         .accessibilityIdentifier("pet.recordHistory")
     }

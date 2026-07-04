@@ -14,6 +14,7 @@ struct HomeRootScreen: View {
     @State private var store = HomeDashboardStore()
     @State private var selectedPetID: String?
     @State private var loadedUserID: String?
+    @State private var deletedRecordID: String?
 
     init(
         currentUserStore: CurrentUserStore,
@@ -89,6 +90,10 @@ struct HomeRootScreen: View {
                 currentUserID: currentUserID,
                 onRouteRequested: { nextRoute in
                     tabState.appendHomeRoute(nextRoute)
+                },
+                deletedRecordID: deletedRecordID,
+                onRecordDeleted: { recordID in
+                    deletedRecordID = recordID
                 }
             ) { mutatedPetID in
                 if let mutatedPetID {

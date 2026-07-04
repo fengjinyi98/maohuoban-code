@@ -173,4 +173,67 @@ final class PetRecordHistoryStoreTests: XCTestCase {
         XCTAssertEqual(repository.loadTimelineCallCount, 1)
         XCTAssertEqual(store.phase, loadedPhase)
     }
+
+    func testRemoveRecordDeletesLoadedRowWithoutReloadingTimeline() async {
+        let repository = CapturingPetRepository()
+        repository.loadTimelineResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.timeline_loaded",
+                message: "宠物时间线已加载",
+                data: PetTimeline(
+                    petID: "pet-1",
+                    events: [
+                        PetTimelineEntry(
+                            id: "quick-1",
+                            petID: "pet-1",
+                            kind: .health,
+                            subkind: "appetite_normal",
+                            title: "食欲正常",
+                            summary: "今天食欲正常",
+                            visibility: .private,
+                            occurredAt: "2026-06-13T09:20:00Z",
+                            recordRevision: 1,
+                            source: .event,
+                            eventPayload: nil
+                        ),
+                        PetTimelineEntry(
+                            id: "feeding-1",
+                            petID: "pet-1",
+                            kind: .daily,
+                            subkind: "feeding",
+                            title: "喂食记录",
+                            summary: "正常份量",
+                            visibility: .private,
+                            occurredAt: "2026-06-13T08:20:00Z",
+                            recordRevision: 1,
+                            source: .event,
+                            eventPayload: nil
+                        )
+                    ]
+                )
+            )
+        )
+        let store = PetRecordHistoryStore(repository: repository)
+        let recordContext = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/avatar.png",
+            petSex: .female
+        )
+
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
+
+        store.removeRecord(id: "quick-1")
+
+        guard case .loaded(let records) = store.phase else {
+            return XCTFail("expected loaded phase")
+        }
+        XCTAssertEqual(records.map(\.id), ["feeding-1"])
+        XCTAssertEqual(repository.loadTimelineCallCount, 1)
+    }
 }

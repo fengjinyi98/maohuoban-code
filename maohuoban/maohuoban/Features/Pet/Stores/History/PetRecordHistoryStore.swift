@@ -72,6 +72,11 @@ final class PetRecordHistoryStore {
         }
     }
 
+    func removeRecord(id recordID: String) {
+        guard case .loaded(let records) = phase else { return }
+        phase = .loaded(records.filter { $0.id != recordID })
+    }
+
     private func shouldSkipLoad(
         context: PetRecordHistoryLoadContext,
         force: Bool

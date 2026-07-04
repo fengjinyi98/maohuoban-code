@@ -8,6 +8,7 @@ struct PetWeightRecordRouteScreen: View {
     let recordID: String
     let context: PetRecordEntryContext
     let currentUserID: String?
+    var onDeleted: (String) -> Void = { _ in }
 
     @State private var store: PetWeightRecordStore?
 
@@ -18,7 +19,8 @@ struct PetWeightRecordRouteScreen: View {
                     recordID: recordID,
                     petName: petName,
                     petAvatarSubject: petAvatarSubject,
-                    store: store
+                    store: store,
+                    onDeleted: onDeleted
                 )
             } else if let store, let errorMessage = store.errorMessage {
                 PetWeightRecordRouteErrorState(message: errorMessage) {

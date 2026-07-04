@@ -13,6 +13,7 @@ struct PetWeightRecordDetailScreen: View {
     let petName: String
     let petAvatarSubject: MHBAvatarSubject?
     let store: PetWeightRecordStore
+    var onDeleted: (String) -> Void = { _ in }
 
     @State private var isEditSheetPresented = false
     @State private var isDeleteConfirmationPresented = false
@@ -90,6 +91,7 @@ struct PetWeightRecordDetailScreen: View {
             Button("删除记录", role: .destructive) {
                 Task {
                     if await store.delete(recordID: recordID) {
+                        onDeleted(recordID)
                         dismiss()
                     }
                 }

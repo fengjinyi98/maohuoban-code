@@ -14,6 +14,7 @@ struct PetQuickFactDetailScreen: View {
     let kind: PetQuickFactDetailKind
     let currentUserID: String?
     let recordContext: PetRecordEntryContext
+    var onDeleted: (String) -> Void = { _ in }
 
     @State private var store = PetEventDetailStore()
     @State private var isDeleteConfirmationPresented = false
@@ -57,6 +58,7 @@ struct PetQuickFactDetailScreen: View {
             Button("删除记录", role: .destructive) {
                 Task {
                     if await store.delete(eventID: recordID, currentUserID: currentUserID) {
+                        onDeleted(recordID)
                         dismiss()
                     }
                 }
