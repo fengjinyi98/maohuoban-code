@@ -31,6 +31,7 @@ enum HomeRoute: Hashable {
     case petDietTrendDetail(summary: PetDietTrendSummary, petName: String?)
     case petPantry(PetPantryEntryContext)
     case pantryCategoryDetail(context: PetPantryEntryContext, category: PantryCategory)
+    case pantryItemDetail(context: PetPantryEntryContext, itemID: String)
     case addPantryItem
     case editPantryItem(PantryItem)
 }
@@ -60,6 +61,7 @@ extension HomeRoute {
         case .petDietTrendDetail: "chart.line.uptrend.xyaxis"
         case .petPantry: "archivebox.fill"
         case .pantryCategoryDetail: "archivebox.fill"
+        case .pantryItemDetail: "takeoutbag.and.cup.and.straw.fill"
         case .addPantryItem: "plus.circle.fill"
         case .editPantryItem: "pencil.circle.fill"
         }
@@ -92,6 +94,7 @@ extension HomeRoute {
         case .petDietTrendDetail: "饮食趋势"
         case .petPantry: "储物柜"
         case .pantryCategoryDetail(_, let category): .init(stringLiteral: category.displayName)
+        case .pantryItemDetail: "物品详情"
         case .addPantryItem: "添加物品"
         case .editPantryItem: "编辑物品信息"
         }
@@ -124,6 +127,7 @@ extension HomeRoute {
         case .petDietTrendDetail: "查看当前宠物整体饮食趋势"
         case .petPantry: "进入用户储物柜"
         case .pantryCategoryDetail: "查看该分类下的物品"
+        case .pantryItemDetail: "查看储物柜物品详情和喂食分析"
         case .addPantryItem: "添加新物品到储物柜"
         case .editPantryItem: "编辑储物柜物品信息"
         }

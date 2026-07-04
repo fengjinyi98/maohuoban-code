@@ -6,7 +6,9 @@ use maohuoban_pet_domain::pet::{
 };
 use uuid::Uuid;
 
-use super::super::{FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem};
+use super::super::{
+    FoodInventoryItemDetail, FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
+};
 
 /// PetService food inventory 方法组
 pub(super) async fn create_food_inventory_item(
@@ -37,6 +39,16 @@ pub(super) async fn find_food_inventory_item(
         .find_item(item_id)
         .await?
         .ok_or(PetError::FoodInventoryNotFound)
+}
+
+pub(super) async fn load_food_inventory_item_detail(
+    food_inventory: &Arc<dyn FoodInventoryRepository>,
+    item_id: Uuid,
+    owner_user_id: Uuid,
+) -> PetResult<FoodInventoryItemDetail> {
+    food_inventory
+        .load_item_detail(item_id, owner_user_id)
+        .await
 }
 
 pub(super) async fn update_food_inventory_item(

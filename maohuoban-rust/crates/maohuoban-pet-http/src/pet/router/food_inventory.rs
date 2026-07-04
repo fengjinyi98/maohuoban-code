@@ -129,6 +129,31 @@ pub(super) async fn get_food_inventory_item(
     }
 }
 
+/// get_food_inventory_item_detail 获取食品资产详情
+/// 核心职责：
+/// - 返回物品详情页所需的后端读模型
+/// - 保持关联宠物、喂食时间线和消耗统计由后端统一聚合
+pub(super) async fn get_food_inventory_item_detail(
+    State(state): State<PetHttpState>,
+    Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
+) -> Response {
+    let actor_user_id = actor.user_id();
+
+    match state
+        .pet
+        .load_food_inventory_item_detail(item_id, actor_user_id)
+        .await
+    {
+        Ok(detail) => ok_response(
+            "food_inventory.item_detail_loaded",
+            "食品资产详情已加载",
+            detail,
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
 /// update_food_inventory_item 编辑食品资产
 pub(super) async fn update_food_inventory_item(
     State(state): State<PetHttpState>,

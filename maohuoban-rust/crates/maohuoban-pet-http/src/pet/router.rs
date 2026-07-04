@@ -135,6 +135,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
                 .delete(food_inventory::delete_food_inventory_item),
         )
         .route(
+            "/api/v1/food-inventory/items/{item_id}/detail",
+            get(food_inventory::get_food_inventory_item_detail),
+        )
+        .route(
             "/api/v1/food-inventory/items/{item_id}/restock",
             post(food_inventory::restock_food_inventory_item),
         )

@@ -90,6 +90,13 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
             }
         }
 
+        func loadFoodInventoryItemDetail(
+            itemID: String,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> FoodInventoryItemDetail {
+            fatalError("not used")
+        }
+
         func loadPetCurrentDietContext(
             petID: String,
             currentUserID: String

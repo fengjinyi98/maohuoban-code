@@ -10,6 +10,11 @@ protocol PetFoodInventoryRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> [FoodInventoryItem]
 
+    func loadFoodInventoryItemDetail(
+        itemID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> FoodInventoryItemDetail
+
     func loadPetCurrentDietContext(
         petID: String,
         currentUserID: String

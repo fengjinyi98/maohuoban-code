@@ -201,6 +201,8 @@ struct HomeRouteDestinationScreen: View {
                         return HomeRoute.addPantryItem
                     case .editItem(let item):
                         return HomeRoute.editPantryItem(item)
+                    case .itemDetail(let itemID):
+                        return HomeRoute.pantryItemDetail(context: context, itemID: itemID)
                     case .categoryDetail(let category):
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
@@ -218,8 +220,29 @@ struct HomeRouteDestinationScreen: View {
                         return HomeRoute.addPantryItem
                     case .editItem(let item):
                         return HomeRoute.editPantryItem(item)
+                    case .itemDetail(let itemID):
+                        return HomeRoute.pantryItemDetail(context: context, itemID: itemID)
                     case .categoryDetail:
                         // 该页面内不产生新的分类跳转，保持当前分类上下文。
+                        return HomeRoute.pantryCategoryDetail(context: context, category: category)
+                    }
+                },
+                onOpenRoute: onRouteRequested
+            )
+        case .pantryItemDetail(let context, let itemID):
+            PantryItemDetailScreen(
+                itemID: itemID,
+                context: context,
+                currentUserID: currentUserID,
+                onNavigate: { route -> HomeRoute in
+                    switch route {
+                    case .addItem:
+                        return HomeRoute.addPantryItem
+                    case .editItem(let item):
+                        return HomeRoute.editPantryItem(item)
+                    case .itemDetail(let itemID):
+                        return HomeRoute.pantryItemDetail(context: context, itemID: itemID)
+                    case .categoryDetail(let category):
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
                 },

@@ -21,11 +21,11 @@ use self::validation::{
 use super::PetDietTrendSummary;
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
-    DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
-    NewPetEvent, NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates,
-    PetProfileDiagnostics, PetRepository, PetWeightRecord, PetWeightRecordSource,
-    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetEvent, UpdatePetProfile,
-    UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
+    DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryItemDetail,
+    FoodInventoryRepository, NewPetEvent, NewPetProfile, NewPetWeightRecord,
+    PetDietConfirmationCandidates, PetProfileDiagnostics, PetRepository, PetWeightRecord,
+    PetWeightRecordSource, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetEvent,
+    UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
 };
 use super::{
     FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
@@ -237,6 +237,19 @@ impl PetService {
         }
 
         Ok(event)
+    }
+
+    pub async fn load_food_inventory_item_detail(
+        &self,
+        item_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<FoodInventoryItemDetail> {
+        food_inventory::load_food_inventory_item_detail(
+            &self.food_inventory,
+            item_id,
+            owner_user_id,
+        )
+        .await
     }
 
     pub async fn create_pet_weight_record(

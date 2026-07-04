@@ -1,12 +1,15 @@
 use async_trait::async_trait;
 use maohuoban_pet_application::pet::{
+    FoodInventoryAmountDistributionItem, FoodInventoryConsumptionSummary,
+    FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail, FoodInventoryLinkedPet,
     FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, PetError,
-    PetResult,
+    FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot,
+    PetError, PetResult,
 };
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::food_inventory_rows::FoodInventoryItemRow;
@@ -55,6 +58,228 @@ impl PostgresFoodInventoryRepository {
         })?;
         Ok(())
     }
+
+    async fn load_item_feeding_timeline(
+        &self,
+        item_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<Vec<FoodInventoryFeedingTimelineEntry>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                e.id,
+                e.pet_id,
+                p.name AS pet_name,
+                e.occurred_at,
+                e.title,
+                e.summary,
+                e.event_payload
+            FROM pet_events e
+            INNER JOIN pet_profiles p ON p.id = e.pet_id
+            WHERE p.owner_user_id = $1
+              AND p.deleted_at IS NULL
+              AND e.event_kind = 'daily'
+              AND e.event_subkind = 'feeding'
+              AND e.superseded_by_event_id IS NULL
+              AND e.event_payload->>'food_item_id' = $2
+            ORDER BY e.occurred_at DESC, e.created_at DESC
+            LIMIT 100
+            "#,
+        )
+        .bind(owner_user_id)
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to load food inventory feeding timeline: {error}"
+            ))
+        })?;
+
+        let timeline = rows
+            .into_iter()
+            .map(|row| {
+                let payload: serde_json::Value = row.get("event_payload");
+                let food_snapshot = payload
+                    .get("food_snapshot")
+                    .cloned()
+                    .and_then(|value| serde_json::from_value::<FoodSnapshot>(value).ok());
+                FoodInventoryFeedingTimelineEntry {
+                    event_id: row.get("id"),
+                    pet_id: row.get("pet_id"),
+                    pet_name: row.get("pet_name"),
+                    occurred_at: row.get("occurred_at"),
+                    title: row.get("title"),
+                    summary: row.get("summary"),
+                    amount_text: payload
+                        .get("amount_text")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("正常")
+                        .to_owned(),
+                    food_role: payload
+                        .get("food_role")
+                        .and_then(|value| value.as_str())
+                        .map(str::to_owned),
+                    food_snapshot,
+                }
+            })
+            .collect();
+
+        Ok(timeline)
+    }
+
+    async fn load_item_linked_pets(
+        &self,
+        item_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<Vec<FoodInventoryLinkedPet>> {
+        let feeding_rows = sqlx::query(
+            r#"
+            SELECT
+                p.id AS pet_id,
+                p.name AS pet_name,
+                p.avatar_asset_id,
+                MAX(e.occurred_at) AS last_used_at
+            FROM pet_events e
+            INNER JOIN pet_profiles p ON p.id = e.pet_id
+            WHERE p.owner_user_id = $1
+              AND p.deleted_at IS NULL
+              AND e.event_kind = 'daily'
+              AND e.event_subkind = 'feeding'
+              AND e.superseded_by_event_id IS NULL
+              AND e.event_payload->>'food_item_id' = $2
+            GROUP BY p.id, p.name, p.avatar_asset_id
+            ORDER BY last_used_at DESC
+            "#,
+        )
+        .bind(owner_user_id)
+        .bind(item_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!("failed to load food item linked pets: {error}"))
+        })?;
+
+        let mut linked = Vec::new();
+        let mut sources = HashMap::new();
+        for row in feeding_rows {
+            let pet_id: Uuid = row.get("pet_id");
+            sources.insert(pet_id, "feeding_event".to_owned());
+            let avatar_asset_id: Option<Uuid> = row.get("avatar_asset_id");
+            linked.push(FoodInventoryLinkedPet {
+                pet_id,
+                pet_name: row.get("pet_name"),
+                avatar_asset_id,
+                avatar_url: avatar_asset_id.map(|id| format!("/api/v1/media/assets/{id}/content")),
+                source: "feeding_event".to_owned(),
+            });
+        }
+
+        let assignment_rows = sqlx::query(
+            r#"
+            SELECT DISTINCT
+                p.id AS pet_id,
+                p.name AS pet_name,
+                p.avatar_asset_id
+            FROM pet_diet_assignments a
+            INNER JOIN pet_profiles p ON p.id = a.pet_id
+            WHERE p.owner_user_id = $1
+              AND p.deleted_at IS NULL
+              AND a.food_item_id = $2
+              AND a.status = 'active'
+            ORDER BY p.name ASC
+            "#,
+        )
+        .bind(owner_user_id)
+        .bind(item_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to load food item assignment linked pets: {error}"
+            ))
+        })?;
+
+        for row in assignment_rows {
+            let pet_id: Uuid = row.get("pet_id");
+            if sources.contains_key(&pet_id) {
+                continue;
+            }
+            let avatar_asset_id: Option<Uuid> = row.get("avatar_asset_id");
+            linked.push(FoodInventoryLinkedPet {
+                pet_id,
+                pet_name: row.get("pet_name"),
+                avatar_asset_id,
+                avatar_url: avatar_asset_id.map(|id| format!("/api/v1/media/assets/{id}/content")),
+                source: "diet_assignment".to_owned(),
+            });
+        }
+
+        Ok(linked)
+    }
+}
+
+fn build_consumption_summary(
+    timeline: &[FoodInventoryFeedingTimelineEntry],
+) -> FoodInventoryConsumptionSummary {
+    let feeding_count = i64::try_from(timeline.len()).unwrap_or(i64::MAX);
+    let first_fed_at = timeline.iter().map(|entry| entry.occurred_at).min();
+    let last_fed_at = timeline.iter().map(|entry| entry.occurred_at).max();
+    let active_days = match (first_fed_at, last_fed_at) {
+        (Some(first), Some(last)) => {
+            last.date_naive()
+                .signed_duration_since(first.date_naive())
+                .num_days()
+                + 1
+        }
+        _ => 0,
+    };
+
+    let mut counts: HashMap<String, i64> = HashMap::new();
+    for entry in timeline {
+        *counts.entry(entry.amount_text.clone()).or_insert(0) += 1;
+    }
+
+    let mut amount_distribution = Vec::new();
+    for label in ["少一点", "正常", "多一点"] {
+        if let Some(count) = counts.remove(label) {
+            amount_distribution.push(FoodInventoryAmountDistributionItem {
+                amount_text: label.to_owned(),
+                count,
+                ratio: count_ratio(count, feeding_count),
+            });
+        }
+    }
+    let mut other_labels: Vec<_> = counts.into_iter().collect();
+    other_labels.sort_by(|left, right| left.0.cmp(&right.0));
+    for (amount_text, count) in other_labels {
+        amount_distribution.push(FoodInventoryAmountDistributionItem {
+            amount_text,
+            count,
+            ratio: count_ratio(count, feeding_count),
+        });
+    }
+
+    FoodInventoryConsumptionSummary {
+        feeding_count,
+        first_fed_at,
+        last_fed_at,
+        active_days,
+        amount_distribution,
+    }
+}
+
+fn count_ratio(count: i64, total: i64) -> f64 {
+    let Ok(count) = u32::try_from(count) else {
+        return 0.0;
+    };
+    let Ok(total) = u32::try_from(total) else {
+        return 0.0;
+    };
+    if total == 0 {
+        return 0.0;
+    }
+    f64::from(count) / f64::from(total)
 }
 
 #[async_trait]
@@ -143,6 +368,35 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
                 })?;
 
         result.map(FoodInventoryItem::try_from).transpose()
+    }
+
+    async fn load_item_detail(
+        &self,
+        item_id: Uuid,
+        owner_user_id: Uuid,
+    ) -> PetResult<FoodInventoryItemDetail> {
+        let item = self
+            .find_item(item_id)
+            .await?
+            .filter(|item| {
+                item.scope_type == FoodScopeType::User
+                    && item.scope_id == owner_user_id
+                    && item.archived_at.is_none()
+            })
+            .ok_or(PetError::FoodInventoryNotFound)?;
+
+        let feeding_timeline = self
+            .load_item_feeding_timeline(item_id, owner_user_id)
+            .await?;
+        let linked_pets = self.load_item_linked_pets(item_id, owner_user_id).await?;
+        let consumption_summary = build_consumption_summary(&feeding_timeline);
+
+        Ok(FoodInventoryItemDetail {
+            item,
+            linked_pets,
+            feeding_timeline,
+            consumption_summary,
+        })
     }
 
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem> {

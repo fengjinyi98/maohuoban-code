@@ -23,6 +23,8 @@ mod feeding_event;
 mod feeding_event_archived;
 #[path = "pet_contract/food_inventory_crud.rs"]
 mod food_inventory_crud;
+#[path = "pet_contract/food_inventory_detail.rs"]
+mod food_inventory_detail;
 #[path = "pet_contract/identity_context.rs"]
 mod identity_context;
 #[path = "pet_contract/media_background.rs"]

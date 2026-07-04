@@ -320,6 +320,24 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             items
         }
 
+        func loadFoodInventoryItemDetail(
+            itemID: String,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> FoodInventoryItemDetail {
+            FoodInventoryItemDetail(
+                item: items[0],
+                linkedPets: [],
+                feedingTimeline: [],
+                consumptionSummary: FoodInventoryConsumptionSummary(
+                    feedingCount: 0,
+                    firstFedAt: nil,
+                    lastFedAt: nil,
+                    activeDays: 0,
+                    amountDistribution: []
+                )
+            )
+        }
+
         func loadPetCurrentDietContext(
             petID: String,
             currentUserID: String

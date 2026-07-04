@@ -6,5 +6,6 @@ import Foundation
 enum PetPantryRoute: Hashable {
     case addItem
     case editItem(PantryItem)
+    case itemDetail(itemID: String)
     case categoryDetail(PantryCategory)
 }

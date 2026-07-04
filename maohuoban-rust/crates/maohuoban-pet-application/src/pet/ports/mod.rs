@@ -8,10 +8,12 @@ pub use album::{
 };
 pub use diet::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietContextItem, DietRepository,
-    FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,
-    NewFoodInventoryItem, PetCurrentDietContext, PetDietConfirmationCandidate,
-    PetDietConfirmationCandidates, PetDietTrendSummary, RecentDietChangeFact, RecentFeedingFact,
-    SetPetCurrentStapleInput, SetPetDietAssignmentInput, UpdateFoodInventoryItem,
+    FoodInventoryAmountDistributionItem, FoodInventoryChangeHint, FoodInventoryChangeHints,
+    FoodInventoryConsumptionSummary, FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail,
+    FoodInventoryLinkedPet, FoodInventoryRepository, NewFoodInventoryItem, PetCurrentDietContext,
+    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetDietTrendSummary,
+    RecentDietChangeFact, RecentFeedingFact, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
+    UpdateFoodInventoryItem,
 };
 pub use media::{
     BindUploadedPetMediaInput, MediaAssetDisplayMetadata, MediaCropMetadata,

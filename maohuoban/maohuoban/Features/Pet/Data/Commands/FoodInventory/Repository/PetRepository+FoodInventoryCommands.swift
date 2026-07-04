@@ -11,6 +11,20 @@ extension DefaultPetRepository {
         return response.data?.items ?? []
     }
 
+    func loadFoodInventoryItemDetail(
+        itemID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> FoodInventoryItemDetail {
+        let response: MHBAPIResponse<FoodInventoryItemDetail> = try await client.get(
+            path: "/api/v1/food-inventory/items/\(itemID)/detail",
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+        guard let detail = response.data else {
+            throw MHBAPIError.business(code: "pet.no_data", message: "物品详情加载失败", statusCode: 500)
+        }
+        return detail
+    }
+
     func loadPetCurrentDietContext(
         petID: String,
         currentUserID: String
