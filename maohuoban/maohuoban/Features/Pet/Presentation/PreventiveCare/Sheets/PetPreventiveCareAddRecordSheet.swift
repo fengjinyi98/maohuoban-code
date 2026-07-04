@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // PetPreventiveCareAddRecordSheet 新增疫苗驱虫记录弹层
@@ -17,7 +18,8 @@ struct PetPreventiveCareAddRecordSheet: View {
     @State private var executionMethod = PetPreventiveCareExecutionMethod.hospital
     @State private var executionName = ""
     @State private var note = ""
-    @State private var photoAssetNames: [String] = []
+    @State private var photoAttachments: [PetEventAttachmentDraft] = []
+    @State private var isPhotoPickerPresented = false
 
     var body: some View {
         NavigationStack {
@@ -55,7 +57,15 @@ struct PetPreventiveCareAddRecordSheet: View {
 
                             PetPreventiveCareNoteSection(note: $note)
 
-                            PetPreventiveCarePhotoSection(photoAssetNames: $photoAssetNames)
+                            PetPreventiveCarePhotoSection(
+                                attachments: photoAttachments,
+                                canAddMore: remainingPhotoCount > 0,
+                                onAdd: {
+                                    isPhotoPickerPresented = true
+                                },
+                                onRemove: removePhotoAttachment,
+                                onRetry: { _ in }
+                            )
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s5)
                         .padding(.top, topContentPadding)
@@ -92,11 +102,32 @@ struct PetPreventiveCareAddRecordSheet: View {
         .onChange(of: selectedKind) { _, newKind in
             applyDefaults(for: newKind)
         }
+        .fullScreenCover(isPresented: $isPhotoPickerPresented) {
+            MHBMediaPickerScreen(
+                title: "添加照片",
+                request: MHBMediaPickerRequest(
+                    maxSelectionCount: remainingPhotoCount,
+                    filter: .images,
+                    autoConfirmSingleSelection: remainingPhotoCount == 1,
+                    showsCameraEntry: true
+                ),
+                onComplete: handlePhotoPickerResult(_:),
+                onCancel: {
+                    isPhotoPickerPresented = false
+                }
+            )
+        }
         .accessibilityIdentifier("pet.preventiveCare.addRecordSheet")
     }
 
     private var topContentPadding: CGFloat {
         MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
+    }
+
+    private static let maxPhotoCount = 5
+
+    private var remainingPhotoCount: Int {
+        max(0, Self.maxPhotoCount - photoAttachments.count)
     }
 
     private func applyDefaults(for kind: PetPreventiveCareKind) {
@@ -115,6 +146,26 @@ struct PetPreventiveCareAddRecordSheet: View {
 
     private func saveRecord() {
         dismiss()
+    }
+
+    private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
+        isPhotoPickerPresented = false
+        let selectedImages = Array(result.images.prefix(remainingPhotoCount))
+        guard selectedImages.isEmpty == false else { return }
+
+        let newAttachments = selectedImages.enumerated().map { offset, image in
+            let localIdentifier = result.imageLocalIdentifiers.indices.contains(offset) ? result.imageLocalIdentifiers[offset] : nil
+            return PetEventAttachmentDraft(
+                localIdentifier: localIdentifier,
+                previewImage: image,
+                uploadState: .uploaded
+            )
+        }
+        photoAttachments.append(contentsOf: newAttachments)
+    }
+
+    private func removePhotoAttachment(id: UUID) {
+        photoAttachments.removeAll { $0.id == id }
     }
 }
 

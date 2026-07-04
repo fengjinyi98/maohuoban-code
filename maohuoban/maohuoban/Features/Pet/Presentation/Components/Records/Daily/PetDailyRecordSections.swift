@@ -44,7 +44,7 @@ struct PetDailyRecordContent: View {
 // PetDailyMealCareSection 饮食排泄记录区
 // 核心职责：
 // - 收集喂食、排泄和补水打卡
-// - 复用健康记录表单卡片和行分割视觉
+// - 复用病历表单卡片和行分割视觉
 private struct PetDailyMealCareSection: View {
     @Binding var didFeed: Bool
     @Binding var foodText: String
@@ -54,20 +54,19 @@ private struct PetDailyMealCareSection: View {
 
     var body: some View {
         PetDailyChecklistSection(title: "饮食与排泄") {
-            PetHealthFormCard {
+            PetRecordFormCard {
                 PetDailyCheckItem(
                     title: "完成喂食",
                     systemImage: "fork.knife",
                     isOn: $didFeed
                 ) {
-                    PetHealthTextInputRow(
+                    PetRecordFormTextRow(
                         title: "主食内容",
-                        systemImage: "takeoutbag.and.cup.and.straw.fill",
                         text: $foodText,
                         prompt: "例如 渴望六种鱼"
                     )
                 }
-                PetHealthDivider()
+                PetRecordFormDivider()
                 PetDailyCheckItem(
                     title: "清理粪便",
                     systemImage: "trash.fill",
@@ -84,7 +83,7 @@ private struct PetDailyMealCareSection: View {
                         )
                     }
                 }
-                PetHealthDivider()
+                PetRecordFormDivider()
                 PetDailyCheckItem(
                     title: "补充水分",
                     systemImage: "drop.fill",
@@ -98,13 +97,13 @@ private struct PetDailyMealCareSection: View {
 // PetDailyExerciseCareSection 运动护理记录区
 // 核心职责：
 // - 收集清洁类日常动作
-// - 维持与健康记录详情表单一致的卡片行布局
+// - 维持与病历表单一致的卡片行布局
 private struct PetDailyExerciseCareSection: View {
     @Binding var didBath: Bool
 
     var body: some View {
         PetDailyChecklistSection(title: "运动与护理") {
-            PetHealthFormCard {
+            PetRecordFormCard {
                 PetDailyCheckItem(
                     title: "洗澡清洁",
                     systemImage: "shower.fill",
@@ -146,7 +145,7 @@ private struct PetDailyHeaderSection: View {
 // PetDailyEnergySection 日常精神状态区
 // 核心职责：
 // - 展示精神与活力选项
-// - 使用健康记录类型选择区一致的轻量直铺布局
+// - 使用轻量直铺布局表达精神状态选项
 private struct PetDailyEnergySection: View {
     @Binding var energy: PetDailyRecordEnergy
 
@@ -169,7 +168,7 @@ private struct PetDailyEnergySection: View {
 // PetDailyChecklistSection 日常打卡分组
 // 核心职责：
 // - 提供日常记录卡片上方的分组标题
-// - 保持饮食、运动和备注区与健康记录详情区一致
+// - 保持饮食、运动和备注区与病历表单卡片一致
 private struct PetDailyChecklistSection<Content: View>: View {
     let title: LocalizedStringResource
     @ViewBuilder let content: () -> Content
@@ -195,7 +194,7 @@ private struct PetDailyNoteSection: View {
 
     var body: some View {
         PetDailyChecklistSection(title: "备注") {
-            PetHealthFormCard {
+            PetRecordFormCard {
                 TextField("备注", text: $note, prompt: Text("添加备注（选填）"), axis: .vertical)
                     .lineLimit(4...7)
                     .font(MHBTheme.Typography.callout)

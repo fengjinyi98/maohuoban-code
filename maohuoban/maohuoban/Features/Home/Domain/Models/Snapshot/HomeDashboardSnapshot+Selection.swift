@@ -105,8 +105,8 @@ private extension HomeDashboardSnapshot.Action {
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .healthRecord,
-                    title: "健康记录",
-                    subtitle: "疫苗、驱虫、体检"
+                    title: "病历记录",
+                    subtitle: "就诊、检查、处方"
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .preventiveCare,

@@ -3,7 +3,7 @@ import MaohuobanDesignSystem
 
 // PetRecordPetIdentityCard 记录页宠物身份卡
 // 核心职责：
-// - 为日常记录和健康记录统一展示当前宠物上下文
+// - 为日常、病历等记录流程统一展示当前宠物上下文
 // - 根据宠物性别提供稳定的边框识别色
 struct PetRecordPetIdentityCard: View {
     let petID: String?

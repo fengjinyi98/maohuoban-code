@@ -38,13 +38,9 @@ struct HomeRouteDestinationScreen: View {
                     onHomeMutationCompleted(nil)
                 }
             )
-        case .recordHealth(let context):
-            PetEventRecordScreen(
-                petID: context.petID,
-                petSex: context.petSex,
-                lifeStatus: context.lifeStatus,
-                currentUserID: currentUserID,
-                mode: .health,
+        case .medicalRecords(let context):
+            PetMedicalRecordScreen(
+                context: context,
                 onRecorded: {
                     onHomeMutationCompleted(nil)
                 }

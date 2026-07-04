@@ -98,13 +98,14 @@ enum HomeActionRouteResolver {
         case .dailyRecord:
             return nil
         case .healthRecord:
-            return .recordHealth(
+            return .medicalRecords(
                 PetRecordEntryContext(
                     petID: context.selectedPetID,
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
                     petSex: context.selectedPetSex,
-                    lifeStatus: context.selectedPetLifeStatus
+                    lifeStatus: context.selectedPetLifeStatus,
+                    availablePets: context.availablePets
                 )
             )
         case .preventiveCare:

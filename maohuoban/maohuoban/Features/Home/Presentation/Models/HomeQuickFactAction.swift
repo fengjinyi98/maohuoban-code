@@ -3,7 +3,7 @@ import Foundation
 // HomeQuickFactAction 首页快捷事实动作
 // 核心职责：
 // - 定义底部快捷事实条的低摩擦动作集合
-// - 将正常事实转换为宠物事件草稿，异常入口交给健康记录流程
+// - 将正常事实转换为宠物事件草稿，异常入口交给异常记录流程
 enum HomeQuickFactAction: String, CaseIterable, Equatable, Identifiable, Sendable {
     case fed
     case poopNormal

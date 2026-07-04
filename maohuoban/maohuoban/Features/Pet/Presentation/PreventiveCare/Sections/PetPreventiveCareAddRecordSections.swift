@@ -189,47 +189,24 @@ struct PetPreventiveCareNoteSection: View {
 // PetPreventiveCarePhotoSection 疫苗驱虫照片区
 // 核心职责：
 // - 为疫苗本、药盒和医院单据预留照片入口
-// - 在快速 UI 阶段用本地状态展示可选照片占位
+// - 复用事件附件网格保持照片添加样式一致
 struct PetPreventiveCarePhotoSection: View {
-    @Binding var photoAssetNames: [String]
+    let attachments: [PetEventAttachmentDraft]
+    let canAddMore: Bool
+    let onAdd: () -> Void
+    let onRemove: (UUID) -> Void
+    let onRetry: (UUID) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-            Text("照片（可选）")
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                Button {
-                    photoAssetNames.append("mock-photo-\(photoAssetNames.count + 1)")
-                } label: {
-                    VStack(spacing: MHBTheme.Spacing.s2) {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 20, weight: .semibold))
-
-                        Text("添加")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .frame(width: 72, height: 72)
-                    .background(MHBTheme.ColorToken.labelQuaternary.color.opacity(0.22), in: RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                ForEach(photoAssetNames, id: \.self) { assetName in
-                    RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous)
-                        .fill(MHBTheme.ColorToken.primary.color.opacity(0.12))
-                        .frame(width: 72, height: 72)
-                        .overlay {
-                            Image(systemName: "photo.fill")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(MHBTheme.ColorToken.primary.color)
-                        }
-                        .accessibilityLabel(assetName)
-                }
-            }
+        PetPreventiveCareFormSection(title: "照片（可选）") {
+            PetEventAttachmentInputGrid(
+                attachments: attachments,
+                canAddMore: canAddMore,
+                onAdd: onAdd,
+                onRemove: onRemove,
+                onRetry: onRetry
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

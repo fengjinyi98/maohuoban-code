@@ -188,7 +188,7 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .healthRecord,
-                    title: "健康记录",
+                    title: "病历记录",
                     subtitle: nil
                 ),
                 HomeDashboardSnapshot.Action(

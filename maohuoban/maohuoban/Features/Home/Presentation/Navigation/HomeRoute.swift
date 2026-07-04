@@ -11,7 +11,7 @@ enum HomeRoute: Hashable {
     case publishEvent(PublishEntryContext)
     case editPetProfile(PetProfileEditContext)
     case recordWalk(PetRecordEntryContext)
-    case recordHealth(PetRecordEntryContext)
+    case medicalRecords(PetRecordEntryContext)
     case recordAbnormal(PetRecordEntryContext)
     case petWeightDetail(PetWeightDetailContext)
     case petWeightRecordDetail(recordID: String, context: PetRecordEntryContext)
@@ -41,7 +41,7 @@ extension HomeRoute {
         case .publishEvent: "photo.on.rectangle.angled"
         case .editPetProfile: "pencil.circle.fill"
         case .recordWalk: "figure.walk"
-        case .recordHealth: "cross.case.fill"
+        case .medicalRecords: "stethoscope"
         case .recordAbnormal: "exclamationmark.triangle.fill"
         case .petWeightDetail, .petWeightRecordDetail: "scalemass.fill"
         case .petPreventiveCare: "syringe"
@@ -69,7 +69,7 @@ extension HomeRoute {
         case .publishEvent: "发布动态"
         case .editPetProfile: "编辑档案"
         case .recordWalk: "遛弯"
-        case .recordHealth: "健康记录"
+        case .medicalRecords: "病历记录"
         case .recordAbnormal: "记录异常"
         case .petWeightDetail: "体重详情"
         case .petWeightRecordDetail: "体重记录详情"
@@ -99,7 +99,7 @@ extension HomeRoute {
         case .publishEvent: "记录一次带图片和正文的宠物事件"
         case .editPetProfile: "更新宠物头像、基础信息和档案备注"
         case .recordWalk: "记录当前宠物的一次户外遛弯"
-        case .recordHealth: "记录疫苗、驱虫或就诊信息"
+        case .medicalRecords: "管理就诊、检查和处方病历"
         case .recordAbnormal: "记录当前宠物的异常线索"
         case .petWeightDetail: "查看体重趋势和近期记录"
         case .petWeightRecordDetail: "查看单条体重记录详情"

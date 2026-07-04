@@ -7,8 +7,12 @@ import MaohuobanDesignSystem
 // - 只呈现用户主动记录、执行主体、提醒和凭证信息
 // - 使用 mock 数据支撑快速 UI 阶段，不接入后端写入
 struct PetPreventiveCareRecordDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let recordID: String
     let fallbackKind: PetPreventiveCareKind
+
+    @State private var isDeleteConfirmationPresented = false
 
     private var presentation: PetPreventiveCareRecordDetailPresentation {
         PetPreventiveCareRecordDetailPresentation.mock(
@@ -18,27 +22,62 @@ struct PetPreventiveCareRecordDetailScreen: View {
     }
 
     var body: some View {
-        MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetPreventiveCareRecordDetailHeader(presentation: presentation)
-                PetPreventiveCareRecordStatusSection(presentation: presentation)
-                PetPreventiveCareRecordInfoSection(rows: presentation.infoRows)
-                PetPreventiveCareRecordReminderSection(rows: presentation.reminderRows)
-                PetPreventiveCareRecordEvidenceSection(
-                    note: presentation.note,
-                    photoItems: presentation.photoItems
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
+
+            ZStack(alignment: .bottom) {
+                MHBScreenScrollView {
+                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                        PetPreventiveCareRecordDetailHeader(presentation: presentation)
+                        PetPreventiveCareRecordStatusSection(presentation: presentation)
+                        PetPreventiveCareRecordInfoSection(rows: presentation.infoRows)
+                        PetPreventiveCareRecordReminderSection(rows: presentation.reminderRows)
+                        PetPreventiveCareRecordEvidenceSection(
+                            note: presentation.note,
+                            photoItems: presentation.photoItems
+                        )
+                        PetPreventiveCareRelatedRecordsSection(records: presentation.relatedRecords)
+                    }
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .padding(.top, MHBTheme.Spacing.s6)
+                    .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                }
+                .frame(maxWidth: .infinity)
+
+                MHBBottomFloatingActionCTA(
+                    title: "修改记录信息",
+                    systemImage: "pencil",
+                    bottomInset: bottomInset,
+                    action: {}
                 )
-                PetPreventiveCareRelatedRecordsSection(records: presentation.relatedRecords)
-                PetPreventiveCareRecordDetailActions()
+                .zIndex(2)
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
-        .frame(maxWidth: .infinity)
+        .ignoresSafeArea(.container, edges: .bottom)
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle(presentation.navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    isDeleteConfirmationPresented = true
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(MHBTheme.ColorToken.danger.color)
+                }
+                .accessibilityLabel("删除\(presentation.kind.recordTitle)")
+            }
+        }
+        .alert("删除\(presentation.kind.recordTitle)", isPresented: $isDeleteConfirmationPresented) {
+            Button("删除记录", role: .destructive) {
+                dismiss()
+            }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除这条\(presentation.kind.recordTitle)，删除后无法在预防护理记录中查看。")
+        }
         .accessibilityIdentifier("pet.preventiveCareRecordDetail.screen")
     }
 }
@@ -248,33 +287,6 @@ private struct PetPreventiveCareRelatedRecordsSection: View {
             .background(MHBTheme.ColorToken.cardSolid.color)
             .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
             .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.03), radius: 16, y: 4)
-        }
-    }
-}
-
-// PetPreventiveCareRecordDetailActions 疫苗驱虫详情底部操作
-// 核心职责：
-// - 保留后续编辑和删除入口
-// - 与其他记录详情页保持一致的操作区形态
-private struct PetPreventiveCareRecordDetailActions: View {
-    var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("修改记录信息") {}
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-
-            Button(role: .destructive) {} label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.danger.color)
-                    .frame(width: 48, height: 48)
-                    .background(MHBTheme.ColorToken.danger.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
         }
     }
 }

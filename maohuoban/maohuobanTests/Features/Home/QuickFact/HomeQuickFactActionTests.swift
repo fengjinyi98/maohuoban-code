@@ -4,7 +4,7 @@ import XCTest
 // HomeQuickFactActionTests 首页快捷事实动作测试
 // 核心职责：
 // - 固定首页底部快捷事实条的动作顺序
-// - 验证正常事实直接生成宠物日常事件，异常入口进入健康记录
+// - 验证正常事实直接生成宠物日常事件，异常入口进入异常记录
 final class HomeQuickFactActionTests: XCTestCase {
     @MainActor
     func testDefaultActionsKeepLowFrictionOrder() {

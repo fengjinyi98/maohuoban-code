@@ -24,11 +24,11 @@ final class HomeActionRouteResolverTests: XCTestCase {
     }
 
     @MainActor
-    func testHealthRecordActionCarriesCurrentPetContext() {
+    func testHealthRecordActionRoutesToMedicalRecordsWithCurrentPetContext() {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
         let action = HomeDashboardSnapshot.Action(
             kind: .healthRecord,
-            title: "健康记录",
+            title: "病历记录",
             subtitle: nil
         )
 
@@ -37,15 +37,12 @@ final class HomeActionRouteResolverTests: XCTestCase {
             context: HomeActionRoutingContext(snapshot: snapshot)
         )
 
-        XCTAssertEqual(
-            route,
-            .recordHealth(
-                PetRecordEntryContext(
-                    petID: "pet-1",
-                    petSex: .female
-                )
-            )
-        )
+        guard case .medicalRecords(let context) = route else {
+            return XCTFail("healthRecord action should route to medical records")
+        }
+        XCTAssertEqual(context.petID, "pet-1")
+        XCTAssertEqual(context.petName, "糯米")
+        XCTAssertEqual(context.petSex, .female)
     }
 
     @MainActor

@@ -184,11 +184,11 @@ extension HomeMockDashboardFixtures {
                 title: "遛弯",
                 subtitle: "户外活动记录"
             ),
-            HomeDashboardSnapshot.Action(
-                kind: .healthRecord,
-                title: "健康记录",
-                subtitle: "疫苗、驱虫、体检"
-            ),
+                HomeDashboardSnapshot.Action(
+                    kind: .healthRecord,
+                    title: "病历记录",
+                    subtitle: "就诊、检查、处方"
+                ),
             HomeDashboardSnapshot.Action(
                 kind: .preventiveCare,
                 title: "疫苗/驱虫",

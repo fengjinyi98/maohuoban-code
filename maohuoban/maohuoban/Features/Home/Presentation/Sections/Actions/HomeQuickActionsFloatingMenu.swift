@@ -148,7 +148,7 @@ private enum HomeQuickActionIcon {
         case .createPet: "plus.circle.fill"
         case .dailyRecord: "square.and.pencil"
         case .walk: "figure.walk"
-        case .healthRecord: "cross.case.fill"
+        case .healthRecord: "stethoscope"
         case .preventiveCare: "syringe"
         case .addReminder: "bell.badge.fill"
         case .bookHospital: "stethoscope"

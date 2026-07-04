@@ -3,7 +3,7 @@ import MaohuobanDesignSystem
 
 // PetRecordEntryContext 宠物记录入口上下文
 // 核心职责：
-// - 承载日常和健康记录页共享的当前宠物信息
+// - 承载日常、病历和专项记录页共享的当前宠物信息
 // - 为宠物切换卡片提供性别展示状态
 struct PetRecordEntryContext: Hashable, Sendable {
     let petID: String?
