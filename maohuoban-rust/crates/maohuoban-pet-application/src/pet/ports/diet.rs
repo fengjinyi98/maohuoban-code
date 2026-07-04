@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use maohuoban_pet_domain::pet::{
-    DietAssignmentRole, FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus,
-    FoodScopeType, FoodSnapshot, PetDietAssignment, PetResult,
+    DietAssignmentRole, DietTrendFeedingSample, DietTrendSummary, FoodInventoryCategory,
+    FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot, PetDietAssignment,
+    PetResult,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -69,6 +70,13 @@ pub trait DietRepository: Send + Sync {
         scope_id: Uuid,
         since: chrono::DateTime<chrono::Utc>,
     ) -> PetResult<FoodInventoryChangeHints>;
+
+    /// 加载饮食趋势喂食样本
+    async fn load_diet_trend_feeding_samples(
+        &self,
+        pet_id: Uuid,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> PetResult<Vec<DietTrendFeedingSample>>;
 }
 
 /// DietContextItem 饮食上下文单项
@@ -100,6 +108,8 @@ pub struct PetCurrentDietContext {
     pub recent_feeding_events: Vec<RecentFeedingFact>,
     pub recent_diet_changes: Vec<RecentDietChangeFact>,
 }
+
+pub type PetDietTrendSummary = DietTrendSummary;
 
 /// RecentFeedingFact 最近喂食事实
 /// 核心职责：

@@ -10,7 +10,8 @@ pub use merchant::{
 pub use model::{
     AbnormalEpisode, AbnormalEpisodeStatus, AgentConfirmationTask, AgentConfirmedFactPayload,
     ConfirmationTaskKind, ConfirmationTaskStatus, DietAssignmentRole, DietAssignmentStatus,
-    DietChangePayload, EventKind, EventVisibility, ExternalIdentifierSummary,
+    DietChangePayload, DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample,
+    DietTrendSegment, DietTrendSummary, EventKind, EventVisibility, ExternalIdentifierSummary,
     FeedingCorrectionPayload, FeedingPayload, FoodInventoryAddedPayload, FoodInventoryCategory,
     FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot, FoodSourceKind,
     GuardianRole, GuardianStatus, GuardianSummary, GuardianType, HomeGalleryAlbumSummary,
@@ -21,5 +22,6 @@ pub use model::{
     PetDietAssignment, PetEvent, PetEventAttachmentAsset, PetExternalIdentifier, PetGuardian,
     PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy,
     PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline, PetTimelineEntry,
-    PetTimelineEntrySource, Severity, SymptomKind, VerifiedStatus, days_since_date,
+    PetTimelineEntrySource, Severity, SymptomKind, VerifiedStatus, build_diet_trend_summary,
+    days_since_date,
 };

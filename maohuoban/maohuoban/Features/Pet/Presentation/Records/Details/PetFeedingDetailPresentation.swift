@@ -100,6 +100,8 @@ struct PetFeedingDetailPresentation {
         switch rawValue {
         case "main_food":
             "主粮"
+        case "wet_food":
+            "湿粮/罐头"
         case "treats":
             "零食"
         case "nutrition":
@@ -113,6 +115,8 @@ struct PetFeedingDetailPresentation {
 
     private static func foodRoleSystemImage(_ rawValue: String?) -> String {
         switch rawValue {
+        case "wet_food":
+            "cup.and.saucer.fill"
         case "nutrition":
             "pills.fill"
         case "treats":

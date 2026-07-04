@@ -18,6 +18,7 @@ use self::validation::{
     normalize_compact_text, normalize_optional_compact_text, validate_optional_microchip,
     validate_optional_weight, validate_pet_name, validate_text,
 };
+use super::PetDietTrendSummary;
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
     DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
@@ -442,6 +443,15 @@ impl PetService {
     ) -> PetResult<PetCurrentDietContext> {
         diet::load_pet_current_diet_context(&self.repository, &self.diet, owner_user_id, pet_id)
             .await
+    }
+
+    /// 加载宠物饮食趋势摘要
+    pub async fn load_pet_diet_trend_summary(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+    ) -> PetResult<PetDietTrendSummary> {
+        diet::load_pet_diet_trend_summary(&self.repository, &self.diet, owner_user_id, pet_id).await
     }
 
     /// 加载储物柜变化线索（弱线索）

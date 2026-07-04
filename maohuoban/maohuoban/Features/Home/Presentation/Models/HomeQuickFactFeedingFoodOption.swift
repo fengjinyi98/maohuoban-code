@@ -111,8 +111,10 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
 private extension HomeQuickFactFeedingFoodKind {
     init?(foodInventoryCategory: FoodInventoryCategory) {
         switch foodInventoryCategory {
-        case .mainFood, .wetFood:
+        case .mainFood:
             self = .mainFood
+        case .wetFood:
+            self = .wetFood
         case .treats:
             self = .snack
         case .nutrition:

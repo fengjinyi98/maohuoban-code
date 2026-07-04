@@ -4,15 +4,15 @@ use chrono::{Duration, Utc};
 use maohuoban_pet_domain::pet::{
     AgentConfirmedFactPayload, DietAssignmentRole, DietChangePayload, EventKind, EventVisibility,
     FeedingCorrectionPayload, FoodScopeType, PetDietAssignment, PetError, PetEvent,
-    PetIdentityContext, PetResult,
+    PetIdentityContext, PetResult, build_diet_trend_summary,
 };
 use uuid::Uuid;
 
 use super::super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietRepository,
     FoodInventoryChangeHints, FoodInventoryRepository, NewPetEvent, PetCurrentDietContext,
-    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetRepository,
-    SetPetCurrentStapleInput, SetPetDietAssignmentInput,
+    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetDietTrendSummary,
+    PetRepository, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
 use super::food_inventory;
 
@@ -139,6 +139,21 @@ pub(super) async fn load_pet_current_diet_context(
 ) -> PetResult<PetCurrentDietContext> {
     ensure_pet_access(repository, pet_id, owner_user_id).await?;
     diet.load_pet_current_diet_context(pet_id).await
+}
+
+/// 加载宠物饮食趋势摘要
+pub(super) async fn load_pet_diet_trend_summary(
+    repository: &Arc<dyn PetRepository>,
+    diet: &Arc<dyn DietRepository>,
+    owner_user_id: Uuid,
+    pet_id: Uuid,
+) -> PetResult<PetDietTrendSummary> {
+    ensure_pet_access(repository, pet_id, owner_user_id).await?;
+    let window_days = 7;
+    let samples = diet
+        .load_diet_trend_feeding_samples(pet_id, Utc::now() - Duration::days(window_days))
+        .await?;
+    Ok(build_diet_trend_summary(&samples, window_days))
 }
 
 /// 加载储物柜变化线索（弱线索）

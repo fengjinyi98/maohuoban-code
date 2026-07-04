@@ -15,6 +15,8 @@ mod agent_confirmation_task_test;
 mod auth_trade;
 #[path = "pet_contract/diet_assignment.rs"]
 mod diet_assignment;
+#[path = "pet_contract/diet_trend_summary.rs"]
+mod diet_trend_summary;
 #[path = "pet_contract/feeding_event.rs"]
 mod feeding_event;
 #[path = "pet_contract/feeding_event_archived.rs"]

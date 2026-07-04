@@ -59,6 +59,31 @@ pub(super) async fn get_pet_current_diet_context(
     }
 }
 
+/// get_pet_diet_trend_summary 获取宠物饮食趋势摘要
+/// 核心职责：
+/// - 为储物柜页面提供后端计算后的饮食趋势总览
+/// - 保持前端只消费展示 DTO，不承载算法逻辑
+pub(super) async fn get_pet_diet_trend_summary(
+    State(state): State<PetHttpState>,
+    Path(pet_id): Path<Uuid>,
+    actor: AuthenticatedUser,
+) -> Response {
+    let owner_user_id = actor.user_id();
+
+    match state
+        .pet
+        .load_pet_diet_trend_summary(owner_user_id, pet_id)
+        .await
+    {
+        Ok(summary) => ok_response(
+            "pet.diet_trend_summary_loaded",
+            "饮食趋势摘要已加载",
+            summary,
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
 /// get_food_inventory_change_hints 获取近期储物柜变化线索（弱线索）
 pub(super) async fn get_food_inventory_change_hints(
     State(state): State<PetHttpState>,

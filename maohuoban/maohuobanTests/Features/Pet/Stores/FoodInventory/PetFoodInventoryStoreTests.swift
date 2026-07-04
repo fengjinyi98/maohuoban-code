@@ -30,6 +30,45 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         XCTAssertEqual(store.feedingOptions.first(where: { $0.id == "food-a" })?.isDefault, false)
     }
 
+    func testLoadItemsWithContextPetLoadsDietTrendSummary() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "当前主粮", status: .inUse)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            ),
+            dietTrendSummary: PetDietTrendSummary(
+                windowDays: 7,
+                status: "observing",
+                segments: [
+                    PetDietTrendSegment(category: "main_food", title: "主粮", score: 2, percentage: 80),
+                    PetDietTrendSegment(category: "wet_food", title: "湿粮/罐头", score: 0.5, percentage: 20)
+                ],
+                confidence: PetDietTrendConfidence(
+                    level: "medium",
+                    score: 0.72,
+                    basis: ["近 7 天有 3 条可分析喂食记录"]
+                ),
+                explanation: PetDietTrendExplanation(
+                    title: "饮食趋势是怎么生成的",
+                    body: "后端说明"
+                )
+            )
+        )
+        let store = PetFoodInventoryStore(repository: repository)
+
+        await store.loadItems(currentUserID: "user-1", contextPetID: "pet-1")
+
+        XCTAssertEqual(repository.loadedDietTrendPetID, "pet-1")
+        XCTAssertEqual(store.dietTrendSummary?.segments.first?.category, "main_food")
+        XCTAssertEqual(store.dietTrendSummary?.explanation.body, "后端说明")
+    }
+
     func testLoadItemsWithoutContextPetStillLoadsUserPantryAssets() async {
         let repository = StubPetFoodInventoryRepository(
             items: [
@@ -49,7 +88,8 @@ final class PetFoodInventoryStoreTests: XCTestCase {
 
         XCTAssertEqual(store.items.map(\.id), ["food-a"])
         XCTAssertNil(repository.loadedDietContextPetID)
-        XCTAssertTrue(store.dietSummaryRows.isEmpty)
+        XCTAssertNil(repository.loadedDietTrendPetID)
+        XCTAssertNil(store.dietTrendSummary)
     }
 
     func testCreateItemPostsFoodInventoryMutationSignal() async {
@@ -276,7 +316,9 @@ final class PetFoodInventoryStoreTests: XCTestCase {
     private final class StubPetFoodInventoryRepository: PetFoodInventoryRepository {
         let items: [FoodInventoryItem]
         let dietContext: PetCurrentDietContext
+        let dietTrendSummary: PetDietTrendSummary?
         private(set) var loadedDietContextPetID: String?
+        private(set) var loadedDietTrendPetID: String?
         private(set) var setCurrentStaplePetID: String?
         private(set) var setCurrentStapleFoodItemID: String?
         private(set) var setFoodAssignmentPetID: String?
@@ -287,9 +329,14 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         private(set) var updatedDraft: FoodInventoryDraft?
         private(set) var deletedItemID: String?
 
-        init(items: [FoodInventoryItem], dietContext: PetCurrentDietContext) {
+        init(
+            items: [FoodInventoryItem],
+            dietContext: PetCurrentDietContext,
+            dietTrendSummary: PetDietTrendSummary? = nil
+        ) {
             self.items = items
             self.dietContext = dietContext
+            self.dietTrendSummary = dietTrendSummary
         }
 
         func listFoodInventoryItems(
@@ -304,6 +351,14 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         ) async throws(MHBAPIError) -> PetCurrentDietContext {
             loadedDietContextPetID = petID
             return dietContext
+        }
+
+        func loadPetDietTrendSummary(
+            petID: String,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> PetDietTrendSummary {
+            loadedDietTrendPetID = petID
+            return dietTrendSummary ?? PetDietTrendSummary.empty
         }
 
         func createFoodInventoryItem(

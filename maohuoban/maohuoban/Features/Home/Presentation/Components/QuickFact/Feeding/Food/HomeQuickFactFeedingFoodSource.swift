@@ -98,6 +98,8 @@ extension HomeQuickFactFeedingFoodKind {
         switch self {
         case .mainFood:
             "选择主粮"
+        case .wetFood:
+            "选择湿粮/罐头"
         case .snack:
             "选择零食"
         case .supplement:
@@ -111,8 +113,10 @@ extension HomeQuickFactFeedingFoodKind {
 extension PantryCategory {
     var feedingKind: HomeQuickFactFeedingFoodKind? {
         switch self {
-        case .mainFood, .wetFood:
+        case .mainFood:
             .mainFood
+        case .wetFood:
+            .wetFood
         case .treats:
             .snack
         case .supplements:
@@ -126,8 +130,10 @@ extension PantryCategory {
 
     var feedingSystemImage: String {
         switch self {
-        case .mainFood, .wetFood:
+        case .mainFood:
             HomeQuickFactFeedingFoodKind.mainFood.systemImage
+        case .wetFood:
+            HomeQuickFactFeedingFoodKind.wetFood.systemImage
         case .treats:
             HomeQuickFactFeedingFoodKind.snack.systemImage
         case .supplements:

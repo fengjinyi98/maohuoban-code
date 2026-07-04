@@ -14,12 +14,14 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertFalse(source.contains(".contextMenu"))
     }
 
-    func testPetPantryScreenUsesSpaceLevelTitleAndDietSummary() throws {
+    func testPetPantryScreenUsesSpaceLevelTitleAndDietTrend() throws {
         let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("\\(petName)的储物柜"))
         XCTAssertTrue(source.contains("家庭储物柜"))
-        XCTAssertTrue(source.contains("PetPantryDietSummarySection"))
+        XCTAssertFalse(source.contains("PetPantryDietSummarySection"))
+        XCTAssertTrue(source.contains("PetPantryDietTrendSection"))
+        XCTAssertTrue(source.contains("store.dietTrendSummary"))
     }
 
     @MainActor

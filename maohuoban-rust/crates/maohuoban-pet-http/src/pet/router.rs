@@ -62,6 +62,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(agent_diet::get_pet_current_diet_context),
         )
         .route(
+            "/api/v1/pets/{pet_id}/diet-trend-summary",
+            get(agent_diet::get_pet_diet_trend_summary),
+        )
+        .route(
             "/api/v1/pets/{pet_id}/albums",
             get(album::list_pet_albums).post(album::create_pet_album),
         )

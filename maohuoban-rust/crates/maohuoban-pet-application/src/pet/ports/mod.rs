@@ -10,7 +10,7 @@ pub use diet::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietContextItem, DietRepository,
     FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,
     NewFoodInventoryItem, PetCurrentDietContext, PetDietConfirmationCandidate,
-    PetDietConfirmationCandidates, RecentDietChangeFact, RecentFeedingFact,
+    PetDietConfirmationCandidates, PetDietTrendSummary, RecentDietChangeFact, RecentFeedingFact,
     SetPetCurrentStapleInput, SetPetDietAssignmentInput, UpdateFoodInventoryItem,
 };
 pub use media::{

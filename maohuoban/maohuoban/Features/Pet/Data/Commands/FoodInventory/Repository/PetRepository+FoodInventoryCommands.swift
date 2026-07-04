@@ -25,6 +25,20 @@ extension DefaultPetRepository {
         return context
     }
 
+    func loadPetDietTrendSummary(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> PetDietTrendSummary {
+        let response: MHBAPIResponse<PetDietTrendSummary> = try await client.get(
+            path: "/api/v1/pets/\(petID)/diet-trend-summary",
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+        guard let summary = response.data else {
+            throw MHBAPIError.business(code: "pet.no_data", message: "饮食趋势加载失败", statusCode: 500)
+        }
+        return summary
+    }
+
     func setPetCurrentStaple(
         petID: String,
         foodItemID: String,

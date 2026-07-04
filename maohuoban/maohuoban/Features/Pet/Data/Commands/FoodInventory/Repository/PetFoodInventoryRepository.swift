@@ -3,7 +3,7 @@ import Foundation
 // PetFoodInventoryRepository 食品资产仓库协议
 // 核心职责：
 // - 隔离储物柜 Store 与具体 HTTP 仓库
-// - 提供用户级食品资产 CRUD 和宠物级饮食上下文读取能力
+// - 提供用户级食品资产 CRUD、宠物级饮食上下文和饮食趋势读取能力
 // - 固定储物柜资产请求不携带 petID，宠物只作为饮食配置上下文
 protocol PetFoodInventoryRepository {
     func listFoodInventoryItems(
@@ -14,6 +14,11 @@ protocol PetFoodInventoryRepository {
         petID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> PetCurrentDietContext
+
+    func loadPetDietTrendSummary(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> PetDietTrendSummary
 
     func setPetCurrentStaple(
         petID: String,

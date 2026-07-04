@@ -3,7 +3,7 @@ import Foundation
 // PetPantryEntryContext 储物柜入口上下文
 // 核心职责：
 // - 表达进入用户级储物柜时携带的可选宠物来源
-// - 限定宠物信息只用于饮食摘要、默认筛选和饮食配置动作
+// - 限定宠物信息只用于饮食趋势、默认筛选和饮食配置动作
 // - 避免把储物柜资产归属误建模为单宠物空间
 struct PetPantryEntryContext: Hashable, Sendable {
     let sourcePetID: String?
