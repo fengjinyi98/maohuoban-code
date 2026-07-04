@@ -1,3 +1,4 @@
+mod analysis;
 mod calibration;
 mod confidence;
 mod explanation;
@@ -7,6 +8,7 @@ mod sample;
 mod segment;
 mod summary;
 
+pub use analysis::DietTrendAnalysis;
 pub use calibration::DietTrendCalibration;
 pub use confidence::DietTrendConfidence;
 pub use explanation::DietTrendExplanation;

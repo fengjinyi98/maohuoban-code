@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    DietTrendCalibration, DietTrendConfidence, DietTrendExplanation, DietTrendHealthContext,
-    DietTrendSegment,
+    DietTrendAnalysis, DietTrendCalibration, DietTrendConfidence, DietTrendExplanation,
+    DietTrendHealthContext, DietTrendSegment,
 };
 
 /// DietTrendSummary 饮食趋势摘要
@@ -18,4 +18,5 @@ pub struct DietTrendSummary {
     pub health_context: DietTrendHealthContext,
     pub calibration: DietTrendCalibration,
     pub explanation: DietTrendExplanation,
+    pub analysis: DietTrendAnalysis,
 }

@@ -8,6 +8,9 @@ struct PetDietTrendPresentation {
     let windowText: String
     let statusText: String
     let confidenceText: String
+    let headline: String
+    let summaryText: String
+    let observations: [String]
     let explanationTitle: String
     let explanationBody: String
     let sampleSummaryText: String
@@ -24,6 +27,9 @@ struct PetDietTrendPresentation {
         self.windowText = "近 \(summary.windowDays) 天"
         self.statusText = PetDietTrendPresentation.statusText(for: summary.status)
         self.confidenceText = "参考度 \(Int((summary.confidence.score * 100).rounded()))%"
+        self.headline = summary.analysis.headline
+        self.summaryText = summary.analysis.summary
+        self.observations = summary.analysis.observations
         self.explanationTitle = summary.explanation.title
         self.explanationBody = summary.explanation.body
         self.sampleSummaryText = "\(summary.healthContext.includedSampleCount) 条健康样本"

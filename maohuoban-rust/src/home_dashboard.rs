@@ -26,10 +26,10 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeDietTrendCalibration, HomeDietTrendConfidence,
-    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
-    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
-    HomePantryPreviewItem, HomeTimelineEvent,
+    HomeDashboardSnapshot, HomeDietTrendAnalysis, HomeDietTrendCalibration,
+    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendHealthContext,
+    HomeDietTrendSegment, HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity,
+    HomeIdentityKind, HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::{MediaAssetDisplayMetadata, PetService};
 use maohuoban_pet_domain::pet::{
@@ -419,6 +419,11 @@ fn home_diet_trend_summary(
         explanation: HomeDietTrendExplanation {
             title: summary.explanation.title,
             body: summary.explanation.body,
+        },
+        analysis: HomeDietTrendAnalysis {
+            headline: summary.analysis.headline,
+            summary: summary.analysis.summary,
+            observations: summary.analysis.observations,
         },
     }
 }

@@ -257,6 +257,7 @@ impl PostgresFoodInventoryRepository {
 }
 
 fn build_consumption_summary(
+    item: &FoodInventoryItem,
     timeline: &[FoodInventoryFeedingTimelineEntry],
 ) -> FoodInventoryConsumptionSummary {
     let feeding_count = i64::try_from(timeline.len()).unwrap_or(i64::MAX);
@@ -297,12 +298,108 @@ fn build_consumption_summary(
         });
     }
 
+    let headline = build_consumption_headline(item, feeding_count, active_days);
+    let usage_rhythm = build_usage_rhythm(feeding_count, active_days);
+    let portion_stability = build_portion_stability(&amount_distribution);
+    let calibration_state = build_calibration_state(item);
+    let observations = build_consumption_observations(
+        item,
+        feeding_count,
+        &usage_rhythm,
+        &portion_stability,
+        &calibration_state,
+    );
+
     FoodInventoryConsumptionSummary {
         feeding_count,
         first_fed_at,
         last_fed_at,
         active_days,
         amount_distribution,
+        headline,
+        usage_rhythm,
+        portion_stability,
+        calibration_state,
+        observations,
+    }
+}
+
+fn build_consumption_headline(
+    item: &FoodInventoryItem,
+    feeding_count: i64,
+    active_days: i64,
+) -> String {
+    if feeding_count == 0 {
+        return format!("{}还没有喂食记录", item.name);
+    }
+
+    format!(
+        "{}近 {} 天被记录 {} 次",
+        item.name, active_days, feeding_count
+    )
+}
+
+fn build_usage_rhythm(feeding_count: i64, active_days: i64) -> String {
+    if feeding_count == 0 || active_days == 0 {
+        return "还没有形成使用节奏".to_owned();
+    }
+
+    let daily_average = round_one(count_ratio(feeding_count, active_days));
+    if daily_average >= 1.0 {
+        format!("平均每天约 {daily_average:.1} 次")
+    } else {
+        format!("平均约每 {} 天 1 次", (1.0 / daily_average).round())
+    }
+}
+
+fn build_portion_stability(distribution: &[FoodInventoryAmountDistributionItem]) -> String {
+    let Some(primary) = distribution.iter().max_by_key(|item| item.count) else {
+        return "还没有份量结构".to_owned();
+    };
+
+    format!(
+        "以{}为主，占 {}%",
+        primary.amount_text,
+        percentage_text(primary.ratio)
+    )
+}
+
+fn build_calibration_state(item: &FoodInventoryItem) -> String {
+    match item.package_weight_grams {
+        Some(weight) if weight > 0 => "已有规格数据，等待完整库存消耗闭环后输出克数估算".to_owned(),
+        _ => "缺少结构化规格，暂不输出克数估算".to_owned(),
+    }
+}
+
+fn build_consumption_observations(
+    item: &FoodInventoryItem,
+    feeding_count: i64,
+    usage_rhythm: &str,
+    portion_stability: &str,
+    calibration_state: &str,
+) -> Vec<String> {
+    if feeding_count == 0 {
+        return vec!["开始喂食并关联该物品后，会生成物品维度的消耗趋势。".to_owned()];
+    }
+
+    let category_text = food_category_text(item.category);
+    vec![
+        format!("该物品作为{category_text}参与饮食趋势统计。"),
+        usage_rhythm.to_owned(),
+        portion_stability.to_owned(),
+        calibration_state.to_owned(),
+    ]
+}
+
+fn food_category_text(category: FoodInventoryCategory) -> &'static str {
+    match category {
+        FoodInventoryCategory::MainFood => "主粮",
+        FoodInventoryCategory::WetFood => "湿粮/罐头",
+        FoodInventoryCategory::Treats => "零食",
+        FoodInventoryCategory::Nutrition => "营养品",
+        FoodInventoryCategory::Other => "其他",
+        FoodInventoryCategory::CatLitter => "猫砂",
+        FoodInventoryCategory::Medicine => "药品",
     }
 }
 
@@ -317,6 +414,21 @@ fn count_ratio(count: i64, total: i64) -> f64 {
         return 0.0;
     }
     f64::from(count) / f64::from(total)
+}
+
+fn round_one(value: f64) -> f64 {
+    (value * 10.0).round() / 10.0
+}
+
+fn percentage_text(ratio: f64) -> i64 {
+    let value = (ratio * 100.0).round().clamp(0.0, 100.0);
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "百分比已四舍五入并限制在 0..=100"
+    )]
+    {
+        value as i64
+    }
 }
 
 #[async_trait]
@@ -437,7 +549,7 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             .load_item_feeding_timeline(item_id, owner_user_id)
             .await?;
         let linked_pets = self.load_item_linked_pets(item_id, owner_user_id).await?;
-        let consumption_summary = build_consumption_summary(&feeding_timeline);
+        let consumption_summary = build_consumption_summary(&item, &feeding_timeline);
 
         Ok(FoodInventoryItemDetail {
             item,
@@ -581,6 +693,93 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
                 Ok(item)
             }
             None => Err(PetError::FoodInventoryNotFound),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+
+    use super::*;
+
+    #[test]
+    fn consumption_summary_exposes_item_analysis() {
+        let item = food_item(FoodInventoryCategory::MainFood, Some(2_500));
+        let timeline = (1..=30)
+            .flat_map(|day| {
+                [
+                    feeding_entry(day, 8, "正常"),
+                    feeding_entry(day, 20, if day % 5 == 0 { "少一点" } else { "正常" }),
+                ]
+            })
+            .collect::<Vec<_>>();
+
+        let summary = build_consumption_summary(&item, &timeline);
+
+        assert_eq!(summary.feeding_count, 60);
+        assert_eq!(summary.active_days, 30);
+        assert_eq!(summary.headline, "梅录主粮近 30 天被记录 60 次");
+        assert_eq!(summary.usage_rhythm, "平均每天约 2.0 次");
+        assert!(summary.portion_stability.contains("正常"));
+        assert!(summary.calibration_state.contains("完整库存消耗闭环"));
+        assert!(
+            summary
+                .observations
+                .iter()
+                .any(|item| item.contains("主粮"))
+        );
+    }
+
+    fn food_item(
+        category: FoodInventoryCategory,
+        package_weight_grams: Option<i32>,
+    ) -> FoodInventoryItem {
+        let now = Utc.with_ymd_and_hms(2026, 7, 5, 0, 0, 0).unwrap();
+        FoodInventoryItem {
+            id: Uuid::new_v4(),
+            scope_type: FoodScopeType::User,
+            scope_id: Uuid::new_v4(),
+            created_by_user_id: Uuid::new_v4(),
+            name: "梅录主粮".to_owned(),
+            brand: None,
+            category,
+            inventory_status: FoodInventoryStatus::InUse,
+            quantity: 1,
+            unit: Some("袋".to_owned()),
+            spec: Some("2.5kg".to_owned()),
+            package_weight_grams,
+            package_count: 1,
+            package_unit: Some("袋".to_owned()),
+            production_date: None,
+            shelf_life_months: None,
+            expiry_date: None,
+            cover_asset_id: None,
+            cover_url: None,
+            barcode: None,
+            source_kind: maohuoban_pet_domain::pet::FoodSourceKind::Manual,
+            note: None,
+            created_at: now,
+            updated_at: now,
+            archived_at: None,
+        }
+    }
+
+    fn feeding_entry(day: u32, hour: u32, amount_text: &str) -> FoodInventoryFeedingTimelineEntry {
+        FoodInventoryFeedingTimelineEntry {
+            event_id: Uuid::new_v4(),
+            pet_id: Uuid::new_v4(),
+            pet_name: "梅录".to_owned(),
+            pet_species: PetSpecies::Cat,
+            pet_sex: PetSex::Female,
+            pet_avatar_asset_id: None,
+            pet_avatar_url: None,
+            occurred_at: Utc.with_ymd_and_hms(2026, 6, day, hour, 0, 0).unwrap(),
+            title: "已喂食".to_owned(),
+            summary: None,
+            amount_text: amount_text.to_owned(),
+            food_role: Some("main_food".to_owned()),
+            food_snapshot: None,
         }
     }
 }

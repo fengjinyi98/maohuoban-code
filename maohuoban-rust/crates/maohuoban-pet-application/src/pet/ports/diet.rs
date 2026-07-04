@@ -263,7 +263,7 @@ pub struct FoodInventoryFeedingTimelineEntry {
 /// FoodInventoryConsumptionSummary 食品资产消耗统计
 /// 核心职责：
 /// - 汇总客观喂食次数、跨度和模糊份量分布
-/// - 不表达尚未完成的克重估算和健康预警结论
+/// - 表达单个食品维度的用户可读消耗分析
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FoodInventoryConsumptionSummary {
     pub feeding_count: i64,
@@ -271,6 +271,11 @@ pub struct FoodInventoryConsumptionSummary {
     pub last_fed_at: Option<DateTime<Utc>>,
     pub active_days: i64,
     pub amount_distribution: Vec<FoodInventoryAmountDistributionItem>,
+    pub headline: String,
+    pub usage_rhythm: String,
+    pub portion_stability: String,
+    pub calibration_state: String,
+    pub observations: Vec<String>,
 }
 
 /// FoodInventoryAmountDistributionItem 模糊份量分布项

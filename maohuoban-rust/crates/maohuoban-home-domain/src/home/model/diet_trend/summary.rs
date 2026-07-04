@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    HomeDietTrendCalibration, HomeDietTrendConfidence, HomeDietTrendExplanation,
-    HomeDietTrendHealthContext, HomeDietTrendSegment,
+    HomeDietTrendAnalysis, HomeDietTrendCalibration, HomeDietTrendConfidence,
+    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
 };
 
 /// HomeDietTrendSummary 首页饮食趋势摘要
@@ -18,4 +18,5 @@ pub struct HomeDietTrendSummary {
     pub health_context: HomeDietTrendHealthContext,
     pub calibration: HomeDietTrendCalibration,
     pub explanation: HomeDietTrendExplanation,
+    pub analysis: HomeDietTrendAnalysis,
 }

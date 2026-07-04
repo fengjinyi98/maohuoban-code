@@ -455,6 +455,28 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
 
     assert_eq!(summary["window_days"], 30);
     assert_eq!(summary["explanation"]["title"], "饮食趋势是怎么生成的");
+    assert!(
+        summary["analysis"]["headline"]
+            .as_str()
+            .expect("diet trend analysis headline")
+            .contains("近 30 天")
+    );
+    assert!(
+        summary["analysis"]["summary"]
+            .as_str()
+            .expect("diet trend analysis summary")
+            .contains("主粮")
+    );
+    assert!(
+        summary["analysis"]["observations"]
+            .as_array()
+            .expect("diet trend analysis observations")
+            .iter()
+            .any(|item| item
+                .as_str()
+                .expect("diet trend analysis observation")
+                .contains("克数估算"))
+    );
     let segments = summary["segments"].as_array().expect("diet trend segments");
     assert_eq!(segments.len(), 5);
     assert!(segments.iter().any(|segment| {

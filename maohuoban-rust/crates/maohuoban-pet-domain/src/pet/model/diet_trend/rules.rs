@@ -5,8 +5,8 @@ use chrono::NaiveDate;
 use crate::pet::FoodInventoryCategory;
 
 use super::{
-    DietTrendCalibration, DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample,
-    DietTrendHealthContext, DietTrendSegment, DietTrendSummary,
+    DietTrendAnalysis, DietTrendCalibration, DietTrendConfidence, DietTrendExplanation,
+    DietTrendFeedingSample, DietTrendHealthContext, DietTrendSegment, DietTrendSummary,
 };
 
 const LOW_CONFIDENCE_THRESHOLD: f64 = 0.35;
@@ -70,6 +70,7 @@ pub fn build_diet_trend_summary(
         "observing"
     }
     .to_owned();
+    let analysis = build_analysis(window_days, total_score, &segments, &health_context);
 
     DietTrendSummary {
         window_days,
@@ -83,6 +84,7 @@ pub fn build_diet_trend_summary(
             daily_grams: None,
             reason: "还没有形成可验证的库存消耗闭环，当前只输出相对趋势。".to_owned(),
         },
+        analysis,
         explanation: DietTrendExplanation {
             title: "饮食趋势是怎么生成的".to_owned(),
             body: "我们会结合喂食记录、储物柜食品分类和库存引用生成饮食趋势。记录越连续、食品引用越完整，趋势参考价值越高。当前结果用于日常观察，不等同于精准称重或诊断结论。".to_owned(),
@@ -123,6 +125,78 @@ fn build_segments(
             }
         })
         .collect()
+}
+
+fn build_analysis(
+    window_days: i64,
+    total_score: f64,
+    segments: &[DietTrendSegment],
+    health_context: &DietTrendHealthContext,
+) -> DietTrendAnalysis {
+    if total_score == 0.0 {
+        return DietTrendAnalysis {
+            headline: format!("近 {window_days} 天还没有可分析饮食记录"),
+            summary: "继续记录喂食后，会开始形成饮食结构和个体习惯参考。".to_owned(),
+            observations: vec!["当前样本不足，只展示记录，不做趋势判断。".to_owned()],
+        };
+    }
+
+    let active_segments = segments
+        .iter()
+        .filter(|segment| segment.percentage > 0)
+        .collect::<Vec<_>>();
+    let leading = active_segments
+        .first()
+        .map_or("饮食记录".to_owned(), |segment| {
+            format!("{}占比最高", segment.title)
+        });
+    let structure = active_segments
+        .iter()
+        .take(4)
+        .map(|segment| format!("{} {}%", segment.title, segment.percentage))
+        .collect::<Vec<_>>()
+        .join("，");
+    let baseline_titles = segments
+        .iter()
+        .filter(|segment| segment.baseline_score.is_some())
+        .map(|segment| segment.title.clone())
+        .collect::<Vec<_>>();
+
+    let headline = if baseline_titles.is_empty() {
+        format!("近 {window_days} 天正在积累饮食样本")
+    } else {
+        format!("近 {window_days} 天已形成饮食结构参考")
+    };
+    let summary = if structure.is_empty() {
+        format!("{leading}，当前已开始形成饮食结构。")
+    } else {
+        format!("{leading}，当前结构为{structure}。")
+    };
+
+    let mut observations = Vec::new();
+    if baseline_titles.is_empty() {
+        observations.push("健康记录还在积累中，暂时只做结构观察。".to_owned());
+    } else {
+        observations.push(format!(
+            "{}已形成个体习惯参考，后续会持续观察是否偏离自身习惯。",
+            baseline_titles.join("、")
+        ));
+    }
+    if health_context.excluded_sample_count == 0 {
+        observations.push("当前没有异常或就医期喂食样本参与对照。".to_owned());
+    } else {
+        observations.push(format!(
+            "{} 条异常或就医期样本已单独保留，没有进入健康基线。",
+            health_context.excluded_sample_count
+        ));
+    }
+    observations.push("还没有形成完整库存消耗闭环，暂不输出克数估算。".to_owned());
+
+    DietTrendAnalysis {
+        headline,
+        summary,
+        observations,
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -451,6 +525,51 @@ mod tests {
         assert_eq!(main_food.baseline_sample_days, 14);
         assert_eq!(main_food.current_ratio, Some(1.0));
         assert!(main_food.ema_score.is_some());
+    }
+
+    #[test]
+    fn diet_trend_summary_exposes_user_readable_analysis() {
+        let mut samples = Vec::new();
+        for day in 1..=14 {
+            samples.push(dated_sample(
+                FoodInventoryCategory::MainFood,
+                "正常",
+                true,
+                2026,
+                7,
+                day,
+                "healthy",
+            ));
+            samples.push(dated_sample(
+                FoodInventoryCategory::WetFood,
+                "正常",
+                true,
+                2026,
+                7,
+                day,
+                "healthy",
+            ));
+        }
+
+        let summary = build_diet_trend_summary(&samples, 30);
+
+        assert_eq!(summary.analysis.headline, "近 30 天已形成饮食结构参考");
+        assert!(summary.analysis.summary.contains("主粮"));
+        assert!(summary.analysis.summary.contains("湿粮/罐头"));
+        assert!(
+            summary
+                .analysis
+                .observations
+                .iter()
+                .any(|item| item.contains("已形成个体习惯参考"))
+        );
+        assert!(
+            summary
+                .analysis
+                .observations
+                .iter()
+                .any(|item| item.contains("暂不输出克数估算"))
+        );
     }
 
     #[test]
