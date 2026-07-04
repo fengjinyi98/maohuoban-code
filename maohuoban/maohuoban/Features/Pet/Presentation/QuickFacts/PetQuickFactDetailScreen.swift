@@ -115,7 +115,7 @@ private struct PetQuickFactDetailErrorView: View {
 // PetQuickFactDetailContentView 快速事实详情内容
 // 核心职责：
 // - 从事件详情构建展示模型
-// - 保留底部修改记录信息入口
+// - 展示快速事实回执内容
 private struct PetQuickFactDetailContentView: View {
     let event: PetEventDetail
     let kind: PetQuickFactDetailKind
@@ -130,7 +130,6 @@ private struct PetQuickFactDetailContentView: View {
                     recordContext: recordContext
                 )
             )
-            PetQuickFactDetailActions()
         }
         .padding(.horizontal, MHBTheme.Spacing.s5)
         .padding(.top, MHBTheme.Spacing.s6)
@@ -267,22 +266,5 @@ private struct PetQuickFactDashedDivider: View {
             path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
             return path
         }
-    }
-}
-
-// PetQuickFactDetailActions 快速事实底部操作
-// 核心职责：
-// - 保留快速事实后续编辑和删除入口
-// - 与当前详情页底部操作视觉保持一致
-private struct PetQuickFactDetailActions: View {
-    var body: some View {
-        Button("修改记录信息") {}
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("pet.quickFactDetail.actions")
     }
 }
