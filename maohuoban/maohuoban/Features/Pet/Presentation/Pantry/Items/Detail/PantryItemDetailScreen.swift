@@ -24,7 +24,6 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
         MHBScreenScrollView {
             PantryItemDetailPhaseView(
                 phase: store.phase,
-                isMutating: store.isMutating,
                 onOpenFeedingRecord: { entry in
                     let recordContext = PetRecordEntryContext(
                         petID: entry.petID,
@@ -34,18 +33,6 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
                         petSex: entry.petSex
                     )
                     onOpenRecordDetail(.feeding(recordID: entry.eventID, context: recordContext))
-                },
-                onConsumeOne: {
-                    Task {
-                        if let message = await store.consumeOneItem(
-                            itemID: itemID,
-                            currentUserID: currentUserID
-                        ) {
-                            MHBToastPresenter().success(message)
-                        } else if let errorMessage = store.errorMessage {
-                            MHBToastPresenter().danger(errorMessage)
-                        }
-                    }
                 }
             )
                 .padding(.horizontal, MHBTheme.Spacing.s5)
@@ -53,6 +40,19 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
                 .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .background(MHBTheme.ColorToken.background.color)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if case .loaded(let detail) = store.phase {
+                PantryItemConsumeCTASection(
+                    item: detail.item,
+                    isSubmitting: store.isMutating,
+                    onConsumeOne: consumeOneItem
+                )
+                .padding(.horizontal, MHBTheme.Spacing.s5)
+                .padding(.top, MHBTheme.Spacing.s3)
+                .padding(.bottom, MHBTheme.Spacing.s3)
+                .background(.regularMaterial)
+            }
+        }
         .navigationTitle("物品详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -131,6 +131,19 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
         }
         .task(id: itemID) {
             await store.load(itemID: itemID, currentUserID: currentUserID)
+        }
+    }
+
+    private func consumeOneItem() {
+        Task {
+            if let message = await store.consumeOneItem(
+                itemID: itemID,
+                currentUserID: currentUserID
+            ) {
+                MHBToastPresenter().success(message)
+            } else if let errorMessage = store.errorMessage {
+                MHBToastPresenter().danger(errorMessage)
+            }
         }
     }
 

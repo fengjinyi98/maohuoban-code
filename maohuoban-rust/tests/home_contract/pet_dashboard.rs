@@ -417,7 +417,7 @@ async fn home_dashboard_returns_low_food_inventory_attention_hint() {
         &user_id,
         "高爷家益生菌猫粮",
         "main_food",
-        1,
+        2,
         "1.5kg",
     )
     .await;

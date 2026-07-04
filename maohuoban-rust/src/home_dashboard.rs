@@ -387,11 +387,12 @@ fn food_inventory_attention_hint_for_item(
     }
 
     let package_score_capacity = estimated_package_score_capacity(item.category);
-    let total_score_capacity = package_score_capacity * f64::from(item.quantity);
-    if total_score_capacity <= 0.0 {
+    if package_score_capacity <= 0.0 {
         return None;
     }
-    let remaining_ratio = ((total_score_capacity - score) / total_score_capacity).clamp(0.0, 1.0);
+    let current_package_score = current_package_score(score, package_score_capacity);
+    let remaining_ratio =
+        ((package_score_capacity - current_package_score) / package_score_capacity).clamp(0.0, 1.0);
     if remaining_ratio > FOOD_INVENTORY_LOW_REMAINING_SCORE_RATIO {
         return None;
     }
@@ -431,6 +432,21 @@ fn estimated_package_score_capacity(category: FoodInventoryCategory) -> f64 {
         | FoodInventoryCategory::CatLitter
         | FoodInventoryCategory::Medicine => 0.0,
     }
+}
+
+fn current_package_score(total_score: f64, package_score_capacity: f64) -> f64 {
+    let normalized_total = (total_score * 100.0).round();
+    let normalized_capacity = (package_score_capacity * 100.0).round();
+    if normalized_total <= 0.0 || normalized_capacity <= 0.0 {
+        return 0.0;
+    }
+    let remaining = normalized_total % normalized_capacity;
+    let normalized_score = if remaining == 0.0 {
+        normalized_capacity
+    } else {
+        remaining
+    };
+    normalized_score / 100.0
 }
 
 fn feeding_amount_score(amount_text: &str) -> f64 {
