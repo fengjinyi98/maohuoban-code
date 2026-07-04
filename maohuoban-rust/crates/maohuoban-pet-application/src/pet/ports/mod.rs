@@ -206,6 +206,26 @@ pub struct DeletedPetWeightRecord {
     pub deleted: bool,
 }
 
+/// DeletePetEvent 删除宠物事件输入
+/// 核心职责：
+/// - 表达用户删除一条宠物事件的意图
+/// - 保留 actor 用于权限判断
+#[derive(Debug, Clone)]
+pub struct DeletePetEvent {
+    pub event_id: Uuid,
+    pub actor_user_id: Uuid,
+}
+
+/// DeletedPetEvent 删除宠物事件结果
+/// 核心职责：
+/// - 返回被删除事件 id
+/// - 为 HTTP 层提供稳定成功响应
+#[derive(Debug, Clone)]
+pub struct DeletedPetEvent {
+    pub id: Uuid,
+    pub deleted: bool,
+}
+
 /// TradePetImportInput 交易宠物导入输入
 /// 核心职责：
 /// - 汇总交易完成后创建宠物档案所需字段
@@ -425,6 +445,8 @@ pub trait PetRepository: Send + Sync {
         owner_user_id: Uuid,
         event_id: Uuid,
     ) -> PetResult<Option<PetEvent>>;
+
+    async fn delete_pet_event(&self, input: DeletePetEvent) -> PetResult<DeletedPetEvent>;
 
     async fn add_external_identifier(
         &self,

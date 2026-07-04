@@ -15,8 +15,8 @@ pub(super) use requests::{
     UploadPetMediaRequest,
 };
 pub(super) use responses::{
-    DeletedPetWeightRecordData, PetAlbumAssetData, PetAlbumAssetListData, PetAlbumData,
-    PetAlbumDetailData, PetAlbumListData, PetEventData, PetMediaUploadData, PetProfileData,
-    PetProfilesData, PetTimelineData, PetWeightRecordData, PetWeightRecordListData,
+    DeletedPetEventData, DeletedPetWeightRecordData, PetAlbumAssetData, PetAlbumAssetListData,
+    PetAlbumData, PetAlbumDetailData, PetAlbumListData, PetEventData, PetMediaUploadData,
+    PetProfileData, PetProfilesData, PetTimelineData, PetWeightRecordData, PetWeightRecordListData,
     TradePetImportData,
 };

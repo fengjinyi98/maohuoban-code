@@ -7,7 +7,9 @@ use maohuoban_pet_application::pet::{
     ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
     UpdatePetProfile, UpdatePetWeightRecord,
 };
-use maohuoban_pet_application::pet::{DeletePetWeightRecord, DeletedPetWeightRecord};
+use maohuoban_pet_application::pet::{
+    DeletePetEvent, DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord,
+};
 use maohuoban_pet_domain::pet::{
     IdentifierStatus, LifecycleEventKind, PetEvent, PetExternalIdentifier, PetGuardian,
     PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetProfile,
@@ -331,6 +333,10 @@ impl PetRepository for PostgresPetRepository {
     ) -> PetResult<Option<PetEvent>> {
         self.load_pet_event_detail_query(owner_user_id, event_id)
             .await
+    }
+
+    async fn delete_pet_event(&self, input: DeletePetEvent) -> PetResult<DeletedPetEvent> {
+        self.delete_pet_event_command(input).await
     }
 
     async fn add_external_identifier(

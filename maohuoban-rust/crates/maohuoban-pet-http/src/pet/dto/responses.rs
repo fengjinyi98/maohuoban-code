@@ -1,8 +1,10 @@
 use maohuoban_pet_application::pet::{
-    DeletedPetWeightRecord, PetAlbumAssetPage, PetAlbumListPage, PetWeightRecord, TradePetImport,
+    DeletedPetEvent, DeletedPetWeightRecord, PetAlbumAssetPage, PetAlbumListPage, PetWeightRecord,
+    TradePetImport,
 };
 use maohuoban_pet_domain::pet::{
     PetAlbum, PetAlbumAsset, PetEvent, PetMediaUploadResult, PetProfile, PetTimeline,
+    PetTimelineEntry,
 };
 use serde::Serialize;
 
@@ -187,13 +189,16 @@ impl From<TradePetImport> for TradePetImportData {
 /// - 支持首页最近时间线和宠物详情页共用
 #[derive(Debug, Serialize)]
 pub(crate) struct PetTimelineData {
-    #[serde(flatten)]
-    timeline: PetTimeline,
+    pet_id: uuid::Uuid,
+    events: Vec<PetTimelineEntry>,
 }
 
 impl From<PetTimeline> for PetTimelineData {
     fn from(timeline: PetTimeline) -> Self {
-        Self { timeline }
+        Self {
+            pet_id: timeline.pet_id,
+            events: timeline.entries,
+        }
     }
 }
 
@@ -262,6 +267,25 @@ impl From<DeletedPetWeightRecord> for DeletedPetWeightRecordData {
         Self {
             id: record.id,
             deleted: record.deleted,
+        }
+    }
+}
+
+/// DeletedPetEventData 删除宠物事件响应
+/// 核心职责：
+/// - 返回被删除事件 ID
+/// - 让客户端完成详情页关闭和本地状态收敛
+#[derive(Debug, Serialize)]
+pub(crate) struct DeletedPetEventData {
+    id: uuid::Uuid,
+    deleted: bool,
+}
+
+impl From<DeletedPetEvent> for DeletedPetEventData {
+    fn from(event: DeletedPetEvent) -> Self {
+        Self {
+            id: event.id,
+            deleted: event.deleted,
         }
     }
 }

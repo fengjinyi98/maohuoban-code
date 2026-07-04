@@ -8,12 +8,15 @@ import MaohuobanDesignSystem
 // - 通过后端事件详情和入口上下文展示真实宠物身份
 // - 保持喂食、异常、体重、医疗照护和遛弯记录不进入此页面
 struct PetQuickFactDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let recordID: String
     let kind: PetQuickFactDetailKind
     let currentUserID: String?
     let recordContext: PetRecordEntryContext?
 
     @State private var store = PetEventDetailStore()
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         MHBScreenScrollView {
@@ -22,6 +25,8 @@ struct PetQuickFactDetailScreen: View {
                 PetQuickFactDetailLoadingView()
             case .failed(let message):
                 PetQuickFactDetailErrorView(message: message)
+            case .deleted:
+                PetQuickFactDetailErrorView(message: "记录已删除")
             case .loaded(let event):
                 PetQuickFactDetailContentView(
                     event: event,
@@ -37,13 +42,29 @@ struct PetQuickFactDetailScreen: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if case .loaded = store.phase {
-                    Button(role: .destructive) {} label: {
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(MHBTheme.ColorToken.danger.color)
                     }
+                    .disabled(store.isMutating)
                     .accessibilityLabel("删除快速事实记录")
                 }
             }
+        }
+        .alert("删除快速事实记录", isPresented: $isDeleteConfirmationPresented) {
+            Button("删除记录", role: .destructive) {
+                Task {
+                    if await store.delete(eventID: recordID, currentUserID: currentUserID) {
+                        dismiss()
+                    }
+                }
+            }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除这条快速事实记录，删除后无法在时间线中查看。")
         }
         .task(id: recordID) {
             await store.load(eventID: recordID, currentUserID: currentUserID)

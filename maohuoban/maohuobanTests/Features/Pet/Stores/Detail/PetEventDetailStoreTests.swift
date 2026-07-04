@@ -5,6 +5,7 @@ import XCTest
 // 核心职责：
 // - 验证事件详情加载状态流
 // - 固化当前用户和事件 ID 参数传递
+// - 验证详情页删除事件的单一状态流
 @MainActor
 final class PetEventDetailStoreTests: XCTestCase {
     func testLoadTransitionsToLoadedAndPassesContext() async {
@@ -48,6 +49,37 @@ final class PetEventDetailStoreTests: XCTestCase {
         XCTAssertEqual(store.phase, .failed("请先登录"))
         XCTAssertNil(repository.receivedEventID)
     }
+
+    func testDeleteTransitionsToDeletedAndPassesContext() async {
+        let repository = CapturingPetEventDetailRepository()
+        repository.deleteEventResult = .success(
+            MHBAPIResponse(
+                success: true,
+                code: "pet.event_deleted",
+                message: "宠物事件已删除",
+                data: DeletedPetEvent(id: "event-1", deleted: true)
+            )
+        )
+        let store = PetEventDetailStore(repository: repository)
+
+        let didDelete = await store.delete(eventID: "event-1", currentUserID: "user-1")
+
+        XCTAssertTrue(didDelete)
+        XCTAssertEqual(store.phase, .deleted("event-1"))
+        XCTAssertEqual(repository.receivedDeleteEventID, "event-1")
+        XCTAssertEqual(repository.receivedDeleteUserID, "user-1")
+    }
+
+    func testDeleteWithoutUserContextFailsBeforeRepositoryCall() async {
+        let repository = CapturingPetEventDetailRepository()
+        let store = PetEventDetailStore(repository: repository)
+
+        let didDelete = await store.delete(eventID: "event-1", currentUserID: nil)
+
+        XCTAssertFalse(didDelete)
+        XCTAssertEqual(store.phase, .failed("请先登录"))
+        XCTAssertNil(repository.receivedDeleteEventID)
+    }
 }
 
 // CapturingPetEventDetailRepository 宠物事件详情测试仓库
@@ -57,8 +89,11 @@ final class PetEventDetailStoreTests: XCTestCase {
 @MainActor
 private final class CapturingPetEventDetailRepository: PetRepository {
     var eventResult: Result<MHBAPIResponse<PetEventDetail>, MHBAPIError> = .failure(.invalidResponse)
+    var deleteEventResult: Result<MHBAPIResponse<DeletedPetEvent>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var receivedEventID: String?
     private(set) var receivedUserID: String?
+    private(set) var receivedDeleteEventID: String?
+    private(set) var receivedDeleteUserID: String?
 
     func createPet(
         draft: PetProfileDraft,
@@ -153,6 +188,27 @@ private final class CapturingPetEventDetailRepository: PetRepository {
         receivedEventID = eventID
         receivedUserID = currentUserID
         switch eventResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func loadTimeline(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline> {
+        throw .invalidResponse
+    }
+
+    func deleteEvent(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetEvent> {
+        receivedDeleteEventID = eventID
+        receivedDeleteUserID = currentUserID
+        switch deleteEventResult {
         case .success(let response):
             return response
         case .failure(let error):

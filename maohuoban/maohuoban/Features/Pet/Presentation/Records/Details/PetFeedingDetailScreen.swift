@@ -8,11 +8,14 @@ import MaohuobanDesignSystem
 // - 使用少量、正常、多一点等低摩擦份量语义
 // - 避免展示克数、进食方式和记录来源等当前产品边界外字段
 struct PetFeedingDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let recordID: String
     let currentUserID: String?
     let recordContext: PetRecordEntryContext?
 
     @State private var store = PetEventDetailStore()
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         MHBScreenScrollView {
@@ -21,6 +24,8 @@ struct PetFeedingDetailScreen: View {
                 PetFeedingDetailLoadingView()
             case .failed(let message):
                 PetFeedingDetailErrorView(message: message)
+            case .deleted:
+                PetFeedingDetailErrorView(message: "记录已删除")
             case .loaded(let event):
                 PetFeedingDetailContentView(
                     event: event,
@@ -35,13 +40,29 @@ struct PetFeedingDetailScreen: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if case .loaded = store.phase {
-                    Button(role: .destructive) {} label: {
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(MHBTheme.ColorToken.danger.color)
                     }
+                    .disabled(store.isMutating)
                     .accessibilityLabel("删除喂食记录")
                 }
             }
+        }
+        .alert("删除喂食记录", isPresented: $isDeleteConfirmationPresented) {
+            Button("删除记录", role: .destructive) {
+                Task {
+                    if await store.delete(eventID: recordID, currentUserID: currentUserID) {
+                        dismiss()
+                    }
+                }
+            }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除这条喂食记录，删除后无法在时间线中查看。")
         }
         .task(id: recordID) {
             await store.load(eventID: recordID, currentUserID: currentUserID)

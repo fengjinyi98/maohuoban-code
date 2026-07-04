@@ -9,6 +9,7 @@ import Observation
 @Observable
 final class PetEventDetailStore {
     var phase: PetEventDetailPhase = .idle
+    private(set) var isMutating = false
 
     var isLoading: Bool {
         phase == .loading
@@ -46,6 +47,38 @@ final class PetEventDetailStore {
             phase = .failed(error.toastMessage)
         }
     }
+
+    // delete 删除当前宠物事件
+    // 核心职责：
+    // - 通过通用宠物事件删除接口移除当前记录
+    // - 将删除结果写回 phase 供详情页单向渲染
+    func delete(eventID: String, currentUserID: String?) async -> Bool {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return false
+        }
+        guard !eventID.isEmpty else {
+            phase = .failed("事件信息为空")
+            return false
+        }
+        guard !isMutating else { return false }
+
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            let response = try await repository.deleteEvent(
+                eventID: eventID,
+                currentUserID: currentUserID
+            )
+            guard response.data?.deleted == true else { return false }
+            phase = .deleted(eventID)
+            return true
+        } catch {
+            phase = .failed(error.toastMessage)
+            return false
+        }
+    }
 }
 
 // PetEventDetailPhase 宠物事件详情加载阶段
@@ -56,5 +89,6 @@ enum PetEventDetailPhase: Equatable {
     case idle
     case loading
     case loaded(PetEventDetail)
+    case deleted(String)
     case failed(String)
 }

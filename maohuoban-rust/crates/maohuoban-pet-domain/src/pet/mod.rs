@@ -20,6 +20,6 @@ pub use model::{
     MediaUsageKind, OriginKind, OriginSummary, PetAlbum, PetAlbumAsset, PetBackgroundMediaKind,
     PetDietAssignment, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
     PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
-    PetSex, PetSourceKind, PetSpecies, PetTimeline, Severity, SymptomKind, VerifiedStatus,
-    days_since_date,
+    PetSex, PetSourceKind, PetSpecies, PetTimeline, PetTimelineEntry, PetTimelineEntrySource,
+    Severity, SymptomKind, VerifiedStatus, days_since_date,
 };

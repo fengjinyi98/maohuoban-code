@@ -74,6 +74,16 @@ protocol PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail>
 
+    func loadTimeline(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline>
+
+    func deleteEvent(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetEvent>
+
     func listWeightRecords(
         petID: String,
         currentUserID: String

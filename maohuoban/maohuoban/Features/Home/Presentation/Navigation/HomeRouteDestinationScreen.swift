@@ -73,7 +73,13 @@ struct HomeRouteDestinationScreen: View {
         case .petPreventiveCare(let context):
             PetPreventiveCareScreen(context: context)
         case .petRecordHistory(let context):
-            PetRecordHistoryScreen(context: context)
+            PetRecordHistoryScreen(
+                context: context,
+                currentUserID: currentUserID,
+                onOpenRecordDetail: { detailRoute in
+                    onRouteRequested(.petRecordDetail(detailRoute))
+                }
+            )
         case .merchantPets(let merchantID, let status):
             if let status = MerchantPetStatus(rawValue: status) {
                 MerchantPetsScreen(

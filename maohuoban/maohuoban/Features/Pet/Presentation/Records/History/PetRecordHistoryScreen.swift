@@ -10,14 +10,21 @@ struct PetRecordHistoryScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let context: PetRecordEntryContext
+    let currentUserID: String?
+    let onOpenRecordDetail: (PetRecordDetailRoute) -> Void
 
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
+    @State private var store = PetRecordHistoryStore()
 
-    private let records: [PetRecordHistoryItem] = []
-
-    init(context: PetRecordEntryContext) {
+    init(
+        context: PetRecordEntryContext,
+        currentUserID: String? = nil,
+        onOpenRecordDetail: @escaping (PetRecordDetailRoute) -> Void = { _ in }
+    ) {
         self.context = context
+        self.currentUserID = currentUserID
+        self.onOpenRecordDetail = onOpenRecordDetail
         self._selectedPet = State(initialValue: context.selectedSwitchPet)
     }
 
@@ -33,7 +40,10 @@ struct PetRecordHistoryScreen: View {
                     ForEach(groupedRecords, id: \.id) { group in
                         Section {
                             ForEach(group.records) { record in
-                                PetRecordHistoryRow(record: record)
+                                PetRecordHistoryRowButton(
+                                    record: record,
+                                    onOpenRecordDetail: onOpenRecordDetail
+                                )
                                 .listRowInsets(
                                     EdgeInsets(
                                         top: MHBTheme.Spacing.s2,
@@ -61,12 +71,30 @@ struct PetRecordHistoryScreen: View {
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
 
-                if groupedRecords.isEmpty {
+                switch store.phase {
+                case .idle, .loading:
+                    PetRecordHistoryLoadingState()
+                        .padding(.horizontal, MHBTheme.Spacing.s6)
+                        .padding(.top, topContentPadding(topInset: topInset) + MHBTheme.Spacing.s8)
+                        .frame(width: proxy.size.width, alignment: .top)
+                        .zIndex(1)
+                case .loaded where groupedRecords.isEmpty:
                     PetRecordHistoryEmptyState()
                         .padding(.horizontal, MHBTheme.Spacing.s6)
                         .padding(.top, topContentPadding(topInset: topInset) + MHBTheme.Spacing.s8)
                         .frame(width: proxy.size.width, alignment: .top)
                         .zIndex(1)
+                case .failed(let message):
+                    PetRecordHistoryErrorState(
+                        message: message,
+                        onRetry: loadCurrentPetRecords
+                    )
+                    .padding(.horizontal, MHBTheme.Spacing.s6)
+                    .padding(.top, topContentPadding(topInset: topInset) + MHBTheme.Spacing.s8)
+                    .frame(width: proxy.size.width, alignment: .top)
+                    .zIndex(1)
+                case .loaded:
+                    EmptyView()
                 }
 
                 MHBWindowSafeAreaReader { insets in
@@ -93,6 +121,12 @@ struct PetRecordHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
+        .task(id: currentPetID) {
+            await store.load(
+                petID: currentPetID,
+                currentUserID: currentUserID
+            )
+        }
         .accessibilityIdentifier("pet.recordHistory")
     }
 
@@ -150,6 +184,13 @@ struct PetRecordHistoryScreen: View {
         return groups
     }
 
+    private var records: [PetRecordHistoryItem] {
+        guard case .loaded(let records) = store.phase else {
+            return []
+        }
+        return records
+    }
+
     private func selectPet(_ petID: String) {
         guard let pet = availablePets.first(where: { $0.id == petID }) else { return }
         selectedPet = PetRecordSwitchPet(
@@ -163,11 +204,40 @@ struct PetRecordHistoryScreen: View {
         )
     }
 
+    private func loadCurrentPetRecords() {
+        Task {
+            await store.load(
+                petID: currentPetID,
+                currentUserID: currentUserID
+            )
+        }
+    }
+
+}
+
+// PetRecordHistoryLoadingState 全部记录加载态
+// 核心职责：
+// - 展示记录历史从后端加载中的状态
+// - 避免加载期误显示暂无记录
+private struct PetRecordHistoryLoadingState: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s3) {
+            ProgressView()
+
+            Text("正在加载记录")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(MHBTheme.Spacing.s6)
+        .background(MHBTheme.ColorToken.cardSolid.color)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+    }
 }
 
 // PetRecordHistoryEmptyState 全部记录空态
 // 核心职责：
-// - 在记录列表后端数据源接入前展示真实空态
+// - 展示后端完整时间线为空时的真实空态
 // - 避免用本地演示记录进入详情链路
 private struct PetRecordHistoryEmptyState: View {
     var body: some View {
@@ -186,6 +256,41 @@ private struct PetRecordHistoryEmptyState: View {
                 .font(MHBTheme.Typography.callout)
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(MHBTheme.Spacing.s6)
+        .background(MHBTheme.ColorToken.cardSolid.color)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+    }
+}
+
+// PetRecordHistoryErrorState 全部记录错误态
+// 核心职责：
+// - 展示时间线加载失败原因
+// - 提供显式重试入口
+private struct PetRecordHistoryErrorState: View {
+    let message: String
+    let onRetry: () -> Void
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s3) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+                .frame(width: 56, height: 56)
+                .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
+
+            Text(message)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+
+            Button(action: onRetry) {
+                Text("重新加载")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.primary.color)
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(MHBTheme.Spacing.s6)
@@ -217,6 +322,28 @@ private struct PetRecordHistoryMonthHeader: View {
         }
         .textCase(nil)
         .padding(.top, MHBTheme.Spacing.s1)
+    }
+}
+
+// PetRecordHistoryRowButton 宠物记录历史行点击容器
+// 核心职责：
+// - 将真实事件行点击上抛给根导航链路
+// - 让生命周期事实保持纯展示状态
+private struct PetRecordHistoryRowButton: View {
+    let record: PetRecordHistoryItem
+    let onOpenRecordDetail: (PetRecordDetailRoute) -> Void
+
+    var body: some View {
+        if let route = record.route {
+            Button {
+                onOpenRecordDetail(route)
+            } label: {
+                PetRecordHistoryRow(record: record)
+            }
+            .buttonStyle(.plain)
+        } else {
+            PetRecordHistoryRow(record: record)
+        }
     }
 }
 

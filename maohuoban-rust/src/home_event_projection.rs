@@ -1,7 +1,7 @@
 use maohuoban_home_domain::home::{
     HomeReminder, HomeReminderKind, HomeTimelineEvent, HomeTimelineEventKind,
 };
-use maohuoban_pet_domain::pet::{EventKind, PetEvent};
+use maohuoban_pet_domain::pet::{EventKind, PetEvent, PetTimelineEntry};
 
 /// `timeline_event_summary` 将宠物事件投影为首页时间线摘要
 /// 核心职责：
@@ -18,6 +18,24 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
             .unwrap_or_else(|| "已记录到可信档案".to_owned()),
         occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
         occurred_at: Some(event.occurred_at),
+    }
+}
+
+/// `timeline_entry_summary` 将统一宠物时间线条目投影为首页摘要
+/// 核心职责：
+/// - 让首页时间线和完整记录列表共享同一时间线来源
+/// - 支持真实事件和生命周期事实使用一致展示结构
+pub(crate) fn timeline_entry_summary(entry: &PetTimelineEntry) -> HomeTimelineEvent {
+    HomeTimelineEvent {
+        id: entry.id.clone(),
+        event_kind: home_timeline_entry_kind(entry),
+        title: entry.title.clone(),
+        subtitle: entry
+            .summary
+            .clone()
+            .unwrap_or_else(|| "已记录到可信档案".to_owned()),
+        occurred_text: entry.occurred_at.format("%Y-%m-%d").to_string(),
+        occurred_at: Some(entry.occurred_at),
     }
 }
 
@@ -71,6 +89,23 @@ fn home_timeline_event_kind(event: &PetEvent) -> HomeTimelineEventKind {
             HomeTimelineEventKind::Vaccine
         }
         EventKind::Health if event.event_subkind.as_deref() == Some("deworming") => {
+            HomeTimelineEventKind::Deworming
+        }
+        EventKind::Health | EventKind::Hospital | EventKind::Trade => HomeTimelineEventKind::Health,
+        EventKind::Merchant => HomeTimelineEventKind::Merchant,
+    }
+}
+
+fn home_timeline_entry_kind(entry: &PetTimelineEntry) -> HomeTimelineEventKind {
+    match entry.event_kind {
+        EventKind::Daily | EventKind::Growth | EventKind::Memorial => HomeTimelineEventKind::Daily,
+        EventKind::Health if entry.event_subkind.as_deref() == Some("weight") => {
+            HomeTimelineEventKind::Weight
+        }
+        EventKind::Health if entry.event_subkind.as_deref() == Some("vaccine") => {
+            HomeTimelineEventKind::Vaccine
+        }
+        EventKind::Health if entry.event_subkind.as_deref() == Some("deworming") => {
             HomeTimelineEventKind::Deworming
         }
         EventKind::Health | EventKind::Hospital | EventKind::Trade => HomeTimelineEventKind::Health,

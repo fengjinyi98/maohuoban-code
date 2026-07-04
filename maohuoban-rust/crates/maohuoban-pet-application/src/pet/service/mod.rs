@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use maohuoban_pet_domain::pet::{
-    EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline,
+    EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline, PetTimelineEntry,
 };
 use uuid::Uuid;
 
@@ -19,12 +19,12 @@ use self::validation::{
     validate_optional_weight, validate_pet_name, validate_text,
 };
 use super::{
-    ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetProfile,
-    DeletePetWeightRecord, DeletedPetWeightRecord, FoodInventoryRepository, NewPetEvent,
-    NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates, PetProfileDiagnostics,
-    PetRepository, PetWeightRecord, PetWeightRecordSource, RestorePetProfile, TradePetImport,
-    TradePetImportInput, UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord,
-    record_pet_profile,
+    ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
+    DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
+    NewPetEvent, NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates,
+    PetProfileDiagnostics, PetRepository, PetWeightRecord, PetWeightRecordSource,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetProfile,
+    UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
 };
 use super::{
     FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
@@ -347,17 +347,19 @@ impl PetService {
         owner_user_id: Uuid,
         pet_id: Uuid,
     ) -> PetResult<PetTimeline> {
-        if self
+        let Some(pet) = self
             .repository
             .authorize_pet_access(pet_id, owner_user_id)
             .await?
-            .is_none()
-        {
+        else {
             return Err(PetError::PetNotFound);
-        }
-        self.repository
+        };
+        let mut timeline = self
+            .repository
             .load_pet_timeline(owner_user_id, pet_id, 50)
-            .await
+            .await?;
+        timeline.entries = merged_timeline_entries(&pet, &timeline.events);
+        Ok(timeline)
     }
 
     pub async fn load_pet_event_detail(
@@ -368,7 +370,11 @@ impl PetService {
         self.repository
             .load_pet_event_detail(owner_user_id, event_id)
             .await?
-            .ok_or(PetError::PetNotFound)
+            .ok_or(PetError::PetEventNotFound)
+    }
+
+    pub async fn delete_pet_event(&self, input: DeletePetEvent) -> PetResult<DeletedPetEvent> {
+        self.repository.delete_pet_event(input).await
     }
 
     pub async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>> {
@@ -472,4 +478,37 @@ impl PetService {
     ) -> PetResult<PetIdentityContext> {
         diet::load_identity_context(&self.repository, user_id, pet_id).await
     }
+}
+
+/// merged_timeline_entries 合并宠物事件与生命周期事实
+/// 核心职责：
+/// - 将生日、到家日纳入宠物完整时间线
+/// - 保持真实事件仍由事件账本提供，生命周期事实由档案字段投影
+fn merged_timeline_entries(pet: &PetProfile, events: &[PetEvent]) -> Vec<PetTimelineEntry> {
+    let mut entries = events
+        .iter()
+        .filter_map(PetTimelineEntry::from_event)
+        .collect::<Vec<_>>();
+
+    if let Some(birthday) = pet.birthday {
+        entries.push(PetTimelineEntry::lifecycle_birth(
+            pet.id, &pet.name, birthday,
+        ));
+    }
+
+    if let Some(arrival_date) = pet.arrival_date {
+        entries.push(PetTimelineEntry::lifecycle_homecoming(
+            pet.id,
+            &pet.name,
+            arrival_date,
+        ));
+    }
+
+    entries.sort_by(|left, right| {
+        right
+            .occurred_at
+            .cmp(&left.occurred_at)
+            .then_with(|| right.id.cmp(&left.id))
+    });
+    entries
 }

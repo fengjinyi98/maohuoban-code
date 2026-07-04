@@ -16,11 +16,11 @@ use crate::home_dashboard::{
     merchant_summary::merchant_home_snapshot_from_workspace,
     pet_summary::{
         HomeWeightProjection, home_pet_stats, home_weight_projection, media_asset_ids,
-        pet_hero_summary, pet_lifecycle_timeline_events, pet_switch_item, selected_pet,
+        pet_hero_summary, pet_switch_item, selected_pet,
     },
     recommendation_summary::{partner_recommendation_summary, recommended_content_summary},
 };
-use crate::home_event_projection::{reminders_from_events, timeline_event_summary};
+use crate::home_event_projection::{reminders_from_events, timeline_entry_summary};
 use maohuoban_home_application::home::{
     HomeDashboardContext, HomeDashboardProvider, HomeError, HomeResult, new_user_home_snapshot,
     pet_owner_home_template,
@@ -31,7 +31,7 @@ use maohuoban_home_domain::home::{
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError, PetEvent, PetProfile,
+    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -178,7 +178,7 @@ impl HybridHomeDashboardProvider {
             .iter()
             .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id, &media_metadata))
             .collect();
-        snapshot.recent_timeline = recent_home_timeline(&timeline.events, selected_pet);
+        snapshot.recent_timeline = recent_home_timeline(&timeline.entries);
         snapshot.gallery_albums = self
             .gallery_album_summaries(user_id, selected_pet.id)
             .await?;
@@ -265,19 +265,16 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
 
 /// `recent_home_timeline` 生成首页最近时间线摘要
 /// 核心职责：
-/// - 优先展示用户真实记录
-/// - 在新建宠物无记录时展示出生和到家事实
-fn recent_home_timeline(events: &[PetEvent], selected_pet: &PetProfile) -> Vec<HomeTimelineEvent> {
-    let recent_events = events
+/// - 从统一宠物时间线条目中截取首页摘要
+/// - 保持首页和完整记录列表共享同一事实来源
+fn recent_home_timeline(
+    entries: &[maohuoban_pet_domain::pet::PetTimelineEntry],
+) -> Vec<HomeTimelineEvent> {
+    entries
         .iter()
         .take(4)
-        .map(timeline_event_summary)
-        .collect::<Vec<_>>();
-    if recent_events.is_empty() {
-        return pet_lifecycle_timeline_events(selected_pet);
-    }
-
-    recent_events
+        .map(timeline_entry_summary)
+        .collect::<Vec<_>>()
 }
 
 fn to_home_error(error: &PetError) -> HomeError {

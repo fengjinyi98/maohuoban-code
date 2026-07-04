@@ -157,21 +157,21 @@ async fn home_dashboard_projects_profile_dates_into_empty_timeline() {
         .expect("recent timeline array");
 
     assert_eq!(timeline.len(), 2);
-    let birth = &timeline[0];
-    assert_eq!(birth["id"], format!("{pet_id}-birth"));
-    assert_eq!(birth["event_kind"], "daily");
-    assert_eq!(birth["title"], "第一次来到这个世界");
-    assert_eq!(birth["subtitle"], "糯米在这一天出生");
-    assert_eq!(birth["occurred_text"], birthday);
-    assert_eq!(birth["occurred_at"], "2024-04-01T00:00:00Z");
-
-    let homecoming = &timeline[1];
+    let homecoming = &timeline[0];
     assert_eq!(homecoming["id"], format!("{pet_id}-homecoming"));
     assert_eq!(homecoming["event_kind"], "daily");
     assert_eq!(homecoming["title"], "到家的第一天");
     assert_eq!(homecoming["subtitle"], "糯米来到你身边");
     assert_eq!(homecoming["occurred_text"], arrival_date);
     assert_eq!(homecoming["occurred_at"], "2024-06-16T00:00:00Z");
+
+    let birth = &timeline[1];
+    assert_eq!(birth["id"], format!("{pet_id}-birth"));
+    assert_eq!(birth["event_kind"], "daily");
+    assert_eq!(birth["title"], "第一次来到这个世界");
+    assert_eq!(birth["subtitle"], "糯米在这一天出生");
+    assert_eq!(birth["occurred_text"], birthday);
+    assert_eq!(birth["occurred_at"], "2024-04-01T00:00:00Z");
 }
 
 #[tokio::test]
@@ -211,6 +211,10 @@ async fn home_dashboard_projects_latest_weight_records_into_pet_stats() {
         selected_pet["stats"]["record_streak_text"],
         "最近记录 2026-07-04"
     );
+    assert_eq!(selected_pet["stats"]["record_days"], 2);
+    assert_eq!(selected_pet["stats"]["deworming_date"], "待记录");
+    assert!(selected_pet["stats"]["deworming_days_left"].is_null());
+    assert!(selected_pet["stats"]["preventive_care"].is_null());
 }
 
 #[tokio::test]

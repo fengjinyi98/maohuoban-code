@@ -17,6 +17,8 @@ final class CapturingPetRepository: PetRepository {
     var loadWeightRecordResult: Result<MHBAPIResponse<PetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var updateWeightRecordResult: Result<MHBAPIResponse<PetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var deleteWeightRecordResult: Result<MHBAPIResponse<DeletedPetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
+    var loadTimelineResult: Result<MHBAPIResponse<PetTimeline>, MHBAPIError> = .failure(.invalidResponse)
+    var deleteEventResult: Result<MHBAPIResponse<DeletedPetEvent>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var callOrder: [String] = []
     private(set) var receivedCreateDraft: PetProfileDraft?
     private(set) var receivedCreateUserID: String?
@@ -38,11 +40,15 @@ final class CapturingPetRepository: PetRepository {
     private(set) var receivedCreateWeightUserID: String?
     private(set) var receivedLoadWeightRecordID: String?
     private(set) var receivedLoadWeightUserID: String?
+    private(set) var receivedTimelinePetID: String?
+    private(set) var receivedTimelineUserID: String?
     private(set) var receivedUpdateWeightRecordID: String?
     private(set) var receivedUpdateWeightDraft: PetWeightRecordDraft?
     private(set) var receivedUpdateWeightUserID: String?
     private(set) var receivedDeleteWeightRecordID: String?
     private(set) var receivedDeleteWeightUserID: String?
+    private(set) var receivedDeleteEventID: String?
+    private(set) var receivedDeleteEventUserID: String?
 
     func createPet(
         draft: PetProfileDraft,
@@ -80,6 +86,20 @@ final class CapturingPetRepository: PetRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
         throw .invalidResponse
+    }
+
+    func loadTimeline(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline> {
+        receivedTimelinePetID = petID
+        receivedTimelineUserID = currentUserID
+        switch loadTimelineResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
     }
 
     func listWeightRecords(
@@ -149,6 +169,20 @@ final class CapturingPetRepository: PetRepository {
         receivedDeleteWeightRecordID = recordID
         receivedDeleteWeightUserID = currentUserID
         switch deleteWeightRecordResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func deleteEvent(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetEvent> {
+        receivedDeleteEventID = eventID
+        receivedDeleteEventUserID = currentUserID
+        switch deleteEventResult {
         case .success(let response):
             return response
         case .failure(let error):

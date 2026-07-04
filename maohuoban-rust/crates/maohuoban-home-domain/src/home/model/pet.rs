@@ -74,7 +74,7 @@ pub struct PetHeroStats {
     pub record_streak_text: String,
     pub pantry_item_count: i32,
     pub pantry_last_added_date: String,
-    pub deworming_days_left: i32,
+    pub deworming_days_left: Option<i32>,
     pub deworming_date: String,
     #[serde(default)]
     pub preventive_care: Option<PreventiveCareSummary>,

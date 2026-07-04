@@ -9,7 +9,7 @@ extension HomeDashboardSnapshot {
         let recordStreakText: String
         let pantryItemCount: Int
         let pantryLastAddedDate: String
-        let dewormingDaysLeft: Int
+        let dewormingDaysLeft: Int?
         let dewormingDate: String
         let preventiveCare: PreventiveCareSummary?
 
@@ -32,7 +32,7 @@ extension HomeDashboardSnapshot {
             recordStreakText: String,
             pantryItemCount: Int,
             pantryLastAddedDate: String,
-            dewormingDaysLeft: Int,
+            dewormingDaysLeft: Int?,
             dewormingDate: String,
             preventiveCare: PreventiveCareSummary? = nil
         ) {

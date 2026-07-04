@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -126,4 +127,106 @@ impl TryFrom<&str> for EventVisibility {
 pub struct PetTimeline {
     pub pet_id: Uuid,
     pub events: Vec<PetEvent>,
+    pub entries: Vec<PetTimelineEntry>,
+}
+
+/// PetTimelineEntry 宠物时间线条目
+/// 核心职责：
+/// - 统一承载真实事件和宠物生命周期事实
+/// - 为首页摘要和完整记录列表提供同一时间线来源
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PetTimelineEntry {
+    pub id: String,
+    pub pet_id: Uuid,
+    pub event_kind: EventKind,
+    pub event_subkind: Option<String>,
+    pub title: String,
+    pub summary: Option<String>,
+    pub visibility: EventVisibility,
+    pub event_payload: Value,
+    pub occurred_at: DateTime<Utc>,
+    pub record_revision: i32,
+    pub source: PetTimelineEntrySource,
+}
+
+/// PetTimelineEntrySource 宠物时间线条目来源
+/// 核心职责：
+/// - 区分真实事件账本和档案生命周期事实
+/// - 支持客户端决定是否进入事件详情页
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PetTimelineEntrySource {
+    Event,
+    Lifecycle,
+}
+
+impl PetTimelineEntry {
+    #[must_use]
+    pub fn from_event(event: &PetEvent) -> Option<Self> {
+        Some(Self {
+            id: event.id.to_string(),
+            pet_id: event.pet_id?,
+            event_kind: event.event_kind,
+            event_subkind: event.event_subkind.clone(),
+            title: event.title.clone(),
+            summary: event.summary.clone(),
+            visibility: event.visibility,
+            event_payload: event.event_payload.clone(),
+            occurred_at: event.occurred_at,
+            record_revision: event.record_revision,
+            source: PetTimelineEntrySource::Event,
+        })
+    }
+
+    #[must_use]
+    pub fn lifecycle_birth(pet_id: Uuid, pet_name: &str, birthday: NaiveDate) -> Self {
+        Self::lifecycle(
+            format!("{pet_id}-birth"),
+            pet_id,
+            "birth",
+            "第一次来到这个世界",
+            format!("{pet_name}在这一天出生"),
+            birthday,
+        )
+    }
+
+    #[must_use]
+    pub fn lifecycle_homecoming(pet_id: Uuid, pet_name: &str, arrival_date: NaiveDate) -> Self {
+        Self::lifecycle(
+            format!("{pet_id}-homecoming"),
+            pet_id,
+            "homecoming",
+            "到家的第一天",
+            format!("{pet_name}来到你身边"),
+            arrival_date,
+        )
+    }
+
+    fn lifecycle(
+        id: String,
+        pet_id: Uuid,
+        subkind: &str,
+        title: &str,
+        summary: String,
+        occurred_date: NaiveDate,
+    ) -> Self {
+        Self {
+            id,
+            pet_id,
+            event_kind: EventKind::Daily,
+            event_subkind: Some(subkind.to_owned()),
+            title: title.to_owned(),
+            summary: Some(summary),
+            visibility: EventVisibility::Private,
+            event_payload: serde_json::json!({
+                "lifecycle_kind": subkind
+            }),
+            occurred_at: occurred_date
+                .and_hms_opt(0, 0, 0)
+                .expect("midnight is a valid time")
+                .and_utc(),
+            record_revision: 1,
+            source: PetTimelineEntrySource::Lifecycle,
+        }
+    }
 }

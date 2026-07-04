@@ -173,6 +173,20 @@ final class CapturingPetMediaUploadRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func loadTimeline(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline> {
+        throw .invalidResponse
+    }
+
+    func deleteEvent(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetEvent> {
+        throw .invalidResponse
+    }
+
     func listWeightRecords(
         petID: String,
         currentUserID: String

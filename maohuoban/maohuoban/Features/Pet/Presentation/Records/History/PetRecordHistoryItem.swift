@@ -18,4 +18,5 @@ struct PetRecordHistoryItem: Identifiable, Hashable {
     let kindText: String
     let systemImage: String
     let tint: Color
+    let route: PetRecordDetailRoute?
 }

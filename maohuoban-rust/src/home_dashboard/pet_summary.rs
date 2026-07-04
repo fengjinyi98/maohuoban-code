@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
-use chrono::{Datelike, NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use maohuoban_home_domain::home::{
-    HeroLivePhotoCrop, HeroLivePhotoSummary, HomeTimelineEvent, HomeTimelineEventKind,
-    PetHeroStats, PetHeroSummary, PetNameEditPolicy as HomePetNameEditPolicy,
-    PetNeuterStatus as HomePetNeuterStatus, PetSex as HomePetSex, PetSpecies as HomePetSpecies,
-    PetSwitchItem,
+    HeroLivePhotoCrop, HeroLivePhotoSummary, PetHeroStats, PetHeroSummary,
+    PetNameEditPolicy as HomePetNameEditPolicy, PetNeuterStatus as HomePetNeuterStatus,
+    PetSex as HomePetSex, PetSpecies as HomePetSpecies, PetSwitchItem,
 };
 use maohuoban_pet_application::pet::MediaAssetDisplayMetadata;
 use maohuoban_pet_domain::pet::{
@@ -118,7 +117,7 @@ pub(super) fn home_pet_stats(
             record_streak_text: "尚未记录".to_owned(),
             pantry_item_count,
             pantry_last_added_date,
-            deworming_days_left: 0,
+            deworming_days_left: None,
             deworming_date: "待记录".to_owned(),
             preventive_care: None,
         },
@@ -153,6 +152,7 @@ pub(super) struct HomeWeightProjection {
     latest_weight_grams: i32,
     previous_weight_grams: Option<i32>,
     latest_occurred_date: NaiveDate,
+    record_count: i32,
 }
 
 impl HomeWeightProjection {
@@ -167,14 +167,14 @@ impl HomeWeightProjection {
                 self.latest_weight_grams,
                 self.previous_weight_grams,
             ),
-            record_days: 0,
+            record_days: self.record_count,
             record_streak_text: format!(
                 "最近记录 {}",
                 self.latest_occurred_date.format("%Y-%m-%d")
             ),
             pantry_item_count,
             pantry_last_added_date,
-            deworming_days_left: 0,
+            deworming_days_left: None,
             deworming_date: "待记录".to_owned(),
             preventive_care: None,
         }
@@ -209,6 +209,7 @@ pub(super) fn home_weight_projection(events: &[PetEvent]) -> Option<HomeWeightPr
         latest_weight_grams: latest.weight_grams,
         previous_weight_grams,
         latest_occurred_date: latest.occurred_at.date_naive(),
+        record_count: i32::try_from(weight_records.len()).unwrap_or(i32::MAX),
     })
 }
 
@@ -303,42 +304,6 @@ pub(super) fn pet_switch_item(
         name_edit_policy: pet.name_edit_policy.as_ref().map(home_name_edit_policy),
         is_selected,
     }
-}
-
-pub(super) fn pet_lifecycle_timeline_events(pet: &PetProfile) -> Vec<HomeTimelineEvent> {
-    [
-        pet.birthday.map(|occurred_date| HomeTimelineEvent {
-            id: format!("{}-birth", pet.id),
-            event_kind: HomeTimelineEventKind::Daily,
-            title: "第一次来到这个世界".to_owned(),
-            subtitle: format!("{}在这一天出生", pet.name),
-            occurred_text: occurred_date.to_string(),
-            occurred_at: Some(timeline_midnight_utc(occurred_date)),
-        }),
-        pet.arrival_date.map(|occurred_date| HomeTimelineEvent {
-            id: format!("{}-homecoming", pet.id),
-            event_kind: HomeTimelineEventKind::Daily,
-            title: "到家的第一天".to_owned(),
-            subtitle: format!("{}来到你身边", pet.name),
-            occurred_text: occurred_date.to_string(),
-            occurred_at: Some(timeline_midnight_utc(occurred_date)),
-        }),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
-}
-
-/// `timeline_midnight_utc` 将日期事实转换为首页时间线锚点
-/// 核心职责：
-/// - 为出生、到家等日期级事实提供稳定排序时间
-/// - 避免把日期事实误表达成用户记录的具体发生时间
-fn timeline_midnight_utc(date: NaiveDate) -> chrono::DateTime<Utc> {
-    Utc.from_utc_datetime(
-        &date
-            .and_hms_opt(0, 0, 0)
-            .expect("midnight is valid for every NaiveDate"),
-    )
 }
 
 fn home_name_edit_policy(policy: &DomainPetNameEditPolicy) -> HomePetNameEditPolicy {

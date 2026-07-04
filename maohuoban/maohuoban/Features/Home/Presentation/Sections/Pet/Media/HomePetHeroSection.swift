@@ -109,12 +109,10 @@ private struct HomePetHeroPreventiveCareDisplay {
     init(stats: HomeDashboardSnapshot.PetHeroStats) {
         if let preventiveCare = stats.preventiveCare {
             self.init(preventiveCare: preventiveCare)
+        } else if let dewormingDaysLeft = stats.dewormingDaysLeft {
+            self.init(title: "距驱虫", value: "\(dewormingDaysLeft)", unit: "天")
         } else {
-            self.init(
-                title: "距驱虫",
-                value: "\(stats.dewormingDaysLeft)",
-                unit: "天"
-            )
+            self.init(title: "预防护理", value: "待补录", unit: "")
         }
     }
 

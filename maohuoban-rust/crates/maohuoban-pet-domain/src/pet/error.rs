@@ -18,6 +18,8 @@ pub enum PetError {
     PetAlbumNotFound,
     #[error("pet album asset not found")]
     PetAlbumAssetNotFound,
+    #[error("pet event not found")]
+    PetEventNotFound,
     #[error("weight record not found")]
     WeightRecordNotFound,
     #[error("food inventory item not found")]

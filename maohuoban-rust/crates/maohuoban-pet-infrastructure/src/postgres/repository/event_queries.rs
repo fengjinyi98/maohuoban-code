@@ -1,5 +1,7 @@
-use maohuoban_pet_application::pet::{NewPetEvent, TradePetImport, TradePetImportInput};
-use maohuoban_pet_domain::pet::{PetEvent, PetResult, PetTimeline};
+use maohuoban_pet_application::pet::{
+    DeletePetEvent, DeletedPetEvent, NewPetEvent, TradePetImport, TradePetImportInput,
+};
+use maohuoban_pet_domain::pet::{PetError, PetEvent, PetResult, PetTimeline, PetTimelineEntry};
 use uuid::Uuid;
 
 use super::PostgresPetRepository;
@@ -172,7 +174,15 @@ impl PostgresPetRepository {
             .into_iter()
             .map(TryInto::try_into)
             .collect::<PetResult<Vec<_>>>()?;
-        Ok(PetTimeline { pet_id, events })
+        let entries = events
+            .iter()
+            .filter_map(PetTimelineEntry::from_event)
+            .collect();
+        Ok(PetTimeline {
+            pet_id,
+            events,
+            entries,
+        })
     }
 
     pub(super) async fn load_pet_event_detail_query(
@@ -228,5 +238,50 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         row.map(TryInto::try_into).transpose()
+    }
+
+    pub(super) async fn delete_pet_event_command(
+        &self,
+        input: DeletePetEvent,
+    ) -> PetResult<DeletedPetEvent> {
+        let result = sqlx::query(
+            r#"
+            UPDATE pet_events e
+            SET superseded_by_event_id = e.id, updated_at = now()
+            FROM pet_profiles p
+            LEFT JOIN merchant_profiles merchant ON merchant.id = p.merchant_id
+            WHERE e.id = $1
+              AND p.id = e.pet_id
+              AND e.superseded_by_event_id IS NULL
+              AND (
+                  p.owner_user_id = $2
+                  OR e.actor_user_id = $2
+                  OR EXISTS (
+                      SELECT 1 FROM pet_guardians g
+                      WHERE g.pet_id = p.id
+                        AND g.guardian_user_id = $2
+                        AND g.status = 'active'
+                  )
+                  OR (
+                      merchant.owner_user_id = $2
+                      AND merchant.verification_status = 'verified'
+                  )
+              )
+            "#,
+        )
+        .bind(input.event_id)
+        .bind(input.actor_user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(PetError::PetEventNotFound);
+        }
+
+        Ok(DeletedPetEvent {
+            id: input.event_id,
+            deleted: true,
+        })
     }
 }

@@ -23,6 +23,27 @@ extension DefaultPetRepository {
         )
     }
 
+    func loadTimeline(
+        petID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetTimeline> {
+        try await client.get(
+            path: "/api/v1/pets/\(petID)/timeline",
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+    }
+
+    func deleteEvent(
+        eventID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<DeletedPetEvent> {
+        try await client.delete(
+            path: "/api/v1/pet-events/\(eventID)",
+            body: MHBEmptyRequest(),
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+    }
+
     func importTradePet(
         draft: TradePetImportDraft,
         currentUserID: String

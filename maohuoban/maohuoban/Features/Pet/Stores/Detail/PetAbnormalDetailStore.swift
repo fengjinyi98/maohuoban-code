@@ -11,6 +11,7 @@ import Observation
 final class PetAbnormalDetailStore {
     var phase: PetAbnormalDetailPhase = .idle
     var actionPhase: PetAbnormalDetailActionPhase = .idle
+    private(set) var isMutating = false
 
     var isLoading: Bool { phase == .loading }
     var isSubmitting: Bool { actionPhase == .submitting }
@@ -160,6 +161,38 @@ final class PetAbnormalDetailStore {
         }
     }
 
+    // delete 删除当前异常事件
+    // 核心职责：
+    // - 通过通用宠物事件删除接口移除异常记录
+    // - 让详情页基于 phase 完成删除后的关闭或反馈
+    func delete(eventID: String, currentUserID: String?) async -> Bool {
+        guard let currentUserID, !currentUserID.isEmpty else {
+            phase = .failed("请先登录")
+            return false
+        }
+        guard !eventID.isEmpty else {
+            phase = .failed("事件信息为空")
+            return false
+        }
+        guard !isMutating else { return false }
+
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            let response = try await repository.deleteEvent(
+                eventID: eventID,
+                currentUserID: currentUserID
+            )
+            guard response.data?.deleted == true else { return false }
+            phase = .deleted(eventID)
+            return true
+        } catch {
+            phase = .failed(error.toastMessage)
+            return false
+        }
+    }
+
     private var currentEpisodeID: String? {
         guard case .loaded(let event) = phase else { return nil }
         return event.eventPayload?.episodeID
@@ -171,6 +204,7 @@ enum PetAbnormalDetailPhase: Equatable {
     case idle
     case loading
     case loaded(PetEventDetail)
+    case deleted(String)
     case failed(String)
 }
 

@@ -8,6 +8,8 @@ import MaohuobanDesignSystem
 // - 提供追加观察和标记恢复的命令式入口
 // - 不展示 AI/LLM 建议，避免主动记录详情与智能建议混淆
 struct PetAbnormalRecordDetailScreen: View {
+    @Environment(\.dismiss) private var dismiss
+
     let recordID: String
     let currentUserID: String?
     let recordContext: PetRecordEntryContext?
@@ -16,6 +18,7 @@ struct PetAbnormalRecordDetailScreen: View {
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
     @State private var observationNote = ""
     @State private var recoveryNote = ""
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         MHBScreenScrollView {
@@ -24,6 +27,8 @@ struct PetAbnormalRecordDetailScreen: View {
                 PetAbnormalDetailLoadingView()
             case .failed(let message):
                 PetAbnormalDetailErrorView(message: message)
+            case .deleted:
+                PetAbnormalDetailErrorView(message: "记录已删除")
             case .loaded(let event):
                 PetAbnormalDetailContentView(
                     event: event,
@@ -42,13 +47,29 @@ struct PetAbnormalRecordDetailScreen: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if case .loaded = store.phase {
-                    Button(role: .destructive) {} label: {
+                    Button(role: .destructive) {
+                        isDeleteConfirmationPresented = true
+                    } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(MHBTheme.ColorToken.danger.color)
                     }
+                    .disabled(store.isMutating)
                     .accessibilityLabel("删除异常记录")
                 }
             }
+        }
+        .alert("删除异常记录", isPresented: $isDeleteConfirmationPresented) {
+            Button("删除记录", role: .destructive) {
+                Task {
+                    if await store.delete(eventID: recordID, currentUserID: currentUserID) {
+                        dismiss()
+                    }
+                }
+            }
+
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将删除这条异常记录，删除后无法在时间线中查看。")
         }
         .task {
             await store.load(eventID: recordID, currentUserID: currentUserID)

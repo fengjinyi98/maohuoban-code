@@ -86,6 +86,90 @@ async fn pet_profile_event_and_timeline_are_persisted() {
 }
 
 #[tokio::test]
+async fn pet_timeline_includes_profile_lifecycle_facts_and_events() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138116").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female",
+                "birthday": "2024-04-01",
+                "arrival_date": "2024-06-16"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    let create_event_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "appetite_normal",
+                "title": "食欲正常",
+                "summary": "今天食欲正常",
+                "visibility": "private",
+                "occurred_at": "2026-06-13T09:20:00Z",
+                "event_payload": {
+                    "quick_fact_kind": "appetite_normal"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet event");
+    assert_eq!(create_event_response.status(), StatusCode::CREATED);
+    let create_event_body = response_json(create_event_response).await;
+    let event_id = create_event_body["data"]["id"]
+        .as_str()
+        .expect("event id")
+        .to_owned();
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load pet timeline");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline_body = response_json(timeline_response).await;
+    let events = timeline_body["data"]["events"]
+        .as_array()
+        .expect("timeline events");
+
+    assert_eq!(events.len(), 3);
+    assert_eq!(events[0]["id"], event_id);
+    assert_eq!(events[0]["title"], "食欲正常");
+    assert_eq!(events[1]["id"], format!("{pet_id}-homecoming"));
+    assert_eq!(events[1]["event_subkind"], "homecoming");
+    assert_eq!(events[1]["title"], "到家的第一天");
+    assert_eq!(events[1]["occurred_at"], "2024-06-16T00:00:00Z");
+    assert_eq!(events[2]["id"], format!("{pet_id}-birth"));
+    assert_eq!(events[2]["event_subkind"], "birth");
+    assert_eq!(events[2]["title"], "第一次来到这个世界");
+    assert_eq!(events[2]["occurred_at"], "2024-04-01T00:00:00Z");
+}
+
+#[tokio::test]
 async fn pet_profile_create_normalizes_name_and_breed_whitespace() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -263,6 +347,107 @@ async fn pet_event_detail_returns_current_user_event() {
     assert_eq!(body["data"]["summary"], "5.2kg，较上次稳定");
     assert_eq!(body["data"]["event_kind"], "health");
     assert_eq!(body["data"]["record_revision"], 1);
+}
+
+#[tokio::test]
+async fn pet_event_delete_removes_event_from_detail_and_timeline() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138115").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    let create_event_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "appetite_normal",
+                "title": "食欲正常",
+                "summary": "今天食欲正常",
+                "visibility": "private",
+                "occurred_at": "2026-06-13T09:20:00Z",
+                "event_payload": {
+                    "quick_fact_kind": "appetite_normal"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create quick fact event");
+    assert_eq!(create_event_response.status(), StatusCode::CREATED);
+    let create_event_body = response_json(create_event_response).await;
+    let event_id = create_event_body["data"]["id"]
+        .as_str()
+        .expect("event id")
+        .to_owned();
+
+    let delete_response = app
+        .router()
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete pet event");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let delete_body = response_json(delete_response).await;
+    assert_eq!(delete_body["success"], true);
+    assert_eq!(delete_body["code"], "pet.event_deleted");
+    assert_eq!(delete_body["data"]["id"], event_id);
+    assert_eq!(delete_body["data"]["deleted"], true);
+
+    let detail_after_delete = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load deleted event detail");
+    assert_eq!(detail_after_delete.status(), StatusCode::NOT_FOUND);
+    let detail_body = response_json(detail_after_delete).await;
+    assert_eq!(detail_body["code"], "pet.event_not_found");
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load timeline after delete");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline_body = response_json(timeline_response).await;
+    let items = timeline_body["data"]["events"].as_array().unwrap();
+    assert!(
+        items.iter().all(|item| item["id"] != event_id),
+        "deleted event must be removed from timeline"
+    );
 }
 
 #[tokio::test]
