@@ -453,13 +453,13 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
     let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
     let summary = &dashboard_body["data"]["diet_trend_summary"];
 
-    assert_eq!(summary["window_days"], 30);
+    assert_eq!(summary["window_days"], 60);
     assert_eq!(summary["explanation"]["title"], "饮食趋势是怎么生成的");
     assert!(
         summary["analysis"]["headline"]
             .as_str()
             .expect("diet trend analysis headline")
-            .contains("近 30 天")
+            .contains("近 60 天")
     );
     assert!(
         summary["analysis"]["summary"]

@@ -216,10 +216,7 @@ fn derive_package_weight_grams(category: FoodInventoryCategory, spec: Option<&st
 }
 
 fn normalize_spec_text(spec: &str) -> String {
-    spec.trim()
-        .to_lowercase()
-        .replace(' ', "")
-        .replace('　', "")
+    spec.trim().to_lowercase().replace([' ', '　'], "")
 }
 
 fn parse_weight_with_unit(spec: &str) -> Option<i32> {
