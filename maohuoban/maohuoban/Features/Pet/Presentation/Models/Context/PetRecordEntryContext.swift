@@ -55,6 +55,15 @@ struct PetRecordEntryContext: Hashable, Sendable {
     var resolvedPetName: String? {
         petName ?? selectedSwitchPet?.name
     }
+
+    var resolvedPetSex: PetRecordPetSex {
+        switch petSex {
+        case .female, .male:
+            petSex
+        case .unknown:
+            selectedSwitchPet?.sex ?? .unknown
+        }
+    }
 }
 
 // PetRecordSwitchPet 记录流程可切换宠物

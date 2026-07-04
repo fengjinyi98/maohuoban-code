@@ -119,10 +119,23 @@ async fn pet_weight_records_support_initial_create_update_and_delete() {
     let items = list_after_delete["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["source"], "profile_initial");
+
+    let deleted_row_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM pet_events
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(record_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count deleted weight record rows");
+    assert_eq!(deleted_row_count, 0);
 }
 
 #[tokio::test]
-async fn pet_weight_records_repair_profile_weight_without_initial_event() {
+async fn pet_weight_records_do_not_recreate_deleted_profile_initial_event() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800139202").await;
@@ -141,7 +154,7 @@ async fn pet_weight_records_repair_profile_weight_without_initial_event() {
             Some(&user_id),
         ))
         .await
-        .expect("create pet with profile weight");
+        .expect("create pet with initial weight");
     assert_eq!(create_pet_response.status(), StatusCode::CREATED);
     let create_pet_body = response_json(create_pet_response).await;
     let pet_id = create_pet_body["data"]["id"].as_str().expect("pet id");
@@ -159,12 +172,9 @@ async fn pet_weight_records_repair_profile_weight_without_initial_event() {
     .await
     .expect("remove legacy missing weight event");
 
-    let repaired_list = load_weight_records(&app, pet_id, &user_id).await;
-    let items = repaired_list["data"]["items"].as_array().unwrap();
-    assert_eq!(items.len(), 1);
-    assert_eq!(items[0]["weight_grams"], 3600);
-    assert_eq!(items[0]["source"], "profile_initial");
-    assert_eq!(items[0]["note"], "创建宠物时记录的初始体重");
+    let list_after_delete = load_weight_records(&app, pet_id, &user_id).await;
+    let items = list_after_delete["data"]["items"].as_array().unwrap();
+    assert_eq!(items.len(), 0);
 
     let persisted_count: i64 = sqlx::query_scalar(
         r"
@@ -179,8 +189,8 @@ async fn pet_weight_records_repair_profile_weight_without_initial_event() {
     .bind(pet_id)
     .fetch_one(app.pool())
     .await
-    .expect("count repaired profile initial event");
-    assert_eq!(persisted_count, 1);
+    .expect("count profile initial event after deletion");
+    assert_eq!(persisted_count, 0);
 }
 
 async fn load_weight_records(

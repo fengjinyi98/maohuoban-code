@@ -297,11 +297,13 @@ private struct PetAbnormalRecordPetIdentity: Equatable {
     let id: String
     let name: String
     let avatarSource: MHBAvatarSource
+    let sex: MHBAvatarSex
 
     init(event: PetEventDetail, context: PetRecordEntryContext) {
         self.id = context.resolvedPetID ?? event.petID ?? ""
         self.name = context.resolvedPetName ?? ""
         self.avatarSource = Self.avatarSource(context: context)
+        self.sex = context.resolvedPetSex.avatarSex
     }
 
     var avatarPet: MHBAvatarPet {
@@ -310,7 +312,7 @@ private struct PetAbnormalRecordPetIdentity: Equatable {
             name: name,
             source: avatarSource,
             species: .other,
-            sex: .unknown
+            sex: sex
         )
     }
 

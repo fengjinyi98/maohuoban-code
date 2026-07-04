@@ -22,16 +22,3 @@ enum PetWalkAvatarPresentation {
         )
     }
 }
-
-private extension PetRecordPetSex {
-    var avatarSex: MHBAvatarSex {
-        switch self {
-        case .female:
-            .female
-        case .male:
-            .male
-        case .unknown:
-            .unknown
-        }
-    }
-}

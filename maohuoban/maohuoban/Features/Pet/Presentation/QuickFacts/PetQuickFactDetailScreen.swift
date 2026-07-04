@@ -225,15 +225,7 @@ private struct PetQuickFactReceiptRowValue: View {
         case .pet(let pet):
             HStack(spacing: MHBTheme.Spacing.s2) {
                 MHBAvatar(
-                    subject: .pet(
-                        MHBAvatarPet(
-                            id: pet.id,
-                            name: pet.name,
-                            source: pet.avatarSource,
-                            species: .other,
-                            sex: .unknown
-                        )
-                    ),
+                    subject: .pet(pet.avatarPet),
                     size: .custom(28),
                     shape: .circle
                 )

@@ -28,9 +28,28 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
 
         XCTAssertEqual(pet.id, "pet-1")
         XCTAssertEqual(pet.name, "糯米")
+        XCTAssertEqual(pet.avatarPet.sex, .female)
         if case .asset(let assetName) = pet.avatarSource {
             XCTAssertNotEqual(assetName, "HomePetHeroMock")
         }
+    }
+
+    func testFeedingPresentationUsesEntryContextPetSexForAvatar() {
+        let event = Self.makeEvent(
+            id: "feeding-event-1",
+            kind: .daily,
+            subkind: "feeding",
+            title: "已喂食",
+            summary: nil
+        )
+        let presentation = PetFeedingDetailPresentation(
+            event: event,
+            recordContext: Self.makeRecordContext()
+        )
+
+        XCTAssertEqual(presentation.pet.id, "pet-1")
+        XCTAssertEqual(presentation.pet.name, "糯米")
+        XCTAssertEqual(presentation.pet.avatarPet.sex, .female)
     }
 
     func testTimelineResolverPreservesFeedingRecordIDAndContext() {

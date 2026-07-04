@@ -10,6 +10,17 @@ struct PetQuickFactDetailPresentation {
         let id: String
         let name: String
         let avatarSource: MHBAvatarSource
+        let sex: MHBAvatarSex
+
+        var avatarPet: MHBAvatarPet {
+            MHBAvatarPet(
+                id: id,
+                name: name,
+                source: avatarSource,
+                species: .other,
+                sex: sex
+            )
+        }
     }
 
     enum RowValue: Equatable {
@@ -76,7 +87,8 @@ struct PetQuickFactDetailPresentation {
         PetIdentity(
             id: context.resolvedPetID ?? event.petID ?? "",
             name: context.resolvedPetName ?? "",
-            avatarSource: petAvatarSource(context: context)
+            avatarSource: petAvatarSource(context: context),
+            sex: context.resolvedPetSex.avatarSex
         )
     }
 
