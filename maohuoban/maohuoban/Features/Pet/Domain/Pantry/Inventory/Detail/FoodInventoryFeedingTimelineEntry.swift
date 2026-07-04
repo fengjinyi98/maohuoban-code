@@ -8,6 +8,10 @@ struct FoodInventoryFeedingTimelineEntry: Decodable, Equatable, Identifiable {
     let eventID: String
     let petID: String
     let petName: String
+    let petSpecies: PetRecordPetSpecies
+    let petSex: PetRecordPetSex
+    let petAvatarAssetID: String?
+    let petAvatarURL: String?
     let occurredAt: String
     let title: String
     let summary: String?
@@ -21,6 +25,10 @@ struct FoodInventoryFeedingTimelineEntry: Decodable, Equatable, Identifiable {
         case eventID = "event_id"
         case petID = "pet_id"
         case petName = "pet_name"
+        case petSpecies = "pet_species"
+        case petSex = "pet_sex"
+        case petAvatarAssetID = "pet_avatar_asset_id"
+        case petAvatarURL = "pet_avatar_url"
         case occurredAt = "occurred_at"
         case title
         case summary

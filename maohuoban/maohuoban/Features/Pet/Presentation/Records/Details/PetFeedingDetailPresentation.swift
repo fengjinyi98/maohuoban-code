@@ -10,6 +10,7 @@ struct PetFeedingDetailPresentation {
         let id: String
         let name: String
         let avatarSource: MHBAvatarSource
+        let species: MHBAvatarSpecies
         let sex: MHBAvatarSex
 
         var avatarPet: MHBAvatarPet {
@@ -17,7 +18,7 @@ struct PetFeedingDetailPresentation {
                 id: id,
                 name: name,
                 source: avatarSource,
-                species: .other,
+                species: species,
                 sex: sex
             )
         }
@@ -63,6 +64,7 @@ struct PetFeedingDetailPresentation {
             id: context.resolvedPetID ?? event.petID ?? "",
             name: context.resolvedPetName ?? "",
             avatarSource: petAvatarSource(context: context),
+            species: context.resolvedPetSpecies.avatarSpecies,
             sex: context.resolvedPetSex.avatarSex
         )
     }

@@ -6,13 +6,31 @@ use maohuoban_pet_application::pet::{
 };
 use maohuoban_pet_domain::pet::{
     FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot,
-    PetError, PetResult,
+    PetError, PetResult, PetSex, PetSpecies,
 };
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::food_inventory_rows::FoodInventoryItemRow;
+
+/// parse_pet_species 解析宠物物种数据库值
+/// 核心职责：
+/// - 将 pet_profiles.species 映射为领域枚举
+/// - 在数据库出现未知值时显式暴露基础设施错误
+fn parse_pet_species(value: String) -> PetResult<PetSpecies> {
+    PetSpecies::try_from(value.as_str())
+        .map_err(|_| PetError::Infrastructure(format!("unknown pet species: {value}")))
+}
+
+/// parse_pet_sex 解析宠物性别数据库值
+/// 核心职责：
+/// - 将 pet_profiles.sex 映射为领域枚举
+/// - 在数据库出现未知值时显式暴露基础设施错误
+fn parse_pet_sex(value: String) -> PetResult<PetSex> {
+    PetSex::try_from(value.as_str())
+        .map_err(|_| PetError::Infrastructure(format!("unknown pet sex: {value}")))
+}
 
 /// PostgresFoodInventoryRepository PostgreSQL 食品资产仓储
 /// 核心职责：
@@ -70,6 +88,9 @@ impl PostgresFoodInventoryRepository {
                 e.id,
                 e.pet_id,
                 p.name AS pet_name,
+                p.species AS pet_species,
+                p.sex AS pet_sex,
+                p.avatar_asset_id AS pet_avatar_asset_id,
                 e.occurred_at,
                 e.title,
                 e.summary,
@@ -100,14 +121,22 @@ impl PostgresFoodInventoryRepository {
             .into_iter()
             .map(|row| {
                 let payload: serde_json::Value = row.get("event_payload");
+                let pet_avatar_asset_id: Option<Uuid> = row.get("pet_avatar_asset_id");
+                let pet_species = parse_pet_species(row.get("pet_species"))?;
+                let pet_sex = parse_pet_sex(row.get("pet_sex"))?;
                 let food_snapshot = payload
                     .get("food_snapshot")
                     .cloned()
                     .and_then(|value| serde_json::from_value::<FoodSnapshot>(value).ok());
-                FoodInventoryFeedingTimelineEntry {
+                Ok(FoodInventoryFeedingTimelineEntry {
                     event_id: row.get("id"),
                     pet_id: row.get("pet_id"),
                     pet_name: row.get("pet_name"),
+                    pet_species,
+                    pet_sex,
+                    pet_avatar_asset_id,
+                    pet_avatar_url: pet_avatar_asset_id
+                        .map(|id| format!("/api/v1/media/assets/{id}/content")),
                     occurred_at: row.get("occurred_at"),
                     title: row.get("title"),
                     summary: row.get("summary"),
@@ -121,9 +150,9 @@ impl PostgresFoodInventoryRepository {
                         .and_then(|value| value.as_str())
                         .map(str::to_owned),
                     food_snapshot,
-                }
+                })
             })
-            .collect();
+            .collect::<PetResult<Vec<_>>>()?;
 
         Ok(timeline)
     }
@@ -138,6 +167,8 @@ impl PostgresFoodInventoryRepository {
             SELECT
                 p.id AS pet_id,
                 p.name AS pet_name,
+                p.species,
+                p.sex,
                 p.avatar_asset_id,
                 MAX(e.occurred_at) AS last_used_at
             FROM pet_events e
@@ -148,7 +179,7 @@ impl PostgresFoodInventoryRepository {
               AND e.event_subkind = 'feeding'
               AND e.superseded_by_event_id IS NULL
               AND e.event_payload->>'food_item_id' = $2
-            GROUP BY p.id, p.name, p.avatar_asset_id
+            GROUP BY p.id, p.name, p.species, p.sex, p.avatar_asset_id
             ORDER BY last_used_at DESC
             "#,
         )
@@ -169,6 +200,8 @@ impl PostgresFoodInventoryRepository {
             linked.push(FoodInventoryLinkedPet {
                 pet_id,
                 pet_name: row.get("pet_name"),
+                species: parse_pet_species(row.get("species"))?,
+                sex: parse_pet_sex(row.get("sex"))?,
                 avatar_asset_id,
                 avatar_url: avatar_asset_id.map(|id| format!("/api/v1/media/assets/{id}/content")),
                 source: "feeding_event".to_owned(),
@@ -180,6 +213,8 @@ impl PostgresFoodInventoryRepository {
             SELECT DISTINCT
                 p.id AS pet_id,
                 p.name AS pet_name,
+                p.species,
+                p.sex,
                 p.avatar_asset_id
             FROM pet_diet_assignments a
             INNER JOIN pet_profiles p ON p.id = a.pet_id
@@ -209,6 +244,8 @@ impl PostgresFoodInventoryRepository {
             linked.push(FoodInventoryLinkedPet {
                 pet_id,
                 pet_name: row.get("pet_name"),
+                species: parse_pet_species(row.get("species"))?,
+                sex: parse_pet_sex(row.get("sex"))?,
                 avatar_asset_id,
                 avatar_url: avatar_asset_id.map(|id| format!("/api/v1/media/assets/{id}/content")),
                 source: "diet_assignment".to_owned(),

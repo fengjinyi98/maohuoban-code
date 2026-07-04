@@ -9,7 +9,13 @@ struct PantryItemLinkedPetRow: View {
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s3) {
-            PantryItemLinkedPetAvatar(imageURLString: pet.avatarURL)
+            PantryItemLinkedPetAvatar(
+                petID: pet.petID,
+                petName: pet.petName,
+                avatarURLString: pet.avatarURL,
+                species: pet.species,
+                sex: pet.sex
+            )
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                 Text(pet.petName)

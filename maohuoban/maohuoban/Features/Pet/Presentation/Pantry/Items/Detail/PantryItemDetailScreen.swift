@@ -26,7 +26,10 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
                 onOpenFeedingRecord: { entry in
                     let recordContext = PetRecordEntryContext(
                         petID: entry.petID,
-                        petName: entry.petName
+                        petName: entry.petName,
+                        petAvatarURL: entry.petAvatarURL,
+                        petSpecies: entry.petSpecies,
+                        petSex: entry.petSex
                     )
                     onOpenRoute(onNavigate(.feedingRecordDetail(
                         recordID: entry.eventID,

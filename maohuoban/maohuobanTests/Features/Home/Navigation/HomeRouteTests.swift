@@ -106,7 +106,10 @@ final class HomeRouteTests: XCTestCase {
     func testPetPantryFeedingRecordRouteCarriesRowPetContext() {
         let context = PetRecordEntryContext(
             petID: "pet-row",
-            petName: "布丁"
+            petName: "布丁",
+            petAvatarURL: "/api/v1/media/assets/avatar-1/content",
+            petSpecies: .cat,
+            petSex: .male
         )
         let route = PetPantryRoute.feedingRecordDetail(
             recordID: "feeding-1",
@@ -121,6 +124,9 @@ final class HomeRouteTests: XCTestCase {
         XCTAssertEqual(recordID, "feeding-1")
         XCTAssertEqual(routeContext.petID, "pet-row")
         XCTAssertEqual(routeContext.petName, "布丁")
+        XCTAssertEqual(routeContext.petAvatarURL, "/api/v1/media/assets/avatar-1/content")
+        XCTAssertEqual(routeContext.petSpecies, .cat)
+        XCTAssertEqual(routeContext.petSex, .male)
     }
 
     @MainActor

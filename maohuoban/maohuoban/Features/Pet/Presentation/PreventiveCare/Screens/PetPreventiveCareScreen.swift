@@ -259,6 +259,7 @@ struct PetPreventiveCareScreen: View {
             petID: currentPetID,
             petName: selectedPet?.name ?? context.recordContext.petName,
             petAvatarURL: selectedPet?.avatarURL ?? context.recordContext.petAvatarURL,
+            petSpecies: selectedPet?.species ?? context.recordContext.petSpecies,
             petSex: selectedPet?.sex ?? context.recordContext.petSex,
             lifeStatus: selectedPet?.lifeStatus ?? context.recordContext.lifeStatus,
             availablePets: availablePets

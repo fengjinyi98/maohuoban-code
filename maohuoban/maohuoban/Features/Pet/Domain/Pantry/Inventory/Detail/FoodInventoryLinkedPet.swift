@@ -7,6 +7,8 @@ import Foundation
 struct FoodInventoryLinkedPet: Decodable, Equatable, Identifiable {
     let petID: String
     let petName: String
+    let species: PetRecordPetSpecies
+    let sex: PetRecordPetSex
     let avatarAssetID: String?
     let avatarURL: String?
     let source: String
@@ -16,6 +18,8 @@ struct FoodInventoryLinkedPet: Decodable, Equatable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case petID = "pet_id"
         case petName = "pet_name"
+        case species
+        case sex
         case avatarAssetID = "avatar_asset_id"
         case avatarURL = "avatar_url"
         case source

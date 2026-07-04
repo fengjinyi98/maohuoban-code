@@ -3,7 +3,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use maohuoban_pet_domain::pet::{
     DietAssignmentRole, DietTrendFeedingSample, DietTrendSummary, FoodInventoryCategory,
     FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot, PetDietAssignment,
-    PetResult,
+    PetResult, PetSex, PetSpecies,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -232,6 +232,8 @@ pub struct FoodInventoryItemDetail {
 pub struct FoodInventoryLinkedPet {
     pub pet_id: Uuid,
     pub pet_name: String,
+    pub species: PetSpecies,
+    pub sex: PetSex,
     pub avatar_asset_id: Option<Uuid>,
     pub avatar_url: Option<String>,
     pub source: String,
@@ -246,6 +248,10 @@ pub struct FoodInventoryFeedingTimelineEntry {
     pub event_id: Uuid,
     pub pet_id: Uuid,
     pub pet_name: String,
+    pub pet_species: PetSpecies,
+    pub pet_sex: PetSex,
+    pub pet_avatar_asset_id: Option<Uuid>,
+    pub pet_avatar_url: Option<String>,
     pub occurred_at: DateTime<Utc>,
     pub title: String,
     pub summary: Option<String>,

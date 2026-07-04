@@ -9,6 +9,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
     let petID: String?
     let petName: String?
     let petAvatarURL: String?
+    let petSpecies: PetRecordPetSpecies
     let petSex: PetRecordPetSex
     let lifeStatus: String?
     let availablePets: [PetRecordSwitchPet]
@@ -17,6 +18,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
         petID: String?,
         petName: String? = nil,
         petAvatarURL: String? = nil,
+        petSpecies: PetRecordPetSpecies = .other,
         petSex: PetRecordPetSex = .unknown,
         lifeStatus: String? = nil,
         availablePets: [PetRecordSwitchPet] = []
@@ -24,6 +26,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
         self.petID = petID
         self.petName = petName
         self.petAvatarURL = petAvatarURL
+        self.petSpecies = petSpecies
         self.petSex = petSex
         self.lifeStatus = lifeStatus
         self.availablePets = availablePets
@@ -39,7 +42,7 @@ struct PetRecordEntryContext: Hashable, Sendable {
         return PetRecordSwitchPet(
             id: petID,
             name: petName,
-            species: .other,
+            species: petSpecies,
             breed: "",
             avatarURL: petAvatarURL,
             sex: petSex,
@@ -63,6 +66,10 @@ struct PetRecordEntryContext: Hashable, Sendable {
         case .unknown:
             selectedSwitchPet?.sex ?? .unknown
         }
+    }
+
+    var resolvedPetSpecies: PetRecordPetSpecies {
+        selectedSwitchPet?.species ?? petSpecies
     }
 }
 
@@ -105,7 +112,7 @@ struct PetRecordSwitchPet: Hashable, Identifiable, Sendable {
 // 核心职责：
 // - 以稳定枚举承载记录流程需要的物种信息
 // - 解耦记录上下文和首页模型
-enum PetRecordPetSpecies: String, Hashable, Sendable {
+enum PetRecordPetSpecies: String, Decodable, Hashable, Sendable {
     case dog
     case cat
     case other
@@ -124,7 +131,7 @@ struct PetDailyRecordEntryContext: Hashable, Sendable {
 // 核心职责：
 // - 隔离记录页视觉所需的性别状态
 // - 提供性别边框颜色和跨首页模型的映射入口
-enum PetRecordPetSex: String, Hashable, Sendable {
+enum PetRecordPetSex: String, Decodable, Hashable, Sendable {
     case female
     case male
     case unknown

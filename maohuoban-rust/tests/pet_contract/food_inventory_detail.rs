@@ -6,7 +6,8 @@ async fn food_inventory_item_detail_returns_linked_pets_timeline_and_consumption
     app.reset().await;
     let user_id = login_user_id(&app, "13800139038").await;
 
-    let pet_id = create_pet(&app, &user_id).await;
+    let avatar_asset_id = create_pet_avatar_asset(&app, &user_id).await;
+    let pet_id = create_pet(&app, &user_id, &avatar_asset_id).await;
     let food_item_id = create_food_inventory_item(&app, &user_id).await;
 
     for (amount_text, occurred_at) in [
@@ -68,6 +69,13 @@ async fn food_inventory_item_detail_returns_linked_pets_timeline_and_consumption
         .expect("linked pets");
     assert_eq!(linked_pets.len(), 1);
     assert_eq!(linked_pets[0]["pet_id"], pet_id);
+    assert_eq!(linked_pets[0]["species"], "cat");
+    assert_eq!(linked_pets[0]["sex"], "male");
+    assert_eq!(linked_pets[0]["avatar_asset_id"], avatar_asset_id);
+    assert_eq!(
+        linked_pets[0]["avatar_url"],
+        format!("/api/v1/media/assets/{avatar_asset_id}/content")
+    );
     assert_eq!(linked_pets[0]["source"], "feeding_event");
 
     let timeline = detail_body["data"]["feeding_timeline"]
@@ -78,6 +86,13 @@ async fn food_inventory_item_detail_returns_linked_pets_timeline_and_consumption
     assert_eq!(timeline[1]["amount_text"], "正常");
     assert_eq!(timeline[2]["amount_text"], "少一点");
     assert_eq!(timeline[0]["pet_id"], pet_id);
+    assert_eq!(timeline[0]["pet_species"], "cat");
+    assert_eq!(timeline[0]["pet_sex"], "male");
+    assert_eq!(timeline[0]["pet_avatar_asset_id"], avatar_asset_id);
+    assert_eq!(
+        timeline[0]["pet_avatar_url"],
+        format!("/api/v1/media/assets/{avatar_asset_id}/content")
+    );
     assert_eq!(timeline[0]["food_snapshot"]["name"], "渴望六种鱼");
 
     let summary = &detail_body["data"]["consumption_summary"];
@@ -98,7 +113,30 @@ async fn food_inventory_item_detail_returns_linked_pets_timeline_and_consumption
     assert_eq!(distribution[2]["count"], 1);
 }
 
-async fn create_pet(app: &maohuoban_rust::test_support::AuthTestApp, user_id: &str) -> String {
+async fn create_pet_avatar_asset(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+) -> String {
+    let body = upload_pending_media(
+        app,
+        "/api/v1/pet-media/avatar",
+        "avatar.png",
+        "image/png",
+        &tiny_png(),
+        user_id,
+    )
+    .await;
+    body["data"]["asset"]["id"]
+        .as_str()
+        .expect("avatar asset id")
+        .to_owned()
+}
+
+async fn create_pet(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    avatar_asset_id: &str,
+) -> String {
     let response = app
         .router()
         .oneshot(json_request(
@@ -107,7 +145,8 @@ async fn create_pet(app: &maohuoban_rust::test_support::AuthTestApp, user_id: &s
             json!({
                 "name": "饭团",
                 "species": "cat",
-                "sex": "male"
+                "sex": "male",
+                "avatar_asset_id": avatar_asset_id
             }),
             Some(user_id),
         ))
