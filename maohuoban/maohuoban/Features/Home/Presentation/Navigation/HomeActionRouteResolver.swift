@@ -118,8 +118,7 @@ enum HomeActionRouteResolver {
                         petSex: context.selectedPetSex,
                         lifeStatus: context.selectedPetLifeStatus,
                         availablePets: context.availablePets
-                    ),
-                    fallbackPetName: context.selectedPetName ?? "当前宠物"
+                    )
                 )
             )
         case .addReminder:

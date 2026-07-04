@@ -288,8 +288,7 @@ struct HomeDashboardLoadedView: View {
                     petSex: routingContext.selectedPetSex,
                     lifeStatus: routingContext.selectedPetLifeStatus,
                     availablePets: routingContext.availablePets
-                ),
-                fallbackPetName: pet.name
+                )
             )
         )
     }

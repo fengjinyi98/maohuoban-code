@@ -8,7 +8,6 @@ import MaohuobanDesignSystem
 // - 保留记录流程可复用的宠物切换数据
 struct PetPreventiveCareContext: Hashable, Sendable {
     let recordContext: PetRecordEntryContext
-    let fallbackPetName: String
 }
 
 // PetPreventiveCareKind 疫苗驱虫记录类型

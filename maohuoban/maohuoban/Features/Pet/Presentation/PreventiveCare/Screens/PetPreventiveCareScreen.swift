@@ -172,13 +172,7 @@ struct PetPreventiveCareScreen: View {
             return context.recordContext.availablePets
         }
 
-        return context.recordContext.selectedSwitchPet.map { [$0] } ?? [
-            PetRecordSwitchPet(
-                id: "pet-preventive-current",
-                name: context.fallbackPetName,
-                isSelected: true
-            )
-        ]
+        return context.recordContext.selectedSwitchPet.map { [$0] } ?? []
     }
 
     private var currentPetSwitcherItem: MHBPetSwitcherItem? {
