@@ -53,6 +53,11 @@ pub(super) fn error_response(error: &PetError) -> Response {
             "pet.event_not_found",
             "宠物事件不存在".to_owned(),
         ),
+        PetError::QuickFactDuplicate => (
+            StatusCode::CONFLICT,
+            "pet.quick_fact_duplicate",
+            "今天已经记录过这个快捷状态".to_owned(),
+        ),
         PetError::WeightRecordNotFound => (
             StatusCode::NOT_FOUND,
             "pet.weight_record_not_found",

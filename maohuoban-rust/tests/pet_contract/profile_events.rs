@@ -170,6 +170,296 @@ async fn pet_timeline_includes_profile_lifecycle_facts_and_events() {
 }
 
 #[tokio::test]
+async fn pet_quick_fact_rejects_duplicate_submission_for_same_pet() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138117").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+    let submission_id = "00000000-0000-0000-0000-000000000111";
+
+    for occurred_at in ["2026-06-13T09:20:10Z", "2026-06-13T12:35:00Z"] {
+        let response = app
+            .router()
+            .oneshot(json_request(
+                "POST",
+                &format!("/api/v1/pets/{pet_id}/events"),
+                json!({
+                    "event_kind": "daily",
+                    "event_subkind": "quick_fact",
+                    "title": "便便正常",
+                    "summary": "粪便状态：健康成型",
+                    "visibility": "private",
+                    "occurred_at": occurred_at,
+                    "event_payload": {
+                        "quick_fact_kind": "poop_normal",
+                        "quick_fact_submission_id": submission_id
+                    }
+                }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("create quick fact");
+
+        if occurred_at == "2026-06-13T09:20:10Z" {
+            assert_eq!(response.status(), StatusCode::CREATED);
+        } else {
+            assert_eq!(response.status(), StatusCode::CONFLICT);
+            let body = response_json(response).await;
+            assert_eq!(body["success"], false);
+            assert_eq!(body["code"], "pet.quick_fact_duplicate");
+            assert_eq!(body["message"], "今天已经记录过这个快捷状态");
+        }
+    }
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load pet timeline");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline_body = response_json(timeline_response).await;
+    let quick_fact_events = timeline_body["data"]["events"]
+        .as_array()
+        .expect("timeline events")
+        .iter()
+        .filter(|event| event["event_payload"]["quick_fact_kind"] == "poop_normal")
+        .count();
+    assert_eq!(quick_fact_events, 1);
+}
+
+#[tokio::test]
+async fn pet_quick_fact_allows_same_kind_on_same_day_with_different_submissions() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138120").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    for (occurred_at, submission_id) in [
+        (
+            "2026-06-13T09:20:10Z",
+            "00000000-0000-0000-0000-000000000121",
+        ),
+        (
+            "2026-06-13T12:35:00Z",
+            "00000000-0000-0000-0000-000000000122",
+        ),
+    ] {
+        let response = app
+            .router()
+            .oneshot(json_request(
+                "POST",
+                &format!("/api/v1/pets/{pet_id}/events"),
+                json!({
+                    "event_kind": "daily",
+                    "event_subkind": "quick_fact",
+                    "title": "便便正常",
+                    "summary": "粪便状态：健康成型",
+                    "visibility": "private",
+                    "occurred_at": occurred_at,
+                    "event_payload": {
+                        "quick_fact_kind": "poop_normal",
+                        "quick_fact_submission_id": submission_id
+                    }
+                }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("create quick fact");
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load pet timeline");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline_body = response_json(timeline_response).await;
+    let quick_fact_events = timeline_body["data"]["events"]
+        .as_array()
+        .expect("timeline events")
+        .iter()
+        .filter(|event| event["event_payload"]["quick_fact_kind"] == "poop_normal")
+        .count();
+    assert_eq!(quick_fact_events, 2);
+}
+
+#[tokio::test]
+async fn pet_quick_fact_allows_different_kind_on_same_day() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138118").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    for (title, summary, quick_fact_kind) in [
+        ("便便正常", "粪便状态：健康成型", "poop_normal"),
+        ("精神不错", "精神与活力：正常平稳", "energy_normal"),
+    ] {
+        let response = app
+            .router()
+            .oneshot(json_request(
+                "POST",
+                &format!("/api/v1/pets/{pet_id}/events"),
+                json!({
+                    "event_kind": "daily",
+                    "event_subkind": "quick_fact",
+                    "title": title,
+                    "summary": summary,
+                    "visibility": "private",
+                    "occurred_at": "2026-06-13T09:20:00Z",
+                    "event_payload": {
+                        "quick_fact_kind": quick_fact_kind,
+                        "quick_fact_submission_id": format!("00000000-0000-0000-0000-00000000013{}", if quick_fact_kind == "poop_normal" { "1" } else { "2" })
+                    }
+                }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("create quick fact");
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+}
+
+#[tokio::test]
+async fn pet_quick_fact_rejects_missing_or_unknown_kind() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138119").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "糯米",
+                "species": "dog",
+                "sex": "female"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    for (payload, expected_message) in [
+        (json!({}), "快捷状态缺少类型"),
+        (
+            json!({ "quick_fact_kind": "fed", "quick_fact_submission_id": "00000000-0000-0000-0000-000000000141" }),
+            "快捷状态类型无效",
+        ),
+        (
+            json!({ "quick_fact_kind": "poop_normal" }),
+            "快捷状态缺少提交标识",
+        ),
+        (
+            json!({ "quick_fact_kind": "poop_normal", "quick_fact_submission_id": "bad-submission-id" }),
+            "快捷状态提交标识无效",
+        ),
+    ] {
+        let response = app
+            .router()
+            .oneshot(json_request(
+                "POST",
+                &format!("/api/v1/pets/{pet_id}/events"),
+                json!({
+                    "event_kind": "daily",
+                    "event_subkind": "quick_fact",
+                    "title": "便便正常",
+                    "summary": "粪便状态：健康成型",
+                    "visibility": "private",
+                    "occurred_at": "2026-06-13T09:20:00Z",
+                    "event_payload": payload
+                }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("create quick fact");
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response_json(response).await;
+        assert_eq!(body["success"], false);
+        assert_eq!(body["code"], "pet.invalid_input");
+        assert_eq!(body["message"], expected_message);
+    }
+}
+
+#[tokio::test]
 async fn pet_profile_create_normalizes_name_and_breed_whitespace() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

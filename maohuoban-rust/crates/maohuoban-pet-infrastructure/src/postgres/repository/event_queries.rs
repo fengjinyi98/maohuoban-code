@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use super::PostgresPetRepository;
 use super::event_rows::PetEventRow;
-use super::storage::to_infrastructure_error;
+use super::storage::{to_infrastructure_error, to_pet_event_write_error};
 use super::trade_import::{insert_trade_import_event, insert_trade_import_pet};
 
 impl PostgresPetRepository {
@@ -66,7 +66,7 @@ impl PostgresPetRepository {
         .bind(input.actor_user_id)
         .fetch_one(&mut *transaction)
         .await
-        .map_err(to_infrastructure_error)?;
+        .map_err(to_pet_event_write_error)?;
 
         transaction
             .commit()

@@ -185,6 +185,7 @@ impl PetService {
         {
             return Err(PetError::PetNotFound);
         }
+        validate_quick_fact_payload(&input)?;
         self.enrich_feeding_event_payload(&mut input).await?;
 
         if input.event_subkind.as_deref() == Some("abnormal_symptom")
@@ -478,6 +479,32 @@ impl PetService {
     ) -> PetResult<PetIdentityContext> {
         diet::load_identity_context(&self.repository, user_id, pet_id).await
     }
+}
+
+fn validate_quick_fact_payload(input: &NewPetEvent) -> PetResult<()> {
+    if input.event_subkind.as_deref() != Some("quick_fact") {
+        return Ok(());
+    }
+
+    let quick_fact_kind = input
+        .event_payload
+        .get("quick_fact_kind")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| PetError::InvalidInput("快捷状态缺少类型".to_owned()))?;
+
+    match quick_fact_kind {
+        "poop_normal" | "energy_normal" | "appetite_normal" => {}
+        _ => return Err(PetError::InvalidInput("快捷状态类型无效".to_owned())),
+    }
+
+    let submission_id = input
+        .event_payload
+        .get("quick_fact_submission_id")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| PetError::InvalidInput("快捷状态缺少提交标识".to_owned()))?;
+    Uuid::parse_str(submission_id)
+        .map(|_| ())
+        .map_err(|_| PetError::InvalidInput("快捷状态提交标识无效".to_owned()))
 }
 
 /// merged_timeline_entries 合并宠物事件与生命周期事实

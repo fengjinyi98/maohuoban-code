@@ -38,3 +38,14 @@ pub(super) fn sanitized_file_name(file_name: &str) -> String {
 pub(super) fn to_infrastructure_error(error: sqlx::Error) -> PetError {
     PetError::Infrastructure(error.to_string())
 }
+
+pub(super) fn to_pet_event_write_error(error: sqlx::Error) -> PetError {
+    match &error {
+        sqlx::Error::Database(database_error)
+            if database_error.constraint() == Some("uq_pet_events_quick_fact_submission") =>
+        {
+            PetError::QuickFactDuplicate
+        }
+        _ => to_infrastructure_error(error),
+    }
+}

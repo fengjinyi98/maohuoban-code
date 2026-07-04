@@ -41,8 +41,11 @@ enum HomeQuickFactAction: String, CaseIterable, Equatable, Identifiable, Sendabl
         "home.quickFact.\(rawValue)"
     }
 
-    func eventDraft(occurredAt: Date) -> PetEventDraft? {
-        guard let summary = directEventSummary else { return nil }
+    func eventDraft(occurredAt: Date, submissionID: UUID) -> PetEventDraft? {
+        guard let summary = directEventSummary,
+              let quickFactKind else {
+            return nil
+        }
 
         return PetEventDraft(
             kind: .daily,
@@ -50,27 +53,39 @@ enum HomeQuickFactAction: String, CaseIterable, Equatable, Identifiable, Sendabl
             title: eventTitle,
             summary: summary,
             visibility: .private,
-            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt)
+            occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt),
+            eventPayload: [
+                "quick_fact_kind": .string(quickFactKind),
+                "quick_fact_submission_id": .string(submissionID.uuidString)
+            ]
         )
     }
 
     private var eventTitle: String {
         switch self {
-        case .fed: "已喂"
         case .poopNormal: "便便正常"
         case .energyNormal: "精神不错"
         case .appetiteNormal: "食欲正常"
-        case .abnormal: "异常"
+        case .fed, .abnormal: ""
         }
     }
 
     private var directEventSummary: String? {
         switch self {
-        case .fed: "完成喂食"
+        case .fed: nil
         case .poopNormal: "粪便状态：健康成型"
         case .energyNormal: "精神与活力：正常平稳"
         case .appetiteNormal: "食欲正常"
         case .abnormal: nil
+        }
+    }
+
+    private var quickFactKind: String? {
+        switch self {
+        case .poopNormal: "poop_normal"
+        case .energyNormal: "energy_normal"
+        case .appetiteNormal: "appetite_normal"
+        case .fed, .abnormal: nil
         }
     }
 }

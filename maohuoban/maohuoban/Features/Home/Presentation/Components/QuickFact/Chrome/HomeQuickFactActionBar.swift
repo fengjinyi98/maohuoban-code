@@ -94,8 +94,9 @@ struct HomeQuickFactActionBar: View {
             return
         }
 
+        let submissionID = UUID()
         guard submittingAction == nil,
-              let draft = action.eventDraft(occurredAt: Date()) else {
+              let draft = action.eventDraft(occurredAt: Date(), submissionID: submissionID) else {
             return
         }
 
