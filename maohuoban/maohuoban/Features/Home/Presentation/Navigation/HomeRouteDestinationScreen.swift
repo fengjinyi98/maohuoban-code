@@ -205,11 +205,6 @@ struct HomeRouteDestinationScreen: View {
                         return HomeRoute.pantryItemDetail(context: context, itemID: itemID)
                     case .categoryDetail(let category):
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
-                    case .feedingRecordDetail(let recordID, let recordContext):
-                        return HomeRoute.petRecordDetail(.feeding(
-                            recordID: recordID,
-                            context: recordContext
-                        ))
                     }
                 },
                 onOpenRoute: onRouteRequested
@@ -230,11 +225,6 @@ struct HomeRouteDestinationScreen: View {
                     case .categoryDetail:
                         // 该页面内不产生新的分类跳转，保持当前分类上下文。
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
-                    case .feedingRecordDetail(let recordID, let recordContext):
-                        return HomeRoute.petRecordDetail(.feeding(
-                            recordID: recordID,
-                            context: recordContext
-                        ))
                     }
                 },
                 onOpenRoute: onRouteRequested
@@ -254,12 +244,10 @@ struct HomeRouteDestinationScreen: View {
                         return HomeRoute.pantryItemDetail(context: context, itemID: itemID)
                     case .categoryDetail(let category):
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
-                    case .feedingRecordDetail(let recordID, let recordContext):
-                        return HomeRoute.petRecordDetail(.feeding(
-                            recordID: recordID,
-                            context: recordContext
-                        ))
                     }
+                },
+                onOpenRecordDetail: { detailRoute in
+                    onRouteRequested(.petRecordDetail(detailRoute))
                 },
                 onOpenRoute: onRouteRequested
             )

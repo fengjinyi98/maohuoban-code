@@ -7,6 +7,58 @@ import XCTest
 // - 验证储物柜资产加载后可映射为喂食选项
 @MainActor
 final class PetFoodInventoryStoreTests: XCTestCase {
+    func testItemDetailStoreReusesLoadedDetailForSameItem() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "当前主粮", status: .inUse)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryItemDetailStore(repository: repository)
+
+        await store.load(itemID: "food-a", currentUserID: "user-1")
+        await store.load(itemID: "food-a", currentUserID: "user-1")
+
+        XCTAssertEqual(repository.loadedItemDetailIDs, ["food-a"])
+        guard case .loaded(let detail) = store.phase else {
+            XCTFail("Expected loaded detail")
+            return
+        }
+        XCTAssertEqual(detail.item.id, "food-a")
+    }
+
+    func testItemDetailStoreForceReloadKeepsLoadedContentDuringRefresh() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "当前主粮", status: .inUse)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryItemDetailStore(repository: repository)
+
+        await store.load(itemID: "food-a", currentUserID: "user-1")
+        await store.load(itemID: "food-a", currentUserID: "user-1", force: true)
+
+        XCTAssertEqual(repository.loadedItemDetailIDs, ["food-a", "food-a"])
+        guard case .loaded(let detail) = store.phase else {
+            XCTFail("Expected loaded detail")
+            return
+        }
+        XCTAssertEqual(detail.item.id, "food-a")
+    }
+
     func testLoadItemsMarksCurrentStapleAsDefaultFeedingOption() async {
         let repository = StubPetFoodInventoryRepository(
             items: [
@@ -305,6 +357,7 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         private(set) var createdDraft: FoodInventoryDraft?
         private(set) var updatedDraft: FoodInventoryDraft?
         private(set) var deletedItemID: String?
+        private(set) var loadedItemDetailIDs: [String] = []
 
         init(
             items: [FoodInventoryItem],
@@ -324,7 +377,8 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             itemID: String,
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItemDetail {
-            FoodInventoryItemDetail(
+            loadedItemDetailIDs.append(itemID)
+            return FoodInventoryItemDetail(
                 item: items[0],
                 linkedPets: [],
                 feedingTimeline: [],

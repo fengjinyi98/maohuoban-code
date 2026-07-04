@@ -103,7 +103,7 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
-    func testPetPantryFeedingRecordRouteCarriesRowPetContext() {
+    func testFeedingRecordDetailRouteCarriesRowPetContext() {
         let context = PetRecordEntryContext(
             petID: "pet-row",
             petName: "布丁",
@@ -111,13 +111,13 @@ final class HomeRouteTests: XCTestCase {
             petSpecies: .cat,
             petSex: .male
         )
-        let route = PetPantryRoute.feedingRecordDetail(
+        let route = PetRecordDetailRoute.feeding(
             recordID: "feeding-1",
             context: context
         )
 
-        guard case .feedingRecordDetail(let recordID, let routeContext) = route else {
-            XCTFail("Expected pantry feeding record detail route")
+        guard case .feeding(let recordID, let routeContext) = route else {
+            XCTFail("Expected feeding record detail route")
             return
         }
 

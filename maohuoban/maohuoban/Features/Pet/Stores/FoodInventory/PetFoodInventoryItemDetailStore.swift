@@ -26,12 +26,26 @@ final class PetFoodInventoryItemDetailStore {
         self.repository = repository
     }
 
-    func load(itemID: String, currentUserID: String?) async {
+    func load(itemID: String, currentUserID: String?, force: Bool = false) async {
         guard let currentUserID else {
             phase = .failed("缺少当前用户信息")
             return
         }
-        phase = .loading
+
+        if !force, case .loaded(let detail) = phase, detail.item.id == itemID {
+            return
+        }
+
+        let shouldShowLoading: Bool
+        if case .loaded(let detail) = phase, detail.item.id == itemID {
+            shouldShowLoading = false
+        } else {
+            shouldShowLoading = true
+        }
+
+        if shouldShowLoading {
+            phase = .loading
+        }
         errorMessage = nil
         do {
             let detail = try await repository.loadFoodInventoryItemDetail(
@@ -40,7 +54,10 @@ final class PetFoodInventoryItemDetailStore {
             )
             phase = .loaded(detail)
         } catch {
-            phase = .failed(error.localizedDescription)
+            errorMessage = error.localizedDescription
+            if shouldShowLoading {
+                phase = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -62,7 +79,7 @@ final class PetFoodInventoryItemDetailStore {
                 currentUserID: currentUserID
             )
             PetFoodInventoryMutationSignal.post()
-            await load(itemID: itemID, currentUserID: currentUserID)
+            await load(itemID: itemID, currentUserID: currentUserID, force: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -86,7 +103,7 @@ final class PetFoodInventoryItemDetailStore {
                 currentUserID: currentUserID
             )
             PetFoodInventoryMutationSignal.post()
-            await load(itemID: itemID, currentUserID: currentUserID)
+            await load(itemID: itemID, currentUserID: currentUserID, force: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -110,7 +127,7 @@ final class PetFoodInventoryItemDetailStore {
                 currentUserID: currentUserID
             )
             PetFoodInventoryMutationSignal.post()
-            await load(itemID: foodItemID, currentUserID: currentUserID)
+            await load(itemID: foodItemID, currentUserID: currentUserID, force: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -136,7 +153,7 @@ final class PetFoodInventoryItemDetailStore {
                 currentUserID: currentUserID
             )
             PetFoodInventoryMutationSignal.post()
-            await load(itemID: foodItemID, currentUserID: currentUserID)
+            await load(itemID: foodItemID, currentUserID: currentUserID, force: true)
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -8,5 +8,4 @@ enum PetPantryRoute: Hashable {
     case editItem(PantryItem)
     case itemDetail(itemID: String)
     case categoryDetail(PantryCategory)
-    case feedingRecordDetail(recordID: String, context: PetRecordEntryContext)
 }

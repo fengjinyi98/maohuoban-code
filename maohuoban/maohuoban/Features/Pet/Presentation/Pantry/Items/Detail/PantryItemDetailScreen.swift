@@ -12,6 +12,7 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
     let context: PetPantryEntryContext
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
+    var onOpenRecordDetail: (PetRecordDetailRoute) -> Void = { _ in }
     var onOpenRoute: (Route) -> Void = { _ in }
 
     @State private var store = PetFoodInventoryItemDetailStore()
@@ -31,10 +32,7 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
                         petSpecies: entry.petSpecies,
                         petSex: entry.petSex
                     )
-                    onOpenRoute(onNavigate(.feedingRecordDetail(
-                        recordID: entry.eventID,
-                        context: recordContext
-                    )))
+                    onOpenRecordDetail(.feeding(recordID: entry.eventID, context: recordContext))
                 }
             )
                 .padding(.horizontal, MHBTheme.Spacing.s5)
