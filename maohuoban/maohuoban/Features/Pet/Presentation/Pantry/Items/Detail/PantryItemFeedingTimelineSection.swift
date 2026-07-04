@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 布局参考首页时间线的纵向记录样式
 struct PantryItemFeedingTimelineSection: View {
     let entries: [FoodInventoryFeedingTimelineEntry]
+    let onOpenEntry: (FoodInventoryFeedingTimelineEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -20,9 +21,16 @@ struct PantryItemFeedingTimelineSection: View {
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: MHBTheme.Spacing.s3) {
-                    ForEach(entries) { entry in
-                        PantryItemFeedingTimelineRow(entry: entry)
+                VStack(spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                        PantryItemFeedingTimelineRow(
+                            entry: entry,
+                            isFirst: index == 0,
+                            isLast: index == entries.count - 1,
+                            onOpen: {
+                                onOpenEntry(entry)
+                            }
+                        )
                     }
                 }
             }

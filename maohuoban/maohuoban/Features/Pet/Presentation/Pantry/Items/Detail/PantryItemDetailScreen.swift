@@ -21,7 +21,19 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
 
     var body: some View {
         MHBScreenScrollView {
-            PantryItemDetailPhaseView(phase: store.phase)
+            PantryItemDetailPhaseView(
+                phase: store.phase,
+                onOpenFeedingRecord: { entry in
+                    let recordContext = PetRecordEntryContext(
+                        petID: entry.petID,
+                        petName: entry.petName
+                    )
+                    onOpenRoute(onNavigate(.feedingRecordDetail(
+                        recordID: entry.eventID,
+                        context: recordContext
+                    )))
+                }
+            )
                 .padding(.horizontal, MHBTheme.Spacing.s5)
                 .padding(.top, MHBTheme.Spacing.s5)
                 .padding(.bottom, MHBTheme.Spacing.s8)

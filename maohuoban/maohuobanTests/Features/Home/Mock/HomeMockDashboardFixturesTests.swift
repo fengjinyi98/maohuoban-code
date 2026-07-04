@@ -226,13 +226,28 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                     category: "main_food",
                     title: "主粮",
                     score: 2.0,
-                    percentage: 80
+                    percentage: 80,
+                    baselineScore: 1.8,
+                    baselineSampleDays: 18,
+                    currentRatio: 1.1,
+                    emaScore: 1.9
                 )
             ],
             confidence: PetDietTrendConfidence(
                 level: "medium",
                 score: 0.62,
                 basis: ["近 30 天有可分析喂食记录"]
+            ),
+            healthContext: PetDietTrendHealthContext(
+                includedSampleCount: 18,
+                excludedSampleCount: 0,
+                excludedReasons: []
+            ),
+            calibration: PetDietTrendCalibration(
+                confidence: "low",
+                gramsPerScore: nil,
+                dailyGrams: nil,
+                reason: "还没有形成可验证的库存消耗闭环，当前只输出相对趋势。"
             ),
             explanation: PetDietTrendExplanation(
                 title: "饮食趋势是怎么生成的",

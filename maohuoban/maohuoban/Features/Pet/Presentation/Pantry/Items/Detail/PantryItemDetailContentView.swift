@@ -7,13 +7,17 @@ import MaohuobanDesignSystem
 // - 仅渲染后端详情读模型
 struct PantryItemDetailContentView: View {
     let detail: FoodInventoryItemDetail
+    let onOpenFeedingRecord: (FoodInventoryFeedingTimelineEntry) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
             PantryItemDetailHeader(item: detail.item)
             PantryItemConsumptionSummarySection(summary: detail.consumptionSummary)
             PantryItemLinkedPetsSection(linkedPets: detail.linkedPets)
-            PantryItemFeedingTimelineSection(entries: detail.feedingTimeline)
+            PantryItemFeedingTimelineSection(
+                entries: detail.feedingTimeline,
+                onOpenEntry: onOpenFeedingRecord
+            )
         }
     }
 }

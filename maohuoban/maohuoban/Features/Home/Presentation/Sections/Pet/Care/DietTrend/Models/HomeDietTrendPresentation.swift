@@ -30,6 +30,8 @@ struct HomeDietTrendPresentation {
         switch status {
         case "observing":
             return "趋势观察中"
+        case "collecting_baseline":
+            return "正在建立基线"
         case "collecting":
             return "样本积累中"
         case "insufficient_data":

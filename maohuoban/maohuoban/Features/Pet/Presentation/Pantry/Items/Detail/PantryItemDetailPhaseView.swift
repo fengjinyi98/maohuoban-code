@@ -6,6 +6,7 @@ import SwiftUI
 // - 保持主屏只负责状态分发
 struct PantryItemDetailPhaseView: View {
     let phase: PetFoodInventoryItemDetailStore.Phase
+    let onOpenFeedingRecord: (FoodInventoryFeedingTimelineEntry) -> Void
 
     var body: some View {
         switch phase {
@@ -16,7 +17,10 @@ struct PantryItemDetailPhaseView: View {
         case .deleted:
             PantryItemDetailErrorView(message: "物品已移出储物柜")
         case .loaded(let detail):
-            PantryItemDetailContentView(detail: detail)
+            PantryItemDetailContentView(
+                detail: detail,
+                onOpenFeedingRecord: onOpenFeedingRecord
+            )
         }
     }
 }

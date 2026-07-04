@@ -103,6 +103,27 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
+    func testPetPantryFeedingRecordRouteCarriesRowPetContext() {
+        let context = PetRecordEntryContext(
+            petID: "pet-row",
+            petName: "布丁"
+        )
+        let route = PetPantryRoute.feedingRecordDetail(
+            recordID: "feeding-1",
+            context: context
+        )
+
+        guard case .feedingRecordDetail(let recordID, let routeContext) = route else {
+            XCTFail("Expected pantry feeding record detail route")
+            return
+        }
+
+        XCTAssertEqual(recordID, "feeding-1")
+        XCTAssertEqual(routeContext.petID, "pet-row")
+        XCTAssertEqual(routeContext.petName, "布丁")
+    }
+
+    @MainActor
     func testHealthReminderRoutesToTimelineEventDetail() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "event-1",
