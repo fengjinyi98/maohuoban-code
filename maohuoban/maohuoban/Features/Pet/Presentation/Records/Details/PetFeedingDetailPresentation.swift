@@ -91,7 +91,7 @@ struct PetFeedingDetailPresentation {
         return Food(
             name: title,
             subtitle: subtitle,
-            imageURLString: nil,
+            imageURLString: snapshot?.coverURL,
             systemImage: foodRoleSystemImage(payload?.foodRole)
         )
     }

@@ -45,7 +45,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
             brand: item.brand,
             category: item.category.rawValue,
             spec: item.spec,
-            imageURL: nil,
+            imageURL: item.coverURL,
             isDefault: isDefault
         )
     }
@@ -95,6 +95,9 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
         }
         if let spec, !spec.isEmpty {
             snapshot["spec"] = spec
+        }
+        if let imageURL, !imageURL.isEmpty {
+            snapshot["cover_url"] = imageURL
         }
         guard let data = try? JSONSerialization.data(withJSONObject: snapshot),
               let json = String(data: data, encoding: .utf8)

@@ -233,14 +233,8 @@ private struct HomeTimelineRow: View {
     @ViewBuilder
     private var rightDecorationView: some View {
         switch event.timelineSemantic {
-        case .birth, .homecoming:
+        case .birth, .homecoming, .feeding:
             EmptyView()
-        case .feeding:
-            Image("HomePetFoodBowl")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 72, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         case .weight:
             MHBTagView(
                 "+0.2 kg",

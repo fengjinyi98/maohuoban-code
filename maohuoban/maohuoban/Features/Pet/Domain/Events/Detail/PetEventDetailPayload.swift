@@ -25,13 +25,24 @@ struct PetEventDetailPayload: Decodable, Equatable {
 
     // FoodSnapshot 喂食食品快照
     // 核心职责：
-    // - 保留喂食发生时的食品名称、品牌、分类和规格
+    // - 保留喂食发生时的食品名称、品牌、分类、规格和封面
     // - 避免详情页依赖后续可能变化的储物柜物品状态
     struct FoodSnapshot: Decodable, Equatable {
         let name: String
         let brand: String?
         let category: String?
         let spec: String?
+        let coverAssetID: String?
+        let coverURL: String?
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case brand
+            case category
+            case spec
+            case coverAssetID = "cover_asset_id"
+            case coverURL = "cover_url"
+        }
     }
 
     enum CodingKeys: String, CodingKey {

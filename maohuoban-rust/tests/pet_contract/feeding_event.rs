@@ -187,6 +187,85 @@ async fn feeding_event_uses_inventory_snapshot_for_food_reference() {
 }
 
 #[tokio::test]
+async fn feeding_event_snapshot_includes_inventory_cover_and_marks_sealed_item_in_use() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139037").await;
+
+    let pet_id = create_pet(&app, &user_id).await;
+    let cover_asset_id = upload_food_inventory_cover(&app, &user_id).await;
+    let food_item_id =
+        create_food_inventory_item_with_status_and_cover(&app, &user_id, "sealed", &cover_asset_id)
+            .await;
+
+    let event_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "daily",
+                "event_subkind": "feeding",
+                "title": "已喂",
+                "summary": "喂食：主粮：渴望六种鱼，份量：正常",
+                "visibility": "private",
+                "occurred_at": "2026-06-25T08:30:00Z",
+                "event_payload": {
+                    "food_item_id": food_item_id,
+                    "food_role": "main_food",
+                    "amount_text": "正常",
+                    "food_snapshot": {
+                        "name": "客户端名称",
+                        "brand": "Client",
+                        "category": "other",
+                        "spec": "1g",
+                        "cover_asset_id": null,
+                        "cover_url": null
+                    },
+                    "is_default_food": false,
+                    "note": null,
+                    "attachment_asset_ids": []
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create feeding event with sealed covered item");
+    assert_eq!(event_response.status(), StatusCode::CREATED);
+
+    let context_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/diet-context"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load diet context");
+    assert_eq!(context_response.status(), StatusCode::OK);
+    let context_body = response_json(context_response).await;
+    let feeding = &context_body["data"]["recent_feeding_events"][0];
+    assert_eq!(feeding["food_snapshot"]["cover_asset_id"], cover_asset_id);
+    assert_eq!(
+        feeding["food_snapshot"]["cover_url"],
+        format!("/api/v1/media/assets/{cover_asset_id}/content")
+    );
+
+    let item_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/food-inventory/items/{food_item_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("get food item after feeding");
+    assert_eq!(item_response.status(), StatusCode::OK);
+    let item_body = response_json(item_response).await;
+    assert_eq!(item_body["data"]["inventory_status"], "in_use");
+}
+
+#[tokio::test]
 async fn diet_confirmation_candidates_return_unbound_inventory_changes_as_pending() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -438,5 +517,58 @@ async fn create_food_inventory_item(
     body["data"]["id"]
         .as_str()
         .expect("food item id")
+        .to_owned()
+}
+
+async fn create_food_inventory_item_with_status_and_cover(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    inventory_status: &str,
+    cover_asset_id: &str,
+) -> String {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/food-inventory/items",
+            json!({
+                "name": "渴望六种鱼",
+                "brand": "Orijen",
+                "category": "main_food",
+                "inventory_status": inventory_status,
+                "quantity": 1,
+                "unit": "袋",
+                "spec": "5.4kg",
+                "cover_asset_id": cover_asset_id
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create food inventory item with status and cover");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    body["data"]["id"]
+        .as_str()
+        .expect("food item id")
+        .to_owned()
+}
+
+async fn upload_food_inventory_cover(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+) -> String {
+    let upload_body = upload_pending_media(
+        app,
+        "/api/v1/food-inventory/media",
+        "pantry-cover.png",
+        "image/png",
+        &tiny_png(),
+        user_id,
+    )
+    .await;
+    assert_eq!(upload_body["code"], "food_inventory.media_uploaded");
+    upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("cover asset id")
         .to_owned()
 }

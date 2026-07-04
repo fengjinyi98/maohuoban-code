@@ -1,6 +1,6 @@
 use maohuoban_pet_domain::pet::{
     FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, PetError,
-    PetResult,
+    PetEvent, PetResult,
 };
 use uuid::Uuid;
 
@@ -87,8 +87,8 @@ impl PetService {
 
     /// enrich_feeding_event_payload 喂食事件载荷增强
     /// 核心职责：
-    /// - 为 feeding 事件自动注入 food_snapshot
-    /// - 让时间线展示时携带食品快照
+    /// - 为 feeding 事件自动注入带封面的 food_snapshot
+    /// - 让详情页和饮食上下文消费同一份事件快照
     pub(super) async fn enrich_feeding_event_payload(
         &self,
         input: &mut NewPetEvent,
@@ -119,9 +119,46 @@ impl PetService {
                 "name": food_item.name,
                 "brand": food_item.brand,
                 "category": food_item.category.as_str(),
-                "spec": food_item.spec
+                "spec": food_item.spec,
+                "cover_asset_id": food_item.cover_asset_id,
+                "cover_url": food_item.cover_url
             }),
         );
+        Ok(())
+    }
+
+    /// mark_feeding_food_item_in_use 喂食后食品状态流转
+    /// 核心职责：
+    /// - 仅在 feeding 事件成功写入后处理库存状态
+    /// - 将未拆封食品切换为喂食中，保持事件账本与储物柜状态一致
+    pub(super) async fn mark_feeding_food_item_in_use(&self, event: &PetEvent) -> PetResult<()> {
+        if event.event_subkind.as_deref() != Some("feeding") {
+            return Ok(());
+        }
+        let Some(food_item_id) = event
+            .event_payload
+            .get("food_item_id")
+            .and_then(|value| value.as_str())
+            .and_then(|value| Uuid::parse_str(value).ok())
+        else {
+            return Ok(());
+        };
+        let Some(food_item) = self.food_inventory.find_item(food_item_id).await? else {
+            return Ok(());
+        };
+        if food_item.inventory_status != FoodInventoryStatus::Sealed {
+            return Ok(());
+        }
+        let Some(editor_user_id) = event.actor_user_id else {
+            return Ok(());
+        };
+        self.update_food_inventory_item(UpdateFoodInventoryItem {
+            item_id: food_item_id,
+            editor_user_id,
+            inventory_status: Some(FoodInventoryStatus::InUse),
+            ..UpdateFoodInventoryItem::default()
+        })
+        .await?;
         Ok(())
     }
 }

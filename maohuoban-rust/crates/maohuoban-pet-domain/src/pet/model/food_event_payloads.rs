@@ -18,7 +18,7 @@ pub struct FeedingPayload {
 
 /// FoodSnapshot 喂食时的食品快照
 /// 核心职责：
-/// - 保留喂食时刻的食品名称、品牌、分类和规格
+/// - 保留喂食时刻的食品名称、品牌、分类、规格和封面
 /// - 不受后续食品资产编辑影响
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FoodSnapshot {
@@ -26,6 +26,8 @@ pub struct FoodSnapshot {
     pub brand: Option<String>,
     pub category: String,
     pub spec: Option<String>,
+    pub cover_asset_id: Option<Uuid>,
+    pub cover_url: Option<String>,
 }
 
 /// DietChangePayload 饮食配置变更事件载荷
@@ -87,6 +89,8 @@ mod tests {
                 brand: Some("Orijen".to_string()),
                 category: "main_food".to_string(),
                 spec: Some("5.4kg".to_string()),
+                cover_asset_id: None,
+                cover_url: None,
             }),
             is_default_food: true,
             note: Some("换新粮了".to_string()),
@@ -106,6 +110,8 @@ mod tests {
             brand: Some("原始品牌".to_string()),
             category: "main_food".to_string(),
             spec: Some("5.4kg".to_string()),
+            cover_asset_id: None,
+            cover_url: None,
         };
         let json = serde_json::to_string(&snapshot).expect("serialize");
         assert!(json.contains("原始名称"));
