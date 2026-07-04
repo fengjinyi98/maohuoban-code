@@ -83,6 +83,104 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1)
     }
 
+    func testCreateItemWithCoverUploadUsesUploadedAssetID() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "带照片主粮", status: .sealed)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryStore(repository: repository)
+        var draft = FoodInventoryDraft()
+        draft.name = "带照片主粮"
+
+        _ = await store.createItem(
+            draft: draft,
+            coverUploadDraft: PetMediaUploadDraft(
+                fileName: "pantry-cover.jpg",
+                mimeType: "image/jpeg",
+                content: Data([1, 2, 3]),
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(repository.uploadedCoverDraft?.fileName, "pantry-cover.jpg")
+        XCTAssertEqual(repository.createdDraft?.coverAssetID, "asset-cover-1")
+    }
+
+    func testUpdateItemWithCoverUploadUsesUploadedAssetID() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "替换照片主粮", status: .sealed)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryStore(repository: repository)
+        var draft = FoodInventoryDraft()
+        draft.name = "替换照片主粮"
+
+        _ = await store.updateItem(
+            itemID: "food-a",
+            draft: draft,
+            coverUploadDraft: PetMediaUploadDraft(
+                fileName: "pantry-cover-new.jpg",
+                mimeType: "image/jpeg",
+                content: Data([4, 5, 6]),
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(repository.uploadedCoverDraft?.fileName, "pantry-cover-new.jpg")
+        XCTAssertEqual(repository.updatedDraft?.coverAssetID, "asset-cover-1")
+    }
+
+    func testDeleteItemRemovesLocalItemAndPostsMutationSignal() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "待移出主粮", status: .sealed)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryStore(repository: repository)
+        store.items = repository.items
+        let expectation = expectation(description: "food inventory mutation signal")
+        let token = NotificationCenter.default.addObserver(
+            forName: PetFoodInventoryMutationSignal.notificationName,
+            object: nil,
+            queue: nil
+        ) { _ in
+            expectation.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        let deleted = await store.deleteItem(itemID: "food-a", currentUserID: "user-1")
+
+        await fulfillment(of: [expectation], timeout: 1)
+        XCTAssertTrue(deleted)
+        XCTAssertEqual(repository.deletedItemID, "food-a")
+        XCTAssertTrue(store.items.isEmpty)
+    }
+
     func testSetCurrentStapleUpdatesDefaultFeedingOption() async {
         let repository = StubPetFoodInventoryRepository(
             items: [
@@ -184,6 +282,10 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         private(set) var setFoodAssignmentPetID: String?
         private(set) var setFoodAssignmentFoodItemID: String?
         private(set) var setFoodAssignmentRole: PetDietAssignmentRole?
+        private(set) var uploadedCoverDraft: PetMediaUploadDraft?
+        private(set) var createdDraft: FoodInventoryDraft?
+        private(set) var updatedDraft: FoodInventoryDraft?
+        private(set) var deletedItemID: String?
 
         init(items: [FoodInventoryItem], dietContext: PetCurrentDietContext) {
             self.items = items
@@ -208,7 +310,45 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             draft: FoodInventoryDraft,
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItem {
-            items[0]
+            createdDraft = draft
+            return items[0]
+        }
+
+        func uploadFoodInventoryCover(
+            draft: PetMediaUploadDraft,
+            currentUserID: String,
+            onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+        ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+            uploadedCoverDraft = draft
+            return MHBAPIResponse(
+                success: true,
+                code: "food_inventory.media_uploaded",
+                message: "储物柜物品照片已上传",
+                data: PetMediaUploadResult(
+                    asset: PetMediaAsset(
+                        id: "asset-cover-1",
+                        url: "/api/v1/media/assets/asset-cover-1/content",
+                        uploadedByUserID: currentUserID,
+                        ownerPetID: nil,
+                        usageKind: .foodInventoryCover,
+                        sourceClient: "ios",
+                        originalFileName: draft.fileName,
+                        mimeType: draft.mimeType,
+                        byteSize: draft.content.count,
+                        sha256Hex: "sha-cover",
+                        bucket: "maohuoban-pet-media",
+                        objectKey: "media/users/user-1/asset-cover-1/original.jpg",
+                        status: .uploaded,
+                        width: 1200,
+                        height: 900,
+                        createdAt: "2026-07-04T08:00:00Z",
+                        updatedAt: "2026-07-04T08:00:00Z"
+                    ),
+                    binding: nil,
+                    derivatives: [],
+                    components: []
+                )
+            )
         }
 
         func updateFoodInventoryItem(
@@ -216,7 +356,8 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             draft: FoodInventoryDraft,
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItem {
-            items[0]
+            updatedDraft = draft
+            return items[0]
         }
 
         func updateFoodInventoryStatus(
@@ -227,11 +368,12 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             items[0]
         }
 
-        func archiveFoodInventoryItem(
+        func deleteFoodInventoryItem(
             itemID: String,
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItem {
-            items[0]
+            deletedItemID = itemID
+            return items[0]
         }
 
         func restockFoodInventoryItem(

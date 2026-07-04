@@ -33,7 +33,7 @@ struct PantryCategoryCover: View {
                     .offset(y: -MHBTheme.Spacing.s3 / 2)
 
                 Group {
-                    if let imageURL = imageURL, let url = URL(string: imageURL) {
+                    if let imageURL, let url = PantryMediaURLResolver.resolve(imageURL) {
                         AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let image):

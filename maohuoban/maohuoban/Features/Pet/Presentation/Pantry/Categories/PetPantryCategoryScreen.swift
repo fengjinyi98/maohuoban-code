@@ -10,13 +10,27 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
     let category: PantryCategory
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
+    var onOpenRoute: (Route) -> Void = { _ in }
 
     @State private var store = PetFoodInventoryStore()
     @State private var selectedItem: PantryItem?
-    @State private var editingItem: PantryItem?
 
     var filteredItems: [PantryItem] {
         store.pantryItems.filter { $0.category == category }
+    }
+
+    init(
+        context: PetPantryEntryContext,
+        category: PantryCategory,
+        currentUserID: String?,
+        onNavigate: @escaping (PetPantryRoute) -> Route,
+        onOpenRoute: @escaping (Route) -> Void = { _ in }
+    ) {
+        self.context = context
+        self.category = category
+        self.currentUserID = currentUserID
+        self.onNavigate = onNavigate
+        self.onOpenRoute = onOpenRoute
     }
 
     var body: some View {
@@ -29,24 +43,6 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                         galleryGrid
                             .padding(.horizontal, MHBTheme.Spacing.s5)
                             .padding(.top, MHBTheme.Spacing.s4)
-
-                        if !store.archivedPantryItems(for: category).isEmpty {
-                            PetPantryArchivedRestoreSection(
-                                items: store.archivedPantryItems(for: category),
-                                restoreTitle: "恢复到未拆封",
-                                onRestore: { itemID in
-                                    guard let currentUserID else { return }
-                                    Task {
-                                        _ = await store.restoreItem(
-                                            itemID: itemID,
-                                            status: .sealed,
-                                            currentUserID: currentUserID
-                                        )
-                                    }
-                                }
-                            )
-                            .padding(.horizontal, MHBTheme.Spacing.s5)
-                        }
 
                         Spacer(minLength: MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                     }
@@ -90,21 +86,6 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                 }
             }
         }
-        .sheet(item: $editingItem) { item in
-            EditPantryItemScreen(
-                item: item,
-                currentUserID: currentUserID,
-                onSaved: {
-                    guard let currentUserID else { return }
-                    Task {
-                        await store.loadItems(
-                            currentUserID: currentUserID,
-                            contextPetID: context.sourcePetID
-                        )
-                    }
-                }
-            )
-        }
     }
 
     private var galleryGrid: some View {
@@ -140,13 +121,16 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                     }
                 },
                 onEdit: { item in
-                    editingItem = item
                     selectedItem = nil
+                    Task { @MainActor in
+                        await Task.yield()
+                        onOpenRoute(onNavigate(.editItem(item)))
+                    }
                 },
-                onArchive: { itemID in
+                onDelete: { itemID in
                     guard let currentUserID else { return }
                     Task {
-                        _ = await store.archiveItem(itemID: itemID, currentUserID: currentUserID)
+                        _ = await store.deleteItem(itemID: itemID, currentUserID: currentUserID)
                         selectedItem = nil
                     }
                 },

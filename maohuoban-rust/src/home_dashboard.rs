@@ -3,7 +3,10 @@ mod merchant_summary;
 mod pet_summary;
 mod recommendation_summary;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::home_dashboard::{
     diagnostics::{
@@ -203,6 +206,10 @@ impl HybridHomeDashboardProvider {
             .await
             .map_err(|error| to_home_error(&error))?
             .into_iter()
+            .filter({
+                let mut seen_categories = HashSet::new();
+                move |item| seen_categories.insert(item.category.as_str())
+            })
             .take(4)
             .map(|item| pantry_preview_item(item, &diet_role_labels))
             .collect();
@@ -291,7 +298,8 @@ fn pantry_preview_item(
         id: item.id.to_string(),
         title: item.name,
         subtitle: pantry_category_title(item.category).to_owned(),
-        cover_image_asset_name: pantry_category_cover_asset_name(item.category).to_owned(),
+        category: item.category.as_str().to_owned(),
+        cover_url: item.cover_url,
         diet_role_label,
     }
 }
@@ -330,24 +338,12 @@ fn gallery_album_summary(
 
 fn pantry_category_title(category: FoodInventoryCategory) -> &'static str {
     match category {
-        FoodInventoryCategory::MainFood => "主粮",
+        FoodInventoryCategory::MainFood => "主食干粮",
         FoodInventoryCategory::WetFood => "湿粮/罐头",
-        FoodInventoryCategory::Treats => "零食",
-        FoodInventoryCategory::Nutrition => "营养品",
+        FoodInventoryCategory::Treats => "零食奖励",
+        FoodInventoryCategory::Nutrition => "营养保健",
         FoodInventoryCategory::Other => "其他",
         FoodInventoryCategory::CatLitter => "猫砂",
         FoodInventoryCategory::Medicine => "药品",
-    }
-}
-
-fn pantry_category_cover_asset_name(category: FoodInventoryCategory) -> &'static str {
-    match category {
-        FoodInventoryCategory::MainFood => "home-pantry-main-food",
-        FoodInventoryCategory::WetFood => "home-pantry-wet-food",
-        FoodInventoryCategory::Treats => "home-pantry-treats",
-        FoodInventoryCategory::Nutrition => "home-pantry-nutrition",
-        FoodInventoryCategory::Other => "home-pantry-other",
-        FoodInventoryCategory::CatLitter => "home-pantry-cat-litter",
-        FoodInventoryCategory::Medicine => "home-pantry-medicine",
     }
 }

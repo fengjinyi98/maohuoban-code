@@ -9,24 +9,30 @@ struct HomePantrySection: View {
     let items: [HomeDashboardSnapshot.PantryPreviewItem]
     let route: HomeRoute
     let addRoute: HomeRoute
+    let cardRoute: (HomeDashboardSnapshot.PantryPreviewItem) -> HomeRoute
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            // 头部 "储物柜 >"
-            NavigationLink(value: route) {
-                HStack(spacing: MHBTheme.Spacing.s1) {
-                    Text("储物柜")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.6))
+            HStack {
+                Text("储物柜")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Spacer()
+
+                NavigationLink(value: route) {
+                    HStack(spacing: 4) {
+                        Text("全部分类")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.pantry.header")
             }
-            .buttonStyle(.plain)
             .padding(.bottom, MHBTheme.Spacing.s1)
-            .accessibilityIdentifier("home.pantry.header")
 
             if items.isEmpty {
                 NavigationLink(value: addRoute) {
@@ -34,7 +40,7 @@ struct HomePantrySection: View {
                         Image(systemName: "archivebox")
                             .font(.system(size: 24))
                             .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        
+
                         Text("建立你的储物柜")
                             .font(MHBTheme.Typography.callout.weight(.medium))
                             .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
@@ -53,19 +59,19 @@ struct HomePantrySection: View {
                 .accessibilityIdentifier("home.pantry.emptyState")
             } else {
                 // 横滑列表 (支持全屏边缘滚动)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: MHBTheme.Spacing.s3) {
-                    ForEach(items) { item in
-                        NavigationLink(value: route) {
-                            HomePantryPreviewCard(item: item)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: MHBTheme.Spacing.s3) {
+                        ForEach(items) { item in
+                            NavigationLink(value: cardRoute(item)) {
+                                HomePantryPreviewCard(item: item)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("home.pantry.card.\(item.id)")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("home.pantry.card.\(item.id)")
                     }
+                    .padding(.horizontal, MHBTheme.Spacing.s4) // 与外层负 padding 抵消
                 }
-                .padding(.horizontal, MHBTheme.Spacing.s4) // 与外层负 padding 抵消
-            }
-            .padding(.horizontal, -MHBTheme.Spacing.s4) // 全屏幕边缘负 padding 扩展
+                .padding(.horizontal, -MHBTheme.Spacing.s4) // 全屏幕边缘负 padding 扩展
             }
         }
         .accessibilityElement(children: .contain)

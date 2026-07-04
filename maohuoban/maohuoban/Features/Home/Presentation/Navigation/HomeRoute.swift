@@ -30,6 +30,7 @@ enum HomeRoute: Hashable {
     case petPantry(PetPantryEntryContext)
     case pantryCategoryDetail(context: PetPantryEntryContext, category: PantryCategory)
     case addPantryItem
+    case editPantryItem(PantryItem)
 }
 
 extension HomeRoute {
@@ -57,6 +58,7 @@ extension HomeRoute {
         case .petPantry: "archivebox.fill"
         case .pantryCategoryDetail: "archivebox.fill"
         case .addPantryItem: "plus.circle.fill"
+        case .editPantryItem: "pencil.circle.fill"
         }
     }
 
@@ -86,6 +88,7 @@ extension HomeRoute {
         case .petPantry: "储物柜"
         case .pantryCategoryDetail(_, let category): .init(stringLiteral: category.displayName)
         case .addPantryItem: "添加物品"
+        case .editPantryItem: "编辑物品信息"
         }
     }
 
@@ -115,6 +118,7 @@ extension HomeRoute {
         case .petPantry: "进入用户储物柜"
         case .pantryCategoryDetail: "查看该分类下的物品"
         case .addPantryItem: "添加新物品到储物柜"
+        case .editPantryItem: "编辑储物柜物品信息"
         }
     }
 }

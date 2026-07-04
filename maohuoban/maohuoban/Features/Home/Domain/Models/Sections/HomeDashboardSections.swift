@@ -159,6 +159,7 @@ extension HomeDashboardSnapshot {
         let id: String
         let title: String
         let dateText: String
+        let photoCount: Int
         let coverImageAssetName: String
 
         enum CodingKeys: String, CodingKey {
@@ -174,11 +175,13 @@ extension HomeDashboardSnapshot {
             id: String,
             title: String,
             dateText: String,
+            photoCount: Int,
             coverImageAssetName: String
         ) {
             self.id = id
             self.title = title
             self.dateText = dateText
+            self.photoCount = photoCount
             self.coverImageAssetName = coverImageAssetName
         }
 
@@ -186,13 +189,23 @@ extension HomeDashboardSnapshot {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             id = try container.decode(String.self, forKey: .id)
             title = try container.decode(String.self, forKey: .title)
-            let photoCount = try container.decodeIfPresent(Int.self, forKey: .photoCount)
+            photoCount = try container.decode(Int.self, forKey: .photoCount)
             dateText = try container.decodeIfPresent(String.self, forKey: .dateText)
-                ?? photoCount.map { "\($0) 张照片" }
-                ?? "相册"
+                ?? "\(photoCount) 张照片"
             coverImageAssetName = try container.decodeIfPresent(String.self, forKey: .coverImageAssetName)
                 ?? container.decodeIfPresent(String.self, forKey: .coverURL)
                 ?? ""
+        }
+
+        func petAlbumSummary(petName: String = "全部宠物") -> PetAlbumSummary {
+            PetAlbumSummary(
+                id: id,
+                title: title,
+                petName: petName,
+                updatedText: dateText,
+                photoCount: photoCount,
+                coverImageAssetName: coverImageAssetName
+            )
         }
     }
 
@@ -204,20 +217,26 @@ extension HomeDashboardSnapshot {
         let id: String
         let title: String
         let subtitle: String
-        let coverImageAssetName: String
+        let category: FoodInventoryCategory
+        let coverURL: String?
         let dietRoleLabel: String?
+        var pantryCategory: PantryCategory {
+            PantryCategory(foodInventoryCategory: category)
+        }
 
         init(
             id: String,
             title: String,
             subtitle: String,
-            coverImageAssetName: String,
+            category: FoodInventoryCategory,
+            coverURL: String? = nil,
             dietRoleLabel: String? = nil
         ) {
             self.id = id
             self.title = title
             self.subtitle = subtitle
-            self.coverImageAssetName = coverImageAssetName
+            self.category = category
+            self.coverURL = coverURL
             self.dietRoleLabel = dietRoleLabel
         }
 
@@ -225,8 +244,19 @@ extension HomeDashboardSnapshot {
             case id
             case title
             case subtitle
-            case coverImageAssetName = "cover_image_asset_name"
+            case category
+            case coverURL = "cover_url"
             case dietRoleLabel = "diet_role_label"
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            title = try container.decode(String.self, forKey: .title)
+            subtitle = try container.decode(String.self, forKey: .subtitle)
+            category = try container.decode(FoodInventoryCategory.self, forKey: .category)
+            coverURL = try container.decodeIfPresent(String.self, forKey: .coverURL)
+            dietRoleLabel = try container.decodeIfPresent(String.self, forKey: .dietRoleLabel)
         }
     }
 }

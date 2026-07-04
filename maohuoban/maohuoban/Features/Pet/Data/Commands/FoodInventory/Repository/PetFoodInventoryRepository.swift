@@ -33,6 +33,12 @@ protocol PetFoodInventoryRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem
 
+    func uploadFoodInventoryCover(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
     func updateFoodInventoryItem(
         itemID: String,
         draft: FoodInventoryDraft,
@@ -45,14 +51,8 @@ protocol PetFoodInventoryRepository {
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem
 
-    func archiveFoodInventoryItem(
+    func deleteFoodInventoryItem(
         itemID: String,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryItem
-
-    func restoreFoodInventoryItem(
-        itemID: String,
-        status: FoodInventoryStatus,
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem
 
@@ -64,13 +64,14 @@ protocol PetFoodInventoryRepository {
 }
 
 extension PetFoodInventoryRepository {
-    func restoreFoodInventoryItem(
-        itemID: String,
-        status: FoodInventoryStatus,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryItem {
-        throw MHBAPIError.business(code: "pet.unsupported", message: "恢复食品资产未实现", statusCode: 500)
+    func uploadFoodInventoryCover(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw MHBAPIError.business(code: "pet.unsupported", message: "储物柜物品照片上传未实现", statusCode: 500)
     }
+
 }
 
 extension DefaultPetRepository: PetFoodInventoryRepository {}

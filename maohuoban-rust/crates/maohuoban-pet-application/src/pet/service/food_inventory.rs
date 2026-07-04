@@ -50,26 +50,13 @@ pub(super) async fn update_food_inventory_item(
     food_inventory.update_item(input).await
 }
 
-pub(super) async fn archive_food_inventory_item(
+pub(super) async fn delete_food_inventory_item(
     food_inventory: &Arc<dyn FoodInventoryRepository>,
     item_id: Uuid,
     editor_user_id: Uuid,
 ) -> PetResult<FoodInventoryItem> {
     ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
-    food_inventory.archive_item(item_id, editor_user_id).await
-}
-
-pub(super) async fn restore_food_inventory_item(
-    food_inventory: &Arc<dyn FoodInventoryRepository>,
-    item_id: Uuid,
-    editor_user_id: Uuid,
-    status: FoodInventoryStatus,
-) -> PetResult<FoodInventoryItem> {
-    reject_direct_archived_status(status)?;
-    ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
-    food_inventory
-        .restore_item(item_id, editor_user_id, status)
-        .await
+    food_inventory.delete_item(item_id, editor_user_id).await
 }
 
 pub(super) async fn restock_food_inventory_item(

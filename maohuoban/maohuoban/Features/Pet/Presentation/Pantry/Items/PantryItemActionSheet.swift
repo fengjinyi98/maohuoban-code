@@ -10,7 +10,7 @@ struct PantryItemActionSheet: View {
     let allowsDietAssignment: Bool
     let onMarkSealed: (String) -> Void
     let onEdit: (PantryItem) -> Void
-    let onArchive: (String) -> Void
+    let onDelete: (String) -> Void
     let onRestock: (String, Int) -> Void
     let onSetCurrentStaple: (String) -> Void
     let onSetTrying: (String) -> Void
@@ -27,7 +27,7 @@ struct PantryItemActionSheet: View {
         allowsDietAssignment: Bool = true,
         onMarkSealed: @escaping (String) -> Void = { _ in },
         onEdit: @escaping (PantryItem) -> Void = { _ in },
-        onArchive: @escaping (String) -> Void = { _ in },
+        onDelete: @escaping (String) -> Void = { _ in },
         onRestock: @escaping (String, Int) -> Void = { _, _ in },
         onSetCurrentStaple: @escaping (String) -> Void = { _ in },
         onSetTrying: @escaping (String) -> Void = { _ in },
@@ -39,7 +39,7 @@ struct PantryItemActionSheet: View {
         self.allowsDietAssignment = allowsDietAssignment
         self.onMarkSealed = onMarkSealed
         self.onEdit = onEdit
-        self.onArchive = onArchive
+        self.onDelete = onDelete
         self.onRestock = onRestock
         self.onSetCurrentStaple = onSetCurrentStaple
         self.onSetTrying = onSetTrying
@@ -68,7 +68,7 @@ struct PantryItemActionSheet: View {
         .alert("移出储物柜", isPresented: $showDeleteConfirmation) {
             Button("取消", role: .cancel) { }
             Button("移出", role: .destructive) {
-                onArchive(item.id)
+                onDelete(item.id)
                 dismiss()
             }
         } message: {
@@ -79,27 +79,27 @@ struct PantryItemActionSheet: View {
     private var headerSection: some View {
         HStack(alignment: .center, spacing: 16) {
             ZStack {
-                LinearGradient(
-                    colors: [Color(hex: "E8F0ED"), Color(hex: "D1E0D7")],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                
-                if let imageURL = item.imageURL, let url = URL(string: imageURL) {
+                if let imageURL = item.imageURL,
+                   let url = PantryMediaURLResolver.resolve(imageURL) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
                             image
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 42, height: 42)
-                                .shadow(color: Color.black.opacity(0.1), radius: 8, y: 4)
+                                .aspectRatio(contentMode: .fill)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .clipped()
                         default:
                             Image(systemName: "photo")
                                 .font(.system(size: 24, weight: .light))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
                 }
             }
             .frame(width: 60, height: 75)
@@ -163,7 +163,7 @@ struct PantryItemActionSheet: View {
             
             actionButton(
                 icon: "pencil",
-                title: "编辑物品档案",
+                title: "编辑物品信息",
                 showArrow: true
             ) {
                 onEdit(item)

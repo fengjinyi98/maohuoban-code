@@ -4,21 +4,11 @@ extension DefaultPetRepository {
     func listFoodInventoryItems(
         currentUserID: String
     ) async throws(MHBAPIError) -> [FoodInventoryItem] {
-        let activeResponse: MHBAPIResponse<FoodInventoryListData> = try await client.get(
+        let response: MHBAPIResponse<FoodInventoryListData> = try await client.get(
             path: "/api/v1/food-inventory/items",
             headers: try userHeaders(currentUserID: currentUserID)
         )
-        let archivedResponse: MHBAPIResponse<FoodInventoryListData> = try await client.get(
-            path: "/api/v1/food-inventory/items",
-            queryItems: [
-                URLQueryItem(name: "status", value: FoodInventoryStatus.archived.rawValue)
-            ],
-            headers: try userHeaders(currentUserID: currentUserID)
-        )
-        return Self.mergedFoodInventoryItems(
-            activeResponse.data?.items ?? [],
-            archivedResponse.data?.items ?? []
-        )
+        return response.data?.items ?? []
     }
 
     func loadPetCurrentDietContext(
@@ -90,6 +80,7 @@ extension DefaultPetRepository {
             unit: draft.unit.isEmpty ? nil : draft.unit,
             spec: draft.spec.isEmpty ? nil : draft.spec,
             expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
+            cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
         let response: MHBAPIResponse<FoodInventoryItem> = try await client.post(
@@ -117,6 +108,7 @@ extension DefaultPetRepository {
             unit: draft.unit.isEmpty ? nil : draft.unit,
             spec: draft.spec.isEmpty ? nil : draft.spec,
             expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
+            cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
         let response: MHBAPIResponse<FoodInventoryItem> = try await client.patch(
@@ -144,6 +136,7 @@ extension DefaultPetRepository {
             unit: nil,
             spec: nil,
             expiry_date: nil,
+            cover_asset_id: nil,
             note: nil
         )
         let response: MHBAPIResponse<FoodInventoryItem> = try await client.patch(
@@ -157,33 +150,30 @@ extension DefaultPetRepository {
         return item
     }
 
-    func archiveFoodInventoryItem(
-        itemID: String,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryItem {
-        let response: MHBAPIResponse<FoodInventoryItem> = try await client.post(
-            path: "/api/v1/food-inventory/items/\(itemID)/archive",
-            body: FoodInventoryDeleteRequest(reason: "用户归档"),
-            headers: try userHeaders(currentUserID: currentUserID)
+    func uploadFoodInventoryCover(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await uploadPendingMedia(
+            path: "/api/v1/food-inventory/media",
+            draft: draft,
+            currentUserID: currentUserID,
+            onUploadProgress: onUploadProgress
         )
-        guard let item = response.data else {
-            throw MHBAPIError.business(code: "pet.no_data", message: "归档失败", statusCode: 500)
-        }
-        return item
     }
 
-    func restoreFoodInventoryItem(
+    func deleteFoodInventoryItem(
         itemID: String,
-        status: FoodInventoryStatus,
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem {
-        let response: MHBAPIResponse<FoodInventoryItem> = try await client.post(
-            path: "/api/v1/food-inventory/items/\(itemID)/restore",
-            body: FoodInventoryRestoreRequest(inventory_status: status.rawValue),
+        let response: MHBAPIResponse<FoodInventoryItem> = try await client.delete(
+            path: "/api/v1/food-inventory/items/\(itemID)",
+            body: FoodInventoryDeleteRequest(reason: "用户移出储物柜"),
             headers: try userHeaders(currentUserID: currentUserID)
         )
         guard let item = response.data else {
-            throw MHBAPIError.business(code: "pet.no_data", message: "恢复失败", statusCode: 500)
+            throw MHBAPIError.business(code: "pet.no_data", message: "移出失败", statusCode: 500)
         }
         return item
     }
@@ -203,19 +193,5 @@ extension DefaultPetRepository {
             throw MHBAPIError.business(code: "pet.no_data", message: "补库存失败", statusCode: 500)
         }
         return item
-    }
-}
-
-private extension DefaultPetRepository {
-    static func mergedFoodInventoryItems(
-        _ primaryItems: [FoodInventoryItem],
-        _ secondaryItems: [FoodInventoryItem]
-    ) -> [FoodInventoryItem] {
-        var seenIDs = Set<String>()
-        var items: [FoodInventoryItem] = []
-        for item in primaryItems + secondaryItems where seenIDs.insert(item.id).inserted {
-            items.append(item)
-        }
-        return items
     }
 }

@@ -10,7 +10,8 @@ extension PantryItem {
             id: item.id,
             name: item.name,
             brand: item.brand?.isEmpty == false ? item.brand ?? "未填写品牌" : "未填写品牌",
-            imageURL: nil,
+            coverAssetID: item.coverAssetID,
+            imageURL: item.coverURL,
             category: PantryCategory(foodInventoryCategory: item.category),
             status: PantryStatus(foodInventoryStatus: item.inventoryStatus),
             statusDate: String(item.updatedAt.prefix(10)),
@@ -37,6 +38,7 @@ extension FoodInventoryDraft {
             unit: "件",
             spec: draft.specification,
             expiryDate: draft.expiryInfo,
+            coverAssetID: nil,
             note: ""
         )
     }
@@ -51,29 +53,9 @@ extension FoodInventoryDraft {
             unit: item.unit ?? "件",
             spec: item.spec ?? "",
             expiryDate: item.expiryDate ?? "",
+            coverAssetID: item.coverAssetID,
             note: ""
         )
-    }
-}
-
-private extension PantryCategory {
-    init(foodInventoryCategory category: FoodInventoryCategory) {
-        switch category {
-        case .mainFood:
-            self = .mainFood
-        case .wetFood:
-            self = .wetFood
-        case .treats:
-            self = .treats
-        case .nutrition:
-            self = .supplements
-        case .catLitter:
-            self = .catLitter
-        case .medicine:
-            self = .medicine
-        case .other:
-            self = .other
-        }
     }
 }
 

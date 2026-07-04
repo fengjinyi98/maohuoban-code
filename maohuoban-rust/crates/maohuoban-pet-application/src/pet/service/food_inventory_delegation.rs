@@ -48,28 +48,13 @@ impl PetService {
         food_inventory::update_food_inventory_item(&self.food_inventory, input).await
     }
 
-    pub async fn archive_food_inventory_item(
+    pub async fn delete_food_inventory_item(
         &self,
         item_id: Uuid,
         editor_user_id: Uuid,
     ) -> PetResult<FoodInventoryItem> {
-        food_inventory::archive_food_inventory_item(&self.food_inventory, item_id, editor_user_id)
+        food_inventory::delete_food_inventory_item(&self.food_inventory, item_id, editor_user_id)
             .await
-    }
-
-    pub async fn restore_food_inventory_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-        status: FoodInventoryStatus,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::restore_food_inventory_item(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-            status,
-        )
-        .await
     }
 
     pub async fn restock_food_inventory_item(

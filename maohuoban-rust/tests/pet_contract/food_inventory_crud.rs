@@ -98,59 +98,213 @@ async fn food_inventory_crud_persists_user_scoped_assets() {
     assert_eq!(restock_body["data"]["quantity"], 2);
     assert_eq!(restock_body["data"]["inventory_status"], "sealed");
 
-    let archive_response = app
+    let delete_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/archive"),
-            json!({}),
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
             Some(&user_id),
         ))
         .await
-        .expect("archive food inventory item");
-    assert_eq!(archive_response.status(), StatusCode::OK);
-    let archive_body = response_json(archive_response).await;
-    assert_eq!(archive_body["code"], "food_inventory.item_archived");
-    assert_eq!(archive_body["data"]["inventory_status"], "archived");
-    assert!(archive_body["data"]["archived_at"].is_string());
+        .expect("delete food inventory item");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let delete_body = response_json(delete_response).await;
+    assert_eq!(delete_body["code"], "food_inventory.item_deleted");
+    assert_eq!(delete_body["data"]["inventory_status"], "archived");
+    assert!(delete_body["data"]["archived_at"].is_string());
 
-    let archived_list_response = app
+    let deleted_list_response = app
         .router()
         .oneshot(empty_request(
             "GET",
-            "/api/v1/food-inventory/items?status=archived",
+            "/api/v1/food-inventory/items",
             Some(&user_id),
         ))
         .await
-        .expect("list archived food inventory items");
-    assert_eq!(archived_list_response.status(), StatusCode::OK);
-    let archived_list_body = response_json(archived_list_response).await;
+        .expect("list after delete food inventory item");
+    assert_eq!(deleted_list_response.status(), StatusCode::OK);
+    let deleted_list_body = response_json(deleted_list_response).await;
     assert_eq!(
-        archived_list_body["data"]["items"]
+        deleted_list_body["data"]["items"]
             .as_array()
-            .expect("archived items")
+            .expect("items")
             .len(),
-        1
+        0
     );
-    assert_eq!(archived_list_body["data"]["items"][0]["id"], item_id);
 
-    let restore_response = app
+    let deleted_get_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("get deleted food inventory item");
+    assert_eq!(deleted_get_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn food_inventory_item_persists_uploaded_cover_asset() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139035").await;
+
+    let upload_body = upload_pending_media(
+        &app,
+        "/api/v1/food-inventory/media",
+        "pantry-cover.png",
+        "image/png",
+        &tiny_png(),
+        &user_id,
+    )
+    .await;
+    assert_eq!(upload_body["code"], "food_inventory.media_uploaded");
+    assert_eq!(
+        upload_body["data"]["asset"]["usage_kind"],
+        "pet.food_inventory.cover"
+    );
+    assert_eq!(upload_body["data"]["asset"]["uploaded_by_user_id"], user_id);
+    assert!(upload_body["data"]["asset"]["owner_pet_id"].is_null());
+    assert_eq!(upload_body["data"]["asset"]["width"], 1);
+    assert_eq!(upload_body["data"]["asset"]["height"], 1);
+    let cover_asset_id = upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("cover asset id");
+
+    let create_response = app
         .router()
         .oneshot(json_request(
             "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/restore"),
+            "/api/v1/food-inventory/items",
             json!({
-                "inventory_status": "sealed"
+                "name": "封面主粮",
+                "category": "main_food",
+                "inventory_status": "sealed",
+                "quantity": 1,
+                "cover_asset_id": cover_asset_id
             }),
             Some(&user_id),
         ))
         .await
-        .expect("restore food inventory item");
-    assert_eq!(restore_response.status(), StatusCode::OK);
-    let restore_body = response_json(restore_response).await;
-    assert_eq!(restore_body["code"], "food_inventory.item_restored");
-    assert_eq!(restore_body["data"]["inventory_status"], "sealed");
-    assert!(restore_body["data"]["archived_at"].is_null());
+        .expect("create food inventory item with cover");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    assert_eq!(create_body["data"]["cover_asset_id"], cover_asset_id);
+    assert_eq!(
+        create_body["data"]["cover_url"],
+        format!("/api/v1/media/assets/{cover_asset_id}/content")
+    );
+
+    let item_id = create_body["data"]["id"].as_str().expect("item id");
+    let get_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("get food inventory item with cover");
+    assert_eq!(get_response.status(), StatusCode::OK);
+    let get_body = response_json(get_response).await;
+    assert_eq!(get_body["data"]["cover_asset_id"], cover_asset_id);
+    assert_eq!(
+        get_body["data"]["cover_url"],
+        format!("/api/v1/media/assets/{cover_asset_id}/content")
+    );
+}
+
+#[tokio::test]
+async fn food_inventory_item_updates_uploaded_cover_asset() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139036").await;
+
+    let first_upload_body = upload_pending_media(
+        &app,
+        "/api/v1/food-inventory/media",
+        "pantry-cover-first.png",
+        "image/png",
+        &tiny_png(),
+        &user_id,
+    )
+    .await;
+    let first_cover_asset_id = first_upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("first cover asset id")
+        .to_owned();
+
+    let second_upload_body = upload_pending_media(
+        &app,
+        "/api/v1/food-inventory/media",
+        "pantry-cover-second.png",
+        "image/png",
+        &tiny_png(),
+        &user_id,
+    )
+    .await;
+    let second_cover_asset_id = second_upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("second cover asset id")
+        .to_owned();
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/food-inventory/items",
+            json!({
+                "name": "替换封面主粮",
+                "category": "main_food",
+                "inventory_status": "sealed",
+                "quantity": 1,
+                "cover_asset_id": first_cover_asset_id
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create food inventory item with first cover");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let item_id = create_body["data"]["id"].as_str().expect("item id");
+
+    let update_response = app
+        .router()
+        .oneshot(json_request(
+            "PATCH",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
+            json!({
+                "cover_asset_id": second_cover_asset_id
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("update food inventory item cover");
+    assert_eq!(update_response.status(), StatusCode::OK);
+    let update_body = response_json(update_response).await;
+    assert_eq!(update_body["data"]["cover_asset_id"], second_cover_asset_id);
+    assert_eq!(
+        update_body["data"]["cover_url"],
+        format!("/api/v1/media/assets/{second_cover_asset_id}/content")
+    );
+
+    let get_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("get food inventory item with updated cover");
+    assert_eq!(get_response.status(), StatusCode::OK);
+    let get_body = response_json(get_response).await;
+    assert_eq!(get_body["data"]["cover_asset_id"], second_cover_asset_id);
+    assert_eq!(
+        get_body["data"]["cover_url"],
+        format!("/api/v1/media/assets/{second_cover_asset_id}/content")
+    );
 }
 
 #[tokio::test]
@@ -209,7 +363,7 @@ async fn food_inventory_item_rejects_cross_user_mutation() {
 }
 
 #[tokio::test]
-async fn food_inventory_archived_status_only_comes_from_archive_endpoint() {
+async fn food_inventory_archived_status_only_comes_from_delete_endpoint() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800139033").await;
@@ -265,19 +419,21 @@ async fn food_inventory_archived_status_only_comes_from_archive_endpoint() {
         .expect("update food inventory item to archived");
     assert_eq!(update_archived_response.status(), StatusCode::BAD_REQUEST);
 
-    let archive_response = app
+    let delete_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/archive"),
-            json!({}),
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
             Some(&user_id),
         ))
         .await
-        .expect("archive food inventory item");
-    assert_eq!(archive_response.status(), StatusCode::OK);
+        .expect("delete food inventory item");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+    let delete_body = response_json(delete_response).await;
+    assert_eq!(delete_body["code"], "food_inventory.item_deleted");
+    assert_eq!(delete_body["data"]["inventory_status"], "archived");
 
-    let restore_archived_response = app
+    let restore_response = app
         .router()
         .oneshot(json_request(
             "POST",
@@ -288,8 +444,8 @@ async fn food_inventory_archived_status_only_comes_from_archive_endpoint() {
             Some(&user_id),
         ))
         .await
-        .expect("restore food inventory item to archived");
-    assert_eq!(restore_archived_response.status(), StatusCode::BAD_REQUEST);
+        .expect("restore food inventory item route");
+    assert_eq!(restore_response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -385,35 +541,44 @@ async fn food_inventory_change_hints_track_mutation_kinds() {
         .expect("update food inventory item");
     assert_eq!(update_response.status(), StatusCode::OK);
 
-    let archive_response = app
+    let delete_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/archive"),
-            json!({}),
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/food-inventory/items/{item_id}"),
             Some(&user_id),
         ))
         .await
-        .expect("archive food inventory item");
-    assert_eq!(archive_response.status(), StatusCode::OK);
+        .expect("delete food inventory item");
+    assert_eq!(delete_response.status(), StatusCode::OK);
 
-    let restore_response = app
+    let restock_create_response = app
         .router()
         .oneshot(json_request(
             "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/restore"),
-            json!({ "inventory_status": "sealed" }),
+            "/api/v1/food-inventory/items",
+            json!({
+                "name": "复购罐头",
+                "brand": "ZIWI",
+                "category": "wet_food",
+                "inventory_status": "sealed",
+                "quantity": 1
+            }),
             Some(&user_id),
         ))
         .await
-        .expect("restore food inventory item");
-    assert_eq!(restore_response.status(), StatusCode::OK);
+        .expect("create restock food inventory item");
+    assert_eq!(restock_create_response.status(), StatusCode::CREATED);
+    let restock_create_body = response_json(restock_create_response).await;
+    let restock_item_id = restock_create_body["data"]["id"]
+        .as_str()
+        .expect("restock item id");
 
     let restock_response = app
         .router()
         .oneshot(json_request(
             "POST",
-            &format!("/api/v1/food-inventory/items/{item_id}/restock"),
+            &format!("/api/v1/food-inventory/items/{restock_item_id}/restock"),
             json!({ "quantity_delta": 1 }),
             Some(&user_id),
         ))
@@ -439,7 +604,7 @@ async fn food_inventory_change_hints_track_mutation_kinds() {
         .filter_map(|hint| hint["change_kind"].as_str())
         .collect();
 
-    for expected_kind in ["created", "updated", "archived", "restored", "restocked"] {
+    for expected_kind in ["created", "updated", "deleted", "restocked"] {
         assert!(
             change_kinds.contains(&expected_kind),
             "missing change kind {expected_kind}; got {change_kinds:?}"

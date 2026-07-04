@@ -12,9 +12,11 @@ struct MHBPhotoLibraryAuthorizedContent: View {
     let resolvingAssetID: String?
     let selectedAssetIDs: [String: Int]
     let disabledAssetIDs: Set<String>
+    let showsCameraEntry: Bool
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
     let onSelectDisabledAsset: (MHBPhotoLibraryAsset) -> Void
+    let onSelectCamera: () -> Void
     let onOpenLimitedPicker: () -> Void
 
     var body: some View {
@@ -25,7 +27,7 @@ struct MHBPhotoLibraryAuthorizedContent: View {
 
             if isLoading {
                 MHBPhotoLibraryLoadingView(text: "正在加载照片...")
-            } else if assets.isEmpty {
+            } else if assets.isEmpty && !showsCameraEntry {
                 MHBPhotoLibraryEmptyView()
             } else {
                 MHBPhotoGridViewRepresentable(
@@ -33,9 +35,11 @@ struct MHBPhotoLibraryAuthorizedContent: View {
                     resolvingAssetID: resolvingAssetID,
                     selectedAssetIDs: selectedAssetIDs,
                     disabledAssetIDs: disabledAssetIDs,
+                    showsCameraEntry: showsCameraEntry,
                     service: service,
                     onSelectAsset: onSelectAsset,
-                    onSelectDisabledAsset: onSelectDisabledAsset
+                    onSelectDisabledAsset: onSelectDisabledAsset,
+                    onSelectCamera: onSelectCamera
                 )
                 .disabled(isResolvingSelection)
             }

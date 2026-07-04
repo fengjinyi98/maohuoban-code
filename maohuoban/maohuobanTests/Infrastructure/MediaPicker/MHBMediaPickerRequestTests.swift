@@ -31,4 +31,21 @@ final class MHBMediaPickerRequestTests: XCTestCase {
         XCTAssertTrue(request.disabledLocalIdentifiers.contains("local-1"))
         XCTAssertTrue(request.disabledLocalIdentifiers.contains("local-2"))
     }
+
+    func testRequestHidesCameraEntryByDefault() {
+        let request = MHBMediaPickerRequest(maxSelectionCount: 1, filter: .images)
+
+        XCTAssertFalse(request.showsCameraEntry)
+        XCTAssertFalse(MHBMediaPickerRequest.singleImage.showsCameraEntry)
+    }
+
+    func testRequestCanOptInCameraEntry() {
+        let request = MHBMediaPickerRequest(
+            maxSelectionCount: 1,
+            filter: .images,
+            showsCameraEntry: true
+        )
+
+        XCTAssertTrue(request.showsCameraEntry)
+    }
 }

@@ -16,6 +16,9 @@ struct MHBPhotoLibraryPickerScreen: View {
     @State private var store: MHBPhotoLibraryPickerStore
     @State private var isAlbumPickerPresented = false
     @State private var isLimitedPickerPresented = false
+    @State private var isCameraPresented = false
+    @State private var isCameraFailureAlertPresented = false
+    @State private var cameraFailureMessage = ""
     @State private var resolvingAssetID: String?
 
     init(
@@ -49,9 +52,11 @@ struct MHBPhotoLibraryPickerScreen: View {
                     resolvingAssetID: resolvingAssetID,
                     selectedAssetIDs: store.selectedAssetIDMap,
                     disabledAssetIDs: store.disabledAssetIDs,
+                    showsCameraEntry: request.showsCameraEntry,
                     service: store.service,
                     onSelectAsset: handleSelectAsset,
                     onSelectDisabledAsset: handleSelectDisabledAsset,
+                    onSelectCamera: handleSelectCamera,
                     onOpenSettings: openSettings,
                     onOpenLimitedPicker: {
                         isLimitedPickerPresented = true
@@ -93,6 +98,19 @@ struct MHBPhotoLibraryPickerScreen: View {
             }
             .ignoresSafeArea()
         }
+        .fullScreenCover(isPresented: $isCameraPresented) {
+            MHBResponsiveCameraImagePicker(
+                onComplete: handleCameraComplete(_:),
+                onCancel: {
+                    isCameraPresented = false
+                },
+                onFailure: { message in
+                    isCameraPresented = false
+                    presentCameraFailure(message)
+                }
+            )
+            .ignoresSafeArea()
+        }
         .alert(
             "照片读取失败",
             isPresented: Binding(
@@ -107,6 +125,14 @@ struct MHBPhotoLibraryPickerScreen: View {
             Button("知道了", role: .cancel) {}
         } message: {
             Text(store.errorMessage ?? "请重新选择照片")
+        }
+        .alert(
+            "无法打开相机",
+            isPresented: $isCameraFailureAlertPresented
+        ) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(cameraFailureMessage)
         }
     }
 
@@ -161,6 +187,20 @@ struct MHBPhotoLibraryPickerScreen: View {
         MHBToastPresenter().warning(store.inlineMessage ?? "这张照片已在当前相册中")
     }
 
+    private func handleSelectCamera() {
+        guard MHBResponsiveCameraImagePicker.isCameraAvailable else {
+            presentCameraFailure("当前设备没有可用相机")
+            return
+        }
+        isCameraPresented = true
+    }
+
+    private func handleCameraComplete(_ image: UIImage) {
+        isCameraPresented = false
+        onComplete(MHBMediaPickerResult(images: [image]))
+        dismiss()
+    }
+
     private func handleConfirm() {
         guard store.hasSelection else {
             return
@@ -180,5 +220,10 @@ struct MHBPhotoLibraryPickerScreen: View {
             return
         }
         UIApplication.shared.open(url)
+    }
+
+    private func presentCameraFailure(_ message: String) {
+        cameraFailureMessage = message
+        isCameraFailureAlertPresented = true
     }
 }

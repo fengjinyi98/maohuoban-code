@@ -10,10 +10,9 @@ async fn feeding_event_rejects_archived_food_item_reference() {
     let food_item_id = create_food_inventory_item(&app, &user_id).await;
     let archive_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/food-inventory/items/{food_item_id}/archive"),
-            json!({}),
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/food-inventory/items/{food_item_id}"),
             Some(&user_id),
         ))
         .await

@@ -134,7 +134,7 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
             fatalError("not used")
         }
 
-        func archiveFoodInventoryItem(
+        func deleteFoodInventoryItem(
             itemID: String,
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItem {

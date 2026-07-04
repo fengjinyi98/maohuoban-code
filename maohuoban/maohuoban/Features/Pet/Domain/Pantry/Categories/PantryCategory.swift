@@ -26,4 +26,23 @@ enum PantryCategory: String, Decodable, Equatable, CaseIterable {
         case .medicine: "药品"
         }
     }
+
+    init(foodInventoryCategory category: FoodInventoryCategory) {
+        switch category {
+        case .mainFood:
+            self = .mainFood
+        case .wetFood:
+            self = .wetFood
+        case .treats:
+            self = .treats
+        case .nutrition:
+            self = .supplements
+        case .other:
+            self = .other
+        case .catLitter:
+            self = .catLitter
+        case .medicine:
+            self = .medicine
+        }
+    }
 }

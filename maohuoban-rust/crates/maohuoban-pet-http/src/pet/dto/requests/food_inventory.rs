@@ -1,10 +1,14 @@
 use chrono::NaiveDate;
-use maohuoban_pet_application::pet::{NewFoodInventoryItem, UpdateFoodInventoryItem};
+use maohuoban_pet_application::pet::{
+    NewFoodInventoryItem, PendingPetMediaUploadInput, UpdateFoodInventoryItem,
+};
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryStatus, FoodScopeType, FoodSourceKind,
+    FoodInventoryCategory, FoodInventoryStatus, FoodScopeType, FoodSourceKind, MediaUsageKind,
 };
 use serde::Deserialize;
 use uuid::Uuid;
+
+use super::media::UploadPetMediaRequest;
 
 /// CreateFoodInventoryItemRequest 创建食品资产请求
 /// 核心职责：
@@ -108,5 +112,14 @@ impl UpdateFoodInventoryItemRequest {
             barcode: self.barcode,
             note: self.note,
         }
+    }
+}
+
+impl UploadPetMediaRequest {
+    pub(crate) fn into_pending_food_inventory_cover_input(
+        self,
+        owner_user_id: Uuid,
+    ) -> PendingPetMediaUploadInput {
+        self.into_pending_input(owner_user_id, MediaUsageKind::PetFoodInventoryCover)
     }
 }

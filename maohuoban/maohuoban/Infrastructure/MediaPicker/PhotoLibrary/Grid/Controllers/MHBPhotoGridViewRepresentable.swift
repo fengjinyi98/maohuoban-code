@@ -10,9 +10,11 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
     let resolvingAssetID: String?
     let selectedAssetIDs: [String: Int]
     let disabledAssetIDs: Set<String>
+    let showsCameraEntry: Bool
     let service: MHBPhotoLibraryService
     let onSelectAsset: (MHBPhotoLibraryAsset) -> Void
     let onSelectDisabledAsset: (MHBPhotoLibraryAsset) -> Void
+    let onSelectCamera: () -> Void
 
     func makeUIViewController(context: Context) -> MHBPhotoGridContainerController {
         let controller = MHBPhotoGridController(service: service)
@@ -20,8 +22,10 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
         controller.resolvingAssetID = resolvingAssetID
         controller.selectedAssetIDs = selectedAssetIDs
         controller.disabledAssetIDs = disabledAssetIDs
+        controller.showsCameraEntry = showsCameraEntry
         controller.onSelectAsset = onSelectAsset
         controller.onSelectDisabledAsset = onSelectDisabledAsset
+        controller.onSelectCamera = onSelectCamera
         context.coordinator.controller = controller
         return MHBPhotoGridContainerController(gridController: controller)
     }
@@ -37,8 +41,12 @@ struct MHBPhotoGridViewRepresentable: UIViewControllerRepresentable {
         if controller.assets.map(\.id) != assets.map(\.id) {
             controller.assets = assets
         }
+        if controller.showsCameraEntry != showsCameraEntry {
+            controller.showsCameraEntry = showsCameraEntry
+        }
         controller.onSelectAsset = onSelectAsset
         controller.onSelectDisabledAsset = onSelectDisabledAsset
+        controller.onSelectCamera = onSelectCamera
         controller.updateResolvingAssetID(resolvingAssetID)
         controller.updateSelectedAssetIDs(selectedAssetIDs)
         controller.updateDisabledAssetIDs(disabledAssetIDs)

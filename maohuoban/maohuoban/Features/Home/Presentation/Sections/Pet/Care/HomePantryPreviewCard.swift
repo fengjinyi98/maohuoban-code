@@ -9,8 +9,9 @@ struct HomePantryPreviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if item.coverImageAssetName.starts(with: "http") {
-                AsyncImage(url: URL(string: item.coverImageAssetName)) { image in
+            if let coverURL = item.coverURL,
+               let mediaURL = PantryMediaURLResolver.resolve(coverURL) {
+                AsyncImage(url: mediaURL) { image in
                     image.resizable()
                         .scaledToFill()
                 } placeholder: {
@@ -23,15 +24,7 @@ struct HomePantryPreviewCard: View {
                         .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
                 }
             } else {
-                Image(item.coverImageAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 140, height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-                    }
+                coverPlaceholder
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -63,5 +56,16 @@ struct HomePantryPreviewCard: View {
             }
         }
         .frame(width: 140)
+    }
+
+    private var coverPlaceholder: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.1))
+            .frame(width: 140, height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+            }
     }
 }

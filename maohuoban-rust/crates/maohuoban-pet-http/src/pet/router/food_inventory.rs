@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Multipart, Path, Query, State},
     response::Response,
 };
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
@@ -11,7 +11,10 @@ use uuid::Uuid;
 
 use super::PetHttpState;
 use crate::pet::{
-    dto::{CreateFoodInventoryItemRequest, UpdateFoodInventoryItemRequest},
+    dto::{
+        CreateFoodInventoryItemRequest, PetMediaUploadData, UpdateFoodInventoryItemRequest,
+        UploadPetMediaRequest,
+    },
     response::{created_response, error_response, ok_response},
 };
 
@@ -30,6 +33,30 @@ pub(super) struct ListFoodInventoryQuery {
 #[derive(Debug, Serialize)]
 pub(super) struct FoodInventoryItemsData<T> {
     items: Vec<T>,
+}
+
+/// upload_pending_food_inventory_cover 上传储物柜物品照片
+/// 核心职责：
+/// - 将物品照片上传到当前用户媒资空间
+/// - 返回可被 food_inventory_items.cover_asset_id 引用的媒资 ID
+pub(super) async fn upload_pending_food_inventory_cover(
+    State(state): State<PetHttpState>,
+    actor: AuthenticatedUser,
+    multipart: Multipart,
+) -> Response {
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
+        Err(error) => return error_response(&error),
+    };
+    let input = request.into_pending_food_inventory_cover_input(actor.user_id());
+    match state.pet.upload_pending_pet_media(input).await {
+        Ok(upload) => created_response(
+            "food_inventory.media_uploaded",
+            "储物柜物品照片已上传",
+            PetMediaUploadData::from(upload),
+        ),
+        Err(error) => error_response(&error),
+    }
 }
 
 /// create_food_inventory_item 创建食品资产
@@ -90,7 +117,11 @@ pub(super) async fn get_food_inventory_item(
     let actor_user_id = actor.user_id();
 
     match state.pet.find_food_inventory_item(item_id).await {
-        Ok(item) if item.scope_type == FoodScopeType::User && item.scope_id == actor_user_id => {
+        Ok(item)
+            if item.scope_type == FoodScopeType::User
+                && item.scope_id == actor_user_id
+                && item.archived_at.is_none() =>
+        {
             ok_response("food_inventory.item_loaded", "食品资产已加载", item)
         }
         Ok(_) => error_response(&maohuoban_pet_domain::pet::PetError::FoodInventoryNotFound),
@@ -115,8 +146,11 @@ pub(super) async fn update_food_inventory_item(
     }
 }
 
-/// archive_food_inventory_item 归档食品资产
-pub(super) async fn archive_food_inventory_item(
+/// delete_food_inventory_item 移出储物柜
+/// 核心职责：
+/// - 将用户删除动作映射到食品资产软删除
+/// - 保持 HTTP 契约使用删除语义
+pub(super) async fn delete_food_inventory_item(
     State(state): State<PetHttpState>,
     Path(item_id): Path<Uuid>,
     actor: AuthenticatedUser,
@@ -125,10 +159,10 @@ pub(super) async fn archive_food_inventory_item(
 
     match state
         .pet
-        .archive_food_inventory_item(item_id, editor_user_id)
+        .delete_food_inventory_item(item_id, editor_user_id)
         .await
     {
-        Ok(item) => ok_response("food_inventory.item_archived", "食品资产已归档", item),
+        Ok(item) => ok_response("food_inventory.item_deleted", "食品资产已移出储物柜", item),
         Err(error) => error_response(&error),
     }
 }
@@ -187,31 +221,6 @@ pub(super) async fn restock_food_inventory_item(
             }
             ok_response("food_inventory.item_restocked", "库存已补充", item)
         }
-        Err(error) => error_response(&error),
-    }
-}
-
-/// RestoreFoodInventoryRequest 恢复食品资产请求
-#[derive(Debug, Deserialize)]
-pub(super) struct RestoreFoodInventoryRequest {
-    inventory_status: FoodInventoryStatus,
-}
-
-/// restore_food_inventory_item 恢复食品资产
-pub(super) async fn restore_food_inventory_item(
-    State(state): State<PetHttpState>,
-    Path(item_id): Path<Uuid>,
-    actor: AuthenticatedUser,
-    Json(request): Json<RestoreFoodInventoryRequest>,
-) -> Response {
-    let editor_user_id = actor.user_id();
-
-    match state
-        .pet
-        .restore_food_inventory_item(item_id, editor_user_id, request.inventory_status)
-        .await
-    {
-        Ok(item) => ok_response("food_inventory.item_restored", "食品资产已恢复", item),
         Err(error) => error_response(&error),
     }
 }

@@ -30,12 +30,21 @@ final class HomePantryPreviewDecodingTests: XCTestCase {
                 "merchant_dashboard": null,
                 "empty_state": null,
                 "recommended_content": [],
+                "gallery_albums": [
+                  {
+                    "id": "album-1",
+                    "title": "睡觉合集",
+                    "cover_url": "/api/v1/media/assets/album-cover/content",
+                    "photo_count": 8
+                  }
+                ],
                 "pantry_items": [
                   {
                     "id": "food-1",
                     "title": "渴望六种鱼",
-                    "subtitle": "主粮",
-                    "cover_image_asset_name": "home-pantry-main-food",
+                    "subtitle": "主食干粮",
+                    "category": "main_food",
+                    "cover_url": "/api/v1/media/assets/asset-1/content",
                     "diet_role_label": "当前主粮"
                   }
                 ]
@@ -50,6 +59,16 @@ final class HomePantryPreviewDecodingTests: XCTestCase {
         )
 
         let item = try XCTUnwrap(response.data?.pantryItems?.first)
+        XCTAssertEqual(item.subtitle, "主食干粮")
+        XCTAssertEqual(item.category, .mainFood)
+        XCTAssertEqual(item.pantryCategory, .mainFood)
+        XCTAssertEqual(item.coverURL, "/api/v1/media/assets/asset-1/content")
         XCTAssertEqual(item.dietRoleLabel, "当前主粮")
+
+        let album = try XCTUnwrap(response.data?.galleryAlbums.first)
+        XCTAssertEqual(album.id, "album-1")
+        XCTAssertEqual(album.coverImageAssetName, "/api/v1/media/assets/album-cover/content")
+        XCTAssertEqual(album.photoCount, 8)
+        XCTAssertEqual(album.dateText, "8 张照片")
     }
 }

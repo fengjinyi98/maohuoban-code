@@ -12,5 +12,6 @@ struct FoodInventoryCreateRequest: Encodable {
     let unit: String?
     let spec: String?
     let expiry_date: String?
+    let cover_asset_id: String?
     let note: String?
 }

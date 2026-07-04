@@ -306,10 +306,19 @@ async fn home_dashboard_returns_recent_food_inventory_preview() {
     let user_id = login_user_id(&app, "13800138233").await;
     create_home_test_pet(&app, &user_id).await;
 
-    let first_item_id =
+    let old_main_food_item_id =
         create_home_food_inventory_item(&app, &user_id, "渴望六种鱼", "main_food").await;
-    let second_item_id =
+    let wet_food_item_id =
         create_home_food_inventory_item(&app, &user_id, "巅峰牛肉罐头", "wet_food").await;
+    let cover_asset_id = upload_home_food_inventory_cover(&app, &user_id).await;
+    let latest_main_food_item_id = create_home_food_inventory_item_with_cover(
+        &app,
+        &user_id,
+        "舒然 SUPER 美毛配方",
+        "main_food",
+        &cover_asset_id,
+    )
+    .await;
 
     let dashboard_body = load_user_home_dashboard(&app, &user_id).await;
     let pantry_items = dashboard_body["data"]["pantry_items"]
@@ -317,20 +326,33 @@ async fn home_dashboard_returns_recent_food_inventory_preview() {
         .expect("pantry preview items");
 
     assert_eq!(pantry_items.len(), 2);
-    assert_eq!(pantry_items[0]["id"], second_item_id);
-    assert_eq!(pantry_items[0]["title"], "巅峰牛肉罐头");
-    assert_eq!(pantry_items[0]["subtitle"], "湿粮/罐头");
-    assert_eq!(
-        pantry_items[0]["cover_image_asset_name"],
-        "home-pantry-wet-food"
+    assert!(
+        pantry_items
+            .iter()
+            .all(|item| item["id"] != old_main_food_item_id)
     );
-    assert_eq!(pantry_items[1]["id"], first_item_id);
-    assert_eq!(pantry_items[1]["title"], "渴望六种鱼");
-    assert_eq!(pantry_items[1]["subtitle"], "主粮");
+
+    let main_food_item = pantry_items
+        .iter()
+        .find(|item| item["id"] == latest_main_food_item_id)
+        .expect("latest main food pantry item");
+    assert_eq!(main_food_item["title"], "舒然 SUPER 美毛配方");
+    assert_eq!(main_food_item["subtitle"], "主食干粮");
+    assert_eq!(main_food_item["category"], "main_food");
     assert_eq!(
-        pantry_items[1]["cover_image_asset_name"],
-        "home-pantry-main-food"
+        main_food_item["cover_url"],
+        format!("/api/v1/media/assets/{cover_asset_id}/content")
     );
+
+    let wet_food_item = pantry_items
+        .iter()
+        .find(|item| item["id"] == wet_food_item_id)
+        .expect("wet food pantry item");
+    assert_eq!(wet_food_item["title"], "巅峰牛肉罐头");
+    assert_eq!(wet_food_item["subtitle"], "湿粮/罐头");
+    assert_eq!(wet_food_item["category"], "wet_food");
+    assert!(wet_food_item.get("cover_image_asset_name").is_none());
+    assert!(wet_food_item["cover_url"].is_null());
 }
 
 #[tokio::test]
@@ -388,6 +410,57 @@ async fn create_home_food_inventory_item(
     assert_eq!(response.status(), StatusCode::CREATED);
     let body = response_json(response).await;
     body["data"]["id"].as_str().expect("item id").to_owned()
+}
+
+async fn create_home_food_inventory_item_with_cover(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    name: &str,
+    category: &str,
+    cover_asset_id: &str,
+) -> String {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/food-inventory/items",
+            json!({
+                "name": name,
+                "brand": "测试品牌",
+                "category": category,
+                "inventory_status": "sealed",
+                "quantity": 1,
+                "cover_asset_id": cover_asset_id
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create home food inventory item with cover");
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    body["data"]["id"].as_str().expect("item id").to_owned()
+}
+
+async fn upload_home_food_inventory_cover(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+) -> String {
+    let image_bytes = STANDARD
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC")
+        .expect("food inventory cover png bytes");
+    let upload_body = upload_pending_media(
+        app,
+        "/api/v1/food-inventory/media",
+        "food-cover.png",
+        "image/png",
+        &image_bytes,
+        user_id,
+    )
+    .await;
+    upload_body["data"]["asset"]["id"]
+        .as_str()
+        .expect("food inventory cover asset id")
+        .to_owned()
 }
 
 async fn set_home_pet_current_staple(

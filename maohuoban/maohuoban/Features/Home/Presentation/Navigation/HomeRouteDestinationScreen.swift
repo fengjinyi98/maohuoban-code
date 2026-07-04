@@ -165,10 +165,13 @@ struct HomeRouteDestinationScreen: View {
                     switch route {
                     case .addItem:
                         return HomeRoute.addPantryItem
+                    case .editItem(let item):
+                        return HomeRoute.editPantryItem(item)
                     case .categoryDetail(let category):
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
-                }
+                },
+                onOpenRoute: onRouteRequested
             )
         case .pantryCategoryDetail(let context, let category):
             PetPantryCategoryScreen(
@@ -179,16 +182,28 @@ struct HomeRouteDestinationScreen: View {
                     switch route {
                     case .addItem:
                         return HomeRoute.addPantryItem
+                    case .editItem(let item):
+                        return HomeRoute.editPantryItem(item)
                     case .categoryDetail:
                         // 该页面内不产生新的分类跳转，保持当前分类上下文。
                         return HomeRoute.pantryCategoryDetail(context: context, category: category)
                     }
-                }
+                },
+                onOpenRoute: onRouteRequested
             )
         case .addPantryItem:
             AddPantryItemScreen(
+                mode: .create,
                 currentUserID: currentUserID,
-                onCreated: {
+                onSaved: {
+                    onHomeMutationCompleted(nil)
+                }
+            )
+        case .editPantryItem(let item):
+            AddPantryItemScreen(
+                mode: .edit(item),
+                currentUserID: currentUserID,
+                onSaved: {
                     onHomeMutationCompleted(nil)
                 }
             )

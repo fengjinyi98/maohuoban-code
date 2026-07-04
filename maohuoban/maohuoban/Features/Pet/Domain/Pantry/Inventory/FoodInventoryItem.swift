@@ -18,6 +18,7 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
     let spec: String?
     let expiryDate: String?
     let coverAssetID: String?
+    let coverURL: String?
     let barcode: String?
     let sourceKind: String
     let note: String?
@@ -35,12 +36,57 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         case quantity, unit, spec
         case expiryDate = "expiry_date"
         case coverAssetID = "cover_asset_id"
+        case coverURL = "cover_url"
         case barcode
         case sourceKind = "source_kind"
         case note
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case archivedAt = "archived_at"
+    }
+
+    init(
+        id: String,
+        scopeType: String,
+        scopeID: String,
+        createdByUserID: String,
+        name: String,
+        brand: String?,
+        category: FoodInventoryCategory,
+        inventoryStatus: FoodInventoryStatus,
+        quantity: Int,
+        unit: String?,
+        spec: String?,
+        expiryDate: String?,
+        coverAssetID: String?,
+        coverURL: String? = nil,
+        barcode: String?,
+        sourceKind: String,
+        note: String?,
+        createdAt: String,
+        updatedAt: String,
+        archivedAt: String?
+    ) {
+        self.id = id
+        self.scopeType = scopeType
+        self.scopeID = scopeID
+        self.createdByUserID = createdByUserID
+        self.name = name
+        self.brand = brand
+        self.category = category
+        self.inventoryStatus = inventoryStatus
+        self.quantity = quantity
+        self.unit = unit
+        self.spec = spec
+        self.expiryDate = expiryDate
+        self.coverAssetID = coverAssetID
+        self.coverURL = coverURL
+        self.barcode = barcode
+        self.sourceKind = sourceKind
+        self.note = note
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.archivedAt = archivedAt
     }
 }
 
@@ -102,6 +148,7 @@ struct FoodInventoryDraft {
     var unit: String = ""
     var spec: String = ""
     var expiryDate: String = ""
+    var coverAssetID: String?
     var note: String = ""
 
     var isValid: Bool {

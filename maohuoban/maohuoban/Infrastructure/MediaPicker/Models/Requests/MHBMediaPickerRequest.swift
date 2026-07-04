@@ -10,6 +10,7 @@ struct MHBMediaPickerRequest: Hashable {
     let filter: MHBMediaPickerFilter
     let autoConfirmSingleSelection: Bool
     let disabledLocalIdentifiers: Set<String>
+    let showsCameraEntry: Bool
 
     static let singleImage = MHBMediaPickerRequest(
         maxSelectionCount: 1,
@@ -33,11 +34,13 @@ struct MHBMediaPickerRequest: Hashable {
         maxSelectionCount: Int,
         filter: MHBMediaPickerFilter,
         autoConfirmSingleSelection: Bool = false,
-        disabledLocalIdentifiers: Set<String> = []
+        disabledLocalIdentifiers: Set<String> = [],
+        showsCameraEntry: Bool = false
     ) {
         self.maxSelectionCount = max(maxSelectionCount, 1)
         self.filter = filter
         self.autoConfirmSingleSelection = autoConfirmSingleSelection
         self.disabledLocalIdentifiers = disabledLocalIdentifiers
+        self.showsCameraEntry = showsCameraEntry
     }
 }

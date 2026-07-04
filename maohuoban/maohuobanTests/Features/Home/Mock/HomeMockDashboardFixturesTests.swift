@@ -238,8 +238,9 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                 HomeDashboardSnapshot.PantryPreviewItem(
                     id: "food-real",
                     title: "后端真实主粮",
-                    subtitle: "主粮",
-                    coverImageAssetName: "home-pantry-main-food"
+                    subtitle: "主食干粮",
+                    category: .mainFood,
+                    coverURL: "/api/v1/media/assets/food-cover/content"
                 )
             ]
         )

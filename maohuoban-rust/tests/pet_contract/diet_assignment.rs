@@ -146,10 +146,9 @@ async fn set_current_staple_rejects_archived_food_inventory_item() {
     let food_item_id = create_food_inventory_item(&app, &user_id, "已归档主粮").await;
     let archive_response = app
         .router()
-        .oneshot(json_request(
-            "POST",
-            &format!("/api/v1/food-inventory/items/{food_item_id}/archive"),
-            json!({}),
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/food-inventory/items/{food_item_id}"),
             Some(&user_id),
         ))
         .await

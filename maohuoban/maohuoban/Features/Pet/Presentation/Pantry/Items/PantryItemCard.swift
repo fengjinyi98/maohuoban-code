@@ -23,24 +23,23 @@ struct PantryItemCard: View {
         ZStack(alignment: .topTrailing) {
             ZStack(alignment: .bottomLeading) {
                 ZStack {
-                    coverGradient
-
-                    if let imageURL = item.imageURL {
-                        AsyncImage(url: URL(string: imageURL)) { phase in
+                    if let imageURL = item.imageURL,
+                       let url = PantryMediaURLResolver.resolve(imageURL) {
+                        AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let image):
                                 image
                                     .resizable()
-                                    .aspectRatio(contentMode: .fit)
+                                    .aspectRatio(contentMode: .fill)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .clipped()
                             case .failure, .empty:
                                 placeholderIcon
                             @unknown default:
                                 placeholderIcon
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(MHBTheme.Spacing.s4)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
                         placeholderIcon
                     }
@@ -78,26 +77,6 @@ struct PantryItemCard: View {
         }
         .aspectRatio(4/5, contentMode: .fill)
         .frame(maxWidth: .infinity)
-    }
-
-    private var coverGradient: some View {
-        LinearGradient(
-            colors: coverColors,
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var coverColors: [Color] {
-        let hash = abs(item.id.hashValue)
-        let index = hash % 4
-
-        switch index {
-        case 0: return [Color(hex: "E8F0ED"), Color(hex: "D1E0D7")]
-        case 1: return [Color(hex: "EDF1F6"), Color(hex: "D7DFEA")]
-        case 2: return [Color(hex: "1C2331"), Color(hex: "0F141E")]
-        default: return [Color(hex: "F5F1EB"), Color(hex: "E6DFD3")]
-        }
     }
 
     private var placeholderIcon: some View {

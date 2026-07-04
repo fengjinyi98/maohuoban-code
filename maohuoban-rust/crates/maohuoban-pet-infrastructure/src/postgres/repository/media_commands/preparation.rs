@@ -193,6 +193,7 @@ impl PostgresPetRepository {
                 | MediaUsageKind::PetBackgroundImage
                 | MediaUsageKind::PetBackgroundLivePhoto
                 | MediaUsageKind::PetAlbumPhoto
+                | MediaUsageKind::PetFoodInventoryCover
         ) {
             return Ok(Vec::new());
         }
@@ -278,6 +279,9 @@ fn validate_required_image_dimensions(
         )),
         MediaUsageKind::PetBackgroundImage => Err(PetError::InvalidInput(
             "宠物背景图必须是可解析图片".to_owned(),
+        )),
+        MediaUsageKind::PetFoodInventoryCover => Err(PetError::InvalidInput(
+            "储物柜物品照片必须是可解析图片".to_owned(),
         )),
         MediaUsageKind::PetBackgroundLivePhoto | MediaUsageKind::PetBackgroundVideo => Ok(()),
     }

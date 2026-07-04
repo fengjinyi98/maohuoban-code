@@ -4,7 +4,7 @@ import Observation
 // PetFoodInventoryStore 储物柜食品资产 Store
 // 核心职责：
 // - 持有储物柜食品资产列表和加载状态
-// - 提供创建、更新、归档、补库存命令
+// - 提供创建、更新、删除、补库存命令
 // - 将用户级食品资产加载和宠物级饮食上下文加载收敛到单一状态出口
 @MainActor
 @Observable
@@ -15,6 +15,7 @@ final class PetFoodInventoryStore {
     var currentStapleFoodItemID: String?
     var dietSummaryRows: [PetPantryDietSummaryRow] = []
     var isLoading = false
+    var coverUploadProgress: Double?
     var errorMessage: String?
     var feedingOptions: [HomeQuickFactFeedingFoodOption] {
         items
@@ -62,10 +63,24 @@ final class PetFoodInventoryStore {
         isLoading = false
     }
 
-    func createItem(draft: FoodInventoryDraft, currentUserID: String) async -> FoodInventoryItem? {
+    func createItem(
+        draft: FoodInventoryDraft,
+        coverUploadDraft: PetMediaUploadDraft? = nil,
+        currentUserID: String
+    ) async -> FoodInventoryItem? {
         do {
+            var submitDraft = draft
+            if let coverUploadDraft {
+                guard let assetID = await uploadCoverAssetID(
+                    draft: coverUploadDraft,
+                    currentUserID: currentUserID
+                ) else {
+                    return nil
+                }
+                submitDraft.coverAssetID = assetID
+            }
             let item = try await repository.createFoodInventoryItem(
-                draft: draft,
+                draft: submitDraft,
                 currentUserID: currentUserID
             )
             items.insert(item, at: 0)
@@ -121,12 +136,23 @@ final class PetFoodInventoryStore {
     func updateItem(
         itemID: String,
         draft: FoodInventoryDraft,
+        coverUploadDraft: PetMediaUploadDraft? = nil,
         currentUserID: String
     ) async -> FoodInventoryItem? {
         do {
+            var submitDraft = draft
+            if let coverUploadDraft {
+                guard let assetID = await uploadCoverAssetID(
+                    draft: coverUploadDraft,
+                    currentUserID: currentUserID
+                ) else {
+                    return nil
+                }
+                submitDraft.coverAssetID = assetID
+            }
             let updated = try await repository.updateFoodInventoryItem(
                 itemID: itemID,
-                draft: draft,
+                draft: submitDraft,
                 currentUserID: currentUserID
             )
             if let index = items.firstIndex(where: { $0.id == itemID }) {
@@ -140,9 +166,34 @@ final class PetFoodInventoryStore {
         }
     }
 
-    func archiveItem(itemID: String, currentUserID: String) async -> Bool {
+    func uploadCover(
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async -> PetMediaUploadResult? {
+        coverUploadProgress = 0
         do {
-            _ = try await repository.archiveFoodInventoryItem(
+            let response = try await repository.uploadFoodInventoryCover(
+                draft: draft,
+                currentUserID: currentUserID
+            ) { progress in
+                self.coverUploadProgress = progress
+            }
+            coverUploadProgress = nil
+            guard let result = response.data else {
+                errorMessage = "物品照片上传失败"
+                return nil
+            }
+            return result
+        } catch {
+            coverUploadProgress = nil
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func deleteItem(itemID: String, currentUserID: String) async -> Bool {
+        do {
+            _ = try await repository.deleteFoodInventoryItem(
                 itemID: itemID,
                 currentUserID: currentUserID
             )
@@ -152,30 +203,6 @@ final class PetFoodInventoryStore {
         } catch {
             errorMessage = error.localizedDescription
             return false
-        }
-    }
-
-    func restoreItem(
-        itemID: String,
-        status: FoodInventoryStatus,
-        currentUserID: String
-    ) async -> FoodInventoryItem? {
-        do {
-            let restored = try await repository.restoreFoodInventoryItem(
-                itemID: itemID,
-                status: status,
-                currentUserID: currentUserID
-            )
-            if let index = items.firstIndex(where: { $0.id == itemID }) {
-                items[index] = restored
-            } else {
-                items.insert(restored, at: 0)
-            }
-            PetFoodInventoryMutationSignal.post()
-            return restored
-        } catch {
-            errorMessage = error.localizedDescription
-            return nil
         }
     }
 
@@ -223,10 +250,11 @@ final class PetFoodInventoryStore {
         items.filter { $0.category == category && $0.archivedAt == nil }
     }
 
-    func archivedPantryItems(for category: PantryCategory) -> [PantryItem] {
-        items
-            .filter { $0.archivedAt != nil }
-            .map(PantryItem.init(foodInventoryItem:))
-            .filter { category == .all || $0.category == category }
+    private func uploadCoverAssetID(
+        draft: PetMediaUploadDraft,
+        currentUserID: String
+    ) async -> String? {
+        let result = await uploadCover(draft: draft, currentUserID: currentUserID)
+        return result?.asset.id
     }
 }

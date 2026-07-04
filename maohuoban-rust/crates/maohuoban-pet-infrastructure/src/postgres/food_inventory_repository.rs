@@ -194,7 +194,7 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         }
     }
 
-    async fn archive_item(
+    async fn delete_item(
         &self,
         item_id: Uuid,
         editor_user_id: Uuid,
@@ -213,49 +213,13 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         .fetch_optional(&self.pool)
         .await
         .map_err(|error| {
-            PetError::Infrastructure(format!("failed to archive food inventory item: {error}"))
+            PetError::Infrastructure(format!("failed to delete food inventory item: {error}"))
         })?;
 
         match result {
             Some(row) => {
                 let item = FoodInventoryItem::try_from(row)?;
-                self.record_change(&item, editor_user_id, "archived")
-                    .await?;
-                Ok(item)
-            }
-            None => Err(PetError::FoodInventoryNotFound),
-        }
-    }
-
-    async fn restore_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-        status: FoodInventoryStatus,
-    ) -> PetResult<FoodInventoryItem> {
-        let result: Option<FoodInventoryItemRow> = sqlx::query_as(
-            r#"
-            UPDATE food_inventory_items SET
-                inventory_status = $2,
-                archived_at = NULL,
-                updated_at = now()
-            WHERE id = $1 AND archived_at IS NOT NULL
-            RETURNING *
-            "#,
-        )
-        .bind(item_id)
-        .bind(status.as_str())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!("failed to restore food inventory item: {error}"))
-        })?;
-
-        match result {
-            Some(row) => {
-                let item = FoodInventoryItem::try_from(row)?;
-                self.record_change(&item, editor_user_id, "restored")
-                    .await?;
+                self.record_change(&item, editor_user_id, "deleted").await?;
                 Ok(item)
             }
             None => Err(PetError::FoodInventoryNotFound),

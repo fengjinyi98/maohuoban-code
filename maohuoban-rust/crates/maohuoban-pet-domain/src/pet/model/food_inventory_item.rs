@@ -23,6 +23,7 @@ pub struct FoodInventoryItem {
     pub spec: Option<String>,
     pub expiry_date: Option<NaiveDate>,
     pub cover_asset_id: Option<Uuid>,
+    pub cover_url: Option<String>,
     pub barcode: Option<String>,
     pub source_kind: FoodSourceKind,
     pub note: Option<String>,

@@ -58,6 +58,9 @@ impl TryFrom<FoodInventoryItemRow> for FoodInventoryItem {
             spec: row.spec,
             expiry_date: row.expiry_date,
             cover_asset_id: row.cover_asset_id,
+            cover_url: row
+                .cover_asset_id
+                .map(|asset_id| format!("/api/v1/media/assets/{asset_id}/content")),
             barcode: row.barcode,
             source_kind: FoodSourceKind::try_from(row.source_kind.as_str()).map_err(|_| {
                 PetError::Infrastructure("unknown source_kind from database".to_owned())

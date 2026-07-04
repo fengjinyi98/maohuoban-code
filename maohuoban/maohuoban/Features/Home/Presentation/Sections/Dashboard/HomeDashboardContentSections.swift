@@ -83,25 +83,37 @@ struct HomeDashboardContentSections: View {
             }
 
             if let pantryItems = snapshot.pantryItems {
+                let pantryContext = PetPantryEntryContext(
+                    sourcePetID: snapshot.selectedPet?.id,
+                    sourcePetName: snapshot.selectedPet?.name
+                )
                 HomePantrySection(
                     items: pantryItems,
-                    route: .petPantry(PetPantryEntryContext(
-                        sourcePetID: snapshot.selectedPet?.id,
-                        sourcePetName: snapshot.selectedPet?.name
-                    )),
-                    addRoute: .addPantryItem
+                    route: .petPantry(pantryContext),
+                    addRoute: .addPantryItem,
+                    cardRoute: { item in
+                        .pantryCategoryDetail(
+                            context: pantryContext,
+                            category: item.pantryCategory
+                        )
+                    }
                 )
             }
 
             if snapshot.selectedPet != nil {
+                let albumContext = PetAlbumEntryContext(
+                    petID: snapshot.selectedPet?.id,
+                    petName: snapshot.selectedPet?.name
+                )
                 HomePetGallerySection(
                     albums: snapshot.galleryAlbums,
-                    entryRoute: .petAlbum(
-                        PetAlbumEntryContext(
-                            petID: snapshot.selectedPet?.id,
-                            petName: snapshot.selectedPet?.name
+                    entryRoute: .petAlbum(albumContext),
+                    cardRoute: { album in
+                        .petAlbumDestination(
+                            context: albumContext,
+                            destination: .detail(album.petAlbumSummary())
                         )
-                    )
+                    }
                 )
             }
 

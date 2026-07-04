@@ -8,9 +8,12 @@ import XCTest
 @MainActor
 final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
     func testListFoodInventoryItemsUsesItemsEndpointAndDecodesItemsWrapper() async throws {
+        var requestCount = 0
         let repository = makeRepository { request in
+            requestCount += 1
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/items")
+            XCTAssertNil(request.url?.query)
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             return Self.jsonResponse(
@@ -57,53 +60,14 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
         XCTAssertEqual(items[0].id, "food-1")
         XCTAssertEqual(items[0].name, "渴望六种鱼")
         XCTAssertEqual(items[0].category, .mainFood)
+        XCTAssertEqual(requestCount, 1)
     }
 
-    func testListFoodInventoryItemsAlsoLoadsArchivedItemsForRestoreEntry() async throws {
-        var requestedQueries: [String?] = []
+    func testDeleteFoodInventoryItemUsesDeleteEndpoint() async throws {
         let repository = makeRepository { request in
-            XCTAssertEqual(request.httpMethod, "GET")
-            XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/items")
-            requestedQueries.append(request.url?.query)
-
-            if request.url?.query == "status=archived" {
-                return Self.jsonResponse(
-                    statusCode: 200,
-                    body:
-                    """
-                    {
-                      "success": true,
-                      "code": "food_inventory.list_loaded",
-                      "message": "食品资产列表已加载",
-                      "data": {
-                        "items": [
-                          {
-                            "id": "food-archived",
-                            "scope_type": "user",
-                            "scope_id": "user-1",
-                            "created_by_user_id": "user-1",
-                            "name": "归档主粮",
-                            "brand": "Orijen",
-                            "category": "main_food",
-                            "inventory_status": "archived",
-                            "quantity": 1,
-                            "unit": "袋",
-                            "spec": "5.4kg",
-                            "expiry_date": "2027-01-15",
-                            "cover_asset_id": null,
-                            "barcode": null,
-                            "source_kind": "manual",
-                            "note": null,
-                            "created_at": "2026-06-25T08:00:00Z",
-                            "updated_at": "2026-06-25T08:00:00Z",
-                            "archived_at": "2026-06-26T08:00:00Z"
-                          }
-                        ]
-                      }
-                    }
-                    """
-                )
-            }
+            XCTAssertEqual(request.httpMethod, "DELETE")
+            XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/items/food-1")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
 
             return Self.jsonResponse(
                 statusCode: 200,
@@ -111,43 +75,41 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
                 """
                 {
                   "success": true,
-                  "code": "food_inventory.list_loaded",
-                  "message": "食品资产列表已加载",
+                  "code": "food_inventory.item_deleted",
+                  "message": "食品资产已移出储物柜",
                   "data": {
-                    "items": [
-                      {
-                        "id": "food-active",
-                        "scope_type": "user",
-                        "scope_id": "user-1",
-                        "created_by_user_id": "user-1",
-                        "name": "当前主粮",
-                        "brand": "Orijen",
-                        "category": "main_food",
-                        "inventory_status": "in_use",
-                        "quantity": 1,
-                        "unit": "袋",
-                        "spec": "5.4kg",
-                        "expiry_date": "2027-01-15",
-                        "cover_asset_id": null,
-                        "barcode": null,
-                        "source_kind": "manual",
-                        "note": null,
-                        "created_at": "2026-06-25T08:00:00Z",
-                        "updated_at": "2026-06-25T08:00:00Z",
-                        "archived_at": null
-                      }
-                    ]
+                    "id": "food-1",
+                    "scope_type": "user",
+                    "scope_id": "user-1",
+                    "created_by_user_id": "user-1",
+                    "name": "当前主粮",
+                    "brand": "Orijen",
+                    "category": "main_food",
+                    "inventory_status": "archived",
+                    "quantity": 1,
+                    "unit": "袋",
+                    "spec": "5.4kg",
+                    "expiry_date": "2027-01-15",
+                    "cover_asset_id": null,
+                    "barcode": null,
+                    "source_kind": "manual",
+                    "note": null,
+                    "created_at": "2026-06-25T08:00:00Z",
+                    "updated_at": "2026-06-25T08:00:00Z",
+                    "archived_at": "2026-07-04T08:00:00Z"
                   }
                 }
                 """
             )
         }
 
-        let items = try await repository.listFoodInventoryItems(currentUserID: "user-1")
+        let item = try await repository.deleteFoodInventoryItem(
+            itemID: "food-1",
+            currentUserID: "user-1"
+        )
 
-        XCTAssertEqual(requestedQueries, [nil, "status=archived"])
-        XCTAssertEqual(items.map(\.id), ["food-active", "food-archived"])
-        XCTAssertEqual(items.last?.archivedAt, "2026-06-26T08:00:00Z")
+        XCTAssertEqual(item.id, "food-1")
+        XCTAssertEqual(item.inventoryStatus, .archived)
     }
 
     func testSetPetCurrentStaplePostsDietStapleEndpoint() async throws {
@@ -247,5 +209,162 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
         XCTAssertEqual(assignment.id, "assignment-2")
         XCTAssertEqual(assignment.foodItemID, "food-2")
         XCTAssertEqual(assignment.role, "trying")
+    }
+
+    func testCreateFoodInventoryItemPostsCoverAssetID() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/items")
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            XCTAssertEqual(json["cover_asset_id"] as? String, "asset-cover-1")
+
+            return Self.foodInventoryItemResponse(
+                statusCode: 201,
+                code: "food_inventory.item_created",
+                coverAssetID: "asset-cover-1"
+            )
+        }
+
+        var draft = FoodInventoryDraft()
+        draft.name = "封面主粮"
+        draft.coverAssetID = "asset-cover-1"
+        let item = try await repository.createFoodInventoryItem(
+            draft: draft,
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(item.coverAssetID, "asset-cover-1")
+        XCTAssertEqual(item.coverURL, "/api/v1/media/assets/asset-cover-1/content")
+    }
+
+    func testUpdateFoodInventoryItemPostsCoverAssetID() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "PATCH")
+            XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/items/food-1")
+            let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+            XCTAssertEqual(json["cover_asset_id"] as? String, "asset-cover-2")
+
+            return Self.foodInventoryItemResponse(
+                statusCode: 200,
+                code: "food_inventory.item_updated",
+                coverAssetID: "asset-cover-2"
+            )
+        }
+
+        var draft = FoodInventoryDraft()
+        draft.name = "封面主粮"
+        draft.coverAssetID = "asset-cover-2"
+        let item = try await repository.updateFoodInventoryItem(
+            itemID: "food-1",
+            draft: draft,
+            currentUserID: "user-1"
+        )
+
+        XCTAssertEqual(item.coverAssetID, "asset-cover-2")
+        XCTAssertEqual(item.coverURL, "/api/v1/media/assets/asset-cover-2/content")
+    }
+
+    func testUploadFoodInventoryCoverUsesFoodInventoryMediaEndpoint() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/food-inventory/media")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+            XCTAssertTrue(request.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/form-data") == true)
+            let body = String(data: try XCTUnwrap(request.bodyDataForPetRepositoryTest()), encoding: .utf8)
+            XCTAssertTrue(body?.contains("name=\"file\"; filename=\"pantry-cover.jpg\"") == true)
+
+            return Self.jsonResponse(
+                statusCode: 201,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "food_inventory.media_uploaded",
+                  "message": "储物柜物品照片已上传",
+                  "data": {
+                    "asset": {
+                      "id": "asset-cover-1",
+                      "url": "/api/v1/media/assets/asset-cover-1/content",
+                      "uploaded_by_user_id": "user-1",
+                      "owner_pet_id": null,
+                      "usage_kind": "pet.food_inventory.cover",
+                      "source_client": "ios",
+                      "original_file_name": "pantry-cover.jpg",
+                      "mime_type": "image/jpeg",
+                      "byte_size": 3,
+                      "sha256_hex": "sha-cover",
+                      "bucket": "maohuoban-pet-media",
+                      "object_key": "media/users/user-1/asset-cover-1/original.jpg",
+                      "status": "uploaded",
+                      "width": 1200,
+                      "height": 900,
+                      "delete_after": null,
+                      "deleted_at": null,
+                      "created_at": "2026-07-04T08:00:00Z",
+                      "updated_at": "2026-07-04T08:00:00Z"
+                    },
+                    "binding": null,
+                    "derivatives": [],
+                    "components": []
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.uploadFoodInventoryCover(
+            draft: PetMediaUploadDraft(
+                fileName: "pantry-cover.jpg",
+                mimeType: "image/jpeg",
+                content: Data([1, 2, 3]),
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1"
+        ) { _ in }
+
+        XCTAssertEqual(response.data?.asset.id, "asset-cover-1")
+        XCTAssertEqual(response.data?.asset.usageKind, .foodInventoryCover)
+    }
+
+    private static func foodInventoryItemResponse(
+        statusCode: Int,
+        code: String,
+        coverAssetID: String
+    ) -> (HTTPURLResponse, Data) {
+        jsonResponse(
+            statusCode: statusCode,
+            body:
+            """
+            {
+              "success": true,
+              "code": "\(code)",
+              "message": "ok",
+              "data": {
+                "id": "food-1",
+                "scope_type": "user",
+                "scope_id": "user-1",
+                "created_by_user_id": "user-1",
+                "name": "封面主粮",
+                "brand": null,
+                "category": "main_food",
+                "inventory_status": "sealed",
+                "quantity": 1,
+                "unit": null,
+                "spec": null,
+                "expiry_date": null,
+                "cover_asset_id": "\(coverAssetID)",
+                "cover_url": "/api/v1/media/assets/\(coverAssetID)/content",
+                "barcode": null,
+                "source_kind": "manual",
+                "note": null,
+                "created_at": "2026-06-25T08:00:00Z",
+                "updated_at": "2026-06-25T08:00:00Z",
+                "archived_at": null
+              }
+            }
+            """
+        )
     }
 }

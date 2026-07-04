@@ -10,6 +10,7 @@ struct PetPantryScreen<Route: Hashable>: View {
     let context: PetPantryEntryContext
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
+    var onOpenRoute: (Route) -> Void = { _ in }
 
     @State private var store = PetFoodInventoryStore()
     @State private var customizations: [PantryCategory: PetPantryLockerCustomization] = [:]
@@ -17,7 +18,7 @@ struct PetPantryScreen<Route: Hashable>: View {
     private var items: [PantryItem] {
         store.pantryItems
     }
-    
+
     var categoryGroups: [(category: PantryCategory, count: Int, coverImageURL: String?)] {
         var groups: [(PantryCategory, Int, String?)] = []
         for category in PantryCategory.allCases where category != .all {
@@ -30,35 +31,64 @@ struct PetPantryScreen<Route: Hashable>: View {
         return groups
     }
 
+    private var shouldShowEmptyState: Bool {
+        !store.isLoading && categoryGroups.isEmpty
+    }
+
+    private var shouldShowBottomCTA: Bool {
+        !categoryGroups.isEmpty
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let bottomInset = proxy.safeAreaInsets.bottom
 
             ZStack(alignment: .bottom) {
                 MHBScreenScrollView {
-                    VStack(spacing: MHBTheme.Spacing.s5) {
-                        if let sourcePetName = context.sourcePetName, context.sourcePetID != nil {
-                            PetPantryDietSummarySection(
-                                petName: sourcePetName,
-                                rows: store.dietSummaryRows
+                    if store.isLoading && categoryGroups.isEmpty {
+                        ProgressView()
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: max(proxy.size.height - bottomInset, 360),
+                                alignment: .center
                             )
-                            .padding(.horizontal, MHBTheme.Spacing.s5)
-                            .padding(.top, MHBTheme.Spacing.s4)
-                        }
+                    } else if shouldShowEmptyState {
+                        PetPantryEmptyState(
+                            presentation: .default,
+                            route: onNavigate(.addItem)
+                        )
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: max(proxy.size.height - bottomInset, 360),
+                            alignment: .center
+                        )
+                    } else {
+                        VStack(spacing: MHBTheme.Spacing.s5) {
+                            if let sourcePetName = context.sourcePetName, context.sourcePetID != nil {
+                                PetPantryDietSummarySection(
+                                    petName: sourcePetName,
+                                    rows: store.dietSummaryRows
+                                )
+                                .padding(.horizontal, MHBTheme.Spacing.s5)
+                                .padding(.top, MHBTheme.Spacing.s4)
+                            }
 
-                        categoriesGrid
-                            .padding(.horizontal, MHBTheme.Spacing.s5)
-                            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                            categoriesGrid
+                                .padding(.horizontal, MHBTheme.Spacing.s5)
+                                .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                        }
                     }
                 }
 
-                MHBBottomFloatingCTA(
-                    title: "添加物品",
-                    systemImage: "plus",
-                    route: onNavigate(.addItem),
-                    bottomInset: bottomInset
-                )
-                .zIndex(2)
+                if shouldShowBottomCTA {
+                    MHBBottomFloatingCTA(
+                        title: "添加物品",
+                        systemImage: "plus",
+                        route: onNavigate(.addItem),
+                        bottomInset: bottomInset
+                    )
+                    .zIndex(2)
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }

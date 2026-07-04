@@ -249,7 +249,7 @@ pub struct UpdateFoodInventoryItem {
 /// FoodInventoryRepository 食品资产仓储端口
 /// 核心职责：
 /// - 持久化用户/家庭空间储物柜食品资产
-/// - 支持 CRUD、归档、补库存和分类查询
+/// - 支持 CRUD、软删除、补库存和分类查询
 #[async_trait]
 pub trait FoodInventoryRepository: Send + Sync {
     async fn create_item(&self, input: NewFoodInventoryItem) -> PetResult<FoodInventoryItem>;
@@ -266,17 +266,10 @@ pub trait FoodInventoryRepository: Send + Sync {
 
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem>;
 
-    async fn archive_item(
+    async fn delete_item(
         &self,
         item_id: Uuid,
         editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem>;
-
-    async fn restore_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-        status: FoodInventoryStatus,
     ) -> PetResult<FoodInventoryItem>;
 
     async fn restock_item(

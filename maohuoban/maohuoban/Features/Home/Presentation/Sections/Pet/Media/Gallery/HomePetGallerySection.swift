@@ -8,23 +8,30 @@ import MaohuobanDesignSystem
 struct HomePetGallerySection: View {
     let albums: [HomeDashboardSnapshot.PetGalleryAlbum]
     let entryRoute: HomeRoute
+    let cardRoute: (HomeDashboardSnapshot.PetGalleryAlbum) -> HomeRoute
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            NavigationLink(value: entryRoute) {
-                HStack(spacing: MHBTheme.Spacing.s1) {
-                    Text("相册")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
+            HStack {
+                Text("相册")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.6))
+                Spacer()
+
+                NavigationLink(value: entryRoute) {
+                    HStack(spacing: 4) {
+                        Text("全部相册")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.petGallery.header")
             }
-            .buttonStyle(.plain)
             .padding(.bottom, MHBTheme.Spacing.s1)
-            .accessibilityIdentifier("home.petGallery.header")
 
             if albums.isEmpty {
                 NavigationLink(value: entryRoute) {
@@ -53,7 +60,7 @@ struct HomePetGallerySection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: MHBTheme.Spacing.s3) {
                         ForEach(albums) { album in
-                            NavigationLink(value: entryRoute) {
+                            NavigationLink(value: cardRoute(album)) {
                                 HomeGalleryCard(album: album)
                             }
                             .buttonStyle(.plain)

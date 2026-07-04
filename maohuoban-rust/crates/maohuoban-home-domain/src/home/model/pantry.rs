@@ -9,6 +9,7 @@ pub struct HomePantryPreviewItem {
     pub id: String,
     pub title: String,
     pub subtitle: String,
-    pub cover_image_asset_name: String,
+    pub category: String,
+    pub cover_url: Option<String>,
     pub diet_role_label: Option<String>,
 }

@@ -108,6 +108,12 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(agent_diet::get_food_inventory_change_hints),
         )
         .route(
+            "/api/v1/food-inventory/media",
+            post(food_inventory::upload_pending_food_inventory_cover).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::commodity_image().body_limit_bytes,
+            )),
+        )
+        .route(
             "/api/v1/food-inventory/items",
             get(food_inventory::list_food_inventory_items)
                 .post(food_inventory::create_food_inventory_item),
@@ -116,15 +122,7 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             "/api/v1/food-inventory/items/{item_id}",
             get(food_inventory::get_food_inventory_item)
                 .patch(food_inventory::update_food_inventory_item)
-                .delete(food_inventory::archive_food_inventory_item),
-        )
-        .route(
-            "/api/v1/food-inventory/items/{item_id}/archive",
-            post(food_inventory::archive_food_inventory_item),
-        )
-        .route(
-            "/api/v1/food-inventory/items/{item_id}/restore",
-            post(food_inventory::restore_food_inventory_item),
+                .delete(food_inventory::delete_food_inventory_item),
         )
         .route(
             "/api/v1/food-inventory/items/{item_id}/restock",

@@ -4,10 +4,11 @@ import Foundation
 // 核心职责：
 // - 表达单个食品或用品的完整信息
 // - 支持分类、状态和日期管理
-struct PantryItem: Identifiable, Decodable, Equatable {
+struct PantryItem: Identifiable, Decodable, Equatable, Hashable {
     let id: String
     let name: String
     let brand: String
+    let coverAssetID: String?
     let imageURL: String?
     let category: PantryCategory
     let status: PantryStatus
@@ -22,6 +23,7 @@ struct PantryItem: Identifiable, Decodable, Equatable {
         case id
         case name
         case brand
+        case coverAssetID = "cover_asset_id"
         case imageURL = "image_url"
         case category
         case status

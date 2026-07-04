@@ -18,8 +18,15 @@ final class MHBPhotoGridController: NSObject {
     var resolvingAssetID: String?
     var selectedAssetIDs: [String: Int] = [:]
     var disabledAssetIDs: Set<String> = []
+    var showsCameraEntry = false {
+        didSet {
+            collectionView.reloadData()
+            collectionView.layoutIfNeeded()
+        }
+    }
     var onSelectAsset: ((MHBPhotoLibraryAsset) -> Void)?
     var onSelectDisabledAsset: ((MHBPhotoLibraryAsset) -> Void)?
+    var onSelectCamera: (() -> Void)?
     var onScrollDateChanged: ((MHBPhotoGridScrollDateSnapshot?) -> Void)?
 
     private let service: MHBPhotoLibraryService
@@ -56,12 +63,11 @@ final class MHBPhotoGridController: NSObject {
 
     private func updateVisibleCellStates() {
         collectionView.indexPathsForVisibleItems.forEach { indexPath in
-            guard indexPath.item < assets.count,
+            guard let asset = asset(for: indexPath),
                   let cell = collectionView.cellForItem(at: indexPath) as? MHBPhotoGridCell
             else {
                 return
             }
-            let asset = assets[indexPath.item]
             cell.updateResolvingState(asset.id == resolvingAssetID)
             cell.updateSelectionIndex(selectedAssetIDs[asset.id])
             cell.updateDisabledState(disabledAssetIDs.contains(asset.id))
@@ -72,6 +78,10 @@ final class MHBPhotoGridController: NSObject {
         collectionView.register(
             MHBPhotoGridCell.self,
             forCellWithReuseIdentifier: MHBPhotoGridCell.reuseIdentifier
+        )
+        collectionView.register(
+            MHBPhotoGridCameraCell.self,
+            forCellWithReuseIdentifier: MHBPhotoGridCameraCell.reuseIdentifier
         )
         collectionView.backgroundColor = .black
         collectionView.dataSource = self
@@ -88,8 +98,8 @@ final class MHBPhotoGridController: NSObject {
         }
 
         guard let indexPath = currentScrollDateIndexPath(),
-              indexPath.item < assets.count,
-              let creationDate = assets[indexPath.item].asset.creationDate
+              let asset = asset(for: indexPath),
+              let creationDate = asset.asset.creationDate
         else {
             setScrollDateSnapshot(nil, forceNotify: forceNotify)
             return
@@ -161,21 +171,30 @@ extension MHBPhotoGridController: UICollectionViewDataSource {
         _ collectionView: UICollectionView,
         numberOfItemsInSection section: Int
     ) -> Int {
-        assets.count
+        assets.count + (showsCameraEntry ? 1 : 0)
     }
 
     func collectionView(
         _ collectionView: UICollectionView,
         cellForItemAt indexPath: IndexPath
     ) -> UICollectionViewCell {
+        if showsCameraEntry && indexPath.item == 0 {
+            return collectionView.dequeueReusableCell(
+                withReuseIdentifier: MHBPhotoGridCameraCell.reuseIdentifier,
+                for: indexPath
+            )
+        }
+
+        guard let asset = asset(for: indexPath) else {
+            return UICollectionViewCell()
+        }
+
         guard let cell = collectionView.dequeueReusableCell(
             withReuseIdentifier: MHBPhotoGridCell.reuseIdentifier,
             for: indexPath
         ) as? MHBPhotoGridCell else {
             return UICollectionViewCell()
         }
-
-        let asset = assets[indexPath.item]
         cell.configure(
             assetID: asset.id,
             image: nil,
@@ -202,16 +221,22 @@ extension MHBPhotoGridController: UICollectionViewDataSource {
 
 extension MHBPhotoGridController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard indexPath.item < assets.count else {
+        if showsCameraEntry && indexPath.item == 0 {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onSelectCamera?()
             return
         }
-        guard !disabledAssetIDs.contains(assets[indexPath.item].id) else {
+
+        guard let asset = asset(for: indexPath) else {
+            return
+        }
+        guard !disabledAssetIDs.contains(asset.id) else {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-            onSelectDisabledAsset?(assets[indexPath.item])
+            onSelectDisabledAsset?(asset)
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        onSelectAsset?(assets[indexPath.item])
+        onSelectAsset?(asset)
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -230,6 +255,16 @@ extension MHBPhotoGridController: UICollectionViewDelegate {
 
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         hideScrollDateSnapshot()
+    }
+}
+
+private extension MHBPhotoGridController {
+    func asset(for indexPath: IndexPath) -> MHBPhotoLibraryAsset? {
+        let assetIndex = indexPath.item - (showsCameraEntry ? 1 : 0)
+        guard assetIndex >= 0, assetIndex < assets.count else {
+            return nil
+        }
+        return assets[assetIndex]
     }
 }
 
