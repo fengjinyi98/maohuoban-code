@@ -33,6 +33,8 @@ mod media_derivatives_cleanup;
 mod merchant;
 #[path = "pet_contract/pet_album.rs"]
 mod pet_album;
+#[path = "pet_contract/pet_event_attachments.rs"]
+mod pet_event_attachments;
 #[path = "pet_contract/profile_crud.rs"]
 mod profile_crud;
 #[path = "pet_contract/profile_delete.rs"]

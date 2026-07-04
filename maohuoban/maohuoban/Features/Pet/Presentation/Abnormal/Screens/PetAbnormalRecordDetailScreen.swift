@@ -10,6 +10,7 @@ import MaohuobanDesignSystem
 struct PetAbnormalRecordDetailScreen: View {
     let recordID: String
     let currentUserID: String?
+    let recordContext: PetRecordEntryContext?
 
     @State private var store = PetAbnormalDetailStore()
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
@@ -27,6 +28,7 @@ struct PetAbnormalRecordDetailScreen: View {
                 PetAbnormalDetailContentView(
                     event: event,
                     store: store,
+                    recordContext: recordContext,
                     onSelectAction: { action in
                         presentedSheet = .action(action)
                     }
@@ -37,6 +39,17 @@ struct PetAbnormalRecordDetailScreen: View {
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("异常详情")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if case .loaded = store.phase {
+                    Button(role: .destructive) {} label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(MHBTheme.ColorToken.danger.color)
+                    }
+                    .accessibilityLabel("删除异常记录")
+                }
+            }
+        }
         .task {
             await store.load(eventID: recordID, currentUserID: currentUserID)
         }
@@ -114,6 +127,7 @@ private struct PetAbnormalDetailErrorView: View {
 private struct PetAbnormalDetailContentView: View {
     let event: PetEventDetail
     let store: PetAbnormalDetailStore
+    let recordContext: PetRecordEntryContext?
     let onSelectAction: (PetAbnormalRecordDetailAction) -> Void
 
     private var payload: PetEventDetailPayload? {
@@ -130,12 +144,21 @@ private struct PetAbnormalDetailContentView: View {
         return kinds.compactMap { PetAbnormalSymptom(rawValue: $0) }
     }
 
+    private var noteText: String {
+        payload?.note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private var attachmentAssetIDs: [String] {
+        payload?.attachmentAssetIDs ?? []
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
             PetAbnormalRecordDetailHeader(
                 title: event.title,
                 timeText: event.occurredAt,
-                severity: severity
+                severity: severity,
+                pet: PetAbnormalRecordPetIdentity(event: event, context: recordContext)
             )
 
             if !symptoms.isEmpty {
@@ -149,8 +172,11 @@ private struct PetAbnormalDetailContentView: View {
                 PetAbnormalRecordObservationSection(details: details)
             }
 
-            if let note = payload?.note, !note.isEmpty {
-                PetAbnormalRecordEvidenceSection(note: note)
+            if !noteText.isEmpty || !attachmentAssetIDs.isEmpty {
+                PetAbnormalRecordEvidenceSection(
+                    note: noteText.isEmpty ? "未填写备注" : noteText,
+                    attachmentAssetIDs: attachmentAssetIDs
+                )
             }
 
             if let summary = event.summary, !summary.isEmpty {
@@ -183,6 +209,7 @@ private struct PetAbnormalRecordDetailHeader: View {
     let title: String
     let timeText: String
     let severity: PetAbnormalSeverity?
+    let pet: PetAbnormalRecordPetIdentity
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
@@ -199,10 +226,18 @@ private struct PetAbnormalRecordDetailHeader: View {
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    Text(timeText)
-                        .font(MHBTheme.Typography.caption)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                        .lineLimit(1)
+                    HStack(spacing: MHBTheme.Spacing.s2) {
+                        MHBAvatar(
+                            subject: .pet(pet.avatarPet),
+                            size: .custom(24),
+                            shape: .circle
+                        )
+
+                        Text("\(pet.name) · \(timeText)")
+                            .font(MHBTheme.Typography.caption)
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: MHBTheme.Spacing.s2)
@@ -228,6 +263,40 @@ private struct PetAbnormalRecordDetailHeader: View {
 
     private var tint: Color {
         severity?.tint ?? MHBTheme.ColorToken.warning.color
+    }
+}
+
+// PetAbnormalRecordPetIdentity 异常详情宠物身份
+// 核心职责：
+// - 从事件详情和入口上下文生成宠物头像展示数据
+// - 避免异常详情回落到本地演示宠物
+private struct PetAbnormalRecordPetIdentity: Equatable {
+    let id: String
+    let name: String
+    let avatarSource: MHBAvatarSource
+
+    init(event: PetEventDetail, context: PetRecordEntryContext?) {
+        self.id = context?.petID ?? event.petID ?? "current-pet"
+        self.name = context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物"
+        self.avatarSource = Self.avatarSource(context: context)
+    }
+
+    var avatarPet: MHBAvatarPet {
+        MHBAvatarPet(
+            id: id,
+            name: name,
+            source: avatarSource,
+            species: .other,
+            sex: .unknown
+        )
+    }
+
+    private static func avatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
+        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+              let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
+            return .empty
+        }
+        return .remote(avatarURL)
     }
 }
 
@@ -288,13 +357,20 @@ private struct PetAbnormalRecordObservationSection: View {
 // - 展示用户补充描述
 private struct PetAbnormalRecordEvidenceSection: View {
     let note: String
+    let attachmentAssetIDs: [String]
 
     var body: some View {
-        PetAbnormalRecordDetailSection(title: "备注") {
-            Text(note)
-                .font(MHBTheme.Typography.callout)
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .fixedSize(horizontal: false, vertical: true)
+        PetAbnormalRecordDetailSection(title: "备注与照片") {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+                Text(note)
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !attachmentAssetIDs.isEmpty {
+                    PetEventAttachmentDisplayGallery(assetIDs: attachmentAssetIDs)
+                }
+            }
         }
     }
 }

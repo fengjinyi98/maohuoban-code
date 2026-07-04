@@ -10,6 +10,14 @@ use crate::pet::{
 };
 
 impl PetService {
+    pub async fn upload_pending_pet_event_attachment(
+        &self,
+        mut input: PendingPetMediaUploadInput,
+    ) -> PetResult<maohuoban_pet_domain::pet::PetMediaUploadResult> {
+        input.usage_kind = MediaUsageKind::PetEventAttachment;
+        self.upload_pending_pet_media(input).await
+    }
+
     pub async fn upload_pending_pet_media(
         &self,
         input: PendingPetMediaUploadInput,

@@ -17,6 +17,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 mod abnormal_event_handler;
+mod event_attachments;
 mod event_queries;
 mod event_rows;
 mod identity_context_query;

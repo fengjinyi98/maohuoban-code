@@ -4,35 +4,118 @@ import MaohuobanDesignSystem
 // PetFeedingDetailScreen 喂食记录详情页
 // 核心职责：
 // - 展示单条喂食记录的宠物、份量、食品、备注和照片
+// - 通过 PetEventDetailStore 加载后端事件详情
 // - 使用少量、正常、多一点等低摩擦份量语义
 // - 避免展示克数、进食方式和记录来源等当前产品边界外字段
 struct PetFeedingDetailScreen: View {
     let recordID: String
+    let currentUserID: String?
+    let recordContext: PetRecordEntryContext?
 
-    private var presentation: PetFeedingDetailPresentation {
-        PetFeedingDetailPresentation.mock(recordID: recordID)
-    }
+    @State private var store = PetEventDetailStore()
 
     var body: some View {
         MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetFeedingDetailHeader(presentation: presentation)
-                PetFeedingDataSection(amountText: presentation.amountText)
-                PetFeedingFoodSection(food: presentation.food)
-                PetFeedingEvidenceSection(
-                    note: presentation.note,
-                    photoAssetNames: presentation.photoAssetNames
+            switch store.phase {
+            case .idle, .loading:
+                PetFeedingDetailLoadingView()
+            case .failed(let message):
+                PetFeedingDetailErrorView(message: message)
+            case .loaded(let event):
+                PetFeedingDetailContentView(
+                    event: event,
+                    recordContext: recordContext
                 )
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .frame(maxWidth: .infinity)
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("喂食详情")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if case .loaded = store.phase {
+                    Button(role: .destructive) {} label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(MHBTheme.ColorToken.danger.color)
+                    }
+                    .accessibilityLabel("删除喂食记录")
+                }
+            }
+        }
+        .task(id: recordID) {
+            await store.load(eventID: recordID, currentUserID: currentUserID)
+        }
         .accessibilityIdentifier("pet.feedingDetail.screen")
+    }
+}
+
+// PetFeedingDetailLoadingView 喂食详情加载态
+// 核心职责：
+// - 在后端事件详情请求期间展示反馈
+// - 避免页面未加载时出现演示数据
+private struct PetFeedingDetailLoadingView: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            ProgressView()
+            Text("正在加载喂食详情")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetFeedingDetailErrorView 喂食详情错误态
+// 核心职责：
+// - 展示事件详情加载失败原因
+// - 阻止详情页回落到本地展示数据
+private struct PetFeedingDetailErrorView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+            Text(message)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetFeedingDetailContentView 喂食详情内容
+// 核心职责：
+// - 将后端事件详情转换为展示模型
+// - 组合喂食数据、关联食品和备注照片分区
+private struct PetFeedingDetailContentView: View {
+    let event: PetEventDetail
+    let recordContext: PetRecordEntryContext?
+
+    private var presentation: PetFeedingDetailPresentation {
+        PetFeedingDetailPresentation(event: event, recordContext: recordContext)
+    }
+
+    var body: some View {
+        let presentation = presentation
+
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+            PetFeedingDetailHeader(presentation: presentation)
+            PetFeedingDataSection(amountText: presentation.amountText)
+            PetFeedingFoodSection(food: presentation.food)
+            PetFeedingEvidenceSection(
+                note: presentation.note,
+                attachmentAssetIDs: presentation.attachmentAssetIDs
+            )
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s5)
+        .padding(.top, MHBTheme.Spacing.s6)
+        .padding(.bottom, MHBTheme.Spacing.s8)
     }
 }
 
@@ -101,7 +184,10 @@ private struct PetFeedingFoodSection: View {
     var body: some View {
         PetFeedingDetailSection(title: "关联食品") {
             HStack(spacing: MHBTheme.Spacing.s3) {
-                PetFeedingFoodThumbnail(assetName: food.assetName)
+                PetFeedingFoodThumbnail(
+                    imageURLString: food.imageURLString,
+                    systemImage: food.systemImage
+                )
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
                     Text(food.name)
@@ -127,7 +213,7 @@ private struct PetFeedingFoodSection: View {
 // - 展示本次喂食可选照片
 private struct PetFeedingEvidenceSection: View {
     let note: String
-    let photoAssetNames: [String]
+    let attachmentAssetIDs: [String]
 
     var body: some View {
         PetFeedingDetailSection(title: "备注与照片") {
@@ -137,14 +223,8 @@ private struct PetFeedingEvidenceSection: View {
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                     .fixedSize(horizontal: false, vertical: true)
 
-                HStack(spacing: MHBTheme.Spacing.s2) {
-                    ForEach(photoAssetNames, id: \.self) { assetName in
-                        Image(assetName)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 86, height: 86)
-                            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
-                    }
+                if !attachmentAssetIDs.isEmpty {
+                    PetEventAttachmentDisplayGallery(assetIDs: attachmentAssetIDs)
                 }
             }
         }
@@ -204,23 +284,39 @@ private struct PetFeedingDetailInfoRow: View {
 
 // PetFeedingFoodThumbnail 喂食食品缩略图
 // 核心职责：
-// - 展示关联食品图片
-// - 提供本地 mock 图片兜底
+// - 展示关联食品远程图片
+// - 在缺少图片时使用食品类别图标兜底
 private struct PetFeedingFoodThumbnail: View {
-    let assetName: String
+    let imageURLString: String?
+    let systemImage: String
 
     var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
-            .frame(width: 52, height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+        Group {
+            if let imageURLString,
+               let imageURL = MHBBackendEndpoint.resolve(imageURLString) {
+                MHBRemoteImage(url: imageURL, contentMode: .fill) {
+                    placeholder
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: 52, height: 52)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
+    }
+
+    private var placeholder: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(Color(mhbHex: "0093DD"))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(mhbHex: "0093DD").opacity(0.10))
     }
 }
 
 // PetFeedingDetailPresentation 喂食详情展示模型
 // 核心职责：
-// - 提供快速 UI 阶段的喂食详情 mock 数据
+// - 将后端事件详情映射为喂食详情展示字段
 // - 约束喂食详情字段只展示当前产品边界内的信息
 private struct PetFeedingDetailPresentation {
     struct Pet: Equatable {
@@ -242,7 +338,8 @@ private struct PetFeedingDetailPresentation {
     struct Food: Equatable {
         let name: String
         let subtitle: String
-        let assetName: String
+        let imageURLString: String?
+        let systemImage: String
     }
 
     let recordID: String
@@ -252,26 +349,87 @@ private struct PetFeedingDetailPresentation {
     let amountText: String
     let food: Food
     let note: String
-    let photoAssetNames: [String]
+    let attachmentAssetIDs: [String]
 
-    static func mock(recordID: String) -> PetFeedingDetailPresentation {
-        PetFeedingDetailPresentation(
-            recordID: recordID,
-            title: "已喂食记录",
-            pet: Pet(
-                id: "pet-feeding-mock",
-                name: "测试名字1",
-                avatarSource: .asset("HomePetHeroMock")
-            ),
-            timeText: "2026-06-25 10:30",
-            amountText: "正常",
-            food: Food(
-                name: "原味六种鱼",
-                subtitle: "# 当前主粮 · 5.4kg 大包装",
-                assetName: "HomePetFoodBowl"
-            ),
-            note: "今天食欲很好，主粮吃完得很快。",
-            photoAssetNames: ["HomePetFoodBowl"]
+    init(event: PetEventDetail, recordContext: PetRecordEntryContext?) {
+        let payload = event.eventPayload
+        let eventTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let noteText = payload?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.recordID = event.id
+        self.title = eventTitle.isEmpty ? "已喂食记录" : eventTitle
+        self.pet = Self.petIdentity(event: event, context: recordContext)
+        self.timeText = MHBUTCDateDisplayFormatter.localShortText(fromUTCString: event.occurredAt)
+            ?? event.occurredAt
+        self.amountText = payload?.amountText?.isEmpty == false ? payload?.amountText ?? "未记录" : "未记录"
+        self.food = Self.food(payload: payload)
+        self.note = noteText?.isEmpty == false ? noteText ?? "未填写备注" : "未填写备注"
+        self.attachmentAssetIDs = payload?.attachmentAssetIDs ?? []
+    }
+
+    private static func petIdentity(
+        event: PetEventDetail,
+        context: PetRecordEntryContext?
+    ) -> Pet {
+        Pet(
+            id: context?.petID ?? event.petID ?? "current-pet",
+            name: context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物",
+            avatarSource: petAvatarSource(context: context)
         )
+    }
+
+    private static func petAvatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
+        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+              let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
+            return .empty
+        }
+        return .remote(avatarURL)
+    }
+
+    private static func food(payload: PetEventDetailPayload?) -> Food {
+        let roleTitle = foodRoleTitle(payload?.foodRole)
+        let snapshot = payload?.foodSnapshot
+        let name = snapshot?.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = name?.isEmpty == false ? name ?? roleTitle : roleTitle
+        let subtitleParts = [
+            snapshot?.brand,
+            snapshot?.spec
+        ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let subtitle = subtitleParts.isEmpty ? roleTitle : subtitleParts.joined(separator: " · ")
+
+        return Food(
+            name: title,
+            subtitle: subtitle,
+            imageURLString: nil,
+            systemImage: foodRoleSystemImage(payload?.foodRole)
+        )
+    }
+
+    private static func foodRoleTitle(_ rawValue: String?) -> String {
+        switch rawValue {
+        case "main_food":
+            "主粮"
+        case "treats":
+            "零食"
+        case "nutrition":
+            "营养品"
+        case "other":
+            "其他食品"
+        default:
+            "喂食食品"
+        }
+    }
+
+    private static func foodRoleSystemImage(_ rawValue: String?) -> String {
+        switch rawValue {
+        case "nutrition":
+            "pills.fill"
+        case "treats":
+            "birthday.cake.fill"
+        default:
+            "takeoutbag.and.cup.and.straw.fill"
+        }
     }
 }

@@ -82,6 +82,12 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             )),
         )
         .route(
+            "/api/v1/pet-event-media",
+            post(media::upload_pending_pet_event_attachment).layer(DefaultBodyLimit::max(
+                MediaUploadPolicy::ugc_image().body_limit_bytes,
+            )),
+        )
+        .route(
             "/api/v1/pet-albums/{album_id}",
             get(album::load_pet_album)
                 .patch(album::update_pet_album)

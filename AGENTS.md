@@ -209,6 +209,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
 4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
 5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
+6. 禁止通过 `-derivedDataPath` 新建额外 DerivedData 目录规避缓存问题；遇到 Xcode 缓存或旧对象链接异常时，清理当前项目默认 `~/Library/Developer/Xcode/DerivedData/maohuoban-*` 缓存后重新运行验证，避免额外占用磁盘。
 
 ### 12.2 iOS 真机交互复测分工
 

@@ -324,6 +324,8 @@ async fn media_assets_usage_kind_constraint_preserves_profile_and_pet_album_valu
         "user.avatar",
         "user.cover.image",
         "pet.album.photo",
+        "pet.food_inventory.cover",
+        "pet.event.attachment",
     ] {
         assert!(
             definition.contains(usage_kind),

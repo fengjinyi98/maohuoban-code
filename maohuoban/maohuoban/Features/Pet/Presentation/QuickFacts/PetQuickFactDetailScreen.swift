@@ -5,28 +5,115 @@ import MaohuobanDesignSystem
 // PetQuickFactDetailScreen 快速事实详情页
 // 核心职责：
 // - 只展示便便正常、精神不错、食欲正常三类一次性快速事实
-// - 复用宠物头像基础设施展示 mock 宠物身份
+// - 通过后端事件详情和入口上下文展示真实宠物身份
 // - 保持喂食、异常、体重、医疗照护和遛弯记录不进入此页面
 struct PetQuickFactDetailScreen: View {
+    let recordID: String
     let kind: PetQuickFactDetailKind
+    let currentUserID: String?
+    let recordContext: PetRecordEntryContext?
+
+    @State private var store = PetEventDetailStore()
 
     var body: some View {
         MHBScreenScrollView {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                PetQuickFactReceiptCard(
-                    presentation: PetQuickFactDetailPresentation(kind: kind)
+            switch store.phase {
+            case .idle, .loading:
+                PetQuickFactDetailLoadingView()
+            case .failed(let message):
+                PetQuickFactDetailErrorView(message: message)
+            case .loaded(let event):
+                PetQuickFactDetailContentView(
+                    event: event,
+                    kind: kind,
+                    recordContext: recordContext
                 )
-                PetQuickFactDetailActions()
             }
-            .padding(.horizontal, MHBTheme.Spacing.s5)
-            .padding(.top, MHBTheme.Spacing.s6)
-            .padding(.bottom, MHBTheme.Spacing.s8)
         }
         .frame(maxWidth: .infinity)
         .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("快速事实详情")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if case .loaded = store.phase {
+                    Button(role: .destructive) {} label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(MHBTheme.ColorToken.danger.color)
+                    }
+                    .accessibilityLabel("删除快速事实记录")
+                }
+            }
+        }
+        .task(id: recordID) {
+            await store.load(eventID: recordID, currentUserID: currentUserID)
+        }
         .accessibilityIdentifier("pet.quickFactDetail.screen")
+    }
+}
+
+// PetQuickFactDetailLoadingView 快速事实加载态
+// 核心职责：
+// - 在事件详情请求期间展示轻量反馈
+// - 避免详情页在未加载时展示占位业务数据
+private struct PetQuickFactDetailLoadingView: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            ProgressView()
+            Text("正在加载记录详情")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetQuickFactDetailErrorView 快速事实错误态
+// 核心职责：
+// - 展示事件详情加载失败原因
+// - 阻止页面回落到本地演示数据
+private struct PetQuickFactDetailErrorView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.warning.color)
+            Text(message)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, MHBTheme.Spacing.s8)
+    }
+}
+
+// PetQuickFactDetailContentView 快速事实详情内容
+// 核心职责：
+// - 从事件详情构建展示模型
+// - 保留底部修改记录信息入口
+private struct PetQuickFactDetailContentView: View {
+    let event: PetEventDetail
+    let kind: PetQuickFactDetailKind
+    let recordContext: PetRecordEntryContext?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+            PetQuickFactReceiptCard(
+                presentation: PetQuickFactDetailPresentation(
+                    event: event,
+                    kind: kind,
+                    recordContext: recordContext
+                )
+            )
+            PetQuickFactDetailActions()
+        }
+        .padding(.horizontal, MHBTheme.Spacing.s5)
+        .padding(.top, MHBTheme.Spacing.s6)
+        .padding(.bottom, MHBTheme.Spacing.s8)
     }
 }
 
@@ -168,24 +255,13 @@ private struct PetQuickFactDashedDivider: View {
 // - 与当前详情页底部操作视觉保持一致
 private struct PetQuickFactDetailActions: View {
     var body: some View {
-        HStack(spacing: MHBTheme.Spacing.s3) {
-            Button("修改记录信息") {}
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-
-            Button(role: .destructive) {} label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(MHBTheme.ColorToken.danger.color)
-                    .frame(width: 48, height: 48)
-                    .background(MHBTheme.ColorToken.danger.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
+        Button("修改记录信息") {}
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(MHBTheme.ColorToken.separatorSoft.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .buttonStyle(.plain)
-        }
-        .accessibilityIdentifier("pet.quickFactDetail.actions")
+            .accessibilityIdentifier("pet.quickFactDetail.actions")
     }
 }

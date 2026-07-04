@@ -102,7 +102,7 @@ pub struct PetMediaUploadResult {
 
 /// MediaUsageKind 媒体业务用途
 /// 核心职责：
-/// - 固定头像、背景、相册和储物柜媒体用途
+/// - 固定头像、背景、相册、储物柜和事件附件媒体用途
 /// - 驱动绑定替换和清理候选策略
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -119,6 +119,8 @@ pub enum MediaUsageKind {
     PetAlbumPhoto,
     #[serde(rename = "pet.food_inventory.cover")]
     PetFoodInventoryCover,
+    #[serde(rename = "pet.event.attachment")]
+    PetEventAttachment,
 }
 
 impl MediaUsageKind {
@@ -131,6 +133,7 @@ impl MediaUsageKind {
             Self::PetBackgroundLivePhoto => "pet.background.live_photo",
             Self::PetAlbumPhoto => "pet.album.photo",
             Self::PetFoodInventoryCover => "pet.food_inventory.cover",
+            Self::PetEventAttachment => "pet.event.attachment",
         }
     }
 }
@@ -146,6 +149,7 @@ impl TryFrom<&str> for MediaUsageKind {
             "pet.background.live_photo" => Ok(Self::PetBackgroundLivePhoto),
             "pet.album.photo" => Ok(Self::PetAlbumPhoto),
             "pet.food_inventory.cover" => Ok(Self::PetFoodInventoryCover),
+            "pet.event.attachment" => Ok(Self::PetEventAttachment),
             _ => Err(PetErrorKind::MediaUsageKind),
         }
     }

@@ -78,7 +78,7 @@ struct HomeQuickFactFeedingInput: Equatable {
     let amount: HomeQuickFactFeedingAmount
     let occurredAt: Date
     let note: String
-    let photoAssetNames: [String]
+    let attachmentAssetIDs: [String]
 
     func eventDraft() -> PetEventDraft {
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -103,7 +103,7 @@ struct HomeQuickFactFeedingInput: Equatable {
             "food_snapshot": foodSnapshotPayload(),
             "is_default_food": .bool(isDefaultFood),
             "note": trimmedNote.isEmpty ? .null : .string(trimmedNote),
-            "attachment_asset_ids": .stringArray(photoAssetNames)
+            "attachment_asset_ids": .stringArray(attachmentAssetIDs)
         ]
     }
 

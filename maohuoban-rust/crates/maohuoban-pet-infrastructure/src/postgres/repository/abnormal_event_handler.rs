@@ -129,6 +129,14 @@ impl PostgresPetRepository {
         let mut payload = input.event_payload.clone();
         payload["episode_id"] = serde_json::json!(episode_id.to_string());
 
+        Self::bind_event_attachment_assets_in_transaction(
+            &mut tx,
+            input.pet_id,
+            input.actor_user_id,
+            &payload,
+        )
+        .await?;
+
         // 1. pet_events
         let row = sqlx::query_as::<_, PetEventRow>(
             r#"

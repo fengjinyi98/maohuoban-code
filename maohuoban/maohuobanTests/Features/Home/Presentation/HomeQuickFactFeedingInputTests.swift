@@ -21,7 +21,7 @@ final class HomeQuickFactFeedingInputTests: XCTestCase {
             amount: .normal,
             occurredAt: Date(timeIntervalSince1970: 0),
             note: "状态正常",
-            photoAssetNames: []
+            attachmentAssetIDs: []
         )
 
         let json = try encodedJSONObject(input.eventDraft())
@@ -53,7 +53,7 @@ final class HomeQuickFactFeedingInputTests: XCTestCase {
             amount: .normal,
             occurredAt: Date(timeIntervalSince1970: 0),
             note: "",
-            photoAssetNames: []
+            attachmentAssetIDs: []
         )
         let json = try encodedJSONObject(input.eventDraft())
         let payload = try XCTUnwrap(json["event_payload"] as? [String: Any])
@@ -85,13 +85,34 @@ final class HomeQuickFactFeedingInputTests: XCTestCase {
             amount: .small,
             occurredAt: Date(timeIntervalSince1970: 0),
             note: "",
-            photoAssetNames: []
+            attachmentAssetIDs: []
         )
         let json = try encodedJSONObject(input.eventDraft())
         let payload = try XCTUnwrap(json["event_payload"] as? [String: Any])
 
         XCTAssertEqual(payload["food_item_id"] as? String, "food-2")
         XCTAssertEqual(payload["is_default_food"] as? Bool, false)
+    }
+
+    func testFeedingInputBuildsPayloadWithUploadedAttachmentAssetIDs() throws {
+        let input = HomeQuickFactFeedingInput(
+            petID: "pet-1",
+            lifeStatus: nil,
+            foodKind: .mainFood,
+            foodName: nil,
+            foodItemID: nil,
+            foodSnapshotJSON: nil,
+            isDefaultFood: false,
+            amount: .normal,
+            occurredAt: Date(timeIntervalSince1970: 0),
+            note: "",
+            attachmentAssetIDs: ["asset-1", "asset-2"]
+        )
+
+        let json = try encodedJSONObject(input.eventDraft())
+        let payload = try XCTUnwrap(json["event_payload"] as? [String: Any])
+
+        XCTAssertEqual(payload["attachment_asset_ids"] as? [String], ["asset-1", "asset-2"])
     }
 
     private func encodedJSONObject<T: Encodable>(_ value: T) throws -> [String: Any] {

@@ -251,4 +251,41 @@ final class PetRepositoryMediaContractTests: PetRepositoryTestCase {
                 && component.durationMS == 1800
         } == true)
     }
+
+    func testUploadEventAttachmentSendsUserContextAndDecodesUploadedAsset() async throws {
+        let repository = makeRepository { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v1/pet-event-media")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+            try Self.assertMultipartMediaRequest(
+                request,
+                fileName: "event-attachment.jpg",
+                mimeType: "image/jpeg",
+                contentText: "attachment-bytes",
+                sourceClient: "ios"
+            )
+
+            return Self.pendingMediaUploadResponse(
+                usageKind: "pet.event.attachment",
+                objectKey: "pet-media/pet/event/attachment/asset-1/event-attachment.jpg"
+            )
+        }
+
+        let response = try await repository.uploadEventAttachment(
+            draft: PetMediaUploadDraft(
+                fileName: "event-attachment.jpg",
+                mimeType: "image/jpeg",
+                content: Data("attachment-bytes".utf8),
+                sourceClient: "ios"
+            ),
+            currentUserID: "user-1",
+            onUploadProgress: { _ in }
+        )
+
+        XCTAssertEqual(response.message, "媒体已上传")
+        XCTAssertEqual(response.data?.asset.id, "asset-1")
+        XCTAssertEqual(response.data?.asset.usageKind, .eventAttachment)
+        XCTAssertEqual(response.data?.asset.url, "/api/v1/media/assets/asset-1/content")
+        XCTAssertNil(response.data?.binding)
+    }
 }

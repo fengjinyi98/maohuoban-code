@@ -12,10 +12,9 @@ struct PetRecordHistoryScreen: View {
     let context: PetRecordEntryContext
 
     @State private var selectedPet: PetRecordSwitchPet?
-    @State private var detailRoute: PetRecordDetailRoute?
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
-    private let records = PetRecordHistoryItem.mockItems
+    private let records: [PetRecordHistoryItem] = []
 
     init(context: PetRecordEntryContext) {
         self.context = context
@@ -34,12 +33,7 @@ struct PetRecordHistoryScreen: View {
                     ForEach(groupedRecords, id: \.id) { group in
                         Section {
                             ForEach(group.records) { record in
-                                Button {
-                                    detailRoute = record.detailRoute
-                                } label: {
-                                    PetRecordHistoryRow(record: record)
-                                }
-                                .buttonStyle(.plain)
+                                PetRecordHistoryRow(record: record)
                                 .listRowInsets(
                                     EdgeInsets(
                                         top: MHBTheme.Spacing.s2,
@@ -67,6 +61,14 @@ struct PetRecordHistoryScreen: View {
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
 
+                if groupedRecords.isEmpty {
+                    PetRecordHistoryEmptyState()
+                        .padding(.horizontal, MHBTheme.Spacing.s6)
+                        .padding(.top, topContentPadding(topInset: topInset) + MHBTheme.Spacing.s8)
+                        .frame(width: proxy.size.width, alignment: .top)
+                        .zIndex(1)
+                }
+
                 MHBWindowSafeAreaReader { insets in
                     windowSafeAreaInsets = insets
                 }
@@ -91,12 +93,6 @@ struct PetRecordHistoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
-        .navigationDestination(item: $detailRoute) { route in
-            PetRecordDetailDestinationScreen(
-                route: route,
-                recordContext: context
-            )
-        }
         .accessibilityIdentifier("pet.recordHistory")
     }
 
@@ -169,10 +165,34 @@ struct PetRecordHistoryScreen: View {
 
 }
 
-// PetRecordHistoryItem 宠物记录历史展示模型
+// PetRecordHistoryEmptyState 全部记录空态
 // 核心职责：
-// - 承载记录历史页 mock 展示数据
-// - 为列表分组和行展示提供稳定输入
+// - 在记录列表后端数据源接入前展示真实空态
+// - 避免用本地演示记录进入详情链路
+private struct PetRecordHistoryEmptyState: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s3) {
+            Image(systemName: "list.bullet.rectangle")
+                .font(.system(size: MHBTheme.IconSize.large, weight: .semibold))
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .frame(width: 56, height: 56)
+                .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
+
+            Text("暂无记录")
+                .font(MHBTheme.Typography.headline)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+
+            Text("新的喂食、异常和快速记录会进入首页时间线")
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(MHBTheme.Spacing.s6)
+        .background(MHBTheme.ColorToken.cardSolid.color)
+        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+    }
+}
 
 
 // PetRecordHistoryMonthHeader 记录历史月份标题

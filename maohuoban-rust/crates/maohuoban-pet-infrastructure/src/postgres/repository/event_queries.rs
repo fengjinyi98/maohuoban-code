@@ -9,7 +9,15 @@ use super::trade_import::{insert_trade_import_event, insert_trade_import_pet};
 
 impl PostgresPetRepository {
     pub(super) async fn create_pet_event_command(&self, input: NewPetEvent) -> PetResult<PetEvent> {
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
         let event_id = Uuid::new_v4();
+        Self::bind_event_attachment_assets_in_transaction(
+            &mut transaction,
+            input.pet_id,
+            input.actor_user_id,
+            &input.event_payload,
+        )
+        .await?;
         let row = sqlx::query_as::<_, PetEventRow>(
             r#"
             INSERT INTO pet_events (
@@ -54,9 +62,14 @@ impl PostgresPetRepository {
         .bind(input.event_payload)
         .bind(input.occurred_at)
         .bind(input.actor_user_id)
-        .fetch_one(&self.pool)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;
+
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
 
         row.try_into()
     }

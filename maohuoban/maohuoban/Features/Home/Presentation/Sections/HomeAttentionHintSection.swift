@@ -108,7 +108,7 @@ private struct HomeAttentionHintRow: View {
 
         switch hint.route.kind {
         case .abnormalDetail:
-            return .petRecordDetail(.abnormal(recordID: recordID))
+            return .petRecordDetail(.abnormal(recordID: recordID, context: recordContext))
         case .weightRecord:
             return .petWeightRecordDetail(recordID: recordID, context: recordContext)
         case .reminderDetail:

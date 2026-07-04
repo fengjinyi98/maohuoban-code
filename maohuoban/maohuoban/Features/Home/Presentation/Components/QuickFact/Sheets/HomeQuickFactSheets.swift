@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 以可一键提交的默认值降低喂食记录负担
 struct HomeQuickFactFeedingSheet: View {
     let context: HomeActionRoutingContext
+    let currentUserID: String?
     let isSubmitting: Bool
     let foodOptions: [HomeQuickFactFeedingFoodOption]
     let onPetChanged: (String?) -> Void
@@ -21,10 +22,12 @@ struct HomeQuickFactFeedingSheet: View {
     @State private var amount: HomeQuickFactFeedingAmount = .normal
     @State private var occurredAt = Date()
     @State private var note = ""
-    @State private var photoAssetNames: [String] = []
+    @State private var attachmentStore = PetEventAttachmentUploadStore()
+    @State private var isPhotoPickerPresented = false
 
     init(
         context: HomeActionRoutingContext,
+        currentUserID: String? = nil,
         isSubmitting: Bool,
         foodOptions: [HomeQuickFactFeedingFoodOption] = [],
         onPetChanged: @escaping (String?) -> Void = { _ in },
@@ -32,6 +35,7 @@ struct HomeQuickFactFeedingSheet: View {
         onCancel: @escaping () -> Void
     ) {
         self.context = context
+        self.currentUserID = currentUserID
         self.isSubmitting = isSubmitting
         self.foodOptions = foodOptions
         self.onPetChanged = onPetChanged
@@ -90,7 +94,20 @@ struct HomeQuickFactFeedingSheet: View {
 
                             HomeQuickFactOptionalPhotoSection(
                                 title: "照片（可选）",
-                                photoAssetNames: $photoAssetNames
+                                attachments: attachmentStore.attachments,
+                                canAddMore: attachmentStore.canAddMore,
+                                onAdd: {
+                                    isPhotoPickerPresented = true
+                                },
+                                onRemove: attachmentStore.removeAttachment(id:),
+                                onRetry: { id in
+                                    Task {
+                                        await attachmentStore.retryAttachment(
+                                            id: id,
+                                            currentUserID: currentUserID
+                                        )
+                                    }
+                                }
                             )
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s5)
@@ -100,7 +117,7 @@ struct HomeQuickFactFeedingSheet: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
 
                     MHBBottomFloatingActionCTA(
-                        title: isSubmitting ? "保存中" : "保存记录",
+                        title: submitButtonTitle,
                         systemImage: "checkmark",
                         bottomInset: bottomInset,
                         action: submit
@@ -134,6 +151,21 @@ struct HomeQuickFactFeedingSheet: View {
         .presentationDragIndicator(.visible)
         .onChange(of: foodOptions) { _, newOptions in
             syncSelectedFoodItem(with: newOptions)
+        }
+        .fullScreenCover(isPresented: $isPhotoPickerPresented) {
+            MHBMediaPickerScreen(
+                title: "添加照片",
+                request: MHBMediaPickerRequest(
+                    maxSelectionCount: attachmentStore.remainingSelectionCount,
+                    filter: .images,
+                    autoConfirmSingleSelection: attachmentStore.remainingSelectionCount == 1,
+                    showsCameraEntry: true
+                ),
+                onComplete: handlePhotoPickerResult(_:),
+                onCancel: {
+                    isPhotoPickerPresented = false
+                }
+            )
         }
     }
 
@@ -171,7 +203,10 @@ struct HomeQuickFactFeedingSheet: View {
     }
 
     private func submit() {
-        guard !isSubmitting, selectedPetID != nil else { return }
+        guard !isSubmitting,
+              !attachmentStore.isUploading,
+              !attachmentStore.hasFailedUploads,
+              selectedPetID != nil else { return }
         let lifeStatus = pets.first(where: { $0.id == selectedPetID })?.lifeStatus
         if let option = HomeQuickFactFeedingFoodSource.item(
             for: selectedFoodItemID(for: selectedFoodKind),
@@ -185,7 +220,7 @@ struct HomeQuickFactFeedingSheet: View {
                     amount: amount,
                     occurredAt: occurredAt,
                     note: note,
-                    photoAssetNames: photoAssetNames
+                    attachmentAssetIDs: attachmentStore.uploadedAssetIDs
                 )
             )
             return
@@ -203,9 +238,20 @@ struct HomeQuickFactFeedingSheet: View {
                 amount: amount,
                 occurredAt: occurredAt,
                 note: note,
-                photoAssetNames: photoAssetNames
+                attachmentAssetIDs: attachmentStore.uploadedAssetIDs
             )
         )
+    }
+
+    private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
+        isPhotoPickerPresented = false
+        Task {
+            await attachmentStore.uploadPickedImages(
+                result.images,
+                localIdentifiers: result.imageLocalIdentifiers,
+                currentUserID: currentUserID
+            )
+        }
     }
 
     private func selectedFoodItemID(for kind: HomeQuickFactFeedingFoodKind) -> String? {
@@ -233,6 +279,19 @@ struct HomeQuickFactFeedingSheet: View {
 
     private var topContentPadding: CGFloat {
         MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
+    }
+
+    private var submitButtonTitle: String {
+        if isSubmitting {
+            return "保存中"
+        }
+        if attachmentStore.isUploading {
+            return "照片上传中"
+        }
+        if attachmentStore.hasFailedUploads {
+            return "照片需处理"
+        }
+        return "保存记录"
     }
 }
 

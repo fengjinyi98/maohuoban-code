@@ -21,6 +21,7 @@ enum PetMediaUsageKind: String, Codable, Equatable {
     case backgroundLivePhoto = "pet.background.live_photo"
     case albumPhoto = "pet.album.photo"
     case foodInventoryCover = "pet.food_inventory.cover"
+    case eventAttachment = "pet.event.attachment"
 }
 
 // PetMediaAssetComponentKind 组合媒体组件类型

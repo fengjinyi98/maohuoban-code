@@ -7,9 +7,9 @@ import MaohuobanDesignSystem
 // - 明确快速事实详情页只承载便便正常、精神不错、食欲正常三类记录
 // - 将喂食、异常、体重、驱虫、疫苗、就诊和遛弯分发给各自详情页，避免通用详情页漂移
 enum PetRecordDetailRoute: Hashable, Identifiable {
-    case quickFact(PetQuickFactDetailKind)
-    case feeding(recordID: String)
-    case abnormal(recordID: String)
+    case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext?)
+    case feeding(recordID: String, context: PetRecordEntryContext? = nil)
+    case abnormal(recordID: String, context: PetRecordEntryContext? = nil)
     case weight(recordID: String)
     case deworming(recordID: String)
     case vaccine(recordID: String)
@@ -19,11 +19,11 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 
     var id: String {
         switch self {
-        case .quickFact(let kind):
-            "quickFact-\(kind.rawValue)"
-        case .feeding(let recordID):
+        case .quickFact(let recordID, _, _):
+            "quickFact-\(recordID)"
+        case .feeding(let recordID, _):
             "feeding-\(recordID)"
-        case .abnormal(let recordID):
+        case .abnormal(let recordID, _):
             "abnormal-\(recordID)"
         case .weight(let recordID):
             "weight-\(recordID)"
@@ -40,32 +40,6 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
         }
     }
 
-    static func mockRoute(for recordID: String) -> PetRecordDetailRoute {
-        switch recordID {
-        case "event-quick-poop-normal", "record-2026-06-poop-normal":
-            .quickFact(.poopNormal)
-        case "event-quick-energy-normal", "record-2026-06-energy-normal":
-            .quickFact(.energyNormal)
-        case "event-quick-appetite-normal", "record-2026-05-appetite":
-            .quickFact(.appetiteNormal)
-        case "event-feeding", "record-2026-06-feeding":
-            .feeding(recordID: recordID)
-        case "event-weight", "record-2026-06-weight":
-            .weight(recordID: recordID)
-        case "event-abnormal", "record-2026-06-abnormal":
-            .abnormal(recordID: recordID)
-        case "event-deworming", "record-2026-06-deworming", "deworming-2026-06", "deworming-2026-04":
-            .deworming(recordID: recordID)
-        case "event-vaccine", "record-2026-06-vaccine", "vaccine-rabies-2026-06", "vaccine-triple-2026-05":
-            .vaccine(recordID: recordID)
-        case "event-walk", "record-2026-05-walk":
-            .walk(recordID: recordID)
-        case "record-2026-04-hospital":
-            .clinicVisit(recordID: recordID)
-        default:
-            .unsupported(recordID: recordID)
-        }
-    }
 }
 
 // PetRecordDetailDestinationScreen 宠物记录详情目标页
@@ -79,14 +53,24 @@ struct PetRecordDetailDestinationScreen: View {
 
     var body: some View {
         switch route {
-        case .quickFact(let kind):
-            PetQuickFactDetailScreen(kind: kind)
-        case .feeding(let recordID):
-            PetFeedingDetailScreen(recordID: recordID)
-        case .abnormal(let recordID):
+        case .quickFact(let recordID, let kind, let context):
+            PetQuickFactDetailScreen(
+                recordID: recordID,
+                kind: kind,
+                currentUserID: currentUserID,
+                recordContext: context ?? recordContext
+            )
+        case .feeding(let recordID, let context):
+            PetFeedingDetailScreen(
+                recordID: recordID,
+                currentUserID: currentUserID,
+                recordContext: context ?? recordContext
+            )
+        case .abnormal(let recordID, let context):
             PetAbnormalRecordDetailScreen(
                 recordID: recordID,
-                currentUserID: currentUserID
+                currentUserID: currentUserID,
+                recordContext: context ?? recordContext
             )
         case .weight(let recordID):
             PetWeightRecordRouteScreen(

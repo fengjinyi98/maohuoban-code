@@ -68,7 +68,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
         amount: HomeQuickFactFeedingAmount,
         occurredAt: Date,
         note: String,
-        photoAssetNames: [String]
+        attachmentAssetIDs: [String]
     ) -> HomeQuickFactFeedingInput {
         HomeQuickFactFeedingInput(
             petID: petID,
@@ -81,7 +81,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
             amount: amount,
             occurredAt: occurredAt,
             note: note,
-            photoAssetNames: photoAssetNames
+            attachmentAssetIDs: attachmentAssetIDs
         )
     }
 

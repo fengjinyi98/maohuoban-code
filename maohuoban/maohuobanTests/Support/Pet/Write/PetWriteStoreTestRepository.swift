@@ -204,6 +204,14 @@ final class CapturingPetRepository: PetRepository {
         throw .invalidResponse
     }
 
+    func uploadEventAttachment(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        throw .invalidResponse
+    }
+
     func bindUploadedMedia(
         petID: String,
         assetID: String,

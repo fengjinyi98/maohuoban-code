@@ -11,12 +11,15 @@ final class CapturingPetMediaUploadRepository: PetRepository {
     var uploadPendingBackgroundImageResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var uploadPendingBackgroundVideoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var uploadPendingBackgroundLivePhotoResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
+    var uploadEventAttachmentResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     var bindUploadedMediaResult: Result<MHBAPIResponse<PetMediaUploadResult>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var callOrder: [String] = []
     private(set) var receivedAvatarDraft: PetMediaUploadDraft?
     private(set) var receivedAvatarUserID: String?
     private(set) var receivedLivePhotoDraft: PetLivePhotoUploadDraft?
     private(set) var receivedLivePhotoUserID: String?
+    private(set) var receivedEventAttachmentDraft: PetMediaUploadDraft?
+    private(set) var receivedEventAttachmentUserID: String?
     private(set) var receivedBindPetID: String?
     private(set) var receivedBindAssetID: String?
     private(set) var receivedBindUserID: String?
@@ -111,6 +114,26 @@ final class CapturingPetMediaUploadRepository: PetRepository {
         onUploadProgress(1.0)
         observedProgressValues.append(1.0)
         switch uploadPendingBackgroundLivePhotoResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func uploadEventAttachment(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        callOrder.append("uploadEventAttachment")
+        receivedEventAttachmentDraft = draft
+        receivedEventAttachmentUserID = currentUserID
+        onUploadProgress(0.5)
+        observedProgressValues.append(0.5)
+        onUploadProgress(1.0)
+        observedProgressValues.append(1.0)
+        switch uploadEventAttachmentResult {
         case .success(let response):
             return response
         case .failure(let error):

@@ -94,6 +94,32 @@ pub(super) async fn upload_pending_pet_background_image(
     }
 }
 
+pub(super) async fn upload_pending_pet_event_attachment(
+    State(state): State<PetHttpState>,
+    actor: AuthenticatedUser,
+    multipart: Multipart,
+) -> Response {
+    let owner_user_id = actor.user_id();
+
+    let request = match UploadPetMediaRequest::from_multipart(multipart).await {
+        Ok(request) => request,
+        Err(error) => return error_response(&error),
+    };
+    let input = request.into_pending_event_attachment_input(owner_user_id);
+    record_upload_http_request(&input);
+    match state.pet.upload_pending_pet_event_attachment(input).await {
+        Ok(upload) => {
+            record_upload_http_response(owner_user_id, &upload);
+            created_response(
+                "pet.event_attachment_uploaded",
+                "事件照片已上传",
+                PetMediaUploadData::from(upload),
+            )
+        }
+        Err(error) => error_response(&error),
+    }
+}
+
 pub(super) async fn upload_pending_pet_background_video(
     State(state): State<PetHttpState>,
     actor: AuthenticatedUser,

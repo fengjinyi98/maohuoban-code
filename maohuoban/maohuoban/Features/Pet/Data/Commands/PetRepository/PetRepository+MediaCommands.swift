@@ -41,6 +41,19 @@ extension DefaultPetRepository {
         )
     }
 
+    func uploadEventAttachment(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult> {
+        try await uploadPendingMedia(
+            path: "/api/v1/pet-event-media",
+            draft: draft,
+            currentUserID: currentUserID,
+            onUploadProgress: onUploadProgress
+        )
+    }
+
     func uploadPendingBackgroundLivePhoto(
         draft: PetLivePhotoUploadDraft,
         currentUserID: String,

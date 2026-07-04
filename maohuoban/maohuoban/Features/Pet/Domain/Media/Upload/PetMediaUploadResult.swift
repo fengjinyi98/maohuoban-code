@@ -23,7 +23,7 @@ struct PetMediaUploadResult: Decodable, Equatable {
             switch asset.usageKind {
             case .backgroundImage, .backgroundVideo, .backgroundLivePhoto:
                 return "派生资源处理中"
-            case .avatar, .albumPhoto, .foodInventoryCover:
+            case .avatar, .albumPhoto, .foodInventoryCover, .eventAttachment:
                 return nil
             }
         }

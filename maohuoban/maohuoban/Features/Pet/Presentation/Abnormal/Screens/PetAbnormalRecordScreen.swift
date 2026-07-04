@@ -19,7 +19,8 @@ struct PetAbnormalRecordScreen: View {
     @State private var severity: PetAbnormalSeverity = .mild
     @State private var occurredAt = Date()
     @State private var note = ""
-    @State private var photoAssetNames: [String] = []
+    @State private var attachmentStore = PetEventAttachmentUploadStore()
+    @State private var isPhotoPickerPresented = false
     @State private var store = PetWriteStore()
     @State private var isSubmitting = false
 
@@ -46,7 +47,22 @@ struct PetAbnormalRecordScreen: View {
 
                         PetAbnormalNoteSection(note: $note)
 
-                        PetAbnormalPhotoSection(photoAssetNames: $photoAssetNames)
+                        PetAbnormalPhotoSection(
+                            attachments: attachmentStore.attachments,
+                            canAddMore: attachmentStore.canAddMore,
+                            onAdd: {
+                                isPhotoPickerPresented = true
+                            },
+                            onRemove: attachmentStore.removeAttachment(id:),
+                            onRetry: { id in
+                                Task {
+                                    await attachmentStore.retryAttachment(
+                                        id: id,
+                                        currentUserID: currentUserID
+                                    )
+                                }
+                            }
+                        )
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
                     .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
@@ -56,7 +72,7 @@ struct PetAbnormalRecordScreen: View {
                 .zIndex(0)
 
                 MHBBottomFloatingActionCTA(
-                    title: isSubmitting ? "保存中" : "保存异常记录",
+                    title: submitButtonTitle,
                     systemImage: "checkmark",
                     bottomInset: bottomInset,
                     action: submit
@@ -88,6 +104,21 @@ struct PetAbnormalRecordScreen: View {
         )
         .onAppear {
             selectedPet = selectedPet ?? context.selectedSwitchPet
+        }
+        .fullScreenCover(isPresented: $isPhotoPickerPresented) {
+            MHBMediaPickerScreen(
+                title: "添加照片",
+                request: MHBMediaPickerRequest(
+                    maxSelectionCount: attachmentStore.remainingSelectionCount,
+                    filter: .images,
+                    autoConfirmSingleSelection: attachmentStore.remainingSelectionCount == 1,
+                    showsCameraEntry: true
+                ),
+                onComplete: handlePhotoPickerResult(_:),
+                onCancel: {
+                    isPhotoPickerPresented = false
+                }
+            )
         }
         .accessibilityIdentifier("pet.abnormalRecord.screen")
     }
@@ -139,6 +170,8 @@ struct PetAbnormalRecordScreen: View {
 
     private func submit() {
         guard isSubmitting == false,
+              !attachmentStore.isUploading,
+              !attachmentStore.hasFailedUploads,
               let currentPetID,
               selectedSymptoms.isEmpty == false else {
             return
@@ -176,7 +209,8 @@ struct PetAbnormalRecordScreen: View {
 
         var payload: [String: PetEventPayloadValue] = [
             "symptom_kinds": .stringArray(symptomKinds),
-            "severity": .string(severity.rawValue)
+            "severity": .string(severity.rawValue),
+            "attachment_asset_ids": .stringArray(attachmentStore.uploadedAssetIDs)
         ]
 
         if !detailText.isEmpty {
@@ -196,5 +230,29 @@ struct PetAbnormalRecordScreen: View {
             occurredAt: PetWriteFormatters.occurredAtString(from: occurredAt),
             eventPayload: payload
         )
+    }
+
+    private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
+        isPhotoPickerPresented = false
+        Task {
+            await attachmentStore.uploadPickedImages(
+                result.images,
+                localIdentifiers: result.imageLocalIdentifiers,
+                currentUserID: currentUserID
+            )
+        }
+    }
+
+    private var submitButtonTitle: String {
+        if isSubmitting {
+            return "保存中"
+        }
+        if attachmentStore.isUploading {
+            return "照片上传中"
+        }
+        if attachmentStore.hasFailedUploads {
+            return "照片需处理"
+        }
+        return "保存异常记录"
     }
 }

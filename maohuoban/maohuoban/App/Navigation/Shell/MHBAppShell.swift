@@ -124,6 +124,7 @@ struct MHBAppShell: View {
             case .feeding:
                 HomeQuickFactFeedingSheet(
                     context: homeQuickFactContext,
+                    currentUserID: currentUserStore.userID,
                     isSubmitting: homeQuickFactSheetSubmittingAction == .fed,
                     foodOptions: homeFoodInventoryStore.feedingOptions,
                     onPetChanged: loadHomeFoodInventory,

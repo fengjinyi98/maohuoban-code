@@ -14,28 +14,7 @@ extension HomeDashboardSnapshot.TimelineEvent {
             return .homecoming
         }
 
-        switch id {
-        case "event-feeding", "record-2026-06-feeding":
-            return .feeding
-        case "event-quick-poop-normal", "record-2026-06-poop-normal":
-            return .poopNormal
-        case "event-quick-energy-normal", "record-2026-06-energy-normal":
-            return .energyNormal
-        case "event-quick-appetite-normal", "record-2026-05-appetite":
-            return .appetiteNormal
-        case "event-weight", "record-2026-06-weight":
-            return .weight
-        case "event-deworming", "record-2026-06-deworming":
-            return .deworming
-        case "event-walk", "record-2026-05-walk":
-            return .walk
-        case "event-abnormal", "record-2026-06-abnormal":
-            return .abnormal
-        case "record-2026-04-hospital":
-            return .clinicVisit
-        default:
-            return inferredTimelineSemantic
-        }
+        return inferredTimelineSemantic
     }
 
     private var inferredTimelineSemantic: HomeTimelineRecordSemantic {
@@ -43,6 +22,14 @@ extension HomeDashboardSnapshot.TimelineEvent {
 
         if title.contains("喂") || subtitle.contains("喂食") {
             return .feeding
+        }
+
+        if eventKind == .health && combinedText.contains("异常") {
+            return .abnormal
+        }
+
+        if eventKind == .health && (combinedText.contains("就诊") || combinedText.contains("医院")) {
+            return .clinicVisit
         }
 
         if combinedText.contains("便便") || combinedText.contains("粪便") || combinedText.contains("排便") {
@@ -64,10 +51,6 @@ extension HomeDashboardSnapshot.TimelineEvent {
             return .deworming
         case .vaccine:
             return .vaccine
-        case .health where combinedText.contains("异常"):
-            return .abnormal
-        case .health where combinedText.contains("就诊") || combinedText.contains("医院"):
-            return .clinicVisit
         case .daily where combinedText.contains("散步") || combinedText.contains("遛弯"):
             return .walk
         case .daily, .health, .merchant:

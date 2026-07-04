@@ -73,9 +73,9 @@ impl PostgresPetRepository {
                 Some(asset_id),
                 Some(PetBackgroundMediaKind::LivePhoto.as_str()),
             ),
-            MediaUsageKind::PetAlbumPhoto | MediaUsageKind::PetFoodInventoryCover => {
-                (None, None, None)
-            }
+            MediaUsageKind::PetAlbumPhoto
+            | MediaUsageKind::PetFoodInventoryCover
+            | MediaUsageKind::PetEventAttachment => (None, None, None),
         };
         sqlx::query(
             r#"

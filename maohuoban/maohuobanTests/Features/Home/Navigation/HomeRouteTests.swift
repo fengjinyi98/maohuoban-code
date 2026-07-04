@@ -155,6 +155,42 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
+    func testQuickFactTimelineEventPreservesBackendRecordID() {
+        let event = HomeDashboardSnapshot.TimelineEvent(
+            id: "quick-fact-event-1",
+            eventKind: .daily,
+            title: "便便正常",
+            subtitle: "状态正常",
+            occurredText: "10:30",
+            occurredAt: "2026-07-04T02:30:00Z"
+        )
+        let context = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/pet/avatar",
+            petSex: .female
+        )
+
+        let route = HomeTimelineRecordRouteResolver.route(
+            for: event,
+            recordContext: context
+        )
+
+        guard case .petRecordDetail(let detailRoute) = route else {
+            XCTFail("Expected pet record detail route")
+            return
+        }
+        guard case .quickFact(let recordID, let kind, let routeContext) = detailRoute else {
+            XCTFail("Expected quick fact detail route")
+            return
+        }
+        XCTAssertEqual(recordID, "quick-fact-event-1")
+        XCTAssertEqual(kind, .poopNormal)
+        XCTAssertEqual(routeContext, context)
+        XCTAssertEqual(detailRoute.id, "quickFact-quick-fact-event-1")
+    }
+
+    @MainActor
     func testMerchantReminderRoutesToMerchantTaskWhenMerchantContextExists() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "merchant-task-needs-record",

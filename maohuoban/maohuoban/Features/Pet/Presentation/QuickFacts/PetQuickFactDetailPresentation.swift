@@ -3,8 +3,8 @@ import MaohuobanDesignSystem
 
 // PetQuickFactDetailPresentation 快速事实展示模型
 // 核心职责：
-// - 将快速事实类型转换为小票展示数据
-// - 集中维护 mock 宠物和字段行，避免业务详情边界漂移
+// - 将后端事件详情和入口宠物上下文转换为小票展示数据
+// - 让快速事实详情页只消费单向传入的事件状态
 struct PetQuickFactDetailPresentation {
     struct PetIdentity: Equatable {
         let id: String
@@ -41,21 +41,50 @@ struct PetQuickFactDetailPresentation {
     let tint: Color
     let rows: [Row]
 
-    init(kind: PetQuickFactDetailKind) {
-        self.title = kind.title
-        self.timeText = "2026年6月25日 10:30"
+    init(
+        event: PetEventDetail,
+        kind: PetQuickFactDetailKind,
+        recordContext: PetRecordEntryContext?
+    ) {
+        let eventTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summaryText = event.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        self.title = eventTitle.isEmpty ? kind.title : eventTitle
+        self.timeText = MHBUTCDateDisplayFormatter.localShortText(fromUTCString: event.occurredAt)
+            ?? event.occurredAt
         self.systemImage = kind.systemImage
         self.tint = kind.tint
         self.rows = [
-            .init(id: "pet", title: "宠物", pet: Self.mockPet),
+            .init(
+                id: "pet",
+                title: "宠物",
+                pet: Self.petIdentity(event: event, context: recordContext)
+            ),
             .init(id: "type", title: "记录类型", text: kind.recordTypeTitle),
-            .init(id: "content", title: "内容", text: kind.contentText)
+            .init(
+                id: "content",
+                title: "内容",
+                text: summaryText?.isEmpty == false ? summaryText ?? kind.contentText : kind.contentText
+            )
         ]
     }
 
-    private static let mockPet = PetIdentity(
-        id: "pet-quick-fact-mock",
-        name: "测试名字1",
-        avatarSource: .asset("HomePetHeroMock")
-    )
+    private static func petIdentity(
+        event: PetEventDetail,
+        context: PetRecordEntryContext?
+    ) -> PetIdentity {
+        PetIdentity(
+            id: context?.petID ?? event.petID ?? "current-pet",
+            name: context?.petName ?? context?.selectedSwitchPet?.name ?? "当前宠物",
+            avatarSource: petAvatarSource(context: context)
+        )
+    }
+
+    private static func petAvatarSource(context: PetRecordEntryContext?) -> MHBAvatarSource {
+        guard let avatarURLString = context?.petAvatarURL ?? context?.selectedSwitchPet?.avatarURL,
+              let avatarURL = MHBBackendEndpoint.resolve(avatarURLString) else {
+            return .empty
+        }
+        return .remote(avatarURL)
+    }
 }

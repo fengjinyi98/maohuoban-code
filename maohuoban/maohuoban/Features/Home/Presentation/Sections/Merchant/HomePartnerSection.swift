@@ -18,16 +18,13 @@ struct HomePartnerSection: View {
 
                 Spacer()
 
-                NavigationLink(value: HomeRoute.petRecordDetail(PetRecordDetailRoute.mockRoute(for: "mock-partner"))) {
-                    HStack(spacing: 4) {
-                        Text("查看主页")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                HStack(spacing: 4) {
+                    Text("查看主页")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
                 }
-                .buttonStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.partnerSection.header")

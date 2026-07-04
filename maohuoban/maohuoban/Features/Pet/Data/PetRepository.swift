@@ -51,6 +51,12 @@ protocol PetRepository {
         onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
 
+    func uploadEventAttachment(
+        draft: PetMediaUploadDraft,
+        currentUserID: String,
+        onUploadProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetMediaUploadResult>
+
     func bindUploadedMedia(
         petID: String,
         assetID: String,
