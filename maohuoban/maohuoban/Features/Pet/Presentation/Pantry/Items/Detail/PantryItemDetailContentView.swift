@@ -7,7 +7,9 @@ import MaohuobanDesignSystem
 // - 仅渲染后端详情读模型
 struct PantryItemDetailContentView: View {
     let detail: FoodInventoryItemDetail
+    let isMutating: Bool
     let onOpenFeedingRecord: (FoodInventoryFeedingTimelineEntry) -> Void
+    let onConsumeOne: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
@@ -17,6 +19,11 @@ struct PantryItemDetailContentView: View {
             PantryItemFeedingTimelineSection(
                 entries: detail.feedingTimeline,
                 onOpenEntry: onOpenFeedingRecord
+            )
+            PantryItemConsumeCTASection(
+                item: detail.item,
+                isSubmitting: isMutating,
+                onConsumeOne: onConsumeOne
             )
         }
     }

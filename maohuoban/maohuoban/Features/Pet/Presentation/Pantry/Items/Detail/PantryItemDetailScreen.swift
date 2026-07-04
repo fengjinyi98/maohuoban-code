@@ -24,6 +24,7 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
         MHBScreenScrollView {
             PantryItemDetailPhaseView(
                 phase: store.phase,
+                isMutating: store.isMutating,
                 onOpenFeedingRecord: { entry in
                     let recordContext = PetRecordEntryContext(
                         petID: entry.petID,
@@ -33,6 +34,18 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
                         petSex: entry.petSex
                     )
                     onOpenRecordDetail(.feeding(recordID: entry.eventID, context: recordContext))
+                },
+                onConsumeOne: {
+                    Task {
+                        if let message = await store.consumeOneItem(
+                            itemID: itemID,
+                            currentUserID: currentUserID
+                        ) {
+                            MHBToastPresenter().success(message)
+                        } else if let errorMessage = store.errorMessage {
+                            MHBToastPresenter().danger(errorMessage)
+                        }
+                    }
                 }
             )
                 .padding(.horizontal, MHBTheme.Spacing.s5)

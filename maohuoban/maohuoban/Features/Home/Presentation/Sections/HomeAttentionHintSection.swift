@@ -83,7 +83,7 @@ private struct HomeAttentionHintRow: View {
         case .weightStale:
             "scalemass.fill"
         case .feedingPatternChanged:
-            "calendar.badge.clock"
+            "takeoutbag.and.cup.and.straw.fill"
         }
     }
 
@@ -119,6 +119,14 @@ private struct HomeAttentionHintRow: View {
             return .petRecordDetail(.unsupported(recordID: recordID))
         case .aiChat:
             return .petRecordDetail(.unsupported(recordID: recordID))
+        case .pantryItemDetail:
+            return .pantryItemDetail(
+                context: PetPantryEntryContext(
+                    sourcePetID: recordContext.petID,
+                    sourcePetName: recordContext.petName
+                ),
+                itemID: payload?.foodItemID ?? recordID
+            )
         }
     }
 }

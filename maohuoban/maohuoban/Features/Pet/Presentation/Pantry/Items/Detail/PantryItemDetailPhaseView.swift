@@ -6,7 +6,9 @@ import SwiftUI
 // - 保持主屏只负责状态分发
 struct PantryItemDetailPhaseView: View {
     let phase: PetFoodInventoryItemDetailStore.Phase
+    let isMutating: Bool
     let onOpenFeedingRecord: (FoodInventoryFeedingTimelineEntry) -> Void
+    let onConsumeOne: () -> Void
 
     var body: some View {
         switch phase {
@@ -19,7 +21,9 @@ struct PantryItemDetailPhaseView: View {
         case .loaded(let detail):
             PantryItemDetailContentView(
                 detail: detail,
-                onOpenFeedingRecord: onOpenFeedingRecord
+                isMutating: isMutating,
+                onOpenFeedingRecord: onOpenFeedingRecord,
+                onConsumeOne: onConsumeOne
             )
         }
     }

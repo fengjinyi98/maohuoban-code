@@ -407,6 +407,54 @@ async fn home_dashboard_marks_current_staple_in_food_inventory_preview() {
 }
 
 #[tokio::test]
+async fn home_dashboard_returns_low_food_inventory_attention_hint() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138241").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id = create_home_food_inventory_item_with_quantity(
+        &app,
+        &user_id,
+        "高爷家益生菌猫粮",
+        "main_food",
+        1,
+        "1.5kg",
+    )
+    .await;
+
+    for index in 0..50 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            if index % 5 == 0 {
+                "多一点"
+            } else {
+                "正常"
+            },
+            &format!("2026-07-{:02}T08:00:00Z", (index % 25) + 1),
+        )
+        .await;
+    }
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let hints = dashboard_body["data"]["attention_hints"]
+        .as_array()
+        .expect("attention hints");
+    let hint = hints
+        .iter()
+        .find(|hint| hint["source_ref_id"] == main_food_id)
+        .expect("low food inventory hint");
+
+    assert_eq!(hint["kind"], "feeding_pattern_changed");
+    assert_eq!(hint["title"], "高爷家益生菌猫粮可能快吃完了");
+    assert_eq!(hint["route"]["kind"], "pantry_item_detail");
+    assert_eq!(hint["route"]["payload"]["food_item_id"], main_food_id);
+}
+
+#[tokio::test]
 async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;
@@ -518,6 +566,17 @@ async fn create_home_food_inventory_item(
     name: &str,
     category: &str,
 ) -> String {
+    create_home_food_inventory_item_with_quantity(app, user_id, name, category, 1, "1kg").await
+}
+
+async fn create_home_food_inventory_item_with_quantity(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    name: &str,
+    category: &str,
+    quantity: i32,
+    spec: &str,
+) -> String {
     let response = app
         .router()
         .oneshot(json_request(
@@ -527,7 +586,8 @@ async fn create_home_food_inventory_item(
                 "name": name,
                 "brand": "测试品牌",
                 "category": category,
-                "quantity": 1,
+                "quantity": quantity,
+                "spec": spec,
                 "production_date": "2025-07-15",
                 "shelf_life_months": 18
             }),

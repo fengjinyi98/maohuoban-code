@@ -219,4 +219,19 @@ extension DefaultPetRepository {
         }
         return item
     }
+
+    func consumeOneFoodInventoryItem(
+        itemID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> FoodInventoryConsumeOneResult {
+        let response: MHBAPIResponse<FoodInventoryConsumeOneResult> = try await client.post(
+            path: "/api/v1/food-inventory/items/\(itemID)/consume-one",
+            body: FoodInventoryEmptyRequest(),
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+        guard let result = response.data else {
+            throw MHBAPIError.business(code: "pet.no_data", message: "确认消耗失败", statusCode: 500)
+        }
+        return result
+    }
 }

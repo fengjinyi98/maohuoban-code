@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use maohuoban_pet_application::pet::{
-    FoodInventoryAmountDistributionItem, FoodInventoryConsumptionSummary,
+    FoodInventoryAmountDistributionItem, FoodInventoryConsumeOneResult,
+    FoodInventoryConsumptionCycle, FoodInventoryConsumptionSummary,
     FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail, FoodInventoryLinkedPet,
     FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
@@ -8,11 +9,52 @@ use maohuoban_pet_domain::pet::{
     FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot,
     PetError, PetResult, PetSex, PetSpecies,
 };
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::food_inventory_rows::FoodInventoryItemRow;
+
+/// FoodInventoryConsumptionCycleRow 食品资产消耗周期数据库行
+/// 核心职责：
+/// - 映射 food_inventory_consumption_cycles 表
+/// - 转换为应用层消耗周期读模型
+#[derive(Debug, sqlx::FromRow)]
+struct FoodInventoryConsumptionCycleRow {
+    id: Uuid,
+    food_item_id: Uuid,
+    scope_type: String,
+    scope_id: Uuid,
+    confirmed_by_user_id: Uuid,
+    sequence_no: i32,
+    consumed_quantity: i32,
+    package_weight_grams: Option<i32>,
+    package_unit: Option<String>,
+    confirmed_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl TryFrom<FoodInventoryConsumptionCycleRow> for FoodInventoryConsumptionCycle {
+    type Error = PetError;
+
+    fn try_from(row: FoodInventoryConsumptionCycleRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: row.id,
+            food_item_id: row.food_item_id,
+            scope_type: FoodScopeType::try_from(row.scope_type.as_str()).map_err(|_| {
+                PetError::Infrastructure("unknown cycle scope_type from database".to_owned())
+            })?,
+            scope_id: row.scope_id,
+            confirmed_by_user_id: row.confirmed_by_user_id,
+            sequence_no: row.sequence_no,
+            consumed_quantity: row.consumed_quantity,
+            package_weight_grams: row.package_weight_grams,
+            package_unit: row.package_unit,
+            confirmed_at: row.confirmed_at,
+            created_at: row.created_at,
+        })
+    }
+}
 
 /// parse_pet_species 解析宠物物种数据库值
 /// 核心职责：
@@ -45,6 +87,133 @@ impl PostgresFoodInventoryRepository {
     #[must_use]
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// `lock_consumable_item` 锁定待确认消耗的食品资产
+    /// 核心职责：
+    /// - 在事务中锁定库存行
+    /// - 校验当前库存仍可确认消耗
+    async fn lock_consumable_item(
+        transaction: &mut Transaction<'_, Postgres>,
+        item_id: Uuid,
+    ) -> PetResult<FoodInventoryItem> {
+        let current_row: Option<FoodInventoryItemRow> = sqlx::query_as(
+            r#"
+            SELECT * FROM food_inventory_items
+            WHERE id = $1 AND archived_at IS NULL
+            FOR UPDATE
+            "#,
+        )
+        .bind(item_id)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!("failed to lock food inventory item: {error}"))
+        })?;
+
+        let current = current_row
+            .map(FoodInventoryItem::try_from)
+            .transpose()?
+            .ok_or(PetError::FoodInventoryNotFound)?;
+
+        if current.quantity <= 0 || current.inventory_status == FoodInventoryStatus::Depleted {
+            return Err(PetError::InvalidInput(
+                "当前库存已经没有可确认消耗的数量".to_owned(),
+            ));
+        }
+        Ok(current)
+    }
+
+    /// `next_consumption_sequence_no` 计算食品资产消耗周期序号
+    /// 核心职责：
+    /// - 基于同一库存物品已有周期生成下一个序号
+    /// - 保持周期记录按用户确认顺序递增
+    async fn next_consumption_sequence_no(
+        transaction: &mut Transaction<'_, Postgres>,
+        item_id: Uuid,
+    ) -> PetResult<i32> {
+        sqlx::query_scalar(
+            r#"
+            SELECT COALESCE(MAX(sequence_no), 0) + 1
+            FROM food_inventory_consumption_cycles
+            WHERE food_item_id = $1
+            "#,
+        )
+        .bind(item_id)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to calculate food inventory consumption sequence: {error}"
+            ))
+        })
+    }
+
+    /// `insert_consumption_cycle` 写入食品资产消耗周期
+    /// 核心职责：
+    /// - 记录用户确认吃完一份库存的事实
+    /// - 固化本周期的规格快照
+    async fn insert_consumption_cycle(
+        transaction: &mut Transaction<'_, Postgres>,
+        current: &FoodInventoryItem,
+        editor_user_id: Uuid,
+        sequence_no: i32,
+    ) -> PetResult<FoodInventoryConsumptionCycleRow> {
+        sqlx::query_as(
+            r#"
+            INSERT INTO food_inventory_consumption_cycles (
+                id, food_item_id, scope_type, scope_id, confirmed_by_user_id,
+                sequence_no, consumed_quantity, package_weight_grams, package_unit
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, 1, $7, $8
+            )
+            RETURNING *
+            "#,
+        )
+        .bind(Uuid::new_v4())
+        .bind(current.id)
+        .bind(current.scope_type.as_str())
+        .bind(current.scope_id)
+        .bind(editor_user_id)
+        .bind(sequence_no)
+        .bind(current.package_weight_grams)
+        .bind(current.package_unit.as_deref().or(current.unit.as_deref()))
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to insert food inventory consumption cycle: {error}"
+            ))
+        })
+    }
+
+    /// `decrement_consumed_item` 扣减已确认消耗的食品资产库存
+    /// 核心职责：
+    /// - 将库存数量扣减一份
+    /// - 按剩余数量更新库存状态
+    async fn decrement_consumed_item(
+        transaction: &mut Transaction<'_, Postgres>,
+        item_id: Uuid,
+    ) -> PetResult<FoodInventoryItemRow> {
+        sqlx::query_as(
+            r#"
+            UPDATE food_inventory_items SET
+                quantity = quantity - 1,
+                inventory_status = CASE
+                    WHEN quantity - 1 <= 0 THEN 'depleted'
+                    ELSE 'in_use'
+                END,
+                updated_at = now()
+            WHERE id = $1 AND archived_at IS NULL
+            RETURNING *
+            "#,
+        )
+        .bind(item_id)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!("failed to consume food inventory item: {error}"))
+        })
     }
 
     async fn record_change(
@@ -694,6 +863,49 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             }
             None => Err(PetError::FoodInventoryNotFound),
         }
+    }
+
+    async fn consume_one_item(
+        &self,
+        item_id: Uuid,
+        editor_user_id: Uuid,
+    ) -> PetResult<FoodInventoryConsumeOneResult> {
+        let mut transaction = self.pool.begin().await.map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to begin food inventory consumption: {error}"
+            ))
+        })?;
+
+        let current = Self::lock_consumable_item(&mut transaction, item_id).await?;
+        let next_sequence_no =
+            Self::next_consumption_sequence_no(&mut transaction, item_id).await?;
+        let cycle_row = Self::insert_consumption_cycle(
+            &mut transaction,
+            &current,
+            editor_user_id,
+            next_sequence_no,
+        )
+        .await?;
+        let updated_row = Self::decrement_consumed_item(&mut transaction, item_id).await?;
+
+        transaction.commit().await.map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to commit food inventory consumption: {error}"
+            ))
+        })?;
+
+        let item = FoodInventoryItem::try_from(updated_row)?;
+        self.record_change(&item, editor_user_id, "consumed")
+            .await?;
+        let consumption_cycle = FoodInventoryConsumptionCycle::try_from(cycle_row)?;
+        let package_unit = consumption_cycle.package_unit.as_deref().unwrap_or("件");
+        let message = format!("已吃完 {} 1 {}", item.name, package_unit);
+
+        Ok(FoodInventoryConsumeOneResult {
+            item,
+            consumption_cycle,
+            message,
+        })
     }
 }
 

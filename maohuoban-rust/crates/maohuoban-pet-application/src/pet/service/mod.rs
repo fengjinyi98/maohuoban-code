@@ -252,6 +252,19 @@ impl PetService {
         .await
     }
 
+    pub async fn consume_one_food_inventory_item(
+        &self,
+        item_id: Uuid,
+        editor_user_id: Uuid,
+    ) -> PetResult<super::FoodInventoryConsumeOneResult> {
+        food_inventory::consume_one_food_inventory_item(
+            &self.food_inventory,
+            item_id,
+            editor_user_id,
+        )
+        .await
+    }
+
     pub async fn create_pet_weight_record(
         &self,
         input: NewPetWeightRecord,

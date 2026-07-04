@@ -7,7 +7,8 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::super::{
-    FoodInventoryItemDetail, FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
+    FoodInventoryConsumeOneResult, FoodInventoryItemDetail, FoodInventoryRepository,
+    NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
 
 /// PetService food inventory 方法组
@@ -86,6 +87,17 @@ pub(super) async fn restock_food_inventory_item(
     ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
     food_inventory
         .restock_item(item_id, editor_user_id, quantity)
+        .await
+}
+
+pub(super) async fn consume_one_food_inventory_item(
+    food_inventory: &Arc<dyn FoodInventoryRepository>,
+    item_id: Uuid,
+    editor_user_id: Uuid,
+) -> PetResult<FoodInventoryConsumeOneResult> {
+    ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
+    food_inventory
+        .consume_one_item(item_id, editor_user_id)
         .await
 }
 

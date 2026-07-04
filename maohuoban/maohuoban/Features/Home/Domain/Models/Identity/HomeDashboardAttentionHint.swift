@@ -98,6 +98,7 @@ extension HomeDashboardSnapshot.AttentionHint {
         case preventiveCareDetail = "preventive_care_detail"
         case weightRecord = "weight_record"
         case aiChat = "ai_chat"
+        case pantryItemDetail = "pantry_item_detail"
     }
 }
 
@@ -110,12 +111,14 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
     let recordID: String?
     let taskID: String?
     let sourceHintID: String?
+    let foodItemID: String?
 
     enum CodingKeys: String, CodingKey {
         case episodeID = "episode_id"
         case recordID = "record_id"
         case taskID = "task_id"
         case sourceHintID = "source_hint_id"
+        case foodItemID = "food_item_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -124,5 +127,6 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
         recordID = try container.decodeIfPresent(String.self, forKey: .recordID)
         taskID = try container.decodeIfPresent(String.self, forKey: .taskID)
         sourceHintID = try container.decodeIfPresent(String.self, forKey: .sourceHintID)
+        foodItemID = try container.decodeIfPresent(String.self, forKey: .foodItemID)
     }
 }

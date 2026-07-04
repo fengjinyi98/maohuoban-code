@@ -109,6 +109,39 @@ final class PetFoodInventoryItemDetailStore {
         }
     }
 
+    func consumeOneItem(
+        itemID: String,
+        currentUserID: String?
+    ) async -> String? {
+        guard let currentUserID else {
+            errorMessage = "缺少当前用户信息"
+            return nil
+        }
+        isMutating = true
+        defer { isMutating = false }
+        do {
+            let result = try await repository.consumeOneFoodInventoryItem(
+                itemID: itemID,
+                currentUserID: currentUserID
+            )
+            if case .loaded(let detail) = phase {
+                let updatedDetail = FoodInventoryItemDetail(
+                    item: result.item,
+                    linkedPets: detail.linkedPets,
+                    feedingTimeline: detail.feedingTimeline,
+                    consumptionSummary: detail.consumptionSummary
+                )
+                phase = .loaded(updatedDetail)
+            }
+            PetFoodInventoryMutationSignal.post()
+            await load(itemID: itemID, currentUserID: currentUserID, force: true)
+            return result.message
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
     func setCurrentStaple(
         petID: String,
         foodItemID: String,

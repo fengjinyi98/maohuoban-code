@@ -224,6 +224,36 @@ pub struct FoodInventoryItemDetail {
     pub consumption_summary: FoodInventoryConsumptionSummary,
 }
 
+/// FoodInventoryConsumptionCycle 食品资产消耗周期
+/// 核心职责：
+/// - 表达用户确认一个包装单位已消耗完成的事实
+/// - 为饮食趋势克重校准提供显式周期锚点
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FoodInventoryConsumptionCycle {
+    pub id: Uuid,
+    pub food_item_id: Uuid,
+    pub scope_type: FoodScopeType,
+    pub scope_id: Uuid,
+    pub confirmed_by_user_id: Uuid,
+    pub sequence_no: i32,
+    pub consumed_quantity: i32,
+    pub package_weight_grams: Option<i32>,
+    pub package_unit: Option<String>,
+    pub confirmed_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// FoodInventoryConsumeOneResult 食品资产消耗确认结果
+/// 核心职责：
+/// - 返回扣减后的库存资产
+/// - 返回本次确认形成的消耗周期和用户可读提示
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FoodInventoryConsumeOneResult {
+    pub item: FoodInventoryItem,
+    pub consumption_cycle: FoodInventoryConsumptionCycle,
+    pub message: String,
+}
+
 /// FoodInventoryLinkedPet 食品资产关联宠物
 /// 核心职责：
 /// - 表达某个食品资产与宠物的事实关联来源
@@ -379,4 +409,10 @@ pub trait FoodInventoryRepository: Send + Sync {
         editor_user_id: Uuid,
         quantity: i32,
     ) -> PetResult<FoodInventoryItem>;
+
+    async fn consume_one_item(
+        &self,
+        item_id: Uuid,
+        editor_user_id: Uuid,
+    ) -> PetResult<FoodInventoryConsumeOneResult>;
 }

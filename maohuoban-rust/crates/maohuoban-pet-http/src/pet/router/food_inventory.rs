@@ -15,7 +15,7 @@ use crate::pet::{
         CreateFoodInventoryItemRequest, PetMediaUploadData, UpdateFoodInventoryItemRequest,
         UploadPetMediaRequest,
     },
-    response::{created_response, error_response, ok_response},
+    response::{created_response, error_response, ok_response, ok_response_with_message},
 };
 
 /// ListFoodInventoryQuery 食品资产列表查询
@@ -249,6 +249,30 @@ pub(super) async fn restock_food_inventory_item(
                 }
             }
             ok_response("food_inventory.item_restocked", "库存已补充", item)
+        }
+        Err(error) => error_response(&error),
+    }
+}
+
+/// consume_one_food_inventory_item 确认消耗一个包装单位
+/// 核心职责：
+/// - 将用户低心智“已吃完”动作提交给后端库存用例
+/// - 返回后端生成的 toast 文案和扣减后的库存状态
+pub(super) async fn consume_one_food_inventory_item(
+    State(state): State<PetHttpState>,
+    Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
+) -> Response {
+    let editor_user_id = actor.user_id();
+
+    match state
+        .pet
+        .consume_one_food_inventory_item(item_id, editor_user_id)
+        .await
+    {
+        Ok(result) => {
+            let message = result.message.clone();
+            ok_response_with_message("food_inventory.item_consumed", &message, result)
         }
         Err(error) => error_response(&error),
     }

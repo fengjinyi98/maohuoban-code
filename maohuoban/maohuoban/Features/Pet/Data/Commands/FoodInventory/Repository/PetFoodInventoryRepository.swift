@@ -66,6 +66,11 @@ protocol PetFoodInventoryRepository {
         quantity: Int,
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem
+
+    func consumeOneFoodInventoryItem(
+        itemID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> FoodInventoryConsumeOneResult
 }
 
 extension PetFoodInventoryRepository {
