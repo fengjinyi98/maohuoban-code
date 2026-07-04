@@ -28,7 +28,7 @@ struct PetPreventiveCareRecordDetailContentView: View {
             PetPreventiveCareRecordReminderSection(rows: presentation.reminderRows)
             PetPreventiveCareRecordEvidenceSection(
                 note: presentation.note,
-                attachmentAssetIDs: presentation.attachmentAssetIDs
+                attachmentAssets: presentation.attachmentAssets
             )
         }
         .padding(.horizontal, MHBTheme.Spacing.s5)

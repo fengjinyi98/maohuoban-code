@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 struct HomeRemindersSection: View {
     let reminders: [HomeDashboardSnapshot.Reminder]
     let routingContext: HomeActionRoutingContext
+    let onOpenAddReminder: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -31,29 +32,35 @@ struct HomeRemindersSection: View {
                 .buttonStyle(.plain)
             }
 
-            // 垂直扁平列表
-            VStack(spacing: 0) {
-                ForEach(Array(visibleReminders.enumerated()), id: \.element.id) { index, reminder in
-                    let isFirst = index == 0
-                    if let route = HomeReminderRouteResolver.route(for: reminder, context: routingContext) {
-                        NavigationLink(value: route) {
+            if visibleReminders.isEmpty {
+                Button(action: onOpenAddReminder) {
+                    HomeReminderEmptyState()
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.reminders.emptyState")
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(visibleReminders.enumerated()), id: \.element.id) { index, reminder in
+                        let isFirst = index == 0
+                        if let route = HomeReminderRouteResolver.route(for: reminder, context: routingContext) {
+                            NavigationLink(value: route) {
+                                HomeReminderListRow(reminder: reminder, isFirst: isFirst)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("home.reminder.\(reminder.id)")
+                        } else {
                             HomeReminderListRow(reminder: reminder, isFirst: isFirst)
+                                .accessibilityIdentifier("home.reminder.\(reminder.id).disabled")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("home.reminder.\(reminder.id)")
-                    } else {
-                        HomeReminderListRow(reminder: reminder, isFirst: isFirst)
-                            .accessibilityIdentifier("home.reminder.\(reminder.id).disabled")
-                    }
 
-                    // 绘制细分底线，起始点对齐右侧文本开头（偏移 88pt）
-                    if index < visibleReminders.count - 1 {
-                        HStack(spacing: 0) {
-                            Spacer()
-                                .frame(width: 88)
-                            Rectangle()
-                                .fill(Color.white.opacity(0.1))
-                                .frame(height: 0.5)
+                        if index < visibleReminders.count - 1 {
+                            HStack(spacing: 0) {
+                                Spacer()
+                                    .frame(width: 88)
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.1))
+                                    .frame(height: 0.5)
+                            }
                         }
                     }
                 }
@@ -65,6 +72,33 @@ struct HomeRemindersSection: View {
 
     private var visibleReminders: [HomeDashboardSnapshot.Reminder] {
         Array(reminders.prefix(3))
+    }
+}
+
+// HomeReminderEmptyState 近期提醒空状态
+// 核心职责：
+// - 与首页相册和储物柜空态保持同一虚线框布局
+// - 整块区域作为添加提醒入口的点击目标
+private struct HomeReminderEmptyState: View {
+    var body: some View {
+        VStack(spacing: MHBTheme.Spacing.s2) {
+            Image(systemName: "bell.badge")
+                .font(.system(size: 24))
+                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            Text("添加第一个提醒")
+                .font(MHBTheme.Typography.callout.weight(.medium))
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, MHBTheme.Spacing.s6)
+        .background(Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous)
+                .stroke(style: StrokeStyle(lineWidth: 1, dash: [4]))
+                .foregroundStyle(MHBTheme.ColorToken.separator.color)
+        )
+        .contentShape(Rectangle())
     }
 }
 

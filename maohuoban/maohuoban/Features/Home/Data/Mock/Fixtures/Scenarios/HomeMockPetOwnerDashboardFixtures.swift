@@ -15,43 +15,7 @@ extension HomeMockDashboardFixtures {
             ),
             selectedPet: heroSummary(for: selectedPet.id),
             petSwitcher: pets,
-            reminders: [
-                HomeDashboardSnapshot.Reminder(
-                    id: "reminder-vaccine",
-                    kind: .vaccine,
-                    title: "狂犬疫苗",
-                    subtitle: "2026.06.08",
-                    dueText: "14 天后",
-                    remarks: "建议提前预约同城宠物医院",
-                    sourceRef: HomeDashboardSnapshot.Reminder.SourceRef(
-                        domain: .preventiveCare,
-                        type: .vaccine,
-                        recordID: "vaccine-rabies-2026-06"
-                    )
-                ),
-                HomeDashboardSnapshot.Reminder(
-                    id: "reminder-deworming",
-                    kind: .deworming,
-                    title: "体内驱虫",
-                    subtitle: "2026.05.28",
-                    dueText: "3 天后",
-                    remarks: nil,
-                    sourceRef: HomeDashboardSnapshot.Reminder.SourceRef(
-                        domain: .preventiveCare,
-                        type: .deworming,
-                        recordID: "deworming-2026-06"
-                    )
-                ),
-                HomeDashboardSnapshot.Reminder(
-                    id: "reminder-physical",
-                    kind: .followUp,
-                    title: "定期体检",
-                    subtitle: "2026.04.15",
-                    dueText: "30 天后",
-                    remarks: "基础血常规与生化筛查",
-                    sourceRef: nil
-                )
-            ],
+            reminders: [],
             quickActions: petOwnerActions(),
             partnerRecommendation: HomeDashboardSnapshot.PartnerRecommendation(
                 petID: "pet-neighbor-1",

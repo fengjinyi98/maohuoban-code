@@ -59,6 +59,7 @@ struct PetPreventiveCareRecordDetailScreen: View {
         }
         .ignoresSafeArea(.container, edges: .bottom)
         .background(MHBTheme.ColorToken.background.color)
+        .mhbImagePreviewHost()
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

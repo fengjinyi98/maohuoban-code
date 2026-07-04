@@ -7,7 +7,7 @@ import MaohuobanDesignSystem
 // - 使用真实事件附件资产渲染照片
 struct PetPreventiveCareRecordEvidenceSection: View {
     let note: String
-    let attachmentAssetIDs: [String]
+    let attachmentAssets: [PetEventAttachmentAsset]
 
     var body: some View {
         PetPreventiveCareRecordDetailSection(title: "备注与照片") {
@@ -17,8 +17,8 @@ struct PetPreventiveCareRecordEvidenceSection: View {
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if !attachmentAssetIDs.isEmpty {
-                    PetEventAttachmentDisplayGallery(assetIDs: attachmentAssetIDs)
+                if !attachmentAssets.isEmpty {
+                    PetEventAttachmentDisplayGallery(assets: attachmentAssets)
                 }
             }
         }

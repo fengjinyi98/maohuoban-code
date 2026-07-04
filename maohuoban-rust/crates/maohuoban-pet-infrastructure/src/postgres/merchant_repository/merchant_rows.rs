@@ -219,6 +219,7 @@ impl TryFrom<MerchantPetEventRow> for PetEvent {
             record_revision: row.record_revision,
             created_at: row.created_at,
             updated_at: row.updated_at,
+            attachment_assets: Vec::new(),
         })
     }
 }

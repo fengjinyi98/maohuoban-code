@@ -16,6 +16,35 @@ struct PetEventDetail: Decodable, Equatable, Identifiable {
     let occurredAt: String
     let recordRevision: Int
     let eventPayload: PetEventDetailPayload?
+    let attachmentAssets: [PetEventAttachmentAsset]
+
+    init(
+        id: String,
+        petID: String?,
+        litterID: String?,
+        kind: PetEventKind,
+        subkind: String?,
+        title: String,
+        summary: String?,
+        visibility: PetEventVisibility,
+        occurredAt: String,
+        recordRevision: Int,
+        eventPayload: PetEventDetailPayload?,
+        attachmentAssets: [PetEventAttachmentAsset] = []
+    ) {
+        self.id = id
+        self.petID = petID
+        self.litterID = litterID
+        self.kind = kind
+        self.subkind = subkind
+        self.title = title
+        self.summary = summary
+        self.visibility = visibility
+        self.occurredAt = occurredAt
+        self.recordRevision = recordRevision
+        self.eventPayload = eventPayload
+        self.attachmentAssets = attachmentAssets
+    }
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -29,5 +58,22 @@ struct PetEventDetail: Decodable, Equatable, Identifiable {
         case occurredAt = "occurred_at"
         case recordRevision = "record_revision"
         case eventPayload = "event_payload"
+        case attachmentAssets = "attachment_assets"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        petID = try container.decodeIfPresent(String.self, forKey: .petID)
+        litterID = try container.decodeIfPresent(String.self, forKey: .litterID)
+        kind = try container.decode(PetEventKind.self, forKey: .kind)
+        subkind = try container.decodeIfPresent(String.self, forKey: .subkind)
+        title = try container.decode(String.self, forKey: .title)
+        summary = try container.decodeIfPresent(String.self, forKey: .summary)
+        visibility = try container.decode(PetEventVisibility.self, forKey: .visibility)
+        occurredAt = try container.decode(String.self, forKey: .occurredAt)
+        recordRevision = try container.decode(Int.self, forKey: .recordRevision)
+        eventPayload = try container.decodeIfPresent(PetEventDetailPayload.self, forKey: .eventPayload)
+        attachmentAssets = try container.decodeIfPresent([PetEventAttachmentAsset].self, forKey: .attachmentAssets) ?? []
     }
 }

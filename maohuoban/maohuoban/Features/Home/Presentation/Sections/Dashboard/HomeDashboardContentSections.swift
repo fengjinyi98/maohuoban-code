@@ -11,6 +11,7 @@ struct HomeDashboardContentSections: View {
     let routingContext: HomeActionRoutingContext
     let recordHistoryRoute: HomeRoute
     let onSelectPet: (String) -> Void
+    let onOpenAddReminder: () -> Void
     let showsTopSpacing: Bool
 
     var body: some View {
@@ -75,10 +76,11 @@ struct HomeDashboardContentSections: View {
                 HomePartnerSection(partner: partner)
             }
 
-            if !snapshot.reminders.isEmpty {
+            if snapshot.selectedPet != nil {
                 HomeRemindersSection(
                     reminders: snapshot.reminders,
-                    routingContext: routingContext
+                    routingContext: routingContext,
+                    onOpenAddReminder: onOpenAddReminder
                 )
             }
 

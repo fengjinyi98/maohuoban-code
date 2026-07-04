@@ -78,7 +78,7 @@ impl PostgresPetRepository {
 /// 核心职责：
 /// - 从 event_payload.attachment_asset_ids 读取 UUID 列表
 /// - 对重复 ID 去重，保持绑定命令幂等
-fn event_attachment_asset_ids(event_payload: &Value) -> PetResult<Vec<Uuid>> {
+pub(super) fn event_attachment_asset_ids(event_payload: &Value) -> PetResult<Vec<Uuid>> {
     let Some(raw_value) = event_payload.get("attachment_asset_ids") else {
         return Ok(Vec::new());
     };

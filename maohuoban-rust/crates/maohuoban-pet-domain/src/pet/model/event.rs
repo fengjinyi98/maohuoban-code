@@ -27,6 +27,20 @@ pub struct PetEvent {
     pub record_revision: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachment_assets: Vec<PetEventAttachmentAsset>,
+}
+
+/// PetEventAttachmentAsset 宠物事件附件资产
+/// 核心职责：
+/// - 承载事件详情关联的附件媒资元数据
+/// - 为客户端大图预览提供稳定尺寸
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PetEventAttachmentAsset {
+    pub id: Uuid,
+    pub url: String,
+    pub width: i32,
+    pub height: i32,
 }
 
 /// EventKind 宠物事件类型

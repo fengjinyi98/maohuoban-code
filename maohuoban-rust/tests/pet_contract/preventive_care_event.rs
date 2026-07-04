@@ -11,7 +11,7 @@ async fn preventive_care_event_can_be_updated_and_deleted() {
 
     let event_id = create_preventive_care_event(&app, &user_id, &pet_id, &first_asset_id).await;
     update_preventive_care_event(&app, &user_id, &event_id, &second_asset_id).await;
-    load_updated_preventive_care_event(&app, &user_id, &event_id).await;
+    load_updated_preventive_care_event(&app, &user_id, &event_id, &second_asset_id).await;
     preserve_preventive_care_attachment(&app, &user_id, &event_id, &second_asset_id).await;
     delete_preventive_care_event(&app, &user_id, &event_id).await;
 }
@@ -128,6 +128,7 @@ async fn load_updated_preventive_care_event(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
     event_id: &str,
+    asset_id: &str,
 ) {
     let load_response = app
         .router()
@@ -142,6 +143,13 @@ async fn load_updated_preventive_care_event(
     let load_body = response_json(load_response).await;
     assert_eq!(load_body["data"]["title"], "妙三多加强针");
     assert_eq!(load_body["data"]["record_revision"], 2);
+    assert_eq!(load_body["data"]["attachment_assets"][0]["id"], asset_id);
+    assert_eq!(
+        load_body["data"]["attachment_assets"][0]["url"],
+        format!("/api/v1/media/assets/{asset_id}/content")
+    );
+    assert_eq!(load_body["data"]["attachment_assets"][0]["width"], 1);
+    assert_eq!(load_body["data"]["attachment_assets"][0]["height"], 1);
 }
 
 async fn preserve_preventive_care_attachment(

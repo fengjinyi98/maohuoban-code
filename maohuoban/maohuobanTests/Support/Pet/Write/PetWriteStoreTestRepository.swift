@@ -82,6 +82,14 @@ final class CapturingPetRepository: PetRepository {
         }
     }
 
+    func updateEvent(
+        eventID: String,
+        draft: PetEventDraft,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
+        throw .invalidResponse
+    }
+
     func loadEventDetail(
         eventID: String,
         currentUserID: String

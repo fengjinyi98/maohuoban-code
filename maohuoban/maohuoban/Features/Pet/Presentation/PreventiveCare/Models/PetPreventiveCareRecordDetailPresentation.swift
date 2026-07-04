@@ -43,6 +43,7 @@ struct PetPreventiveCareRecordDetailPresentation {
     let reminderRows: [InfoRow]
     let note: String
     let attachmentAssetIDs: [String]
+    let attachmentAssets: [PetEventAttachmentAsset]
 
     var navigationTitle: String {
         "\(kind.recordTitle)详情"
@@ -88,6 +89,7 @@ struct PetPreventiveCareRecordDetailPresentation {
         ]
         self.note = payload?.note?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? payload?.note ?? "未填写备注" : "未填写备注"
         self.attachmentAssetIDs = payload?.attachmentAssetIDs ?? []
+        self.attachmentAssets = event.attachmentAssets
     }
 
     private static func status(daysDelta: Int?) -> PetPreventiveCareRecord.Status {

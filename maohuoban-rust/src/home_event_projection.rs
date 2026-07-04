@@ -154,6 +154,7 @@ mod tests {
             occurred_at: DateTime::from_timestamp_nanos(1),
             actor_user_id: Some(Uuid::nil()),
             evidence_snapshot_id: None,
+            attachment_assets: Vec::new(),
             record_revision: 1,
             created_at: DateTime::from_timestamp_nanos(0),
             updated_at: DateTime::from_timestamp_nanos(0),

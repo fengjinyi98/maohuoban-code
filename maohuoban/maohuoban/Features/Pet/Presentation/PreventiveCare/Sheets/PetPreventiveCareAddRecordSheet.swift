@@ -50,8 +50,6 @@ struct PetPreventiveCareAddRecordSheet: View {
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                let bottomInset = proxy.safeAreaInsets.bottom
-
                 ZStack(alignment: .topLeading) {
                     MHBTheme.ColorToken.background.color
                         .ignoresSafeArea()
@@ -102,22 +100,15 @@ struct PetPreventiveCareAddRecordSheet: View {
                         }
                         .padding(.horizontal, MHBTheme.Spacing.s5)
                         .padding(.top, topContentPadding)
-                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
+                        .padding(.bottom, MHBTheme.Spacing.s8)
                     }
                     .frame(width: proxy.size.width, height: proxy.size.height)
 
-                    MHBBottomFloatingActionCTA(
-                        title: submitButtonTitle,
-                        systemImage: "checkmark",
-                        bottomInset: bottomInset,
-                        action: saveRecord
-                    )
-                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
-                    .zIndex(2)
-
                     PetPreventiveCareAddRecordTopChrome(
                         title: mode.title,
-                        onClose: { dismiss() }
+                        isSaveDisabled: isSaveDisabled,
+                        onClose: { dismiss() },
+                        onSave: saveRecord
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s4)
                     .padding(.top, MHBTheme.Spacing.s4)
@@ -207,27 +198,20 @@ struct PetPreventiveCareAddRecordSheet: View {
         )
     }
 
-    private var submitButtonTitle: String {
-        if isSubmitting {
-            return "保存中"
-        }
-        if attachmentStore.isUploading {
-            return "照片上传中"
-        }
-        if attachmentStore.hasFailedUploads {
-            return "照片需处理"
-        }
-        return mode.submitTitle
+    private var isSaveDisabled: Bool {
+        isSubmitting || attachmentStore.isUploading || attachmentStore.hasFailedUploads
     }
 }
 
 // PetPreventiveCareAddRecordTopChrome 新增记录弹层顶部控件
 // 核心职责：
-// - 在原生 sheet 内固定标题和关闭入口
-// - 保持底部 CTA 与喂食 sheet 使用一致的全屏布局模型
+// - 在原生 sheet 内固定标题、关闭入口和保存入口
+// - 保持新增和编辑表单共用同一顶部操作模型
 private struct PetPreventiveCareAddRecordTopChrome: View {
     let title: LocalizedStringResource
+    let isSaveDisabled: Bool
     let onClose: () -> Void
+    let onSave: () -> Void
 
     var body: some View {
         ZStack {
@@ -237,8 +221,6 @@ private struct PetPreventiveCareAddRecordTopChrome: View {
                 .frame(maxWidth: .infinity)
 
             HStack {
-                Spacer()
-
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .bold))
@@ -249,6 +231,21 @@ private struct PetPreventiveCareAddRecordTopChrome: View {
                 .buttonStyle(.plain)
                 .glassEffect(.regular.interactive(), in: .circle)
                 .accessibilityLabel("关闭")
+
+                Spacer()
+
+                Button(action: onSave) {
+                    Text("保存")
+                        .font(MHBTheme.Typography.callout.weight(.semibold))
+                        .foregroundStyle(isSaveDisabled ? MHBTheme.ColorToken.labelTertiary.color : MHBTheme.ColorToken.primary.color)
+                        .padding(.horizontal, MHBTheme.Spacing.s4)
+                        .frame(height: 40)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isSaveDisabled)
+                .glassEffect(.regular.interactive(), in: .capsule)
+                .accessibilityLabel("保存")
             }
         }
         .frame(height: 48)
@@ -278,15 +275,6 @@ enum PetPreventiveCareFormMode: Equatable, Identifiable {
             "新增记录"
         case .edit:
             "修改记录"
-        }
-    }
-
-    var submitTitle: String {
-        switch self {
-        case .create:
-            "保存记录"
-        case .edit:
-            "保存修改"
         }
     }
 

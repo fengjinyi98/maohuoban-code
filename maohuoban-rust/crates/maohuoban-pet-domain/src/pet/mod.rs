@@ -18,8 +18,8 @@ pub use model::{
     LifecycleSummary, ManagedPetStatus, MediaAsset, MediaAssetComponent, MediaAssetComponentKind,
     MediaAssetStatus, MediaBinding, MediaBindingStatus, MediaDerivative, MediaDerivativeKind,
     MediaUsageKind, OriginKind, OriginSummary, PetAlbum, PetAlbumAsset, PetBackgroundMediaKind,
-    PetDietAssignment, PetEvent, PetExternalIdentifier, PetGuardian, PetIdentityContext,
-    PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy, PetNeuterStatus, PetProfile,
-    PetSex, PetSourceKind, PetSpecies, PetTimeline, PetTimelineEntry, PetTimelineEntrySource,
-    Severity, SymptomKind, VerifiedStatus, days_since_date,
+    PetDietAssignment, PetEvent, PetEventAttachmentAsset, PetExternalIdentifier, PetGuardian,
+    PetIdentityContext, PetLifecycleEvent, PetMediaUploadResult, PetNameEditPolicy,
+    PetNeuterStatus, PetProfile, PetSex, PetSourceKind, PetSpecies, PetTimeline, PetTimelineEntry,
+    PetTimelineEntrySource, Severity, SymptomKind, VerifiedStatus, days_since_date,
 };

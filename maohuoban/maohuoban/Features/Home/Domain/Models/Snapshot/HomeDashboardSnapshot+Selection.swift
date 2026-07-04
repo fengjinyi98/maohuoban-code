@@ -49,7 +49,7 @@ extension HomeDashboardSnapshot {
             identity: identity,
             selectedPet: selectedPet,
             petSwitcher: petSwitcher,
-            reminders: reminders.isEmpty ? fallback.reminders : reminders,
+            reminders: reminders,
             quickActions: quickActions.resolvedQuickActions(
                 for: identity.kind,
                 fallback: fallback.quickActions

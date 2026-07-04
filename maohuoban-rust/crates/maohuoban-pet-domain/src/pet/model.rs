@@ -21,7 +21,8 @@ pub use agent_confirmation_task::{
 };
 pub use diet_assignment::{DietAssignmentRole, DietAssignmentStatus, PetDietAssignment};
 pub use event::{
-    EventKind, EventVisibility, PetEvent, PetTimeline, PetTimelineEntry, PetTimelineEntrySource,
+    EventKind, EventVisibility, PetEvent, PetEventAttachmentAsset, PetTimeline, PetTimelineEntry,
+    PetTimelineEntrySource,
 };
 pub use external_identifier::{
     IdentifierStatus, IdentifierType, PetExternalIdentifier, VerifiedStatus,

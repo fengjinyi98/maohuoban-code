@@ -3,21 +3,41 @@ import MaohuobanDesignSystem
 
 // HomeAllRemindersEmptyState 全部提醒空态
 // 核心职责：
-// - 展示当前宠物暂无提醒状态
-// - 避免空页面被误认为加载失败
+// - 参考储物柜页面级空态提供居中引导
+// - 承载添加第一个提醒的主操作入口
 struct HomeAllRemindersEmptyState: View {
+    let onAddReminder: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-            Text("暂无提醒")
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            Text("新增疫苗、驱虫或复诊记录后，带下次时间的记录会出现在这里。")
-                .font(MHBTheme.Typography.caption)
+        VStack(spacing: MHBTheme.Spacing.s4) {
+            Image(systemName: "bell.badge")
+                .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+
+            VStack(spacing: MHBTheme.Spacing.s2) {
+                Text("还没有提醒")
+                    .font(MHBTheme.Typography.headline.weight(.semibold))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .multilineTextAlignment(.center)
+
+                Text("添加疫苗、驱虫、复诊或自定义提醒后，会在这里集中查看。")
+                    .font(MHBTheme.Typography.callout)
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: onAddReminder) {
+                Label("添加第一个提醒", systemImage: "plus")
+                    .font(MHBTheme.Typography.callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, MHBTheme.Spacing.s5)
+                    .frame(height: 44)
+                    .background(MHBTheme.ColorToken.primary.color, in: Capsule())
+            }
+            .buttonStyle(.plain)
         }
-        .padding(MHBTheme.Spacing.s4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+        .padding(.horizontal, MHBTheme.Spacing.s6)
+        .accessibilityIdentifier("home.allReminders.emptyState")
     }
 }

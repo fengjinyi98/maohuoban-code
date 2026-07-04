@@ -2,10 +2,13 @@ use maohuoban_pet_application::pet::{
     DeletePetEvent, DeletedPetEvent, NewPetEvent, TradePetImport, TradePetImportInput,
     UpdatePetEvent,
 };
-use maohuoban_pet_domain::pet::{PetError, PetEvent, PetResult, PetTimeline, PetTimelineEntry};
+use maohuoban_pet_domain::pet::{
+    PetError, PetEvent, PetEventAttachmentAsset, PetResult, PetTimeline, PetTimelineEntry,
+};
 use uuid::Uuid;
 
 use super::PostgresPetRepository;
+use super::event_attachments::event_attachment_asset_ids;
 use super::event_rows::PetEventRow;
 use super::storage::{to_infrastructure_error, to_pet_event_write_error};
 use super::trade_import::{insert_trade_import_event, insert_trade_import_pet};
@@ -238,7 +241,66 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        row.map(TryInto::try_into).transpose()
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let mut event: PetEvent = row.try_into()?;
+        event.attachment_assets = self
+            .load_event_attachment_assets(event.pet_id, &event.event_payload)
+            .await?;
+        Ok(Some(event))
+    }
+
+    /// load_event_attachment_assets 加载事件附件媒资元数据
+    /// 核心职责：
+    /// - 从事件 payload 的附件 ID 读取已绑定媒资尺寸
+    /// - 为前端大图预览提供稳定尺寸输入
+    async fn load_event_attachment_assets(
+        &self,
+        pet_id: Option<Uuid>,
+        event_payload: &serde_json::Value,
+    ) -> PetResult<Vec<PetEventAttachmentAsset>> {
+        let Some(pet_id) = pet_id else {
+            return Ok(Vec::new());
+        };
+        let asset_ids = event_attachment_asset_ids(event_payload)?;
+        if asset_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let rows = sqlx::query_as::<_, EventAttachmentAssetRow>(
+            r#"
+            SELECT id, width, height
+            FROM media_assets
+            WHERE id = ANY($1)
+              AND owner_pet_id = $2
+              AND usage_kind = 'pet.event.attachment'
+              AND status = 'bound'
+              AND deleted_at IS NULL
+            "#,
+        )
+        .bind(&asset_ids)
+        .bind(pet_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        if rows.len() != asset_ids.len() {
+            return Ok(Vec::new());
+        }
+
+        let attachment_assets: Vec<PetEventAttachmentAsset> = asset_ids
+            .iter()
+            .filter_map(|asset_id| {
+                rows.iter()
+                    .find(|row| row.id == *asset_id)
+                    .and_then(EventAttachmentAssetRow::to_domain)
+            })
+            .collect();
+        if attachment_assets.len() != asset_ids.len() {
+            return Ok(Vec::new());
+        }
+        Ok(attachment_assets)
     }
 
     pub(super) async fn update_pet_event_command(
@@ -354,6 +416,29 @@ impl PostgresPetRepository {
         Ok(DeletedPetEvent {
             id: input.event_id,
             deleted: true,
+        })
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct EventAttachmentAssetRow {
+    id: Uuid,
+    width: Option<i32>,
+    height: Option<i32>,
+}
+
+impl EventAttachmentAssetRow {
+    fn to_domain(&self) -> Option<PetEventAttachmentAsset> {
+        let width = self.width?;
+        let height = self.height?;
+        if width <= 0 || height <= 0 {
+            return None;
+        }
+        Some(PetEventAttachmentAsset {
+            id: self.id,
+            url: format!("/api/v1/media/assets/{}/content", self.id),
+            width,
+            height,
         })
     }
 }

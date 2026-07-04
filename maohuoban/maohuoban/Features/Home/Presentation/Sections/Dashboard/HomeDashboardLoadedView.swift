@@ -95,6 +95,7 @@ struct HomeDashboardLoadedView: View {
                             routingContext: routingContext,
                             recordHistoryRoute: recordHistoryRoute(routingContext: routingContext),
                             onSelectPet: onSelectPet,
+                            onOpenAddReminder: onOpenAddReminder,
                             showsTopSpacing: snapshot.selectedPet == nil
                         )
                     }
