@@ -26,9 +26,10 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendSegment,
-    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
-    HomePantryPreviewItem, HomeTimelineEvent,
+    HomeDashboardSnapshot, HomeDietTrendConfidence, HomeDietTrendExplanation,
+    HomeDietTrendHealthContext, HomeDietTrendSegment, HomeDietTrendSummary,
+    HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind, HomePantryPreviewItem,
+    HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
@@ -365,12 +366,21 @@ fn home_diet_trend_summary(
                 title: segment.title,
                 score: segment.score,
                 percentage: segment.percentage,
+                baseline_score: segment.baseline_score,
+                baseline_sample_days: segment.baseline_sample_days,
+                current_ratio: segment.current_ratio,
+                ema_score: segment.ema_score,
             })
             .collect(),
         confidence: HomeDietTrendConfidence {
             level: summary.confidence.level,
             score: summary.confidence.score,
             basis: summary.confidence.basis,
+        },
+        health_context: HomeDietTrendHealthContext {
+            included_sample_count: summary.health_context.included_sample_count,
+            excluded_sample_count: summary.health_context.excluded_sample_count,
+            excluded_reasons: summary.health_context.excluded_reasons,
         },
         explanation: HomeDietTrendExplanation {
             title: summary.explanation.title,

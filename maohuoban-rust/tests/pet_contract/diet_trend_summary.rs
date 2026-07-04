@@ -14,6 +14,59 @@ async fn diet_trend_summary_returns_structured_food_segments_and_backend_explana
 }
 
 #[tokio::test]
+async fn diet_trend_summary_returns_baseline_and_excludes_abnormal_days() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139044").await;
+    let pet_id = create_pet(&app, &user_id).await;
+    let main_food_id = create_food_inventory_item(&app, &user_id, "主粮", "main_food").await;
+
+    for day in 1..=14 {
+        create_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-07-{day:02}T08:00:00Z"),
+        )
+        .await;
+    }
+    create_abnormal_event(&app, &user_id, &pet_id, "2026-07-15T07:00:00Z").await;
+    create_feeding_event(
+        &app,
+        &user_id,
+        &pet_id,
+        &main_food_id,
+        "main_food",
+        "少一点",
+        "2026-07-15T08:00:00Z",
+    )
+    .await;
+
+    let body = load_diet_trend_summary(&app, &user_id, &pet_id).await;
+    let main_food = body["data"]["segments"]
+        .as_array()
+        .expect("segments")
+        .iter()
+        .find(|segment| segment["category"] == "main_food")
+        .expect("main food segment");
+
+    assert_eq!(main_food["baseline_score"], 1.0);
+    assert_eq!(main_food["baseline_sample_days"], 14);
+    assert_eq!(main_food["current_ratio"], 0.75);
+    assert_eq!(body["data"]["health_context"]["excluded_sample_count"], 1);
+    assert!(
+        body["data"]["health_context"]["excluded_reasons"]
+            .as_array()
+            .expect("excluded reasons")
+            .iter()
+            .any(|reason| reason == "abnormal")
+    );
+}
+
+#[tokio::test]
 async fn diet_trend_summary_rejects_cross_user_pet_access() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -37,7 +90,7 @@ async fn diet_trend_summary_rejects_cross_user_pet_access() {
 fn assert_diet_trend_summary_meta(body: &serde_json::Value) {
     assert_eq!(body["code"], "pet.diet_trend_summary_loaded");
     assert_eq!(body["data"]["window_days"], 30);
-    assert_eq!(body["data"]["status"], "observing");
+    assert_eq!(body["data"]["status"], "collecting_baseline");
     assert_eq!(body["data"]["confidence"]["level"], "medium");
     assert!(
         body["data"]["confidence"]["score"]
@@ -242,5 +295,38 @@ async fn create_feeding_event(
         ))
         .await
         .expect("create feeding event");
+    assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+async fn create_abnormal_event(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+    occurred_at: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "abnormal_symptom",
+                "title": "异常记录",
+                "summary": "软便",
+                "visibility": "private",
+                "occurred_at": occurred_at,
+                "event_payload": {
+                    "symptom_kinds": ["stool"],
+                    "symptom_details": "软便",
+                    "severity": "mild",
+                    "note": null,
+                    "attachment_asset_ids": []
+                }
+            }),
+            Some(user_id),
+        ))
+        .await
+        .expect("create abnormal event");
     assert_eq!(response.status(), StatusCode::CREATED);
 }

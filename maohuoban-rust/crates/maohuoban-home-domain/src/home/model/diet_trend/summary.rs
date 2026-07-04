@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::{HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendSegment};
+use super::{
+    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendHealthContext,
+    HomeDietTrendSegment,
+};
 
 /// HomeDietTrendSummary 首页饮食趋势摘要
 /// 核心职责：
@@ -12,5 +15,6 @@ pub struct HomeDietTrendSummary {
     pub status: String,
     pub segments: Vec<HomeDietTrendSegment>,
     pub confidence: HomeDietTrendConfidence,
+    pub health_context: HomeDietTrendHealthContext,
     pub explanation: HomeDietTrendExplanation,
 }

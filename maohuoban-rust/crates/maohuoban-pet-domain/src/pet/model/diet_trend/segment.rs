@@ -10,4 +10,8 @@ pub struct DietTrendSegment {
     pub title: String,
     pub score: f64,
     pub percentage: i64,
+    pub baseline_score: Option<f64>,
+    pub baseline_sample_days: i64,
+    pub current_ratio: Option<f64>,
+    pub ema_score: Option<f64>,
 }

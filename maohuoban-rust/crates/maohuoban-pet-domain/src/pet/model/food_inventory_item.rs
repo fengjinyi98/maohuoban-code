@@ -36,7 +36,7 @@ pub struct FoodInventoryItem {
 /// 核心职责：
 /// - 一期固定 user scope
 /// - 预留 household 与 merchant
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FoodScopeType {
     User,
@@ -72,7 +72,7 @@ impl TryFrom<&str> for FoodScopeType {
 /// 核心职责：
 /// - 约束储物柜分类枚举
 /// - 区分 Agent 饮食上下文可消费分类
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum FoodInventoryCategory {
     MainFood,

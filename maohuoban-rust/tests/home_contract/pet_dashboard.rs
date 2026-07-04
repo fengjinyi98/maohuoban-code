@@ -464,6 +464,12 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
                 .expect("main food percentage")
                 > 0
     }));
+    let main_food = segments
+        .iter()
+        .find(|segment| segment["category"] == "main_food")
+        .expect("main food segment");
+    assert!(main_food["baseline_sample_days"].is_i64());
+    assert!(summary["health_context"]["included_sample_count"].is_i64());
     assert!(segments.iter().any(|segment| {
         segment["category"] == "wet_food"
             && segment["percentage"].as_i64().expect("wet food percentage") > 0

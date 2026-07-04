@@ -396,8 +396,29 @@ impl DietRepository for PostgresDietRepository {
     ) -> PetResult<Vec<DietTrendFeedingSample>> {
         let rows = sqlx::query(
             r#"
-            SELECT occurred_at, event_payload
-            FROM pet_events
+            SELECT
+                feeding.occurred_at,
+                feeding.event_payload,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM pet_events marker
+                        WHERE marker.pet_id = feeding.pet_id
+                          AND marker.superseded_by_event_id IS NULL
+                          AND date(timezone('UTC', marker.occurred_at)) = date(timezone('UTC', feeding.occurred_at))
+                          AND marker.event_subkind IN ('medical_record', 'preventive_vaccine', 'preventive_deworming')
+                    ) THEN 'medical'
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM pet_events marker
+                        WHERE marker.pet_id = feeding.pet_id
+                          AND marker.superseded_by_event_id IS NULL
+                          AND date(timezone('UTC', marker.occurred_at)) = date(timezone('UTC', feeding.occurred_at))
+                          AND marker.event_subkind IN ('abnormal_symptom', 'symptom_followup')
+                    ) THEN 'abnormal'
+                    ELSE 'healthy'
+                END AS health_context
+            FROM pet_events feeding
             WHERE pet_id = $1
               AND event_kind = 'daily'
               AND event_subkind = 'feeding'
@@ -450,6 +471,7 @@ impl DietRepository for PostgresDietRepository {
                     occurred_at,
                     has_food_item,
                     has_inventory_snapshot,
+                    health_context: row.get("health_context"),
                 })
             })
             .collect();

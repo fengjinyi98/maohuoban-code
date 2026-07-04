@@ -13,4 +13,5 @@ pub struct DietTrendFeedingSample {
     pub occurred_at: DateTime<Utc>,
     pub has_food_item: bool,
     pub has_inventory_snapshot: bool,
+    pub health_context: String,
 }
