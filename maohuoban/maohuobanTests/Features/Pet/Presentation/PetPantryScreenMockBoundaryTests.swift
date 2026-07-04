@@ -14,14 +14,23 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertFalse(source.contains(".contextMenu"))
     }
 
-    func testPetPantryScreenUsesSpaceLevelTitleAndDietTrend() throws {
+    func testPetPantryScreenUsesSpaceLevelTitleOnly() throws {
         let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("\\(petName)的储物柜"))
         XCTAssertTrue(source.contains("家庭储物柜"))
         XCTAssertFalse(source.contains("PetPantryDietSummarySection"))
-        XCTAssertTrue(source.contains("PetPantryDietTrendSection"))
-        XCTAssertTrue(source.contains("store.dietTrendSummary"))
+        XCTAssertFalse(source.contains("PetPantryDietTrendSection"))
+        XCTAssertFalse(source.contains("store.dietTrendSummary"))
+    }
+
+    func testHomeDashboardRendersDietTrendBeforePantrySection() throws {
+        let dashboardSource = try sourceContents("Features/Home/Presentation/Sections/Dashboard/HomeDashboardContentSections.swift")
+        let trendIndex = try XCTUnwrap(dashboardSource.range(of: "HomeDietTrendSection")?.lowerBound)
+        let pantryIndex = try XCTUnwrap(dashboardSource.range(of: "HomePantrySection")?.lowerBound)
+
+        XCTAssertLessThan(trendIndex, pantryIndex)
+        XCTAssertTrue(dashboardSource.contains("snapshot.dietTrendSummary"))
     }
 
     @MainActor

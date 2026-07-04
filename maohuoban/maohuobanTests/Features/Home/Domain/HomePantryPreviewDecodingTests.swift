@@ -47,7 +47,34 @@ final class HomePantryPreviewDecodingTests: XCTestCase {
                     "cover_url": "/api/v1/media/assets/asset-1/content",
                     "diet_role_label": "当前主粮"
                   }
-                ]
+                ],
+                "diet_trend_summary": {
+                  "window_days": 30,
+                  "status": "observing",
+                  "segments": [
+                    {
+                      "category": "main_food",
+                      "title": "主粮",
+                      "score": 2.0,
+                      "percentage": 80
+                    },
+                    {
+                      "category": "wet_food",
+                      "title": "湿粮/罐头",
+                      "score": 0.5,
+                      "percentage": 20
+                    }
+                  ],
+                  "confidence": {
+                    "level": "medium",
+                    "score": 0.62,
+                    "basis": ["近 30 天有 2 条可分析喂食记录"]
+                  },
+                  "explanation": {
+                    "title": "饮食趋势是怎么生成的",
+                    "body": "后端说明"
+                  }
+                }
               }
             }
             """#.utf8
@@ -70,5 +97,10 @@ final class HomePantryPreviewDecodingTests: XCTestCase {
         XCTAssertEqual(album.coverImageAssetName, "/api/v1/media/assets/album-cover/content")
         XCTAssertEqual(album.photoCount, 8)
         XCTAssertEqual(album.dateText, "8 张照片")
+
+        let trend = try XCTUnwrap(response.data?.dietTrendSummary)
+        XCTAssertEqual(trend.windowDays, 30)
+        XCTAssertEqual(trend.segments.first?.category, "main_food")
+        XCTAssertEqual(trend.explanation.body, "后端说明")
     }
 }

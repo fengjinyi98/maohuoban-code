@@ -84,6 +84,16 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
+            if let dietTrendSummary = snapshot.dietTrendSummary {
+                HomeDietTrendSection(
+                    summary: dietTrendSummary,
+                    route: .petDietTrendDetail(
+                        summary: dietTrendSummary,
+                        petName: snapshot.selectedPet?.name
+                    )
+                )
+            }
+
             if let pantryItems = snapshot.pantryItems {
                 let pantryContext = PetPantryEntryContext(
                     sourcePetID: snapshot.selectedPet?.id,

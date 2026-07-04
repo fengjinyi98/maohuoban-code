@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 mod activity;
 mod attention_hint;
+mod diet_trend;
 mod gallery;
 mod identity;
 mod merchant;
@@ -16,6 +17,9 @@ pub use activity::{
 pub use attention_hint::{
     AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
     AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone,
+};
+pub use diet_trend::{
+    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendSegment, HomeDietTrendSummary,
 };
 pub use gallery::HomeGalleryAlbumSummary;
 pub use identity::{HomeIdentity, HomeIdentityKind};
@@ -47,4 +51,5 @@ pub struct HomeDashboardSnapshot {
     pub empty_state: Option<HomeEmptyState>,
     pub recommended_content: Vec<RecommendedContent>,
     pub pantry_items: Vec<HomePantryPreviewItem>,
+    pub diet_trend_summary: Option<HomeDietTrendSummary>,
 }

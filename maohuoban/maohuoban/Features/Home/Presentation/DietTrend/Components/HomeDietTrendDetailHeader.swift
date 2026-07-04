@@ -1,0 +1,41 @@
+import SwiftUI
+import MaohuobanDesignSystem
+
+// HomeDietTrendDetailHeader 饮食趋势详情头部
+// 核心职责：
+// - 展示分析对象、窗口期和参考度
+// - 提供趋势说明入口
+struct HomeDietTrendDetailHeader: View {
+    let petName: String?
+    let windowText: String
+    let statusText: String
+    let confidenceText: String
+    let onShowExplanation: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+                    Text(petName.map { "\($0)的饮食趋势" } ?? "饮食趋势")
+                        .font(MHBTheme.Typography.title)
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+
+                    Text("\(windowText) · \(statusText) · \(confidenceText)")
+                        .font(MHBTheme.Typography.callout)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                }
+
+                Spacer()
+
+                Button(action: onShowExplanation) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .frame(width: 34, height: 34)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("查看饮食趋势说明")
+            }
+        }
+    }
+}

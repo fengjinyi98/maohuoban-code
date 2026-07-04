@@ -3,8 +3,8 @@ import Foundation
 // PetDietTrendSummary 饮食趋势摘要
 // 核心职责：
 // - 对齐后端 diet-trend-summary 读模型
-// - 为储物柜首页饮食趋势卡提供单一数据源
-struct PetDietTrendSummary: Decodable, Equatable {
+// - 为首页和趋势详情页提供后端饮食分析读模型
+struct PetDietTrendSummary: Decodable, Equatable, Hashable {
     let windowDays: Int
     let status: String
     let segments: [PetDietTrendSegment]
@@ -20,7 +20,7 @@ struct PetDietTrendSummary: Decodable, Equatable {
     }
 
     static let empty = PetDietTrendSummary(
-        windowDays: 7,
+        windowDays: 30,
         status: "insufficient_data",
         segments: [],
         confidence: PetDietTrendConfidence(level: "low", score: 0, basis: []),

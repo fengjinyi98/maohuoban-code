@@ -17,6 +17,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
     let emptyState: EmptyState?
     let recommendedContent: [RecommendedContent]
     let pantryItems: [PantryPreviewItem]?
+    let dietTrendSummary: PetDietTrendSummary?
     let attentionHints: [AttentionHint]
 
     init(
@@ -32,6 +33,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         emptyState: EmptyState?,
         recommendedContent: [RecommendedContent],
         pantryItems: [PantryPreviewItem]? = nil,
+        dietTrendSummary: PetDietTrendSummary? = nil,
         attentionHints: [AttentionHint] = []
     ) {
         self.identity = identity
@@ -46,6 +48,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         self.emptyState = emptyState
         self.recommendedContent = recommendedContent
         self.pantryItems = pantryItems
+        self.dietTrendSummary = dietTrendSummary
         self.attentionHints = attentionHints
     }
 
@@ -62,6 +65,7 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         case emptyState = "empty_state"
         case recommendedContent = "recommended_content"
         case pantryItems = "pantry_items"
+        case dietTrendSummary = "diet_trend_summary"
         case attentionHints = "attention_hints"
     }
 
@@ -85,6 +89,10 @@ struct HomeDashboardSnapshot: Decodable, Equatable {
         emptyState = try container.decodeIfPresent(EmptyState.self, forKey: .emptyState)
         recommendedContent = try container.decode([RecommendedContent].self, forKey: .recommendedContent)
         pantryItems = try container.decodeIfPresent([PantryPreviewItem].self, forKey: .pantryItems)
+        dietTrendSummary = try container.decodeIfPresent(
+            PetDietTrendSummary.self,
+            forKey: .dietTrendSummary
+        )
         attentionHints = try container.decodeIfPresent([AttentionHint].self, forKey: .attentionHints) ?? []
     }
 }

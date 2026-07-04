@@ -26,7 +26,8 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
+    HomeDashboardSnapshot, HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendSegment,
+    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
     HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::PetService;
@@ -208,6 +209,13 @@ impl HybridHomeDashboardProvider {
             .map(diet_role_labels)
             .map_err(|error| to_home_error(&error))?;
         snapshot.pantry_items = home_pantry_preview_items(food_inventory_items, &diet_role_labels);
+        snapshot.diet_trend_summary = Some(
+            self.pet_service
+                .load_pet_diet_trend_summary(user_id, selected_pet.id)
+                .await
+                .map_err(|error| to_home_error(&error))
+                .map(home_diet_trend_summary)?,
+        );
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
@@ -340,6 +348,34 @@ fn gallery_album_summary(
         cover_asset_id: summary.cover_asset_id,
         cover_url: summary.cover_url,
         photo_count: summary.photo_count,
+    }
+}
+
+fn home_diet_trend_summary(
+    summary: maohuoban_pet_application::pet::PetDietTrendSummary,
+) -> HomeDietTrendSummary {
+    HomeDietTrendSummary {
+        window_days: summary.window_days,
+        status: summary.status,
+        segments: summary
+            .segments
+            .into_iter()
+            .map(|segment| HomeDietTrendSegment {
+                category: segment.category,
+                title: segment.title,
+                score: segment.score,
+                percentage: segment.percentage,
+            })
+            .collect(),
+        confidence: HomeDietTrendConfidence {
+            level: summary.confidence.level,
+            score: summary.confidence.score,
+            basis: summary.confidence.basis,
+        },
+        explanation: HomeDietTrendExplanation {
+            title: summary.explanation.title,
+            body: summary.explanation.body,
+        },
     }
 }
 

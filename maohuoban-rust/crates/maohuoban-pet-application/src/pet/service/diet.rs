@@ -149,7 +149,7 @@ pub(super) async fn load_pet_diet_trend_summary(
     pet_id: Uuid,
 ) -> PetResult<PetDietTrendSummary> {
     ensure_pet_access(repository, pet_id, owner_user_id).await?;
-    let window_days = 7;
+    let window_days = 30;
     let samples = diet
         .load_diet_trend_feeding_samples(pet_id, Utc::now() - Duration::days(window_days))
         .await?;

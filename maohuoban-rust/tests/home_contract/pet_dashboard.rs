@@ -406,6 +406,75 @@ async fn home_dashboard_marks_current_staple_in_food_inventory_preview() {
     assert!(wet_food_item["diet_role_label"].is_null());
 }
 
+#[tokio::test]
+async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138239").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id =
+        create_home_food_inventory_item(&app, &user_id, "渴望六种鱼", "main_food").await;
+    let wet_food_id =
+        create_home_food_inventory_item(&app, &user_id, "巅峰牛肉罐头", "wet_food").await;
+    let cat_litter_id =
+        create_home_food_inventory_item(&app, &user_id, "膨润土猫砂", "cat_litter").await;
+
+    append_home_test_feeding_event(
+        &app,
+        &user_id,
+        &pet_id,
+        &main_food_id,
+        "main_food",
+        "正常",
+        "2026-07-01T08:00:00Z",
+    )
+    .await;
+    append_home_test_feeding_event(
+        &app,
+        &user_id,
+        &pet_id,
+        &wet_food_id,
+        "wet_food",
+        "少量",
+        "2026-07-02T12:00:00Z",
+    )
+    .await;
+    append_home_test_feeding_event(
+        &app,
+        &user_id,
+        &pet_id,
+        &cat_litter_id,
+        "cat_litter",
+        "正常",
+        "2026-07-03T12:00:00Z",
+    )
+    .await;
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let summary = &dashboard_body["data"]["diet_trend_summary"];
+
+    assert_eq!(summary["window_days"], 30);
+    assert_eq!(summary["explanation"]["title"], "饮食趋势是怎么生成的");
+    let segments = summary["segments"].as_array().expect("diet trend segments");
+    assert_eq!(segments.len(), 4);
+    assert!(segments.iter().any(|segment| {
+        segment["category"] == "main_food"
+            && segment["percentage"]
+                .as_i64()
+                .expect("main food percentage")
+                > 0
+    }));
+    assert!(segments.iter().any(|segment| {
+        segment["category"] == "wet_food"
+            && segment["percentage"].as_i64().expect("wet food percentage") > 0
+    }));
+    assert!(
+        segments
+            .iter()
+            .all(|segment| segment["category"] != "cat_litter")
+    );
+}
+
 async fn create_home_food_inventory_item(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
@@ -504,4 +573,43 @@ async fn set_home_pet_current_staple(
         .await
         .expect("set current staple for home pantry preview");
     assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+async fn append_home_test_feeding_event(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    pet_id: &str,
+    food_item_id: &str,
+    food_role: &str,
+    amount_text: &str,
+    occurred_at: &str,
+) {
+    append_home_test_event(
+        app,
+        user_id,
+        pet_id,
+        json!({
+            "event_kind": "daily",
+            "event_subkind": "feeding",
+            "title": "已喂",
+            "summary": format!("喂食：{food_role}，份量：{amount_text}"),
+            "visibility": "private",
+            "occurred_at": occurred_at,
+            "event_payload": {
+                "food_item_id": food_item_id,
+                "food_role": food_role,
+                "amount_text": amount_text,
+                "food_snapshot": {
+                    "name": food_role,
+                    "brand": "测试品牌",
+                    "category": food_role,
+                    "spec": "1kg"
+                },
+                "is_default_food": false,
+                "note": null,
+                "attachment_asset_ids": []
+            }
+        }),
+    )
+    .await;
 }

@@ -36,7 +36,7 @@ async fn diet_trend_summary_rejects_cross_user_pet_access() {
 
 fn assert_diet_trend_summary_meta(body: &serde_json::Value) {
     assert_eq!(body["code"], "pet.diet_trend_summary_loaded");
-    assert_eq!(body["data"]["window_days"], 7);
+    assert_eq!(body["data"]["window_days"], 30);
     assert_eq!(body["data"]["status"], "observing");
     assert_eq!(body["data"]["confidence"]["level"], "medium");
     assert!(

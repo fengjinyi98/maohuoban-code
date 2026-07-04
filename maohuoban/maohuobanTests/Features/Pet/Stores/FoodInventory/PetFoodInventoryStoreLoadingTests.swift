@@ -14,7 +14,6 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
             foodItem(id: "old-food", name: "上一只宠物主粮", status: .inUse)
         ]
         store.currentStapleFoodItemID = "old-food"
-        store.dietTrendSummary = PetDietTrendSummary.empty
 
         let task = Task {
             await store.loadItems(currentUserID: "user-1", contextPetID: "pet-2")
@@ -24,7 +23,6 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
         XCTAssertTrue(store.isLoading)
         XCTAssertTrue(store.feedingOptions.isEmpty)
         XCTAssertNil(store.currentStapleFoodItemID)
-        XCTAssertNil(store.dietTrendSummary)
 
         repository.resumeList(
             with: [foodItem(id: "new-food", name: "当前宠物主粮", status: .sealed)]
@@ -103,13 +101,6 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
                 usualNutritions: [],
                 recentFeedingEvents: []
             )
-        }
-
-        func loadPetDietTrendSummary(
-            petID: String,
-            currentUserID: String
-        ) async throws(MHBAPIError) -> PetDietTrendSummary {
-            PetDietTrendSummary.empty
         }
 
         func createFoodInventoryItem(

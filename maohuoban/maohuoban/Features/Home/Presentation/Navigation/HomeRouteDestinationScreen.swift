@@ -186,6 +186,11 @@ struct HomeRouteDestinationScreen: View {
                 currentUserID: currentUserID,
                 destination: destination
             )
+        case .petDietTrendDetail(let summary, let petName):
+            HomeDietTrendDetailScreen(
+                petName: petName,
+                summary: summary
+            )
         case .petPantry(let context):
             PetPantryScreen(
                 context: context,
