@@ -41,6 +41,7 @@ struct HomeDietTrendDetailScreen: View {
             }
             .padding(MHBTheme.Spacing.s5)
         }
+        .background(MHBTheme.ColorToken.background.color.ignoresSafeArea())
         .navigationTitle("饮食趋势")
         .navigationBarTitleDisplayMode(.inline)
         .alert(presentation.explanationTitle, isPresented: $isExplanationPresented) {

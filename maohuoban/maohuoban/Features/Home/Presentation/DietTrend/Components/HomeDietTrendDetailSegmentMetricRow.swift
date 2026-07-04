@@ -22,19 +22,34 @@ struct HomeDietTrendDetailSegmentMetricRow: View {
                 Spacer()
 
                 Text(segment.percentageText)
-                    .font(MHBTheme.Typography.caption.weight(.semibold))
+                    .font(MHBTheme.Typography.callout.weight(.bold))
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
             }
 
-            HStack(spacing: MHBTheme.Spacing.s2) {
-                metric(title: "分数", value: segment.scoreText)
-                metric(title: "基线", value: segment.baselineText)
-                metric(title: "相对", value: segment.ratioText)
-                metric(title: "趋势", value: segment.emaText)
+            HStack(alignment: .bottom, spacing: MHBTheme.Spacing.s3) {
+                // Main score
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("分数")
+                        .font(MHBTheme.Typography.caption)
+                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    Text(segment.scoreText)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                }
+                .frame(minWidth: 60, alignment: .leading)
+                
+                Spacer()
+
+                // Other metrics
+                HStack(spacing: MHBTheme.Spacing.s3) {
+                    metric(title: "基线", value: segment.baselineText)
+                    metric(title: "相对", value: segment.ratioText)
+                    metric(title: "趋势", value: segment.emaText)
+                }
             }
         }
-        .padding(MHBTheme.Spacing.s3)
-        .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
+        .padding(MHBTheme.Spacing.s4)
+        .background(MHBTheme.ColorToken.cardSolid.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 
@@ -45,11 +60,11 @@ struct HomeDietTrendDetailSegmentMetricRow: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
 
             Text(value)
-                .font(MHBTheme.Typography.caption.weight(.semibold))
+                .font(MHBTheme.Typography.callout.weight(.medium))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(alignment: .leading)
     }
 }

@@ -20,9 +20,6 @@ struct HomeDietTrendDetailSegmentMetrics: View {
                 }
             }
         }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 }
 

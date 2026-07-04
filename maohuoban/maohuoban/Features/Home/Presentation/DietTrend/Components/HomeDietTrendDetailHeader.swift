@@ -20,9 +20,27 @@ struct HomeDietTrendDetailHeader: View {
                         .font(MHBTheme.Typography.title)
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    Text("\(windowText) · \(statusText) · \(confidenceText)")
-                        .font(MHBTheme.Typography.callout)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    HStack(spacing: MHBTheme.Spacing.s2) {
+                        Text(windowText)
+                            .font(MHBTheme.Typography.caption.weight(.medium))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(MHBTheme.ColorToken.separatorSoft.color)
+                            .clipShape(Capsule())
+
+                        Text(statusText)
+                            .font(MHBTheme.Typography.caption.weight(.medium))
+                            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
+                            .clipShape(Capsule())
+
+                        Text(confidenceText)
+                            .font(MHBTheme.Typography.caption.weight(.medium))
+                            .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                    }
                 }
 
                 Spacer()

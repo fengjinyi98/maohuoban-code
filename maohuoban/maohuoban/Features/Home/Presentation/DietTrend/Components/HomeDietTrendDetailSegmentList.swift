@@ -23,8 +23,8 @@ struct HomeDietTrendDetailSegmentList: View {
                     Spacer()
 
                     Text(segment.percentageText)
-                        .font(MHBTheme.Typography.callout.weight(.semibold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                        .font(MHBTheme.Typography.headline.weight(.bold))
+                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 }
             }
         }

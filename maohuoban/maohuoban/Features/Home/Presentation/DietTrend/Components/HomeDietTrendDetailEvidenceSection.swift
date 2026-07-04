@@ -22,6 +22,7 @@ struct HomeDietTrendDetailEvidenceSection: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(MHBTheme.Spacing.s4)
         .background(MHBTheme.ColorToken.cardSolid.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))

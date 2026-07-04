@@ -8,21 +8,30 @@ import MaohuobanDesignSystem
 struct HomeDietTrendDetailMetricItem: View {
     let title: String
     let value: String
+    var icon: String? = nil
+    var iconColor: Color? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-            Text(title)
-                .font(MHBTheme.Typography.caption.weight(.medium))
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
+            HStack(spacing: 4) {
+                if let icon = icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(iconColor ?? MHBTheme.ColorToken.labelSecondary.color)
+                }
+                Text(title)
+                    .font(MHBTheme.Typography.caption.weight(.medium))
+                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+            }
 
             Text(value)
                 .font(MHBTheme.Typography.callout.weight(.semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(MHBTheme.Spacing.s3)
-        .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
+        .background(MHBTheme.ColorToken.cardSolid.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 }

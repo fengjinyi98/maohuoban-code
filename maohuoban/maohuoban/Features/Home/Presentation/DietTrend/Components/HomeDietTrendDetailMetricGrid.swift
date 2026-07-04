@@ -18,23 +18,27 @@ struct HomeDietTrendDetailMetricGrid: View {
                 HStack(spacing: MHBTheme.Spacing.s3) {
                     HomeDietTrendDetailMetricItem(
                         title: "健康样本",
-                        value: presentation.sampleSummaryText
+                        value: presentation.sampleSummaryText,
+                        icon: "doc.text.fill",
+                        iconColor: MHBTheme.ColorToken.primary.color
                     )
                     HomeDietTrendDetailMetricItem(
                         title: "个体基线",
-                        value: presentation.baselineProgressText
+                        value: presentation.baselineProgressText,
+                        icon: "chart.line.uptrend.xyaxis",
+                        iconColor: MHBTheme.ColorToken.success.color
                     )
                 }
+                .fixedSize(horizontal: false, vertical: true)
 
                 HomeDietTrendDetailMetricItem(
                     title: presentation.calibrationStatusText,
-                    value: presentation.calibrationDetailText
+                    value: presentation.calibrationDetailText,
+                    icon: "scale.3d",
+                    iconColor: MHBTheme.ColorToken.warning.color
                 )
             }
         }
-        .padding(MHBTheme.Spacing.s4)
-        .background(MHBTheme.ColorToken.cardSolid.color)
-        .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.medium, style: .continuous))
     }
 }
 
