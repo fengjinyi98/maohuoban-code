@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailSegmentMetricRow 饮食品类基线明细行
+// PetDietTrendDetailSegmentMetricRow 饮食品类基线明细行
 // 核心职责：
 // - 展示单个品类的趋势分析字段
 // - 支撑用户理解当前占比与自身基线的关系
-struct HomeDietTrendDetailSegmentMetricRow: View {
-    let segment: HomeDietTrendSegmentPresentation
+struct PetDietTrendDetailSegmentMetricRow: View {
+    let segment: PetDietTrendSegmentPresentation
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {

@@ -187,7 +187,7 @@ struct HomeRouteDestinationScreen: View {
                 destination: destination
             )
         case .petDietTrendDetail(let summary, let petName):
-            HomeDietTrendDetailScreen(
+            PetDietTrendDetailScreen(
                 petName: petName,
                 summary: summary
             )

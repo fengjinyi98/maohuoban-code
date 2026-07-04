@@ -1,10 +1,10 @@
 import Foundation
 
-// HomeDietTrendPresentation 首页饮食趋势展示模型
+// PetDietTrendPresentation 宠物饮食趋势展示模型
 // 核心职责：
-// - 将后端饮食趋势摘要转换为首页展示字段
+// - 将后端饮食趋势摘要转换为页面展示字段
 // - 保持算法、窗口期和说明内容来自后端读模型
-struct HomeDietTrendPresentation {
+struct PetDietTrendPresentation {
     let windowText: String
     let statusText: String
     let confidenceText: String
@@ -16,27 +16,27 @@ struct HomeDietTrendPresentation {
     let calibrationStatusText: String
     let calibrationDetailText: String
     let confidenceBasis: [String]
-    let segments: [HomeDietTrendSegmentPresentation]
-    let activeSegments: [HomeDietTrendSegmentPresentation]
+    let segments: [PetDietTrendSegmentPresentation]
+    let activeSegments: [PetDietTrendSegmentPresentation]
     let isEmpty: Bool
 
     init(summary: PetDietTrendSummary) {
         self.windowText = "近 \(summary.windowDays) 天"
-        self.statusText = HomeDietTrendPresentation.statusText(for: summary.status)
+        self.statusText = PetDietTrendPresentation.statusText(for: summary.status)
         self.confidenceText = "参考度 \(Int((summary.confidence.score * 100).rounded()))%"
         self.explanationTitle = summary.explanation.title
         self.explanationBody = summary.explanation.body
         self.sampleSummaryText = "\(summary.healthContext.includedSampleCount) 条健康样本"
-        self.baselineProgressText = HomeDietTrendPresentation.baselineProgressText(for: summary)
-        self.excludedSampleText = HomeDietTrendPresentation.excludedSampleText(for: summary.healthContext)
-        self.calibrationStatusText = HomeDietTrendPresentation.calibrationStatusText(
+        self.baselineProgressText = PetDietTrendPresentation.baselineProgressText(for: summary)
+        self.excludedSampleText = PetDietTrendPresentation.excludedSampleText(for: summary.healthContext)
+        self.calibrationStatusText = PetDietTrendPresentation.calibrationStatusText(
             for: summary.calibration
         )
-        self.calibrationDetailText = HomeDietTrendPresentation.calibrationDetailText(
+        self.calibrationDetailText = PetDietTrendPresentation.calibrationDetailText(
             for: summary.calibration
         )
         self.confidenceBasis = summary.confidence.basis
-        let segmentItems = summary.segments.map(HomeDietTrendSegmentPresentation.init(segment:))
+        let segmentItems = summary.segments.map(PetDietTrendSegmentPresentation.init(segment:))
         self.segments = segmentItems
         self.activeSegments = segmentItems.filter { $0.percentage > 0 }
         self.isEmpty = activeSegments.isEmpty

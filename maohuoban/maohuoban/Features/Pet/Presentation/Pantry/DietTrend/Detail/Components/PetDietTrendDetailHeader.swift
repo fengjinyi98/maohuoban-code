@@ -1,11 +1,11 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailHeader 饮食趋势详情头部
+// PetDietTrendDetailHeader 饮食趋势详情头部
 // 核心职责：
 // - 展示分析对象、窗口期和参考度
 // - 提供趋势说明入口
-struct HomeDietTrendDetailHeader: View {
+struct PetDietTrendDetailHeader: View {
     let petName: String?
     let windowText: String
     let statusText: String

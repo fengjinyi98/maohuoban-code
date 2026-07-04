@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendSegmentBar 首页饮食趋势分段条
+// PetDietTrendSegmentBar 宠物饮食趋势分段条
 // 核心职责：
 // - 按后端返回占比渲染饮食品类结构
 // - 在无数据时展示稳定空态轨道
-struct HomeDietTrendSegmentBar: View {
-    let segments: [HomeDietTrendSegmentPresentation]
+struct PetDietTrendSegmentBar: View {
+    let segments: [PetDietTrendSegmentPresentation]
 
     var body: some View {
         GeometryReader { proxy in
@@ -30,7 +30,7 @@ struct HomeDietTrendSegmentBar: View {
     }
 
     private func segmentWidth(
-        _ segment: HomeDietTrendSegmentPresentation,
+        _ segment: PetDietTrendSegmentPresentation,
         totalWidth: CGFloat
     ) -> CGFloat {
         let ratio = CGFloat(segment.percentage) / 100

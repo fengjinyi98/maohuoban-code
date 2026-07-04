@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailSegmentList 饮食趋势详情分段列表
+// PetDietTrendDetailSegmentList 饮食趋势详情分段列表
 // 核心职责：
 // - 展示每个饮食品类的占比
 // - 保持详情页与首页摘要使用同一展示模型
-struct HomeDietTrendDetailSegmentList: View {
-    let segments: [HomeDietTrendSegmentPresentation]
+struct PetDietTrendDetailSegmentList: View {
+    let segments: [PetDietTrendSegmentPresentation]
 
     var body: some View {
         VStack(spacing: MHBTheme.Spacing.s3) {

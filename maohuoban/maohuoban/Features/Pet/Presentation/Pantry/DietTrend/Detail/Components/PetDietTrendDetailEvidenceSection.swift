@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailEvidenceSection 饮食趋势证据说明区
+// PetDietTrendDetailEvidenceSection 饮食趋势证据说明区
 // 核心职责：
 // - 展示后端返回的参考度依据
 // - 展示异常和就医期样本排除结果
-struct HomeDietTrendDetailEvidenceSection: View {
-    let presentation: HomeDietTrendPresentation
+struct PetDietTrendDetailEvidenceSection: View {
+    let presentation: PetDietTrendPresentation
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -15,10 +15,10 @@ struct HomeDietTrendDetailEvidenceSection: View {
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                HomeDietTrendDetailEvidenceRow(text: presentation.excludedSampleText)
+                PetDietTrendDetailEvidenceRow(text: presentation.excludedSampleText)
 
                 ForEach(presentation.confidenceBasis, id: \.self) { item in
-                    HomeDietTrendDetailEvidenceRow(text: item)
+                    PetDietTrendDetailEvidenceRow(text: item)
                 }
             }
         }

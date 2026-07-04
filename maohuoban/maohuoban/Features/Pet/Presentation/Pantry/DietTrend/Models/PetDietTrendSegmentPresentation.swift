@@ -1,11 +1,11 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendSegmentPresentation 首页饮食趋势分段展示模型
+// PetDietTrendSegmentPresentation 宠物饮食趋势分段展示模型
 // 核心职责：
 // - 承载趋势条和图例渲染所需的窄字段
 // - 为不同饮食品类提供稳定颜色映射
-struct HomeDietTrendSegmentPresentation: Identifiable {
+struct PetDietTrendSegmentPresentation: Identifiable {
     let id: String
     let title: String
     let percentage: Int

@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendLegendItem 首页饮食趋势图例项
+// PetDietTrendLegendItem 首页饮食趋势图例项
 // 核心职责：
 // - 展示单个饮食品类的颜色、名称和占比
 // - 保持首页趋势摘要可快速扫读
-struct HomeDietTrendLegendItem: View {
-    let segment: HomeDietTrendSegmentPresentation
+struct PetDietTrendLegendItem: View {
+    let segment: PetDietTrendSegmentPresentation
 
     var body: some View {
         HStack(spacing: 5) {

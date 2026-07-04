@@ -1,24 +1,24 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailScreen 饮食趋势详情页
+// PetDietTrendDetailScreen 饮食趋势详情页
 // 核心职责：
 // - 展示当前宠物整体饮食趋势分析摘要
 // - 展示后端返回的样本、基线和库存校准状态
-struct HomeDietTrendDetailScreen: View {
+struct PetDietTrendDetailScreen: View {
     let petName: String?
     let summary: PetDietTrendSummary
 
     @State private var isExplanationPresented = false
 
-    private var presentation: HomeDietTrendPresentation {
-        HomeDietTrendPresentation(summary: summary)
+    private var presentation: PetDietTrendPresentation {
+        PetDietTrendPresentation(summary: summary)
     }
 
     var body: some View {
         MHBScreenScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                HomeDietTrendDetailHeader(
+                PetDietTrendDetailHeader(
                     petName: petName,
                     windowText: presentation.windowText,
                     statusText: presentation.statusText,
@@ -28,16 +28,16 @@ struct HomeDietTrendDetailScreen: View {
                     }
                 )
 
-                HomeDietTrendSegmentBar(segments: presentation.activeSegments)
+                PetDietTrendSegmentBar(segments: presentation.activeSegments)
                     .frame(height: 10)
 
-                HomeDietTrendDetailSegmentList(segments: presentation.segments)
+                PetDietTrendDetailSegmentList(segments: presentation.segments)
 
-                HomeDietTrendDetailMetricGrid(presentation: presentation)
+                PetDietTrendDetailMetricGrid(presentation: presentation)
 
-                HomeDietTrendDetailSegmentMetrics(segments: presentation.segments)
+                PetDietTrendDetailSegmentMetrics(segments: presentation.segments)
 
-                HomeDietTrendDetailEvidenceSection(presentation: presentation)
+                PetDietTrendDetailEvidenceSection(presentation: presentation)
             }
             .padding(MHBTheme.Spacing.s5)
         }

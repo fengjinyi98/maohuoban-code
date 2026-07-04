@@ -1,12 +1,12 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailSegmentMetrics 饮食品类基线明细区
+// PetDietTrendDetailSegmentMetrics 饮食品类基线明细区
 // 核心职责：
 // - 展示每个品类的分数、基线、相对比例和 EMA
 // - 保持计算结果完全来自后端读模型
-struct HomeDietTrendDetailSegmentMetrics: View {
-    let segments: [HomeDietTrendSegmentPresentation]
+struct PetDietTrendDetailSegmentMetrics: View {
+    let segments: [PetDietTrendSegmentPresentation]
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
@@ -16,7 +16,7 @@ struct HomeDietTrendDetailSegmentMetrics: View {
 
             VStack(spacing: MHBTheme.Spacing.s3) {
                 ForEach(segments) { segment in
-                    HomeDietTrendDetailSegmentMetricRow(segment: segment)
+                    PetDietTrendDetailSegmentMetricRow(segment: segment)
                 }
             }
         }

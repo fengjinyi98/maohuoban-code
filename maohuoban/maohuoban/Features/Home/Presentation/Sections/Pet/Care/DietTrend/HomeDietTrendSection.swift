@@ -9,8 +9,8 @@ struct HomeDietTrendSection: View {
     let summary: PetDietTrendSummary
     let route: HomeRoute
 
-    private var presentation: HomeDietTrendPresentation {
-        HomeDietTrendPresentation(summary: summary)
+    private var presentation: PetDietTrendPresentation {
+        PetDietTrendPresentation(summary: summary)
     }
 
     var body: some View {
@@ -41,7 +41,7 @@ struct HomeDietTrendSection: View {
                 .accessibilityIdentifier("home.dietTrend.header")
             }
 
-            HomeDietTrendSegmentBar(segments: presentation.activeSegments)
+            PetDietTrendSegmentBar(segments: presentation.activeSegments)
 
             HStack(spacing: MHBTheme.Spacing.s3) {
                 if presentation.isEmpty {
@@ -50,7 +50,7 @@ struct HomeDietTrendSection: View {
                         .foregroundStyle(.white.opacity(0.56))
                 } else {
                     ForEach(presentation.activeSegments.prefix(3)) { segment in
-                        HomeDietTrendLegendItem(segment: segment)
+                        PetDietTrendLegendItem(segment: segment)
                     }
                 }
 

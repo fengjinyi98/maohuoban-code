@@ -1,11 +1,11 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailEvidenceRow 饮食趋势证据行
+// PetDietTrendDetailEvidenceRow 饮食趋势证据行
 // 核心职责：
 // - 展示单条数据依据
 // - 使用稳定点状标记保持列表可扫读
-struct HomeDietTrendDetailEvidenceRow: View {
+struct PetDietTrendDetailEvidenceRow: View {
     let text: String
 
     var body: some View {

@@ -1,11 +1,11 @@
 import SwiftUI
 import MaohuobanDesignSystem
 
-// HomeDietTrendDetailMetricItem 饮食趋势详情指标项
+// PetDietTrendDetailMetricItem 饮食趋势详情指标项
 // 核心职责：
 // - 承载单个分析指标标题和值
 // - 保持指标布局在横向和纵向容器中复用
-struct HomeDietTrendDetailMetricItem: View {
+struct PetDietTrendDetailMetricItem: View {
     let title: String
     let value: String
     var icon: String? = nil
