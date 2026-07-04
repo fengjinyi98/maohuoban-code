@@ -218,6 +218,9 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
 5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
 6. 禁止通过 `-derivedDataPath` 新建额外 DerivedData 目录规避缓存问题；遇到 Xcode 缓存或旧对象链接异常时，清理当前项目默认 `~/Library/Developer/Xcode/DerivedData/maohuoban-*` 缓存后重新运行验证，避免额外占用磁盘。
+7. 禁止为 `xcodebuild` 设置 `TMPDIR=/private/tmp/maohuoban-*`、`BUILD_DIR`、`SYMROOT`、`OBJROOT`、`DSTROOT`、`CONFIGURATION_BUILD_DIR`、`MODULE_CACHE_DIR`、`SHARED_PRECOMPS_DIR` 等临时构建输出目录；这些目录会绕过默认 DerivedData 复用并在 `/private/tmp` 堆积大量 `Build`、`ModuleCache.noindex` 和 `SourcePackages`。
+8. 构建日志可以写入 `/private/tmp/*.log`，但构建产物、模块缓存、SwiftPM 依赖缓存和索引数据必须使用 Xcode 默认路径。
+9. 如果因 Xcode 缺陷必须临时隔离构建目录，必须先得到用户明确确认，并在同一轮任务结束前删除该目录且复查 `du -sh /private/tmp`。
 
 ### 12.2 iOS 真机交互复测分工
 
