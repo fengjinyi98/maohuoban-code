@@ -32,8 +32,6 @@ struct HomeDietTrendDetailScreen: View {
                     .frame(height: 10)
 
                 HomeDietTrendDetailSegmentList(segments: presentation.segments)
-
-                HomeDietTrendDetailReferenceSection()
             }
             .padding(MHBTheme.Spacing.s5)
         }
