@@ -8,7 +8,8 @@ import Observation
 @MainActor
 @Observable
 final class HomeDashboardStore {
-    var phase: HomeDashboardPhase = .idle
+    private(set) var phase: HomeDashboardPhase = .idle
+    private(set) var isRefreshing = false
 
     private let repository: HomeRepository
     private var dashboardRequestSequence = 0
@@ -51,7 +52,7 @@ final class HomeDashboardStore {
 
         let requestID = nextDashboardRequestID()
         activeLoadContext = context
-        phase = .loading
+        beginLoadingPhase()
         do {
             let response = try await repository.dashboard(
                 currentUserID: currentUserID,
@@ -62,6 +63,7 @@ final class HomeDashboardStore {
             }
             guard let snapshot = response.data else {
                 activeLoadContext = nil
+                isRefreshing = false
                 failedContext = context
                 phase = .failed("首页数据为空")
                 return
@@ -69,15 +71,21 @@ final class HomeDashboardStore {
             activeLoadContext = nil
             loadedContext = context
             failedContext = nil
+            isRefreshing = false
             phase = .loaded(snapshot.resolvingClientOwnedQuickActions())
         } catch {
             guard isLatestDashboardRequest(requestID) else {
                 return
             }
             activeLoadContext = nil
-            loadedContext = nil
-            failedContext = context
-            phase = .failed(error.toastMessage)
+            isRefreshing = false
+            if case .loaded = phase {
+                return
+            } else {
+                loadedContext = nil
+                failedContext = context
+                phase = .failed(error.toastMessage)
+            }
         }
     }
 
@@ -97,6 +105,7 @@ final class HomeDashboardStore {
         )
         let requestID = nextDashboardRequestID()
         activeLoadContext = context
+        isRefreshing = true
 
         if let optimisticSnapshot = currentSnapshot.optimisticallySelectingPet(id: petID) {
             phase = .loaded(optimisticSnapshot)
@@ -112,17 +121,29 @@ final class HomeDashboardStore {
             }
             guard let snapshot = response.data else {
                 activeLoadContext = nil
+                isRefreshing = false
                 return
             }
             activeLoadContext = nil
             loadedContext = context
             failedContext = nil
+            isRefreshing = false
             phase = .loaded(snapshot.resolvingClientOwnedQuickActions())
         } catch {
             guard isLatestDashboardRequest(requestID) else {
                 return
             }
             activeLoadContext = nil
+            isRefreshing = false
+        }
+    }
+
+    private func beginLoadingPhase() {
+        if case .loaded = phase {
+            isRefreshing = true
+        } else {
+            isRefreshing = false
+            phase = .loading
         }
     }
 

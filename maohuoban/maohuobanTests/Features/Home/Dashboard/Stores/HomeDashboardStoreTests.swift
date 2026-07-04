@@ -100,6 +100,90 @@ final class HomeDashboardStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testForcedRefreshKeepsLoadedSnapshotVisibleWhileRefreshing() async throws {
+        let initialSnapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let refreshedSnapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let repository = ScriptedHomeRepository(
+            results: [
+                .success(
+                    MHBAPIResponse(
+                        success: true,
+                        code: "ok",
+                        message: "首页已加载",
+                        data: initialSnapshot
+                    )
+                ),
+                .success(
+                    MHBAPIResponse(
+                        success: true,
+                        code: "ok",
+                        message: "首页已刷新",
+                        data: refreshedSnapshot
+                    )
+                )
+            ],
+            delayMilliseconds: 50
+        )
+        let store = HomeDashboardStore(repository: repository)
+
+        await store.load(currentUserID: "user-1", selectedPetID: "pet-1")
+        let loadedPhase = store.phase
+
+        let task = Task {
+            await store.load(
+                currentUserID: "user-1",
+                selectedPetID: "pet-1",
+                force: true
+            )
+        }
+        try await Task.sleep(for: .milliseconds(10))
+
+        XCTAssertEqual(store.phase, loadedPhase)
+        XCTAssertTrue(store.isRefreshing)
+        await task.value
+        XCTAssertEqual(store.phase, .loaded(refreshedSnapshot.resolvingClientOwnedQuickActions()))
+        XCTAssertFalse(store.isRefreshing)
+    }
+
+    @MainActor
+    func testForcedRefreshFailureKeepsLoadedSnapshotVisible() async throws {
+        let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
+        let repository = ScriptedHomeRepository(
+            results: [
+                .success(
+                    MHBAPIResponse(
+                        success: true,
+                        code: "ok",
+                        message: "首页已加载",
+                        data: snapshot
+                    )
+                ),
+                .failure(.transport("offline"))
+            ],
+            delayMilliseconds: 50
+        )
+        let store = HomeDashboardStore(repository: repository)
+
+        await store.load(currentUserID: "user-1", selectedPetID: "pet-1")
+        let loadedPhase = store.phase
+
+        let task = Task {
+            await store.load(
+                currentUserID: "user-1",
+                selectedPetID: "pet-1",
+                force: true
+            )
+        }
+        try await Task.sleep(for: .milliseconds(10))
+
+        XCTAssertEqual(store.phase, loadedPhase)
+        XCTAssertTrue(store.isRefreshing)
+        await task.value
+        XCTAssertEqual(store.phase, loadedPhase)
+        XCTAssertFalse(store.isRefreshing)
+    }
+
+    @MainActor
     func testLoadResolvesClientOwnedPetOwnerQuickActions() async {
         let snapshot = HomeDashboardSnapshot.homeTestSnapshot(selectedPetID: "pet-1")
         let repository = DelayedHomeRepository(
@@ -123,7 +207,7 @@ final class HomeDashboardStoreTests: XCTestCase {
         }
         XCTAssertEqual(
             loadedSnapshot.quickActions.map(\.kind),
-            [.dailyRecord, .walk, .healthRecord, .bookHospital]
+            [.walk, .healthRecord, .preventiveCare, .addReminder, .bookHospital]
         )
     }
 }
@@ -174,10 +258,15 @@ private final class DelayedHomeRepository: HomeRepository {
 @MainActor
 private final class ScriptedHomeRepository: HomeRepository {
     private var results: [Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>]
+    private let delayMilliseconds: UInt64
     private(set) var requestCount = 0
 
-    init(results: [Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>]) {
+    init(
+        results: [Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>],
+        delayMilliseconds: UInt64 = 0
+    ) {
         self.results = results
+        self.delayMilliseconds = delayMilliseconds
     }
 
     func dashboard(
@@ -185,6 +274,11 @@ private final class ScriptedHomeRepository: HomeRepository {
         selectedPetID: String?
     ) async throws(MHBAPIError) -> MHBAPIResponse<HomeDashboardSnapshot> {
         requestCount += 1
+        do {
+            try await Task.sleep(for: .milliseconds(delayMilliseconds))
+        } catch {
+        }
+
         let result = results.isEmpty
             ? Result<MHBAPIResponse<HomeDashboardSnapshot>, MHBAPIError>.failure(.transport("首页测试结果为空"))
             : results.removeFirst()

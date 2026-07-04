@@ -11,6 +11,8 @@ struct HomeQuickFactActionBar: View {
     let currentUserID: String?
     let onOpenRoute: (HomeRoute) -> Void
     let onOpenSheet: (HomeQuickFactSheet) -> Void
+    let onHoldBegan: (HomeQuickFactAction, @escaping () -> Void) -> Void
+    let onHoldEnded: (HomeQuickFactAction) -> Void
     let onRecorded: () -> Void
 
     @State private var store = PetWriteStore()
@@ -24,6 +26,8 @@ struct HomeQuickFactActionBar: View {
         currentUserID: String?,
         onOpenRoute: @escaping (HomeRoute) -> Void,
         onOpenSheet: @escaping (HomeQuickFactSheet) -> Void,
+        onHoldBegan: @escaping (HomeQuickFactAction, @escaping () -> Void) -> Void,
+        onHoldEnded: @escaping (HomeQuickFactAction) -> Void,
         onRecorded: @escaping () -> Void
     ) {
         self.actions = actions
@@ -31,6 +35,8 @@ struct HomeQuickFactActionBar: View {
         self.currentUserID = currentUserID
         self.onOpenRoute = onOpenRoute
         self.onOpenSheet = onOpenSheet
+        self.onHoldBegan = onHoldBegan
+        self.onHoldEnded = onHoldEnded
         self.onRecorded = onRecorded
     }
 
@@ -39,7 +45,10 @@ struct HomeQuickFactActionBar: View {
             actions: actions,
             submittingAction: submittingAction,
             recordedAction: recordedAction,
-            onTapAction: handleAction
+            onTapAction: handleAction,
+            onHoldBegan: onHoldBegan,
+            onHoldEnded: onHoldEnded,
+            onConfirmAction: handleAction
         )
         .padding(.horizontal, MHBTheme.Spacing.s3)
         .padding(.vertical, MHBTheme.Spacing.s2)
@@ -128,13 +137,19 @@ private struct HomeQuickFactActionBarContent: View {
     let submittingAction: HomeQuickFactAction?
     let recordedAction: HomeQuickFactAction?
     let onTapAction: (HomeQuickFactAction) -> Void
+    let onHoldBegan: (HomeQuickFactAction, @escaping () -> Void) -> Void
+    let onHoldEnded: (HomeQuickFactAction) -> Void
+    let onConfirmAction: (HomeQuickFactAction) -> Void
 
     var body: some View {
         HomeQuickFactActionRow(
             actions: actions,
             submittingAction: submittingAction,
             recordedAction: recordedAction,
-            onTapAction: onTapAction
+            onTapAction: onTapAction,
+            onHoldBegan: onHoldBegan,
+            onHoldEnded: onHoldEnded,
+            onConfirmAction: onConfirmAction
         )
     }
 }
@@ -148,73 +163,37 @@ private struct HomeQuickFactActionRow: View {
     let submittingAction: HomeQuickFactAction?
     let recordedAction: HomeQuickFactAction?
     let onTapAction: (HomeQuickFactAction) -> Void
+    let onHoldBegan: (HomeQuickFactAction, @escaping () -> Void) -> Void
+    let onHoldEnded: (HomeQuickFactAction) -> Void
+    let onConfirmAction: (HomeQuickFactAction) -> Void
 
     var body: some View {
         HStack(spacing: MHBTheme.Spacing.s2) {
             ForEach(actions) { action in
-                HomeQuickFactActionButton(
-                    action: action,
-                    isSubmitting: submittingAction == action,
-                    isRecorded: recordedAction == action,
-                    isDisabled: submittingAction != nil
-                ) {
-                    onTapAction(action)
+                if action.requiresHoldConfirmation {
+                    HomeQuickFactHoldActionButton(
+                        action: action,
+                        isSubmitting: submittingAction == action,
+                        isRecorded: recordedAction == action,
+                        isDisabled: submittingAction != nil,
+                        onHoldBegan: { pressedAction in
+                            onHoldBegan(pressedAction) {
+                                onConfirmAction(pressedAction)
+                            }
+                        },
+                        onHoldEnded: onHoldEnded
+                    )
+                } else {
+                    HomeQuickFactTapActionButton(
+                        action: action,
+                        isSubmitting: submittingAction == action,
+                        isRecorded: recordedAction == action,
+                        isDisabled: submittingAction != nil
+                    ) {
+                        onTapAction(action)
+                    }
                 }
             }
         }
-    }
-}
-
-// HomeQuickFactActionButton 快捷事实按钮
-// 核心职责：
-// - 展示单个事实动作的图标、标题和提交反馈
-// - 保持按钮尺寸稳定，避免标题变化造成底部条跳动
-private struct HomeQuickFactActionButton: View {
-    let action: HomeQuickFactAction
-    let isSubmitting: Bool
-    let isRecorded: Bool
-    let isDisabled: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: MHBTheme.Spacing.s1) {
-                iconContent
-
-                Text(action.title)
-                    .font(MHBTheme.Typography.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
-            .foregroundStyle(foregroundColor)
-            .frame(width: 58, height: 48)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled && !isSubmitting)
-        .accessibilityLabel(Text(action.title))
-        .accessibilityValue(isRecorded ? Text("已记录") : Text(""))
-        .accessibilityIdentifier(action.accessibilityIdentifier)
-    }
-
-    @ViewBuilder
-    private var iconContent: some View {
-        if isSubmitting {
-            ProgressView()
-                .controlSize(.mini)
-                .tint(foregroundColor)
-                .frame(width: 18, height: 18)
-        } else {
-            Image(systemName: isRecorded ? "checkmark" : action.systemImage)
-                .font(.system(size: MHBTheme.IconSize.small, weight: .semibold))
-                .frame(width: 18, height: 18)
-        }
-    }
-
-    private var foregroundColor: Color {
-        if isRecorded {
-            return MHBTheme.ColorToken.primary.color
-        }
-        return action == .abnormal ? MHBTheme.ColorToken.warning.color : MHBTheme.ColorToken.labelPrimary.color
     }
 }

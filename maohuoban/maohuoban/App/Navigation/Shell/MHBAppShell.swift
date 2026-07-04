@@ -19,6 +19,7 @@ struct MHBAppShell: View {
     @State private var homeQuickFactSheetStore = PetWriteStore()
     @State private var homeFoodInventoryStore = PetFoodInventoryStore()
     @State private var homeQuickFactSheetSubmittingAction: HomeQuickFactAction?
+    @State private var homeQuickFactHoldController = HomeQuickFactHoldController()
 
     private var shouldShowHomeQuickFactAccessory: Bool {
         router.selectedTab == .home &&
@@ -107,6 +108,17 @@ struct MHBAppShell: View {
                     router.tabState.appendHomeRoute(route)
                 },
                 onOpenSheet: openQuickFactSheet,
+                onHoldBegan: { action, onConfirmed in
+                    homeQuickFactHoldController.beginHold(
+                        action: action,
+                        isEnabled: shouldShowHomeQuickFactAccessory
+                    ) { _ in
+                        onConfirmed()
+                    }
+                },
+                onHoldEnded: { action in
+                    homeQuickFactHoldController.endHold(action: action)
+                },
                 onRecorded: {
                     homeQuickFactRefreshToken += 1
                 }
@@ -137,6 +149,12 @@ struct MHBAppShell: View {
         }
         .sheet(isPresented: $isHomeAddReminderSheetPresented) {
             HomeAddReminderSheet(context: homeQuickFactContext)
+        }
+        .overlay {
+            HomeQuickFactHoldOverlay(controller: homeQuickFactHoldController)
+        }
+        .onDisappear {
+            homeQuickFactHoldController.cancelAll()
         }
     }
 

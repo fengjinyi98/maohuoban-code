@@ -116,7 +116,7 @@ struct HomeRootScreen: View {
                 onQuickFactContextChanged(HomeActionRoutingContext())
             }
         }
-        .onChange(of: quickFactRefreshToken) {
+        .onChange(of: quickFactRefreshToken) { _, _ in
             Task {
                 await store.load(
                     currentUserID: currentUserID,

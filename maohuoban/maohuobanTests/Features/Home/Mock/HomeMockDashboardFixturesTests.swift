@@ -212,7 +212,7 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
 
         XCTAssertEqual(
             supplemented.quickActions.map(\.kind),
-            [.dailyRecord, .walk, .healthRecord, .bookHospital]
+            [.walk, .healthRecord, .preventiveCare, .addReminder, .bookHospital]
         )
         XCTAssertFalse(supplemented.quickActions.map(\.kind).contains(.importTradePet))
     }
