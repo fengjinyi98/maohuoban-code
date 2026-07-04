@@ -470,6 +470,8 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
         .expect("main food segment");
     assert!(main_food["baseline_sample_days"].is_i64());
     assert!(summary["health_context"]["included_sample_count"].is_i64());
+    assert_eq!(summary["calibration"]["confidence"], "low");
+    assert!(summary["calibration"]["grams_per_score"].is_null());
     assert!(segments.iter().any(|segment| {
         segment["category"] == "wet_food"
             && segment["percentage"].as_i64().expect("wet food percentage") > 0

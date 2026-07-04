@@ -105,6 +105,9 @@ fn assert_diet_trend_summary_meta(body: &serde_json::Value) {
             .len()
             >= 3
     );
+    assert_eq!(body["data"]["calibration"]["confidence"], "low");
+    assert!(body["data"]["calibration"]["grams_per_score"].is_null());
+    assert!(body["data"]["calibration"]["daily_grams"].is_null());
     assert_eq!(body["data"]["explanation"]["title"], "饮食趋势是怎么生成的");
     assert!(
         body["data"]["explanation"]["body"]

@@ -5,8 +5,8 @@ use chrono::NaiveDate;
 use crate::pet::FoodInventoryCategory;
 
 use super::{
-    DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample, DietTrendHealthContext,
-    DietTrendSegment, DietTrendSummary,
+    DietTrendCalibration, DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample,
+    DietTrendHealthContext, DietTrendSegment, DietTrendSummary,
 };
 
 const LOW_CONFIDENCE_THRESHOLD: f64 = 0.35;
@@ -76,6 +76,12 @@ pub fn build_diet_trend_summary(
         segments,
         confidence,
         health_context,
+        calibration: DietTrendCalibration {
+            confidence: "low".to_owned(),
+            grams_per_score: None,
+            daily_grams: None,
+            reason: "还没有形成可验证的库存消耗闭环，当前只输出相对趋势。".to_owned(),
+        },
         explanation: DietTrendExplanation {
             title: "饮食趋势是怎么生成的".to_owned(),
             body: "我们会结合喂食记录、储物柜食品分类和库存引用生成饮食趋势。记录越连续、食品引用越完整，趋势参考价值越高。饮食趋势用于日常观察和就诊沟通参考，不构成诊断结论。".to_owned(),

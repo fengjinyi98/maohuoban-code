@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::{DietTrendConfidence, DietTrendExplanation, DietTrendHealthContext, DietTrendSegment};
+use super::{
+    DietTrendCalibration, DietTrendConfidence, DietTrendExplanation, DietTrendHealthContext,
+    DietTrendSegment,
+};
 
 /// DietTrendSummary 饮食趋势摘要
 /// 核心职责：
@@ -13,5 +16,6 @@ pub struct DietTrendSummary {
     pub segments: Vec<DietTrendSegment>,
     pub confidence: DietTrendConfidence,
     pub health_context: DietTrendHealthContext,
+    pub calibration: DietTrendCalibration,
     pub explanation: DietTrendExplanation,
 }

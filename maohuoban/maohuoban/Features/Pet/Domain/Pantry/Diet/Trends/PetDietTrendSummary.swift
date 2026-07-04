@@ -10,6 +10,7 @@ struct PetDietTrendSummary: Decodable, Equatable, Hashable {
     let segments: [PetDietTrendSegment]
     let confidence: PetDietTrendConfidence
     let healthContext: PetDietTrendHealthContext
+    let calibration: PetDietTrendCalibration
     let explanation: PetDietTrendExplanation
 
     enum CodingKeys: String, CodingKey {
@@ -18,6 +19,7 @@ struct PetDietTrendSummary: Decodable, Equatable, Hashable {
         case segments
         case confidence
         case healthContext = "health_context"
+        case calibration
         case explanation
     }
 }

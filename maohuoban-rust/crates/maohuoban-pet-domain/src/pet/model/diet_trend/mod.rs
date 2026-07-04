@@ -1,3 +1,4 @@
+mod calibration;
 mod confidence;
 mod explanation;
 mod health_context;
@@ -6,6 +7,7 @@ mod sample;
 mod segment;
 mod summary;
 
+pub use calibration::DietTrendCalibration;
 pub use confidence::DietTrendConfidence;
 pub use explanation::DietTrendExplanation;
 pub use health_context::DietTrendHealthContext;

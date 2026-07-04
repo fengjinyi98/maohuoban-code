@@ -26,10 +26,10 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeDietTrendConfidence, HomeDietTrendExplanation,
-    HomeDietTrendHealthContext, HomeDietTrendSegment, HomeDietTrendSummary,
-    HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind, HomePantryPreviewItem,
-    HomeTimelineEvent,
+    HomeDashboardSnapshot, HomeDietTrendCalibration, HomeDietTrendConfidence,
+    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
+    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
+    HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
@@ -381,6 +381,12 @@ fn home_diet_trend_summary(
             included_sample_count: summary.health_context.included_sample_count,
             excluded_sample_count: summary.health_context.excluded_sample_count,
             excluded_reasons: summary.health_context.excluded_reasons,
+        },
+        calibration: HomeDietTrendCalibration {
+            confidence: summary.calibration.confidence,
+            grams_per_score: summary.calibration.grams_per_score,
+            daily_grams: summary.calibration.daily_grams,
+            reason: summary.calibration.reason,
         },
         explanation: HomeDietTrendExplanation {
             title: summary.explanation.title,

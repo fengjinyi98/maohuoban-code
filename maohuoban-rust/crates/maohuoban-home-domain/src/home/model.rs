@@ -19,8 +19,8 @@ pub use attention_hint::{
     AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone,
 };
 pub use diet_trend::{
-    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendHealthContext,
-    HomeDietTrendSegment, HomeDietTrendSummary,
+    HomeDietTrendCalibration, HomeDietTrendConfidence, HomeDietTrendExplanation,
+    HomeDietTrendHealthContext, HomeDietTrendSegment, HomeDietTrendSummary,
 };
 pub use gallery::HomeGalleryAlbumSummary;
 pub use identity::{HomeIdentity, HomeIdentityKind};

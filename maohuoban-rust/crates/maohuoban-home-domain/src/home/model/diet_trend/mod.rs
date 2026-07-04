@@ -1,9 +1,11 @@
+mod calibration;
 mod confidence;
 mod explanation;
 mod health_context;
 mod segment;
 mod summary;
 
+pub use calibration::HomeDietTrendCalibration;
 pub use confidence::HomeDietTrendConfidence;
 pub use explanation::HomeDietTrendExplanation;
 pub use health_context::HomeDietTrendHealthContext;
