@@ -28,6 +28,7 @@ pub fn build_diet_trend_summary(
         (FoodInventoryCategory::WetFood, 0.0),
         (FoodInventoryCategory::Treats, 0.0),
         (FoodInventoryCategory::Nutrition, 0.0),
+        (FoodInventoryCategory::Other, 0.0),
     ];
 
     let mut included_samples = Vec::new();
@@ -84,7 +85,7 @@ pub fn build_diet_trend_summary(
         },
         explanation: DietTrendExplanation {
             title: "饮食趋势是怎么生成的".to_owned(),
-            body: "我们会结合喂食记录、储物柜食品分类和库存引用生成饮食趋势。记录越连续、食品引用越完整，趋势参考价值越高。饮食趋势用于日常观察和就诊沟通参考，不构成诊断结论。".to_owned(),
+            body: "我们会结合喂食记录、储物柜食品分类和库存引用生成饮食趋势。记录越连续、食品引用越完整，趋势参考价值越高。当前结果用于日常观察，不等同于精准称重或诊断结论。".to_owned(),
         },
     }
 }
@@ -158,6 +159,9 @@ fn category_baseline_scores(
     category: FoodInventoryCategory,
     daily_scores: &HashMap<FoodInventoryCategory, BTreeMap<NaiveDate, DailyScore>>,
 ) -> Vec<f64> {
+    if !supports_category_baseline(category) {
+        return Vec::new();
+    }
     daily_scores
         .get(&category)
         .into_iter()
@@ -321,6 +325,17 @@ fn is_supported_food_category(category: FoodInventoryCategory) -> bool {
             | FoodInventoryCategory::WetFood
             | FoodInventoryCategory::Treats
             | FoodInventoryCategory::Nutrition
+            | FoodInventoryCategory::Other
+    )
+}
+
+fn supports_category_baseline(category: FoodInventoryCategory) -> bool {
+    matches!(
+        category,
+        FoodInventoryCategory::MainFood
+            | FoodInventoryCategory::WetFood
+            | FoodInventoryCategory::Treats
+            | FoodInventoryCategory::Nutrition
     )
 }
 
@@ -373,16 +388,21 @@ mod tests {
     fn diet_trend_summary_excludes_non_food_categories() {
         let samples = vec![
             sample(FoodInventoryCategory::MainFood, "正常", true),
+            sample(FoodInventoryCategory::Other, "正常", true),
             sample(FoodInventoryCategory::CatLitter, "正常", true),
             sample(FoodInventoryCategory::Medicine, "正常", true),
         ];
 
         let summary = build_diet_trend_summary(&samples, 7);
 
-        assert_eq!(summary.segments[0].percentage, 100);
+        assert_eq!(summary.segments[0].percentage, 50);
         assert_eq!(summary.segments[1].percentage, 0);
         assert_eq!(summary.segments[2].percentage, 0);
         assert_eq!(summary.segments[3].percentage, 0);
+        assert_eq!(summary.segments[4].category, "other");
+        assert_eq!(summary.segments[4].percentage, 50);
+        assert_eq!(summary.segments[4].baseline_score, None);
+        assert_eq!(summary.segments[4].baseline_sample_days, 0);
     }
 
     #[test]

@@ -10,6 +10,12 @@ struct HomeDietTrendPresentation {
     let confidenceText: String
     let explanationTitle: String
     let explanationBody: String
+    let sampleSummaryText: String
+    let baselineProgressText: String
+    let excludedSampleText: String
+    let calibrationStatusText: String
+    let calibrationDetailText: String
+    let confidenceBasis: [String]
     let segments: [HomeDietTrendSegmentPresentation]
     let activeSegments: [HomeDietTrendSegmentPresentation]
     let isEmpty: Bool
@@ -20,10 +26,71 @@ struct HomeDietTrendPresentation {
         self.confidenceText = "参考度 \(Int((summary.confidence.score * 100).rounded()))%"
         self.explanationTitle = summary.explanation.title
         self.explanationBody = summary.explanation.body
+        self.sampleSummaryText = "\(summary.healthContext.includedSampleCount) 条健康样本"
+        self.baselineProgressText = HomeDietTrendPresentation.baselineProgressText(for: summary)
+        self.excludedSampleText = HomeDietTrendPresentation.excludedSampleText(for: summary.healthContext)
+        self.calibrationStatusText = HomeDietTrendPresentation.calibrationStatusText(
+            for: summary.calibration
+        )
+        self.calibrationDetailText = HomeDietTrendPresentation.calibrationDetailText(
+            for: summary.calibration
+        )
+        self.confidenceBasis = summary.confidence.basis
         let segmentItems = summary.segments.map(HomeDietTrendSegmentPresentation.init(segment:))
         self.segments = segmentItems
         self.activeSegments = segmentItems.filter { $0.percentage > 0 }
         self.isEmpty = activeSegments.isEmpty
+    }
+
+    private static func baselineProgressText(for summary: PetDietTrendSummary) -> String {
+        let bestSampleDays = summary.segments
+            .map(\.baselineSampleDays)
+            .max() ?? 0
+        if summary.segments.contains(where: { $0.baselineScore != nil }) {
+            return "已形成部分品类基线"
+        }
+        return "距离首版基线还需 \(max(14 - bestSampleDays, 0)) 天健康记录"
+    }
+
+    private static func excludedSampleText(for context: PetDietTrendHealthContext) -> String {
+        guard context.excludedSampleCount > 0 else {
+            return "暂无异常或就医期样本被排除"
+        }
+        let reasonText = context.excludedReasons
+            .map(excludedReasonText)
+            .joined(separator: "、")
+        return "\(context.excludedSampleCount) 条样本未进入健康基线" + (reasonText.isEmpty ? "" : "（\(reasonText)）")
+    }
+
+    private static func calibrationStatusText(for calibration: PetDietTrendCalibration) -> String {
+        switch calibration.confidence {
+        case "high":
+            return "克数估算较稳定"
+        case "medium":
+            return "已具备克数估算"
+        default:
+            return "暂不可分析克数"
+        }
+    }
+
+    private static func calibrationDetailText(for calibration: PetDietTrendCalibration) -> String {
+        if let dailyGrams = calibration.dailyGrams {
+            return "估算日均 \(dailyGrams.formatted(.number.precision(.fractionLength(0...1))))g"
+        }
+        return calibration.reason
+    }
+
+    private static func excludedReasonText(_ reason: String) -> String {
+        switch reason {
+        case "abnormal":
+            return "异常期"
+        case "medical":
+            return "就医期"
+        case "missing":
+            return "上下文不足"
+        default:
+            return reason
+        }
     }
 
     private static func statusText(for status: String) -> String {

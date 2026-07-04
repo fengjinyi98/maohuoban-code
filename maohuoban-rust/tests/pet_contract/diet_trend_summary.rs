@@ -115,15 +115,34 @@ fn assert_diet_trend_summary_meta(body: &serde_json::Value) {
             .expect("explanation body")
             .contains("喂食记录")
     );
+    assert!(
+        !body["data"]["explanation"]["body"]
+            .as_str()
+            .expect("explanation body")
+            .contains("就诊沟通参考")
+    );
+    assert!(
+        body["data"]["explanation"]["body"]
+            .as_str()
+            .expect("explanation body")
+            .contains("不等同于精准称重或诊断结论")
+    );
 }
 
 fn assert_diet_trend_summary_segments(body: &serde_json::Value) {
     let segments = body["data"]["segments"].as_array().expect("segments");
-    assert_eq!(segments.len(), 4);
-    assert_segment(segments, "main_food", 2.0, 44);
-    assert_segment(segments, "wet_food", 1.0, 22);
-    assert_segment(segments, "treats", 0.75, 17);
-    assert_segment(segments, "nutrition", 0.75, 17);
+    assert_eq!(segments.len(), 5);
+    assert_segment(segments, "main_food", 2.0, 36);
+    assert_segment(segments, "wet_food", 1.0, 18);
+    assert_segment(segments, "treats", 0.75, 14);
+    assert_segment(segments, "nutrition", 0.75, 14);
+    assert_segment(segments, "other", 1.0, 18);
+    let other = segments
+        .iter()
+        .find(|segment| segment["category"] == "other")
+        .expect("other segment");
+    assert!(other["baseline_score"].is_null());
+    assert_eq!(other["baseline_sample_days"], 0);
     assert!(
         segments
             .iter()
@@ -181,6 +200,7 @@ async fn create_diet_trend_sample_data(
     let treats_id = create_food_inventory_item(app, user_id, "零食", "treats").await;
     let nutrition_id = create_food_inventory_item(app, user_id, "营养品", "nutrition").await;
     let cat_litter_id = create_food_inventory_item(app, user_id, "猫砂", "cat_litter").await;
+    let other_id = create_food_inventory_item(app, user_id, "其他", "other").await;
     let medicine_id = create_food_inventory_item(app, user_id, "药品", "medicine").await;
 
     for (food_item_id, food_role, amount_text, occurred_at) in [
@@ -189,6 +209,7 @@ async fn create_diet_trend_sample_data(
         (&wet_food_id, "wet_food", "正常", "2026-07-02T12:00:00Z"),
         (&treats_id, "treats", "少量", "2026-07-03T16:00:00Z"),
         (&nutrition_id, "nutrition", "少量", "2026-07-04T09:00:00Z"),
+        (&other_id, "other", "正常", "2026-07-04T09:30:00Z"),
         (&cat_litter_id, "cat_litter", "正常", "2026-07-04T10:00:00Z"),
         (&medicine_id, "medicine", "正常", "2026-07-04T11:00:00Z"),
     ] {

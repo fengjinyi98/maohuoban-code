@@ -456,7 +456,7 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
     assert_eq!(summary["window_days"], 30);
     assert_eq!(summary["explanation"]["title"], "饮食趋势是怎么生成的");
     let segments = summary["segments"].as_array().expect("diet trend segments");
-    assert_eq!(segments.len(), 4);
+    assert_eq!(segments.len(), 5);
     assert!(segments.iter().any(|segment| {
         segment["category"] == "main_food"
             && segment["percentage"]
@@ -472,6 +472,13 @@ async fn home_dashboard_returns_pet_diet_trend_summary_from_backend_analysis() {
     assert!(summary["health_context"]["included_sample_count"].is_i64());
     assert_eq!(summary["calibration"]["confidence"], "low");
     assert!(summary["calibration"]["grams_per_score"].is_null());
+    let other = segments
+        .iter()
+        .find(|segment| segment["category"] == "other")
+        .expect("other segment");
+    assert_eq!(other["percentage"], 0);
+    assert!(other["baseline_score"].is_null());
+    assert_eq!(other["baseline_sample_days"], 0);
     assert!(segments.iter().any(|segment| {
         segment["category"] == "wet_food"
             && segment["percentage"].as_i64().expect("wet food percentage") > 0
