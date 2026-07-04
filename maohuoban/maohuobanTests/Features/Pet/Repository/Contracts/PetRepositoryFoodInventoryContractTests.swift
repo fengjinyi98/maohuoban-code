@@ -38,6 +38,8 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
                         "quantity": 1,
                         "unit": "袋",
                         "spec": "5.4kg",
+                        "production_date": "2025-07-15",
+                        "shelf_life_months": 18,
                         "expiry_date": "2027-01-15",
                         "cover_asset_id": null,
                         "barcode": null,
@@ -89,6 +91,8 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
                     "quantity": 1,
                     "unit": "袋",
                     "spec": "5.4kg",
+                    "production_date": "2025-07-15",
+                    "shelf_life_months": 18,
                     "expiry_date": "2027-01-15",
                     "cover_asset_id": null,
                     "barcode": null,
@@ -218,6 +222,10 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
             XCTAssertEqual(json["cover_asset_id"] as? String, "asset-cover-1")
+            XCTAssertEqual(json["production_date"] as? String, "2025-07-15")
+            XCTAssertEqual(json["shelf_life_months"] as? Int, 18)
+            XCTAssertNil(json["inventory_status"])
+            XCTAssertNil(json["expiry_date"])
 
             return Self.foodInventoryItemResponse(
                 statusCode: 201,
@@ -228,6 +236,8 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
 
         var draft = FoodInventoryDraft()
         draft.name = "封面主粮"
+        draft.productionDate = "2025-07-15"
+        draft.shelfLifeMonths = 18
         draft.coverAssetID = "asset-cover-1"
         let item = try await repository.createFoodInventoryItem(
             draft: draft,
@@ -236,6 +246,9 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
 
         XCTAssertEqual(item.coverAssetID, "asset-cover-1")
         XCTAssertEqual(item.coverURL, "/api/v1/media/assets/asset-cover-1/content")
+        XCTAssertEqual(item.productionDate, "2025-07-15")
+        XCTAssertEqual(item.shelfLifeMonths, 18)
+        XCTAssertEqual(item.expiryDate, "2027-01-15")
     }
 
     func testUpdateFoodInventoryItemPostsCoverAssetID() async throws {
@@ -245,6 +258,9 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
             let body = try XCTUnwrap(request.bodyDataForPetRepositoryTest())
             let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
             XCTAssertEqual(json["cover_asset_id"] as? String, "asset-cover-2")
+            XCTAssertEqual(json["production_date"] as? String, "2025-07-15")
+            XCTAssertEqual(json["shelf_life_months"] as? Int, 18)
+            XCTAssertNil(json["expiry_date"])
 
             return Self.foodInventoryItemResponse(
                 statusCode: 200,
@@ -255,6 +271,8 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
 
         var draft = FoodInventoryDraft()
         draft.name = "封面主粮"
+        draft.productionDate = "2025-07-15"
+        draft.shelfLifeMonths = 18
         draft.coverAssetID = "asset-cover-2"
         let item = try await repository.updateFoodInventoryItem(
             itemID: "food-1",
@@ -264,6 +282,9 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
 
         XCTAssertEqual(item.coverAssetID, "asset-cover-2")
         XCTAssertEqual(item.coverURL, "/api/v1/media/assets/asset-cover-2/content")
+        XCTAssertEqual(item.productionDate, "2025-07-15")
+        XCTAssertEqual(item.shelfLifeMonths, 18)
+        XCTAssertEqual(item.expiryDate, "2027-01-15")
     }
 
     func testUploadFoodInventoryCoverUsesFoodInventoryMediaEndpoint() async throws {
@@ -353,7 +374,9 @@ final class PetRepositoryFoodInventoryContractTests: PetRepositoryTestCase {
                 "quantity": 1,
                 "unit": null,
                 "spec": null,
-                "expiry_date": null,
+                "production_date": "2025-07-15",
+                "shelf_life_months": 18,
+                "expiry_date": "2027-01-15",
                 "cover_asset_id": "\(coverAssetID)",
                 "cover_url": "/api/v1/media/assets/\(coverAssetID)/content",
                 "barcode": null,

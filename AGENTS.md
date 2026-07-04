@@ -201,7 +201,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 | 变更 | 必须验证 |
 |---|---|
-| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
+| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` 后执行 `xcrun devicectl device install app --device <当前连接真机设备ID> ~/Library/Developer/Xcode/DerivedData/maohuoban-*/Build/Products/Debug-iphoneos/maohuoban.app` |
 | DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'id=<当前连接真机设备ID>' -configuration Debug test` |
 | Rust 格式 | `cargo fmt --all --check` |
 | Rust 编译 | `cargo check --workspace --all-targets` |
@@ -212,10 +212,10 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 ### 12.1 iOS 测试执行与 XCTestDevices 控制
 
-1. 日常 iOS App 代码验证默认执行真机 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build`。
+1. 日常 iOS App 代码验证默认执行真机 Debug 安装：先执行 `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build`，再执行 `xcrun devicectl device install app --device <当前连接真机设备ID> ~/Library/Developer/Xcode/DerivedData/maohuoban-*/Build/Products/Debug-iphoneos/maohuoban.app`。
 2. `xcodebuild test`、`build-for-testing`、UI Test 仅用于测试覆盖、业务规则回归、端到端交互验证或用户明确要求测试的场景。
 3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
-4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
+4. DesignSystem 仅样式或视觉调整时执行 App Debug 安装；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
 5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
 6. 禁止通过 `-derivedDataPath` 新建额外 DerivedData 目录规避缓存问题；遇到 Xcode 缓存或旧对象链接异常时，清理当前项目默认 `~/Library/Developer/Xcode/DerivedData/maohuoban-*` 缓存后重新运行验证，避免额外占用磁盘。
 7. 禁止为 `xcodebuild` 设置 `TMPDIR=/private/tmp/maohuoban-*`、`BUILD_DIR`、`SYMROOT`、`OBJROOT`、`DSTROOT`、`CONFIGURATION_BUILD_DIR`、`MODULE_CACHE_DIR`、`SHARED_PRECOMPS_DIR` 等临时构建输出目录；这些目录会绕过默认 DerivedData 复用并在 `/private/tmp` 堆积大量 `Build`、`ModuleCache.noindex` 和 `SourcePackages`。
@@ -226,7 +226,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 1. 当用户明确说明由用户进行真机验证时，Codex 不需要额外执行模拟器点击、截图、UI 层级快照或录屏复测。
 2. 真机相关的触感反馈、点击命中、滚动手感、Liquid Glass 实机渲染和设备差异，由用户在真机上完成最终复测。
-3. Codex 仍必须完成代码修改、必要的临时日志定位、临时日志清理，以及当前仓库真实 iOS Debug 构建验证。
+3. Codex 仍必须完成代码修改、必要的临时日志定位、临时日志清理，以及当前仓库真实 iOS Debug 安装验证。
 4. 模拟器因登录态、SDK 私有框架、设备状态或工具限制无法复现真机问题时，不作为交付阻塞；应说明已完成的代码验证和需要用户真机观察的日志过滤词。
 
 ### 12.2.1 真机调试闭环与临时日志纪律
@@ -243,7 +243,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 1. 当用户明确说明处于“快速 UI 实现 / UI 原型 / 先看效果”阶段时，可以暂时跳过 TDD。
 2. 快速 UI 实现模式只适用于前端展示层、静态 mock 数据、视觉布局和交互壳验证；不得用于后端接口、持久化、权限、安全、推荐算法和跨模块业务规则。
-3. 快速 UI 实现完成后必须执行当前仓库真实 iOS Debug 构建，结果必须为 `** BUILD SUCCEEDED **`。
+3. 快速 UI 实现完成后必须执行当前仓库真实 iOS Debug 安装，结果必须包含 `** BUILD SUCCEEDED **` 且安装命令退出码为 0。
 4. 快速 UI 实现不得引入新增编译警告、临时 debug 打印、隐藏副作用或破坏既有 UI/UX。
 5. 当快速 UI 进入产品化、接入真实数据、抽象基础设施或调整业务逻辑时，需要恢复 TDD 节奏并补齐测试。
 

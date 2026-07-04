@@ -16,6 +16,7 @@ pub(super) async fn create_food_inventory_item(
     input: NewFoodInventoryItem,
 ) -> PetResult<FoodInventoryItem> {
     reject_direct_archived_status(input.inventory_status)?;
+    validate_shelf_life_input(input.production_date.is_some(), input.shelf_life_months)?;
     food_inventory.create_item(input).await
 }
 
@@ -58,6 +59,7 @@ pub(super) async fn update_food_inventory_item(
     if let Some(status) = input.inventory_status {
         reject_direct_archived_status(status)?;
     }
+    validate_update_shelf_life_input(input.production_date.is_some(), input.shelf_life_months)?;
     ensure_food_inventory_editor(food_inventory, input.item_id, input.editor_user_id).await?;
     food_inventory.update_item(input).await
 }
@@ -128,6 +130,35 @@ pub(super) fn reject_direct_archived_status(status: FoodInventoryStatus) -> PetR
     if status.is_archived() {
         return Err(PetError::InvalidInput(
             "不能直接创建或恢复为已归档状态".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_shelf_life_input(
+    has_production_date: bool,
+    shelf_life_months: Option<i32>,
+) -> PetResult<()> {
+    match (has_production_date, shelf_life_months) {
+        (true, Some(months)) if months > 0 => Ok(()),
+        _ => Err(PetError::InvalidInput(
+            "请填写生产日期和保质期月份".to_owned(),
+        )),
+    }
+}
+
+fn validate_update_shelf_life_input(
+    has_production_date: bool,
+    shelf_life_months: Option<i32>,
+) -> PetResult<()> {
+    if let Some(months) = shelf_life_months
+        && months <= 0
+    {
+        return Err(PetError::InvalidInput("保质期月份必须大于 0".to_owned()));
+    }
+    if has_production_date ^ shelf_life_months.is_some() {
+        return Err(PetError::InvalidInput(
+            "生产日期和保质期月份需要同时填写".to_owned(),
         ));
     }
     Ok(())

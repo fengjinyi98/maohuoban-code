@@ -100,10 +100,11 @@ async fn create_food_inventory_item(
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
-                "inventory_status": "in_use",
                 "quantity": 1,
                 "unit": "袋",
-                "spec": "5.4kg"
+                "spec": "5.4kg",
+                "production_date": "2025-07-15",
+                "shelf_life_months": 18
             }),
             Some(user_id),
         ))

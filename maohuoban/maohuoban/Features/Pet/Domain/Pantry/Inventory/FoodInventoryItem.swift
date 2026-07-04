@@ -16,6 +16,11 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
     let quantity: Int
     let unit: String?
     let spec: String?
+    let packageWeightGrams: Int?
+    let packageCount: Int
+    let packageUnit: String?
+    let productionDate: String?
+    let shelfLifeMonths: Int?
     let expiryDate: String?
     let coverAssetID: String?
     let coverURL: String?
@@ -34,6 +39,11 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         case name, brand, category
         case inventoryStatus = "inventory_status"
         case quantity, unit, spec
+        case packageWeightGrams = "package_weight_grams"
+        case packageCount = "package_count"
+        case packageUnit = "package_unit"
+        case productionDate = "production_date"
+        case shelfLifeMonths = "shelf_life_months"
         case expiryDate = "expiry_date"
         case coverAssetID = "cover_asset_id"
         case coverURL = "cover_url"
@@ -57,6 +67,11 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         quantity: Int,
         unit: String?,
         spec: String?,
+        packageWeightGrams: Int? = nil,
+        packageCount: Int = 1,
+        packageUnit: String? = nil,
+        productionDate: String? = nil,
+        shelfLifeMonths: Int? = nil,
         expiryDate: String?,
         coverAssetID: String?,
         coverURL: String? = nil,
@@ -78,6 +93,11 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         self.quantity = quantity
         self.unit = unit
         self.spec = spec
+        self.packageWeightGrams = packageWeightGrams
+        self.packageCount = packageCount
+        self.packageUnit = packageUnit
+        self.productionDate = productionDate
+        self.shelfLifeMonths = shelfLifeMonths
         self.expiryDate = expiryDate
         self.coverAssetID = coverAssetID
         self.coverURL = coverURL
@@ -115,21 +135,15 @@ enum FoodInventoryCategory: String, Codable, Equatable, CaseIterable {
 
 /// FoodInventoryStatus 库存状态（与后端枚举对齐）
 enum FoodInventoryStatus: String, Codable, Equatable, CaseIterable {
-    case active = "active"
     case sealed = "sealed"
     case inUse = "in_use"
     case depleted = "depleted"
     case archived = "archived"
 
-    static var editableCases: [FoodInventoryStatus] {
-        [.active, .sealed, .inUse, .depleted]
-    }
-
     var displayLabel: String {
         switch self {
-        case .active: "在用"
         case .sealed: "未拆封"
-        case .inUse: "消耗中"
+        case .inUse: "喂食中"
         case .depleted: "已用完"
         case .archived: "已归档"
         }
@@ -143,15 +157,81 @@ struct FoodInventoryDraft {
     var name: String = ""
     var brand: String = ""
     var category: FoodInventoryCategory = .mainFood
-    var initialStatus: FoodInventoryStatus = .sealed
     var quantity: Int = 1
     var unit: String = ""
     var spec: String = ""
-    var expiryDate: String = ""
+    var packageWeightGrams: Int?
+    var packageUnit: String = ""
+    var productionDate: String = ""
+    var shelfLifeMonths: Int?
     var coverAssetID: String?
     var note: String = ""
 
     var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && normalizedProductionDate != nil
+            && shelfLifeMonths.map { $0 > 0 } == true
+    }
+
+    var resolvedPackageCount: Int {
+        1
+    }
+
+    var resolvedPackageUnit: String? {
+        let trimmed = packageUnit.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? defaultPackageUnit : trimmed
+    }
+
+    var resolvedPackageWeightGrams: Int? {
+        packageWeightGrams ?? FoodInventoryDraft.packageWeightGrams(from: spec)
+    }
+
+    var normalizedSpec: String? {
+        let trimmed = spec.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var normalizedProductionDate: String? {
+        let trimmed = productionDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private var defaultPackageUnit: String? {
+        switch category {
+        case .mainFood, .treats:
+            "袋"
+        case .wetFood:
+            "罐"
+        case .nutrition:
+            "支"
+        case .other:
+            "件"
+        case .catLitter:
+            "袋"
+        case .medicine:
+            "盒"
+        }
+    }
+
+    private static func packageWeightGrams(from spec: String) -> Int? {
+        let normalized = spec
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: " ", with: "")
+        guard !normalized.isEmpty else { return nil }
+        let pattern = #"([0-9]+(?:\.[0-9]+)?)(kg|g)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(
+                in: normalized,
+                range: NSRange(normalized.startIndex..., in: normalized)
+              ),
+              let numberRange = Range(match.range(at: 1), in: normalized),
+              let unitRange = Range(match.range(at: 2), in: normalized),
+              let number = Double(normalized[numberRange])
+        else {
+            return nil
+        }
+        let multiplier = normalized[unitRange] == "kg" ? 1000.0 : 1.0
+        return Int((number * multiplier).rounded())
     }
 }

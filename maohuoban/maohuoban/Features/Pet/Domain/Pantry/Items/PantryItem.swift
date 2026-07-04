@@ -17,6 +17,11 @@ struct PantryItem: Identifiable, Decodable, Equatable, Hashable {
     let quantity: Int
     let unit: String?
     let spec: String?
+    let packageWeightGrams: Int?
+    let packageCount: Int
+    let packageUnit: String?
+    let productionDate: String?
+    let shelfLifeMonths: Int?
     let expiryDate: String?
 
     enum CodingKeys: String, CodingKey {
@@ -32,6 +37,11 @@ struct PantryItem: Identifiable, Decodable, Equatable, Hashable {
         case quantity
         case unit
         case spec
+        case packageWeightGrams = "package_weight_grams"
+        case packageCount = "package_count"
+        case packageUnit = "package_unit"
+        case productionDate = "production_date"
+        case shelfLifeMonths = "shelf_life_months"
         case expiryDate = "expiry_date"
     }
 }

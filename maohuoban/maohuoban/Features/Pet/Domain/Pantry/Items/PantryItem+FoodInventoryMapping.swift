@@ -19,6 +19,11 @@ extension PantryItem {
             quantity: item.quantity,
             unit: item.unit,
             spec: item.spec,
+            packageWeightGrams: item.packageWeightGrams,
+            packageCount: item.packageCount,
+            packageUnit: item.packageUnit,
+            productionDate: item.productionDate,
+            shelfLifeMonths: item.shelfLifeMonths,
             expiryDate: item.expiryDate
         )
     }
@@ -33,11 +38,13 @@ extension FoodInventoryDraft {
             name: draft.name,
             brand: draft.brand,
             category: FoodInventoryCategory(pantryCategory: draft.category),
-            initialStatus: FoodInventoryStatus(pantryInitialStatus: draft.initialStatus),
             quantity: Int(draft.initialStock) ?? 1,
             unit: "件",
             spec: draft.specification,
-            expiryDate: draft.expiryInfo,
+            packageWeightGrams: nil,
+            packageUnit: "",
+            productionDate: draft.expiryInfo,
+            shelfLifeMonths: nil,
             coverAssetID: nil,
             note: ""
         )
@@ -48,11 +55,13 @@ extension FoodInventoryDraft {
             name: item.name,
             brand: item.brand == "未填写品牌" ? "" : item.brand,
             category: FoodInventoryCategory(pantryCategory: item.category),
-            initialStatus: FoodInventoryStatus(pantryStatus: item.status),
             quantity: item.quantity,
             unit: item.unit ?? "件",
             spec: item.spec ?? "",
-            expiryDate: item.expiryDate ?? "",
+            packageWeightGrams: item.packageWeightGrams,
+            packageUnit: item.packageUnit ?? "",
+            productionDate: item.productionDate ?? "",
+            shelfLifeMonths: item.shelfLifeMonths,
             coverAssetID: item.coverAssetID,
             note: ""
         )
@@ -64,7 +73,7 @@ private extension PantryStatus {
         switch status {
         case .sealed:
             self = .sealed
-        case .active, .inUse:
+        case .inUse:
             self = .inUse
         case .depleted, .archived:
             self = .periodic
@@ -75,8 +84,8 @@ private extension PantryStatus {
 private extension FoodInventoryStatus {
     var pantryStatusLabel: String {
         switch self {
-        case .active, .inUse:
-            "# 消耗中"
+        case .inUse:
+            "# 喂食中"
         case .sealed:
             "# 未拆封囤货"
         case .depleted:
@@ -104,28 +113,6 @@ private extension FoodInventoryCategory {
             self = .medicine
         case .all, .other:
             self = .other
-        }
-    }
-}
-
-private extension FoodInventoryStatus {
-    init(pantryInitialStatus status: PantryItemInitialStatus) {
-        switch status {
-        case .sealed:
-            self = .sealed
-        case .inUse:
-            self = .inUse
-        }
-    }
-
-    init(pantryStatus status: PantryStatus) {
-        switch status {
-        case .sealed:
-            self = .sealed
-        case .inUse:
-            self = .inUse
-        case .periodic:
-            self = .depleted
         }
     }
 }

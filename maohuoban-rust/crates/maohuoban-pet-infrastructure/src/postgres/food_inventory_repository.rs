@@ -327,11 +327,18 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             INSERT INTO food_inventory_items (
                 id, scope_type, scope_id, created_by_user_id,
                 name, brand, category, inventory_status,
-                quantity, unit, spec, expiry_date,
+                quantity, unit, spec, package_weight_grams, package_count, package_unit,
+                production_date, shelf_life_months, expiry_date,
                 cover_asset_id, barcode, source_kind, note
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                $10, $11, $12, $13, $14, $15, $16
+                $10, $11, $12, $13, $14, $15, $16,
+                CASE
+                    WHEN $15::date IS NOT NULL AND $16::integer IS NOT NULL
+                    THEN ($15::date + make_interval(months => $16::integer))::date
+                    ELSE NULL
+                END,
+                $17, $18, $19, $20
             )
             RETURNING *
             "#,
@@ -347,7 +354,11 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         .bind(input.quantity)
         .bind(input.unit.as_deref())
         .bind(input.spec.as_deref())
-        .bind(input.expiry_date)
+        .bind(input.package_weight_grams)
+        .bind(input.package_count)
+        .bind(input.package_unit.as_deref())
+        .bind(input.production_date)
+        .bind(input.shelf_life_months)
         .bind(input.cover_asset_id)
         .bind(input.barcode.as_deref())
         .bind(input.source_kind.as_str())
@@ -447,10 +458,20 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
                 quantity = COALESCE($6, quantity),
                 unit = COALESCE($7, unit),
                 spec = COALESCE($8, spec),
-                expiry_date = COALESCE($9, expiry_date),
-                cover_asset_id = COALESCE($10, cover_asset_id),
-                barcode = COALESCE($11, barcode),
-                note = COALESCE($12, note),
+                package_weight_grams = COALESCE($9, package_weight_grams),
+                package_count = COALESCE($10, package_count),
+                package_unit = COALESCE($11, package_unit),
+                production_date = COALESCE($12, production_date),
+                shelf_life_months = COALESCE($13, shelf_life_months),
+                expiry_date = CASE
+                    WHEN COALESCE($12, production_date) IS NOT NULL
+                     AND COALESCE($13, shelf_life_months) IS NOT NULL
+                    THEN (COALESCE($12, production_date) + make_interval(months => COALESCE($13, shelf_life_months)))::date
+                    ELSE expiry_date
+                END,
+                cover_asset_id = COALESCE($14, cover_asset_id),
+                barcode = COALESCE($15, barcode),
+                note = COALESCE($16, note),
                 updated_at = now()
             WHERE id = $1 AND archived_at IS NULL
             RETURNING *
@@ -464,7 +485,11 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         .bind(input.quantity)
         .bind(input.unit.as_deref())
         .bind(input.spec.as_deref())
-        .bind(input.expiry_date)
+        .bind(input.package_weight_grams)
+        .bind(input.package_count)
+        .bind(input.package_unit.as_deref())
+        .bind(input.production_date)
+        .bind(input.shelf_life_months)
         .bind(input.cover_asset_id)
         .bind(input.barcode.as_deref())
         .bind(input.note.as_deref())
@@ -532,7 +557,7 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             UPDATE food_inventory_items SET
                 quantity = quantity + $2,
                 inventory_status = CASE
-                    WHEN inventory_status = 'depleted' THEN 'active'
+                    WHEN inventory_status = 'depleted' THEN 'sealed'
                     ELSE inventory_status
                 END,
                 updated_at = now()

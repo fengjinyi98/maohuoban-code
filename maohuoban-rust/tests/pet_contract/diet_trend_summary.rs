@@ -262,10 +262,11 @@ async fn create_food_inventory_item(
                 "name": name,
                 "brand": "测试品牌",
                 "category": category,
-                "inventory_status": "in_use",
                 "quantity": 1,
                 "unit": "件",
-                "spec": "1kg"
+                "spec": "1kg",
+                "production_date": "2025-07-15",
+                "shelf_life_months": 18
             }),
             Some(user_id),
         ))

@@ -65,6 +65,11 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
             quantity: 1,
             unit: "件",
             spec: "5kg",
+            packageWeightGrams: 5000,
+            packageCount: 1,
+            packageUnit: "袋",
+            productionDate: "2025-07-04",
+            shelfLifeMonths: 24,
             expiryDate: "2027-07-04"
         )
 

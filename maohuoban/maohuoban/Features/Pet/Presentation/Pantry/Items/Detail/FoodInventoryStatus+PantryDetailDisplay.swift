@@ -6,7 +6,6 @@ import Foundation
 extension FoodInventoryStatus {
     var pantryDetailDisplayText: String {
         switch self {
-        case .active: "可用"
         case .sealed: "未拆封"
         case .inUse: "喂食中"
         case .depleted: "已耗尽"

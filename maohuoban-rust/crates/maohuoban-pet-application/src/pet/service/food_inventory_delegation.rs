@@ -120,6 +120,9 @@ impl PetService {
                 "brand": food_item.brand,
                 "category": food_item.category.as_str(),
                 "spec": food_item.spec,
+                "package_weight_grams": food_item.package_weight_grams,
+                "package_count": food_item.package_count,
+                "package_unit": food_item.package_unit,
                 "cover_asset_id": food_item.cover_asset_id,
                 "cover_url": food_item.cover_url
             }),
