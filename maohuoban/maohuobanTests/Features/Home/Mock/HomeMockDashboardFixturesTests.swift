@@ -218,6 +218,27 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
     }
 
     func testSupplementingMissingSectionsKeepsBackendPantryItems() {
+        let backendTrend = PetDietTrendSummary(
+            windowDays: 30,
+            status: "observing",
+            segments: [
+                PetDietTrendSegment(
+                    category: "main_food",
+                    title: "主粮",
+                    score: 2.0,
+                    percentage: 80
+                )
+            ],
+            confidence: PetDietTrendConfidence(
+                level: "medium",
+                score: 0.62,
+                basis: ["近 30 天有可分析喂食记录"]
+            ),
+            explanation: PetDietTrendExplanation(
+                title: "饮食趋势是怎么生成的",
+                body: "后端说明"
+            )
+        )
         let backendSnapshot = HomeDashboardSnapshot(
             identity: HomeDashboardSnapshot.Identity(
                 kind: .petOwner,
@@ -242,7 +263,8 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                     category: .mainFood,
                     coverURL: "/api/v1/media/assets/food-cover/content"
                 )
-            ]
+            ],
+            dietTrendSummary: backendTrend
         )
         let mockSnapshot = HomeMockDashboardFixtures.snapshot(
             scenario: .petOwner,
@@ -253,6 +275,8 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
 
         XCTAssertEqual(supplemented.pantryItems?.map(\.id), ["food-real"])
         XCTAssertEqual(supplemented.pantryItems?.first?.title, "后端真实主粮")
+        XCTAssertEqual(supplemented.dietTrendSummary, backendTrend)
+        XCTAssertEqual(supplemented.resolvingClientOwnedQuickActions().dietTrendSummary, backendTrend)
     }
 
     func testSupplementingMissingSectionsKeepsGalleryAlbumsEmptyForBackendSnapshot() {

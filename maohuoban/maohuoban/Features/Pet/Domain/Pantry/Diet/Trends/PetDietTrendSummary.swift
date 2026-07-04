@@ -18,12 +18,4 @@ struct PetDietTrendSummary: Decodable, Equatable, Hashable {
         case confidence
         case explanation
     }
-
-    static let empty = PetDietTrendSummary(
-        windowDays: 30,
-        status: "insufficient_data",
-        segments: [],
-        confidence: PetDietTrendConfidence(level: "low", score: 0, basis: []),
-        explanation: PetDietTrendExplanation(title: "", body: "")
-    )
 }
