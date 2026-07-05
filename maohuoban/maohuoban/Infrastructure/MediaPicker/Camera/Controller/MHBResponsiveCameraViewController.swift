@@ -17,8 +17,10 @@ final class MHBResponsiveCameraViewController: UIViewController {
     private let shutterButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
     private let activityIndicator = UIActivityIndicatorView(style: .large)
+    private let focusIndicatorView = UIView()
 
     private var photoCaptureDelegate: MHBResponsiveCameraPhotoCaptureDelegate?
+    nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
     nonisolated(unsafe) private var isSessionConfigured = false
 
     init(
@@ -70,9 +72,28 @@ final class MHBResponsiveCameraViewController: UIViewController {
     }
 
     private func configureControls() {
+        configureFocusGesture()
+        configureFocusIndicator()
         configureCancelButton()
         configureShutterButton()
         configureActivityIndicator()
+    }
+
+    private func configureFocusGesture() {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(previewTapped(_:)))
+        gesture.cancelsTouchesInView = false
+        previewView.addGestureRecognizer(gesture)
+    }
+
+    private func configureFocusIndicator() {
+        focusIndicatorView.frame = CGRect(x: 0, y: 0, width: 76, height: 76)
+        focusIndicatorView.layer.borderWidth = 2
+        focusIndicatorView.layer.borderColor = UIColor.systemYellow.cgColor
+        focusIndicatorView.layer.cornerRadius = 6
+        focusIndicatorView.backgroundColor = .clear
+        focusIndicatorView.alpha = 0
+        focusIndicatorView.isUserInteractionEnabled = false
+        view.addSubview(focusIndicatorView)
     }
 
     private func configureCancelButton() {
@@ -192,6 +213,7 @@ final class MHBResponsiveCameraViewController: UIViewController {
         guard let device else {
             throw MHBResponsiveCameraError.cameraUnavailable
         }
+        videoDevice = device
 
         let input = try AVCaptureDeviceInput(device: device)
         guard captureSession.canAddInput(input) else {
@@ -242,6 +264,18 @@ final class MHBResponsiveCameraViewController: UIViewController {
     }
 
     @objc
+    private func previewTapped(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended else {
+            return
+        }
+
+        let layerPoint = gesture.location(in: previewView)
+        let devicePoint = previewView.videoPreviewLayer.captureDevicePointConverted(fromLayerPoint: layerPoint)
+        showFocusIndicator(at: layerPoint)
+        focusCamera(at: devicePoint)
+    }
+
+    @objc
     private func shutterButtonTapped() {
         shutterButton.isEnabled = false
 
@@ -268,6 +302,67 @@ final class MHBResponsiveCameraViewController: UIViewController {
         )
         photoCaptureDelegate = delegate
         photoOutput.capturePhoto(with: settings, delegate: delegate)
+    }
+
+    private func focusCamera(at devicePoint: CGPoint) {
+        sessionQueue.async { [weak self] in
+            guard let self,
+                  let device = self.videoDevice
+            else {
+                return
+            }
+
+            let configuration = MHBResponsiveCameraFocusConfiguration.make(
+                devicePoint: devicePoint,
+                isFocusPointOfInterestSupported: device.isFocusPointOfInterestSupported,
+                isAutoFocusSupported: device.isFocusModeSupported(.autoFocus),
+                isExposurePointOfInterestSupported: device.isExposurePointOfInterestSupported,
+                isAutoExposeSupported: device.isExposureModeSupported(.autoExpose)
+            )
+
+            guard let configuration else {
+                return
+            }
+
+            do {
+                try device.lockForConfiguration()
+                if let focusPoint = configuration.focusPoint,
+                   let focusMode = configuration.focusMode {
+                    device.focusPointOfInterest = focusPoint
+                    device.focusMode = focusMode
+                }
+                if let exposurePoint = configuration.exposurePoint,
+                   let exposureMode = configuration.exposureMode {
+                    device.exposurePointOfInterest = exposurePoint
+                    device.exposureMode = exposureMode
+                }
+                device.unlockForConfiguration()
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func showFocusIndicator(at layerPoint: CGPoint) {
+        focusIndicatorView.center = layerPoint
+        focusIndicatorView.transform = CGAffineTransform(scaleX: 1.35, y: 1.35)
+        focusIndicatorView.alpha = 1
+
+        UIView.animate(
+            withDuration: 0.18,
+            delay: 0,
+            options: [.beginFromCurrentState, .curveEaseOut]
+        ) {
+            self.focusIndicatorView.transform = .identity
+        } completion: { _ in
+            UIView.animate(
+                withDuration: 0.28,
+                delay: 0.42,
+                options: [.beginFromCurrentState, .curveEaseIn]
+            ) {
+                self.focusIndicatorView.alpha = 0
+            }
+        }
     }
 
     private func failAndDismiss(_ message: String) {
