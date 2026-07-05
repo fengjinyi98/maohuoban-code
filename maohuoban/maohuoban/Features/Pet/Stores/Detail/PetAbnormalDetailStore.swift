@@ -263,7 +263,8 @@ final class PetAbnormalDetailStore {
             title: entry.title,
             subtitle: progressSubtitle(for: entry),
             isCurrentRecord: entry.id == currentEventID,
-            attachmentAssetIDs: entry.eventPayload?.attachmentAssetIDs ?? []
+            attachmentAssetIDs: entry.eventPayload?.attachmentAssetIDs ?? [],
+            sourceLabel: PetRecordSourceLabel.title(for: entry.eventPayload?.source)
         )
     }
 

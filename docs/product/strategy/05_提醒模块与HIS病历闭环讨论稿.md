@@ -396,8 +396,8 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 2. 创建异常记录 | 异常事件结构、照片附件、时间线、详情读取和 Agent 异常事实引用已具备闭环 | 后续扩展更完整的异常详情页和 episode 状态展示 | 已验证能力具备 |
 | 3. abnormal_episode | episode 创建、状态更新、详情读取、事件关联和 Agent 只读事实工具已具备闭环 | 后续扩展 episode 状态页、追踪计划和分支策略展示 | 已验证能力具备 |
 | 4. Agent 主动追踪计划 | 已具备初始 proactive followup 表、异常创建后默认追踪计划、due_at 到期投影、追加/恢复/删除后的取消或 resolve 状态机 | 补齐 Agent skill 动态 planning、追加后重规划、真实 scheduler 后台任务 | 部分验证 |
-| 5. 异常更新入口 | 已具备站内轻提醒 actions payload、`更新情况` 自动弹追加 Sheet、`问问毛球` 携带 abnormal episode 上下文并复用同一 Agent 会话 | 补齐 Agent 聊天首屏异常卡片和写回事件的“毛球更新”UI 标签 | 部分验证 |
-| 6. 异常更新落库 | 用户手动追加和 Agent 确认写回均可写入 `health/symptom_followup`，并更新 episode 状态 | 补齐写回来源在异常详情、首页时间线、全部时间线的统一展示 | 部分验证 |
+| 5. 异常更新入口 | 已具备站内轻提醒 actions payload、`更新情况` 自动弹追加 Sheet、`问问毛球` 携带 abnormal episode 上下文并复用同一 Agent 会话；Agent 写回事件已在异常详情、首页时间线、全部时间线显示“毛球更新”标签 | 补齐 Agent 聊天首屏异常卡片 | 部分验证 |
+| 6. 异常更新落库 | 用户手动追加和 Agent 确认写回均可写入 `health/symptom_followup`，并更新 episode 状态；Agent 来源通过 `event_payload.source=agent_assisted_followup` 和首页 `source_label` 进入前端展示 | 后续补齐 Agent 追加后的动态重规划 | 部分验证 |
 | 7. Agent 追问 | 异常事件/episode 事实读取已打通；异常轻提醒进入 Agent 会话的上下文和同 episode 会话复用已打通；用户确认写回 `symptom_followup` 已打通；后台动态 planning、首条主动追问仍待实现 | 只能基于结构化事实和用户文字追问，不解析照片 | 部分验证 |
 | 8. 好转分支 | 待实现 | 降低追踪频率、确认恢复、关闭 episode、保留时间线事实 | 未开始 |
 | 9. 持续分支 | 待实现 | 按节奏继续提醒，追问缺失事实，超过窗口进入就医建议 | 未开始 |
@@ -486,8 +486,9 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 同 episode 会话复用 | 已具备 | `find_active_abnormal_episode_session` 让同一 abnormal episode 的第二轮轻提醒进入同一 AI session；合同测试 `abnormal_followup_entry_reuses_same_agent_session_and_context` 已通过 |
 | 同 Agent 上下文复用 | 已具备 | 后端 `ChatTurnContext` 从已复用 session 合并 `chat_context_kind/abnormal_episode_id/source_hint_id/agent_followup_id`，并注入 Runtime `AiToolContext.observation_write_context`；第二轮只带 `chat_session_id` 时写入工具仍能拿到 episode 上下文 |
 | Agent 确认写回 | 已具备 | `prepare_pet_observation_write` 在 `abnormal_episode_followup` 上下文中创建 `symptom_followup` 确认任务，用户确认后 `commit_pet_observation_write` 写入带 `episode_id/source/agent_followup_id` 的 `pet_events.health/symptom_followup`；合同测试 `abnormal_followup_agent_confirmed_write_keeps_episode_context` 已通过 |
+| Agent 写回来源标签 | 已具备 | 后端首页摘要对 `event_payload.source=agent_assisted_followup` 输出 `source_label=毛球更新`；iOS 异常详情、首页时间线、全部时间线均展示“毛球更新”；合同测试 `home_dashboard_followup_timeline_routes_to_parent_abnormal_event` 和 iOS `HomeDashboardDecodingTests` 已通过 |
 
-当前仍未完成的是 Agent skill 的动态 planning、Agent 聊天首屏异常卡片，以及写回事件在异常详情、首页时间线、全部时间线显示“毛球更新”标签。
+当前仍未完成的是 Agent skill 的动态 planning、追加后重规划、真实 scheduler 后台任务，以及 Agent 聊天首屏异常卡片。
 
 #### 5.3.1 目标边界
 

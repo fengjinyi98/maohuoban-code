@@ -10,7 +10,8 @@ final class PendingAIAssistantRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { _ in }
     }

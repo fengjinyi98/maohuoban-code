@@ -53,6 +53,7 @@ struct PetAbnormalRecordDetailPresentation {
         let subtitle: String
         let isCurrentRecord: Bool
         let attachmentAssetIDs: [String]
+        let sourceLabel: String?
 
         init(
             id: String,
@@ -61,7 +62,8 @@ struct PetAbnormalRecordDetailPresentation {
             title: String,
             subtitle: String,
             isCurrentRecord: Bool,
-            attachmentAssetIDs: [String] = []
+            attachmentAssetIDs: [String] = [],
+            sourceLabel: String? = nil
         ) {
             self.id = id
             self.timeText = timeText
@@ -70,6 +72,7 @@ struct PetAbnormalRecordDetailPresentation {
             self.subtitle = subtitle
             self.isCurrentRecord = isCurrentRecord
             self.attachmentAssetIDs = attachmentAssetIDs
+            self.sourceLabel = sourceLabel
         }
     }
 }

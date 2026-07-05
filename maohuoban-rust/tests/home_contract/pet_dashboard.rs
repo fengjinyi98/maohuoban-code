@@ -135,7 +135,8 @@ async fn home_dashboard_followup_timeline_routes_to_parent_abnormal_event() {
                 "occurred_at": "2026-06-27T13:00:00Z",
                 "event_payload": {
                     "episode_id": episode_id,
-                    "note": "精神一般"
+                    "note": "精神一般",
+                    "source": "agent_assisted_followup"
                 }
             }),
             Some(&user_id),
@@ -154,6 +155,7 @@ async fn home_dashboard_followup_timeline_routes_to_parent_abnormal_event() {
 
     assert_eq!(first_timeline["id"], followup_event_id);
     assert_eq!(first_timeline["route_event_id"], abnormal_event_id);
+    assert_eq!(first_timeline["source_label"], "毛球更新");
 }
 
 #[tokio::test]

@@ -10,7 +10,8 @@ final class FailingAIAssistantRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             continuation.finish(throwing: MHBAPIError.business(

@@ -14,6 +14,7 @@ struct PetEventDetailPayload: Decodable, Equatable {
     let severity: String?
     let symptomDetails: [String]?
     let note: String?
+    let source: String?
     let episodeID: String?
     let attachmentAssetIDs: [String]?
     let name: String?
@@ -55,6 +56,7 @@ struct PetEventDetailPayload: Decodable, Equatable {
         case severity
         case symptomDetails = "symptom_details"
         case note
+        case source
         case episodeID = "episode_id"
         case attachmentAssetIDs = "attachment_asset_ids"
         case name
@@ -75,6 +77,7 @@ struct PetEventDetailPayload: Decodable, Equatable {
         severity: String? = nil,
         symptomDetails: [String]? = nil,
         note: String? = nil,
+        source: String? = nil,
         episodeID: String? = nil,
         attachmentAssetIDs: [String]? = nil,
         name: String? = nil,
@@ -93,6 +96,7 @@ struct PetEventDetailPayload: Decodable, Equatable {
         self.severity = severity
         self.symptomDetails = symptomDetails
         self.note = note
+        self.source = source
         self.episodeID = episodeID
         self.attachmentAssetIDs = attachmentAssetIDs
         self.name = name
@@ -114,6 +118,7 @@ struct PetEventDetailPayload: Decodable, Equatable {
         severity = try container.decodeIfPresent(String.self, forKey: .severity)
         symptomDetails = try container.decodeIfPresent([String].self, forKey: .symptomDetails)
         note = try container.decodeIfPresent(String.self, forKey: .note)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
         episodeID = try container.decodeIfPresent(String.self, forKey: .episodeID)
         attachmentAssetIDs = try container.decodeIfPresent([String].self, forKey: .attachmentAssetIDs)
         name = try container.decodeIfPresent(String.self, forKey: .name)

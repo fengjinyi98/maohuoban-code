@@ -99,6 +99,8 @@ pub struct HomeTimelineEvent {
     pub occurred_text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub occurred_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_label: Option<String>,
 }
 
 /// HomeTimelineEventKind 首页事件类型

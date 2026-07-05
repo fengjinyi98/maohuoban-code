@@ -20,6 +20,7 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
             .unwrap_or_else(|| "已记录到可信档案".to_owned()),
         occurred_text: event.occurred_at.format("%Y-%m-%d").to_string(),
         occurred_at: Some(event.occurred_at),
+        source_label: home_timeline_source_label(&event.event_payload),
     }
 }
 
@@ -39,6 +40,7 @@ pub(crate) fn timeline_entry_summary(entry: &PetTimelineEntry) -> HomeTimelineEv
             .unwrap_or_else(|| "已记录到可信档案".to_owned()),
         occurred_text: entry.occurred_at.format("%Y-%m-%d").to_string(),
         occurred_at: Some(entry.occurred_at),
+        source_label: home_timeline_source_label(&entry.event_payload),
     }
 }
 
@@ -75,6 +77,13 @@ fn event_payload_text(event: &PetEvent, key: &str) -> Option<String> {
         .as_str()
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn home_timeline_source_label(payload: &serde_json::Value) -> Option<String> {
+    match payload.get("source").and_then(serde_json::Value::as_str) {
+        Some("agent_assisted_followup") => Some("毛球更新".to_owned()),
+        _ => None,
+    }
 }
 
 fn reminder_projection_from_event(event: &PetEvent) -> Option<HomeReminderProjection> {

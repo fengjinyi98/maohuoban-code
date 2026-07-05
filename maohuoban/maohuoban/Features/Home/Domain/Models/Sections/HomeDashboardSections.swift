@@ -132,6 +132,7 @@ extension HomeDashboardSnapshot {
         let subtitle: String
         let occurredText: String
         let occurredAt: String?
+        let sourceLabel: String?
 
         // init 构造首页时间线事件
         // 核心职责：
@@ -144,7 +145,8 @@ extension HomeDashboardSnapshot {
             title: String,
             subtitle: String,
             occurredText: String,
-            occurredAt: String?
+            occurredAt: String?,
+            sourceLabel: String? = nil
         ) {
             self.id = id
             self.routeEventID = routeEventID
@@ -153,6 +155,7 @@ extension HomeDashboardSnapshot {
             self.subtitle = subtitle
             self.occurredText = occurredText
             self.occurredAt = occurredAt
+            self.sourceLabel = sourceLabel
         }
 
         enum CodingKeys: String, CodingKey {
@@ -163,6 +166,7 @@ extension HomeDashboardSnapshot {
             case subtitle
             case occurredText = "occurred_text"
             case occurredAt = "occurred_at"
+            case sourceLabel = "source_label"
         }
 
         enum Kind: String, Decodable, Equatable {

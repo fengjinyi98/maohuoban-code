@@ -134,12 +134,21 @@ private struct HomeTimelineRow: View {
 
             // 4. 事件文字信息
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                HStack(spacing: MHBTheme.Spacing.s2) {
+                    Text(event.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+
+                    if let sourceLabel = event.sourceLabel {
+                        HomeTimelineSourceLabelView(title: sourceLabel)
+                    }
+                }
+
                 Text(event.subtitle)
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
             }
             .layoutPriority(1)
 
@@ -249,6 +258,24 @@ private struct HomeTimelineRow: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(0.3))
         }
+    }
+}
+
+// HomeTimelineSourceLabelView 首页时间线来源标签
+// 核心职责：
+// - 展示由后端摘要透出的记录来源短标签
+// - 保持时间线行紧凑，不改变行级路由语义
+private struct HomeTimelineSourceLabelView: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+            .padding(.horizontal, MHBTheme.Spacing.s2)
+            .frame(height: 18)
+            .background(MHBTheme.ColorToken.primary.color.opacity(0.16), in: Capsule())
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 

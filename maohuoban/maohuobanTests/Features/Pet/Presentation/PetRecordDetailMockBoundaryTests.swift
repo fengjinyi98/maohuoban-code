@@ -89,7 +89,7 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
 
         guard case .petRecordDetail(let detailRoute) = route,
-              case .abnormal(let recordID, let highlightedRecordID, let routeContext) = detailRoute else {
+              case .abnormal(let recordID, let highlightedRecordID, let routeContext, _) = detailRoute else {
             XCTFail("Expected abnormal event to route to abnormal detail")
             return
         }
@@ -114,7 +114,7 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
 
         guard case .petRecordDetail(let detailRoute) = route,
-              case .abnormal(let recordID, let highlightedRecordID, let routeContext) = detailRoute else {
+              case .abnormal(let recordID, let highlightedRecordID, let routeContext, _) = detailRoute else {
             XCTFail("Expected observation followup to route to abnormal detail")
             return
         }

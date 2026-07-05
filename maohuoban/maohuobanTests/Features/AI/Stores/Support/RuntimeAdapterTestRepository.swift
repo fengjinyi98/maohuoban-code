@@ -16,7 +16,8 @@ final class RuntimeAdapterTestRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             for event in streamEvents {

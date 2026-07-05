@@ -80,6 +80,10 @@ private struct PetAbnormalRecordProgressRow: View {
                             .padding(.vertical, MHBTheme.Spacing.s1 / 2)
                             .background(record.kind.tint.opacity(0.12), in: Capsule())
                     }
+
+                    if let sourceLabel = record.sourceLabel {
+                        PetAbnormalRecordSourceLabelView(title: sourceLabel)
+                    }
                 }
 
                 Text(record.subtitle)
@@ -103,6 +107,24 @@ private struct PetAbnormalRecordProgressRow: View {
             .padding(.top, 8)
             .padding(.bottom, MHBTheme.Spacing.s4)
         }
+    }
+}
+
+// PetAbnormalRecordSourceLabelView 异常进展来源标签
+// 核心职责：
+// - 标识由 Agent 确认写回的异常追加观察
+// - 让来源信息跟随对应进展记录展示
+private struct PetAbnormalRecordSourceLabelView: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+            .padding(.horizontal, MHBTheme.Spacing.s2)
+            .padding(.vertical, MHBTheme.Spacing.s1 / 2)
+            .background(MHBTheme.ColorToken.primary.color.opacity(0.12), in: Capsule())
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 

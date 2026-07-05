@@ -407,6 +407,10 @@ private struct PetRecordHistoryRow: View {
                         .padding(.horizontal, MHBTheme.Spacing.s2)
                         .frame(height: 20)
                         .background(record.tint.opacity(0.10), in: Capsule())
+
+                    if let sourceLabel = record.sourceLabel {
+                        PetRecordHistorySourceLabelView(title: sourceLabel)
+                    }
                 }
 
                 Text(record.subtitle)
@@ -425,6 +429,24 @@ private struct PetRecordHistoryRow: View {
         .background(MHBTheme.ColorToken.cardSolid.color)
         .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
         .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.03), radius: 14, y: 3)
+    }
+}
+
+// PetRecordHistorySourceLabelView 完整记录列表来源标签
+// 核心职责：
+// - 展示 Agent 写回记录的来源标识
+// - 保持历史列表行标题区的紧凑信息密度
+private struct PetRecordHistorySourceLabelView: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(MHBTheme.ColorToken.primary.color)
+            .padding(.horizontal, MHBTheme.Spacing.s2)
+            .frame(height: 20)
+            .background(MHBTheme.ColorToken.primary.color.opacity(0.10), in: Capsule())
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 

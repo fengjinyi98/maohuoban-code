@@ -22,6 +22,7 @@ enum PetRecordHistoryItemMapper {
             title: entry.title,
             subtitle: entry.summary ?? "已记录到可信档案",
             kindText: semantic.kindText,
+            sourceLabel: PetRecordSourceLabel.title(for: entry.eventPayload?.source),
             systemImage: semantic.systemImage,
             tint: semantic.tint,
             route: entry.source == .event ? semantic.route(recordID: entry.id, context: context) : nil
