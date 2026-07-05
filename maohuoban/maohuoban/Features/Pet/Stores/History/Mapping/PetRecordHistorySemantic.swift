@@ -136,6 +136,12 @@ struct PetRecordHistorySemantic {
         if entry.kind == .health, entry.subkind == "deworming" {
             return .deworming
         }
+        if entry.kind == .health, entry.subkind == "symptom_followup" {
+            return .abnormal
+        }
+        if entry.kind == .health, entry.subkind == "abnormal_recovery" {
+            return .abnormal
+        }
 
         return inferredSemantic
     }
@@ -147,6 +153,9 @@ struct PetRecordHistorySemantic {
             return .feeding
         }
         if entry.kind == .health, combinedText.contains("异常") {
+            return .abnormal
+        }
+        if entry.kind == .health, combinedText.contains("追加观察") {
             return .abnormal
         }
         if entry.kind == .health, combinedText.contains("就诊") || combinedText.contains("医院") {

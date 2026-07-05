@@ -246,7 +246,8 @@ final class PetAbnormalDetailStore {
             kind: .abnormal,
             title: event.title,
             subtitle: event.summary ?? "异常记录",
-            isCurrentRecord: true
+            isCurrentRecord: true,
+            attachmentAssetIDs: event.eventPayload?.attachmentAssetIDs ?? []
         )
     }
 
@@ -261,7 +262,8 @@ final class PetAbnormalDetailStore {
             kind: kind,
             title: entry.title,
             subtitle: progressSubtitle(for: entry),
-            isCurrentRecord: entry.id == currentEventID
+            isCurrentRecord: entry.id == currentEventID,
+            attachmentAssetIDs: entry.eventPayload?.attachmentAssetIDs ?? []
         )
     }
 

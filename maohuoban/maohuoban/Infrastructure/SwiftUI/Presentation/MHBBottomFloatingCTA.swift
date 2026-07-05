@@ -36,7 +36,7 @@ struct MHBBottomFloatingCTA<Route: Hashable>: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.bottom, MHBTheme.Spacing.s5 + bottomInset)
+        .padding(.bottom, MHBTheme.Spacing.s5 + MHBBottomFloatingCTAInsetResolver.effectiveBottomInset(geometryBottomInset: bottomInset))
     }
     
     @ViewBuilder
@@ -102,6 +102,20 @@ struct MHBBottomFloatingActionCTA: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, MHBTheme.Spacing.s4)
-        .padding(.bottom, MHBTheme.Spacing.s5 + bottomInset)
+        .padding(.bottom, MHBTheme.Spacing.s5 + MHBBottomFloatingCTAInsetResolver.effectiveBottomInset(geometryBottomInset: bottomInset))
+    }
+}
+
+// MHBBottomFloatingCTAInsetResolver 底部悬浮按钮安全区解析
+// 核心职责：
+// - 过滤 SwiftUI 键盘避让写入 GeometryProxy.safeAreaInsets.bottom 的键盘高度
+// - 保留设备底部安全区和小型输入辅助栏带来的有效底部间距
+enum MHBBottomFloatingCTAInsetResolver {
+    nonisolated static func effectiveBottomInset(geometryBottomInset: CGFloat) -> CGFloat {
+        let keyboardInsetThreshold: CGFloat = 120
+        guard geometryBottomInset < keyboardInsetThreshold else {
+            return 0
+        }
+        return max(0, geometryBottomInset)
     }
 }

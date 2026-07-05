@@ -7,14 +7,11 @@ import MaohuobanDesignSystem
 // - 避免多个 sheet 状态在同一页面互相抢占
 enum PetAbnormalRecordDetailSheet: Identifiable {
     case action(PetAbnormalRecordDetailAction)
-    case relatedRecord(PetAbnormalRecordDetailPresentation.RelatedRecord)
 
     var id: String {
         switch self {
         case .action(let action):
             "action-\(action.id)"
-        case .relatedRecord(let record):
-            "related-\(record.id)"
         }
     }
 }

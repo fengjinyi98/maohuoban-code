@@ -52,5 +52,24 @@ struct PetAbnormalRecordDetailPresentation {
         let title: String
         let subtitle: String
         let isCurrentRecord: Bool
+        let attachmentAssetIDs: [String]
+
+        init(
+            id: String,
+            timeText: String,
+            kind: Kind,
+            title: String,
+            subtitle: String,
+            isCurrentRecord: Bool,
+            attachmentAssetIDs: [String] = []
+        ) {
+            self.id = id
+            self.timeText = timeText
+            self.kind = kind
+            self.title = title
+            self.subtitle = subtitle
+            self.isCurrentRecord = isCurrentRecord
+            self.attachmentAssetIDs = attachmentAssetIDs
+        }
     }
 }

@@ -7,7 +7,6 @@ import MaohuobanDesignSystem
 // - 用时间线串联异常、观察、就诊和恢复记录
 struct PetAbnormalRecordProgressSection: View {
     let records: [PetAbnormalRecordDetailPresentation.RelatedRecord]
-    let onOpenRecord: (PetAbnormalRecordDetailPresentation.RelatedRecord) -> Void
 
     var body: some View {
         PetAbnormalRecordDetailSection(title: "进展时间线") {
@@ -16,16 +15,11 @@ struct PetAbnormalRecordProgressSection: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(records.enumerated()), id: \.element.id) { index, record in
-                        Button {
-                            onOpenRecord(record)
-                        } label: {
-                            PetAbnormalRecordProgressRow(
-                                record: record,
-                                isFirst: index == 0,
-                                isLast: index == records.count - 1
-                            )
-                        }
-                        .buttonStyle(.plain)
+                        PetAbnormalRecordProgressRow(
+                            record: record,
+                            isFirst: index == 0,
+                            isLast: index == records.count - 1
+                        )
                     }
                 }
             }
@@ -77,19 +71,20 @@ private struct PetAbnormalRecordProgressRow: View {
                     .font(MHBTheme.Typography.caption)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if !record.attachmentAssetIDs.isEmpty {
+                    PetEventAttachmentDisplayGallery(
+                        assetIDs: record.attachmentAssetIDs,
+                        thumbnailSize: 64
+                    )
+                    .padding(.top, MHBTheme.Spacing.s2)
+                }
             }
             .padding(.top, 16)
             .padding(.bottom, MHBTheme.Spacing.s5)
 
             Spacer(minLength: MHBTheme.Spacing.s2)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
-                .padding(.top, 20)
-                .padding(.trailing, MHBTheme.Spacing.s2)
         }
-        .contentShape(Rectangle())
     }
 }
 
@@ -221,4 +216,3 @@ private struct PetAbnormalRecordEpisodeActionRow: View {
 // 核心职责：
 // - 承载追加观察和标记恢复的表单输入
 // - 通过 PetAbnormalDetailStore 提交真实事件
-

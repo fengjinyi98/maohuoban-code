@@ -98,6 +98,29 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         XCTAssertEqual(detailRoute.id, "abnormal-abnormal-event-1")
     }
 
+    func testTimelineResolverRoutesObservationFollowupToAbnormalDetail() {
+        let event = HomeDashboardSnapshot.TimelineEvent(
+            id: "followup-event-1",
+            eventKind: .health,
+            title: "追加观察",
+            subtitle: "精神一般",
+            occurredText: "20:45",
+            occurredAt: "2026-07-04T12:45:00Z"
+        )
+        let context = Self.makeRecordContext()
+
+        let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
+
+        guard case .petRecordDetail(let detailRoute) = route,
+              case .abnormal(let recordID, let routeContext) = detailRoute else {
+            XCTFail("Expected observation followup to route to abnormal detail")
+            return
+        }
+        XCTAssertEqual(recordID, "followup-event-1")
+        XCTAssertEqual(routeContext, context)
+        XCTAssertEqual(detailRoute.id, "abnormal-followup-event-1")
+    }
+
     func testRecordDetailDestinationAcceptsBackendEventRoutesAtCompileTime() {
         let context = Self.makeRecordContext()
 

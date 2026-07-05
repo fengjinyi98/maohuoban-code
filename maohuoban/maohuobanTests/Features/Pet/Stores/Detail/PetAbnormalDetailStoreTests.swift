@@ -50,7 +50,8 @@ final class PetAbnormalDetailStoreTests: XCTestCase {
                             source: .event,
                             eventPayload: PetEventDetailPayload(
                                 note: "精神一般",
-                                episodeID: "episode-1"
+                                episodeID: "episode-1",
+                                attachmentAssetIDs: ["asset-1", "asset-2"]
                             )
                         ),
                         PetTimelineEntry(
@@ -95,6 +96,7 @@ final class PetAbnormalDetailStoreTests: XCTestCase {
         XCTAssertNotEqual(followupRecord.timeText, "2026-07-05T12:00:00Z")
         XCTAssertEqual(followupRecord.kind, .observation)
         XCTAssertEqual(followupRecord.subtitle, "精神一般")
+        XCTAssertEqual(followupRecord.attachmentAssetIDs, ["asset-1", "asset-2"])
     }
 
     func testAddObservationIncludesAttachmentAssetIDs() async {

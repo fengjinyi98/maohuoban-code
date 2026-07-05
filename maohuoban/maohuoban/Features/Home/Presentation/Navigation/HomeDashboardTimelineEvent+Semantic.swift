@@ -28,6 +28,10 @@ extension HomeDashboardSnapshot.TimelineEvent {
             return .abnormal
         }
 
+        if eventKind == .health && combinedText.contains("追加观察") {
+            return .abnormal
+        }
+
         if eventKind == .health && (combinedText.contains("就诊") || combinedText.contains("医院")) {
             return .clinicVisit
         }

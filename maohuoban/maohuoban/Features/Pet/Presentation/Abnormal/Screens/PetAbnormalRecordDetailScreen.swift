@@ -87,8 +87,6 @@ struct PetAbnormalRecordDetailScreen: View {
                     petID: currentPetID,
                     currentUserID: currentUserID
                 )
-            case .relatedRecord(let record):
-                PetAbnormalRecordRelatedRecordSheet(record: record)
             }
         }
         .onChange(of: store.actionPhase) { _, newValue in
@@ -212,8 +210,7 @@ private struct PetAbnormalDetailContentView: View {
             }
 
             PetAbnormalRecordProgressSection(
-                records: store.progressRecords,
-                onOpenRecord: { _ in }
+                records: store.progressRecords
             )
 
             PetAbnormalRecordEpisodeActions(

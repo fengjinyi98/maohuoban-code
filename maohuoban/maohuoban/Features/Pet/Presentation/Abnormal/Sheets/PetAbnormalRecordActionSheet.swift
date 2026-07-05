@@ -18,6 +18,7 @@ struct PetAbnormalRecordActionSheet: View {
     let currentUserID: String?
     @State private var attachmentStore = PetEventAttachmentUploadStore()
     @State private var isPhotoPickerPresented = false
+    @State private var selectedPresentationDetent: PresentationDetent = .large
 
     var body: some View {
         NavigationStack {
@@ -88,7 +89,7 @@ struct PetAbnormalRecordActionSheet: View {
                         onClose: { dismiss() }
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s4)
-                    .padding(.top, MHBTheme.Spacing.s4)
+                    .padding(.top, Self.topChromeTopPadding)
                     .zIndex(3)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
@@ -98,7 +99,7 @@ struct PetAbnormalRecordActionSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
         }
-        .presentationDetents([.large])
+        .presentationDetents([.large], selection: $selectedPresentationDetent)
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(24)
         .interactiveDismissDisabled(store.isSubmitting)
@@ -120,7 +121,15 @@ struct PetAbnormalRecordActionSheet: View {
     }
 
     private var topContentPadding: CGFloat {
-        MHBTheme.Spacing.s8 + MHBTheme.Spacing.s5
+        Self.topChromeTopPadding + Self.topChromeHeight + MHBTheme.Spacing.s5
+    }
+
+    private static var topChromeTopPadding: CGFloat {
+        MHBTheme.Spacing.s4
+    }
+
+    private static var topChromeHeight: CGFloat {
+        48
     }
 
     private var submitTitle: String {
@@ -303,60 +312,5 @@ struct PetAbnormalActionFormField: View {
                 .font(MHBTheme.Typography.callout)
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
         }
-    }
-}
-
-// PetAbnormalRecordRelatedRecordSheet 异常事件关联记录预览
-// 核心职责：
-// - 在快速 UI 阶段展示关联记录点击后的目标形态
-// - 后续接入真实详情页后替换为对应记录路由
-struct PetAbnormalRecordRelatedRecordSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let record: PetAbnormalRecordDetailPresentation.RelatedRecord
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                Image(systemName: record.kind.systemImage)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(record.kind.tint)
-                    .frame(width: 64, height: 64)
-                    .background(record.kind.tint.opacity(0.10), in: Circle())
-
-                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                    Text(record.title)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-
-                    Text(record.timeText)
-                        .font(MHBTheme.Typography.caption)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-
-                    Text(record.subtitle)
-                        .font(MHBTheme.Typography.callout)
-                        .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                Button("关闭") {
-                    dismiss()
-                }
-                .font(MHBTheme.Typography.callout.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(MHBTheme.ColorToken.primary.color, in: Capsule())
-                .buttonStyle(.plain)
-            }
-            .padding(MHBTheme.Spacing.s5)
-            .background(MHBTheme.ColorToken.background.color)
-            .navigationTitle(record.kind.title)
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
     }
 }
