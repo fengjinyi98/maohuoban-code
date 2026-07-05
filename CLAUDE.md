@@ -74,11 +74,13 @@
 
 1. 新代码必须落在职责明确的子目录里。
 2. 任何文件都不能直接散落在业务根目录。
-3. 一个类型优先一个文件。
-4. 一个文件只承担一个主要职责。
-5. Swift 文件建议控制在 250 行以内，超过 400 行必须拆分或给出明确理由。
-6. Rust 文件建议控制在 300 行以内，超过 500 行必须拆分或给出明确理由。
-7. 新目录命名必须表达架构职责，例如 `Domain`、`Data`、`Presentation`、`Stores`、`Services`、`Infrastructure`、`Theme`。
+3. 任意目录直接平铺的代码文件最多 3 个；超过 3 个时，必须继续拆入职责明确的子目录。入口聚合文件、测试支撑文件需要保留时，必须在审计文档或同目录 README 中说明豁免理由。
+4. 一个类型优先一个文件。
+5. 一个文件只承担一个主要职责。
+6. Swift 文件建议控制在 250 行以内，超过 400 行必须拆分或给出明确理由。
+7. Rust 文件建议控制在 300 行以内，超过 500 行必须拆分或给出明确理由。
+8. 新目录命名必须表达架构职责，例如 `Domain`、`Data`、`Presentation`、`Stores`、`Services`、`Infrastructure`、`Theme`。
+9. 当前 iOS 工程使用 Xcode 文件系统同步组（`PBXFileSystemSynchronizedRootGroup`）；新增到 `maohuoban/maohuoban` 同步目录下的 Swift 文件会自动纳入 App target，默认不需要检查或手动修改 `.xcodeproj/project.pbxproj`。只有编译明确提示文件未纳入 target、同步目录配置发生变化，或新增文件位于同步目录外时，再检查 Xcode 工程配置。
 
 ## 5. iOS 架构规则
 
@@ -92,6 +94,15 @@
 8. Feature 之间通过稳定模型、协议或路由交互。
 9. 禁止 Feature 之间形成循环依赖。
 
+### 5.1 编辑态页面复用规则
+
+1. 遇到“添加 / 编辑同一业务对象”的页面需求时，必须优先评估复用同一个表单页面的可行性。
+2. 推荐方案是使用显式入口模式，例如 `FormMode.create` / `FormMode.edit(existingModel)`，由 mode 提供标题、初始草稿、已有媒资、保存按钮文案和提交语义。
+3. 添加态和编辑态的 UI 结构、输入控件、校验、媒资选择和上传流程应尽量共用；差异只通过 mode、draft 初始值、toolbar 文案和保存命令表达。
+4. 保存数据流保持单向：路由携带 mode -> 页面初始化 draft -> 用户事件更新 draft -> ViewModel / Store 根据 mode 调用 create 或 update。
+5. 禁止在可复用的场景下为了编辑态新造一个几乎相同的页面、sheet 或本地 `NavigationStack`。只有编辑态存在明显不同的流程、权限、布局或生命周期约束时，才允许拆成独立页面，并需要在代码注释或测试命名中说明边界。
+6. 媒资选择类字段强制遵循现有头像、背景等即时上传模式：用户选择媒资成功后必须立即上传，并在拿到后端返回的资产 ID / URL 后写入 draft 或状态；点击保存时只允许提交后端契约需要的 ID / URL 字段，禁止在保存动作里才开始上传图片、视频或附件。
+
 ## 6. SwiftUI 数据流规则
 
 1. 共享可观察状态使用 `@Observable`。
@@ -103,6 +114,10 @@
 7. 副作用只能在用户事件、`task`、`onAppear`、ViewModel / Store 命令式入口触发。
 8. SwiftUI 渲染路径禁止写 `UserDefaults`、磁盘、数据库、缓存、全局状态或发网络请求。
 9. 普通页面纵向滚动容器统一使用 `Infrastructure/SwiftUI/MHBScreenScrollView`，避免业务页面直接散写原生 `ScrollView`；横向分页、嵌套局部滚动、特殊沉浸式首屏和 UIKit 桥接滚动场景需说明边界后再使用专门容器。
+10. 列表页与详情页共享同一业务对象时，列表 Store / 上层路由状态必须是该导航链路的单一状态源；详情页完成删除、编辑、恢复、发布等后端 mutation 后，必须通过显式回调、绑定或共享 Store 把变更提交回该状态源。
+11. 保持滚动位置、避免生命周期重复加载、避免闪烁等 UI 状态修复，不能通过阻断业务数据变更传播实现；如果跳过同上下文自动加载，必须同时设计 mutation 后的状态失效、局部删除 / 更新或显式刷新通道。
+12. 删除记录的闭环要求：后端删除成功 -> 详情 Store 进入删除态 -> 上层状态源接收被删除 ID -> 列表 Store 从已加载列表移除对应 row -> 相关聚合数据按业务需要刷新。禁止只 `dismiss()` 详情页后依赖返回时碰巧重拉数据。
+13. Observation 只能让已被观察的状态变更驱动刷新；如果没有写入被列表读取的 `@Observable` 属性、`@State` 输入或绑定，UI 不会凭后端状态自动变化。遇到“删除后旧 row 还在”这类问题，优先检查状态源是否被写入。
 
 ## 7. UIKit 使用规则
 
@@ -137,6 +152,16 @@
 9. 公共能力进入共享 crate，业务能力进入对应业务 crate。
 10. 跨业务域调用必须通过 application 端口或明确的共享模型，禁止直接读取其他业务域的 infrastructure。
 
+### 9.1 Agent 底层重构纪律
+
+1. AI / Agent Runtime 开发阶段禁止写任何兼容旧模式、旧协议、旧 engine、旧 prompt、旧 SSE 事件、旧 tool schema 的兜底逻辑。
+2. 禁止用 fallback、best-effort、legacy adapter、dual path、silent migration、auto-downgrade 掩盖底层契约缺陷；发现契约缺失时补 domain 类型、端口、合同测试和失败诊断。
+3. 底层重构以自研 Agent 核心为目标，按 `domain -> runtime -> provider -> context -> tool -> finalizer -> http` 分层推进，每层只能依赖下层稳定契约。
+4. 底层单元必须先写失败测试再实现，domain / runtime / provider / context / tool / finalizer 的边界测试必须稳定后再接上层联调。
+5. 上层 UI、真机体验、SSE 展示可以后置联调；底层模型协议、上下文组装、工具调用、事实投影、输出终止条件必须在单元测试和合同测试中闭环。
+6. Provider 差异必须进入显式能力模型，例如上下文长度、reasoning 字段、tool-call delta、stream 格式和错误分类；禁止在调用现场散写模型专用分支。
+7. 临时调试打印只能用于定位当前问题，必须带固定诊断标识、覆盖请求正文和上游响应边界；问题确认后按用户确认清理。
+
 ## 10. 前后端联调规则
 
 1. 每个联调问题必须先判断归属。
@@ -145,6 +170,19 @@
 4. 契约错位需要同步修正接口文档、DTO、Mapper 和测试。
 5. 前端不得为后端真实问题长期写兼容补丁。
 6. 后端不得为前端渲染错误偷换字段语义。
+7. 禁止写无意义 fallback、无边界兼容代码、默认 mock 数据或默认身份掩盖真实数据流错误。
+8. 遇到缺参、缺上下文、缺后端字段、路由错位、状态割裂时，必须先判断是工程契约问题、调用写法问题、业务代码问题还是后端接口问题，再在归属层修正。
+9. 兼容逻辑只有在明确存在外部历史数据、平台差异或迁移窗口时才允许出现，并且必须具备清晰输入边界、测试覆盖、失败诊断和退出条件。
+10. 记录详情、宠物身份、用户身份、后端事件 ID 等关键上下文缺失时，入口层应阻断或展示真实错误态；禁止在详情页内部伪造“当前宠物”、默认 ID、默认头像或本地 mock 记录。
+
+### 10.1 开发阶段契约收敛规则
+
+1. 开发阶段未进入正式迁移窗口的字段契约调整，默认不兼容历史输入、历史字段和旧客户端请求。
+2. 字段语义变更必须选定单一数据源；后端不得同时长期接受旧字段和新字段表达同一事实。
+3. 派生字段只能由权威原始字段统一生成。示例：储物柜食品以 `production_date + shelf_life_months` 为原始事实，`expiry_date` 只能由后端派生，客户端不得直接提交 `expiry_date`。
+4. 数据库应保存用户输入的原始事实和必要派生结果；禁止只保存派生结果导致编辑回显、审计和业务解释丢失来源。
+5. 遇到缺少权威字段的开发数据，应通过清库、重建或显式补数据处理；禁止在业务代码里写 fallback、默认值、静默兼容或双路径读取掩盖契约错误。
+6. 合同测试必须覆盖权威字段入库、派生字段生成和旧字段拒绝或失效的边界。
 
 ## 11. 注释规则
 
@@ -172,8 +210,8 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 | 变更 | 必须验证 |
 |---|---|
-| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build` |
-| DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug test` |
+| iOS App 代码 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` 后执行 `xcrun devicectl device install app --device <当前连接真机设备ID> ~/Library/Developer/Xcode/DerivedData/maohuoban-*/Build/Products/Debug-iphoneos/maohuoban.app` |
+| DesignSystem | `xcodebuild -scheme MaohuobanDesignSystem -destination 'id=<当前连接真机设备ID>' -configuration Debug test` |
 | Rust 格式 | `cargo fmt --all --check` |
 | Rust 编译 | `cargo check --workspace --all-targets` |
 | Rust 后端 | `cargo test --workspace` |
@@ -183,17 +221,28 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 ### 12.1 iOS 测试执行与 XCTestDevices 控制
 
-1. 日常 iOS App 代码验证默认执行 Debug 构建：`xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' -configuration Debug build`。
+1. 日常 iOS App 代码验证默认执行真机 Debug 安装：先执行 `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build`，再执行 `xcrun devicectl device install app --device <当前连接真机设备ID> ~/Library/Developer/Xcode/DerivedData/maohuoban-*/Build/Products/Debug-iphoneos/maohuoban.app`。
 2. `xcodebuild test`、`build-for-testing`、UI Test 仅用于测试覆盖、业务规则回归、端到端交互验证或用户明确要求测试的场景。
 3. 运行测试时必须使用 `-only-testing` 限定最小 target / case 范围，避免全量测试生成大量 XCTest 专用模拟器克隆。
-4. DesignSystem 仅样式或视觉调整时执行 App Debug 构建；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
+4. DesignSystem 仅样式或视觉调整时执行 App Debug 安装；组件行为、契约、token 逻辑发生变化时再执行 `MaohuobanDesignSystem` 测试。
 5. 大量测试后需要检查并清理 `~/Library/Developer/XCTestDevices`，该目录只保存 Xcode/XCTest 临时设备状态。
+6. 禁止通过 `-derivedDataPath` 新建额外 DerivedData 目录规避缓存问题；遇到 Xcode 缓存或旧对象链接异常时，清理当前项目默认 `~/Library/Developer/Xcode/DerivedData/maohuoban-*` 缓存后重新运行验证，避免额外占用磁盘。
+7. 禁止为 `xcodebuild` 设置 `TMPDIR=/private/tmp/maohuoban-*`、`BUILD_DIR`、`SYMROOT`、`OBJROOT`、`DSTROOT`、`CONFIGURATION_BUILD_DIR`、`MODULE_CACHE_DIR`、`SHARED_PRECOMPS_DIR` 等临时构建输出目录；这些目录会绕过默认 DerivedData 复用并在 `/private/tmp` 堆积大量 `Build`、`ModuleCache.noindex` 和 `SourcePackages`。
+8. 构建日志可以写入 `/private/tmp/*.log`，但构建产物、模块缓存、SwiftPM 依赖缓存和索引数据必须使用 Xcode 默认路径。
+9. 如果因 Xcode 缺陷必须临时隔离构建目录，必须先得到用户明确确认，并在同一轮任务结束前删除该目录且复查 `du -sh /private/tmp`。
+
+### 12.1.1 磁盘清理与开发媒资保护
+
+1. 本地开发媒体对象存储默认路径固定为 `/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media`，后端本地运行不依赖 `MAOHUOBAN_MEDIA_STORAGE_ROOT` 环境变量才能保护媒资。
+2. `.local-media/` 属于本地开发数据目录，包含用户上传图片、视频和派生媒资；只允许用户明确确认后清理。
+3. 日常磁盘清理、构建缓存清理和测试产物清理不得删除 `.local-media/`，否则数据库中的 `asset_id` 仍存在但对象文件丢失，后端会出现 `Object at location ... not found`。
+4. 清理 `/private/tmp`、`/private/var/folders/**/T` 或系统“临时文件”时，仍必须排除历史临时对象目录 `maohuoban-code-rustfs-media`，避免旧开发实例还在使用临时对象根。
 
 ### 12.2 iOS 真机交互复测分工
 
 1. 当用户明确说明由用户进行真机验证时，Codex 不需要额外执行模拟器点击、截图、UI 层级快照或录屏复测。
 2. 真机相关的触感反馈、点击命中、滚动手感、Liquid Glass 实机渲染和设备差异，由用户在真机上完成最终复测。
-3. Codex 仍必须完成代码修改、必要的临时日志定位、临时日志清理，以及当前仓库真实 iOS Debug 构建验证。
+3. Codex 仍必须完成代码修改、必要的临时日志定位、临时日志清理，以及当前仓库真实 iOS Debug 安装验证。
 4. 模拟器因登录态、SDK 私有框架、设备状态或工具限制无法复现真机问题时，不作为交付阻塞；应说明已完成的代码验证和需要用户真机观察的日志过滤词。
 
 ### 12.2.1 真机调试闭环与临时日志纪律
@@ -210,7 +259,7 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 1. 当用户明确说明处于“快速 UI 实现 / UI 原型 / 先看效果”阶段时，可以暂时跳过 TDD。
 2. 快速 UI 实现模式只适用于前端展示层、静态 mock 数据、视觉布局和交互壳验证；不得用于后端接口、持久化、权限、安全、推荐算法和跨模块业务规则。
-3. 快速 UI 实现完成后必须执行当前仓库真实 iOS Debug 构建，结果必须为 `** BUILD SUCCEEDED **`。
+3. 快速 UI 实现完成后必须执行当前仓库真实 iOS Debug 安装，结果必须包含 `** BUILD SUCCEEDED **` 且安装命令退出码为 0。
 4. 快速 UI 实现不得引入新增编译警告、临时 debug 打印、隐藏副作用或破坏既有 UI/UX。
 5. 当快速 UI 进入产品化、接入真实数据、抽象基础设施或调整业务逻辑时，需要恢复 TDD 节奏并补齐测试。
 
@@ -221,4 +270,41 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 3. 抽象必须服务真实复用、复杂度隔离或边界清晰。
 4. 不为了短期通过而引入难维护补丁。
 5. 大型功能先拆文档、边界、数据流和测试，再实现。
-s
+6. 修复一个症状前必须检查同一链路上的相反方向状态变更。案例：为解决“历史列表 push 详情后返回滚动回顶部”，只跳过同上下文重新加载会保留旧列表快照；当详情页删除记录后，列表仍显示已被后端删除的 row，再次点击会进入“事件不存在”。正确修复必须同时处理滚动保留和删除 mutation 回写列表状态源。
+7. 禁止把“减少请求”“保留 UI 位置”“避免重绘”作为理由切断业务事实同步。任何缓存、去重、跳过加载策略都必须回答三个问题：数据何时失效、mutation 如何回写、测试如何证明旧数据不会继续可点击。
+8. 每次涉及列表、详情、删除、编辑、导航返回的修复，必须至少补一个状态源级回归测试，验证 mutation 后列表数据被移除或更新，并验证不会通过无边界刷新、fallback 或 mock 掩盖问题。
+
+## 14. 提交规范
+
+1. 提交信息统一使用 Conventional Commits 单行标题格式：
+   ```text
+   <type>(<scope>): <中文变更摘要>
+   ```
+2. `type` 只使用以下常见类型：
+   - `feat`：新增用户可见能力、业务能力或平台能力。
+   - `fix`：修复缺陷、回归、异常状态或兼容问题。
+   - `refactor`：重构结构、拆分模块、迁移目录，且不改变外部行为。
+   - `test`：新增或调整测试、评测用例、合同验证。
+   - `docs`：新增或调整文档、目标说明、工程记录。
+   - `chore`：仓库配置、构建脚本、清理产物、依赖和非业务维护。
+3. `scope` 必须表达影响范围，优先使用模块或领域名，例如 `ai`、`ios`、`rust`、`auth`、`home`、`design-system`、`repo`。
+4. 标题摘要使用简体中文，描述本次提交完成的具体结果，禁止使用“修改一下”“调整代码”“提交更新”等模糊表达。
+5. 每个提交只表达一个清晰意图；代码、测试、文档可以同提交，但必须共同服务同一变更目标。
+6. 修复类提交必须使用 `fix(<scope>): ...`；测试或评测合同使用 `test(<scope>): ...`；纯目录拆分或文件搬迁使用 `refactor(<scope>): ...`。
+7. 合并提交也必须规范化，例如：
+   ```text
+   chore(ai): 合并 WT01 session 与 turn 主链
+   ```
+8. 提交前必须检查暂存区，只提交本轮相关文件；禁止把用户已有无关改动混入提交。
+9. 未推送到远端的本地提交若标题不规范，应通过 `git commit --amend` 或保留 merge 拓扑的 rebase 修正；已推送提交需要先确认是否会影响协作者。
+
+示例：
+
+```text
+feat(ai): 接入同会话最近历史上下文
+fix(ai): 增强流式回退与 provider SSE 解析
+refactor(ai): 拆分 DeepSeek 与 OpenAI provider
+test(ai): 新增评测回归合同测试与诊断断言用例
+docs(ai): 更新工程规则与 Agent 落地清单
+chore(repo): 添加 tmp 到 gitignore
+```
