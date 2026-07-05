@@ -4,7 +4,7 @@
 // - 使用事务保证 episode、hint 一致性写入
 // - 避免跨 crate 依赖（不引用 home-domain）
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use maohuoban_pet_application::pet::{AbnormalSymptomEventInput, NewPetEvent};
 use maohuoban_pet_domain::pet::{PetEvent, PetResult};
 use uuid::Uuid;
@@ -223,9 +223,85 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
+        Self::insert_initial_agent_followup_plan(
+            &mut tx,
+            input.pet_id,
+            episode_id,
+            event_id,
+            input.occurred_at,
+            &primary_symptom_str,
+            &severity_str,
+        )
+        .await?;
+
         tx.commit().await.map_err(to_infrastructure_error)?;
 
         row.try_into()
+    }
+
+    /// insert_initial_agent_followup_plan 写入异常创建后的主动追踪初始计划
+    /// 核心职责：
+    /// - 生成默认 scheduled followup，保证异常创建后进入主动追踪队列
+    /// - 回写 episode 的 next_followup_due_at 和 last_followup_plan_id
+    /// - 后续 Agent planning skill 可基于事实替换为更精细计划
+    async fn insert_initial_agent_followup_plan(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        pet_id: Uuid,
+        episode_id: Uuid,
+        event_id: Uuid,
+        occurred_at: DateTime<Utc>,
+        primary_symptom: &str,
+        severity: &str,
+    ) -> PetResult<Uuid> {
+        let followup_id = Uuid::new_v4();
+        let due_at = occurred_at + initial_followup_delay(severity);
+        let message_body = initial_followup_message(primary_symptom);
+        let recommended_actions = serde_json::json!(["update_observation", "chat_with_agent"]);
+
+        sqlx::query(
+            r#"
+            INSERT INTO agent_proactive_followups (
+                id, pet_id, episode_id, trigger_event_id, status,
+                due_at, message_title, message_body, rationale, recommended_actions,
+                created_at, updated_at
+            )
+            VALUES (
+                $1, $2, $3, $4, 'scheduled',
+                $5, '毛球想确认一下', $6,
+                '异常创建后生成首轮主动追踪计划，等待 Agent planning skill 细化。',
+                $7::jsonb,
+                now(), now()
+            )
+            "#,
+        )
+        .bind(followup_id)
+        .bind(pet_id)
+        .bind(episode_id)
+        .bind(event_id)
+        .bind(due_at)
+        .bind(&message_body)
+        .bind(&recommended_actions)
+        .execute(&mut **tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE abnormal_episodes
+            SET next_followup_due_at = $1,
+                last_followup_plan_id = $2,
+                updated_at = now()
+            WHERE id = $3
+            "#,
+        )
+        .bind(due_at)
+        .bind(followup_id)
+        .bind(episode_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(followup_id)
     }
 
     /// update_episode_for_recovery_command 标记异常 episode 恢复
@@ -299,6 +375,42 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
+        // 3. 终止 Agent 主动追踪计划和已到期轻提醒
+        sqlx::query(
+            r#"
+            UPDATE agent_proactive_followups
+            SET status = 'resolved',
+                resolved_at = now(),
+                updated_at = now()
+            WHERE episode_id = $1::uuid
+              AND status IN ('planning', 'scheduled', 'due')
+            "#,
+        )
+        .bind(episode_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE attention_hints
+            SET status = 'resolved',
+                resolved_at = now(),
+                updated_at = now()
+            WHERE source_ref_type = 'agent_proactive_followup'
+              AND source_ref_id IN (
+                  SELECT id FROM agent_proactive_followups
+                  WHERE episode_id = $1::uuid
+              )
+              AND kind = 'abnormal_followup_due'
+              AND status = 'active'
+            "#,
+        )
+        .bind(episode_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
         tx.commit().await.map_err(to_infrastructure_error)?;
 
         Ok(())
@@ -335,6 +447,8 @@ impl PostgresPetRepository {
             })?
         };
 
+        let mut tx = self.pool.begin().await.map_err(to_infrastructure_error)?;
+
         sqlx::query(
             r#"
             UPDATE abnormal_episodes
@@ -347,9 +461,46 @@ impl PostgresPetRepository {
         .bind(observed_at)
         .bind(event_id)
         .bind(episode_id)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE agent_proactive_followups
+            SET status = 'answered',
+                resolved_at = now(),
+                updated_at = now()
+            WHERE episode_id = $1::uuid
+              AND status IN ('scheduled', 'due')
+            "#,
+        )
+        .bind(episode_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE attention_hints
+            SET status = 'resolved',
+                resolved_at = now(),
+                updated_at = now()
+            WHERE source_ref_type = 'agent_proactive_followup'
+              AND source_ref_id IN (
+                  SELECT id FROM agent_proactive_followups
+                  WHERE episode_id = $1::uuid
+              )
+              AND kind = 'abnormal_followup_due'
+              AND status = 'active'
+            "#,
+        )
+        .bind(episode_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        tx.commit().await.map_err(to_infrastructure_error)?;
 
         Ok(())
     }
@@ -388,7 +539,10 @@ impl PostgresPetRepository {
                 'resolved_at', resolved_at
             )
             FROM attention_hints
-            WHERE pet_id = $1::uuid AND status = 'active'
+            WHERE pet_id = $1::uuid
+              AND status = 'active'
+              AND (display_from IS NULL OR display_from <= now())
+              AND (display_until IS NULL OR display_until > now())
             ORDER BY priority DESC, created_at DESC
             "#,
         )
@@ -399,4 +553,23 @@ impl PostgresPetRepository {
 
         Ok(rows)
     }
+}
+
+fn initial_followup_delay(severity: &str) -> Duration {
+    match severity {
+        "severe" => Duration::hours(2),
+        "obvious" => Duration::hours(6),
+        _ => Duration::hours(10),
+    }
+}
+
+fn initial_followup_message(primary_symptom: &str) -> String {
+    let symptom_text = match primary_symptom {
+        "stool" => "便便",
+        "appetite" => "食欲",
+        "energy" => "精神",
+        "vomit" => "呕吐",
+        _ => "异常",
+    };
+    format!("{symptom_text}异常已经过了一段时间，情况有变化吗？可以更新便便、精神和食欲状态。")
 }

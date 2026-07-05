@@ -52,7 +52,8 @@ extension AIAssistantStore {
                 message: text,
                 selectedPetID: self.context.selectedPetID,
                 surface: "home_private",
-                chatSessionID: self.currentChatSessionID
+                chatSessionID: self.currentChatSessionID,
+                entryContext: self.context
             )
             do {
                 for try await event in stream {

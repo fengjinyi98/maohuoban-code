@@ -6,6 +6,7 @@ mod failed_contract_tool;
 use async_trait::async_trait;
 pub use confirmation_contract_tool::ConfirmationContractTool;
 pub use failed_contract_tool::FailedContractTool;
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolGatewayObserver, ToolGatewayExecutionContext,
 };
@@ -37,6 +38,7 @@ pub fn test_gateway_context_with_audits(
 ) -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
+        observation_write_context: ObservationWriteContext::default(),
         authorized_pet_id: Uuid::new_v4(),
         gateway_context: ToolGatewayExecutionContext {
             session_id: Some(Uuid::new_v4()),

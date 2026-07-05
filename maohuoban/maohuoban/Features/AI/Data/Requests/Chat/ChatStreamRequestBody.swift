@@ -9,11 +9,19 @@ struct ChatStreamRequestBody: Encodable {
     let selectedPetID: String?
     let surface: String
     let chatSessionID: String?
+    let chatContextKind: String?
+    let abnormalEpisodeID: String?
+    let sourceHintID: String?
+    let agentFollowupID: String?
 
     enum CodingKeys: String, CodingKey {
         case message
         case selectedPetID = "selected_pet_id"
         case surface
         case chatSessionID = "chat_session_id"
+        case chatContextKind = "chat_context_kind"
+        case abnormalEpisodeID = "abnormal_episode_id"
+        case sourceHintID = "source_hint_id"
+        case agentFollowupID = "agent_followup_id"
     }
 }

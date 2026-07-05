@@ -11,6 +11,7 @@ struct HomeDashboardContentSections: View {
     let routingContext: HomeActionRoutingContext
     let recordHistoryRoute: HomeRoute
     let onSelectPet: (String) -> Void
+    let onOpenRoute: (HomeRoute) -> Void
     let onOpenAddReminder: () -> Void
     let showsTopSpacing: Bool
 
@@ -34,7 +35,8 @@ struct HomeDashboardContentSections: View {
                     HomeAttentionHintSection(
                         hints: snapshot.attentionHints,
                         petName: snapshot.selectedPet?.name,
-                        recordContext: recordContext
+                        recordContext: recordContext,
+                        onOpenRoute: onOpenRoute
                     )
                 }
 
@@ -61,7 +63,8 @@ struct HomeDashboardContentSections: View {
                     HomeAttentionHintSection(
                         hints: snapshot.attentionHints,
                         petName: snapshot.selectedPet?.name,
-                        recordContext: recordContext
+                        recordContext: recordContext,
+                        onOpenRoute: onOpenRoute
                     )
                 }
 

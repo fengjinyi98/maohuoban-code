@@ -17,6 +17,12 @@ pub(crate) struct ChatStreamRequest {
     #[serde(default)]
     pub source_hint_id: Option<Uuid>,
     #[serde(default)]
+    pub chat_context_kind: Option<String>,
+    #[serde(default)]
+    pub abnormal_episode_id: Option<Uuid>,
+    #[serde(default)]
+    pub agent_followup_id: Option<Uuid>,
+    #[serde(default)]
     pub confirmation_task_id: Option<Uuid>,
     #[serde(default)]
     #[allow(dead_code)]

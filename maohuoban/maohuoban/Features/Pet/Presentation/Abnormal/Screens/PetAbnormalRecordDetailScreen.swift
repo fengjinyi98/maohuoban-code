@@ -12,12 +12,14 @@ struct PetAbnormalRecordDetailScreen: View {
 
     let recordID: String
     let highlightedRecordID: String?
+    let opensFollowupSheet: Bool
     let currentUserID: String?
     let recordContext: PetRecordEntryContext
     var onDeleted: (String) -> Void = { _ in }
 
     @State private var store = PetAbnormalDetailStore()
     @State private var presentedSheet: PetAbnormalRecordDetailSheet?
+    @State private var didOpenInitialFollowupSheet = false
     @State private var observationNote = ""
     @State private var recoveryNote = ""
     @State private var isDeleteConfirmationPresented = false
@@ -78,6 +80,9 @@ struct PetAbnormalRecordDetailScreen: View {
         .task {
             await store.load(eventID: recordID, currentUserID: currentUserID)
         }
+        .onChange(of: store.phase) { _, newValue in
+            openInitialFollowupSheetIfNeeded(phase: newValue)
+        }
         .sheet(item: $presentedSheet) { sheet in
             switch sheet {
             case .action(let action):
@@ -107,6 +112,16 @@ struct PetAbnormalRecordDetailScreen: View {
     private var currentPetID: String? {
         guard case .loaded(let event) = store.phase else { return nil }
         return event.petID
+    }
+
+    private func openInitialFollowupSheetIfNeeded(phase: PetAbnormalDetailPhase) {
+        guard opensFollowupSheet,
+              didOpenInitialFollowupSheet == false,
+              case .loaded = phase else {
+            return
+        }
+        didOpenInitialFollowupSheet = true
+        presentedSheet = .action(.addObservation)
     }
 }
 

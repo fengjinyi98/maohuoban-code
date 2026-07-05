@@ -1,5 +1,7 @@
 use uuid::Uuid;
 
+use crate::ai::ports::ObservationWriteContext;
+
 use super::{SharedToolGatewayObserver, ToolGatewayExecutionContext};
 
 /// AiToolContext 工具执行上下文
@@ -10,6 +12,7 @@ use super::{SharedToolGatewayObserver, ToolGatewayExecutionContext};
 pub struct AiToolContext {
     pub actor_user_id: Uuid,
     pub authorized_pet_id: Uuid,
+    pub observation_write_context: ObservationWriteContext,
     pub gateway_context: ToolGatewayExecutionContext,
     pub gateway_observer: Option<SharedToolGatewayObserver>,
 }

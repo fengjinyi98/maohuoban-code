@@ -12,7 +12,7 @@ mod tests {
     use async_trait::async_trait;
     use maohuoban_ai_application::ai::ports::{
         AiRequestGateLog, AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite,
-        FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput,
+        FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput, ObservationWriteContext,
         PetAbnormalEpisodeFactProvider, PetDietConfirmationCandidateProvider, PetDietFactProvider,
         PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
         PreparedObservationWrite, SessionSummaryRepository, SessionTurnRepository,
@@ -77,6 +77,14 @@ mod tests {
         }
 
         async fn get_session(&self, _session_id: Uuid) -> AiResult<Option<AiChatSession>> {
+            Ok(None)
+        }
+
+        async fn find_active_abnormal_episode_session(
+            &self,
+            _actor_user_id: Uuid,
+            _abnormal_episode_id: Uuid,
+        ) -> AiResult<Option<AiChatSession>> {
             Ok(None)
         }
 
@@ -312,6 +320,7 @@ mod tests {
             _actor_user_id: Uuid,
             _pet_id: Uuid,
             _note: String,
+            _context: ObservationWriteContext,
         ) -> PetResult<PreparedObservationWrite> {
             let confirmation_task_id = Uuid::new_v4();
             Ok(PreparedObservationWrite {
@@ -444,6 +453,7 @@ mod tests {
             .execute(
                 &AiToolContext {
                     actor_user_id: Uuid::new_v4(),
+                    observation_write_context: ObservationWriteContext::default(),
                     authorized_pet_id: tool.target_pet.pet_id,
                     gateway_context:
                         maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
@@ -470,6 +480,7 @@ mod tests {
             .execute(
                 &AiToolContext {
                     actor_user_id,
+                    observation_write_context: ObservationWriteContext::default(),
                     authorized_pet_id: tool.target_pet.pet_id,
                     gateway_context:
                         maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
@@ -512,6 +523,7 @@ mod tests {
                 "prepare_pet_observation_write",
                 &AiToolContext {
                     actor_user_id: Uuid::new_v4(),
+                    observation_write_context: ObservationWriteContext::default(),
                     authorized_pet_id: target_pet.pet_id,
                     gateway_context:
                         maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
@@ -537,6 +549,7 @@ mod tests {
                 "commit_pet_observation_write",
                 &AiToolContext {
                     actor_user_id: Uuid::new_v4(),
+                    observation_write_context: ObservationWriteContext::default(),
                     authorized_pet_id: target_pet.pet_id,
                     gateway_context:
                         maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext {

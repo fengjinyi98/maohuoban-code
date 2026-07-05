@@ -3,7 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use maohuoban_ai_application::ai::ports::{
-    CommittedObservationWrite, PetObservationWriteProvider, PreparedObservationWrite,
+    CommittedObservationWrite, ObservationWriteContext, PetObservationWriteProvider,
+    PreparedObservationWrite,
 };
 use maohuoban_ai_domain::ai::AiToolConfirmationRequirement;
 use maohuoban_pet_application::pet::{AgentConfirmationTaskRepository, NewPetEvent, PetService};
@@ -43,22 +44,52 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
         actor_user_id: Uuid,
         pet_id: Uuid,
         note: String,
+        context: ObservationWriteContext,
     ) -> PetResult<PreparedObservationWrite> {
         let confirmation_task_id = Uuid::new_v4();
+        let is_abnormal_followup = context.chat_context_kind.as_deref()
+            == Some("abnormal_episode_followup")
+            && context.abnormal_episode_id.is_some();
+        let event_subkind = if is_abnormal_followup {
+            "symptom_followup"
+        } else {
+            "agent_observation_note"
+        };
+        let source = if is_abnormal_followup {
+            "agent_assisted_followup"
+        } else {
+            "agent_runtime_confirmed_write"
+        };
+        let mut candidate_payload = serde_json::json!({
+            "event_kind": "health",
+            "event_subkind": event_subkind,
+            "note": note,
+            "actor_user_id": actor_user_id,
+            "source": source,
+        });
+        if let Some(episode_id) = context.abnormal_episode_id {
+            candidate_payload["episode_id"] = serde_json::json!(episode_id.to_string());
+        }
+        if let Some(agent_followup_id) = context.agent_followup_id {
+            candidate_payload["agent_followup_id"] =
+                serde_json::json!(agent_followup_id.to_string());
+        }
+        if let Some(source_hint_id) = context.source_hint_id {
+            candidate_payload["source_hint_id"] = serde_json::json!(source_hint_id.to_string());
+        }
         let task = AgentConfirmationTask {
             id: confirmation_task_id,
             pet_id,
             task_kind: ConfirmationTaskKind::SymptomFollowup,
             question_text: "是否确认写入这条观察记录？".to_owned(),
-            candidate_payload: Some(serde_json::json!({
-                "event_kind": "health",
-                "event_subkind": "agent_observation_note",
-                "note": note,
-                "actor_user_id": actor_user_id,
-            })),
-            source_hint_id: None,
-            source_ref_type: Some("agent_runtime".to_owned()),
-            source_ref_id: None,
+            candidate_payload: Some(candidate_payload),
+            source_hint_id: context.source_hint_id,
+            source_ref_type: Some(if is_abnormal_followup {
+                "agent_proactive_followup".to_owned()
+            } else {
+                "agent_runtime".to_owned()
+            }),
+            source_ref_id: context.agent_followup_id,
             status: ConfirmationTaskStatus::Pending,
             answer_payload: None,
             resolved_event_id: None,
@@ -101,6 +132,40 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
             .get("note")
             .and_then(serde_json::Value::as_str)
             .ok_or_else(|| PetError::InvalidInput("确认任务缺少观察内容".to_owned()))?;
+        let event_subkind = payload
+            .get("event_subkind")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("agent_observation_note");
+        let source = payload
+            .get("source")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("agent_runtime_confirmed_write");
+        let episode_id = payload
+            .get("episode_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let agent_followup_id = payload
+            .get("agent_followup_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let source_hint_id = payload
+            .get("source_hint_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let mut event_payload = serde_json::json!({
+            "note": note,
+            "source": source,
+            "confirmation_task_id": confirmation_task_id,
+        });
+        if let Some(episode_id) = episode_id {
+            event_payload["episode_id"] = serde_json::json!(episode_id.to_string());
+        }
+        if let Some(agent_followup_id) = agent_followup_id {
+            event_payload["agent_followup_id"] = serde_json::json!(agent_followup_id.to_string());
+        }
+        if let Some(source_hint_id) = source_hint_id {
+            event_payload["source_hint_id"] = serde_json::json!(source_hint_id.to_string());
+        }
 
         let event = self
             .pet
@@ -108,15 +173,11 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
                 pet_id,
                 actor_user_id,
                 event_kind: EventKind::Health,
-                event_subkind: Some("agent_observation_note".to_owned()),
+                event_subkind: Some(event_subkind.to_owned()),
                 title: "观察记录已写入".to_owned(),
                 summary: Some(note.to_owned()),
                 visibility: EventVisibility::Private,
-                event_payload: serde_json::json!({
-                    "note": note,
-                    "source": "agent_runtime_confirmed_write",
-                    "confirmation_task_id": confirmation_task_id,
-                }),
+                event_payload,
                 occurred_at: Utc::now(),
             })
             .await?;

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession, LoopEngine};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
@@ -85,6 +86,7 @@ pub fn workbench_with_history(history: Vec<RecentConversationEntry>) -> AgentSes
 pub fn authorized_context() -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
+        observation_write_context: ObservationWriteContext::default(),
         authorized_pet_id: Uuid::parse_str(AUTHORIZED_PET_ID).expect("pet id"),
         gateway_context: ToolGatewayExecutionContext::default(),
         gateway_observer: None,
@@ -98,6 +100,7 @@ pub fn authorized_context() -> AiToolContext {
 pub fn unauthorized_context() -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
+        observation_write_context: ObservationWriteContext::default(),
         authorized_pet_id: Uuid::nil(),
         gateway_context: ToolGatewayExecutionContext::default(),
         gateway_observer: None,

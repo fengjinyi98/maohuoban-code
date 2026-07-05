@@ -231,7 +231,12 @@ impl RuntimePetContextTool {
         match self
             .providers
             .observation_write_provider
-            .prepare_observation_write(ctx.actor_user_id, self.target_pet.pet_id, note.to_owned())
+            .prepare_observation_write(
+                ctx.actor_user_id,
+                self.target_pet.pet_id,
+                note.to_owned(),
+                ctx.observation_write_context.clone(),
+            )
             .await
         {
             Ok(prepared) => {

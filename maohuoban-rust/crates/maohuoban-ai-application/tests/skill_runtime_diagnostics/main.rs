@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use futures_util::StreamExt;
-use maohuoban_ai_application::ai::ports::LlmProvider;
+use maohuoban_ai_application::ai::ports::{LlmProvider, ObservationWriteContext};
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
@@ -31,6 +31,7 @@ async fn runtime_records_skill_matched_diagnostics_event() {
         Arc::new(ToolRegistry::new()),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::nil(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,

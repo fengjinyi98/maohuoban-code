@@ -105,9 +105,10 @@ async fn upsert_session_in_tx(
         r"
         INSERT INTO ai_chat_sessions
             (id, actor_user_id, primary_pet_id, surface, source_hint_id,
-             source_task_id, title, is_pinned, pet_display_snapshot, status,
+             source_task_id, chat_context_kind, abnormal_episode_id,
+             agent_followup_id, title, is_pinned, pet_display_snapshot, status,
              created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (id) DO UPDATE SET
             pet_display_snapshot = EXCLUDED.pet_display_snapshot,
             status = EXCLUDED.status,
@@ -120,6 +121,9 @@ async fn upsert_session_in_tx(
     .bind(surface_str)
     .bind(session.source_hint_id)
     .bind(session.source_task_id)
+    .bind(&session.chat_context_kind)
+    .bind(session.abnormal_episode_id)
+    .bind(session.agent_followup_id)
     .bind(&session.title)
     .bind(session.is_pinned)
     .bind(snapshot_json)

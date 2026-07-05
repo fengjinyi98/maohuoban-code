@@ -11,13 +11,15 @@ struct HomeAttentionHintSection: View {
     let hints: [HomeDashboardSnapshot.AttentionHint]
     let petName: String?
     let recordContext: PetRecordEntryContext
+    let onOpenRoute: (HomeRoute) -> Void
 
     var body: some View {
         if let topHint = hints.first {
             HomeAttentionHintRow(
                 hint: topHint,
                 petName: petName,
-                recordContext: recordContext
+                recordContext: recordContext,
+                onOpenRoute: onOpenRoute
             )
         }
     }
@@ -31,35 +33,34 @@ private struct HomeAttentionHintRow: View {
     let hint: HomeDashboardSnapshot.AttentionHint
     let petName: String?
     let recordContext: PetRecordEntryContext
+    let onOpenRoute: (HomeRoute) -> Void
 
     var body: some View {
-        NavigationLink(value: route) {
-            HStack(spacing: MHBTheme.Spacing.s3) {
-                Image(systemName: iconSystemName)
-                    .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
-                    .foregroundStyle(tintColor)
-                    .frame(width: 28, height: 28)
+        HStack(alignment: .top, spacing: MHBTheme.Spacing.s3) {
+            Image(systemName: iconSystemName)
+                .font(.system(size: MHBTheme.IconSize.medium, weight: .semibold))
+                .foregroundStyle(tintColor)
+                .frame(width: 28, height: 28)
+                .padding(.top, MHBTheme.Spacing.s1)
 
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 Text(displayTitle)
                     .font(MHBTheme.Typography.callout.weight(.medium))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                Spacer(minLength: MHBTheme.Spacing.s3)
-
-                HStack(spacing: MHBTheme.Spacing.s1) {
-                    Text("查看")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                HomeAttentionHintActionRow(
+                    actions: displayActions,
+                    onSelect: { action in
+                        onOpenRoute(route(for: action))
+                    }
+                )
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
+
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .accessibilityIdentifier("home.attentionHint")
     }
 
@@ -100,26 +101,100 @@ private struct HomeAttentionHintRow: View {
         }
     }
 
-    private var route: HomeRoute {
+    private var displayActions: [AttentionHintAction] {
+        if !hintActions.isEmpty {
+            return hintActions
+        }
+        return [
+            AttentionHintAction(
+                id: "view_detail",
+                title: "查看",
+                routeKind: hint.route.kind,
+                presentation: nil,
+                chatContext: nil
+            )
+        ]
+    }
+
+    private var hintActions: [AttentionHintAction] {
+        hint.route.payload?.actions ?? []
+    }
+
+    private func route(for action: AttentionHintAction) -> HomeRoute {
+        switch action.routeKind {
+        case .abnormalDetail:
+            abnormalDetailRoute(
+                opensFollowupSheet: action.presentation?.autoOpenSheet == "abnormal_followup"
+            )
+        case .aiChat:
+            aiChatRoute(chatContext: action.chatContext)
+        case .weightRecord:
+            weightRoute()
+        case .reminderDetail, .preventiveCareDetail, .confirmationTask:
+            unsupportedRoute()
+        }
+    }
+
+    private func abnormalDetailRoute(opensFollowupSheet: Bool) -> HomeRoute {
         let payload = hint.route.payload
         let recordID = payload?.recordID
             ?? hint.sourceRefID
             ?? hint.id
+        let eventID = payload?.eventID ?? recordID
+        return .petRecordDetail(.abnormal(
+            recordID: eventID,
+            context: recordContext,
+            opensFollowupSheet: opensFollowupSheet
+        ))
+    }
 
-        switch hint.route.kind {
-        case .abnormalDetail:
-            let eventID = payload?.eventID ?? recordID
-            return .petRecordDetail(.abnormal(recordID: eventID, context: recordContext))
-        case .weightRecord:
-            return .petWeightRecordDetail(recordID: recordID, context: recordContext)
-        case .reminderDetail:
-            return .petRecordDetail(.unsupported(recordID: recordID))
-        case .preventiveCareDetail:
-            return .petRecordDetail(.unsupported(recordID: recordID))
-        case .confirmationTask:
-            return .petRecordDetail(.unsupported(recordID: recordID))
-        case .aiChat:
-            return .petRecordDetail(.unsupported(recordID: recordID))
+    private func aiChatRoute(chatContext: AttentionHintChatContext?) -> HomeRoute {
+        HomeRoute.petAssistant(AIAssistantEntryContext(
+            selectedPetID: recordContext.resolvedPetID,
+            selectedPetName: petName ?? recordContext.resolvedPetName,
+            abnormalEpisodeID: chatContext?.episodeID ?? hint.route.payload?.episodeID,
+            sourceHintID: chatContext?.sourceHintID ?? hint.id,
+            agentFollowupID: chatContext?.agentFollowupID ?? hint.route.payload?.agentFollowupID
+        ))
+    }
+
+    private func weightRoute() -> HomeRoute {
+        let recordID = hint.route.payload?.recordID ?? hint.sourceRefID ?? hint.id
+        return .petWeightRecordDetail(recordID: recordID, context: recordContext)
+    }
+
+    private func unsupportedRoute() -> HomeRoute {
+        let recordID = hint.route.payload?.recordID ?? hint.sourceRefID ?? hint.id
+        return .petRecordDetail(.unsupported(recordID: recordID))
+    }
+}
+
+// HomeAttentionHintActionRow 轻提示文字动作区
+// 核心职责：
+// - 以文字按钮展示后端下发的轻提醒动作
+// - 保持首页轻提示 UI 轻量，不增加边框和嵌套卡片
+private struct HomeAttentionHintActionRow: View {
+    let actions: [AttentionHintAction]
+    let onSelect: (AttentionHintAction) -> Void
+
+    var body: some View {
+        HStack(spacing: MHBTheme.Spacing.s4) {
+            ForEach(Array(actions.prefix(2).enumerated()), id: \.element.id) { index, action in
+                Button {
+                    onSelect(action)
+                } label: {
+                    Text(action.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(actionColor(index: index))
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private func actionColor(index: Int) -> Color {
+        index == 0
+            ? MHBTheme.ColorToken.primary.color
+            : MHBTheme.ColorToken.labelSecondary.color
     }
 }

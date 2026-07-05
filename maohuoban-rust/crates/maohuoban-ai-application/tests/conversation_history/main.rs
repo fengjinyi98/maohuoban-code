@@ -383,6 +383,9 @@ impl AiSessionRepository for FakeSessionRepository {
             surface: AiConversationSurface::HomePrivate,
             source_hint_id: None,
             source_task_id: None,
+            chat_context_kind: None,
+            abnormal_episode_id: None,
+            agent_followup_id: None,
             title: "新对话".to_owned(),
             is_pinned: false,
             pet_display_snapshot: None,
@@ -390,6 +393,14 @@ impl AiSessionRepository for FakeSessionRepository {
             created_at: chrono::DateTime::from_timestamp(1, 0).expect("ts"),
             updated_at: chrono::DateTime::from_timestamp(1, 0).expect("ts"),
         }))
+    }
+
+    async fn find_active_abnormal_episode_session(
+        &self,
+        _actor_user_id: Uuid,
+        _abnormal_episode_id: Uuid,
+    ) -> maohuoban_ai_domain::ai::AiResult<Option<AiChatSession>> {
+        Ok(None)
     }
 
     async fn rename_session(

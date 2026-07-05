@@ -82,6 +82,16 @@ pub trait AiSessionRepository: Send + Sync {
     /// get_session 获取单个会话（含归属校验）
     async fn get_session(&self, session_id: Uuid) -> AiResult<Option<AiChatSession>>;
 
+    /// find_active_abnormal_episode_session 查找同一异常 episode 的活跃会话
+    /// 核心职责：
+    /// - 支撑异常主动追踪轻提醒多轮进入同一个 Agent 会话
+    /// - 只返回当前用户名下的 active 会话
+    async fn find_active_abnormal_episode_session(
+        &self,
+        actor_user_id: Uuid,
+        abnormal_episode_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>>;
+
     /// rename_session 重命名当前用户会话
     async fn rename_session(
         &self,

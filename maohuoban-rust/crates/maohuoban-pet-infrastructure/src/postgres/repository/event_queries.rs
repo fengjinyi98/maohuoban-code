@@ -469,6 +469,41 @@ impl PostgresPetRepository {
             .execute(&mut *transaction)
             .await
             .map_err(to_infrastructure_error)?;
+
+            sqlx::query(
+                r#"
+                UPDATE agent_proactive_followups
+                SET status = 'cancelled',
+                    resolved_at = now(),
+                    updated_at = now()
+                WHERE episode_id = ANY($1)
+                  AND status IN ('planning', 'scheduled', 'due')
+                "#,
+            )
+            .bind(&closed_episode_ids)
+            .execute(&mut *transaction)
+            .await
+            .map_err(to_infrastructure_error)?;
+
+            sqlx::query(
+                r#"
+                UPDATE attention_hints
+                SET status = 'resolved',
+                    resolved_at = now(),
+                    updated_at = now()
+                WHERE source_ref_type = 'agent_proactive_followup'
+                  AND source_ref_id IN (
+                      SELECT id FROM agent_proactive_followups
+                      WHERE episode_id = ANY($1)
+                  )
+                  AND kind = 'abnormal_followup_due'
+                  AND status = 'active'
+                "#,
+            )
+            .bind(&closed_episode_ids)
+            .execute(&mut *transaction)
+            .await
+            .map_err(to_infrastructure_error)?;
         }
 
         transaction

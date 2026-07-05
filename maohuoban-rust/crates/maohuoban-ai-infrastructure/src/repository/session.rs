@@ -60,9 +60,10 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             r"
             INSERT INTO ai_chat_sessions
                 (id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                 source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                  created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             ON CONFLICT (id) DO UPDATE SET
                 pet_display_snapshot = EXCLUDED.pet_display_snapshot,
                 status = EXCLUDED.status,
@@ -75,6 +76,9 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(surface_str)
         .bind(session.source_hint_id)
         .bind(session.source_task_id)
+        .bind(&session.chat_context_kind)
+        .bind(session.abnormal_episode_id)
+        .bind(session.agent_followup_id)
         .bind(&session.title)
         .bind(session.is_pinned)
         .bind(snapshot_json)
@@ -184,7 +188,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         let rows = sqlx::query_as::<_, SessionRow>(
             r"
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                   source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                    created_at, updated_at
             FROM ai_chat_sessions
             WHERE actor_user_id = $1 AND status = 'active'
@@ -255,13 +260,42 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         let row = sqlx::query_as::<_, SessionRow>(
             r"
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                   source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                    created_at, updated_at
             FROM ai_chat_sessions
             WHERE id = $1 AND status = 'active'
             ",
         )
         .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(row.map(Into::into))
+    }
+
+    async fn find_active_abnormal_episode_session(
+        &self,
+        actor_user_id: Uuid,
+        abnormal_episode_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            r"
+            SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
+                   created_at, updated_at
+            FROM ai_chat_sessions
+            WHERE actor_user_id = $1
+              AND abnormal_episode_id = $2
+              AND status = 'active'
+            ORDER BY updated_at DESC
+            LIMIT 1
+            ",
+        )
+        .bind(actor_user_id)
+        .bind(abnormal_episode_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
@@ -281,7 +315,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SET title = $3, updated_at = now()
             WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                       created_at, updated_at
             ",
         )
@@ -307,7 +342,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SET is_pinned = $3, updated_at = now()
             WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                       created_at, updated_at
             ",
         )
@@ -332,7 +368,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SET status = 'archived', updated_at = now()
             WHERE id = $1 AND actor_user_id = $2 AND status = 'active'
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
-                      source_task_id, title, is_pinned, pet_display_snapshot, status,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
                       created_at, updated_at
             ",
         )

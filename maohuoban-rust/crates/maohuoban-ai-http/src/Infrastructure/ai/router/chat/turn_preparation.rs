@@ -34,6 +34,10 @@ pub(super) struct ChatTurnContext {
     pub(super) resolved_pet_id: Option<Uuid>,
     pub(super) target_pet: Option<AiPetDisplaySnapshot>,
     pub(super) effective_selected_pet_id: Option<Uuid>,
+    pub(super) effective_source_hint_id: Option<Uuid>,
+    pub(super) effective_chat_context_kind: Option<String>,
+    pub(super) effective_abnormal_episode_id: Option<Uuid>,
+    pub(super) effective_agent_followup_id: Option<Uuid>,
 }
 
 /// prepare_chat_turn_context 准备聊天轮次上下文
@@ -45,8 +49,7 @@ pub(super) async fn prepare_chat_turn_context(
     req: &ChatStreamRequest,
     actor_user_id: Uuid,
 ) -> AiResult<ChatTurnContext> {
-    let requested_session =
-        validate_requested_session(state, req.chat_session_id, actor_user_id).await?;
+    let requested_session = resolve_requested_session(state, req, actor_user_id).await?;
     let gate_decision = AiIntentGate::new().classify(&req.message);
     if !gate_decision.allow_processing() {
         return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
@@ -66,6 +69,26 @@ pub(super) async fn prepare_chat_turn_context(
         .as_ref()
         .and_then(AiPetResolution::resolved_pet_id);
     let target_pet = resolved_pet_snapshot(pet_resolution.as_ref());
+    let effective_source_hint_id = req.source_hint_id.or_else(|| {
+        requested_session
+            .as_ref()
+            .and_then(|session| session.source_hint_id)
+    });
+    let effective_chat_context_kind = req.chat_context_kind.clone().or_else(|| {
+        requested_session
+            .as_ref()
+            .and_then(|session| session.chat_context_kind.clone())
+    });
+    let effective_abnormal_episode_id = req.abnormal_episode_id.or_else(|| {
+        requested_session
+            .as_ref()
+            .and_then(|session| session.abnormal_episode_id)
+    });
+    let effective_agent_followup_id = req.agent_followup_id.or_else(|| {
+        requested_session
+            .as_ref()
+            .and_then(|session| session.agent_followup_id)
+    });
 
     Ok(ChatTurnContext {
         session_id: requested_session
@@ -83,6 +106,10 @@ pub(super) async fn prepare_chat_turn_context(
         resolved_pet_id,
         target_pet,
         effective_selected_pet_id,
+        effective_source_hint_id,
+        effective_chat_context_kind,
+        effective_abnormal_episode_id,
+        effective_agent_followup_id,
     })
 }
 
@@ -106,8 +133,11 @@ pub(super) async fn persist_prepared_chat_turn(
         actor_user_id,
         primary_pet_id,
         surface: req.surface,
-        source_hint_id: req.source_hint_id,
+        source_hint_id: context.effective_source_hint_id,
         source_task_id: req.confirmation_task_id,
+        chat_context_kind: context.effective_chat_context_kind.clone(),
+        abnormal_episode_id: context.effective_abnormal_episode_id,
+        agent_followup_id: context.effective_agent_followup_id,
         title: context.title.clone(),
         is_pinned: false,
         pet_display_snapshot: context.target_pet.clone(),
@@ -236,6 +266,27 @@ async fn validate_requested_session(
         .ok_or(maohuoban_ai_domain::ai::AiError::Unauthorized)?;
 
     Ok(Some(session))
+}
+
+async fn resolve_requested_session(
+    state: &AiHttpState,
+    req: &ChatStreamRequest,
+    actor_user_id: Uuid,
+) -> AiResult<Option<AiChatSession>> {
+    if req.chat_session_id.is_some() {
+        return validate_requested_session(state, req.chat_session_id, actor_user_id).await;
+    }
+
+    if req.chat_context_kind.as_deref() == Some("abnormal_episode_followup")
+        && let Some(abnormal_episode_id) = req.abnormal_episode_id
+    {
+        return state
+            .session_repository
+            .find_active_abnormal_episode_session(actor_user_id, abnormal_episode_id)
+            .await;
+    }
+
+    Ok(None)
 }
 
 /// resolve_target_pet 解析请求目标宠物

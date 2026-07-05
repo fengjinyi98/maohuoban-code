@@ -37,7 +37,7 @@ pub use memory_candidate_repository::{MemoryCandidateRepository, NoopMemoryCandi
 pub use memory_repository::{MemoryQuery, MemoryRepository, NoopMemoryRepository};
 pub use observation_write_commit::CommittedObservationWrite;
 pub use observation_write_prepare::PreparedObservationWrite;
-pub use observation_write_provider::PetObservationWriteProvider;
+pub use observation_write_provider::{ObservationWriteContext, PetObservationWriteProvider};
 pub use pet_catalog::{AuthorizedPetCatalog, EmptyPetCatalog, InMemoryPetCatalog};
 pub use session_event_repository::SessionEventRepository;
 pub use session_repository::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};

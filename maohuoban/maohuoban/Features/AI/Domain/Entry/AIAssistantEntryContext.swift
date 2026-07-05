@@ -10,19 +10,28 @@ struct AIAssistantEntryContext: Hashable {
     let selectedPetAvatarURL: String?
     let selectedPetSpecies: AIAssistantPetSpecies
     let ugcContextTitle: String?
+    let abnormalEpisodeID: String?
+    let sourceHintID: String?
+    let agentFollowupID: String?
 
     init(
         selectedPetID: String? = nil,
         selectedPetName: String? = nil,
         selectedPetAvatarURL: String? = nil,
         selectedPetSpecies: AIAssistantPetSpecies = .other,
-        ugcContextTitle: String? = nil
+        ugcContextTitle: String? = nil,
+        abnormalEpisodeID: String? = nil,
+        sourceHintID: String? = nil,
+        agentFollowupID: String? = nil
     ) {
         self.selectedPetID = selectedPetID
         self.selectedPetName = selectedPetName
         self.selectedPetAvatarURL = selectedPetAvatarURL
         self.selectedPetSpecies = selectedPetSpecies
         self.ugcContextTitle = ugcContextTitle
+        self.abnormalEpisodeID = abnormalEpisodeID
+        self.sourceHintID = sourceHintID
+        self.agentFollowupID = agentFollowupID
     }
 
     var displayPetName: String {
@@ -30,6 +39,10 @@ struct AIAssistantEntryContext: Hashable {
             return "当前宠物"
         }
         return selectedPetName
+    }
+
+    var chatContextKind: String? {
+        abnormalEpisodeID == nil ? nil : "abnormal_episode_followup"
     }
 }
 

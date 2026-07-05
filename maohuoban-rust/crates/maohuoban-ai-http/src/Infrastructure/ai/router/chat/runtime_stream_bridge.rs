@@ -4,6 +4,7 @@ use futures_util::StreamExt;
 use maohuoban_ai_application::ai::planning::{
     PlanningDiagnosticsSnapshot, StepPlanner, TaskClassifier,
 };
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
 };
@@ -35,6 +36,7 @@ pub(super) struct RuntimeAgentStreamInput {
     pub turn_id: AgentTurnId,
     pub message_id: Uuid,
     pub confirmation_task_id: Option<Uuid>,
+    pub observation_write_context: ObservationWriteContext,
     pub actor_user_id: Uuid,
     pub target_pet: Option<AiPetDisplaySnapshot>,
     pub fact_package: Option<AiFactPackage>,
@@ -247,6 +249,7 @@ fn build_runtime_engine(
             message_id: Some(input.message_id),
             confirmation_task_id: input.confirmation_task_id.map(|id| id.to_string()),
         },
+        observation_write_context: input.observation_write_context.clone(),
         gateway_observer: Some(Arc::new(RuntimeToolGatewayObserver)),
     };
     AgentRuntimeEngineFactory::new(state.runtime_engine_mode).build(AgentRuntimeEngineInput {

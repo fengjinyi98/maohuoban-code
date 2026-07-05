@@ -79,6 +79,433 @@ async fn ai_chat_stream_loads_abnormal_episode_facts_without_quick_fact_payload(
     assert_abnormal_episode_tool_log(&app, chat_session_id, &fixture).await;
 }
 
+#[tokio::test]
+async fn ai_chat_stream_persists_abnormal_followup_entry_context() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let source_hint_id = Uuid::new_v4();
+    let agent_followup_id = Uuid::new_v4();
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "毛球刚才提醒我更新异常，现在该看什么？",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup entry chat request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    let started = sse_event_data(&text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id");
+
+    let persisted: (Option<String>, Option<Uuid>, Option<Uuid>, Option<Uuid>) = sqlx::query_as(
+        r#"
+        SELECT chat_context_kind, abnormal_episode_id, source_hint_id, agent_followup_id
+        FROM ai_chat_sessions
+        WHERE id = $1::uuid
+        "#,
+    )
+    .bind(chat_session_id.parse::<Uuid>().expect("chat session uuid"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load persisted ai chat session");
+
+    assert_eq!(persisted.0.as_deref(), Some("abnormal_episode_followup"));
+    assert_eq!(persisted.1, Some(fixture.episode_id));
+    assert_eq!(persisted.2, Some(source_hint_id));
+    assert_eq!(persisted.3, Some(agent_followup_id));
+}
+
+#[tokio::test]
+async fn abnormal_followup_entry_reuses_same_agent_session_and_context() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let source_hint_id = Uuid::new_v4();
+    let first_followup_id = Uuid::new_v4();
+    let second_followup_id = Uuid::new_v4();
+
+    let first_session_id = send_abnormal_followup_entry_request(
+        &app,
+        &fixture,
+        source_hint_id,
+        first_followup_id,
+        "毛球提醒我更新异常，先看看现在追踪到哪了？",
+    )
+    .await;
+
+    let second_session_id = send_abnormal_followup_entry_request(
+        &app,
+        &fixture,
+        source_hint_id,
+        second_followup_id,
+        "这是第二次提醒，我继续补充情况。",
+    )
+    .await;
+
+    assert_eq!(
+        second_session_id, first_session_id,
+        "same abnormal episode followup should reuse one agent session"
+    );
+
+    let persisted: (
+        Option<String>,
+        Option<Uuid>,
+        Option<Uuid>,
+        Option<Uuid>,
+        i64,
+    ) = sqlx::query_as(
+        r#"
+            SELECT s.chat_context_kind,
+                   s.abnormal_episode_id,
+                   s.source_hint_id,
+                   s.agent_followup_id,
+                   COUNT(t.id) AS turn_count
+            FROM ai_chat_sessions s
+            LEFT JOIN ai_session_turns t ON t.session_id = s.id
+            WHERE s.id = $1::uuid
+            GROUP BY s.id
+            "#,
+    )
+    .bind(first_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load reused session and turns");
+
+    assert_eq!(persisted.0.as_deref(), Some("abnormal_episode_followup"));
+    assert_eq!(persisted.1, Some(fixture.episode_id));
+    assert_eq!(persisted.2, Some(source_hint_id));
+    assert_eq!(
+        persisted.3,
+        Some(first_followup_id),
+        "session keeps original entry followup context while later turns append to same agent context"
+    );
+    assert_eq!(persisted.4, 2);
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+
+    let prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_observation_write")
+            .body_contains("便便仍稀，精神一般")
+            .matches(request_without_tool_result)
+            .matches(|req| !request_body(req).contains("确认写入这次异常更新"));
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_abnormal\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"便便仍稀，精神一般\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let prepare_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "毛球追问后我反馈：便便仍稀，精神一般",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup prepare request");
+
+    assert_eq!(prepare_response.status(), StatusCode::OK);
+    let prepare_text = response_text(prepare_response).await;
+    prepare_mock.assert();
+    let started = sse_event_data(&prepare_text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id")
+        .parse::<Uuid>()
+        .expect("chat session uuid");
+    let confirmation_event = sse_event_data(&prepare_text, "confirmation_task");
+    let confirmation_task_id = confirmation_event["confirmation_task_id"]
+        .as_str()
+        .expect("confirmation task id")
+        .parse::<Uuid>()
+        .expect("confirmation task uuid");
+
+    let prepared_task: (
+        Option<serde_json::Value>,
+        Option<Uuid>,
+        Option<String>,
+        Option<Uuid>,
+    ) = sqlx::query_as(
+        r#"
+        SELECT candidate_payload, source_hint_id, source_ref_type, source_ref_id
+        FROM agent_confirmation_tasks
+        WHERE id = $1
+        "#,
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load prepared confirmation task");
+    let candidate_payload = prepared_task.0.expect("candidate payload");
+    assert_eq!(candidate_payload["event_kind"], "health");
+    assert_eq!(candidate_payload["event_subkind"], "symptom_followup");
+    assert_eq!(
+        candidate_payload["episode_id"],
+        fixture.episode_id.to_string()
+    );
+    assert_eq!(candidate_payload["source"], "agent_assisted_followup");
+    assert_eq!(
+        candidate_payload["agent_followup_id"],
+        agent_followup_id.to_string()
+    );
+    assert_eq!(prepared_task.1, Some(source_hint_id));
+    assert_eq!(prepared_task.2.as_deref(), Some("agent_proactive_followup"));
+    assert_eq!(prepared_task.3, Some(agent_followup_id));
+
+    let commit_tool_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("commit_pet_observation_write")
+            .body_contains(&confirmation_task_id.to_string())
+            .body_contains("确认写入这次异常更新")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_commit_abnormal\",\"function\":{\"name\":\"commit_pet_observation_write\",\"arguments\":\"{\\\"confirmation_task_id\\\":\\\""
+                    .to_owned()
+                    + &confirmation_task_id.to_string()
+                    + "\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+    let commit_answer_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"tool_call_id\":\"call_commit_abnormal\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"已把这次异常更新写入进展时间线。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let commit_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "确认写入这次异常更新",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_session_id": chat_session_id.to_string(),
+                "confirmation_task_id": confirmation_task_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup commit request");
+
+    assert_eq!(commit_response.status(), StatusCode::OK);
+    let commit_text = response_text(commit_response).await;
+    commit_tool_mock.assert();
+    commit_answer_mock.assert();
+    assert!(commit_text.contains("已把这次异常更新写入进展时间线。"));
+
+    let written_event: (String, serde_json::Value) = sqlx::query_as(
+        r#"
+        SELECT event_subkind, event_payload
+        FROM pet_events
+        WHERE id = (
+            SELECT resolved_event_id
+            FROM agent_confirmation_tasks
+            WHERE id = $1
+        )
+        "#,
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load committed event");
+    assert_eq!(written_event.0, "symptom_followup");
+    assert_eq!(
+        written_event.1["episode_id"],
+        fixture.episode_id.to_string()
+    );
+    assert_eq!(written_event.1["source"], "agent_assisted_followup");
+    assert_eq!(
+        written_event.1["agent_followup_id"],
+        agent_followup_id.to_string()
+    );
+
+    let followup_status: String =
+        sqlx::query_scalar(r"SELECT status FROM agent_proactive_followups WHERE id = $1")
+            .bind(agent_followup_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load agent followup status");
+    assert_eq!(followup_status, "answered");
+}
+
+async fn send_abnormal_followup_entry_request(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    fixture: &AbnormalEpisodeFixture,
+    source_hint_id: Uuid,
+    agent_followup_id: Uuid,
+    message: &str,
+) -> Uuid {
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": message,
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup entry chat request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    let started = sse_event_data(&text, "message_started");
+    started["chat_session_id"]
+        .as_str()
+        .expect("chat session id")
+        .parse()
+        .expect("chat session uuid")
+}
+
+async fn insert_due_agent_followup_hint(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    fixture: &AbnormalEpisodeFixture,
+) -> (Uuid, Uuid) {
+    let agent_followup_id = Uuid::new_v4();
+    let source_hint_id = Uuid::new_v4();
+
+    sqlx::query(
+        r#"
+        INSERT INTO agent_proactive_followups (
+            id, pet_id, episode_id, trigger_event_id, status,
+            due_at, message_title, message_body, rationale, recommended_actions,
+            created_at, updated_at
+        )
+        VALUES (
+            $1, $2, $3, $4, 'due',
+            now(), '毛球想确认一下',
+            '团团的异常已经过了一段时间，现在便便、精神和食欲有好转吗？',
+            '合同测试插入到期主动追踪',
+            $5::jsonb,
+            now(), now()
+        )
+        "#,
+    )
+    .bind(agent_followup_id)
+    .bind(fixture.pet_id)
+    .bind(fixture.episode_id)
+    .bind(fixture.initial_event_id)
+    .bind(json!(["update_observation", "chat_with_agent"]))
+    .execute(app.pool())
+    .await
+    .expect("insert due agent followup");
+
+    sqlx::query(
+        r#"
+        INSERT INTO attention_hints (
+            id, pet_id, kind, title, subtitle, icon, tone, priority,
+            status, source_ref_type, source_ref_id,
+            route_kind, route_payload, created_by,
+            created_at, updated_at
+        )
+        VALUES (
+            $1, $2, 'abnormal_followup_due', '毛球想确认一下',
+            '团团的异常需要更新', 'bubble.left.and.exclamationmark.bubble.right',
+            'notice', 20,
+            'active', 'agent_proactive_followup', $3,
+            'abnormal_detail', $4::jsonb, 'agent',
+            now(), now()
+        )
+        "#,
+    )
+    .bind(source_hint_id)
+    .bind(fixture.pet_id)
+    .bind(agent_followup_id)
+    .bind(json!({
+        "episode_id": fixture.episode_id.to_string(),
+        "event_id": fixture.initial_event_id.to_string(),
+        "agent_followup_id": agent_followup_id.to_string(),
+        "default_action": "chat_with_agent"
+    }))
+    .execute(app.pool())
+    .await
+    .expect("insert due agent followup hint");
+
+    (source_hint_id, agent_followup_id)
+}
+
 fn install_abnormal_episode_fact_mocks(server: &MockServer) -> (Mock<'_>, Mock<'_>) {
     let first_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)

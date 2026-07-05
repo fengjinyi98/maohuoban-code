@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::AgentRuntimeLoopEngine;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
@@ -21,6 +22,7 @@ pub fn runtime_engine(
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::parse_str("11111111-1111-1111-1111-111111111111")
                 .expect("pet id"),
             gateway_context: ToolGatewayExecutionContext::default(),

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::ai::ports::FakeLlmProvider;
+use crate::ai::ports::{FakeLlmProvider, ObservationWriteContext};
 use crate::ai::runtime::LoopEngine;
 use crate::ai::tools::{AiToolContext, ToolRegistry};
 use maohuoban_ai_domain::ai::{
@@ -45,6 +45,7 @@ async fn whitespace_only_stream_returns_invalid_response_error() {
     let registry = Arc::new(ToolRegistry::new());
     let tool_context = AiToolContext {
         actor_user_id: uuid::Uuid::new_v4(),
+        observation_write_context: ObservationWriteContext::default(),
         authorized_pet_id: uuid::Uuid::nil(),
         gateway_context: crate::ai::tools::ToolGatewayExecutionContext::default(),
         gateway_observer: None,

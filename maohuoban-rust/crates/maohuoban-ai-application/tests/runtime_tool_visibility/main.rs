@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, DateCalculatorTool, ToolGatewayExecutionContext, ToolRegistry,
@@ -27,6 +28,7 @@ async fn private_tools_hidden_without_selected_pet_even_if_catalog_mentions_priv
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,
@@ -74,6 +76,7 @@ async fn private_toolset_hidden_without_selected_pet_even_if_scope_and_tags_miss
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,
@@ -115,6 +118,7 @@ async fn temporal_toolset_visible_without_selected_pet() {
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,
@@ -155,6 +159,7 @@ async fn prepare_write_tool_visible_with_private_context() {
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,
@@ -193,6 +198,7 @@ async fn commit_write_tool_visible_with_private_context() {
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,
@@ -231,6 +237,7 @@ async fn commit_write_tool_visible_with_pending_confirmation_task() {
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext {
                 session_id: None,

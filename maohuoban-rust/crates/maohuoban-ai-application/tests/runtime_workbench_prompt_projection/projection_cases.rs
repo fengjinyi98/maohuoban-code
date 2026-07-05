@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::{AgentRuntimeLoopEngine, AgentSession};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
@@ -161,6 +162,7 @@ async fn confirmation_task_workbench_selects_commit_task_type_in_planning_diagno
         Arc::new(registry),
         AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::new_v4(),
             gateway_context: ToolGatewayExecutionContext {
                 session_id: None,

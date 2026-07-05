@@ -10,7 +10,12 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
     case auto(recordID: String, context: PetRecordEntryContext)
     case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext)
     case feeding(recordID: String, context: PetRecordEntryContext)
-    case abnormal(recordID: String, highlightedRecordID: String? = nil, context: PetRecordEntryContext)
+    case abnormal(
+        recordID: String,
+        highlightedRecordID: String? = nil,
+        context: PetRecordEntryContext,
+        opensFollowupSheet: Bool = false
+    )
     case weight(recordID: String, context: PetRecordEntryContext)
     case deworming(recordID: String, context: PetRecordEntryContext)
     case vaccine(recordID: String, context: PetRecordEntryContext)
@@ -26,9 +31,11 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
             "quickFact-\(recordID)"
         case .feeding(let recordID, _):
             "feeding-\(recordID)"
-        case .abnormal(let recordID, let highlightedRecordID, _):
+        case .abnormal(let recordID, let highlightedRecordID, _, let opensFollowupSheet):
             if let highlightedRecordID {
                 "abnormal-\(recordID)-highlight-\(highlightedRecordID)"
+            } else if opensFollowupSheet {
+                "abnormal-\(recordID)-followup"
             } else {
                 "abnormal-\(recordID)"
             }
@@ -82,10 +89,11 @@ struct PetRecordDetailDestinationScreen: View {
                 recordContext: context,
                 onDeleted: onRecordDeleted
             )
-        case .abnormal(let recordID, let highlightedRecordID, let context):
+        case .abnormal(let recordID, let highlightedRecordID, let context, let opensFollowupSheet):
             PetAbnormalRecordDetailScreen(
                 recordID: recordID,
                 highlightedRecordID: highlightedRecordID,
+                opensFollowupSheet: opensFollowupSheet,
                 currentUserID: currentUserID,
                 recordContext: context,
                 onDeleted: onRecordDeleted

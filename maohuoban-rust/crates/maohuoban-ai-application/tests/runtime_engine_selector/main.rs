@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use futures_util::StreamExt;
-use maohuoban_ai_application::ai::ports::LlmProvider;
+use maohuoban_ai_application::ai::ports::{LlmProvider, ObservationWriteContext};
 use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentRuntimeEngineMode, AgentSession,
 };
@@ -76,6 +76,7 @@ fn engine_input(provider: Arc<dyn LlmProvider>) -> AgentRuntimeEngineInput {
         registry: Arc::new(ToolRegistry::new()),
         tool_context: AiToolContext {
             actor_user_id: Uuid::new_v4(),
+            observation_write_context: ObservationWriteContext::default(),
             authorized_pet_id: Uuid::nil(),
             gateway_context: ToolGatewayExecutionContext::default(),
             gateway_observer: None,

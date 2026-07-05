@@ -10,7 +10,8 @@ protocol AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error>
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]>
@@ -46,7 +47,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -60,7 +62,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                         message: message,
                         selectedPetID: selectedPetID,
                         surface: surface,
-                        chatSessionID: chatSessionID
+                        chatSessionID: chatSessionID,
+                        entryContext: entryContext
                     )
                     let (bytes, response) = try await session.bytes(for: request)
 
@@ -188,7 +191,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) throws(MHBAPIError) -> URLRequest {
         let url = client.baseURL.appending(path: "/api/v1/ai/chat/stream")
         var request = URLRequest(url: url)
@@ -202,7 +206,11 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
             message: message,
             selectedPetID: selectedPetID,
             surface: surface,
-            chatSessionID: chatSessionID
+            chatSessionID: chatSessionID,
+            chatContextKind: entryContext.chatContextKind,
+            abnormalEpisodeID: entryContext.abnormalEpisodeID,
+            sourceHintID: entryContext.sourceHintID,
+            agentFollowupID: entryContext.agentFollowupID
         )
         do {
             request.httpBody = try JSONEncoder().encode(body)
@@ -256,7 +264,8 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         message: String,
         selectedPetID: String?,
         surface: String,
-        chatSessionID: String?
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             for event in streamEvents {

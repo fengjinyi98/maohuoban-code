@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::runtime::{
     AgentRuntimeEngineFactory, AgentRuntimeEngineInput, AgentSession,
 };
@@ -171,6 +172,12 @@ fn build_non_stream_tool_context(
     AiToolContext {
         actor_user_id,
         authorized_pet_id: target_pet.map_or_else(Uuid::nil, |pet| pet.pet_id),
+        observation_write_context: ObservationWriteContext {
+            chat_context_kind: context.effective_chat_context_kind.clone(),
+            abnormal_episode_id: context.effective_abnormal_episode_id,
+            source_hint_id: context.effective_source_hint_id,
+            agent_followup_id: context.effective_agent_followup_id,
+        },
         gateway_context: ToolGatewayExecutionContext {
             session_id: Some(context.session_id),
             turn_id: Some(context.turn_id.as_uuid()),

@@ -51,6 +51,7 @@ impl AuthTestApp {
                 agent_memory_items,
                 agent_profile_items,
                 agent_preferences,
+                agent_proactive_followups,
                 ai_request_gate_logs,
                 ai_tool_access_logs,
                 ai_messages,

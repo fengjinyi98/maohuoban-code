@@ -1,3 +1,4 @@
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::tools::{AiToolContext, ToolGatewayExecutionContext};
 use maohuoban_ai_domain::ai::{
     AgentCapability, AgentDefinition, AgentId, AgentSessionWorkbench, AiConversationSurface,
@@ -9,6 +10,7 @@ use uuid::Uuid;
 pub fn test_tool_context(pet_id: Uuid) -> AiToolContext {
     AiToolContext {
         actor_user_id: Uuid::new_v4(),
+        observation_write_context: ObservationWriteContext::default(),
         authorized_pet_id: pet_id,
         gateway_context: ToolGatewayExecutionContext::default(),
         gateway_observer: None,

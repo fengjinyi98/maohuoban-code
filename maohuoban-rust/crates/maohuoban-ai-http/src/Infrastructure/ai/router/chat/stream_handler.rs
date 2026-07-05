@@ -1,4 +1,5 @@
 use axum::{Json, extract::State, response::Response};
+use maohuoban_ai_application::ai::ports::ObservationWriteContext;
 use maohuoban_ai_application::ai::stream::AiStreamRunContext;
 use maohuoban_ai_domain::ai::{
     AiGateDecision, AiPetDisplaySnapshot, AiStreamEvent, ContextConfirmationTaskSummary,
@@ -95,6 +96,8 @@ pub async fn handle_chat_stream(
         .await;
     }
 
+    let observation_context = observation_write_context(&context);
+
     agent_response_for_context(
         &state,
         &req,
@@ -108,6 +111,7 @@ pub async fn handle_chat_stream(
             target_pet: context.target_pet,
             initial_events,
             user_message_id: context.user_message_id,
+            observation_write_context: observation_context,
         },
     )
     .await
@@ -127,6 +131,7 @@ struct AgentResponseInput {
     target_pet: Option<AiPetDisplaySnapshot>,
     initial_events: Vec<AiStreamEvent>,
     user_message_id: Uuid,
+    observation_write_context: ObservationWriteContext,
 }
 
 async fn agent_response_for_context(
@@ -216,6 +221,7 @@ async fn agent_response_for_context(
             turn_id: input.turn_id,
             message_id: input.message_id,
             confirmation_task_id: input.confirmation_task_id,
+            observation_write_context: input.observation_write_context,
             actor_user_id: input.actor_user_id,
             target_pet: input.target_pet,
             fact_package: None,
@@ -233,6 +239,17 @@ async fn agent_response_for_context(
         input.turn_id.as_uuid(),
         state.runtime_engine_mode.as_str(),
     )
+}
+
+fn observation_write_context(
+    context: &super::turn_preparation::ChatTurnContext,
+) -> ObservationWriteContext {
+    ObservationWriteContext {
+        chat_context_kind: context.effective_chat_context_kind.clone(),
+        abnormal_episode_id: context.effective_abnormal_episode_id,
+        source_hint_id: context.effective_source_hint_id,
+        agent_followup_id: context.effective_agent_followup_id,
+    }
 }
 
 fn record_stream_request_received(
