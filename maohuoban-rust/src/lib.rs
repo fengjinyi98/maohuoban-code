@@ -17,8 +17,8 @@ use home_dashboard::{HybridHomeDashboardProvider, InMemoryHomeDashboardProvider}
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_http::ai::router::{
-    AiHttpState, AiPetContextProviders, build_ai_chat_router, build_ai_history_router,
-    build_ai_router_state,
+    AiHttpState, AiPetContextProviderParts, AiPetContextProviders, build_ai_chat_router,
+    build_ai_history_router, build_ai_router_state,
 };
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
@@ -64,10 +64,11 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
 use crate::infrastructure::ai::{
-    PetServiceAbnormalEpisodeFactProvider, PetServiceAuthorizedPetCatalog,
-    PetServiceDietConfirmationCandidateProvider, PetServiceDietFactProvider,
-    PetServiceFoodInventoryHintProvider, PetServiceHealthQuickFactProvider,
-    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
+    PetServiceAbnormalEpisodeFactProvider, PetServiceAbnormalFollowupPlanProvider,
+    PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
+    PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
+    PetServiceHealthQuickFactProvider, PetServiceIdentityFactProvider,
+    PetServiceObservationWriteProvider,
 };
 
 /// `BackendConfig` 后端启动配置
@@ -438,26 +439,31 @@ fn build_ai_http_state(
         memory_repository: Arc::new(PostgresMemoryRepository::new(ai_session_pool.clone()))
             as Arc<dyn maohuoban_ai_application::ai::ports::MemoryRepository>,
         pet_resolver: ai_pet_resolver,
-        pet_context_providers: AiPetContextProviders::new(
-            Arc::new(PetServiceIdentityFactProvider::new(Arc::clone(pet_service))),
-            Arc::new(PetServiceAbnormalEpisodeFactProvider::new(Arc::clone(
+        pet_context_providers: AiPetContextProviders::new(AiPetContextProviderParts {
+            identity_fact_provider: Arc::new(PetServiceIdentityFactProvider::new(Arc::clone(
                 pet_service,
             ))),
-            Arc::new(PetServiceDietFactProvider::new(Arc::clone(pet_service))),
-            Arc::new(PetServiceHealthQuickFactProvider::new(Arc::clone(
-                pet_service,
-            ))),
-            Arc::new(PetServiceFoodInventoryHintProvider::new(Arc::clone(
-                pet_service,
-            ))),
-            Arc::new(PetServiceDietConfirmationCandidateProvider::new(
+            abnormal_episode_fact_provider: Arc::new(PetServiceAbnormalEpisodeFactProvider::new(
                 Arc::clone(pet_service),
             )),
-            Arc::new(PetServiceObservationWriteProvider::new(
+            diet_fact_provider: Arc::new(PetServiceDietFactProvider::new(Arc::clone(pet_service))),
+            health_quick_fact_provider: Arc::new(PetServiceHealthQuickFactProvider::new(
+                Arc::clone(pet_service),
+            )),
+            food_inventory_hint_provider: Arc::new(PetServiceFoodInventoryHintProvider::new(
+                Arc::clone(pet_service),
+            )),
+            diet_confirmation_candidate_provider: Arc::new(
+                PetServiceDietConfirmationCandidateProvider::new(Arc::clone(pet_service)),
+            ),
+            observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
                 Arc::clone(pet_service),
                 confirmation_tasks.clone(),
             )),
-        ),
+            abnormal_followup_plan_provider: Arc::new(PetServiceAbnormalFollowupPlanProvider::new(
+                Arc::clone(pet_service),
+            )),
+        }),
         observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
             Arc::clone(pet_service),
             confirmation_tasks,

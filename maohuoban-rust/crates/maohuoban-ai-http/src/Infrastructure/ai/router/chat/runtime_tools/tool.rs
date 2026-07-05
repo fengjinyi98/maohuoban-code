@@ -6,7 +6,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use maohuoban_ai_application::ai::ports::{AiSessionRepository, AiToolAccessLog};
+use chrono::{DateTime, Utc};
+use maohuoban_ai_application::ai::ports::{
+    AbnormalFollowupPlanDraft, AiSessionRepository, AiToolAccessLog,
+};
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
 };
@@ -64,6 +67,29 @@ impl AiToolDefinition for RuntimePetContextTool {
                 },
                 "required": ["confirmation_task_id"]
             }),
+            RuntimePetContextToolKind::SaveAbnormalFollowupPlan => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "due_at": { "type": "string", "format": "date-time" },
+                    "message_title": { "type": "string" },
+                    "message_body": { "type": "string" },
+                    "rationale": { "type": "string" },
+                    "recommended_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": ["update_observation", "chat_with_agent"]
+                        }
+                    }
+                },
+                "required": [
+                    "due_at",
+                    "message_title",
+                    "message_body",
+                    "rationale",
+                    "recommended_actions"
+                ]
+            }),
             _ => serde_json::json!({
                 "type": "object",
                 "properties": {},
@@ -79,16 +105,19 @@ impl AiToolDefinition for RuntimePetContextTool {
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             concurrency_safe: !matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             risk_level: if matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ) {
                 AiToolRiskLevel::High
             } else {
@@ -217,6 +246,26 @@ impl RuntimePetContextTool {
                     })?;
                 Ok(observation_commit_fact_package(committed.event_id))
             }
+            RuntimePetContextToolKind::SaveAbnormalFollowupPlan => {
+                let draft = parse_followup_plan_draft(args)?;
+                let saved = self
+                    .providers
+                    .abnormal_followup_plan_provider
+                    .save_followup_plan(
+                        ctx.actor_user_id,
+                        self.target_pet.pet_id,
+                        ctx.observation_write_context.clone(),
+                        draft,
+                    )
+                    .await
+                    .map_err(|error| {
+                        maohuoban_ai_domain::ai::AiError::Infrastructure(error.to_string())
+                    })?;
+                Ok(abnormal_followup_plan_fact_package(
+                    saved.followup_id,
+                    saved.due_at,
+                ))
+            }
         }
     }
 
@@ -316,6 +365,72 @@ fn observation_commit_fact_package(event_id: Uuid) -> AiFactPackage {
     });
     package.fact_strength = AiFactStrength::Strong;
     package
+}
+
+fn abnormal_followup_plan_fact_package(followup_id: Uuid, due_at: DateTime<Utc>) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.facts.push(AiFactEntry {
+        key: "abnormal_followup_plan.saved".to_owned(),
+        value: format!("followup_id={followup_id}; due_at={}", due_at.to_rfc3339()),
+        strength: AiFactStrength::Strong,
+        citation_id: Some(followup_id),
+    });
+    package.fact_strength = AiFactStrength::Strong;
+    package
+}
+
+/// parse_followup_plan_draft 解析异常追踪计划工具参数
+/// 核心职责：
+/// - 将模型输出的 JSON 参数转换为受控计划草稿
+/// - 保持 episode/followup 归属不进入模型可写参数
+fn parse_followup_plan_draft(args: &serde_json::Value) -> AiResult<AbnormalFollowupPlanDraft> {
+    let due_at_raw = required_string_arg(args, "due_at")?;
+    let due_at = DateTime::parse_from_rfc3339(&due_at_raw)
+        .map_err(|_| maohuoban_ai_domain::ai::AiError::InvalidInput("due_at 格式无效".to_owned()))?
+        .with_timezone(&Utc);
+    let recommended_actions = args
+        .get("recommended_actions")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            maohuoban_ai_domain::ai::AiError::InvalidInput(
+                "recommended_actions 必须是字符串数组".to_owned(),
+            )
+        })?
+        .iter()
+        .map(|value| {
+            value.as_str().map(str::to_owned).ok_or_else(|| {
+                maohuoban_ai_domain::ai::AiError::InvalidInput(
+                    "recommended_actions 必须是字符串数组".to_owned(),
+                )
+            })
+        })
+        .collect::<AiResult<Vec<_>>>()?;
+
+    Ok(AbnormalFollowupPlanDraft {
+        due_at,
+        message_title: required_string_arg(args, "message_title")?,
+        message_body: required_string_arg(args, "message_body")?,
+        rationale: required_string_arg(args, "rationale")?,
+        recommended_actions,
+    })
+}
+
+/// required_string_arg 解析必填字符串工具参数
+/// 核心职责：
+/// - 统一必填字符串参数错误
+/// - 避免空字段绕过工具入参层校验
+fn required_string_arg(args: &serde_json::Value, key: &str) -> AiResult<String> {
+    let Some(value) = args.get(key).and_then(serde_json::Value::as_str) else {
+        return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(format!(
+            "缺少 {key}"
+        )));
+    };
+    if value.trim().is_empty() {
+        return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(format!(
+            "{key} 不能为空"
+        )));
+    }
+    Ok(value.to_owned())
 }
 
 /// optional_uuid_arg 解析可选 UUID 工具参数

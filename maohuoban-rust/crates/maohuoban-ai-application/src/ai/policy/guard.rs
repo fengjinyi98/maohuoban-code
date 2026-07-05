@@ -60,6 +60,10 @@ impl PolicyGuard {
             return PolicyDecision::Allow;
         }
 
+        if is_controlled_background_write_tool(tool_name) {
+            return PolicyDecision::Allow;
+        }
+
         if metadata.requires_confirmation
             || !metadata.read_only
             || matches!(
@@ -99,6 +103,10 @@ fn is_write_commit_tool(tool_name: &str) -> bool {
 
 fn is_write_prepare_tool(tool_name: &str) -> bool {
     tool_name.starts_with("prepare_")
+}
+
+fn is_controlled_background_write_tool(tool_name: &str) -> bool {
+    tool_name == "save_abnormal_episode_followup_plan"
 }
 
 fn matches_confirmation_task(ctx: &AiToolContext, args: &serde_json::Value) -> bool {

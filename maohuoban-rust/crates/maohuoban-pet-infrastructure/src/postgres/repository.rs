@@ -5,7 +5,8 @@ use maohuoban_pet_application::pet::{
     DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, NewPetWeightRecord,
     PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetAbnormalEpisodeFacts,
     PetRepository, PetWeightRecord, ReplacePetExternalIdentifier, RestorePetProfile,
-    TradePetImport, TradePetImportInput, UpdatePetEvent, UpdatePetProfile, UpdatePetWeightRecord,
+    SaveAgentFollowupPlanInput, SavedAgentFollowupPlan, TradePetImport, TradePetImportInput,
+    UpdatePetEvent, UpdatePetProfile, UpdatePetWeightRecord,
 };
 use maohuoban_pet_application::pet::{
     DeletePetEvent, DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord,
@@ -263,6 +264,13 @@ impl PetRepository for PostgresPetRepository {
     ) -> PetResult<()> {
         self.update_episode_for_followup_command(pet_id, event_id, episode_id, observed_at)
             .await
+    }
+
+    async fn save_agent_followup_plan(
+        &self,
+        input: SaveAgentFollowupPlanInput,
+    ) -> PetResult<SavedAgentFollowupPlan> {
+        self.save_agent_followup_plan_command(input).await
     }
 
     async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>> {

@@ -19,10 +19,11 @@ pub(super) enum RuntimePetContextToolKind {
     DietConfirmationCandidates,
     PrepareObservationWrite,
     CommitObservationWrite,
+    SaveAbnormalFollowupPlan,
 }
 
 impl RuntimePetContextToolKind {
-    pub(super) fn all() -> [Self; 8] {
+    pub(super) fn all() -> [Self; 9] {
         [
             Self::Identity,
             Self::AbnormalEpisodeFacts,
@@ -32,6 +33,7 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates,
             Self::PrepareObservationWrite,
             Self::CommitObservationWrite,
+            Self::SaveAbnormalFollowupPlan,
         ]
     }
 
@@ -45,6 +47,7 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "load_pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "prepare_pet_observation_write",
             Self::CommitObservationWrite => "commit_pet_observation_write",
+            Self::SaveAbnormalFollowupPlan => "save_abnormal_episode_followup_plan",
         }
     }
 
@@ -62,6 +65,9 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "加载目标宠物饮食待确认候选",
             Self::PrepareObservationWrite => "准备写入宠物观察记录并创建确认任务",
             Self::CommitObservationWrite => "在用户确认后提交宠物观察记录写入",
+            Self::SaveAbnormalFollowupPlan => {
+                "保存异常 episode 主动追踪计划草稿。episode 和 followup 归属只能来自后端会话上下文，模型只提交 due_at、追问文案、规划理由和推荐动作"
+            }
         }
     }
 
@@ -75,6 +81,7 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "pet.diet_confirmation_candidates.read",
             Self::PrepareObservationWrite => "pet.observation.write_prepare",
             Self::CommitObservationWrite => "pet.observation.write_commit",
+            Self::SaveAbnormalFollowupPlan => "pet.abnormal_followup_plan.write",
         }
     }
 
@@ -88,6 +95,7 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "pet_observation_write_prepare",
             Self::CommitObservationWrite => "pet_observation_write_commit",
+            Self::SaveAbnormalFollowupPlan => "pet_abnormal_followup_plan_write",
         }
     }
 
@@ -100,6 +108,7 @@ impl RuntimePetContextToolKind {
             Self::FoodInventoryHints => "inventory",
             Self::DietConfirmationCandidates => "diet_confirmation",
             Self::PrepareObservationWrite | Self::CommitObservationWrite => "observation",
+            Self::SaveAbnormalFollowupPlan => "abnormal_followup_plan",
         }
     }
 
@@ -137,6 +146,10 @@ impl RuntimePetContextToolKind {
                 started: "正在提交观察记录写入".to_owned(),
                 completed: "观察记录写入完成".to_owned(),
             },
+            Self::SaveAbnormalFollowupPlan => ToolProgressText {
+                started: "正在保存追踪计划".to_owned(),
+                completed: "追踪计划已保存".to_owned(),
+            },
         }
     }
 
@@ -150,6 +163,7 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => confirmation_candidate_fact_schema(),
             Self::PrepareObservationWrite => observation_write_prepare_fact_schema(),
             Self::CommitObservationWrite => observation_write_commit_fact_schema(),
+            Self::SaveAbnormalFollowupPlan => abnormal_followup_plan_fact_schema(),
         }
     }
 }
@@ -387,6 +401,22 @@ fn observation_write_commit_fact_schema() -> ToolFactSchema {
             label: "观察记录已写入".to_owned(),
             meaning: "确认后已落真实 pet event 的写入结果".to_owned(),
             example_queries: vec!["确认写入上一条观察记录".to_owned()],
+        }],
+        default_strength: Some(AiFactStrength::Strong),
+    }
+}
+
+fn abnormal_followup_plan_fact_schema() -> ToolFactSchema {
+    ToolFactSchema {
+        fact_keys: vec!["abnormal_followup_plan.saved".to_owned()],
+        description: "异常主动追踪计划保存结果".to_owned(),
+        natural_language_summary: "保存经后端校验的异常 episode 下一轮主动追踪计划，不写入病情事实"
+            .to_owned(),
+        fields: vec![ToolFactField {
+            key: "abnormal_followup_plan.saved".to_owned(),
+            label: "追踪计划已保存".to_owned(),
+            meaning: "异常 episode 的下一轮追踪计划已保存到 agent_proactive_followups".to_owned(),
+            example_queries: vec!["安排下一次异常追踪".to_owned()],
         }],
         default_strength: Some(AiFactStrength::Strong),
     }

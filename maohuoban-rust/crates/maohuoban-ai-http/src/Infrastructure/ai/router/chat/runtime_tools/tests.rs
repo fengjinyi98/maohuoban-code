@@ -11,11 +11,13 @@ mod tests {
 
     use async_trait::async_trait;
     use maohuoban_ai_application::ai::ports::{
-        AiRequestGateLog, AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite,
-        FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput, ObservationWriteContext,
+        AbnormalFollowupPlanDraft, AbnormalFollowupPlanProvider, AiRequestGateLog,
+        AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite, FinalizerTxInput,
+        FoodInventoryHintProvider, IngressTxInput, ObservationWriteContext,
         PetAbnormalEpisodeFactProvider, PetDietConfirmationCandidateProvider, PetDietFactProvider,
         PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
-        PreparedObservationWrite, SessionSummaryRepository, SessionTurnRepository,
+        PreparedObservationWrite, SavedAbnormalFollowupPlan, SessionSummaryRepository,
+        SessionTurnRepository,
     };
     use maohuoban_ai_application::ai::tools::{AiToolContext, AiToolDefinition};
     use maohuoban_ai_domain::ai::{
@@ -30,12 +32,13 @@ mod tests {
     use super::super::build_public_runtime_tool_registry;
     use super::super::kind::RuntimePetContextToolKind;
     use super::super::tool::RuntimePetContextTool;
-    use crate::ai::router::{AiHttpState, AiPetContextProviders};
+    use crate::ai::router::{AiHttpState, AiPetContextProviderParts, AiPetContextProviders};
 
     struct EmptySessionRepository;
     struct EmptySessionTurnRepository;
     struct EmptyChatTurnTransaction;
     struct EmptySessionSummaryRepository;
+    struct EmptyAbnormalFollowupPlanProvider;
 
     #[async_trait]
     impl AiSessionRepository for EmptySessionRepository {
@@ -346,6 +349,22 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl AbnormalFollowupPlanProvider for EmptyAbnormalFollowupPlanProvider {
+        async fn save_followup_plan(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            _context: ObservationWriteContext,
+            draft: AbnormalFollowupPlanDraft,
+        ) -> PetResult<SavedAbnormalFollowupPlan> {
+            Ok(SavedAbnormalFollowupPlan {
+                followup_id: Uuid::new_v4(),
+                due_at: draft.due_at,
+            })
+        }
+    }
+
     #[test]
     fn runtime_current_pet_tool_schema_does_not_require_model_pet_id() {
         let tool = runtime_identity_tool();
@@ -576,15 +595,16 @@ mod tests {
         let provider = Arc::new(EmptyPetContextProvider);
         RuntimePetContextTool {
             kind: RuntimePetContextToolKind::Identity,
-            providers: AiPetContextProviders::new(
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider,
-                Arc::new(EmptyObservationWriteProvider),
-            ),
+            providers: AiPetContextProviders::new(AiPetContextProviderParts {
+                identity_fact_provider: provider.clone(),
+                abnormal_episode_fact_provider: provider.clone(),
+                diet_fact_provider: provider.clone(),
+                health_quick_fact_provider: provider.clone(),
+                food_inventory_hint_provider: provider.clone(),
+                diet_confirmation_candidate_provider: provider,
+                observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
+            }),
             session_repository: Arc::new(EmptySessionRepository),
             session_id: Uuid::new_v4(),
             target_pet: AiPetDisplaySnapshot {
@@ -603,15 +623,18 @@ mod tests {
         let provider = Arc::new(EmptyPetContextProvider);
         RuntimePetContextTool {
             kind: RuntimePetContextToolKind::AbnormalEpisodeFacts,
-            providers: AiPetContextProviders::new(
-                provider.clone(),
-                Arc::new(CapturingAbnormalEpisodeProvider::new(captured)),
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider,
-                Arc::new(EmptyObservationWriteProvider),
-            ),
+            providers: AiPetContextProviders::new(AiPetContextProviderParts {
+                identity_fact_provider: provider.clone(),
+                abnormal_episode_fact_provider: Arc::new(CapturingAbnormalEpisodeProvider::new(
+                    captured,
+                )),
+                diet_fact_provider: provider.clone(),
+                health_quick_fact_provider: provider.clone(),
+                food_inventory_hint_provider: provider.clone(),
+                diet_confirmation_candidate_provider: provider,
+                observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
+            }),
             session_repository: Arc::new(EmptySessionRepository),
             session_id: Uuid::new_v4(),
             target_pet: test_pet(),
@@ -644,15 +667,16 @@ mod tests {
                     maohuoban_ai_application::ai::ports::EmptyPetCatalog,
                 ),
             ),
-            pet_context_providers: AiPetContextProviders::new(
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider.clone(),
-                provider,
-                Arc::new(EmptyObservationWriteProvider),
-            ),
+            pet_context_providers: AiPetContextProviders::new(AiPetContextProviderParts {
+                identity_fact_provider: provider.clone(),
+                abnormal_episode_fact_provider: provider.clone(),
+                diet_fact_provider: provider.clone(),
+                health_quick_fact_provider: provider.clone(),
+                food_inventory_hint_provider: provider.clone(),
+                diet_confirmation_candidate_provider: provider,
+                observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
+            }),
             observation_write_provider: Arc::new(EmptyObservationWriteProvider),
         }
     }

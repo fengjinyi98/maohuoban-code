@@ -31,6 +31,7 @@ use super::{
     FoodInventoryChangeHints, PetCurrentDietContext, PetRecentHealthFacts,
     SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
+use super::{SaveAgentFollowupPlanInput, SavedAgentFollowupPlan};
 use maohuoban_pet_domain::pet::{FoodScopeType, PetDietAssignment, PetIdentityContext};
 
 /// PetService 宠物应用服务
@@ -239,6 +240,50 @@ impl PetService {
         }
 
         Ok(event)
+    }
+
+    /// save_agent_followup_plan 保存 Agent 主动追踪计划
+    /// 核心职责：
+    /// - 校验授权用户、计划文案和推荐动作
+    /// - 将真实保存委托给仓储状态机
+    pub async fn save_agent_followup_plan(
+        &self,
+        mut input: SaveAgentFollowupPlanInput,
+    ) -> PetResult<SavedAgentFollowupPlan> {
+        if self
+            .repository
+            .authorize_pet_access(input.pet_id, input.actor_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        input.message_title = normalize_compact_text(&input.message_title);
+        input.message_body = input.message_body.trim().to_owned();
+        input.rationale = input.rationale.trim().to_owned();
+        validate_text("追踪提醒正文", &input.message_body)?;
+        validate_text("追踪规划理由", &input.rationale)?;
+        if input.message_title.is_empty() {
+            return Err(PetError::InvalidInput("追踪提醒标题不能为空".to_owned()));
+        }
+        if input.message_title.chars().count() > 32 {
+            return Err(PetError::InvalidInput("追踪提醒标题过长".to_owned()));
+        }
+        if input.message_body.chars().count() > 240 {
+            return Err(PetError::InvalidInput("追踪提醒正文过长".to_owned()));
+        }
+        if input.rationale.chars().count() > 500 {
+            return Err(PetError::InvalidInput("追踪规划理由过长".to_owned()));
+        }
+        if input.recommended_actions.is_empty() {
+            return Err(PetError::InvalidInput("推荐动作不能为空".to_owned()));
+        }
+        for action in &input.recommended_actions {
+            if !matches!(action.as_str(), "update_observation" | "chat_with_agent") {
+                return Err(PetError::InvalidInput("推荐动作不在允许范围内".to_owned()));
+            }
+        }
+        self.repository.save_agent_followup_plan(input).await
     }
 
     pub async fn create_pet_weight_record(

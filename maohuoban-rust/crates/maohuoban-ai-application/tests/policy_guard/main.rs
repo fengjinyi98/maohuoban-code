@@ -86,6 +86,10 @@ struct ConfirmationTool {
 
 struct CommitObservationTool;
 
+struct SaveAbnormalFollowupPlanTool {
+    execute_count: Arc<AtomicUsize>,
+}
+
 #[async_trait]
 impl AiToolDefinition for CommitObservationTool {
     fn name(&self) -> &'static str {
@@ -121,6 +125,50 @@ impl AiToolDefinition for CommitObservationTool {
     }
 
     async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        AiToolResult::allowed(vec![])
+    }
+}
+
+#[async_trait]
+impl AiToolDefinition for SaveAbnormalFollowupPlanTool {
+    fn name(&self) -> &'static str {
+        "save_abnormal_episode_followup_plan"
+    }
+
+    fn description(&self) -> &'static str {
+        "保存异常 episode 主动追踪计划"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "due_at": { "type": "string", "format": "date-time" },
+                "message_title": { "type": "string" },
+                "message_body": { "type": "string" },
+                "rationale": { "type": "string" },
+                "recommended_actions": { "type": "array", "items": { "type": "string" } }
+            },
+            "required": ["due_at", "message_title", "message_body", "rationale", "recommended_actions"]
+        })
+    }
+
+    fn metadata(&self) -> AiToolMetadata {
+        AiToolMetadata {
+            scope: "pet.abnormal_followup_plan.write".to_owned(),
+            read_only: false,
+            concurrency_safe: false,
+            risk_level: AiToolRiskLevel::High,
+            requires_confirmation: false,
+            domain_tags: vec!["abnormal_followup_plan".to_owned()],
+            toolset: Toolset::PrivatePetContext,
+            progress_text: ToolProgressText::default(),
+            result_fact_schema: None,
+        }
+    }
+
+    async fn execute(&self, _ctx: &AiToolContext, _args: &serde_json::Value) -> AiToolResult {
+        self.execute_count.fetch_add(1, Ordering::SeqCst);
         AiToolResult::allowed(vec![])
     }
 }
@@ -204,6 +252,35 @@ async fn policy_guard_requires_confirmation() {
     assert!(!result.is_success());
     assert!(result.confirmation().is_some());
     assert_eq!(execute_count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn policy_guard_allows_abnormal_followup_plan_tool_without_confirmation() {
+    let execute_count = Arc::new(AtomicUsize::new(0));
+    let mut registry = ToolRegistry::new();
+    registry.register(SaveAbnormalFollowupPlanTool {
+        execute_count: execute_count.clone(),
+    });
+    let pet_id = Uuid::new_v4();
+    let ctx = test_tool_context(pet_id);
+
+    let result = registry
+        .call(
+            "save_abnormal_episode_followup_plan",
+            &ctx,
+            &json!({
+                "due_at": "2026-07-05T18:30:00Z",
+                "message_title": "毛球稍后再确认",
+                "message_body": "继续确认便便、精神和食欲是否好转。",
+                "rationale": "用户仍在异常追踪中，需要稍后复查。",
+                "recommended_actions": ["update_observation", "chat_with_agent"]
+            }),
+        )
+        .await;
+
+    assert!(result.is_success());
+    assert!(result.confirmation().is_none());
+    assert_eq!(execute_count.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

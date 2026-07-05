@@ -5,8 +5,10 @@
 // - 避免跨 crate 依赖（不引用 home-domain）
 
 use chrono::{DateTime, Duration, Utc};
-use maohuoban_pet_application::pet::{AbnormalSymptomEventInput, NewPetEvent};
-use maohuoban_pet_domain::pet::{PetEvent, PetResult};
+use maohuoban_pet_application::pet::{
+    AbnormalSymptomEventInput, NewPetEvent, SaveAgentFollowupPlanInput, SavedAgentFollowupPlan,
+};
+use maohuoban_pet_domain::pet::{PetError, PetEvent, PetResult};
 use uuid::Uuid;
 
 use super::PostgresPetRepository;
@@ -567,6 +569,76 @@ impl PostgresPetRepository {
         tx.commit().await.map_err(to_infrastructure_error)?;
 
         Ok(())
+    }
+
+    /// save_agent_followup_plan_command 保存 Agent 规划后的主动追踪计划
+    /// 核心职责：
+    /// - 只更新已绑定当前宠物和 episode 的计划
+    /// - 同步回写 abnormal episode 下一次追踪投影
+    pub(super) async fn save_agent_followup_plan_command(
+        &self,
+        input: SaveAgentFollowupPlanInput,
+    ) -> PetResult<SavedAgentFollowupPlan> {
+        let recommended_actions = serde_json::to_value(&input.recommended_actions)
+            .map_err(|error| PetError::InvalidInput(error.to_string()))?;
+        let mut tx = self.pool.begin().await.map_err(to_infrastructure_error)?;
+
+        let updated: Option<(Uuid, DateTime<Utc>)> = sqlx::query_as(
+            r#"
+            UPDATE agent_proactive_followups
+            SET status = 'scheduled',
+                due_at = $4,
+                message_title = $5,
+                message_body = $6,
+                rationale = $7,
+                recommended_actions = $8::jsonb,
+                updated_at = now()
+            WHERE id = $1
+              AND pet_id = $2
+              AND episode_id = $3
+              AND status IN ('planning', 'scheduled', 'due')
+            RETURNING id, due_at
+            "#,
+        )
+        .bind(input.followup_id)
+        .bind(input.pet_id)
+        .bind(input.episode_id)
+        .bind(input.due_at)
+        .bind(&input.message_title)
+        .bind(&input.message_body)
+        .bind(&input.rationale)
+        .bind(&recommended_actions)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        let Some((followup_id, due_at)) = updated else {
+            return Err(PetError::InvalidInput("主动追踪计划不可用".to_owned()));
+        };
+
+        sqlx::query(
+            r#"
+            UPDATE abnormal_episodes
+            SET next_followup_due_at = $1,
+                last_followup_plan_id = $2,
+                updated_at = now()
+            WHERE id = $3
+              AND pet_id = $4
+            "#,
+        )
+        .bind(due_at)
+        .bind(followup_id)
+        .bind(input.episode_id)
+        .bind(input.pet_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        tx.commit().await.map_err(to_infrastructure_error)?;
+        Ok(SavedAgentFollowupPlan {
+            followup_id,
+            due_at,
+        })
     }
 
     /// load_attention_hints_query 从 DB 查询 active attention_hints

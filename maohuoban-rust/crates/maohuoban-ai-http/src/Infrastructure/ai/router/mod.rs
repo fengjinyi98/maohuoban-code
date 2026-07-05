@@ -17,10 +17,11 @@ use axum::{
 };
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
-    AiSessionRepository, ChatTurnTransactionPort, FoodInventoryHintProvider, LlmProvider,
-    MemoryRepository, PetAbnormalEpisodeFactProvider, PetDietConfirmationCandidateProvider,
-    PetDietFactProvider, PetHealthQuickFactProvider, PetIdentityFactProvider,
-    PetObservationWriteProvider, SessionSummaryRepository, SessionTurnRepository,
+    AbnormalFollowupPlanProvider, AiSessionRepository, ChatTurnTransactionPort,
+    FoodInventoryHintProvider, LlmProvider, MemoryRepository, PetAbnormalEpisodeFactProvider,
+    PetDietConfirmationCandidateProvider, PetDietFactProvider, PetHealthQuickFactProvider,
+    PetIdentityFactProvider, PetObservationWriteProvider, SessionSummaryRepository,
+    SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 
@@ -56,28 +57,37 @@ pub struct AiPetContextProviders {
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
     pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub abnormal_followup_plan_provider: Arc<dyn AbnormalFollowupPlanProvider>,
+}
+
+/// AiPetContextProviderParts AI 宠物上下文 provider 构造参数
+/// 核心职责：
+/// - 以具名字段收敛 provider 集合依赖
+/// - 避免构造函数参数随工具增长继续膨胀
+pub struct AiPetContextProviderParts {
+    pub identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+    pub abnormal_episode_fact_provider: Arc<dyn PetAbnormalEpisodeFactProvider>,
+    pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
+    pub health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
+    pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
+    pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
+    pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub abnormal_followup_plan_provider: Arc<dyn AbnormalFollowupPlanProvider>,
 }
 
 impl AiPetContextProviders {
     /// new 构造宠物上下文 provider 集合
     #[must_use]
-    pub fn new(
-        identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
-        abnormal_episode_fact_provider: Arc<dyn PetAbnormalEpisodeFactProvider>,
-        diet_fact_provider: Arc<dyn PetDietFactProvider>,
-        health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
-        food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
-        diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
-        observation_write_provider: Arc<dyn PetObservationWriteProvider>,
-    ) -> Self {
+    pub fn new(parts: AiPetContextProviderParts) -> Self {
         Self {
-            identity_fact_provider,
-            abnormal_episode_fact_provider,
-            diet_fact_provider,
-            health_quick_fact_provider,
-            food_inventory_hint_provider,
-            diet_confirmation_candidate_provider,
-            observation_write_provider,
+            identity_fact_provider: parts.identity_fact_provider,
+            abnormal_episode_fact_provider: parts.abnormal_episode_fact_provider,
+            diet_fact_provider: parts.diet_fact_provider,
+            health_quick_fact_provider: parts.health_quick_fact_provider,
+            food_inventory_hint_provider: parts.food_inventory_hint_provider,
+            diet_confirmation_candidate_provider: parts.diet_confirmation_candidate_provider,
+            observation_write_provider: parts.observation_write_provider,
+            abnormal_followup_plan_provider: parts.abnormal_followup_plan_provider,
         }
     }
 }

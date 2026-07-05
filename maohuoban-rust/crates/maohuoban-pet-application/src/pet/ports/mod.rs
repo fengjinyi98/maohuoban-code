@@ -125,6 +125,33 @@ pub struct NewPetEvent {
     pub occurred_at: DateTime<Utc>,
 }
 
+/// SaveAgentFollowupPlanInput 保存 Agent 主动追踪计划输入
+/// 核心职责：
+/// - 表达模型计划草稿经 application service 校验后的写入意图
+/// - 绑定授权用户、宠物、episode 和既有 followup 计划 ID
+#[derive(Debug, Clone)]
+pub struct SaveAgentFollowupPlanInput {
+    pub actor_user_id: Uuid,
+    pub pet_id: Uuid,
+    pub episode_id: Uuid,
+    pub followup_id: Uuid,
+    pub due_at: DateTime<Utc>,
+    pub message_title: String,
+    pub message_body: String,
+    pub rationale: String,
+    pub recommended_actions: Vec<String>,
+}
+
+/// SavedAgentFollowupPlan 已保存 Agent 主动追踪计划
+/// 核心职责：
+/// - 返回保存后的计划 ID 和到期时间
+/// - 为 AI tool 结果和合同测试提供稳定读模型
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedAgentFollowupPlan {
+    pub followup_id: Uuid,
+    pub due_at: DateTime<Utc>,
+}
+
 /// UpdatePetEvent 更新宠物事件输入
 /// 核心职责：
 /// - 表达通用事件详情编辑态提交内容
@@ -430,6 +457,15 @@ pub trait PetRepository: Send + Sync {
         episode_id: Option<Uuid>,
         observed_at: chrono::DateTime<Utc>,
     ) -> PetResult<()>;
+
+    /// save_agent_followup_plan 保存 Agent 主动追踪计划
+    /// 核心职责：
+    /// - 只更新已绑定当前宠物和 episode 的 followup 计划
+    /// - 回写 abnormal episode 下一次追踪投影
+    async fn save_agent_followup_plan(
+        &self,
+        input: SaveAgentFollowupPlanInput,
+    ) -> PetResult<SavedAgentFollowupPlan>;
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent>;
 

@@ -5,6 +5,7 @@
 // MHB_STRUCTURE_EXEMPTION: 既有 AI application ports 聚合入口。
 
 pub mod abnormal_episode_facts;
+pub mod abnormal_followup_plan;
 pub mod chat_turn_transaction;
 pub mod diet_confirmation_candidates;
 pub mod diet_context;
@@ -25,6 +26,9 @@ pub mod session_turn_repository;
 
 pub use abnormal_episode_facts::{
     EmptyPetAbnormalEpisodeFactProvider, PetAbnormalEpisodeFactProvider,
+};
+pub use abnormal_followup_plan::{
+    AbnormalFollowupPlanDraft, AbnormalFollowupPlanProvider, SavedAbnormalFollowupPlan,
 };
 pub use chat_turn_transaction::{ChatTurnTransactionPort, FinalizerTxInput, IngressTxInput};
 pub use diet_confirmation_candidates::PetDietConfirmationCandidateProvider;

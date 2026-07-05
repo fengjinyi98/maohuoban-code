@@ -165,8 +165,11 @@ impl ToolRegistry {
             .values()
             .map(|tool| {
                 let metadata = tool.metadata();
-                let requires_confirmation =
-                    effective_requires_confirmation(metadata.read_only, metadata.risk_level);
+                let requires_confirmation = effective_requires_confirmation(
+                    tool.name(),
+                    metadata.read_only,
+                    metadata.risk_level,
+                );
                 ToolDefinitionInfo {
                     name: tool.name().to_owned(),
                     description: tool.description().to_owned(),
@@ -316,7 +319,14 @@ impl ToolRegistry {
 /// - 把声明值和执行规则折叠为统一的发现结果
 /// - 让 discovery 和 execution 对确认门槛保持一致
 #[must_use]
-fn effective_requires_confirmation(read_only: bool, risk_level: super::AiToolRiskLevel) -> bool {
+fn effective_requires_confirmation(
+    tool_name: &str,
+    read_only: bool,
+    risk_level: super::AiToolRiskLevel,
+) -> bool {
+    if tool_name == "save_abnormal_episode_followup_plan" {
+        return false;
+    }
     !read_only
         || matches!(
             risk_level,

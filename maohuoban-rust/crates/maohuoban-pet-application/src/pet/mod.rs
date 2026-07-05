@@ -29,8 +29,9 @@ pub use ports::{
     PetCurrentDietContext, PetDietConfirmationCandidate, PetDietConfirmationCandidates,
     PetRecentHealthFacts, PetRepository, PetWeightRecord, PetWeightRecordSource,
     RecentDietChangeFact, RecentFeedingFact, RecentHealthQuickFact, ReplacePetExternalIdentifier,
-    RestorePetProfile, SetPetCurrentStapleInput, SetPetDietAssignmentInput, TradePetImport,
-    TradePetImportInput, UpdateFoodInventoryItem, UpdatePetAlbumInput, UpdatePetEvent,
-    UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord,
+    RestorePetProfile, SaveAgentFollowupPlanInput, SavedAgentFollowupPlan,
+    SetPetCurrentStapleInput, SetPetDietAssignmentInput, TradePetImport, TradePetImportInput,
+    UpdateFoodInventoryItem, UpdatePetAlbumInput, UpdatePetEvent, UpdatePetProfile,
+    UpdatePetProfileResult, UpdatePetWeightRecord,
 };
 pub use service::PetService;
