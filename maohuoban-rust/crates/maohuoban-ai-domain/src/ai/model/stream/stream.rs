@@ -22,6 +22,23 @@ pub enum AiContentBlock {
         text: String,
         spans: Vec<AiInlineTextSpan>,
     },
+    Divider {
+        id: String,
+    },
+    List {
+        id: String,
+        items: Vec<AiRichTextLineBlock>,
+    },
+    Quote {
+        id: String,
+        text: String,
+        spans: Vec<AiInlineTextSpan>,
+    },
+    Table {
+        id: String,
+        columns: Vec<String>,
+        rows: Vec<AiTableRowBlock>,
+    },
     PetProfileCardSkeleton {
         id: String,
         title: String,
@@ -32,6 +49,44 @@ pub enum AiContentBlock {
         computed: Box<AiPetProfileComputedBlock>,
         narrative: Box<AiPetProfileNarrativeBlock>,
     },
+}
+
+/// AiRichTextLineBlock AI 富文本行内容块
+/// 核心职责：
+/// - 承载列表项、引用和表格单元格中的受控行内样式
+/// - 保持纯文本与 span 序列可互相校验
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiRichTextLineBlock {
+    pub text: String,
+    pub spans: Vec<AiInlineTextSpan>,
+}
+
+impl AiRichTextLineBlock {
+    /// from_markup 从受控 inline markup 构建富文本行
+    #[must_use]
+    pub fn from_markup(markup: &str) -> Option<Self> {
+        let spans = AiInlineTextSpan::parse_supported_markup(markup.trim());
+        if spans.is_empty() {
+            return None;
+        }
+        let text = spans
+            .iter()
+            .map(|span| span.text.as_str())
+            .collect::<String>();
+        if text.trim().is_empty() {
+            return None;
+        }
+        Some(Self { text, spans })
+    }
+}
+
+/// AiTableRowBlock AI 表格行内容块
+/// 核心职责：
+/// - 承载受控 Markdown 表格的一行单元格
+/// - 保持每个单元格都使用统一富文本行结构
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiTableRowBlock {
+    pub cells: Vec<AiRichTextLineBlock>,
 }
 
 /// AiInlineTextSpan AI 行内富文本片段

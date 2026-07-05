@@ -106,9 +106,8 @@ mod tests {
             },
         ];
 
-        let complete =
-            complete_from_runtime_events(events, None, true, VisibleOutputPlan::pet_profile_card())
-                .expect("complete result");
+        let complete = complete_from_runtime_events(events, None, true, VisibleOutputPlan::empty())
+            .expect("complete result");
 
         assert!(
             matches!(

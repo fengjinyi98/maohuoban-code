@@ -267,7 +267,7 @@ async fn ai_chat_non_stream_diagnostics_records_success_path_boundaries() {
     }));
 }
 
-/// 流式宠物身份工具成功后必须记录 render plan 和 content blocks 观测
+/// 首页私域身份工具成功后必须记录 render plan 和 content blocks 观测
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_records_render_plan_and_content_blocks() {
     let _guard = diagnostics_test_lock().lock_owned().await;

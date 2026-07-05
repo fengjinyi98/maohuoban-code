@@ -114,6 +114,10 @@ pub(super) fn content_block_kind_code(block: &AiContentBlock) -> &'static str {
     match block {
         AiContentBlock::SectionHeading { .. } => "section_heading",
         AiContentBlock::Paragraph { .. } => "paragraph",
+        AiContentBlock::Divider { .. } => "divider",
+        AiContentBlock::List { .. } => "list",
+        AiContentBlock::Quote { .. } => "quote",
+        AiContentBlock::Table { .. } => "table",
         AiContentBlock::PetProfileCardSkeleton { .. } => "pet_profile_card_skeleton",
         AiContentBlock::PetProfileCard { .. } => "pet_profile_card",
     }

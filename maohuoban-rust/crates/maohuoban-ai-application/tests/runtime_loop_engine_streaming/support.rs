@@ -13,4 +13,4 @@ pub use diet_tool::EchoDietTool;
 pub use fixtures::{private_pet_workbench, runtime_engine};
 pub use identity_tool::EchoIdentityTool;
 pub use provider::StreamingScriptedProvider;
-pub use responses::{diet_tool_response, final_response, tool_response};
+pub use responses::{diet_tool_response, final_response, final_response_with_text, tool_response};

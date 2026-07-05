@@ -106,6 +106,18 @@ fn build_messages(
         for tool_result in tool_results {
             messages.push(tool_result_to_message(tool_result));
         }
+        if tool_results
+            .iter()
+            .any(|result| result.tool_call.name == "load_pet_identity_context")
+        {
+            messages.push(LlmMessage {
+                role: LlmRole::System,
+                content: "可见 UI 提示：load_pet_identity_context 成功后，客户端会用工具结果渲染宠物资料卡。最终自然语言正文不要重复列出资料卡已经展示的品种、性别、生日、年龄、来到世界天数、到家时间和陪伴天数；正文只保留用户问题需要的补充解读、其他上下文、风险提示或确认问题。".to_owned(),
+                reasoning_content: None,
+                tool_call_id: None,
+                tool_calls: Vec::new(),
+            });
+        }
     }
 
     messages

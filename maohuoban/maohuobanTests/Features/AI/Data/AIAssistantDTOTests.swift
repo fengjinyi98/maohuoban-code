@@ -91,6 +91,51 @@ final class AIAssistantDTOTests: XCTestCase {
         XCTAssertEqual(block.spans[1].style, .strong)
     }
 
+    func testDecodeMarkdownSemanticContentBlocks() {
+        let json = """
+        {"content_blocks":[
+            {"id":"divider-1","type":"divider"},
+            {"id":"list-1","type":"list","items":[
+                {"text":"当前主粮：渴望六种鱼","spans":[{"text":"当前主粮","style":"strong"},{"text":"：渴望六种鱼","style":"text"}]},
+                {"text":"最近喂食正常","spans":[{"text":"最近喂食正常","style":"text"}]}
+            ]},
+            {"id":"quote-1","type":"quote","text":"需要你确认最近有没有新增罐头。","spans":[{"text":"需要你确认最近有没有新增罐头。","style":"text"}]},
+            {"id":"table-1","type":"table","columns":["项目","状态"],"rows":[
+                {"cells":[{"text":"食欲","spans":[{"text":"食欲","style":"text"}]},{"text":"正常","spans":[{"text":"正常","style":"strong"}]}]}
+            ]}
+        ]}
+        """
+        let result = AIStreamEventDecoder.decode(event: "content_block_delta", data: json)
+
+        guard case let .contentBlockDelta(blocks) = result else {
+            XCTFail("expected contentBlockDelta")
+            return
+        }
+        XCTAssertEqual(blocks.count, 4)
+        guard case .divider = blocks[0] else {
+            XCTFail("expected divider block")
+            return
+        }
+        guard case let .list(list) = blocks[1] else {
+            XCTFail("expected list block")
+            return
+        }
+        XCTAssertEqual(list.items.map(\.text), ["当前主粮：渴望六种鱼", "最近喂食正常"])
+        XCTAssertEqual(list.items[0].spans[0].style, .strong)
+        guard case let .quote(quote) = blocks[2] else {
+            XCTFail("expected quote block")
+            return
+        }
+        XCTAssertEqual(quote.text, "需要你确认最近有没有新增罐头。")
+        guard case let .table(table) = blocks[3] else {
+            XCTFail("expected table block")
+            return
+        }
+        XCTAssertEqual(table.columns, ["项目", "状态"])
+        XCTAssertEqual(table.rows[0].cells[1].text, "正常")
+        XCTAssertEqual(table.rows[0].cells[1].spans[0].style, .strong)
+    }
+
     func testDecodeParagraphContentBlockWithoutSpansReturnsNil() {
         let json = """
         {"content_blocks":[{"id":"answer-paragraph-1","type":"paragraph","text":"梅录今年的生日是 **6月17日**，已经过啦～"}]}

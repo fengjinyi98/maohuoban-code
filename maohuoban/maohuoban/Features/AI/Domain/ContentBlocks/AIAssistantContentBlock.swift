@@ -7,6 +7,10 @@ import Foundation
 enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
     case sectionHeading(AIAssistantSectionHeadingBlock)
     case paragraph(AIAssistantParagraphBlock)
+    case divider(AIAssistantDividerBlock)
+    case list(AIAssistantListBlock)
+    case quote(AIAssistantQuoteBlock)
+    case table(AIAssistantTableBlock)
     case petProfileCardSkeleton(AIAssistantPetProfileSkeletonBlock)
     case petProfileCard(AIAssistantPetProfileCardBlock)
 
@@ -15,6 +19,14 @@ enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
         case .sectionHeading(let block):
             block.id
         case .paragraph(let block):
+            block.id
+        case .divider(let block):
+            block.id
+        case .list(let block):
+            block.id
+        case .quote(let block):
+            block.id
+        case .table(let block):
             block.id
         case .petProfileCardSkeleton(let block):
             block.id
@@ -36,6 +48,14 @@ enum AIAssistantContentBlock: Decodable, Equatable, Hashable, Identifiable {
             self = .sectionHeading(try AIAssistantSectionHeadingBlock(from: decoder))
         case "paragraph":
             self = .paragraph(try AIAssistantParagraphBlock(from: decoder))
+        case "divider":
+            self = .divider(try AIAssistantDividerBlock(from: decoder))
+        case "list":
+            self = .list(try AIAssistantListBlock(from: decoder))
+        case "quote":
+            self = .quote(try AIAssistantQuoteBlock(from: decoder))
+        case "table":
+            self = .table(try AIAssistantTableBlock(from: decoder))
         case "pet_profile_card_skeleton":
             self = .petProfileCardSkeleton(try AIAssistantPetProfileSkeletonBlock(from: decoder))
         case "pet_profile_card":
@@ -70,5 +90,14 @@ extension AIAssistantContentBlock {
             return true
         }
         return false
+    }
+
+    var isMarkdownAnswerContent: Bool {
+        switch self {
+        case .paragraph, .divider, .list, .quote, .table:
+            true
+        case .sectionHeading, .petProfileCardSkeleton, .petProfileCard:
+            false
+        }
     }
 }

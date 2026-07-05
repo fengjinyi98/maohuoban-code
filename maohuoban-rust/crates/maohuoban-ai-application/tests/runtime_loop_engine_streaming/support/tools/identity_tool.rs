@@ -4,7 +4,9 @@ use async_trait::async_trait;
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
 };
-use maohuoban_ai_domain::ai::{AiFactEntry, AiFactStrength, ToolProgressText, Toolset};
+use maohuoban_ai_domain::ai::{
+    AiFactEntry, AiFactPackage, AiFactStrength, AiPetCandidate, ToolProgressText, Toolset,
+};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -69,17 +71,33 @@ impl AiToolDefinition for EchoIdentityTool {
             .and_then(|value| Uuid::parse_str(value).ok());
 
         match pet_id {
-            Some(id) if id == ctx.authorized_pet_id => AiToolResult::allowed_with_facts(
-                vec![AiFactEntry {
-                    key: "current_staple".to_owned(),
-                    value: "渴望六种鱼".to_owned(),
-                    strength: AiFactStrength::Strong,
-                    citation_id: Some(Uuid::new_v4()),
-                }],
-                Vec::new(),
-            ),
+            Some(id) if id == ctx.authorized_pet_id => {
+                AiToolResult::allowed_with_fact_package(identity_fact_package(id))
+            }
             Some(_) => AiToolResult::denied("pet not authorized"),
             None => AiToolResult::failed("missing pet_id"),
         }
     }
+}
+
+fn identity_fact_package(pet_id: Uuid) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.target_pet = Some(
+        (&AiPetCandidate {
+            pet_id,
+            name: "毛球".to_owned(),
+            avatar_url: None,
+            species: "cat".to_owned(),
+            profile_number: "P001".to_owned(),
+        })
+            .into(),
+    );
+    package.facts = vec![AiFactEntry {
+        key: "pet_identity.name".to_owned(),
+        value: "毛球".to_owned(),
+        strength: AiFactStrength::Strong,
+        citation_id: Some(Uuid::new_v4()),
+    }];
+    package.fact_strength = AiFactStrength::Strong;
+    package
 }

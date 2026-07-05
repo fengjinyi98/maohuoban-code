@@ -325,6 +325,15 @@ mod tests {
     }
 
     #[test]
+    fn runtime_identity_tool_description_tells_model_profile_card_is_rendered_by_client() {
+        let description = RuntimePetContextToolKind::Identity.description();
+
+        assert!(description.contains("前端会基于工具结果渲染宠物资料卡"));
+        assert!(description.contains("最终正文应避免重复列出"));
+        assert!(description.contains("品种、性别、生日、年龄"));
+    }
+
+    #[test]
     fn runtime_health_tool_schema_declares_quick_fact_facts() {
         let schema = RuntimePetContextToolKind::RecentHealthFacts.fact_schema();
 

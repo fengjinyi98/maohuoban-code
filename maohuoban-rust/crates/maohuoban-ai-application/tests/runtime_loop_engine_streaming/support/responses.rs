@@ -70,6 +70,27 @@ pub fn final_response() -> LlmChatResponse {
     }
 }
 
+pub fn final_response_with_text(text: &str) -> LlmChatResponse {
+    LlmChatResponse {
+        message: LlmMessage {
+            role: LlmRole::Assistant,
+            content: text.to_owned(),
+            reasoning_content: None,
+            tool_call_id: None,
+            tool_calls: Vec::new(),
+        },
+        tool_calls: vec![],
+        usage: LlmUsage {
+            input_tokens: 12,
+            output_tokens: 6,
+            total_tokens: 18,
+        },
+        finish_reason: LlmFinishReason::Stop,
+        provider: "scripted".to_owned(),
+        model: "primary".to_owned(),
+    }
+}
+
 pub fn diet_tool_response() -> LlmChatResponse {
     LlmChatResponse {
         message: LlmMessage {

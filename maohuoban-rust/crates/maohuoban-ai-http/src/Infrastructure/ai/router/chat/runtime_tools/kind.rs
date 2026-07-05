@@ -47,7 +47,9 @@ impl RuntimePetContextToolKind {
 
     pub(super) fn description(self) -> &'static str {
         match self {
-            Self::Identity => "加载目标宠物身份档案上下文",
+            Self::Identity => {
+                "加载目标宠物身份档案上下文。调用成功后前端会基于工具结果渲染宠物资料卡，最终正文应避免重复列出品种、性别、生日、年龄、来到世界天数和到家陪伴天数等资料卡字段，只补充用户问题需要的解释、观察或确认问题"
+            }
             Self::CurrentDiet => "加载目标宠物当前饮食上下文",
             Self::RecentHealthFacts => "加载目标宠物近期健康快捷事实",
             Self::FoodInventoryHints => "加载目标宠物储物柜变化弱线索",

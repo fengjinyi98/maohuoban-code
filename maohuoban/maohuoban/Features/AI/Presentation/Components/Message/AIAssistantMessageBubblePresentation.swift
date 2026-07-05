@@ -3,7 +3,7 @@ import Foundation
 // AIAssistantMessageBubblePresentation AI 消息气泡展示策略
 // 核心职责：
 // - 决定结构化内容块与自然语言正文是否展示
-// - 保证最终回答正文不会因 UI 内容块存在而被隐藏
+// - 避免正文 Markdown 投影块与原始文本重复展示
 struct AIAssistantMessageBubblePresentation {
     let message: AIAssistantMessage
 
@@ -13,7 +13,7 @@ struct AIAssistantMessageBubblePresentation {
 
     var shouldShowText: Bool {
         message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            && hasParagraphContentBlock == false
+            && hasMarkdownAnswerContentBlock == false
     }
 
     var shouldShowEmptyStreamingIndicator: Bool {
@@ -22,12 +22,9 @@ struct AIAssistantMessageBubblePresentation {
             && shouldShowContentBlocks == false
     }
 
-    private var hasParagraphContentBlock: Bool {
+    private var hasMarkdownAnswerContentBlock: Bool {
         message.contentBlocks.contains { block in
-            if case .paragraph = block {
-                return true
-            }
-            return false
+            block.isMarkdownAnswerContent
         }
     }
 }

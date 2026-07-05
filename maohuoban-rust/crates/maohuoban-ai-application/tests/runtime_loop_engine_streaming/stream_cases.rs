@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use super::support::{
     EchoDietTool, EchoIdentityTool, StreamingScriptedProvider, diet_tool_response, final_response,
-    private_pet_workbench, runtime_engine, tool_response,
+    final_response_with_text, private_pet_workbench, runtime_engine, tool_response,
 };
 
 #[tokio::test]
@@ -182,6 +182,43 @@ async fn agent_runtime_executes_tool_loop_with_streaming_followup() {
         requests[1].diagnostics_correlation.tool_call_id.as_deref(),
         Some("call_1"),
         "followup request diagnostics must correlate back to the executed tool call"
+    );
+}
+
+#[tokio::test]
+async fn agent_runtime_streams_followup_deltas_after_tool_fact_package_is_available() {
+    let provider = StreamingScriptedProvider::new(vec![
+        tool_response(),
+        final_response_with_text("第一段"),
+        final_response_with_text("第二段"),
+    ]);
+    let mut registry = ToolRegistry::new();
+    registry.register(EchoIdentityTool::immediate());
+
+    let engine = runtime_engine(provider, registry);
+    let mut session = AgentSession::new(
+        Uuid::new_v4(),
+        AgentId::main_pet_care_agent(),
+        AiConversationSurface::HomePrivate,
+        engine,
+    );
+
+    let events = session
+        .prompt_with_workbench("查看毛球档案", private_pet_workbench())
+        .await
+        .expect("prompt");
+    let deltas: Vec<&str> = events
+        .iter()
+        .filter_map(|event| match event {
+            AgentEvent::MessageDelta { text, .. } => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        deltas,
+        vec!["第一段"],
+        "followup visible text should stream after a read tool returns facts"
     );
 }
 

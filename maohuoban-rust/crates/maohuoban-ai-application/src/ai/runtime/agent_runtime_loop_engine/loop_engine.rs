@@ -125,7 +125,9 @@ impl LoopEngine for AgentRuntimeLoopEngine {
                         match event {
                             LlmStreamEvent::Delta { content } => {
                                 accumulated_text.push_str(&content);
-                                let suppress_visible_delta = self.fact_package.is_some()
+                                let suppress_visible_delta = (purpose
+                                    == StreamingModelPurpose::Initial
+                                    && self.fact_package.is_some())
                                     || (accumulated_text.trim().is_empty()
                                         && content.trim().is_empty());
                                 self.phase = RuntimePhase::StreamingModel {

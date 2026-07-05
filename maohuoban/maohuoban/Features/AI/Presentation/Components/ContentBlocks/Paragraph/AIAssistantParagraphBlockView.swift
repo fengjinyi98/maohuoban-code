@@ -19,21 +19,12 @@ struct AIAssistantParagraphBlockView: View {
     }
 
     var body: some View {
-        Text(paragraphAttributedText)
-            .font(MHBTheme.Typography.headline.weight(.regular))
-            .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-            .lineSpacing(3)
-            .fixedSize(horizontal: false, vertical: true)
+        AIAssistantRichTextLineView(
+            spans: spans,
+            font: MHBTheme.Typography.headline.weight(.regular),
+            color: MHBTheme.ColorToken.labelPrimary.color,
+            lineSpacing: 3
+        )
             .accessibilityIdentifier("ai.assistant.block.paragraph")
-    }
-
-    private var paragraphAttributedText: AttributedString {
-        spans.reduce(into: AttributedString()) { partial, span in
-            var attributedSpan = AttributedString(span.text)
-            if span.style == .strong {
-                attributedSpan.inlinePresentationIntent = .stronglyEmphasized
-            }
-            partial += attributedSpan
-        }
     }
 }

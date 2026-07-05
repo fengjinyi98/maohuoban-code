@@ -58,19 +58,12 @@ impl VisibleOutputPlan {
 
 /// `plan_visible_output` 规划本轮流式可见 UI 块
 /// 核心职责：
-/// - 基于产品入口决定结构化输出
-/// - 禁止使用事实工具名推导用户可见 UI 块
+/// - 保持产品入口不预加载资料卡 UI
+/// - 将资料卡展示交给模型工具调用后的 projector 决定
 #[must_use]
 pub(super) fn plan_visible_output(
-    surface: AiConversationSurface,
-    target_pet: Option<&AiPetDisplaySnapshot>,
+    _surface: AiConversationSurface,
+    _target_pet: Option<&AiPetDisplaySnapshot>,
 ) -> VisibleOutputPlan {
-    if target_pet.is_none() {
-        return VisibleOutputPlan::empty();
-    }
-    if matches!(surface, AiConversationSurface::PetProfile) {
-        return VisibleOutputPlan::pet_profile_card();
-    }
-
     VisibleOutputPlan::empty()
 }

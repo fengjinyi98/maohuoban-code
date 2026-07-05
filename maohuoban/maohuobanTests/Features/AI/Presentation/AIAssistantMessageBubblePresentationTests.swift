@@ -49,6 +49,55 @@ final class AIAssistantMessageBubblePresentationTests: XCTestCase {
         XCTAssertFalse(presentation.shouldShowText)
     }
 
+    func testCompletedAssistantMessageWithMarkdownBlocksDoesNotDuplicateRawMarkdownText() {
+        let message = AIAssistantMessage(
+            role: .assistant,
+            text: """
+            ### 喂养建议
+
+            - 少量多餐
+
+            | 项目 | 建议 |
+            | --- | --- |
+            | 主粮 | 继续观察 |
+            """,
+            contentBlocks: [
+                .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "喂养建议")),
+                .list(AIAssistantListBlock(
+                    id: "list-1",
+                    items: [
+                        AIAssistantRichTextLineBlock(
+                            text: "少量多餐",
+                            spans: [AIAssistantInlineTextSpan(text: "少量多餐", style: .text)]
+                        ),
+                    ]
+                )),
+                .table(AIAssistantTableBlock(
+                    id: "table-1",
+                    columns: ["项目", "建议"],
+                    rows: [
+                        AIAssistantTableRowBlock(cells: [
+                            AIAssistantRichTextLineBlock(
+                                text: "主粮",
+                                spans: [AIAssistantInlineTextSpan(text: "主粮", style: .text)]
+                            ),
+                            AIAssistantRichTextLineBlock(
+                                text: "继续观察",
+                                spans: [AIAssistantInlineTextSpan(text: "继续观察", style: .text)]
+                            ),
+                        ]),
+                    ]
+                )),
+            ],
+            isStreaming: false
+        )
+
+        let presentation = AIAssistantMessageBubblePresentation(message: message)
+
+        XCTAssertTrue(presentation.shouldShowContentBlocks)
+        XCTAssertFalse(presentation.shouldShowText)
+    }
+
     func testStreamingAssistantMessageWithoutContentShowsEmptyStreamingIndicator() {
         let message = AIAssistantMessage(
             role: .assistant,

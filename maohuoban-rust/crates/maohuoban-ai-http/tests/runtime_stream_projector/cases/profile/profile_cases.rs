@@ -141,6 +141,71 @@ fn projector_emits_paragraph_content_block_with_inline_strong_spans() {
 }
 
 #[test]
+fn projector_splits_markdown_answer_into_semantic_content_blocks() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        Some(AiFactPackage::empty()),
+        "梅录",
+        false,
+        VisibleOutputPlan::empty(),
+    );
+
+    let events = projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "来看看梅录最近的情况\n\n---\n\n### 饮食情况\n- **当前主粮**：渴望六种鱼\n- 最近喂食正常\n\n> 需要你确认最近有没有新增罐头。\n\n| 项目 | 状态 |\n|------|:----:|\n| 食欲 | **正常** |"
+            .to_owned(),
+        status: AgentTurnStatus::Completed,
+        termination_reason: None,
+    });
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("answer_completed should include markdown content blocks");
+    let final_text = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { final_text, .. } => Some(final_text),
+            _ => None,
+        })
+        .expect("answer_completed should include normalized final_text");
+
+    assert!(!final_text.contains("###"));
+    assert!(!final_text.contains("---"));
+    assert!(!final_text.contains("|------|"));
+    assert!(
+        matches!(
+            content_blocks.as_slice(),
+            [
+                AiContentBlock::Paragraph { text: intro, .. },
+                AiContentBlock::Divider { .. },
+                AiContentBlock::SectionHeading { text: heading, .. },
+                AiContentBlock::List { items, .. },
+                AiContentBlock::Quote { text: quote, .. },
+                AiContentBlock::Table { columns, rows, .. },
+            ] if intro == "来看看梅录最近的情况"
+                && heading == "饮食情况"
+                && items.len() == 2
+                && items[0].text == "当前主粮：渴望六种鱼"
+                && items[0].spans[0].text == "当前主粮"
+                && items[0].spans[0].style == maohuoban_ai_domain::ai::AiInlineTextStyle::Strong
+                && quote == "需要你确认最近有没有新增罐头。"
+                && columns == &["项目".to_owned(), "状态".to_owned()]
+                && rows.len() == 1
+                && rows[0].cells[0].text == "食欲"
+                && rows[0].cells[1].text == "正常"
+        ),
+        "markdown answer should be projected into semantic blocks: {content_blocks:?}"
+    );
+}
+
+#[test]
 fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
@@ -226,12 +291,12 @@ fn visible_output_plan_does_not_preload_pet_profile_card_on_home_private() {
 }
 
 #[test]
-fn visible_output_plan_uses_pet_profile_surface_for_pet_profile_card() {
+fn visible_output_plan_does_not_preload_pet_profile_card_on_pet_profile_surface() {
     let target_pet = pet_display_snapshot("豆包");
 
     let plan = plan_visible_output(AiConversationSurface::PetProfile, Some(&target_pet));
 
-    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
+    assert_eq!(plan, VisibleOutputPlan::empty());
 }
 
 #[test]

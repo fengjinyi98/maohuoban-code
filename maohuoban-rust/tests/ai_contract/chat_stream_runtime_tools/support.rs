@@ -199,7 +199,7 @@ pub fn assert_runtime_tool_profile_blocks(text: &str) {
 /// `assert_runtime_tool_diagnostics` 断言 Runtime 工具诊断事件
 /// 核心职责：
 /// - 验证 Tool Gateway 完成事件
-/// - 验证渲染计划和内容块诊断事件
+/// - 验证身份工具成功后进入资料卡渲染计划
 pub fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
     assert_tool_gateway_diagnostic(events, "load_pet_identity_context", "success", None);
     assert!(events.iter().any(|event| {

@@ -13,6 +13,14 @@ struct AIAssistantContentBlockView: View {
             AIAssistantSectionHeadingView(text: block.text)
         case .paragraph(let block):
             AIAssistantParagraphBlockView(text: block.text, spans: block.spans)
+        case .divider:
+            AIAssistantDividerBlockView()
+        case .list(let block):
+            AIAssistantListBlockView(block: block)
+        case .quote(let block):
+            AIAssistantQuoteBlockView(block: block)
+        case .table(let block):
+            AIAssistantTableBlockView(block: block)
         case .petProfileCardSkeleton(let block):
             AIAssistantPetProfileSkeletonView(title: block.title)
         case .petProfileCard(let block):
