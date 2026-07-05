@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
+
 use maohuoban_ai_domain::ai::{AiChatSession, AiCitation, AiMessage, AiProposedAction, AiResult};
 use uuid::Uuid;
 
@@ -70,6 +72,12 @@ pub trait AiSessionRepository: Send + Sync {
 
     /// list_messages_by_session 返回指定会话的消息列表（按时间升序）
     async fn list_messages_by_session(&self, session_id: Uuid) -> AiResult<Vec<AiMessage>>;
+
+    /// list_citations_by_session 返回指定会话内每条消息的引用明细
+    async fn list_citations_by_session(
+        &self,
+        session_id: Uuid,
+    ) -> AiResult<HashMap<Uuid, Vec<AiCitation>>>;
 
     /// get_session 获取单个会话（含归属校验）
     async fn get_session(&self, session_id: Uuid) -> AiResult<Option<AiChatSession>>;

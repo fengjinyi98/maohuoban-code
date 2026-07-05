@@ -143,6 +143,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
             messageID: UUID(),
             finalText: "这是梅录的宠物信息",
             referenceChips: [],
+            references: [],
             contentBlocks: [
                 .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-2", text: "这是梅录的宠物信息")),
                 .petProfileCard(Self.makePetProfileCardBlock(id: "pet-card-1"))
@@ -174,6 +175,7 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
             messageID: UUID(),
             finalText: "这是梅录的宠物信息",
             referenceChips: [],
+            references: [],
             contentBlocks: [
                 .sectionHeading(AIAssistantSectionHeadingBlock(id: "heading-1", text: "这是梅录的宠物信息")),
                 .petProfileCard(Self.makePetProfileCardBlock(id: "pet-card-1"))
@@ -226,7 +228,8 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
             .messageCompleted(
                 messageID: UUID(),
                 finalText: "需要你确认后再记录。",
-                referenceChips: []
+                referenceChips: [],
+                references: []
             ),
         ]
     }

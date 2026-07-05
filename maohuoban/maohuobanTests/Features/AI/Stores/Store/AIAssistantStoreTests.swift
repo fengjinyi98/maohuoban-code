@@ -214,7 +214,12 @@ final class AIAssistantStoreTests: XCTestCase {
             context: AIAssistantEntryContext(),
             repository: MockAIAssistantRepository(streamEvents: [
                 .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "新对话"),
-                .messageCompleted(messageID: UUID(), finalText: "ok", referenceChips: []),
+                .messageCompleted(
+                    messageID: UUID(),
+                    finalText: "ok",
+                    referenceChips: [],
+                    references: []
+                ),
             ])
         )
         store.draftText = "下一次疫苗是什么时候？"

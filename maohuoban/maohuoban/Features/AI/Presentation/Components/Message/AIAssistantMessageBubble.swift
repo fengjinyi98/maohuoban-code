@@ -9,13 +9,16 @@ import MaohuobanDesignSystem
 struct AIAssistantMessageBubble: View {
     let message: AIAssistantMessage
     let showsEmptyStreamingIndicator: Bool
+    let onOpenReference: (AIAssistantReference) -> Void
 
     init(
         message: AIAssistantMessage,
-        showsEmptyStreamingIndicator: Bool = true
+        showsEmptyStreamingIndicator: Bool = true,
+        onOpenReference: @escaping (AIAssistantReference) -> Void = { _ in }
     ) {
         self.message = message
         self.showsEmptyStreamingIndicator = showsEmptyStreamingIndicator
+        self.onOpenReference = onOpenReference
     }
 
     var body: some View {
@@ -40,7 +43,11 @@ struct AIAssistantMessageBubble: View {
                 }
 
                 if message.referenceChips.isEmpty == false && !message.isStreaming {
-                    AIAssistantReferenceChipFlow(chips: message.referenceChips)
+                    AIAssistantReferenceChipFlow(
+                        chips: message.referenceChips,
+                        references: message.references,
+                        onOpenReference: onOpenReference
+                    )
                 }
             }
             .padding(message.role == .assistant ? 0 : MHBTheme.Spacing.s4)

@@ -13,7 +13,8 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiContentBlock, AiError, AiPetCandidate, AiPetDisplaySnapshot,
+    AiChatSession, AiCitation, AiCitationSourceKind, AiContentBlock, AiError, AiPetCandidate,
+    AiPetDisplaySnapshot,
 };
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
@@ -75,7 +76,19 @@ pub struct MessageDTO {
     pub role: String,
     pub content: String,
     pub content_blocks: Vec<AiContentBlock>,
+    pub citations: Vec<MessageCitationDTO>,
     pub created_at: String,
+}
+
+/// MessageCitationDTO 消息引用 DTO
+/// 核心职责：
+/// - 向历史消息返回可追溯来源类型、来源 ID 和展示标签
+/// - 保持历史复看与实时 SSE 引用展示一致
+#[derive(Debug, Serialize)]
+pub struct MessageCitationDTO {
+    pub source_kind: String,
+    pub source_id: Uuid,
+    pub label: String,
 }
 
 /// handle_list_sessions 获取会话列表
@@ -167,6 +180,11 @@ pub async fn handle_get_session_messages(
         .list_messages_by_session(session_id)
         .await
         .unwrap_or_default();
+    let citations_by_message = state
+        .session_repository
+        .list_citations_by_session(session_id)
+        .await
+        .unwrap_or_default();
 
     let dtos: Vec<MessageDTO> = messages
         .iter()
@@ -175,6 +193,10 @@ pub async fn handle_get_session_messages(
             role: format!("{:?}", m.role).to_lowercase(),
             content: m.content.clone(),
             content_blocks: m.content_blocks.clone(),
+            citations: citations_by_message
+                .get(&m.id)
+                .map(|citations| citations.iter().map(message_citation_dto).collect())
+                .unwrap_or_default(),
             created_at: m.created_at.to_rfc3339(),
         })
         .collect();
@@ -299,6 +321,25 @@ fn session_mutation_result(session: AiChatSession) -> SessionMutationResultDTO {
         id: session.id,
         title: session.title,
         is_pinned: session.is_pinned,
+    }
+}
+
+fn message_citation_dto(citation: &AiCitation) -> MessageCitationDTO {
+    MessageCitationDTO {
+        source_kind: citation_source_kind_code(citation.source_kind).to_owned(),
+        source_id: citation.source_id,
+        label: citation.label.clone(),
+    }
+}
+
+fn citation_source_kind_code(kind: AiCitationSourceKind) -> &'static str {
+    match kind {
+        AiCitationSourceKind::PetEvent => "pet_event",
+        AiCitationSourceKind::DietAssignment => "diet_assignment",
+        AiCitationSourceKind::FoodInventoryHint => "food_inventory_hint",
+        AiCitationSourceKind::AttentionHint => "attention_hint",
+        AiCitationSourceKind::ConfirmationTask => "confirmation_task",
+        AiCitationSourceKind::AbnormalEpisode => "abnormal_episode",
     }
 }
 

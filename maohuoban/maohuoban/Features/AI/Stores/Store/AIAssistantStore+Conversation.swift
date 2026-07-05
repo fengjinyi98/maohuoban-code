@@ -158,6 +158,8 @@ extension AIAssistantStore {
                     AIAssistantMessage(
                         role: dto.role == "user" ? .user : .assistant,
                         text: dto.content,
+                        referenceChips: dto.citations.map(\.label),
+                        references: dto.citations.map(\.reference),
                         contentBlocks: dto.contentBlocks
                     )
                 }

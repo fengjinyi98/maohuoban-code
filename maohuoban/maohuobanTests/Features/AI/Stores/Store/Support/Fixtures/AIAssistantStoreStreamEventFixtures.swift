@@ -12,7 +12,8 @@ extension AIAssistantStoreStreamEventTests {
             .messageCompleted(
                 messageID: messageID,
                 finalText: "需要观察精神状态和食欲",
-                referenceChips: ["健康分级", "红旗症状"]
+                referenceChips: ["健康分级", "红旗症状"],
+                references: []
             ),
         ]
     }
@@ -50,7 +51,8 @@ extension AIAssistantStoreStreamEventTests {
             .messageCompleted(
                 messageID: UUID(),
                 finalText: "我现在只能处理宠物照护、宠物记录和毛伙伴 App 相关问题。",
-                referenceChips: []
+                referenceChips: [],
+                references: []
             ),
         ]
     }
@@ -72,7 +74,8 @@ extension AIAssistantStoreStreamEventTests {
             .messageCompleted(
                 messageID: messageID,
                 finalText: "建议确认换粮",
-                referenceChips: ["饮食记录"]
+                referenceChips: ["饮食记录"],
+                references: []
             ),
             .proposedAction(action: AIProposedActionDTO(
                 id: actionID,
@@ -99,7 +102,8 @@ extension AIAssistantStoreStreamEventTests {
             .messageCompleted(
                 messageID: messageID,
                 finalText: "ok",
-                referenceChips: []
+                referenceChips: [],
+                references: []
             ),
         ]
     }

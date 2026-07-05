@@ -115,12 +115,15 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
+        guard case let .messageCompleted(_, finalText, chips, references, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertEqual(finalText, "你好毛球")
         XCTAssertEqual(chips, ["疫苗记录"])
+        XCTAssertEqual(references.count, 1)
+        XCTAssertEqual(references[0].sourceKind, "pet_event")
+        XCTAssertEqual(references[0].sourceID, UUID(uuidString: UUID.zeroString))
         XCTAssertTrue(blocks.isEmpty)
     }
 
@@ -130,12 +133,13 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "answer_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
+        guard case let .messageCompleted(_, finalText, chips, references, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertEqual(finalText, "你好毛球")
         XCTAssertTrue(chips.isEmpty)
+        XCTAssertTrue(references.isEmpty)
         XCTAssertTrue(blocks.isEmpty)
     }
 
@@ -145,11 +149,12 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
 
-        guard case let .messageCompleted(_, _, chips, blocks) = result else {
+        guard case let .messageCompleted(_, _, chips, references, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertTrue(chips.isEmpty)
+        XCTAssertTrue(references.isEmpty)
         XCTAssertTrue(blocks.isEmpty)
     }
 
@@ -159,12 +164,13 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "message_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, chips, blocks) = result else {
+        guard case let .messageCompleted(_, finalText, chips, references, blocks) = result else {
             XCTFail("expected messageCompleted")
             return
         }
         XCTAssertEqual(finalText, "这是糯米的宠物信息")
         XCTAssertTrue(chips.isEmpty)
+        XCTAssertTrue(references.isEmpty)
         XCTAssertEqual(blocks.count, 3)
 
         guard case let .sectionHeading(heading) = blocks[0] else {
@@ -197,7 +203,7 @@ final class AIAssistantDTOTests: XCTestCase {
         """
         let result = AIStreamEventDecoder.decode(event: "answer_completed", data: json)
 
-        guard case let .messageCompleted(_, finalText, _, blocks) = result else {
+        guard case let .messageCompleted(_, finalText, _, _, blocks) = result else {
             XCTFail("expected answer_completed to decode")
             return
         }

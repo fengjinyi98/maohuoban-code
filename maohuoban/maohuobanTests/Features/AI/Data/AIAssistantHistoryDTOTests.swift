@@ -80,6 +80,25 @@ final class AIAssistantHistoryDTOTests: XCTestCase {
         }
         XCTAssertEqual(block.text, "这是糯米的宠物信息")
     }
+
+    func testDecodeMessageListWithCitations() throws {
+        let feedingID = "33333333-3333-4333-8333-333333333311"
+        let foodID = "22222222-2222-4222-8222-222222222201"
+        let json = """
+        [{"id":"\(UUID.zeroString)","role":"assistant","content":"最近状态不错","content_blocks":[],"citations":[{"source_kind":"pet_event","source_id":"\(feedingID)","label":"最近喂食: 渴望六种鱼全期猫粮"},{"source_kind":"diet_assignment","source_id":"\(foodID)","label":"当前主粮: 渴望六种鱼全期猫粮"}],"created_at":"2026-06-27T10:00:05Z"}]
+        """
+        let data = json.data(using: .utf8)!
+        let messages = try JSONDecoder().decode([AIMessageDTO].self, from: data)
+
+        XCTAssertEqual(messages.count, 1)
+        XCTAssertEqual(messages[0].citations.count, 2)
+        XCTAssertEqual(messages[0].citations[0].sourceKind, "pet_event")
+        XCTAssertEqual(messages[0].citations[0].sourceID, UUID(uuidString: feedingID))
+        XCTAssertEqual(messages[0].citations[0].label, "最近喂食: 渴望六种鱼全期猫粮")
+        XCTAssertEqual(messages[0].citations[1].sourceKind, "diet_assignment")
+        XCTAssertEqual(messages[0].citations[1].sourceID, UUID(uuidString: foodID))
+        XCTAssertEqual(messages[0].citations[1].label, "当前主粮: 渴望六种鱼全期猫粮")
+    }
 }
 
 private extension UUID {

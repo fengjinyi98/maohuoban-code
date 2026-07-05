@@ -80,6 +80,7 @@ struct AIMessageDTO: Decodable {
     let role: String
     let content: String
     let contentBlocks: [AIAssistantContentBlock]
+    let citations: [AIMessageCitationDTO]
     let createdAt: String
 
     enum CodingKeys: String, CodingKey {
@@ -87,6 +88,7 @@ struct AIMessageDTO: Decodable {
         case role
         case content
         case contentBlocks = "content_blocks"
+        case citations
         case createdAt = "created_at"
     }
 
@@ -96,6 +98,31 @@ struct AIMessageDTO: Decodable {
         role = try container.decode(String.self, forKey: .role)
         content = try container.decode(String.self, forKey: .content)
         contentBlocks = try container.decodeIfPresent([AIAssistantContentBlock].self, forKey: .contentBlocks) ?? []
+        citations = try container.decodeIfPresent([AIMessageCitationDTO].self, forKey: .citations) ?? []
         createdAt = try container.decode(String.self, forKey: .createdAt)
+    }
+}
+
+// AIMessageCitationDTO AI 历史消息引用 DTO
+// 核心职责：
+// - 解码历史消息中的引用来源明细
+// - 映射为前端结构化引用模型
+struct AIMessageCitationDTO: Decodable, Hashable {
+    let sourceKind: String
+    let sourceID: UUID
+    let label: String
+
+    enum CodingKeys: String, CodingKey {
+        case sourceKind = "source_kind"
+        case sourceID = "source_id"
+        case label
+    }
+
+    var reference: AIAssistantReference {
+        AIAssistantReference(
+            sourceKind: sourceKind,
+            sourceID: sourceID,
+            label: label
+        )
     }
 }

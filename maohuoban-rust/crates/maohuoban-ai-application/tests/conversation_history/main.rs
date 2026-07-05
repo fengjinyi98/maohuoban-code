@@ -12,8 +12,8 @@ use maohuoban_ai_application::ai::conversation_history::{
 use maohuoban_ai_application::ai::ports::{AiSessionRepository, NoopSessionSummaryRepository};
 use maohuoban_ai_application::ai::turn_context::{ContextBudgetPolicy, TurnContextBuilder};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiConversationSurface, AiMessage, AiMessageRole,
-    AiMessageStatus, RecentConversationEntry,
+    AiChatSession, AiChatSessionStatus, AiCitation, AiConversationSurface, AiMessage,
+    AiMessageRole, AiMessageStatus, RecentConversationEntry,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -357,6 +357,13 @@ impl AiSessionRepository for FakeSessionRepository {
         _session_id: Uuid,
     ) -> maohuoban_ai_domain::ai::AiResult<Vec<AiMessage>> {
         Ok(self.messages.clone())
+    }
+
+    async fn list_citations_by_session(
+        &self,
+        _session_id: Uuid,
+    ) -> maohuoban_ai_domain::ai::AiResult<std::collections::HashMap<Uuid, Vec<AiCitation>>> {
+        Ok(std::collections::HashMap::new())
     }
 
     async fn get_session(

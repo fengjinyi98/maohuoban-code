@@ -16,9 +16,14 @@ struct AIAssistantScreen: View {
     @State private var timelineViewportHeight: CGFloat = 0
 
     private static let bottomAnchorID = "ai.assistant.bottom"
+    private let onOpenReference: (AIAssistantReference) -> Void
 
-    init(context: AIAssistantEntryContext) {
+    init(
+        context: AIAssistantEntryContext,
+        onOpenReference: @escaping (AIAssistantReference) -> Void = { _ in }
+    ) {
         _store = State(initialValue: AIAssistantStore(context: context))
+        self.onOpenReference = onOpenReference
     }
 
     var body: some View {
@@ -37,6 +42,9 @@ struct AIAssistantScreen: View {
                         },
                         onCancelPendingAction: {
                             store.cancelPendingAction()
+                        },
+                        onOpenReference: { reference in
+                            onOpenReference(reference)
                         }
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s4)
@@ -313,13 +321,15 @@ private struct AIAssistantMessageTimeline: View {
     let bottomAnchorID: String
     let onConfirmPendingAction: () -> Void
     let onCancelPendingAction: () -> Void
+    let onOpenReference: (AIAssistantReference) -> Void
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             ForEach(messages) { message in
                 AIAssistantMessageBubble(
                     message: message,
-                    showsEmptyStreamingIndicator: activeAgentActivityText == nil
+                    showsEmptyStreamingIndicator: activeAgentActivityText == nil,
+                    onOpenReference: onOpenReference
                 )
             }
 

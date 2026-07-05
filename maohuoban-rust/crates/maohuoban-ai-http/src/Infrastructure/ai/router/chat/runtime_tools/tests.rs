@@ -69,6 +69,13 @@ mod tests {
             Ok(Vec::new())
         }
 
+        async fn list_citations_by_session(
+            &self,
+            _session_id: Uuid,
+        ) -> AiResult<std::collections::HashMap<Uuid, Vec<AiCitation>>> {
+            Ok(std::collections::HashMap::new())
+        }
+
         async fn get_session(&self, _session_id: Uuid) -> AiResult<Option<AiChatSession>> {
             Ok(None)
         }

@@ -169,7 +169,8 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         store.handleStreamEvent(.messageCompleted(
             messageID: UUID(),
             finalText: "这是第二轮已经完成的回复",
-            referenceChips: []
+            referenceChips: [],
+            references: []
         ))
 
         store.finishStreamIfAssistantReplyMissing(
@@ -199,6 +200,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
             messageID: messageID,
             finalText: "这是糯米的宠物信息",
             referenceChips: [],
+            references: [],
             contentBlocks: blocks
         ))
 

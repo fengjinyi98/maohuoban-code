@@ -40,6 +40,7 @@ extension AIAssistantStore {
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
         messages.append(placeholder)
         pendingReferenceChips = []
+        pendingReferences = []
         beginStreaming(messageID: placeholder.id)
 
         streamingTask?.cancel()
@@ -113,19 +114,22 @@ extension AIAssistantStore {
             clearActiveAgentActivity()
             applyContentBlockDelta(contentBlocks)
 
-        case .citation(let label):
-            appendPendingReferenceChip(label)
+        case .citation(let reference):
+            appendPendingReference(reference)
 
-        case .messageCompleted(_, let finalText, let chips, let contentBlocks):
+        case .messageCompleted(_, let finalText, let chips, let references, let contentBlocks):
             clearActiveAgentActivity()
+            let resolvedReferences = references.isEmpty ? pendingReferences : references
             let resolvedChips = chips.isEmpty ? pendingReferenceChips : chips
             applyCompletedAssistantMessage(
                 finalText: finalText,
                 referenceChips: resolvedChips,
+                references: resolvedReferences,
                 contentBlocks: contentBlocks
             )
             markAssistantReplyCompletedIfVisible(finalText)
             pendingReferenceChips = []
+            pendingReferences = []
 
         case .proposedAction(let action):
             pendingAction = AIAssistantProposedAction(from: action)
@@ -133,6 +137,7 @@ extension AIAssistantStore {
         case .error(let code, _, let retryable, let safeFallbackText):
             clearActiveAgentActivity()
             pendingReferenceChips = []
+            pendingReferences = []
             recordStreamIssue(
                 source: "backend_sse_error",
                 code: code,
@@ -182,6 +187,16 @@ extension AIAssistantStore {
         pendingReferenceChips.append(trimmedLabel)
     }
 
+    func appendPendingReference(_ reference: AIAssistantReference) {
+        let trimmedLabel = reference.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedLabel.isEmpty == false else { return }
+        guard pendingReferences.contains(where: { $0.sourceKind == reference.sourceKind && $0.sourceID == reference.sourceID }) == false else {
+            return
+        }
+        pendingReferences.append(reference)
+        appendPendingReferenceChip(trimmedLabel)
+    }
+
     func ensureStreamingPlaceholderExists() {
         guard streamingEngine.activeMessageID == nil else { return }
         let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
@@ -193,6 +208,7 @@ extension AIAssistantStore {
     func applyCompletedAssistantMessage(
         finalText: String,
         referenceChips: [String],
+        references: [AIAssistantReference] = [],
         contentBlocks: [AIAssistantContentBlock] = []
     ) {
         let activeMessageID = streamingEngine.activeMessageID
@@ -200,6 +216,7 @@ extension AIAssistantStore {
             completeStreaming(finalText: finalText)
             if let index = messages.firstIndex(where: { $0.id == activeMessageID }) {
                 messages[index].referenceChips = referenceChips
+                messages[index].references = references
                 messages[index].contentBlocks = contentBlocks
             }
             streamingRevision += 1
@@ -210,6 +227,7 @@ extension AIAssistantStore {
         if let index = messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {
             messages[index].text = finalText
             messages[index].referenceChips = referenceChips
+            messages[index].references = references
             messages[index].contentBlocks = contentBlocks
             messages[index].isStreaming = false
         } else {
@@ -218,6 +236,7 @@ extension AIAssistantStore {
                     role: .assistant,
                     text: finalText,
                     referenceChips: referenceChips,
+                    references: references,
                     contentBlocks: contentBlocks
                 )
             )
@@ -233,6 +252,7 @@ extension AIAssistantStore {
     func handleStreamError(_ error: Error) {
         if error is CancellationError { return }
         pendingReferenceChips = []
+        pendingReferences = []
         recordStreamIssue(
             source: "local_stream_error",
             code: streamErrorDiagnosticsCode(error),
@@ -274,6 +294,7 @@ extension AIAssistantStore {
         }
         guard hasCompletedAssistantReply(after: startIndex) == false else { return }
         pendingReferenceChips = []
+        pendingReferences = []
         recordStreamIssue(
             source: "local_empty_stream",
             code: "ai.empty_stream",
@@ -284,7 +305,7 @@ extension AIAssistantStore {
 
     func streamEventCompletesAssistantReply(_ event: AIStreamEventDTO) -> Bool {
         switch event {
-        case .messageCompleted(_, let finalText, _, let contentBlocks):
+        case .messageCompleted(_, let finalText, _, _, let contentBlocks):
             return finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
                 || contentBlocks.isEmpty == false
         case .error(_, _, _, let safeFallbackText):

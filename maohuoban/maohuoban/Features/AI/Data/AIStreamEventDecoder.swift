@@ -29,7 +29,7 @@ enum AIStreamEventDecoder {
             return .contentBlockDelta(contentBlocks: payload.contentBlocks)
         case "citation":
             guard let payload = try? decoder.decode(AIStreamCitationPayload.self, from: jsonData) else { return nil }
-            return .citation(label: payload.citation.label)
+            return .citation(reference: payload.citation.reference)
         case "tool_call":
             return nil
         case "agent_activity":
@@ -48,11 +48,13 @@ enum AIStreamEventDecoder {
             guard let payload = try? decoder.decode(AIStreamMessageCompletedPayload.self, from: jsonData) else {
                 return nil
             }
-            let chips = payload.citations?.map(\.label) ?? []
+            let references = payload.citations?.map(\.reference) ?? []
+            let chips = references.map(\.label)
             return .messageCompleted(
                 messageID: payload.messageID,
                 finalText: payload.finalText,
                 referenceChips: chips,
+                references: references,
                 contentBlocks: payload.contentBlocks ?? []
             )
         case "proposed_action":

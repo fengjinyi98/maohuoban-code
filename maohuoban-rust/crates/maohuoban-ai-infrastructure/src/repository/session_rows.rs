@@ -5,8 +5,8 @@
 
 use chrono::Utc;
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiContentBlock, AiConversationSurface, AiMessage,
-    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot,
+    AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiContentBlock,
+    AiConversationSurface, AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot,
 };
 use uuid::Uuid;
 
@@ -28,6 +28,42 @@ pub(super) struct SessionRow {
     status: String,
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
+}
+
+/// MessageCitationRow AI 消息引用查询行
+/// 核心职责：
+/// - 承载 ai_message_citations 查询字段
+/// - 转换为领域引用模型
+#[derive(sqlx::FromRow)]
+pub(super) struct MessageCitationRow {
+    pub message_id: Uuid,
+    source_kind: String,
+    source_id: Uuid,
+    label: String,
+}
+
+impl MessageCitationRow {
+    /// into_citation 转换为领域引用
+    /// 核心职责：
+    /// - 将数据库枚举编码映射为领域枚举
+    /// - 保留来源 ID 与展示标签
+    pub(super) fn into_citation(self) -> Option<AiCitation> {
+        let source_kind = match self.source_kind.as_str() {
+            "pet_event" => AiCitationSourceKind::PetEvent,
+            "diet_assignment" => AiCitationSourceKind::DietAssignment,
+            "food_inventory_hint" => AiCitationSourceKind::FoodInventoryHint,
+            "attention_hint" => AiCitationSourceKind::AttentionHint,
+            "confirmation_task" => AiCitationSourceKind::ConfirmationTask,
+            "abnormal_episode" => AiCitationSourceKind::AbnormalEpisode,
+            _ => return None,
+        };
+
+        Some(AiCitation {
+            source_kind,
+            source_id: self.source_id,
+            label: self.label,
+        })
+    }
 }
 
 impl From<SessionRow> for AiChatSession {

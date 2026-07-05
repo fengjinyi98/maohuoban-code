@@ -15,7 +15,14 @@ struct HomeRouteDestinationScreen: View {
     var body: some View {
         switch route {
         case .petAssistant(let context):
-            AIAssistantScreen(context: context)
+            AIAssistantScreen(
+                context: context,
+                onOpenReference: { reference in
+                    if let route = route(for: reference) {
+                        onRouteRequested(route)
+                    }
+                }
+            )
         case .createPet:
             PetProfileAddScreen(
                 currentUserID: currentUserID,
@@ -237,5 +244,10 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         }
+    }
+
+    private func route(for reference: AIAssistantReference) -> HomeRoute? {
+        guard reference.sourceKind == "pet_event" else { return nil }
+        return .petRecordDetail(.unsupported(recordID: reference.sourceID.uuidString))
     }
 }

@@ -147,7 +147,11 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
             probe.fulfill()
         }
 
-        store.applyCompletedAssistantMessage(finalText: "已完成", referenceChips: [])
+        store.applyCompletedAssistantMessage(
+            finalText: "已完成",
+            referenceChips: [],
+            references: []
+        )
 
         await fulfillment(of: [probe.expectation], timeout: 1)
         XCTAssertTrue(store.canSendDraft)
@@ -179,7 +183,12 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
             .messageStarted(chatSessionID: sessionID, messageID: messageID, title: "疫苗咨询"),
             .delta(text: "你好"),
             .delta(text: "，毛球"),
-            .messageCompleted(messageID: messageID, finalText: "你好，毛球", referenceChips: ["疫苗记录"]),
+            .messageCompleted(
+                messageID: messageID,
+                finalText: "你好，毛球",
+                referenceChips: ["疫苗记录"],
+                references: []
+            ),
         ]
     }
 
@@ -191,7 +200,12 @@ final class AIAssistantStoreStreamingTests: XCTestCase {
         return [
             .messageStarted(chatSessionID: sessionID, messageID: messageID, title: "疫苗咨询"),
             .delta(text: "建议添加疫苗提醒"),
-            .messageCompleted(messageID: messageID, finalText: "建议添加疫苗提醒", referenceChips: ["疫苗记录"]),
+            .messageCompleted(
+                messageID: messageID,
+                finalText: "建议添加疫苗提醒",
+                referenceChips: ["疫苗记录"],
+                references: []
+            ),
             .proposedAction(action: AIProposedActionDTO(
                 id: actionID,
                 actionKind: "reminder_creation",

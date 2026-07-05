@@ -3,6 +3,8 @@
 //! - 实现 AiSessionRepository 端口
 //! - 持久化 AI 会话、消息，查询会话列表和消息详情
 
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
@@ -14,7 +16,7 @@ use maohuoban_ai_domain::ai::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::session_rows::{MessageRow, SessionRow};
+use super::session_rows::{MessageCitationRow, MessageRow, SessionRow};
 
 /// PostgresAiSessionRepository PostgreSQL AI 会话仓储
 /// 核心职责：
@@ -217,6 +219,37 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
 
         Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    async fn list_citations_by_session(
+        &self,
+        session_id: Uuid,
+    ) -> AiResult<HashMap<Uuid, Vec<AiCitation>>> {
+        let rows = sqlx::query_as::<_, MessageCitationRow>(
+            r"
+            SELECT message_id, source_kind, source_id, label
+            FROM ai_message_citations
+            WHERE session_id = $1
+            ORDER BY created_at ASC
+            ",
+        )
+        .bind(session_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        let mut citations_by_message: HashMap<Uuid, Vec<AiCitation>> = HashMap::new();
+        for row in rows {
+            let message_id = row.message_id;
+            if let Some(citation) = row.into_citation() {
+                citations_by_message
+                    .entry(message_id)
+                    .or_default()
+                    .push(citation);
+            }
+        }
+
+        Ok(citations_by_message)
     }
 
     async fn get_session(&self, session_id: Uuid) -> AiResult<Option<AiChatSession>> {
