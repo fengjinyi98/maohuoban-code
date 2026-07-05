@@ -168,6 +168,34 @@ async fn deleting_abnormal_event_resolves_episode_and_attention_hint() {
         .expect("episode id")
         .to_owned();
 
+    let followup_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "symptom_followup",
+                "title": "追加观察",
+                "summary": "精神一般",
+                "visibility": "private",
+                "occurred_at": "2026-06-27T13:00:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "note": "精神一般"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create symptom followup");
+    assert_eq!(followup_response.status(), StatusCode::CREATED);
+    let followup_body = response_json(followup_response).await;
+    let followup_id = followup_body["data"]["id"]
+        .as_str()
+        .expect("followup id")
+        .to_owned();
+
     let delete_response = app
         .router()
         .oneshot(empty_request(
@@ -218,6 +246,25 @@ async fn deleting_abnormal_event_resolves_episode_and_attention_hint() {
     assert!(
         hints.is_empty(),
         "deleted abnormal event must remove home attention hint"
+    );
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load timeline after delete");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline = response_json(timeline_response).await;
+    let events = timeline["data"]["events"].as_array().unwrap();
+    assert!(
+        events
+            .iter()
+            .all(|item| item["id"] != event_id && item["id"] != followup_id),
+        "deleting abnormal event must remove the whole episode timeline"
     );
 }
 

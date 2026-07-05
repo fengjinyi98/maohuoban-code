@@ -430,6 +430,25 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         if !closed_episode_ids.is_empty() {
+            let closed_episode_id_strings = closed_episode_ids
+                .iter()
+                .map(Uuid::to_string)
+                .collect::<Vec<_>>();
+            sqlx::query(
+                r#"
+                UPDATE pet_events
+                SET superseded_by_event_id = id,
+                    updated_at = now()
+                WHERE event_subkind = 'symptom_followup'
+                  AND superseded_by_event_id IS NULL
+                  AND event_payload->>'episode_id' = ANY($1)
+                "#,
+            )
+            .bind(&closed_episode_id_strings)
+            .execute(&mut *transaction)
+            .await
+            .map_err(to_infrastructure_error)?;
+
             sqlx::query(
                 r#"
                 UPDATE attention_hints
