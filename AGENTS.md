@@ -222,6 +222,13 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 8. 构建日志可以写入 `/private/tmp/*.log`，但构建产物、模块缓存、SwiftPM 依赖缓存和索引数据必须使用 Xcode 默认路径。
 9. 如果因 Xcode 缺陷必须临时隔离构建目录，必须先得到用户明确确认，并在同一轮任务结束前删除该目录且复查 `du -sh /private/tmp`。
 
+### 12.1.1 磁盘清理与开发媒资保护
+
+1. 清理 `/private/tmp`、`/private/var/folders/**/T` 或系统“临时文件”时，必须排除 `maohuoban-code-rustfs-media` 目录；该目录是本地开发媒体对象存储，包含用户上传图片、视频和派生媒资。
+2. 删除 `maohuoban-code-rustfs-media` 会导致数据库中的 `asset_id` 仍存在但对象文件丢失，后端会出现 `Object at location ... not found`。
+3. 本地开发运行后端时，推荐显式设置 `MAOHUOBAN_MEDIA_STORAGE_ROOT=/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media`，避免媒资落在 macOS 临时目录并被系统或清理脚本回收。
+4. `.local-media/` 属于本地开发数据目录，只允许用户明确确认后清理；日常磁盘清理、构建缓存清理和测试产物清理不得删除该目录。
+
 ### 12.2 iOS 真机交互复测分工
 
 1. 当用户明确说明由用户进行真机验证时，Codex 不需要额外执行模拟器点击、截图、UI 层级快照或录屏复测。
