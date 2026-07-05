@@ -31,7 +31,7 @@ use maohuoban_home_domain::home::{
 };
 use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError,
+    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError, PetTimelineEntry,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -267,14 +267,44 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
 /// 核心职责：
 /// - 从统一宠物时间线条目中截取首页摘要
 /// - 保持首页和完整记录列表共享同一事实来源
-fn recent_home_timeline(
-    entries: &[maohuoban_pet_domain::pet::PetTimelineEntry],
-) -> Vec<HomeTimelineEvent> {
+fn recent_home_timeline(entries: &[PetTimelineEntry]) -> Vec<HomeTimelineEvent> {
+    let abnormal_route_event_ids = abnormal_route_event_ids(entries);
     entries
         .iter()
         .take(4)
-        .map(timeline_entry_summary)
+        .map(|entry| {
+            let mut summary = timeline_entry_summary(entry);
+            summary.route_event_id = route_event_id_for_entry(entry, &abnormal_route_event_ids);
+            summary
+        })
         .collect::<Vec<_>>()
+}
+
+fn abnormal_route_event_ids(entries: &[PetTimelineEntry]) -> HashMap<String, String> {
+    entries
+        .iter()
+        .filter(|entry| entry.event_subkind.as_deref() == Some("abnormal_symptom"))
+        .filter_map(|entry| {
+            let episode_id = entry.event_payload.get("episode_id")?.as_str()?;
+            Some((episode_id.to_owned(), entry.id.clone()))
+        })
+        .collect()
+}
+
+fn route_event_id_for_entry(
+    entry: &PetTimelineEntry,
+    abnormal_route_event_ids: &HashMap<String, String>,
+) -> Option<String> {
+    match entry.event_subkind.as_deref() {
+        Some("symptom_followup" | "abnormal_recovery" | "clinic_visit_linked") => entry
+            .event_payload
+            .get("episode_id")
+            .and_then(|value| value.as_str())
+            .and_then(|episode_id| abnormal_route_event_ids.get(episode_id))
+            .filter(|route_event_id| *route_event_id != &entry.id)
+            .cloned(),
+        _ => None,
+    }
 }
 
 fn to_home_error(error: &PetError) -> HomeError {

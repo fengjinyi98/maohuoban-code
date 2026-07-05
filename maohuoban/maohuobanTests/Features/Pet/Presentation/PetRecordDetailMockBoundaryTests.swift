@@ -89,11 +89,12 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
 
         guard case .petRecordDetail(let detailRoute) = route,
-              case .abnormal(let recordID, let routeContext) = detailRoute else {
+              case .abnormal(let recordID, let highlightedRecordID, let routeContext) = detailRoute else {
             XCTFail("Expected abnormal event to route to abnormal detail")
             return
         }
         XCTAssertEqual(recordID, "abnormal-event-1")
+        XCTAssertNil(highlightedRecordID)
         XCTAssertEqual(routeContext, context)
         XCTAssertEqual(detailRoute.id, "abnormal-abnormal-event-1")
     }
@@ -101,6 +102,7 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
     func testTimelineResolverRoutesObservationFollowupToAbnormalDetail() {
         let event = HomeDashboardSnapshot.TimelineEvent(
             id: "followup-event-1",
+            routeEventID: "abnormal-event-1",
             eventKind: .health,
             title: "追加观察",
             subtitle: "精神一般",
@@ -112,13 +114,14 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
 
         guard case .petRecordDetail(let detailRoute) = route,
-              case .abnormal(let recordID, let routeContext) = detailRoute else {
+              case .abnormal(let recordID, let highlightedRecordID, let routeContext) = detailRoute else {
             XCTFail("Expected observation followup to route to abnormal detail")
             return
         }
-        XCTAssertEqual(recordID, "followup-event-1")
+        XCTAssertEqual(recordID, "abnormal-event-1")
+        XCTAssertEqual(highlightedRecordID, "followup-event-1")
         XCTAssertEqual(routeContext, context)
-        XCTAssertEqual(detailRoute.id, "abnormal-followup-event-1")
+        XCTAssertEqual(detailRoute.id, "abnormal-abnormal-event-1-highlight-followup-event-1")
     }
 
     func testRecordDetailDestinationAcceptsBackendEventRoutesAtCompileTime() {

@@ -196,6 +196,34 @@ async fn deleting_abnormal_event_resolves_episode_and_attention_hint() {
         .expect("followup id")
         .to_owned();
 
+    let recovery_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "abnormal_recovery",
+                "title": "标记恢复",
+                "summary": "精神恢复",
+                "visibility": "private",
+                "occurred_at": "2026-06-27T16:00:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "recovery_note": "精神恢复"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create recovery event");
+    assert_eq!(recovery_response.status(), StatusCode::CREATED);
+    let recovery_body = response_json(recovery_response).await;
+    let recovery_id = recovery_body["data"]["id"]
+        .as_str()
+        .expect("recovery id")
+        .to_owned();
+
     let delete_response = app
         .router()
         .oneshot(empty_request(
@@ -261,9 +289,9 @@ async fn deleting_abnormal_event_resolves_episode_and_attention_hint() {
     let timeline = response_json(timeline_response).await;
     let events = timeline["data"]["events"].as_array().unwrap();
     assert!(
-        events
-            .iter()
-            .all(|item| item["id"] != event_id && item["id"] != followup_id),
+        events.iter().all(|item| item["id"] != event_id
+            && item["id"] != followup_id
+            && item["id"] != recovery_id),
         "deleting abnormal event must remove the whole episode timeline"
     );
 }

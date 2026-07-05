@@ -420,7 +420,7 @@ impl PostgresPetRepository {
             SET status = 'closed',
                 updated_at = now()
             WHERE created_event_id = $1::uuid
-              AND status IN ('open', 'watching', 'recovering')
+              AND status IN ('open', 'watching', 'recovering', 'recovered')
             RETURNING id
             "#,
         )
@@ -439,7 +439,11 @@ impl PostgresPetRepository {
                 UPDATE pet_events
                 SET superseded_by_event_id = id,
                     updated_at = now()
-                WHERE event_subkind = 'symptom_followup'
+                WHERE event_subkind IN (
+                    'symptom_followup',
+                    'abnormal_recovery',
+                    'clinic_visit_linked'
+                )
                   AND superseded_by_event_id IS NULL
                   AND event_payload->>'episode_id' = ANY($1)
                 "#,

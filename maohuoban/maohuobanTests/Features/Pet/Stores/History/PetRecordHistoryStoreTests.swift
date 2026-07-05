@@ -236,4 +236,98 @@ final class PetRecordHistoryStoreTests: XCTestCase {
         XCTAssertEqual(records.map(\.id), ["feeding-1"])
         XCTAssertEqual(repository.loadTimelineCallCount, 1)
     }
+
+    func testForceReloadAfterDeletionReplacesRowsFromBackendTimeline() async {
+        let repository = CapturingPetRepository()
+        repository.loadTimelineResults = [
+            .success(
+                MHBAPIResponse(
+                    success: true,
+                    code: "pet.timeline_loaded",
+                    message: "宠物时间线已加载",
+                    data: PetTimeline(
+                        petID: "pet-1",
+                        events: [
+                            PetTimelineEntry(
+                                id: "abnormal-1",
+                                petID: "pet-1",
+                                kind: .health,
+                                subkind: "abnormal_symptom",
+                                title: "异常记录",
+                                summary: "精神变差",
+                                visibility: .private,
+                                occurredAt: "2026-06-13T08:20:00Z",
+                                recordRevision: 1,
+                                source: .event,
+                                eventPayload: nil
+                            ),
+                            PetTimelineEntry(
+                                id: "followup-1",
+                                petID: "pet-1",
+                                kind: .health,
+                                subkind: "symptom_followup",
+                                title: "追加观察",
+                                summary: "精神一般",
+                                visibility: .private,
+                                occurredAt: "2026-06-13T09:20:00Z",
+                                recordRevision: 1,
+                                source: .event,
+                                eventPayload: nil
+                            )
+                        ]
+                    )
+                )
+            ),
+            .success(
+                MHBAPIResponse(
+                    success: true,
+                    code: "pet.timeline_loaded",
+                    message: "宠物时间线已加载",
+                    data: PetTimeline(
+                        petID: "pet-1",
+                        events: [
+                            PetTimelineEntry(
+                                id: "feeding-1",
+                                petID: "pet-1",
+                                kind: .daily,
+                                subkind: "feeding",
+                                title: "喂食记录",
+                                summary: "正常份量",
+                                visibility: .private,
+                                occurredAt: "2026-06-13T10:20:00Z",
+                                recordRevision: 1,
+                                source: .event,
+                                eventPayload: nil
+                            )
+                        ]
+                    )
+                )
+            )
+        ]
+        let store = PetRecordHistoryStore(repository: repository)
+        let recordContext = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "糯米",
+            petAvatarURL: "/media/avatar.png",
+            petSex: .female
+        )
+
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext
+        )
+        await store.load(
+            petID: "pet-1",
+            currentUserID: "user-1",
+            recordContext: recordContext,
+            force: true
+        )
+
+        guard case .loaded(let records) = store.phase else {
+            return XCTFail("expected loaded phase")
+        }
+        XCTAssertEqual(records.map(\.id), ["feeding-1"])
+        XCTAssertEqual(repository.loadTimelineCallCount, 2)
+    }
 }

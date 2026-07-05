@@ -91,6 +91,8 @@ pub enum PartnerRelationshipKind {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HomeTimelineEvent {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route_event_id: Option<String>,
     pub event_kind: HomeTimelineEventKind,
     pub title: String,
     pub subtitle: String,

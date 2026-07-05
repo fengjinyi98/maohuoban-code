@@ -18,6 +18,7 @@ final class CapturingPetRepository: PetRepository {
     var updateWeightRecordResult: Result<MHBAPIResponse<PetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var deleteWeightRecordResult: Result<MHBAPIResponse<DeletedPetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var loadTimelineResult: Result<MHBAPIResponse<PetTimeline>, MHBAPIError> = .failure(.invalidResponse)
+    var loadTimelineResults: [Result<MHBAPIResponse<PetTimeline>, MHBAPIError>] = []
     var loadEventDetailResult: Result<MHBAPIResponse<PetEventDetail>, MHBAPIError> = .failure(.invalidResponse)
     var deleteEventResult: Result<MHBAPIResponse<DeletedPetEvent>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var callOrder: [String] = []
@@ -114,7 +115,13 @@ final class CapturingPetRepository: PetRepository {
         loadTimelineCallCount += 1
         receivedTimelinePetID = petID
         receivedTimelineUserID = currentUserID
-        switch loadTimelineResult {
+        let result: Result<MHBAPIResponse<PetTimeline>, MHBAPIError>
+        if loadTimelineResults.isEmpty {
+            result = loadTimelineResult
+        } else {
+            result = loadTimelineResults.removeFirst()
+        }
+        switch result {
         case .success(let response):
             return response
         case .failure(let error):

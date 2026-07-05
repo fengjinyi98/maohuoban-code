@@ -47,6 +47,7 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
         }),
         recent_timeline: vec![HomeTimelineEvent {
             id: seed_uuid("c1d2a27a-923e-43fb-8a10-232f5185f0c1").to_string(),
+            route_event_id: None,
             event_kind: HomeTimelineEventKind::Weight,
             title: "体重记录".to_owned(),
             subtitle: "5.2kg，较上次稳定".to_owned(),
@@ -175,6 +176,7 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
             }],
             recent_events: vec![HomeTimelineEvent {
                 id: seed_uuid("0d2972a6-37a9-4681-8220-2a6de291e3ee").to_string(),
+                route_event_id: None,
                 event_kind: HomeTimelineEventKind::Merchant,
                 title: "A 窝更新照片".to_owned(),
                 subtitle: "买家可见时间线已更新".to_owned(),

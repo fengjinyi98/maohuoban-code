@@ -132,8 +132,8 @@ struct PetRecordHistoryScreen: View {
             )
         }
         .onChange(of: deletedRecordID) { _, recordID in
-            guard let recordID else { return }
-            store.removeRecord(id: recordID)
+            guard recordID != nil else { return }
+            loadCurrentPetRecords()
         }
         .accessibilityIdentifier("pet.recordHistory")
     }

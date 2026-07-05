@@ -11,6 +11,7 @@ use maohuoban_pet_domain::pet::{EventKind, PetEvent, PetTimelineEntry};
 pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
     HomeTimelineEvent {
         id: event.id.to_string(),
+        route_event_id: None,
         event_kind: home_timeline_event_kind(event),
         title: event.title.clone(),
         subtitle: event
@@ -29,6 +30,7 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
 pub(crate) fn timeline_entry_summary(entry: &PetTimelineEntry) -> HomeTimelineEvent {
     HomeTimelineEvent {
         id: entry.id.clone(),
+        route_event_id: None,
         event_kind: home_timeline_entry_kind(entry),
         title: entry.title.clone(),
         subtitle: entry

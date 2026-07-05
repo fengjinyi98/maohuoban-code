@@ -83,6 +83,80 @@ async fn home_dashboard_uses_current_user_pet_records_when_user_context_exists()
 }
 
 #[tokio::test]
+async fn home_dashboard_followup_timeline_routes_to_parent_abnormal_event() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138239").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+
+    let abnormal_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "abnormal_symptom",
+                "title": "异常：精神差",
+                "summary": "今天精神变差",
+                "visibility": "private",
+                "occurred_at": "2026-06-27T10:00:00Z",
+                "event_payload": {
+                    "symptom_kinds": ["energy"],
+                    "severity": "obvious"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create abnormal event");
+    assert_eq!(abnormal_response.status(), StatusCode::CREATED);
+    let abnormal_body = response_json(abnormal_response).await;
+    let abnormal_event_id = abnormal_body["data"]["id"]
+        .as_str()
+        .expect("abnormal event id")
+        .to_owned();
+    let episode_id = abnormal_body["data"]["event_payload"]["episode_id"]
+        .as_str()
+        .expect("episode id")
+        .to_owned();
+
+    let followup_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "symptom_followup",
+                "title": "追加观察",
+                "summary": "精神一般",
+                "visibility": "private",
+                "occurred_at": "2026-06-27T13:00:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "note": "精神一般"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create followup event");
+    assert_eq!(followup_response.status(), StatusCode::CREATED);
+    let followup_body = response_json(followup_response).await;
+    let followup_event_id = followup_body["data"]["id"]
+        .as_str()
+        .expect("followup event id")
+        .to_owned();
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let first_timeline = &dashboard_body["data"]["recent_timeline"][0];
+
+    assert_eq!(first_timeline["id"], followup_event_id);
+    assert_eq!(first_timeline["route_event_id"], abnormal_event_id);
+}
+
+#[tokio::test]
 async fn home_dashboard_derives_companionship_days_from_arrival_date() {
     let app = maohuoban_rust::test_support::spawn_home_test_app().await;
     app.reset().await;

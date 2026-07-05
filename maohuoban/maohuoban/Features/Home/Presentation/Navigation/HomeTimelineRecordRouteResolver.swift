@@ -53,7 +53,15 @@ enum HomeTimelineRecordRouteResolver {
             guard let recordContext else {
                 return .petRecordDetail(.unsupported(recordID: event.id))
             }
-            return .petRecordDetail(.abnormal(recordID: event.id, context: recordContext))
+            let routeEventID = event.routeEventID ?? event.id
+            let highlightedRecordID = routeEventID == event.id ? nil : event.id
+            return .petRecordDetail(
+                .abnormal(
+                    recordID: routeEventID,
+                    highlightedRecordID: highlightedRecordID,
+                    context: recordContext
+                )
+            )
         case .clinicVisit:
             return .petRecordDetail(.clinicVisit(recordID: event.id))
         case .unsupported:

@@ -11,6 +11,7 @@ struct PetAbnormalRecordDetailScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let recordID: String
+    let highlightedRecordID: String?
     let currentUserID: String?
     let recordContext: PetRecordEntryContext
     var onDeleted: (String) -> Void = { _ in }
@@ -34,6 +35,7 @@ struct PetAbnormalRecordDetailScreen: View {
                 PetAbnormalDetailContentView(
                     event: event,
                     store: store,
+                    highlightedRecordID: highlightedRecordID,
                     recordContext: recordContext,
                     onSelectAction: { action in
                         presentedSheet = .action(action)
@@ -148,6 +150,7 @@ private struct PetAbnormalDetailErrorView: View {
 private struct PetAbnormalDetailContentView: View {
     let event: PetEventDetail
     let store: PetAbnormalDetailStore
+    let highlightedRecordID: String?
     let recordContext: PetRecordEntryContext
     let onSelectAction: (PetAbnormalRecordDetailAction) -> Void
 
@@ -210,7 +213,8 @@ private struct PetAbnormalDetailContentView: View {
             }
 
             PetAbnormalRecordProgressSection(
-                records: store.progressRecords
+                records: store.progressRecords,
+                highlightedRecordID: highlightedRecordID
             )
 
             PetAbnormalRecordEpisodeActions(

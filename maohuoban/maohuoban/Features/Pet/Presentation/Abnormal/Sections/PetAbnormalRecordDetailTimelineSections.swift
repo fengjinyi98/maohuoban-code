@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 用时间线串联异常、观察、就诊和恢复记录
 struct PetAbnormalRecordProgressSection: View {
     let records: [PetAbnormalRecordDetailPresentation.RelatedRecord]
+    let highlightedRecordID: String?
 
     var body: some View {
         PetAbnormalRecordDetailSection(title: "进展时间线") {
@@ -17,6 +18,7 @@ struct PetAbnormalRecordProgressSection: View {
                     ForEach(Array(records.enumerated()), id: \.element.id) { index, record in
                         PetAbnormalRecordProgressRow(
                             record: record,
+                            isCurrent: highlightedRecordID.map { $0 == record.id } ?? record.isCurrentRecord,
                             isFirst: index == 0,
                             isLast: index == records.count - 1
                         )
@@ -33,6 +35,7 @@ struct PetAbnormalRecordProgressSection: View {
 // - 保持当前原始异常记录和后续记录的层级差异
 private struct PetAbnormalRecordProgressRow: View {
     let record: PetAbnormalRecordDetailPresentation.RelatedRecord
+    let isCurrent: Bool
     let isFirst: Bool
     let isLast: Bool
 
@@ -57,7 +60,7 @@ private struct PetAbnormalRecordProgressRow: View {
                         .font(MHBTheme.Typography.callout.weight(.semibold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    if record.isCurrentRecord {
+                    if isCurrent {
                         Text("当前")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(record.kind.tint)

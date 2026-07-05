@@ -10,7 +10,7 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
     case auto(recordID: String, context: PetRecordEntryContext)
     case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext)
     case feeding(recordID: String, context: PetRecordEntryContext)
-    case abnormal(recordID: String, context: PetRecordEntryContext)
+    case abnormal(recordID: String, highlightedRecordID: String? = nil, context: PetRecordEntryContext)
     case weight(recordID: String, context: PetRecordEntryContext)
     case deworming(recordID: String, context: PetRecordEntryContext)
     case vaccine(recordID: String, context: PetRecordEntryContext)
@@ -26,8 +26,12 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
             "quickFact-\(recordID)"
         case .feeding(let recordID, _):
             "feeding-\(recordID)"
-        case .abnormal(let recordID, _):
-            "abnormal-\(recordID)"
+        case .abnormal(let recordID, let highlightedRecordID, _):
+            if let highlightedRecordID {
+                "abnormal-\(recordID)-highlight-\(highlightedRecordID)"
+            } else {
+                "abnormal-\(recordID)"
+            }
         case .weight(let recordID, _):
             "weight-\(recordID)"
         case .deworming(let recordID, _):
@@ -78,9 +82,10 @@ struct PetRecordDetailDestinationScreen: View {
                 recordContext: context,
                 onDeleted: onRecordDeleted
             )
-        case .abnormal(let recordID, let context):
+        case .abnormal(let recordID, let highlightedRecordID, let context):
             PetAbnormalRecordDetailScreen(
                 recordID: recordID,
+                highlightedRecordID: highlightedRecordID,
                 currentUserID: currentUserID,
                 recordContext: context,
                 onDeleted: onRecordDeleted

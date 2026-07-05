@@ -126,14 +126,38 @@ extension HomeDashboardSnapshot {
     // - 隔离完整宠物事件账本
     struct TimelineEvent: Decodable, Equatable, Identifiable {
         let id: String
+        let routeEventID: String?
         let eventKind: Kind
         let title: String
         let subtitle: String
         let occurredText: String
         let occurredAt: String?
 
+        // init 构造首页时间线事件
+        // 核心职责：
+        // - 为测试和本地 fixture 提供稳定构造入口
+        // - 默认保持普通事件没有独立路由父事件
+        init(
+            id: String,
+            routeEventID: String? = nil,
+            eventKind: Kind,
+            title: String,
+            subtitle: String,
+            occurredText: String,
+            occurredAt: String?
+        ) {
+            self.id = id
+            self.routeEventID = routeEventID
+            self.eventKind = eventKind
+            self.title = title
+            self.subtitle = subtitle
+            self.occurredText = occurredText
+            self.occurredAt = occurredAt
+        }
+
         enum CodingKeys: String, CodingKey {
             case id
+            case routeEventID = "route_event_id"
             case eventKind = "event_kind"
             case title
             case subtitle
