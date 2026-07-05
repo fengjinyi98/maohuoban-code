@@ -11,9 +11,9 @@ struct AIAssistantScrollToLatestButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "arrow.down")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                .frame(width: 52, height: 52)
+                .frame(width: 40, height: 40)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

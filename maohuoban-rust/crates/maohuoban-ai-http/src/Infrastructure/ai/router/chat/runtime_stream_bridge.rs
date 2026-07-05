@@ -12,7 +12,8 @@ use maohuoban_ai_application::ai::tools::{
     AiToolContext, ToolGatewayExecutionContext, ToolRegistry,
 };
 use maohuoban_ai_domain::ai::{
-    AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot, AiStreamEvent,
+    AgentEvent, AgentId, AgentSessionWorkbench, AgentTurnId, AiFactPackage, AiPetDisplaySnapshot,
+    AiStreamEvent,
 };
 use uuid::Uuid;
 
@@ -50,14 +51,6 @@ pub(super) fn runtime_agent_stream(
     let registry = build_runtime_registry(state, &input);
     record_runtime_stream_selection(state, &input, registry.as_ref());
     let visible_output_plan = plan_visible_output(req.surface, input.target_pet.as_ref());
-    let allowed_block_kinds = visible_output_plan.block_kind_codes();
-    record_chat_render_plan_selected(
-        input.session_id,
-        input.message_id,
-        req.surface,
-        input.target_pet.is_some(),
-        &allowed_block_kinds,
-    );
     let engine = build_runtime_engine(state, &input, registry);
     let session = AgentSession::new(
         input.session_id,
@@ -72,6 +65,8 @@ pub(super) fn runtime_agent_stream(
     let workbench = input.workbench;
     let activity_pet_name = activity_pet_name(input.target_pet.as_ref());
     let identity_context_tool_required = input.target_pet.is_some();
+    let surface = req.surface;
+    let has_target_pet = input.target_pet.is_some();
 
     async_stream::stream! {
         let AiStreamRunContext {
@@ -99,7 +94,7 @@ pub(super) fn runtime_agent_stream(
             &activity_pet_name,
             identity_context_tool_required,
             visible_output_plan,
-        );
+            );
         let mut agent_stream =
             session.into_prompt_stream_with_workbench_turn_and_diagnostics_message_id(
                 user_message,
@@ -107,20 +102,25 @@ pub(super) fn runtime_agent_stream(
                 input.turn_id,
                 message_id,
             );
+        let mut render_plan_recorded = false;
         while let Some(result) = agent_stream.next().await {
             match result {
                 Ok(agent_event) => {
-                    let event_name = agent_event.event_name().to_owned();
-                    let payload =
-                        serde_json::to_value(&agent_event).unwrap_or_else(|_| serde_json::json!({}));
-                    record_chat_runtime_agent_event(
-                        chat_session_id,
-                        message_id,
-                        &event_name,
-                        &payload,
-                    );
+                    record_agent_event_diagnostic(chat_session_id, message_id, &agent_event);
                     let projected_events = projector.project(agent_event);
                     for event in projected_events {
+                        if !render_plan_recorded
+                            && is_terminal_message_event(&event)
+                        {
+                            record_projected_render_plan(
+                                chat_session_id,
+                                message_id,
+                                surface,
+                                has_target_pet,
+                                &projector,
+                            );
+                            render_plan_recorded = true;
+                        }
                         if let AiStreamEvent::ContentBlockDelta { content_blocks }
                         | AiStreamEvent::AnswerCompleted { content_blocks, .. }
                         | AiStreamEvent::MessageCompleted { content_blocks, .. } = &event
@@ -144,6 +144,40 @@ pub(super) fn runtime_agent_stream(
         }
     }
     .boxed()
+}
+
+fn record_agent_event_diagnostic(
+    chat_session_id: Uuid,
+    message_id: Uuid,
+    agent_event: &AgentEvent,
+) {
+    let event_name = agent_event.event_name().to_owned();
+    let payload = serde_json::to_value(agent_event).unwrap_or_else(|_| serde_json::json!({}));
+    record_chat_runtime_agent_event(chat_session_id, message_id, &event_name, &payload);
+}
+
+fn is_terminal_message_event(event: &AiStreamEvent) -> bool {
+    matches!(
+        event,
+        AiStreamEvent::AnswerCompleted { .. } | AiStreamEvent::MessageCompleted { .. }
+    )
+}
+
+fn record_projected_render_plan(
+    session_id: Uuid,
+    message_id: Uuid,
+    surface: maohuoban_ai_domain::ai::AiConversationSurface,
+    has_target_pet: bool,
+    projector: &AgentEventSseProjector,
+) {
+    let allowed_block_kinds = projector.effective_visible_output_plan().block_kind_codes();
+    record_chat_render_plan_selected(
+        session_id,
+        message_id,
+        surface,
+        has_target_pet,
+        &allowed_block_kinds,
+    );
 }
 
 fn build_runtime_registry(

@@ -41,6 +41,50 @@ async fn ingress_transaction_persists_session_message_turn_and_gate_log() {
     assert_ingress_fixture_persisted(&app, &fixture).await;
 }
 
+#[tokio::test]
+async fn ingress_transaction_keeps_existing_session_title_on_later_turns() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let first_fixture = build_ingress_fixture();
+    let mut second_fixture = build_ingress_fixture();
+    second_fixture.session.id = first_fixture.session.id;
+    second_fixture.session.actor_user_id = first_fixture.session.actor_user_id;
+    second_fixture.session.title = "第二轮不应覆盖标题".to_owned();
+    second_fixture.user_message.session_id = first_fixture.session.id;
+    second_fixture.turn.session_id = first_fixture.session.id;
+    second_fixture.turn.actor_user_id = first_fixture.session.actor_user_id;
+    second_fixture.gate_log.session_id = Some(first_fixture.session.id);
+    second_fixture.gate_log.actor_user_id = first_fixture.session.actor_user_id;
+
+    let transaction = PostgresChatTurnTransaction::new(app.pool().clone());
+    transaction
+        .persist_ingress_tx(&IngressTxInput {
+            session: &first_fixture.session,
+            user_message: &first_fixture.user_message,
+            turn: &first_fixture.turn,
+            gate_log: &first_fixture.gate_log,
+        })
+        .await
+        .expect("persist first ingress tx");
+    transaction
+        .persist_ingress_tx(&IngressTxInput {
+            session: &second_fixture.session,
+            user_message: &second_fixture.user_message,
+            turn: &second_fixture.turn,
+            gate_log: &second_fixture.gate_log,
+        })
+        .await
+        .expect("persist second ingress tx");
+
+    let title: String = sqlx::query_scalar("SELECT title FROM ai_chat_sessions WHERE id = $1")
+        .bind(first_fixture.session.id)
+        .fetch_one(app.pool())
+        .await
+        .expect("read session title");
+
+    assert_eq!(title, first_fixture.session.title);
+}
+
 fn build_ingress_fixture() -> IngressFixture {
     let now = Utc::now();
     let actor_user_id = Uuid::new_v4();

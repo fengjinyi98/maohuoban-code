@@ -109,7 +109,6 @@ async fn upsert_session_in_tx(
              created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (id) DO UPDATE SET
-            title = EXCLUDED.title,
             pet_display_snapshot = EXCLUDED.pet_display_snapshot,
             status = EXCLUDED.status,
             updated_at = EXCLUDED.updated_at

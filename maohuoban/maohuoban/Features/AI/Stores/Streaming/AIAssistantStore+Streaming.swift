@@ -88,11 +88,7 @@ extension AIAssistantStore {
         switch event {
         case .messageStarted(let chatSessionID, _, let title):
             currentChatSessionID = chatSessionID.uuidString
-            if !title.isEmpty && title != "新对话" {
-                currentConversationTitle = title
-            } else if currentConversationTitle == nil {
-                currentConversationTitle = title
-            }
+            applyConversationTitleIfNeeded(title)
             ensureStreamingPlaceholderExists()
 
         case .agentActivity(let displayText, let status):
@@ -158,6 +154,13 @@ extension AIAssistantStore {
         guard trimmedText.isEmpty == false else { return }
         activeAgentActivityText = trimmedText
         streamingRevision += 1
+    }
+
+    func applyConversationTitleIfNeeded(_ title: String) {
+        guard currentConversationTitle == nil else { return }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedTitle.isEmpty == false else { return }
+        currentConversationTitle = trimmedTitle
     }
 
     func clearActiveAgentActivity() {

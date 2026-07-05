@@ -225,7 +225,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
         XCTAssertEqual(store.pendingAction?.confirmTitle, "确认换粮")
     }
 
-    func testMessageStartedSetsConversationTitle() async {
+    func testMessageStartedDoesNotOverrideLocalFirstMessageTitle() async {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
             repository: MockAIAssistantRepository(streamEvents: Self.titleEvents())
@@ -235,7 +235,7 @@ final class AIAssistantStoreStreamEventTests: XCTestCase {
 
         try? await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(store.navigationTitle, "疫苗咨询")
+        XCTAssertEqual(store.navigationTitle, "问题")
     }
 
     func testConfirmPendingActionAppendsMessages() async {

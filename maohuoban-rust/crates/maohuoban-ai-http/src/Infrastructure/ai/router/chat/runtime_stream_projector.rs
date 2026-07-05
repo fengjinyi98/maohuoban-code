@@ -71,6 +71,13 @@ impl AgentEventSseProjector {
             .collect()
     }
 
+    pub(super) fn effective_visible_output_plan(&self) -> VisibleOutputPlan {
+        if self.identity_context_tool_succeeded {
+            return VisibleOutputPlan::pet_profile_card();
+        }
+        self.visible_output_plan
+    }
+
     fn project_user_visible(&mut self, event: AgentEvent) -> Vec<UserVisibleTurnEvent> {
         match event {
             AgentEvent::ModelCallFinished {
@@ -344,9 +351,8 @@ impl AgentEventSseProjector {
     }
 
     fn should_render_pet_profile_card(&self) -> bool {
-        self.visible_output_plan
+        self.effective_visible_output_plan()
             .allows(VisibleBlockKind::PetProfileCard)
-            || self.identity_context_tool_succeeded
     }
 
     fn pet_profile_skeleton_event(&self, title: String) -> AiStreamEvent {

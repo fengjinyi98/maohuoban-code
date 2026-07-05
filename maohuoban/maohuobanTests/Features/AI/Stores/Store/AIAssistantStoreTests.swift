@@ -252,4 +252,16 @@ final class AIAssistantStoreTests: XCTestCase {
         XCTAssertNil(store.navigationSubtitle)
         XCTAssertFalse(store.shouldShowSuggestedPrompts)
     }
+
+    @MainActor
+    func testSecondMessageStartedDoesNotOverrideFirstMessageConversationTitle() {
+        let store = AIAssistantStore(context: AIAssistantEntryContext())
+        let sessionID = UUID()
+
+        store.send("第一条问题作为标题")
+        store.handleStreamEvent(.messageStarted(chatSessionID: sessionID, messageID: UUID(), title: "第一条问题作为标题"))
+        store.handleStreamEvent(.messageStarted(chatSessionID: sessionID, messageID: UUID(), title: "第二条问题不应覆盖"))
+
+        XCTAssertEqual(store.navigationTitle, "第一条问题作为标题")
+    }
 }

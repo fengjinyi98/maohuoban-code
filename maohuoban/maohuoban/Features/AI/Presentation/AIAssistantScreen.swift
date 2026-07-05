@@ -15,6 +15,9 @@ struct AIAssistantScreen: View {
     @State private var timelineContentHeight: CGFloat = 0
     @State private var timelineViewportHeight: CGFloat = 0
     @State private var isScrolledToBottom = true
+    @State private var hasUserScrolledTimeline = false
+    @State private var hasTimelineScrollIntent = false
+    @State private var pendingFollowBottomRequest = 0
 
     private static let bottomAnchorID = "ai.assistant.bottom"
     private let onOpenReference: (AIAssistantReference) -> Void
@@ -61,18 +64,22 @@ struct AIAssistantScreen: View {
                                 )
                         }
                     }
-                    .background(alignment: .bottom) {
-                        GeometryReader { bottomProxy in
-                            Color.clear
-                                .preference(
-                                    key: AIAssistantBottomAnchorOffsetKey.self,
-                                    value: bottomProxy.frame(in: .named("ai.assistant.scroll")).maxY
-                                )
-                        }
-                    }
                 }
                 .coordinateSpace(name: "ai.assistant.scroll")
                 .scrollDismissesKeyboard(.interactively)
+                .onScrollGeometryChange(for: AIAssistantScrollMetrics.self) { geometry in
+                    AIAssistantScrollMetrics(
+                        contentOffsetY: geometry.contentOffset.y,
+                        visibleMaxY: geometry.visibleRect.maxY,
+                        contentHeight: geometry.contentSize.height,
+                        viewportHeight: geometry.containerSize.height
+                    )
+                } action: { _, metrics in
+                    updateScrollMetrics(metrics)
+                }
+                .onScrollPhaseChange { _, phase in
+                    handleTimelineScrollPhaseChange(phase)
+                }
                 .onAppear {
                     timelineViewportHeight = viewportProxy.size.height
                 }
@@ -81,9 +88,6 @@ struct AIAssistantScreen: View {
                 }
                 .onPreferenceChange(AIAssistantTimelineContentHeightKey.self) { height in
                     timelineContentHeight = height
-                }
-                .onPreferenceChange(AIAssistantBottomAnchorOffsetKey.self) { bottomMaxY in
-                    updateBottomVisibility(bottomMaxY: bottomMaxY)
                 }
                 .onChange(of: store.messages.count) { _, _ in
                     scrollToBottomIfNeeded(proxy: proxy, animated: true)
@@ -94,16 +98,39 @@ struct AIAssistantScreen: View {
                 .onChange(of: store.pendingAction) { _, _ in
                     scrollToBottomIfNeeded(proxy: proxy, animated: true)
                 }
-                .overlay(alignment: .bottom) {
-                    if shouldShowScrollToLatestButton {
-                        AIAssistantScrollToLatestButton {
-                            scrollToBottom(proxy: proxy, animated: true)
-                        }
-                        .padding(.bottom, MHBTheme.Spacing.s4)
-                        .transition(.scale(scale: 0.9).combined(with: .opacity))
-                    }
+                .onChange(of: pendingFollowBottomRequest) { _, _ in
+                    scrollToBottom(proxy: proxy, animated: false)
                 }
-                .animation(.smooth(duration: 0.22), value: shouldShowScrollToLatestButton)
+            }
+            .safeAreaInset(edge: .bottom) {
+                AIAssistantBottomControls(
+                    shouldShowScrollToLatestButton: shouldShowScrollToLatestButton,
+                    prompts: store.shouldShowSuggestedPrompts ? store.suggestedPrompts : [],
+                    selectedAttachment: store.selectedAttachment,
+                    selectedAttachmentImage: store.selectedAttachmentImage,
+                    isInputFocused: $isComposerInputFocused,
+                    isInputFirstResponderAllowed: !isHistoryScreenPresented,
+                    store: store,
+                    onScrollToLatest: {
+                        scrollToBottom(proxy: proxy, animated: true)
+                    },
+                    onSelectPrompt: { prompt in
+                        store.sendSuggestedPrompt(prompt)
+                    },
+                    onSelectAttachmentSource: { source in
+                        if source == .camera && !MHBResponsiveCameraImagePicker.isCameraAvailable {
+                            presentCameraFailure("当前设备没有可用相机")
+                            return
+                        }
+                        store.requestAttachmentSource(source)
+                    },
+                    onClearAttachmentSource: {
+                        store.clearAttachment()
+                    },
+                    onSend: {
+                        store.submitDraft()
+                    }
+                )
             }
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
@@ -118,35 +145,8 @@ struct AIAssistantScreen: View {
                     .clipShape(Capsule())
                     .padding(.top, 60)
                     .padding(.trailing, 16)
-                    .allowsHitTesting(false)
+                .allowsHitTesting(false)
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            AIAssistantComposerBar(
-                prompts: store.shouldShowSuggestedPrompts ? store.suggestedPrompts : [],
-                selectedAttachment: store.selectedAttachment,
-                selectedAttachmentImage: store.selectedAttachmentImage,
-                isInputFocused: $isComposerInputFocused,
-                isInputFirstResponderAllowed: !isHistoryScreenPresented,
-                store: store,
-                onSelectPrompt: { prompt in
-                    store.sendSuggestedPrompt(prompt)
-                },
-                onSelectAttachmentSource: { source in
-                    if source == .camera && !MHBResponsiveCameraImagePicker.isCameraAvailable {
-                        presentCameraFailure("当前设备没有可用相机")
-                        return
-                    }
-                    store.requestAttachmentSource(source)
-                },
-                onClearAttachmentSource: {
-                    store.clearAttachment()
-                },
-                onSend: {
-                    store.submitDraft()
-                }
-            )
-            .ignoresSafeArea(.container, edges: .bottom)
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -311,14 +311,19 @@ struct AIAssistantScreen: View {
         ) else {
             return
         }
-        guard isScrolledToBottom else { return }
+        guard isScrolledToBottom else {
+            return
+        }
         scrollToBottom(proxy: proxy, animated: animated)
     }
 
     private var shouldShowScrollToLatestButton: Bool {
         AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
             messageCount: store.messages.count,
-            isScrolledToBottom: isScrolledToBottom
+            isScrolledToBottom: isScrolledToBottom,
+            hasUserScrolled: hasUserScrolledTimeline,
+            contentHeight: timelineContentHeight,
+            viewportHeight: timelineViewportHeight
         )
     }
 
@@ -331,14 +336,103 @@ struct AIAssistantScreen: View {
             proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
         }
         isScrolledToBottom = true
+        hasUserScrolledTimeline = false
+        hasTimelineScrollIntent = false
     }
 
-    private func updateBottomVisibility(bottomMaxY: CGFloat) {
-        guard timelineViewportHeight > 0 else { return }
+    private func handleTimelineScrollPhaseChange(_ phase: ScrollPhase) {
+        if phase == .idle {
+            hasTimelineScrollIntent = false
+        } else {
+            hasTimelineScrollIntent = true
+        }
+    }
+
+    private func updateScrollMetrics(_ metrics: AIAssistantScrollMetrics) {
+        let previousContentHeight = timelineContentHeight
+        let previousViewportHeight = timelineViewportHeight
+        let previousIsScrolledToBottom = isScrolledToBottom
+        let previousHasUserScrolled = hasUserScrolledTimeline
+        timelineContentHeight = metrics.contentHeight
+        timelineViewportHeight = metrics.viewportHeight
         let threshold: CGFloat = 28
-        let nextIsScrolledToBottom = bottomMaxY <= timelineViewportHeight + threshold
+        let nextIsScrolledToBottom = AIAssistantScrollStateTracker.isScrolledToBottom(
+            contentOffsetY: metrics.contentOffsetY,
+            visibleMaxY: metrics.visibleMaxY,
+            contentHeight: metrics.contentHeight,
+            viewportHeight: metrics.viewportHeight,
+            threshold: threshold
+        )
+        if AIAssistantScrollStateTracker.shouldFollowBottomAfterContentGrowth(
+            previousIsScrolledToBottom: previousIsScrolledToBottom,
+            hasUserScrolled: previousHasUserScrolled,
+            hasUserScrollIntent: hasTimelineScrollIntent,
+            previousContentHeight: previousContentHeight,
+            nextContentHeight: metrics.contentHeight,
+            viewportHeight: metrics.viewportHeight
+        ) {
+            isScrolledToBottom = true
+            hasUserScrolledTimeline = false
+            pendingFollowBottomRequest += 1
+            return
+        }
+        if nextIsScrolledToBottom {
+            hasUserScrolledTimeline = false
+        } else if AIAssistantScrollStateTracker.shouldMarkUserScrolled(
+            isScrolledToBottom: nextIsScrolledToBottom,
+            hasUserScrollIntent: hasTimelineScrollIntent
+        ) {
+            hasUserScrolledTimeline = true
+        }
         guard nextIsScrolledToBottom != isScrolledToBottom else { return }
         isScrolledToBottom = nextIsScrolledToBottom
+    }
+}
+
+// AIAssistantBottomControls AI 助手底部输入与回底控件
+// 核心职责：
+// - 将输入栏作为唯一底部 safe area inset 内容
+// - 以 overlay 承载回到最新按钮，避免按钮显隐改变滚动视口高度
+private struct AIAssistantBottomControls: View {
+    static let buttonBottomSpacing = MHBTheme.Spacing.s1
+    private static let buttonSize: CGFloat = 40
+    private static let composerTopPadding = MHBTheme.Spacing.s2
+
+    let shouldShowScrollToLatestButton: Bool
+    let prompts: [AIAssistantSuggestedPrompt]
+    let selectedAttachment: AIAssistantSelectedAttachment?
+    let selectedAttachmentImage: UIImage?
+    @Binding var isInputFocused: Bool
+    let isInputFirstResponderAllowed: Bool
+    @Bindable var store: AIAssistantStore
+    let onScrollToLatest: () -> Void
+    let onSelectPrompt: (AIAssistantSuggestedPrompt) -> Void
+    let onSelectAttachmentSource: (AIAssistantAttachmentSource) -> Void
+    let onClearAttachmentSource: () -> Void
+    let onSend: () -> Void
+
+    var body: some View {
+        AIAssistantComposerBar(
+            prompts: prompts,
+            selectedAttachment: selectedAttachment,
+            selectedAttachmentImage: selectedAttachmentImage,
+            isInputFocused: $isInputFocused,
+            isInputFirstResponderAllowed: isInputFirstResponderAllowed,
+            store: store,
+            onSelectPrompt: onSelectPrompt,
+            onSelectAttachmentSource: onSelectAttachmentSource,
+            onClearAttachmentSource: onClearAttachmentSource,
+            onSend: onSend
+        )
+        .ignoresSafeArea(.container, edges: .bottom)
+        .overlay(alignment: .top) {
+            if shouldShowScrollToLatestButton {
+                AIAssistantScrollToLatestButton(action: onScrollToLatest)
+                    .offset(y: -(Self.buttonBottomSpacing + Self.buttonSize - Self.composerTopPadding))
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
+        }
+        .animation(.smooth(duration: 0.22), value: shouldShowScrollToLatestButton)
     }
 }
 

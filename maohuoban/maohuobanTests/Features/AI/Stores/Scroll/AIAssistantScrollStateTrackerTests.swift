@@ -79,7 +79,10 @@ final class AIAssistantScrollStateTrackerTests: XCTestCase {
     func testShouldShowScrollToLatestButtonWhenNotAtBottom() {
         let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
             messageCount: 5,
-            isScrolledToBottom: false
+            isScrolledToBottom: false,
+            hasUserScrolled: true,
+            contentHeight: 1200,
+            viewportHeight: 640
         )
         XCTAssertTrue(result)
     }
@@ -87,7 +90,10 @@ final class AIAssistantScrollStateTrackerTests: XCTestCase {
     func testShouldNotShowScrollToLatestButtonWhenAtBottom() {
         let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
             messageCount: 5,
-            isScrolledToBottom: true
+            isScrolledToBottom: true,
+            hasUserScrolled: true,
+            contentHeight: 1200,
+            viewportHeight: 640
         )
         XCTAssertFalse(result)
     }
@@ -95,7 +101,32 @@ final class AIAssistantScrollStateTrackerTests: XCTestCase {
     func testShouldNotShowScrollToLatestButtonWhenNoMessages() {
         let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
             messageCount: 0,
-            isScrolledToBottom: false
+            isScrolledToBottom: false,
+            hasUserScrolled: true,
+            contentHeight: 1200,
+            viewportHeight: 640
+        )
+        XCTAssertFalse(result)
+    }
+
+    func testShouldNotShowScrollToLatestButtonBeforeUserScrolls() {
+        let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
+            messageCount: 5,
+            isScrolledToBottom: false,
+            hasUserScrolled: false,
+            contentHeight: 1200,
+            viewportHeight: 640
+        )
+        XCTAssertFalse(result)
+    }
+
+    func testShouldNotShowScrollToLatestButtonWhenContentCannotScroll() {
+        let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
+            messageCount: 5,
+            isScrolledToBottom: false,
+            hasUserScrolled: true,
+            contentHeight: 520,
+            viewportHeight: 640
         )
         XCTAssertFalse(result)
     }
@@ -113,6 +144,133 @@ final class AIAssistantScrollStateTrackerTests: XCTestCase {
             contentHeight: 720,
             viewportHeight: 640
         )
+        XCTAssertTrue(result)
+    }
+
+    func testIsScrolledToBottomWhenDistanceWithinThreshold() {
+        let result = AIAssistantScrollStateTracker.isScrolledToBottom(
+            contentOffsetY: 772,
+            visibleMaxY: 1172,
+            contentHeight: 1200,
+            viewportHeight: 400,
+            threshold: 28
+        )
+
+        XCTAssertTrue(result)
+    }
+
+    func testIsNotScrolledToBottomWhenDistanceExceedsThreshold() {
+        let result = AIAssistantScrollStateTracker.isScrolledToBottom(
+            contentOffsetY: 720,
+            visibleMaxY: 1120,
+            contentHeight: 1200,
+            viewportHeight: 400,
+            threshold: 28
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testShouldNotShowScrollToLatestButtonWhenContentOnlySlightlyExceedsViewport() {
+        let result = AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
+            messageCount: 5,
+            isScrolledToBottom: false,
+            hasUserScrolled: true,
+            contentHeight: 642,
+            viewportHeight: 640
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testShouldNotMarkUserScrolledWhenContentGrowthMovesBottomAway() {
+        let result = AIAssistantScrollStateTracker.shouldMarkUserScrolled(
+            isScrolledToBottom: false,
+            hasUserScrollIntent: false
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testShouldMarkUserScrolledWhenUserDragMovesAwayFromBottom() {
+        let result = AIAssistantScrollStateTracker.shouldMarkUserScrolled(
+            isScrolledToBottom: false,
+            hasUserScrollIntent: true
+        )
+
+        XCTAssertTrue(result)
+    }
+
+    func testShouldFollowBottomWhenContentGrowsWithoutUserScroll() {
+        let result = AIAssistantScrollStateTracker.shouldFollowBottomAfterContentGrowth(
+            previousIsScrolledToBottom: true,
+            hasUserScrolled: false,
+            hasUserScrollIntent: false,
+            previousContentHeight: 222,
+            nextContentHeight: 1123,
+            viewportHeight: 613
+        )
+
+        XCTAssertTrue(result)
+    }
+
+    func testShouldNotFollowBottomWhenUserHasScrolledAway() {
+        let result = AIAssistantScrollStateTracker.shouldFollowBottomAfterContentGrowth(
+            previousIsScrolledToBottom: false,
+            hasUserScrolled: true,
+            hasUserScrollIntent: false,
+            previousContentHeight: 1123,
+            nextContentHeight: 1157,
+            viewportHeight: 613
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testShouldNotFollowBottomWhenUserIsActivelyScrolling() {
+        let result = AIAssistantScrollStateTracker.shouldFollowBottomAfterContentGrowth(
+            previousIsScrolledToBottom: true,
+            hasUserScrolled: false,
+            hasUserScrollIntent: true,
+            previousContentHeight: 1017,
+            nextContentHeight: 1285,
+            viewportHeight: 613
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testShortContentIsAlwaysAtBottom() {
+        let result = AIAssistantScrollStateTracker.isScrolledToBottom(
+            contentOffsetY: 0,
+            visibleMaxY: 360,
+            contentHeight: 360,
+            viewportHeight: 640,
+            threshold: 28
+        )
+
+        XCTAssertTrue(result)
+    }
+
+    func testCanScrollIgnoresTinyBoundaryDelta() {
+        let result = AIAssistantScrollStateTracker.canScroll(
+            contentHeight: 642,
+            viewportHeight: 640,
+            threshold: 28
+        )
+
+        XCTAssertFalse(result)
+    }
+
+    func testBottomDetectionUsesVisibleRectMaxY() {
+        let result = AIAssistantScrollStateTracker.isScrolledToBottom(
+            contentOffsetY: 318,
+            visibleMaxY: 1318,
+            contentHeight: 1326,
+            viewportHeight: 569,
+            threshold: 28
+        )
+
         XCTAssertTrue(result)
     }
 }
