@@ -196,6 +196,8 @@ impl PetService {
 
         let event = self.repository.create_pet_event(input).await?;
         self.mark_feeding_food_item_in_use(&event).await?;
+        self.infer_current_staple_from_repeated_feeding(&event)
+            .await?;
 
         if event.event_subkind.as_deref() == Some("abnormal_recovery")
             && event.event_kind == EventKind::Health

@@ -268,6 +268,93 @@ async fn feeding_event_snapshot_includes_inventory_cover_and_marks_sealed_item_i
 }
 
 #[tokio::test]
+async fn feeding_same_main_food_three_times_sets_current_staple() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800139038").await;
+
+    let pet_id = create_pet(&app, &user_id).await;
+    let food_item_id = create_food_inventory_item(&app, &user_id).await;
+
+    for occurred_at in [
+        "2026-06-25T08:30:00Z",
+        "2026-06-25T18:30:00Z",
+        "2026-06-26T08:30:00Z",
+    ] {
+        let response = app
+            .router()
+            .oneshot(json_request(
+                "POST",
+                &format!("/api/v1/pets/{pet_id}/events"),
+                json!({
+                    "event_kind": "daily",
+                    "event_subkind": "feeding",
+                    "title": "已喂",
+                    "summary": "喂食：主粮：渴望六种鱼，份量：正常",
+                    "visibility": "private",
+                    "occurred_at": occurred_at,
+                    "event_payload": {
+                        "food_item_id": food_item_id,
+                        "food_role": "main_food",
+                        "amount_text": "正常",
+                        "food_snapshot": {
+                            "name": "渴望六种鱼",
+                            "brand": "Orijen",
+                            "category": "main_food",
+                            "spec": "5.4kg"
+                        },
+                        "is_default_food": false,
+                        "note": null,
+                        "attachment_asset_ids": []
+                    }
+                }),
+                Some(&user_id),
+            ))
+            .await
+            .expect("create repeated main food feeding event");
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    let context_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/diet-context"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load diet context after repeated feeding");
+    assert_eq!(context_response.status(), StatusCode::OK);
+    let context_body = response_json(context_response).await;
+    assert_eq!(
+        context_body["data"]["current_staple"]["food_item_id"],
+        food_item_id
+    );
+
+    let timeline_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pets/{pet_id}/timeline"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load timeline after inferred current staple");
+    assert_eq!(timeline_response.status(), StatusCode::OK);
+    let timeline_body = response_json(timeline_response).await;
+    let events = timeline_body["data"]["events"]
+        .as_array()
+        .expect("timeline events");
+    assert!(
+        events
+            .iter()
+            .any(|event| event["event_subkind"] == "diet_change"
+                && event["event_payload"]["to_food_item_id"] == food_item_id
+                && event["summary"] == "连续喂食自动识别为当前主粮")
+    );
+}
+
+#[tokio::test]
 async fn diet_confirmation_candidates_return_unbound_inventory_changes_as_pending() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

@@ -4,7 +4,9 @@ use maohuoban_pet_domain::pet::{
 };
 use uuid::Uuid;
 
-use super::super::{NewFoodInventoryItem, NewPetEvent, UpdateFoodInventoryItem};
+use super::super::{
+    NewFoodInventoryItem, NewPetEvent, SetPetCurrentStapleInput, UpdateFoodInventoryItem,
+};
 use super::PetService;
 use super::food_inventory;
 
@@ -158,6 +160,84 @@ impl PetService {
             editor_user_id,
             inventory_status: Some(FoodInventoryStatus::InUse),
             ..UpdateFoodInventoryItem::default()
+        })
+        .await?;
+        Ok(())
+    }
+
+    /// infer_current_staple_from_repeated_feeding 连续喂食推断当前主粮
+    /// 核心职责：
+    /// - 在喂食事件成功写入后读取最近喂食强事实
+    /// - 连续 3 次同一主粮喂食时写入当前主粮配置
+    pub(super) async fn infer_current_staple_from_repeated_feeding(
+        &self,
+        event: &PetEvent,
+    ) -> PetResult<()> {
+        if event.event_subkind.as_deref() != Some("feeding") {
+            return Ok(());
+        }
+        let Some(pet_id) = event.pet_id else {
+            return Ok(());
+        };
+        let Some(actor_user_id) = event.actor_user_id else {
+            return Ok(());
+        };
+        let Some(food_item_id) = event
+            .event_payload
+            .get("food_item_id")
+            .and_then(|value| value.as_str())
+            .and_then(|value| Uuid::parse_str(value).ok())
+        else {
+            return Ok(());
+        };
+        let Some(food_role) = event
+            .event_payload
+            .get("food_role")
+            .and_then(serde_json::Value::as_str)
+        else {
+            return Ok(());
+        };
+        if food_role != "main_food" {
+            return Ok(());
+        }
+
+        let context = self.diet.load_pet_current_diet_context(pet_id).await?;
+        if context
+            .current_staple
+            .is_some_and(|item| item.food_item_id == food_item_id)
+        {
+            return Ok(());
+        }
+
+        let recent_main_food_ids: Vec<Uuid> = context
+            .recent_feeding_events
+            .iter()
+            .filter_map(|feeding| {
+                let role = feeding
+                    .food_snapshot
+                    .as_ref()
+                    .map(|snapshot| snapshot.category.as_str());
+                match (role, feeding.food_item_id) {
+                    (Some("main_food"), Some(id)) => Some(id),
+                    _ => None,
+                }
+            })
+            .take(3)
+            .collect();
+
+        if recent_main_food_ids.len() != 3
+            || recent_main_food_ids
+                .iter()
+                .any(|recent_id| *recent_id != food_item_id)
+        {
+            return Ok(());
+        }
+
+        self.set_current_staple(SetPetCurrentStapleInput {
+            pet_id,
+            food_item_id,
+            created_by_user_id: actor_user_id,
+            reason: Some("连续喂食自动识别为当前主粮".to_owned()),
         })
         .await?;
         Ok(())
