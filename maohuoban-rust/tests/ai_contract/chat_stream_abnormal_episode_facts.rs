@@ -719,6 +719,90 @@ async fn abnormal_followup_agent_can_save_planned_followup_from_session_context(
     assert_eq!(episode_projection.1, Some(agent_followup_id));
 }
 
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn abnormal_followup_plan_can_save_branch_actions_from_session_context() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+
+    let due_at = "2026-07-05T18:30:00Z";
+    let save_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("save_abnormal_episode_followup_plan")
+            .body_contains("book_clinic")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_branch_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
+                    .to_owned()
+                    + due_at
+                    + "\\\",\\\"message_title\\\":\\\"毛球建议尽快处理\\\",\\\"message_body\\\":\\\"异常有加重迹象，建议联系医院并继续补充状态。\\\",\\\"rationale\\\":\\\"用户反馈加重，需要提供就医入口并持续追踪。\\\",\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\",\\\"book_clinic\\\"]}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "基于这次加重反馈，安排下一次追踪。",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("save branch action followup plan");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let _text = response_text(response).await;
+    save_mock.assert();
+
+    let saved: serde_json::Value = sqlx::query_scalar(
+        r"
+        SELECT recommended_actions
+        FROM agent_proactive_followups
+        WHERE id = $1
+        ",
+    )
+    .bind(agent_followup_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load saved branch actions");
+
+    assert_eq!(
+        saved,
+        json!(["update_observation", "chat_with_agent", "book_clinic"])
+    );
+}
+
 async fn send_abnormal_followup_entry_request(
     app: &maohuoban_rust::test_support::AuthTestApp,
     fixture: &AbnormalEpisodeFixture,

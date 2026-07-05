@@ -602,3 +602,310 @@ async fn symptom_followup_creates_next_agent_followup_plan() {
     assert_eq!(episode_projection.0, Some(next_plan.3));
     assert_eq!(episode_projection.1, Some(next_plan.0));
 }
+
+#[tokio::test]
+async fn abnormal_recovery_clears_agent_followup_projection() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139143").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "米糕").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+    sqlx::query(
+        r"
+        UPDATE abnormal_episodes
+        SET next_followup_due_at = $1,
+            last_followup_plan_id = $2
+        WHERE id = $3::uuid
+        ",
+    )
+    .bind(planned_due_at)
+    .bind(followup_id)
+    .bind(&episode_id)
+    .execute(app.pool())
+    .await
+    .expect("set episode followup projection");
+
+    let recovery_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "abnormal_recovery",
+                "title": "恢复记录",
+                "summary": "便便和精神恢复正常",
+                "visibility": "private",
+                "occurred_at": "2026-07-05T08:00:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "recovered_at": "2026-07-05T08:00:00Z",
+                    "recovery_note": "便便和精神恢复正常"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create recovery event");
+    assert_eq!(recovery_response.status(), StatusCode::CREATED);
+
+    let projection: (
+        String,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<uuid::Uuid>,
+    ) = sqlx::query_as(
+        r"
+        SELECT status, next_followup_due_at, last_followup_plan_id
+        FROM abnormal_episodes
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(&episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load recovered episode projection");
+
+    assert_eq!(projection.0, "recovered");
+    assert_eq!(
+        projection.1, None,
+        "recovered episode must not keep a next followup due projection"
+    );
+    assert_eq!(
+        projection.2, None,
+        "recovered episode must not keep a last active followup plan projection"
+    );
+
+    let followup_status: String =
+        sqlx::query_scalar(r"SELECT status FROM agent_proactive_followups WHERE id = $1")
+            .bind(followup_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load followup status");
+    assert_eq!(followup_status, "resolved");
+}
+
+#[tokio::test]
+async fn deleting_parent_abnormal_event_clears_agent_followup_projection() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139144").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "芝麻").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+    sqlx::query(
+        r"
+        UPDATE abnormal_episodes
+        SET next_followup_due_at = $1,
+            last_followup_plan_id = $2
+        WHERE id = $3::uuid
+        ",
+    )
+    .bind(planned_due_at)
+    .bind(followup_id)
+    .bind(&episode_id)
+    .execute(app.pool())
+    .await
+    .expect("set episode followup projection");
+
+    let delete_response = app
+        .router()
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete parent abnormal event");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    let projection: (
+        String,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<uuid::Uuid>,
+    ) = sqlx::query_as(
+        r"
+        SELECT status, next_followup_due_at, last_followup_plan_id
+        FROM abnormal_episodes
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(&episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load closed episode projection");
+
+    assert_eq!(projection.0, "closed");
+    assert_eq!(
+        projection.1, None,
+        "closed episode must not keep a next followup due projection"
+    );
+    assert_eq!(
+        projection.2, None,
+        "closed episode must not keep a last active followup plan projection"
+    );
+
+    let followup_status: String =
+        sqlx::query_scalar(r"SELECT status FROM agent_proactive_followups WHERE id = $1")
+            .bind(followup_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load followup status");
+    assert_eq!(followup_status, "cancelled");
+}
+
+#[tokio::test]
+async fn improved_symptom_followup_marks_episode_recovering_and_plans_recovery_confirmation() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139145").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "豆包").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let _current_followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+
+    let followup_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "symptom_followup",
+                "title": "追加观察",
+                "summary": "便便成形一些，精神恢复",
+                "visibility": "private",
+                "occurred_at": "2026-07-05T06:30:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "condition_change": "improved",
+                    "note": "便便成形一些，精神恢复"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create improved symptom followup");
+    assert_eq!(followup_response.status(), StatusCode::CREATED);
+
+    let episode_status: String =
+        sqlx::query_scalar(r"SELECT status FROM abnormal_episodes WHERE id = $1::uuid")
+            .bind(&episode_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load episode status");
+    assert_eq!(episode_status, "recovering");
+
+    let next_plan: (String, String, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT status, message_body, recommended_actions
+        FROM agent_proactive_followups
+        WHERE episode_id = $1::uuid
+          AND status = 'planning'
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(&episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load improved next plan");
+
+    assert_eq!(next_plan.0, "planning");
+    assert!(
+        next_plan.1.contains("确认是否已经恢复"),
+        "improved branch should plan a recovery confirmation followup: {}",
+        next_plan.1
+    );
+    assert_eq!(
+        next_plan.2,
+        json!(["update_observation", "chat_with_agent", "mark_recovered"])
+    );
+}
+
+#[tokio::test]
+async fn worsened_symptom_followup_marks_episode_escalated_and_plans_clinic_action() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139146").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "汤圆").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let _current_followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+
+    let followup_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "symptom_followup",
+                "title": "追加观察",
+                "summary": "便便更稀，精神更差，食欲下降",
+                "visibility": "private",
+                "occurred_at": "2026-07-05T06:30:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "condition_change": "worsened",
+                    "note": "便便更稀，精神更差，食欲下降"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create worsened symptom followup");
+    assert_eq!(followup_response.status(), StatusCode::CREATED);
+
+    let episode_status: String =
+        sqlx::query_scalar(r"SELECT status FROM abnormal_episodes WHERE id = $1::uuid")
+            .bind(&episode_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load episode status");
+    assert_eq!(episode_status, "escalated");
+
+    let next_plan: (String, String, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT status, message_body, recommended_actions
+        FROM agent_proactive_followups
+        WHERE episode_id = $1::uuid
+          AND status = 'planning'
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(&episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load worsened next plan");
+
+    assert_eq!(next_plan.0, "planning");
+    assert!(
+        next_plan.1.contains("建议尽快联系医院"),
+        "worsened branch should plan a clinic-oriented followup: {}",
+        next_plan.1
+    );
+    assert_eq!(
+        next_plan.2,
+        json!(["update_observation", "chat_with_agent", "book_clinic"])
+    );
+}

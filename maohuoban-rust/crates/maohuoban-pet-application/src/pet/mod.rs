@@ -18,9 +18,10 @@ pub use merchant::{
 };
 
 pub use ports::{
-    AbnormalSymptomEventInput, AddPetAlbumAssetInput, AddPetExternalIdentifier, AddPetGuardian,
-    BindUploadedPetMediaInput, ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult,
-    CreatePetAlbumInput, DeletePetEvent, DeletePetProfile, DeletePetWeightRecord, DeletedPetEvent,
+    AbnormalFollowupEventInput, AbnormalSymptomEventInput, AddPetAlbumAssetInput,
+    AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput,
+    ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, CreatePetAlbumInput,
+    DeletePetEvent, DeletePetProfile, DeletePetWeightRecord, DeletedPetEvent,
     DeletedPetWeightRecord, DietContextItem, DietRepository, FoodInventoryChangeHint,
     FoodInventoryChangeHints, FoodInventoryRepository, MediaAssetDisplayMetadata,
     MediaCropMetadata, NewFoodInventoryItem, NewPetEvent, NewPetProfile, NewPetWeightRecord,

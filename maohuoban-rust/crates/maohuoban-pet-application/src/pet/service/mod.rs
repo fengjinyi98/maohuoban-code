@@ -18,7 +18,7 @@ use self::validation::{
     normalize_compact_text, normalize_optional_compact_text, validate_optional_microchip,
     validate_optional_weight, validate_pet_name, validate_text,
 };
-use super::PetAbnormalEpisodeFacts;
+use super::{AbnormalFollowupEventInput, PetAbnormalEpisodeFacts};
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
     DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
@@ -228,14 +228,20 @@ impl PetService {
                 .get("episode_id")
                 .and_then(|v| v.as_str())
                 .and_then(|s| Uuid::parse_str(s).ok());
+            let condition_change = event
+                .event_payload
+                .get("condition_change")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
 
             self.repository
-                .update_episode_for_followup(
-                    event.pet_id.unwrap_or(event.id),
-                    event.id,
+                .update_episode_for_followup(AbnormalFollowupEventInput {
+                    pet_id: event.pet_id.unwrap_or(event.id),
+                    event_id: event.id,
                     episode_id,
-                    event.occurred_at,
-                )
+                    observed_at: event.occurred_at,
+                    condition_change,
+                })
                 .await?;
         }
 
@@ -279,7 +285,10 @@ impl PetService {
             return Err(PetError::InvalidInput("推荐动作不能为空".to_owned()));
         }
         for action in &input.recommended_actions {
-            if !matches!(action.as_str(), "update_observation" | "chat_with_agent") {
+            if !matches!(
+                action.as_str(),
+                "update_observation" | "chat_with_agent" | "mark_recovered" | "book_clinic"
+            ) {
                 return Err(PetError::InvalidInput("推荐动作不在允许范围内".to_owned()));
             }
         }

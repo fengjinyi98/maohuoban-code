@@ -418,6 +418,8 @@ impl PostgresPetRepository {
             r#"
             UPDATE abnormal_episodes
             SET status = 'closed',
+                next_followup_due_at = NULL,
+                last_followup_plan_id = NULL,
                 updated_at = now()
             WHERE created_event_id = $1::uuid
               AND status IN ('open', 'watching', 'recovering', 'recovered')

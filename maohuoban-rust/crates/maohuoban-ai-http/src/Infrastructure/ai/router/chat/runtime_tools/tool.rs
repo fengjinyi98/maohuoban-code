@@ -78,7 +78,12 @@ impl AiToolDefinition for RuntimePetContextTool {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["update_observation", "chat_with_agent"]
+                            "enum": [
+                                "update_observation",
+                                "chat_with_agent",
+                                "mark_recovered",
+                                "book_clinic"
+                            ]
                         }
                     }
                 },

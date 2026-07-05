@@ -6,7 +6,8 @@
 
 use chrono::{DateTime, Duration, Utc};
 use maohuoban_pet_application::pet::{
-    AbnormalSymptomEventInput, NewPetEvent, SaveAgentFollowupPlanInput, SavedAgentFollowupPlan,
+    AbnormalFollowupEventInput, AbnormalSymptomEventInput, NewPetEvent, SaveAgentFollowupPlanInput,
+    SavedAgentFollowupPlan,
 };
 use maohuoban_pet_domain::pet::{PetError, PetEvent, PetResult};
 use uuid::Uuid;
@@ -317,10 +318,12 @@ impl PostgresPetRepository {
         episode_id: Uuid,
         trigger_event_id: Uuid,
         observed_at: DateTime<Utc>,
+        branch: FollowupBranch,
     ) -> PetResult<Uuid> {
         let followup_id = Uuid::new_v4();
         let due_at = observed_at + followup_replan_delay();
-        let recommended_actions = serde_json::json!(["update_observation", "chat_with_agent"]);
+        let recommended_actions = serde_json::to_value(branch.recommended_actions())
+            .map_err(|error| PetError::InvalidInput(error.to_string()))?;
 
         sqlx::query(
             r#"
@@ -331,10 +334,8 @@ impl PostgresPetRepository {
             )
             VALUES (
                 $1, $2, $3, $4, 'planning',
-                $5, '毛球稍后再确认',
-                '毛球会继续观察这次异常变化，稍后再提醒你更新便便、精神和食欲状态。',
-                '用户追加观察后生成下一轮主动追踪计划，等待 Agent planning skill 动态细化。',
-                $6::jsonb,
+                $5, $6, $7, $8,
+                $9::jsonb,
                 now(), now()
             )
             "#,
@@ -344,6 +345,9 @@ impl PostgresPetRepository {
         .bind(episode_id)
         .bind(trigger_event_id)
         .bind(due_at)
+        .bind(branch.message_title())
+        .bind(branch.message_body())
+        .bind(branch.rationale())
         .bind(&recommended_actions)
         .execute(&mut **tx)
         .await
@@ -410,6 +414,8 @@ impl PostgresPetRepository {
             SET status = 'recovered',
                 recovered_at = $1,
                 latest_event_id = $2,
+                next_followup_due_at = NULL,
+                last_followup_plan_id = NULL,
                 updated_at = now()
             WHERE id = $3::uuid
             "#,
@@ -485,12 +491,9 @@ impl PostgresPetRepository {
     /// - 更新 abnormal_episodes.last_observed_at, latest_event_id
     pub(super) async fn update_episode_for_followup_command(
         &self,
-        pet_id: Uuid,
-        event_id: Uuid,
-        episode_id: Option<Uuid>,
-        observed_at: DateTime<Utc>,
+        input: AbnormalFollowupEventInput,
     ) -> PetResult<()> {
-        let episode_id = if let Some(eid) = episode_id {
+        let episode_id = if let Some(eid) = input.episode_id {
             eid
         } else {
             sqlx::query_scalar::<_, Uuid>(
@@ -500,7 +503,7 @@ impl PostgresPetRepository {
                 ORDER BY created_at DESC LIMIT 1
                 "#,
             )
-            .bind(pet_id)
+            .bind(input.pet_id)
             .fetch_optional(&self.pool)
             .await
             .map_err(to_infrastructure_error)?
@@ -510,6 +513,7 @@ impl PostgresPetRepository {
                 )
             })?
         };
+        let branch = FollowupBranch::from_condition_change(input.condition_change.as_deref());
 
         let mut tx = self.pool.begin().await.map_err(to_infrastructure_error)?;
 
@@ -518,12 +522,14 @@ impl PostgresPetRepository {
             UPDATE abnormal_episodes
             SET last_observed_at = $1,
                 latest_event_id = $2,
+                status = $3,
                 updated_at = now()
-            WHERE id = $3::uuid
+            WHERE id = $4::uuid
             "#,
         )
-        .bind(observed_at)
-        .bind(event_id)
+        .bind(input.observed_at)
+        .bind(input.event_id)
+        .bind(branch.episode_status())
         .bind(episode_id)
         .execute(&mut *tx)
         .await
@@ -564,7 +570,15 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        Self::insert_followup_replan(&mut tx, pet_id, episode_id, event_id, observed_at).await?;
+        Self::insert_followup_replan(
+            &mut tx,
+            input.pet_id,
+            episode_id,
+            input.event_id,
+            input.observed_at,
+            branch,
+        )
+        .await?;
 
         tx.commit().await.map_err(to_infrastructure_error)?;
 
@@ -712,4 +726,69 @@ fn initial_followup_message(primary_symptom: &str) -> String {
         _ => "异常",
     };
     format!("{symptom_text}异常已经过了一段时间，情况有变化吗？可以更新便便、精神和食欲状态。")
+}
+
+#[derive(Debug, Clone, Copy)]
+enum FollowupBranch {
+    Improved,
+    Unchanged,
+    Worsened,
+}
+
+impl FollowupBranch {
+    fn from_condition_change(condition_change: Option<&str>) -> Self {
+        match condition_change {
+            Some("improved") => Self::Improved,
+            Some("worsened" | "worse" | "aggravated") => Self::Worsened,
+            _ => Self::Unchanged,
+        }
+    }
+
+    fn episode_status(self) -> &'static str {
+        match self {
+            Self::Improved => "recovering",
+            Self::Unchanged => "watching",
+            Self::Worsened => "escalated",
+        }
+    }
+
+    fn message_title(self) -> &'static str {
+        match self {
+            Self::Improved => "毛球稍后确认恢复",
+            Self::Unchanged => "毛球稍后再确认",
+            Self::Worsened => "毛球建议尽快处理",
+        }
+    }
+
+    fn message_body(self) -> &'static str {
+        match self {
+            Self::Improved => "这次异常看起来有好转，毛球会稍后提醒你确认是否已经恢复。",
+            Self::Unchanged => "毛球会继续观察这次异常变化，稍后再提醒你更新便便、精神和食欲状态。",
+            Self::Worsened => {
+                "这次异常有加重迹象，建议尽快联系医院，同时继续补充便便、精神和食欲变化。"
+            }
+        }
+    }
+
+    fn rationale(self) -> &'static str {
+        match self {
+            Self::Improved => {
+                "用户追加观察标记为好转，生成恢复确认追踪计划，等待 Agent planning skill 动态细化。"
+            }
+            Self::Unchanged => {
+                "用户追加观察后生成下一轮主动追踪计划，等待 Agent planning skill 动态细化。"
+            }
+            Self::Worsened => {
+                "用户追加观察标记为加重，生成带就医入口的追踪计划，等待 Agent planning skill 动态细化。"
+            }
+        }
+    }
+
+    fn recommended_actions(self) -> &'static [&'static str] {
+        match self {
+            Self::Improved => &["update_observation", "chat_with_agent", "mark_recovered"],
+            Self::Unchanged => &["update_observation", "chat_with_agent"],
+            Self::Worsened => &["update_observation", "chat_with_agent", "book_clinic"],
+        }
+    }
 }

@@ -357,6 +357,19 @@ pub struct AbnormalSymptomEventInput {
     pub started_at: DateTime<Utc>,
 }
 
+/// AbnormalFollowupEventInput 异常追加观察事件输入
+/// 核心职责：
+/// - 承载追加观察触发 episode 状态机所需字段
+/// - 让 condition_change 在 application 层显式传入仓储事务
+#[derive(Debug, Clone)]
+pub struct AbnormalFollowupEventInput {
+    pub pet_id: Uuid,
+    pub event_id: Uuid,
+    pub episode_id: Option<Uuid>,
+    pub observed_at: DateTime<Utc>,
+    pub condition_change: Option<String>,
+}
+
 /// PetRepository 宠物仓储端口
 /// 核心职责：
 /// - 持久化宠物档案和宠物事件
@@ -450,13 +463,8 @@ pub trait PetRepository: Send + Sync {
     /// 核心职责：
     /// - 更新 abnormal_episodes.last_observed_at, latest_event_id
     /// - episode_id 为 None 时查找最新 open episode
-    async fn update_episode_for_followup(
-        &self,
-        pet_id: Uuid,
-        event_id: Uuid,
-        episode_id: Option<Uuid>,
-        observed_at: chrono::DateTime<Utc>,
-    ) -> PetResult<()>;
+    async fn update_episode_for_followup(&self, input: AbnormalFollowupEventInput)
+    -> PetResult<()>;
 
     /// save_agent_followup_plan 保存 Agent 主动追踪计划
     /// 核心职责：

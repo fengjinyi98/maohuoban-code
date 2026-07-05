@@ -257,13 +257,9 @@ impl PetRepository for PostgresPetRepository {
 
     async fn update_episode_for_followup(
         &self,
-        pet_id: Uuid,
-        event_id: Uuid,
-        episode_id: Option<Uuid>,
-        observed_at: chrono::DateTime<Utc>,
+        input: maohuoban_pet_application::pet::AbnormalFollowupEventInput,
     ) -> PetResult<()> {
-        self.update_episode_for_followup_command(pet_id, event_id, episode_id, observed_at)
-            .await
+        self.update_episode_for_followup_command(input).await
     }
 
     async fn save_agent_followup_plan(
