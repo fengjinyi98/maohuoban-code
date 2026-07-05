@@ -52,11 +52,11 @@ final class AIAssistantReferenceGroupingTests: XCTestCase {
         XCTAssertEqual(groups.count, 2)
         XCTAssertEqual(groups[0].title, "当前主粮")
         XCTAssertEqual(groups[0].subtitle, "渴望六种鱼全期猫粮")
-        XCTAssertEqual(groups[0].displayText, "当前主粮")
+        XCTAssertEqual(groups[0].displayText, "引用了当前主粮的 1 条数据")
         XCTAssertEqual(groups[0].references.count, 1)
         XCTAssertEqual(groups[1].title, "最近喂食")
         XCTAssertEqual(groups[1].subtitle, "渴望六种鱼全期猫粮")
-        XCTAssertEqual(groups[1].displayText, "最近喂食 · 3 条")
+        XCTAssertEqual(groups[1].displayText, "引用了最近喂食的 3 条数据")
         XCTAssertEqual(groups[1].references.map(\.sourceID.uuidString), [
             "33333333-3333-4333-8333-333333333311",
             "33333333-3333-4333-8333-333333333312",
@@ -75,6 +75,6 @@ final class AIAssistantReferenceGroupingTests: XCTestCase {
 
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups[0].references.count, 1)
-        XCTAssertEqual(groups[0].displayText, "最近喂食")
+        XCTAssertEqual(groups[0].displayText, "引用了最近喂食的 1 条数据")
     }
 }

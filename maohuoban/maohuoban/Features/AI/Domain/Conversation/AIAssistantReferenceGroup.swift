@@ -15,10 +15,7 @@ struct AIAssistantReferenceGroup: Identifiable, Hashable {
     }
 
     var displayText: String {
-        if references.count > 1 {
-            return "\(title) · \(references.count) 条"
-        }
-        return title
+        "引用了\(title)的 \(references.count) 条数据"
     }
 
     static func groups(from references: [AIAssistantReference]) -> [AIAssistantReferenceGroup] {
