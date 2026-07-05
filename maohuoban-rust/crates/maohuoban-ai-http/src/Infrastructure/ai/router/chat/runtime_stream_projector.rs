@@ -72,9 +72,6 @@ impl AgentEventSseProjector {
     }
 
     pub(super) fn effective_visible_output_plan(&self) -> VisibleOutputPlan {
-        if self.identity_context_tool_succeeded {
-            return VisibleOutputPlan::pet_profile_card();
-        }
         self.visible_output_plan
     }
 
@@ -154,7 +151,11 @@ impl AgentEventSseProjector {
         let display_text = activity_text_for_tool(tool_name, &self.pet_name);
         self.tool_names_by_call_id
             .insert(tool_call_id.to_owned(), tool_name.to_owned());
-        if tool_name == "load_pet_identity_context" {
+        if tool_name == "load_pet_identity_context"
+            && self
+                .visible_output_plan
+                .allows(VisibleBlockKind::PetProfileCard)
+        {
             return vec![self.pet_profile_skeleton_event(display_text)];
         }
         vec![AiStreamEvent::ExecutionTraceStarted { display_text }]
@@ -347,7 +348,8 @@ impl AgentEventSseProjector {
     }
 
     fn requires_profile_content_blocks(&self) -> bool {
-        self.identity_context_tool_required && self.identity_context_tool_succeeded
+        self.visible_output_plan
+            .allows(VisibleBlockKind::PetProfileCard)
     }
 
     fn should_render_pet_profile_card(&self) -> bool {

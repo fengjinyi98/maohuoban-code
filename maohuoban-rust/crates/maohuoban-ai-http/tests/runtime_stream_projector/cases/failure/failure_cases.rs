@@ -2,7 +2,7 @@ use maohuoban_ai_domain::ai::{AgentEvent, AgentTurnId, AgentTurnStatus, AiStream
 use uuid::Uuid;
 
 use crate::runtime_stream_projector::AgentEventSseProjector;
-use crate::visible_output_plan::VisibleOutputPlan;
+use crate::support::pet_profile_visible_output_plan;
 
 #[test]
 fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_completion() {
@@ -13,7 +13,7 @@ fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_compl
         None,
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let delta_events = projector.project(AgentEvent::MessageDelta {
@@ -61,7 +61,7 @@ fn projector_reports_failed_turn_without_empty_answer_completion() {
         None,
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let events = projector.project(AgentEvent::TurnFinished {

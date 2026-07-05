@@ -36,13 +36,6 @@ impl VisibleOutputPlan {
     }
 
     #[must_use]
-    pub(crate) const fn pet_profile_card() -> Self {
-        Self {
-            allowed_block_kinds: &[VisibleBlockKind::PetProfileCard],
-        }
-    }
-
-    #[must_use]
     pub(super) fn allows(self, kind: VisibleBlockKind) -> bool {
         self.allowed_block_kinds.contains(&kind)
     }
@@ -59,7 +52,7 @@ impl VisibleOutputPlan {
 /// `plan_visible_output` 规划本轮流式可见 UI 块
 /// 核心职责：
 /// - 保持产品入口不预加载资料卡 UI
-/// - 将资料卡展示交给模型工具调用后的 projector 决定
+/// - 将资料卡展示交给后续显式 `RenderPlan` 合同决定
 #[must_use]
 pub(super) fn plan_visible_output(
     _surface: AiConversationSurface,

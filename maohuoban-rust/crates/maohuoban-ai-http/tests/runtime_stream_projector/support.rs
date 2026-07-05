@@ -13,3 +13,11 @@ pub use fact_helpers::{diet_fact_package, identity_fact_package};
 pub use pet_display_snapshot::pet_display_snapshot;
 pub use replay_agent_event::replay_agent_event;
 pub use replay_fixture::{REPLAY_CASE_JSON, ReplayFixture};
+
+use crate::visible_output_plan::{VisibleBlockKind, VisibleOutputPlan};
+
+pub fn pet_profile_visible_output_plan() -> VisibleOutputPlan {
+    VisibleOutputPlan {
+        allowed_block_kinds: &[VisibleBlockKind::PetProfileCard],
+    }
+}

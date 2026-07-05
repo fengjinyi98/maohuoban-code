@@ -73,7 +73,8 @@ mod tests {
     }
 
     #[test]
-    fn non_stream_completion_projects_pet_profile_blocks_from_identity_tool_package() {
+    fn non_stream_completion_does_not_project_pet_profile_blocks_from_identity_tool_package_without_visible_plan()
+     {
         let turn_id = AgentTurnId::new();
         let message_id = Uuid::new_v4();
         let events = vec![
@@ -112,15 +113,10 @@ mod tests {
         assert!(
             matches!(
                 complete.content_blocks.as_slice(),
-                [
-                    AiContentBlock::SectionHeading { text, .. },
-                    AiContentBlock::PetProfileCard { pet, .. },
-                    AiContentBlock::Paragraph { text: paragraph_text, .. },
-                ] if text == "这是梅录的宠物信息"
-                    && pet.name == "梅录"
-                    && paragraph_text == "这是梅录的宠物信息。"
+                [AiContentBlock::Paragraph { text, .. }]
+                    if text == "这是梅录的宠物信息。"
             ),
-            "non-stream completion should project typed pet profile blocks: {:?}",
+            "non-stream completion should not project profile blocks from identity tool without visible plan: {:?}",
             complete.content_blocks
         );
     }

@@ -269,8 +269,7 @@ pub(super) fn complete_from_runtime_events(
 
     let citations =
         maohuoban_ai_application::ai::citations::citations_for_answer(&final_text, &package);
-    let should_project_pet_profile = visible_output_plan.allows(VisibleBlockKind::PetProfileCard)
-        || identity_context_tool_succeeded;
+    let should_project_pet_profile = visible_output_plan.allows(VisibleBlockKind::PetProfileCard);
     let mut content_blocks = if should_project_pet_profile {
         project_pet_profile_content_blocks(&package)
     } else {

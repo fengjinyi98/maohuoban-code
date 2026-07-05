@@ -5,7 +5,9 @@ use maohuoban_ai_domain::ai::{
 use uuid::Uuid;
 
 use crate::runtime_stream_projector::AgentEventSseProjector;
-use crate::support::{diet_fact_package, identity_fact_package, pet_display_snapshot};
+use crate::support::{
+    diet_fact_package, identity_fact_package, pet_display_snapshot, pet_profile_visible_output_plan,
+};
 use crate::visible_output_plan::{VisibleOutputPlan, plan_visible_output};
 
 #[test]
@@ -18,7 +20,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_fact_package() {
         Some(package),
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let events = projector.project(AgentEvent::TurnFinished {
@@ -214,7 +216,7 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
         None,
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let events = projector.project(AgentEvent::ToolStarted {
@@ -252,7 +254,7 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
 }
 
 #[test]
-fn projector_emits_pet_profile_skeleton_when_identity_tool_starts_without_visible_plan() {
+fn projector_emits_execution_trace_when_identity_tool_starts_without_visible_plan() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let mut projector =
@@ -267,17 +269,10 @@ fn projector_emits_pet_profile_skeleton_when_identity_tool_starts_without_visibl
     assert!(
         matches!(
             events.as_slice(),
-            [AiStreamEvent::ContentBlockDelta { content_blocks }]
-                if matches!(
-                    content_blocks.as_slice(),
-                    [
-                        AiContentBlock::SectionHeading { text, .. },
-                        AiContentBlock::PetProfileCardSkeleton { title, .. },
-                    ] if text == "这是梅录的宠物信息"
-                        && title == "正在整理梅录的宠物档案"
-                )
+            [AiStreamEvent::ExecutionTraceStarted { display_text }]
+                if display_text == "正在整理梅录的宠物档案"
         ),
-        "identity tool start should create pet profile skeleton without preloaded plan: {events:?}"
+        "identity tool start without visible plan should stay as execution trace: {events:?}"
     );
 }
 
@@ -345,7 +340,7 @@ fn projector_does_not_emit_pet_profile_card_for_home_private_diet_answer() {
 }
 
 #[test]
-fn projector_emits_final_pet_profile_blocks_after_identity_tool_without_visible_plan() {
+fn projector_does_not_emit_final_pet_profile_blocks_after_identity_tool_without_visible_plan() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let mut projector =
@@ -378,13 +373,14 @@ fn projector_emits_final_pet_profile_blocks_after_identity_tool_without_visible_
             AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
             _ => None,
         })
-        .expect("identity tool turn should complete with profile UI blocks");
+        .expect("identity tool turn should complete");
 
     assert!(
-        content_blocks
-            .iter()
-            .any(|block| matches!(block, AiContentBlock::PetProfileCard { .. })),
-        "final pet profile UI blocks should be triggered by identity tool success: {content_blocks:?}"
+        matches!(
+            content_blocks.as_slice(),
+            [AiContentBlock::Paragraph { text, .. }] if text == "梅录状态稳定。"
+        ),
+        "identity tool success without visible plan should not render pet profile UI blocks: {content_blocks:?}"
     );
 }
 
@@ -397,7 +393,7 @@ fn projector_rejects_identity_tool_success_without_profile_content_blocks() {
         None,
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let mut events = Vec::new();
@@ -447,7 +443,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
         None,
         "梅录",
         true,
-        VisibleOutputPlan::pet_profile_card(),
+        pet_profile_visible_output_plan(),
     );
 
     let mut events = Vec::new();
@@ -495,7 +491,7 @@ fn projector_emits_pet_profile_content_blocks_from_identity_tool_package() {
 }
 
 #[test]
-fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
+fn projector_does_not_emit_pet_profile_content_blocks_on_home_private_identity_tool() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let target_pet = pet_display_snapshot("梅录");
@@ -531,16 +527,10 @@ fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
     assert!(
         matches!(
             events.first(),
-            Some(AiStreamEvent::ContentBlockDelta { content_blocks })
-                if matches!(
-                    content_blocks.as_slice(),
-                    [
-                        AiContentBlock::SectionHeading { text, .. },
-                        AiContentBlock::PetProfileCardSkeleton { .. }
-                    ] if text == "这是梅录的宠物信息"
-                )
+            Some(AiStreamEvent::ExecutionTraceStarted { display_text })
+                if display_text == "正在整理梅录的宠物档案"
         ),
-        "home_private identity tool should emit heading plus skeleton first: {events:?}"
+        "home_private identity tool without visible plan should emit execution trace first: {events:?}"
     );
 
     let completed_blocks = events
@@ -553,14 +543,9 @@ fn projector_emits_pet_profile_content_blocks_on_home_private_identity_tool() {
     assert!(
         matches!(
             completed_blocks.as_slice(),
-            [
-                AiContentBlock::SectionHeading { text, .. },
-                AiContentBlock::PetProfileCard { pet, .. },
-                AiContentBlock::Paragraph { text: paragraph_text, .. },
-            ] if text == "这是梅录的宠物信息"
-                && pet.name == "梅录"
-                && paragraph_text == "好的，这是梅录的档案信息。"
+            [AiContentBlock::Paragraph { text, .. }]
+                if text == "好的，这是梅录的档案信息。"
         ),
-        "home_private answer should include typed pet profile blocks: {completed_blocks:?}"
+        "home_private identity answer without visible plan should stay as paragraph blocks: {completed_blocks:?}"
     );
 }
