@@ -52,6 +52,10 @@ enum HomeQuickFactFeedingAmount: String, CaseIterable, Identifiable {
     case small
     case normal
     case more
+    case halfCan
+    case oneCan
+    case halfPack
+    case onePack
 
     var id: String { rawValue }
 
@@ -60,7 +64,19 @@ enum HomeQuickFactFeedingAmount: String, CaseIterable, Identifiable {
         case .small: "少量"
         case .normal: "正常"
         case .more: "多一点"
+        case .halfCan: "半罐"
+        case .oneCan: "一罐"
+        case .halfPack: "半袋"
+        case .onePack: "一袋"
         }
+    }
+
+    static var fuzzyOptions: [HomeQuickFactFeedingAmount] {
+        [.small, .normal, .more]
+    }
+
+    static func packageOptions(unit: String?) -> [HomeQuickFactFeedingAmount] {
+        unit?.contains("袋") == true ? [.halfPack, .onePack] : [.halfCan, .oneCan]
     }
 }
 

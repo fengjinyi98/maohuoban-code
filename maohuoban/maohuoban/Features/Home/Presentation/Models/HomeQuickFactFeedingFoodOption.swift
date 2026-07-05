@@ -11,6 +11,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
     let brand: String?
     let category: String
     let spec: String?
+    let unit: String?
     let imageURL: String?
     let isDefault: Bool
 
@@ -21,6 +22,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
         brand: String?,
         category: String,
         spec: String?,
+        unit: String? = nil,
         imageURL: String?,
         isDefault: Bool
     ) {
@@ -30,6 +32,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
         self.brand = brand
         self.category = category
         self.spec = spec
+        self.unit = unit
         self.imageURL = imageURL
         self.isDefault = isDefault
     }
@@ -45,6 +48,7 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
             brand: item.brand,
             category: item.category.rawValue,
             spec: item.spec,
+            unit: item.unit,
             imageURL: item.coverURL,
             isDefault: isDefault
         )
@@ -95,6 +99,9 @@ struct HomeQuickFactFeedingFoodOption: Identifiable, Equatable {
         }
         if let spec, !spec.isEmpty {
             snapshot["spec"] = spec
+        }
+        if let unit, !unit.isEmpty {
+            snapshot["unit"] = unit
         }
         if let imageURL, !imageURL.isEmpty {
             snapshot["cover_url"] = imageURL

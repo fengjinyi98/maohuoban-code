@@ -43,6 +43,7 @@ final class HomeQuickFactFeedingInputTests: XCTestCase {
             brand: "Orijen",
             category: "main_food",
             spec: "5.4kg",
+            unit: "袋",
             imageURL: nil,
             isDefault: true
         )
@@ -65,6 +66,13 @@ final class HomeQuickFactFeedingInputTests: XCTestCase {
         XCTAssertEqual(snapshot["brand"] as? String, "Orijen")
         XCTAssertEqual(snapshot["category"] as? String, "main_food")
         XCTAssertEqual(snapshot["spec"] as? String, "5.4kg")
+        XCTAssertEqual(snapshot["unit"] as? String, "袋")
+    }
+
+    func testWetFoodPackageAmountOptionsFollowInventoryUnit() {
+        XCTAssertEqual(HomeQuickFactFeedingAmount.packageOptions(unit: "罐"), [.halfCan, .oneCan])
+        XCTAssertEqual(HomeQuickFactFeedingAmount.packageOptions(unit: "袋"), [.halfPack, .onePack])
+        XCTAssertEqual(HomeQuickFactFeedingAmount.packageOptions(unit: nil), [.halfCan, .oneCan])
     }
 
     func testNonDefaultFoodOptionBuildsFeedingInputWithDefaultFlagFalse() throws {

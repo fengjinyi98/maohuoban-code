@@ -155,7 +155,8 @@ async fn feeding_event_uses_inventory_snapshot_for_food_reference() {
                         "name": "被客户端篡改的名称",
                         "brand": "Fake",
                         "category": "other",
-                        "spec": "0g"
+                        "spec": "0g",
+                        "unit": "罐"
                     },
                     "is_default_food": true,
                     "note": null,
@@ -184,6 +185,7 @@ async fn feeding_event_uses_inventory_snapshot_for_food_reference() {
     assert_eq!(feeding["food_snapshot"]["brand"], "Orijen");
     assert_eq!(feeding["food_snapshot"]["category"], "main_food");
     assert_eq!(feeding["food_snapshot"]["spec"], "5.4kg");
+    assert_eq!(feeding["food_snapshot"]["unit"], "袋");
 }
 
 #[tokio::test]

@@ -74,7 +74,7 @@ struct HomeQuickFactFeedingSheet: View {
 
                             HomeQuickFactSingleChoiceSection(
                                 title: "份量",
-                                options: HomeQuickFactFeedingAmount.allCases,
+                                options: amountOptions,
                                 selection: $amount
                             ) { option in
                                 Text(option.title)
@@ -151,6 +151,13 @@ struct HomeQuickFactFeedingSheet: View {
         .presentationDragIndicator(.visible)
         .onChange(of: foodOptions) { _, newOptions in
             syncSelectedFoodItem(with: newOptions)
+            normalizeAmountSelection()
+        }
+        .onChange(of: selectedFoodKind) { _, _ in
+            normalizeAmountSelection()
+        }
+        .onChange(of: selectedFoodItemIDs) { _, _ in
+            normalizeAmountSelection()
         }
         .fullScreenCover(isPresented: $isPhotoPickerPresented) {
             MHBMediaPickerScreen(
@@ -260,6 +267,30 @@ struct HomeQuickFactFeedingSheet: View {
             selectedItemIDs: selectedFoodItemIDs,
             options: foodOptions
         )
+    }
+
+    private var selectedFoodOption: HomeQuickFactFeedingFoodOption? {
+        HomeQuickFactFeedingFoodSource.item(
+            for: selectedFoodItemID(for: selectedFoodKind),
+            in: selectedFoodKind,
+            options: foodOptions
+        )
+    }
+
+    private var amountOptions: [HomeQuickFactFeedingAmount] {
+        switch selectedFoodKind {
+        case .wetFood:
+            HomeQuickFactFeedingAmount.packageOptions(unit: selectedFoodOption?.unit)
+        case .mainFood, .snack, .supplement, .other:
+            HomeQuickFactFeedingAmount.fuzzyOptions
+        }
+    }
+
+    private func normalizeAmountSelection() {
+        guard !amountOptions.contains(amount),
+              let firstAmount = amountOptions.first
+        else { return }
+        amount = firstAmount
     }
 
     private func syncSelectedFoodItem(with options: [HomeQuickFactFeedingFoodOption]) {
