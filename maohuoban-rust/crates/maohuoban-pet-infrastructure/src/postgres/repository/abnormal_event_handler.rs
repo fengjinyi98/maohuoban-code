@@ -304,6 +304,68 @@ impl PostgresPetRepository {
         Ok(followup_id)
     }
 
+    /// insert_followup_replan 写入追加观察后的下一轮主动追踪计划
+    /// 核心职责：
+    /// - 在用户更新异常后生成下一轮默认追踪计划
+    /// - 回写 episode 的 next_followup_due_at 和 last_followup_plan_id
+    /// - 为后续 Agent planning skill 动态替换计划保留稳定落点
+    async fn insert_followup_replan(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        pet_id: Uuid,
+        episode_id: Uuid,
+        trigger_event_id: Uuid,
+        observed_at: DateTime<Utc>,
+    ) -> PetResult<Uuid> {
+        let followup_id = Uuid::new_v4();
+        let due_at = observed_at + followup_replan_delay();
+        let recommended_actions = serde_json::json!(["update_observation", "chat_with_agent"]);
+
+        sqlx::query(
+            r#"
+            INSERT INTO agent_proactive_followups (
+                id, pet_id, episode_id, trigger_event_id, status,
+                due_at, message_title, message_body, rationale, recommended_actions,
+                created_at, updated_at
+            )
+            VALUES (
+                $1, $2, $3, $4, 'scheduled',
+                $5, '毛球稍后再确认',
+                '毛球会继续观察这次异常变化，稍后再提醒你更新便便、精神和食欲状态。',
+                '用户追加观察后生成下一轮主动追踪计划，等待 Agent planning skill 动态细化。',
+                $6::jsonb,
+                now(), now()
+            )
+            "#,
+        )
+        .bind(followup_id)
+        .bind(pet_id)
+        .bind(episode_id)
+        .bind(trigger_event_id)
+        .bind(due_at)
+        .bind(&recommended_actions)
+        .execute(&mut **tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE abnormal_episodes
+            SET next_followup_due_at = $1,
+                last_followup_plan_id = $2,
+                updated_at = now()
+            WHERE id = $3
+            "#,
+        )
+        .bind(due_at)
+        .bind(followup_id)
+        .bind(episode_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        Ok(followup_id)
+    }
+
     /// update_episode_for_recovery_command 标记异常 episode 恢复
     /// 核心职责：
     /// - 更新 abnormal_episodes.status = recovered, recovered_at, latest_event_id
@@ -500,6 +562,8 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
+        Self::insert_followup_replan(&mut tx, pet_id, episode_id, event_id, observed_at).await?;
+
         tx.commit().await.map_err(to_infrastructure_error)?;
 
         Ok(())
@@ -561,6 +625,10 @@ fn initial_followup_delay(severity: &str) -> Duration {
         "obvious" => Duration::hours(6),
         _ => Duration::hours(10),
     }
+}
+
+fn followup_replan_delay() -> Duration {
+    Duration::hours(12)
 }
 
 fn initial_followup_message(primary_symptom: &str) -> String {

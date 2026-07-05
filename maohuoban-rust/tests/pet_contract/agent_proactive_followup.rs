@@ -78,7 +78,7 @@ async fn insert_scheduled_followup(
 ) -> uuid::Uuid {
     let followup_id = uuid::Uuid::new_v4();
     sqlx::query(
-        r#"
+        r"
         INSERT INTO agent_proactive_followups (
             id, pet_id, episode_id, trigger_event_id, status,
             due_at, message_title, message_body, rationale, recommended_actions,
@@ -92,7 +92,7 @@ async fn insert_scheduled_followup(
             $6::jsonb,
             now(), now()
         )
-        "#,
+        ",
     )
     .bind(followup_id)
     .bind(pet_id)
@@ -123,13 +123,13 @@ async fn abnormal_creation_creates_initial_agent_followup_plan() {
         String,
         String,
     ) = sqlx::query_as(
-        r#"
+        r"
         SELECT id, status, trigger_event_id, due_at, message_title, message_body
         FROM agent_proactive_followups
         WHERE episode_id = $1::uuid
         ORDER BY created_at DESC
         LIMIT 1
-        "#,
+        ",
     )
     .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
     .fetch_optional(app.pool())
@@ -151,11 +151,11 @@ async fn abnormal_creation_creates_initial_agent_followup_plan() {
 
     let episode_projection: (Option<chrono::DateTime<chrono::Utc>>, Option<uuid::Uuid>) =
         sqlx::query_as(
-            r#"
+            r"
         SELECT next_followup_due_at, last_followup_plan_id
         FROM abnormal_episodes
         WHERE id = $1::uuid
-        "#,
+        ",
         )
         .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
         .fetch_one(app.pool())
@@ -177,7 +177,7 @@ async fn due_agent_followup_creates_actionable_abnormal_followup_hint() {
 
     let (followup_id, planned_due_at): (uuid::Uuid, chrono::DateTime<chrono::Utc>) =
         sqlx::query_as(
-            r#"
+            r"
             SELECT id, due_at
             FROM agent_proactive_followups
             WHERE episode_id = $1::uuid
@@ -185,7 +185,7 @@ async fn due_agent_followup_creates_actionable_abnormal_followup_hint() {
               AND status = 'scheduled'
             ORDER BY created_at DESC
             LIMIT 1
-            "#,
+            ",
         )
         .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
         .bind(event_id.parse::<uuid::Uuid>().expect("event uuid"))
@@ -261,6 +261,57 @@ async fn due_agent_followup_creates_actionable_abnormal_followup_hint() {
             .await
             .expect("load followup status");
     assert_eq!(followup_status, "due");
+}
+
+#[tokio::test]
+async fn scheduler_run_once_projects_due_agent_followup_hint() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139141").await;
+
+    let (_pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "雪球").await;
+
+    let (followup_id, planned_due_at): (uuid::Uuid, chrono::DateTime<chrono::Utc>) =
+        sqlx::query_as(
+            r"
+            SELECT id, due_at
+            FROM agent_proactive_followups
+            WHERE episode_id = $1::uuid
+              AND trigger_event_id = $2::uuid
+              AND status = 'scheduled'
+            ORDER BY created_at DESC
+            LIMIT 1
+            ",
+        )
+        .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+        .bind(event_id.parse::<uuid::Uuid>().expect("event uuid"))
+        .fetch_one(app.pool())
+        .await
+        .expect("load default scheduled followup");
+
+    let result = maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
+        .await
+        .expect("run agent followup scheduler");
+
+    assert_eq!(result.projected_hints, 1);
+
+    let active_hint_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM attention_hints
+        WHERE source_ref_type = 'agent_proactive_followup'
+          AND source_ref_id = $1
+          AND kind = 'abnormal_followup_due'
+          AND status = 'active'
+        ",
+    )
+    .bind(followup_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count active scheduler hint");
+
+    assert_eq!(active_hint_count, 1);
 }
 
 #[tokio::test]
@@ -375,4 +426,110 @@ async fn symptom_followup_resolves_due_agent_followup_hint() {
     .await
     .expect("count active proactive hint");
     assert_eq!(active_hint_count, 0);
+}
+
+#[tokio::test]
+async fn symptom_followup_creates_next_agent_followup_plan() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139140").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "云朵").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let _current_followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+    let _: i64 = sqlx::query_scalar(r"SELECT project_due_agent_proactive_followups($1)")
+        .bind(planned_due_at)
+        .fetch_one(app.pool())
+        .await
+        .expect("project due followup");
+
+    let followup_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "symptom_followup",
+                "title": "追加观察",
+                "summary": "便便仍稀，精神一般",
+                "visibility": "private",
+                "occurred_at": "2026-07-05T06:30:00Z",
+                "event_payload": {
+                    "episode_id": episode_id,
+                    "condition_change": "unchanged",
+                    "note": "便便仍稀，精神一般"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create symptom followup");
+    assert_eq!(followup_response.status(), StatusCode::CREATED);
+    let followup_body = response_json(followup_response).await;
+    let followup_event_id = followup_body["data"]["id"]
+        .as_str()
+        .expect("followup event id")
+        .parse::<uuid::Uuid>()
+        .expect("followup event uuid");
+
+    let next_plan: (
+        uuid::Uuid,
+        String,
+        Option<uuid::Uuid>,
+        chrono::DateTime<chrono::Utc>,
+        String,
+        String,
+    ) = sqlx::query_as(
+        r"
+        SELECT id, status, trigger_event_id, due_at, message_title, message_body
+        FROM agent_proactive_followups
+        WHERE episode_id = $1::uuid
+          AND trigger_event_id = $2::uuid
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+    .bind(followup_event_id)
+    .fetch_optional(app.pool())
+    .await
+    .expect("load next proactive followup plan")
+    .expect("symptom followup should create next proactive followup plan");
+
+    assert_eq!(next_plan.1, "scheduled");
+    assert_eq!(next_plan.2, Some(followup_event_id));
+    assert!(
+        next_plan.3
+            > chrono::DateTime::parse_from_rfc3339("2026-07-05T06:30:00Z")
+                .expect("observed at")
+                .with_timezone(&chrono::Utc),
+        "next plan due_at should be after the followup observation time"
+    );
+    assert_eq!(next_plan.4, "毛球稍后再确认");
+    assert!(
+        next_plan.5.contains("继续观察"),
+        "next followup message should explain continued tracking: {}",
+        next_plan.5
+    );
+
+    let episode_projection: (Option<chrono::DateTime<chrono::Utc>>, Option<uuid::Uuid>) =
+        sqlx::query_as(
+            r"
+        SELECT next_followup_due_at, last_followup_plan_id
+        FROM abnormal_episodes
+        WHERE id = $1::uuid
+        ",
+        )
+        .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+        .fetch_one(app.pool())
+        .await
+        .expect("load episode followup projection");
+
+    assert_eq!(episode_projection.0, Some(next_plan.3));
+    assert_eq!(episode_projection.1, Some(next_plan.0));
 }

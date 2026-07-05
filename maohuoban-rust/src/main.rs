@@ -1,6 +1,6 @@
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use maohuoban_rust::{
-    BackendConfig, build_backend_app,
+    BackendConfig, agent_followup_scheduler, build_backend_app,
     diagnostics::{backend_diagnostics_bootstrap_config, cleanup_interval_from_env},
 };
 
@@ -21,11 +21,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = BackendConfig::from_env();
     let server_bind_addr = config.server_bind_addr.clone();
     let app = build_backend_app(config).await?;
+    let _agent_followup_scheduler_task = spawn_agent_followup_scheduler(app.pool.clone());
     let listener = tokio::net::TcpListener::bind(&server_bind_addr).await?;
     tracing::info!(bind_addr = %server_bind_addr, "毛伙伴 Rust 服务已监听");
     axum::serve(listener, app.router).await?;
     diagnostics.flush()?;
     Ok(())
+}
+
+/// `spawn_agent_followup_scheduler` 启动 Agent 主动追踪站内提醒调度
+/// 核心职责：
+/// - 周期扫描到期 abnormal followup plan
+/// - 将到期计划投影为首页轻提醒
+fn spawn_agent_followup_scheduler(pool: sqlx::PgPool) -> tokio::task::JoinHandle<()> {
+    let interval_duration = agent_followup_scheduler_interval_from_env();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(interval_duration);
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            match agent_followup_scheduler::run_once(&pool, chrono::Utc::now()).await {
+                Ok(result) if result.projected_hints > 0 => {
+                    tracing::info!(
+                        projected_hints = result.projected_hints,
+                        "Agent 主动追踪轻提醒投影完成"
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(error = %error, "Agent 主动追踪调度失败");
+                }
+            }
+        }
+    })
+}
+
+/// `agent_followup_scheduler_interval_from_env` 读取 Agent 主动追踪调度间隔
+/// 核心职责：
+/// - 支持本地和部署环境调整扫描频率
+/// - 对无效环境变量回退到默认 60 秒
+fn agent_followup_scheduler_interval_from_env() -> std::time::Duration {
+    std::env::var("MAOHUOBAN_AGENT_FOLLOWUP_SCHEDULER_INTERVAL_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .map_or_else(
+            || std::time::Duration::from_mins(1),
+            std::time::Duration::from_secs,
+        )
 }
 
 /// `install_tracing` 初始化终端日志

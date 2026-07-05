@@ -116,6 +116,39 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testAbnormalEpisodeEntryExposesContextCard() {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(
+                selectedPetName: "雪球",
+                abnormalEpisodeID: "episode-1",
+                sourceHintID: "hint-1",
+                agentFollowupID: "followup-1"
+            ),
+            repository: MockAIAssistantRepository()
+        )
+
+        XCTAssertEqual(
+            store.abnormalEpisodeContextCard,
+            AIAssistantAbnormalEpisodeContextCard(
+                episodeID: "episode-1",
+                title: "正在追踪雪球的异常",
+                subtitle: "这个会话会围绕本次异常继续追问和整理更新。",
+                petName: "雪球"
+            )
+        )
+    }
+
+    @MainActor
+    func testDefaultEntryDoesNotExposeAbnormalEpisodeContextCard() {
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(selectedPetName: "雪球"),
+            repository: MockAIAssistantRepository()
+        )
+
+        XCTAssertNil(store.abnormalEpisodeContextCard)
+    }
+
+    @MainActor
     func testSelectingHistoryUsesHistoryTitleAndHidesSuggestedPrompts() {
         let history = AIAssistantConversationHistory(
             id: "test-session",

@@ -62,6 +62,19 @@ final class AIAssistantStore {
         messages.isEmpty && currentConversationTitle == nil
     }
 
+    var abnormalEpisodeContextCard: AIAssistantAbnormalEpisodeContextCard? {
+        guard let abnormalEpisodeID = context.abnormalEpisodeID else {
+            return nil
+        }
+        let petName = context.displayPetName
+        return AIAssistantAbnormalEpisodeContextCard(
+            episodeID: abnormalEpisodeID,
+            title: "正在追踪\(petName)的异常",
+            subtitle: "这个会话会围绕本次异常继续追问和整理更新。",
+            petName: petName
+        )
+    }
+
     var conversationHistoryNavigationTitle: String {
         "\(context.displayPetName)的对话记录"
     }

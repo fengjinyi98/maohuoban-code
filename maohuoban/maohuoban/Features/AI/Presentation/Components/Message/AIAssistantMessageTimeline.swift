@@ -8,6 +8,7 @@ import MaohuobanDesignSystem
 // - 承载待确认动作卡片和滚动锚点
 struct AIAssistantMessageTimeline: View {
     let messages: [AIAssistantMessage]
+    let abnormalEpisodeContextCard: AIAssistantAbnormalEpisodeContextCard?
     let activeAgentActivityText: String?
     let pendingAction: AIAssistantProposedAction?
     let bottomAnchorID: String
@@ -17,6 +18,10 @@ struct AIAssistantMessageTimeline: View {
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
+            if let abnormalEpisodeContextCard {
+                AIAssistantAbnormalEpisodeContextCardView(card: abnormalEpisodeContextCard)
+            }
+
             if let firstMessageDate = messages.first?.createdAt {
                 AIAssistantMessageTimeSeparator(
                     text: AIAssistantMessageTimePresentation(date: firstMessageDate).text

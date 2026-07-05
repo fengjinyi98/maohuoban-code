@@ -38,6 +38,7 @@ struct AIAssistantScreen: View {
                 MHBScreenScrollView(showsIndicators: false) {
                     AIAssistantMessageTimeline(
                         messages: store.messages,
+                        abnormalEpisodeContextCard: store.abnormalEpisodeContextCard,
                         activeAgentActivityText: store.activeAgentActivityText,
                         pendingAction: store.pendingAction,
                         bottomAnchorID: Self.bottomAnchorID,

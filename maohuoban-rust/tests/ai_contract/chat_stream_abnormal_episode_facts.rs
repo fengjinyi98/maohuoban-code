@@ -116,11 +116,11 @@ async fn ai_chat_stream_persists_abnormal_followup_entry_context() {
         .expect("chat session id");
 
     let persisted: (Option<String>, Option<Uuid>, Option<Uuid>, Option<Uuid>) = sqlx::query_as(
-        r#"
+        r"
         SELECT chat_context_kind, abnormal_episode_id, source_hint_id, agent_followup_id
         FROM ai_chat_sessions
         WHERE id = $1::uuid
-        "#,
+        ",
     )
     .bind(chat_session_id.parse::<Uuid>().expect("chat session uuid"))
     .fetch_one(app.pool())
@@ -173,7 +173,7 @@ async fn abnormal_followup_entry_reuses_same_agent_session_and_context() {
         Option<Uuid>,
         i64,
     ) = sqlx::query_as(
-        r#"
+        r"
             SELECT s.chat_context_kind,
                    s.abnormal_episode_id,
                    s.source_hint_id,
@@ -183,7 +183,7 @@ async fn abnormal_followup_entry_reuses_same_agent_session_and_context() {
             LEFT JOIN ai_session_turns t ON t.session_id = s.id
             WHERE s.id = $1::uuid
             GROUP BY s.id
-            "#,
+            ",
     )
     .bind(first_session_id)
     .fetch_one(app.pool())
@@ -282,11 +282,11 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
         Option<String>,
         Option<Uuid>,
     ) = sqlx::query_as(
-        r#"
+        r"
         SELECT candidate_payload, source_hint_id, source_ref_type, source_ref_id
         FROM agent_confirmation_tasks
         WHERE id = $1
-        "#,
+        ",
     )
     .bind(confirmation_task_id)
     .fetch_one(app.pool())
@@ -314,7 +314,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains("commit_pet_observation_write")
-            .body_contains(&confirmation_task_id.to_string())
+            .body_contains(confirmation_task_id.to_string())
             .body_contains("确认写入这次异常更新")
             .matches(request_without_tool_result);
         then.status(200)
@@ -368,7 +368,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
     assert!(commit_text.contains("已把这次异常更新写入进展时间线。"));
 
     let written_event: (String, serde_json::Value) = sqlx::query_as(
-        r#"
+        r"
         SELECT event_subkind, event_payload
         FROM pet_events
         WHERE id = (
@@ -376,7 +376,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             FROM agent_confirmation_tasks
             WHERE id = $1
         )
-        "#,
+        ",
     )
     .bind(confirmation_task_id)
     .fetch_one(app.pool())
@@ -400,6 +400,149 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             .await
             .expect("load agent followup status");
     assert_eq!(followup_status, "answered");
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn abnormal_followup_second_turn_restores_agent_context_from_session() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+
+    let entry_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("毛球提醒我更新异常")
+            .matches(request_without_tool_result)
+            .matches(|req| !request_body(req).contains("帮我记录这次异常观察"));
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我会围绕这次异常继续追踪。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":8,\"total_tokens\":16}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let entry_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "毛球提醒我更新异常，先打开这个追踪会话。",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup entry request");
+
+    assert_eq!(entry_response.status(), StatusCode::OK);
+    let entry_text = response_text(entry_response).await;
+    entry_mock.assert();
+    let chat_session_id = sse_event_data(&entry_text, "message_started")["chat_session_id"]
+        .as_str()
+        .expect("chat session id")
+        .parse::<Uuid>()
+        .expect("chat session uuid");
+
+    let prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_observation_write")
+            .body_contains("便便还有点稀，精神好些了")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_from_session\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"便便还有点稀，精神好些了\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let prepare_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "帮我记录这次异常观察：便便还有点稀，精神好些了",
+                "surface": "home_private",
+                "chat_session_id": chat_session_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup second turn prepare request");
+
+    assert_eq!(prepare_response.status(), StatusCode::OK);
+    let prepare_text = response_text(prepare_response).await;
+    let confirmation_task_id =
+        sse_event_data(&prepare_text, "confirmation_task")["confirmation_task_id"]
+            .as_str()
+            .expect("confirmation task id")
+            .parse::<Uuid>()
+            .expect("confirmation task uuid");
+    prepare_mock.assert();
+
+    let prepared_task: (
+        Option<serde_json::Value>,
+        Option<Uuid>,
+        Option<String>,
+        Option<Uuid>,
+    ) = sqlx::query_as(
+        r"
+        SELECT candidate_payload, source_hint_id, source_ref_type, source_ref_id
+        FROM agent_confirmation_tasks
+        WHERE id = $1
+        ",
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load prepared confirmation task");
+
+    let candidate_payload = prepared_task.0.expect("candidate payload");
+    assert_eq!(candidate_payload["event_subkind"], "symptom_followup");
+    assert_eq!(
+        candidate_payload["episode_id"],
+        fixture.episode_id.to_string()
+    );
+    assert_eq!(candidate_payload["source"], "agent_assisted_followup");
+    assert_eq!(
+        candidate_payload["agent_followup_id"],
+        agent_followup_id.to_string()
+    );
+    assert_eq!(prepared_task.1, Some(source_hint_id));
+    assert_eq!(prepared_task.2.as_deref(), Some("agent_proactive_followup"));
+    assert_eq!(prepared_task.3, Some(agent_followup_id));
 }
 
 async fn send_abnormal_followup_entry_request(
@@ -447,7 +590,7 @@ async fn insert_due_agent_followup_hint(
     let source_hint_id = Uuid::new_v4();
 
     sqlx::query(
-        r#"
+        r"
         INSERT INTO agent_proactive_followups (
             id, pet_id, episode_id, trigger_event_id, status,
             due_at, message_title, message_body, rationale, recommended_actions,
@@ -461,7 +604,7 @@ async fn insert_due_agent_followup_hint(
             $5::jsonb,
             now(), now()
         )
-        "#,
+        ",
     )
     .bind(agent_followup_id)
     .bind(fixture.pet_id)
@@ -473,7 +616,7 @@ async fn insert_due_agent_followup_hint(
     .expect("insert due agent followup");
 
     sqlx::query(
-        r#"
+        r"
         INSERT INTO attention_hints (
             id, pet_id, kind, title, subtitle, icon, tone, priority,
             status, source_ref_type, source_ref_id,
@@ -488,7 +631,7 @@ async fn insert_due_agent_followup_hint(
             'abnormal_detail', $4::jsonb, 'agent',
             now(), now()
         )
-        "#,
+        ",
     )
     .bind(source_hint_id)
     .bind(fixture.pet_id)
@@ -712,6 +855,7 @@ async fn create_recovery_event(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn create_episode_event(
     app: &maohuoban_rust::test_support::AuthTestApp,
     access_token: &str,
