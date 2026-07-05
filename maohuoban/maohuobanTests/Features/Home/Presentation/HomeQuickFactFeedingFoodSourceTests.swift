@@ -78,4 +78,41 @@ final class HomeQuickFactFeedingFoodSourceTests: XCTestCase {
             )
         )
     }
+
+    func testWetFoodInventoryItemUsesWetFoodFeedingKind() {
+        let item = FoodInventoryItem(
+            id: "wet-food-id",
+            scopeType: "user",
+            scopeID: "user-id",
+            createdByUserID: "user-id",
+            name: "鸡肉主食罐",
+            brand: "测试品牌",
+            category: .wetFood,
+            inventoryStatus: .sealed,
+            quantity: 12,
+            unit: "罐",
+            spec: "85g",
+            expiryDate: nil,
+            coverAssetID: nil,
+            coverURL: nil,
+            barcode: nil,
+            sourceKind: "manual",
+            note: nil,
+            createdAt: "2026-07-05T00:00:00Z",
+            updatedAt: "2026-07-05T00:00:00Z",
+            archivedAt: nil
+        )
+
+        let option = HomeQuickFactFeedingFoodOption(foodInventoryItem: item)
+
+        XCTAssertEqual(option?.kind, .wetFood)
+        XCTAssertEqual(option?.feedingInput(
+            petID: "pet-id",
+            lifeStatus: nil,
+            amount: .normal,
+            occurredAt: Date(timeIntervalSince1970: 0),
+            note: "",
+            attachmentAssetIDs: []
+        ).eventDraft().eventPayload["food_role"], .string("wet_food"))
+    }
 }
