@@ -224,8 +224,13 @@ fn record_runtime_stream_selection(
         .context_pack
         .pending_confirmation_task
         .is_some();
-    let task_type =
-        TaskClassifier::classify_runtime(selected_pet_id.is_some(), confirmation_task_present);
+    let task_type = TaskClassifier::classify_runtime_with_context(
+        selected_pet_id.is_some(),
+        confirmation_task_present,
+        input
+            .observation_write_context
+            .is_abnormal_episode_followup(),
+    );
     let plan = StepPlanner::plan(task_type);
     let snapshot =
         PlanningDiagnosticsSnapshot::new(input.session_id, input.turn_id, input.message_id, &plan);

@@ -284,17 +284,65 @@ fn runtime_match_input_carries_planner_actor_and_household_context() {
 }
 
 #[test]
-fn builtin_runtime_does_not_inject_workflow_skill_from_runtime_task_type() {
+fn builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill() {
     let workbench = contract_workbench_with_household_memory(Uuid::new_v4());
 
     let bundle = BuiltinSkillRuntime::match_runtime(
         &workbench,
-        vec![Toolset::PrivatePetContext],
-        Some(TaskType::ContextAnswer.as_str()),
+        vec![
+            Toolset::PrivatePetContext,
+            Toolset::Confirmation,
+            Toolset::Temporal,
+        ],
+        Some("abnormal_episode_followup_planning"),
         Some(Uuid::new_v4()),
     );
 
-    assert!(bundle.workflow_policy.workflow_skill_ids.is_empty());
+    assert_eq!(
+        bundle.workflow_policy.workflow_skill_ids,
+        vec!["workflow.abnormal_episode_proactive_followup_planning"]
+    );
+    assert!(
+        bundle
+            .merged_instruction
+            .contains("读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索"),
+        "planning skill should force multi-source evidence before planning: {}",
+        bundle.merged_instruction
+    );
+    assert!(
+        bundle
+            .merged_instruction
+            .contains("输出 due_at、追问文案、规划理由和推荐动作"),
+        "planning skill should define the plan contract: {}",
+        bundle.merged_instruction
+    );
+    assert!(
+        bundle
+            .toolset_policy
+            .preferred_toolsets
+            .contains(&Toolset::PrivatePetContext)
+            && bundle
+                .toolset_policy
+                .preferred_toolsets
+                .contains(&Toolset::Temporal),
+        "planning skill should prefer private facts and temporal helpers: {:?}",
+        bundle.toolset_policy.preferred_toolsets
+    );
+    for expected_tool in [
+        "load_pet_abnormal_episode_facts",
+        "load_pet_recent_health_facts",
+        "load_pet_current_diet_context",
+        "load_food_inventory_change_hints",
+    ] {
+        assert!(
+            bundle
+                .toolset_policy
+                .preferred_tools
+                .contains(&expected_tool.to_owned()),
+            "missing preferred planning tool {expected_tool}: {:?}",
+            bundle.toolset_policy.preferred_tools
+        );
+    }
 }
 
 #[test]

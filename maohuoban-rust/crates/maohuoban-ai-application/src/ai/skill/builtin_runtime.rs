@@ -26,6 +26,7 @@ impl BuiltinSkillRuntime {
             domain_public_pet_care(),
             domain_private_pet_context(),
             domain_app_support(),
+            workflow_abnormal_episode_proactive_followup_planning(),
         ]
     }
 
@@ -147,6 +148,37 @@ fn domain_app_support() -> SkillDefinition {
         },
         None,
     )
+}
+
+fn workflow_abnormal_episode_proactive_followup_planning() -> SkillDefinition {
+    let mut conditions = SkillMatchConditions::default();
+    conditions
+        .task_types
+        .push("abnormal_episode_followup_planning".to_owned());
+    conditions.requires_selected_pet = Some(true);
+
+    SkillDefinition {
+        skill_id: "workflow.abnormal_episode_proactive_followup_planning".to_owned(),
+        layer: SkillLayer::Workflow,
+        title: "异常 episode 主动追踪规划".to_owned(),
+        match_conditions: conditions,
+        instruction_block:
+            "异常主动追踪 planning 必须先读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再输出 due_at、追问文案、规划理由和推荐动作；skill 只产出计划草稿，保存计划必须交给受控 tool 和 application service 校验。"
+                .to_owned(),
+        toolset_hints: SkillToolsetHints {
+            allowed_toolsets: Vec::new(),
+            preferred_toolsets: vec![Toolset::PrivatePetContext, Toolset::Temporal],
+            preferred_tools: vec![
+                "load_pet_abnormal_episode_facts".to_owned(),
+                "load_pet_recent_health_facts".to_owned(),
+                "load_pet_current_diet_context".to_owned(),
+                "load_food_inventory_change_hints".to_owned(),
+                "date_calculator".to_owned(),
+            ],
+        },
+        priority: 200,
+        mutable: false,
+    }
 }
 
 fn domain_skill(

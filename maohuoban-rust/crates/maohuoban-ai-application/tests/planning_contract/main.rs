@@ -126,6 +126,62 @@ fn step_planner_generates_terminal_boundaries_for_each_task_type() {
 }
 
 #[test]
+fn abnormal_episode_followup_planning_is_explicit_runtime_task_type() {
+    let plan = StepPlanner::plan(TaskType::AbnormalEpisodeFollowupPlanning);
+
+    assert_eq!(
+        TaskType::AbnormalEpisodeFollowupPlanning.as_str(),
+        "abnormal_episode_followup_planning"
+    );
+    assert_eq!(
+        plan.step_kinds(),
+        &[
+            StepKind::LoadContext,
+            StepKind::ToolRead,
+            StepKind::ModelReason,
+            StepKind::FinalizeAnswer
+        ]
+    );
+    assert_eq!(plan.terminal_step(), StepKind::FinalizeAnswer);
+    assert!(plan.policy().allows_direct_model_answer());
+    assert_eq!(
+        plan.policy().policy_decision(),
+        "allow_abnormal_episode_followup_planning"
+    );
+}
+
+#[test]
+fn abnormal_episode_followup_planning_comes_from_runtime_context_not_user_text() {
+    let from_context = TaskClassifier::classify_runtime_with_context(true, false, true);
+    assert_eq!(
+        from_context,
+        TaskType::AbnormalEpisodeFollowupPlanning,
+        "abnormal followup planning must be driven by restored runtime context"
+    );
+
+    let from_text_only = TaskClassifier::classify(&TaskClassificationInput {
+        gate_decision: gate(AiIntent::Allowed, false),
+        user_input: "我想更新异常追踪，便便还有点稀",
+        selected_pet_present: true,
+        evidence_tool_count: 0,
+        write_tool_visible: false,
+        confirmation_task_present: false,
+    });
+    assert_eq!(
+        from_text_only,
+        TaskType::ContextAnswer,
+        "user text must not be tokenized into abnormal planning task type"
+    );
+
+    let confirmation = TaskClassifier::classify_runtime_with_context(true, true, true);
+    assert_eq!(
+        confirmation,
+        TaskType::ConfirmationCommit,
+        "confirmation commit keeps write boundary priority"
+    );
+}
+
+#[test]
 fn execution_policy_allows_model_answers_and_blocks_reject_tasks() {
     let direct = ExecutionPolicy::for_task(TaskType::DirectAnswer);
     assert!(direct.allows_direct_model_answer());

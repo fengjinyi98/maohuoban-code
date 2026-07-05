@@ -474,6 +474,7 @@ async fn abnormal_followup_second_turn_restores_agent_context_from_session() {
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
+            .body_contains("异常主动追踪 planning")
             .body_contains("prepare_pet_observation_write")
             .body_contains("便便还有点稀，精神好些了")
             .matches(request_without_tool_result);

@@ -17,7 +17,7 @@ impl StepPlanner {
                 StepKind::ModelReason,
                 StepKind::FinalizeAnswer,
             ],
-            TaskType::ConfirmationCommit => vec![
+            TaskType::ConfirmationCommit | TaskType::AbnormalEpisodeFollowupPlanning => vec![
                 StepKind::LoadContext,
                 StepKind::ToolRead,
                 StepKind::ModelReason,

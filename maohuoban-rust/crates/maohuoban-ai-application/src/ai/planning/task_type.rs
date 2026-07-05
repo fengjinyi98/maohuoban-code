@@ -10,6 +10,7 @@ pub enum TaskType {
     DirectAnswer,
     ContextAnswer,
     ConfirmationCommit,
+    AbnormalEpisodeFollowupPlanning,
     RejectTask,
 }
 
@@ -21,6 +22,7 @@ impl TaskType {
             Self::DirectAnswer => "direct_answer",
             Self::ContextAnswer => "context_answer",
             Self::ConfirmationCommit => "confirmation_commit",
+            Self::AbnormalEpisodeFollowupPlanning => "abnormal_episode_followup_planning",
             Self::RejectTask => "reject_task",
         }
     }

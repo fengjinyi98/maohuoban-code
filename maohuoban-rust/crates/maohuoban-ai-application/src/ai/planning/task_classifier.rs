@@ -40,4 +40,23 @@ impl TaskClassifier {
         }
         TaskType::DirectAnswer
     }
+
+    /// classify_runtime_with_context 根据 Runtime 绑定上下文分类任务
+    /// 核心职责：
+    /// - 将后端业务事件恢复出的异常追踪上下文映射到专用 planning task
+    /// - 保持用户文案不参与领域任务分类
+    #[must_use]
+    pub fn classify_runtime_with_context(
+        selected_pet_present: bool,
+        confirmation_task_present: bool,
+        abnormal_episode_followup_context_present: bool,
+    ) -> TaskType {
+        if confirmation_task_present {
+            return TaskType::ConfirmationCommit;
+        }
+        if abnormal_episode_followup_context_present {
+            return TaskType::AbnormalEpisodeFollowupPlanning;
+        }
+        Self::classify_runtime(selected_pet_present, false)
+    }
 }
