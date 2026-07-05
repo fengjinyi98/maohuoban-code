@@ -42,12 +42,16 @@ struct AIAssistantMessageBubble: View {
                     }
                 }
 
-                if message.referenceChips.isEmpty == false && !message.isStreaming {
-                    AIAssistantReferenceChipFlow(
-                        chips: message.referenceChips,
-                        references: message.references,
-                        onOpenReference: onOpenReference
-                    )
+                if !message.isStreaming && message.role == .assistant {
+                    if message.references.isEmpty == false {
+                        AIAssistantMessageActionsBar(
+                            messageText: message.text,
+                            references: message.references,
+                            onOpenReference: onOpenReference
+                        )
+                    } else if message.referenceChips.isEmpty == false {
+                        AIAssistantLegacyReferenceChipFlow(chips: message.referenceChips)
+                    }
                 }
             }
             .padding(message.role == .assistant ? 0 : MHBTheme.Spacing.s4)
