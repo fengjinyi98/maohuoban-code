@@ -5,6 +5,34 @@ import CoreGraphics
 // - 将屏幕中的圆形裁剪框换算到原图像素坐标系
 // - 为头像裁剪页提供可复用的纯函数计算能力
 enum MHBCircularImageCropGeometryCalculator {
+    // boundedIntegralCropRect 圆形裁剪像素边界约束
+    // 核心职责：
+    // - 将浮点裁剪框扩展为整数像素框
+    // - 消除贴边裁剪时的浮点误差越界
+    static func boundedIntegralCropRect(
+        _ cropRect: CGRect,
+        imagePixelSize: CGSize
+    ) -> CGRect {
+        let integralRect = cropRect.integral
+        let sideLength = min(
+            integralRect.width,
+            integralRect.height,
+            imagePixelSize.width,
+            imagePixelSize.height
+        )
+        let maxX = max(imagePixelSize.width - sideLength, 0)
+        let maxY = max(imagePixelSize.height - sideLength, 0)
+        let originX = min(max(integralRect.origin.x, 0), maxX)
+        let originY = min(max(integralRect.origin.y, 0), maxY)
+
+        return CGRect(
+            x: originX,
+            y: originY,
+            width: sideLength,
+            height: sideLength
+        )
+    }
+
     static func cropRect(
         imagePixelSize: CGSize,
         imageDisplaySize: CGSize,

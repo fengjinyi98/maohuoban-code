@@ -47,17 +47,21 @@ extension MHBCircularImageCropScreen {
         }
 
         let imagePixelSize = CGSize(width: cgImage.width, height: cgImage.height)
-        let cropRect = MHBCircularImageCropGeometryCalculator.cropRect(
+        let cropRect = MHBCircularImageCropGeometryCalculator.boundedIntegralCropRect(
+            MHBCircularImageCropGeometryCalculator.cropRect(
+                imagePixelSize: imagePixelSize,
+                imageDisplaySize: imageDisplaySize,
+                viewportSize: viewportSize,
+                imageScale: imageScale,
+                imageOffset: imageOffset,
+                cropRadius: cropRadius
+            ),
             imagePixelSize: imagePixelSize,
-            imageDisplaySize: imageDisplaySize,
-            viewportSize: viewportSize,
-            imageScale: imageScale,
-            imageOffset: imageOffset,
-            cropRadius: cropRadius
-        ).integral
+        )
 
-        let imageBounds = CGRect(origin: .zero, size: imagePixelSize)
-        guard imageBounds.contains(cropRect),
+        guard !cropRect.isNull,
+              cropRect.width > 1,
+              cropRect.height > 1,
               let croppedCGImage = cgImage.cropping(to: cropRect) else {
             return nil
         }

@@ -69,4 +69,28 @@ final class MHBImageCropGeometryCalculatorTests: XCTestCase {
         XCTAssertEqual(cropRect.width, 100, accuracy: 0.0001)
         XCTAssertEqual(cropRect.height, 100, accuracy: 0.0001)
     }
+
+    func testCircularCropRectForFullWidthPortraitImageStaysWithinPixelBoundsAfterIntegral() {
+        let imagePixelSize = CGSize(width: 1440, height: 1982)
+        let boundedRect = MHBCircularImageCropGeometryCalculator.boundedIntegralCropRect(
+            MHBCircularImageCropGeometryCalculator.cropRect(
+                imagePixelSize: imagePixelSize,
+                imageDisplaySize: CGSize(width: 392.99999999999994, height: 540.9208333333332),
+                viewportSize: CGSize(width: 393, height: 852),
+                imageScale: 1,
+                imageOffset: .zero,
+                cropRadius: 196.5
+            ),
+            imagePixelSize: imagePixelSize
+        )
+
+        XCTAssertTrue(
+            CGRect(origin: .zero, size: imagePixelSize).contains(boundedRect),
+            "boundedRect=\(boundedRect) should stay inside image bounds"
+        )
+        XCTAssertEqual(boundedRect.origin.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(boundedRect.origin.y, 270, accuracy: 0.0001)
+        XCTAssertEqual(boundedRect.width, 1440, accuracy: 0.0001)
+        XCTAssertEqual(boundedRect.height, 1440, accuracy: 0.0001)
+    }
 }
