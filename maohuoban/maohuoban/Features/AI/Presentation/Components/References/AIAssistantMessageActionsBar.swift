@@ -31,8 +31,6 @@ struct AIAssistantMessageActionsBar: View {
                 action: shareMessage
             )
 
-            Spacer(minLength: MHBTheme.Spacing.s3)
-
             if summaries.isEmpty == false {
                 Button {
                     isReferenceSheetPresented = true
@@ -51,6 +49,8 @@ struct AIAssistantMessageActionsBar: View {
                     onOpenReference(reference)
                 }
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 

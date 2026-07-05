@@ -21,13 +21,10 @@ struct AIAssistantReferenceSourceSummaryStrip: View {
                 }
             }
 
-            Image(systemName: "chevron.up")
+            Image(systemName: "chevron.down")
                 .font(.system(size: 10, weight: .semibold))
         }
         .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-        .padding(.horizontal, MHBTheme.Spacing.s3)
         .frame(height: 30)
-        .background(MHBTheme.ColorToken.background.color)
-        .clipShape(Capsule())
     }
 }

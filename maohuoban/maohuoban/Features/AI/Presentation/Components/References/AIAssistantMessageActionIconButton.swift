@@ -16,8 +16,6 @@ struct AIAssistantMessageActionIconButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .frame(width: 30, height: 30)
-                .background(MHBTheme.ColorToken.background.color)
-                .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)

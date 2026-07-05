@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import MaohuobanDesignSystem
 
 // AIAssistantMessageBubble AI 助手消息气泡
@@ -64,6 +65,14 @@ struct AIAssistantMessageBubble: View {
                         .stroke(borderColor, lineWidth: 1)
                 }
             }
+            .contextMenu {
+                if message.role == .user {
+                    AIAssistantMessageContextMenuContent(
+                        actions: [.copy, .edit],
+                        onAction: handleContextMenuAction
+                    )
+                }
+            }
 
             if message.role == .system {
                 Spacer(minLength: MHBTheme.Spacing.s8)
@@ -116,6 +125,16 @@ struct AIAssistantMessageBubble: View {
             "ai.assistant.message.user"
         case .system:
             "ai.assistant.message.system"
+        }
+    }
+
+    private func handleContextMenuAction(_ action: AIAssistantMessageContextMenuAction) {
+        switch action {
+        case .copy:
+            UIPasteboard.general.string = message.text
+        case .edit:
+            // TODO: 接入发送者消息编辑流程。
+            break
         }
     }
 }
