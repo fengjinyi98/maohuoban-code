@@ -1,6 +1,6 @@
 use maohuoban_diagnostics::{DiagnosticEvent, Diagnostics, EventKind, Severity};
 use maohuoban_rust::{
-    BackendConfig, agent_followup_scheduler, build_backend_app,
+    BackendConfig, agent_followup_planner, agent_followup_scheduler, build_backend_app,
     diagnostics::{backend_diagnostics_bootstrap_config, cleanup_interval_from_env},
 };
 
@@ -20,13 +20,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let config = BackendConfig::from_env();
     let server_bind_addr = config.server_bind_addr.clone();
+    let planner_config = agent_followup_planner::AgentFollowupPlannerConfig {
+        ai_llm_provider_config: config.ai_llm_provider_config.clone(),
+        runtime_engine_mode: config.ai_runtime_engine_mode,
+    };
     let app = build_backend_app(config).await?;
+    let _agent_followup_planner_task =
+        spawn_agent_followup_planner(planner_config, app.pool.clone());
     let _agent_followup_scheduler_task = spawn_agent_followup_scheduler(app.pool.clone());
     let listener = tokio::net::TcpListener::bind(&server_bind_addr).await?;
     tracing::info!(bind_addr = %server_bind_addr, "毛伙伴 Rust 服务已监听");
     axum::serve(listener, app.router).await?;
     diagnostics.flush()?;
     Ok(())
+}
+
+/// `spawn_agent_followup_planner` 启动 Agent 主动追踪动态规划
+/// 核心职责：
+/// - 周期扫描待规划 abnormal followup plan
+/// - 使用 Agent Runtime 生成追踪时间和站内轻提醒文案
+fn spawn_agent_followup_planner(
+    config: agent_followup_planner::AgentFollowupPlannerConfig,
+    pool: sqlx::PgPool,
+) -> tokio::task::JoinHandle<()> {
+    let interval_duration = agent_followup_planner_interval_from_env();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(interval_duration);
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            match agent_followup_planner::run_once(config.clone(), pool.clone(), chrono::Utc::now())
+                .await
+            {
+                Ok(result) if result.planned_count > 0 => {
+                    tracing::info!(
+                        planned_count = result.planned_count,
+                        "Agent 主动追踪动态规划完成"
+                    );
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(error = %error, "Agent 主动追踪动态规划失败");
+                }
+            }
+        }
+    })
 }
 
 /// `spawn_agent_followup_scheduler` 启动 Agent 主动追踪站内提醒调度
@@ -54,6 +92,21 @@ fn spawn_agent_followup_scheduler(pool: sqlx::PgPool) -> tokio::task::JoinHandle
             }
         }
     })
+}
+
+/// `agent_followup_planner_interval_from_env` 读取 Agent 动态规划间隔
+/// 核心职责：
+/// - 支持本地和部署环境调整规划扫描频率
+/// - 对无效环境变量回退到默认 60 秒
+fn agent_followup_planner_interval_from_env() -> std::time::Duration {
+    std::env::var("MAOHUOBAN_AGENT_FOLLOWUP_PLANNER_INTERVAL_SECONDS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|seconds| *seconds > 0)
+        .map_or_else(
+            || std::time::Duration::from_mins(1),
+            std::time::Duration::from_secs,
+        )
 }
 
 /// `agent_followup_scheduler_interval_from_env` 读取 Agent 主动追踪调度间隔

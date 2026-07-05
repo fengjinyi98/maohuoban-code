@@ -24,7 +24,7 @@ use tool::RuntimePetContextTool;
 /// 核心职责：
 /// - 将已授权目标宠物上下文注册为模型可调用工具
 /// - 保持工具执行统一经过 ToolRegistry 和 PolicyGuard
-pub(super) fn build_runtime_tool_registry(
+pub fn build_runtime_tool_registry(
     state: &AiHttpState,
     session_id: Uuid,
     target_pet: &AiPetDisplaySnapshot,
@@ -46,7 +46,7 @@ pub(super) fn build_runtime_tool_registry(
 /// 核心职责：
 /// - 注册无需宠物授权的通用只读工具
 /// - 让时间计算能力在无选中宠物的 turn 中也可用
-pub(super) fn build_public_runtime_tool_registry() -> ToolRegistry {
+pub fn build_public_runtime_tool_registry() -> ToolRegistry {
     let mut registry = ToolRegistry::new();
     registry.register(DateCalculatorTool);
     registry

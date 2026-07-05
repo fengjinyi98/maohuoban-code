@@ -246,6 +246,9 @@ mod chat_stream_health_quick_facts;
 #[path = "ai_contract/chat_stream_abnormal_episode_facts.rs"]
 mod chat_stream_abnormal_episode_facts;
 
+#[path = "ai_contract/agent_followup_planner.rs"]
+mod agent_followup_planner;
+
 #[path = "ai_contract/chat_stream_inventory_hints.rs"]
 mod chat_stream_inventory_hints;
 

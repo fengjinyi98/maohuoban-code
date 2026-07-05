@@ -30,7 +30,7 @@ mod runtime_stream_bridge;
 mod runtime_stream_helpers;
 mod runtime_stream_projector;
 mod runtime_tool_gateway_observer;
-mod runtime_tools;
+pub(super) mod runtime_tools;
 mod stream_handler;
 mod text_content_block_projector;
 mod turn_preparation;

@@ -137,7 +137,7 @@ async fn abnormal_creation_creates_initial_agent_followup_plan() {
     .expect("load initial proactive followup plan")
     .expect("abnormal creation should create initial proactive followup plan");
 
-    assert_eq!(plan.1, "scheduled");
+    assert_eq!(plan.1, "planning");
     assert_eq!(
         plan.2,
         Some(event_id.parse::<uuid::Uuid>().expect("event uuid"))
@@ -175,23 +175,11 @@ async fn due_agent_followup_creates_actionable_abnormal_followup_hint() {
     let (pet_id, event_id, episode_id) =
         create_pet_and_abnormal_episode(&app, &user_id, "饭团").await;
 
-    let (followup_id, planned_due_at): (uuid::Uuid, chrono::DateTime<chrono::Utc>) =
-        sqlx::query_as(
-            r"
-            SELECT id, due_at
-            FROM agent_proactive_followups
-            WHERE episode_id = $1::uuid
-              AND trigger_event_id = $2::uuid
-              AND status = 'scheduled'
-            ORDER BY created_at DESC
-            LIMIT 1
-            ",
-        )
-        .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
-        .bind(event_id.parse::<uuid::Uuid>().expect("event uuid"))
-        .fetch_one(app.pool())
-        .await
-        .expect("load initial proactive followup");
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
 
     let projected_hint_count: i64 =
         sqlx::query_scalar(r"SELECT project_due_agent_proactive_followups($1::timestamptz)")
@@ -269,26 +257,14 @@ async fn scheduler_run_once_projects_due_agent_followup_hint() {
     app.reset().await;
     let user_id = login_user_id(&app, "13900139141").await;
 
-    let (_pet_id, event_id, episode_id) =
+    let (pet_id, event_id, episode_id) =
         create_pet_and_abnormal_episode(&app, &user_id, "雪球").await;
 
-    let (followup_id, planned_due_at): (uuid::Uuid, chrono::DateTime<chrono::Utc>) =
-        sqlx::query_as(
-            r"
-            SELECT id, due_at
-            FROM agent_proactive_followups
-            WHERE episode_id = $1::uuid
-              AND trigger_event_id = $2::uuid
-              AND status = 'scheduled'
-            ORDER BY created_at DESC
-            LIMIT 1
-            ",
-        )
-        .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
-        .bind(event_id.parse::<uuid::Uuid>().expect("event uuid"))
-        .fetch_one(app.pool())
-        .await
-        .expect("load default scheduled followup");
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
 
     let result = maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
         .await
@@ -501,7 +477,7 @@ async fn symptom_followup_creates_next_agent_followup_plan() {
     .expect("load next proactive followup plan")
     .expect("symptom followup should create next proactive followup plan");
 
-    assert_eq!(next_plan.1, "scheduled");
+    assert_eq!(next_plan.1, "planning");
     assert_eq!(next_plan.2, Some(followup_event_id));
     assert!(
         next_plan.3

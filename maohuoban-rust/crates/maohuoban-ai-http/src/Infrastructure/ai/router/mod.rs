@@ -24,8 +24,24 @@ use maohuoban_ai_application::ai::ports::{
     SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
+use maohuoban_ai_application::ai::tools::ToolRegistry;
+use maohuoban_ai_domain::ai::AiPetDisplaySnapshot;
+use uuid::Uuid;
 
 pub use self::chat::{require_ai_chat_auth, snapshot_ai_chat_request};
+
+/// build_ai_runtime_tool_registry 构建 AI Runtime 宠物工具注册表
+/// 核心职责：
+/// - 让 HTTP chat 与后台 job 复用同一套工具 schema 和执行实现
+/// - 避免后台 Agent 路径绕过现有 Runtime tool 架构
+#[must_use]
+pub fn build_ai_runtime_tool_registry(
+    state: &AiHttpState,
+    session_id: Uuid,
+    target_pet: &AiPetDisplaySnapshot,
+) -> ToolRegistry {
+    chat::runtime_tools::build_runtime_tool_registry(state, session_id, target_pet)
+}
 /// AiHttpState AI HTTP 状态
 /// 核心职责：
 /// - 持有 LLM Provider、会话仓储和认证服务

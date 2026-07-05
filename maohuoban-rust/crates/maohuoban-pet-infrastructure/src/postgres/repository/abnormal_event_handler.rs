@@ -243,7 +243,7 @@ impl PostgresPetRepository {
 
     /// insert_initial_agent_followup_plan 写入异常创建后的主动追踪初始计划
     /// 核心职责：
-    /// - 生成默认 scheduled followup，保证异常创建后进入主动追踪队列
+    /// - 生成默认 planning followup，保证异常创建后进入 Agent 动态规划队列
     /// - 回写 episode 的 next_followup_due_at 和 last_followup_plan_id
     /// - 后续 Agent planning skill 可基于事实替换为更精细计划
     async fn insert_initial_agent_followup_plan(
@@ -268,7 +268,7 @@ impl PostgresPetRepository {
                 created_at, updated_at
             )
             VALUES (
-                $1, $2, $3, $4, 'scheduled',
+                $1, $2, $3, $4, 'planning',
                 $5, '毛球想确认一下', $6,
                 '异常创建后生成首轮主动追踪计划，等待 Agent planning skill 细化。',
                 $7::jsonb,
@@ -308,7 +308,7 @@ impl PostgresPetRepository {
 
     /// insert_followup_replan 写入追加观察后的下一轮主动追踪计划
     /// 核心职责：
-    /// - 在用户更新异常后生成下一轮默认追踪计划
+    /// - 在用户更新异常后生成下一轮待规划追踪计划
     /// - 回写 episode 的 next_followup_due_at 和 last_followup_plan_id
     /// - 为后续 Agent planning skill 动态替换计划保留稳定落点
     async fn insert_followup_replan(
@@ -330,7 +330,7 @@ impl PostgresPetRepository {
                 created_at, updated_at
             )
             VALUES (
-                $1, $2, $3, $4, 'scheduled',
+                $1, $2, $3, $4, 'planning',
                 $5, '毛球稍后再确认',
                 '毛球会继续观察这次异常变化，稍后再提醒你更新便便、精神和食欲状态。',
                 '用户追加观察后生成下一轮主动追踪计划，等待 Agent planning skill 动态细化。',

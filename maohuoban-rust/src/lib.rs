@@ -4,6 +4,7 @@ mod home_event_projection;
 mod infrastructure;
 mod media_content;
 pub mod test_support;
+pub use infrastructure::agent_followup_planner;
 pub use infrastructure::agent_followup_scheduler;
 
 use std::{env, sync::Arc};
