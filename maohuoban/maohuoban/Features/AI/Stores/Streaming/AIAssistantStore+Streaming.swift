@@ -50,10 +50,10 @@ extension AIAssistantStore {
             var didReceiveAssistantReply = false
             let stream = self.repository.openChatStream(
                 message: text,
-                selectedPetID: self.context.selectedPetID,
+                selectedPetID: self.effectiveEntryContext.selectedPetID,
                 surface: "home_private",
                 chatSessionID: self.currentChatSessionID,
-                entryContext: self.context
+                entryContext: self.effectiveEntryContext
             )
             do {
                 for try await event in stream {

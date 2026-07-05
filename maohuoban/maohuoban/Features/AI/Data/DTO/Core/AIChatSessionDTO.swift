@@ -8,6 +8,10 @@ struct AIChatSessionDTO: Decodable {
     let id: UUID
     let title: String
     let isPinned: Bool
+    let chatContextKind: String?
+    let abnormalEpisodeID: String?
+    let sourceHintID: String?
+    let agentFollowupID: String?
     let subtitle: String
     let petDisplaySnapshot: AIPetDisplaySnapshotDTO?
     let lastMessagePreview: String
@@ -17,6 +21,10 @@ struct AIChatSessionDTO: Decodable {
         case id
         case title
         case isPinned = "is_pinned"
+        case chatContextKind = "chat_context_kind"
+        case abnormalEpisodeID = "abnormal_episode_id"
+        case sourceHintID = "source_hint_id"
+        case agentFollowupID = "agent_followup_id"
         case subtitle
         case petDisplaySnapshot = "pet_display_snapshot"
         case lastMessagePreview = "last_message_preview"
@@ -28,6 +36,10 @@ struct AIChatSessionDTO: Decodable {
         id = try container.decode(UUID.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
         isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        chatContextKind = try container.decodeIfPresent(String.self, forKey: .chatContextKind)
+        abnormalEpisodeID = try container.decodeIfPresent(String.self, forKey: .abnormalEpisodeID)
+        sourceHintID = try container.decodeIfPresent(String.self, forKey: .sourceHintID)
+        agentFollowupID = try container.decodeIfPresent(String.self, forKey: .agentFollowupID)
         subtitle = try container.decode(String.self, forKey: .subtitle)
         petDisplaySnapshot = try container.decodeIfPresent(AIPetDisplaySnapshotDTO.self, forKey: .petDisplaySnapshot)
         lastMessagePreview = try container.decode(String.self, forKey: .lastMessagePreview)

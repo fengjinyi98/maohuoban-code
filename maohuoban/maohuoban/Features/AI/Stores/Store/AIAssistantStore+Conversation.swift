@@ -47,6 +47,48 @@ extension AIAssistantStore {
         }
     }
 
+    func restoreAbnormalEpisodeConversationIfNeeded() async {
+        guard let abnormalEpisodeID = context.abnormalEpisodeID,
+              currentChatSessionID == nil
+        else {
+            return
+        }
+
+        do {
+            let response = try await repository.fetchChatSessions()
+            guard let sessions = response.data else { return }
+            histories = sessions.map { AIAssistantConversationHistory(from: $0) }
+            guard let session = sessions.first(where: { dto in
+                dto.chatContextKind == "abnormal_episode_followup"
+                    && dto.abnormalEpisodeID == abnormalEpisodeID
+            }) else {
+                return
+            }
+
+            let sessionID = session.id.uuidString
+            selectedConversationHistoryID = sessionID
+            currentConversationTitle = session.title
+            currentChatSessionID = sessionID
+            effectiveEntryContext = AIAssistantEntryContext(
+                selectedPetID: context.selectedPetID,
+                selectedPetName: context.selectedPetName,
+                selectedPetAvatarURL: context.selectedPetAvatarURL,
+                selectedPetSpecies: context.selectedPetSpecies,
+                ugcContextTitle: context.ugcContextTitle,
+                abnormalEpisodeID: session.abnormalEpisodeID ?? context.abnormalEpisodeID,
+                sourceHintID: session.sourceHintID,
+                agentFollowupID: session.agentFollowupID
+            )
+            draftText = ""
+            pendingAction = nil
+            activeAgentActivityText = nil
+            clearAttachment()
+            await loadSessionMessages(sessionID: sessionID)
+        } catch {
+            return
+        }
+    }
+
     func renameConversationHistory(
         _ history: AIAssistantConversationHistory,
         title: String

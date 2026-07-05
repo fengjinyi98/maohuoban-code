@@ -103,6 +103,97 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testAbnormalEpisodeEntryRestoresExistingSessionAndMessages() async {
+        let episodeID = "11111111-1111-1111-1111-111111111111"
+        let sessionID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let sessionJSON = """
+        [{
+            "id":"\(sessionID.uuidString)",
+            "title":"异常追踪",
+            "is_pinned":false,
+            "chat_context_kind":"abnormal_episode_followup",
+            "abnormal_episode_id":"\(episodeID)",
+            "source_hint_id":"33333333-3333-3333-3333-333333333333",
+            "agent_followup_id":"44444444-4444-4444-4444-444444444444",
+            "subtitle":"今天",
+            "pet_display_snapshot":null,
+            "last_message_preview":"现在情况好转了吗？",
+            "last_message_at":"2026-07-04T09:30:00Z"
+        }]
+        """
+        let messageJSON = """
+        [{"id":"55555555-5555-5555-5555-555555555555","role":"assistant","content":"现在情况好转了吗？","content_blocks":[],"created_at":"2026-07-04T09:30:00Z"}]
+        """
+        let sessions = try! JSONDecoder().decode([AIChatSessionDTO].self, from: sessionJSON.data(using: .utf8)!)
+        let messages = try! JSONDecoder().decode([AIMessageDTO].self, from: messageJSON.data(using: .utf8)!)
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(
+                selectedPetName: "雪球",
+                abnormalEpisodeID: episodeID,
+                sourceHintID: "66666666-6666-6666-6666-666666666666",
+                agentFollowupID: "77777777-7777-7777-7777-777777777777"
+            ),
+            repository: MockAIAssistantRepository(sessions: sessions, messages: messages)
+        )
+
+        await store.restoreAbnormalEpisodeConversationIfNeeded()
+
+        XCTAssertEqual(store.currentChatSessionID, sessionID.uuidString)
+        XCTAssertEqual(store.selectedConversationHistoryID, sessionID.uuidString)
+        XCTAssertEqual(store.navigationTitle, "异常追踪")
+        XCTAssertEqual(store.messages.count, 1)
+        XCTAssertEqual(store.messages[0].role, .assistant)
+        XCTAssertEqual(store.messages[0].text, "现在情况好转了吗？")
+    }
+
+    @MainActor
+    func testAbnormalEpisodeRestoredSessionSendsLatestAgentContext() async {
+        let episodeID = "11111111-1111-1111-1111-111111111111"
+        let sessionID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let sessionJSON = """
+        [{
+            "id":"\(sessionID.uuidString)",
+            "title":"异常追踪",
+            "is_pinned":false,
+            "chat_context_kind":"abnormal_episode_followup",
+            "abnormal_episode_id":"\(episodeID)",
+            "source_hint_id":"33333333-3333-3333-3333-333333333333",
+            "agent_followup_id":"44444444-4444-4444-4444-444444444444",
+            "subtitle":"今天",
+            "pet_display_snapshot":null,
+            "last_message_preview":"现在情况好转了吗？",
+            "last_message_at":"2026-07-04T09:30:00Z"
+        }]
+        """
+        let sessions = try! JSONDecoder().decode([AIChatSessionDTO].self, from: sessionJSON.data(using: .utf8)!)
+        let repository = RecordingAIAssistantRepository(
+            streamEvents: [
+                .messageStarted(chatSessionID: sessionID, messageID: UUID(), title: "异常追踪"),
+                .messageCompleted(messageID: UUID(), finalText: "已记录", referenceChips: [], references: []),
+            ],
+            sessions: sessions
+        )
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(
+                selectedPetName: "雪球",
+                abnormalEpisodeID: episodeID,
+                sourceHintID: "66666666-6666-6666-6666-666666666666",
+                agentFollowupID: "77777777-7777-7777-7777-777777777777"
+            ),
+            repository: repository
+        )
+
+        await store.restoreAbnormalEpisodeConversationIfNeeded()
+        store.send("便便还是有点稀")
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(repository.streamChatSessionIDs.last, sessionID.uuidString)
+        XCTAssertEqual(repository.streamEntryContexts.last?.abnormalEpisodeID, episodeID)
+        XCTAssertEqual(repository.streamEntryContexts.last?.sourceHintID, "33333333-3333-3333-3333-333333333333")
+        XCTAssertEqual(repository.streamEntryContexts.last?.agentFollowupID, "44444444-4444-4444-4444-444444444444")
+    }
+
+    @MainActor
     func testNewConversationShowsDefaultTitleAndSuggestedPrompts() {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(selectedPetName: "雪球"),
@@ -296,5 +387,76 @@ final class AIAssistantStoreTests: XCTestCase {
         store.handleStreamEvent(.messageStarted(chatSessionID: sessionID, messageID: UUID(), title: "第二条问题不应覆盖"))
 
         XCTAssertEqual(store.navigationTitle, "第一条问题作为标题")
+    }
+}
+
+// RecordingAIAssistantRepository AI 请求记录测试仓库
+// 核心职责：
+// - 捕获 Store 发起流式请求时携带的会话和入口上下文
+// - 验证异常追踪入口恢复后继续使用最新 Agent 上下文
+private final class RecordingAIAssistantRepository: AIAssistantRepository {
+    var streamEvents: [AIStreamEventDTO]
+    var sessions: [AIChatSessionDTO]
+    var messages: [AIMessageDTO]
+    var streamChatSessionIDs: [String?] = []
+    var streamEntryContexts: [AIAssistantEntryContext] = []
+
+    init(
+        streamEvents: [AIStreamEventDTO] = [],
+        sessions: [AIChatSessionDTO] = [],
+        messages: [AIMessageDTO] = []
+    ) {
+        self.streamEvents = streamEvents
+        self.sessions = sessions
+        self.messages = messages
+    }
+
+    func openChatStream(
+        message: String,
+        selectedPetID: String?,
+        surface: String,
+        chatSessionID: String?,
+        entryContext: AIAssistantEntryContext
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        streamChatSessionIDs.append(chatSessionID)
+        streamEntryContexts.append(entryContext)
+        return AsyncThrowingStream { continuation in
+            for event in streamEvents {
+                continuation.yield(event)
+            }
+            continuation.finish()
+        }
+    }
+
+    func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
+        MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: sessions)
+    }
+
+    func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
+        MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: messages)
+    }
+
+    func renameChatSession(
+        sessionID: String,
+        title: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持重命名", statusCode: 400)
+    }
+
+    func setChatSessionPinned(
+        sessionID: String,
+        isPinned: Bool
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持置顶", statusCode: 400)
+    }
+
+    func deleteChatSession(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionMutationResultDTO> {
+        throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持删除", statusCode: 400)
+    }
+
+    func confirmProposedAction(
+        _ action: AIAssistantProposedAction
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
+        throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持确认", statusCode: 400)
     }
 }

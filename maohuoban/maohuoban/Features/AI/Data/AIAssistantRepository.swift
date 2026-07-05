@@ -267,7 +267,7 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         chatSessionID: String?,
         entryContext: AIAssistantEntryContext
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
-        AsyncThrowingStream { continuation in
+        return AsyncThrowingStream { continuation in
             for event in streamEvents {
                 continuation.yield(event)
             }

@@ -298,6 +298,9 @@ struct AIAssistantScreen: View {
         .onChange(of: isHistoryScreenPresented) { _, _ in
             isComposerInputFocused = false
         }
+        .task {
+            await store.restoreAbnormalEpisodeConversationIfNeeded()
+        }
     }
 
     private func presentCameraFailure(_ message: String) {
@@ -351,7 +354,6 @@ struct AIAssistantScreen: View {
 
     private func updateScrollMetrics(_ metrics: AIAssistantScrollMetrics) {
         let previousContentHeight = timelineContentHeight
-        let previousViewportHeight = timelineViewportHeight
         let previousIsScrolledToBottom = isScrolledToBottom
         let previousHasUserScrolled = hasUserScrolledTimeline
         timelineContentHeight = metrics.contentHeight

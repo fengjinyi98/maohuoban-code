@@ -29,9 +29,14 @@ struct AIAssistantMessageTimeline: View {
             }
 
             ForEach(messages) { message in
+                let presentation = AIAssistantMessageTimelinePresentation(
+                    messages: messages,
+                    hasAbnormalEpisodeContext: abnormalEpisodeContextCard != nil
+                )
                 AIAssistantMessageBubble(
                     message: message,
                     showsEmptyStreamingIndicator: activeAgentActivityText == nil,
+                    showsProactiveFollowupBadge: presentation.shouldShowProactiveFollowupBadge(for: message),
                     onOpenReference: onOpenReference
                 )
             }

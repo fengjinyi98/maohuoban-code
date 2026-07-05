@@ -101,6 +101,47 @@ async fn ai_chat_sessions_returns_user_sessions() {
     );
 }
 
+/// GET /api/v1/ai/chat-sessions 返回异常追踪会话上下文
+#[tokio::test]
+async fn ai_chat_sessions_returns_abnormal_episode_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139120", "ios-ai-history-context").await;
+    let actor_user_id = current_user_id(app.pool(), "13800139120").await;
+    let session_id = uuid::Uuid::new_v4();
+    let episode_id = uuid::Uuid::new_v4();
+    let source_hint_id = uuid::Uuid::new_v4();
+    let agent_followup_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, source_hint_id, chat_context_kind,
+             abnormal_episode_id, agent_followup_id, title, status, created_at, updated_at)
+        VALUES
+            ($1, $2, 'home_private', $3, 'abnormal_episode_followup',
+             $4, $5, '异常追踪', 'active', now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(actor_user_id)
+    .bind(source_hint_id)
+    .bind(episode_id)
+    .bind(agent_followup_id)
+    .execute(app.pool())
+    .await
+    .expect("insert abnormal episode session");
+
+    let body = list_chat_sessions(&app, &access_token).await;
+    let first = &body["data"][0];
+
+    assert_eq!(first["id"], session_id.to_string());
+    assert_eq!(first["chat_context_kind"], "abnormal_episode_followup");
+    assert_eq!(first["abnormal_episode_id"], episode_id.to_string());
+    assert_eq!(first["source_hint_id"], source_hint_id.to_string());
+    assert_eq!(first["agent_followup_id"], agent_followup_id.to_string());
+}
+
 /// 历史列表和消息详情写入后端诊断计数
 #[tokio::test]
 async fn ai_chat_history_records_backend_diagnostics_counts() {

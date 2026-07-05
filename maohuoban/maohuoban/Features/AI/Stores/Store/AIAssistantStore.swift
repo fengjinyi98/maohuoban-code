@@ -12,6 +12,7 @@ import UIKit
 final class AIAssistantStore {
     let context: AIAssistantEntryContext
     let repository: AIAssistantRepository
+    var effectiveEntryContext: AIAssistantEntryContext
     var draftText = ""
     var messages: [AIAssistantMessage]
     var pendingAction: AIAssistantProposedAction?
@@ -42,6 +43,7 @@ final class AIAssistantStore {
     ) {
         self.context = context
         self.repository = repository
+        self.effectiveEntryContext = context
         self.messages = []
         configureStreamingEngine()
     }
