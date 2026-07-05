@@ -60,7 +60,10 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         // 2. 写入 attention_hints — route_payload 使用 jsonb 绑定
-        let route_payload: serde_json::Value = serde_json::json!({"episode_id": episode_id});
+        let route_payload: serde_json::Value = serde_json::json!({
+            "episode_id": episode_id,
+            "event_id": event_id
+        });
 
         sqlx::query(
             r#"
@@ -191,7 +194,10 @@ impl PostgresPetRepository {
         .map_err(to_infrastructure_error)?;
 
         // 3. attention_hints
-        let route_payload = serde_json::json!({"episode_id": episode_id});
+        let route_payload = serde_json::json!({
+            "episode_id": episode_id,
+            "event_id": event_id
+        });
         sqlx::query(
             r#"
             INSERT INTO attention_hints (

@@ -172,6 +172,75 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(dashboard.recentTimeline[1].occurredText, "2024-06-16")
     }
 
+    func testAttentionHintDecodesAbnormalDetailEventIDPayload() throws {
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "code": "ok",
+              "message": "首页已加载",
+              "data": {
+                "identity": {
+                  "kind": "pet_owner",
+                  "display_name": "毛伙伴用户",
+                  "city": null,
+                  "verification_badge": null
+                },
+                "selected_pet": null,
+                "pet_switcher": [],
+                "reminders": [],
+                "quick_actions": [],
+                "partner_recommendation": null,
+                "recent_timeline": [],
+                "attention_hints": [
+                  {
+                    "id": "hint-1",
+                    "pet_id": "pet-1",
+                    "kind": "open_abnormal_episode",
+                    "title": "异常追踪",
+                    "subtitle": "点击查看异常详情",
+                    "icon": "exclamationmark.circle",
+                    "tone": "notice",
+                    "priority": 10,
+                    "status": "active",
+                    "source_ref_type": "abnormal_episode",
+                    "source_ref_id": "episode-1",
+                    "route": {
+                      "kind": "abnormal_detail",
+                      "payload": {
+                        "episode_id": "episode-1",
+                        "event_id": "event-1"
+                      }
+                    },
+                    "display_from": null,
+                    "display_until": null,
+                    "created_by": "system",
+                    "created_at": "2026-07-05T11:53:21Z",
+                    "updated_at": "2026-07-05T11:53:21Z",
+                    "resolved_at": null
+                  }
+                ],
+                "merchant_dashboard": null,
+                "empty_state": null,
+                "recommended_content": []
+              }
+            }
+            """#.utf8
+        )
+
+        let response = try JSONDecoder().decode(
+            MHBAPIResponse<HomeDashboardSnapshot>.self,
+            from: data
+        )
+
+        let dashboard = try XCTUnwrap(response.data)
+        let hint = try XCTUnwrap(dashboard.attentionHints.first)
+        XCTAssertEqual(hint.kind, .openAbnormalEpisode)
+        XCTAssertEqual(hint.route.kind, .abnormalDetail)
+        XCTAssertEqual(hint.route.payload?.episodeID, "episode-1")
+        XCTAssertEqual(hint.route.payload?.eventID, "event-1")
+    }
+
     @MainActor
     func testEditProfileMappingKeepsRemoteHeroImageURL() throws {
         let pet = HomeDashboardSnapshot.PetHeroSummary(

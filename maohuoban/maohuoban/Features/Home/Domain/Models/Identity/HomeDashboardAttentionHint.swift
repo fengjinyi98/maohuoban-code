@@ -103,15 +103,17 @@ extension HomeDashboardSnapshot.AttentionHint {
 
 // RoutePayload 轻提示路由参数
 // 核心职责：
-// - 承载 route_payload 中的 episode_id、record_id、task_id 等路由参数
+// - 承载 route_payload 中的 event_id、episode_id、record_id、task_id 等路由参数
 // - 使用宽松解码，未知的 key 自动忽略
 struct AttentionHintRoutePayload: Decodable, Equatable {
+    let eventID: String?
     let episodeID: String?
     let recordID: String?
     let taskID: String?
     let sourceHintID: String?
 
     enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
         case episodeID = "episode_id"
         case recordID = "record_id"
         case taskID = "task_id"
@@ -120,6 +122,7 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        eventID = try container.decodeIfPresent(String.self, forKey: .eventID)
         episodeID = try container.decodeIfPresent(String.self, forKey: .episodeID)
         recordID = try container.decodeIfPresent(String.self, forKey: .recordID)
         taskID = try container.decodeIfPresent(String.self, forKey: .taskID)

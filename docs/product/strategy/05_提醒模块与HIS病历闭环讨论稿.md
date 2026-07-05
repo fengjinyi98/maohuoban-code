@@ -393,7 +393,7 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 节点 | 当前状态 | 需要补齐 | 验证结论 |
 |---|---|---|---|
 | 1. 正常事实记录 | 便便正常、精神不错、食欲正常、喂食等记录已具备闭环 | 持续补充更多正常事实类型，例如体重、饮水、睡眠等 | 已验证能力具备 |
-| 2. 创建异常记录 | 异常记录已有前端和部分后端链路 | 确认异常事件结构、照片附件、时间线和详情读取稳定 | 待验证 |
+| 2. 创建异常记录 | 异常事件结构、照片附件、时间线和详情读取已具备闭环 | 后续扩展更完整的异常详情页和 episode 状态展示 | 已验证能力具备 |
 | 3. abnormal_episode | 已有异常追踪目标文档和后端模型方向 | 补齐 episode 创建、状态、详情读取和事件关联 | 待验证 |
 | 4. 延迟追踪计划 | 目前仍偏产品讨论 | 需要 follow-up plan / attention hint / reminder trigger 的最小规则 | 未开始 |
 | 5. 异常更新入口 | 当前需要明确入口形态 | 补齐结构化异常更新 Sheet，必要时接 Agent 聊天入口 | 未开始 |
@@ -422,6 +422,21 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 引用与审计 | 已具备 | SSE citation 包含 `PetEvent` 引用；`answer_completed` 的 `verification_status=passed`，`citation_count=9` |
 
 本节点当前覆盖范围是：便便正常、精神不错、食欲正常、喂食记录。后续扩展体重、饮水、睡眠、用药反馈等正常事实时，应沿用同一模式：`pet_events` 事实账本入库 -> domain/application 读模型 -> provider 事实包 -> Runtime Tool schema -> 合同测试和诊断验证。
+
+### 5.2.2 节点 2：创建异常记录验证记录
+
+当前节点已具备“用户创建异常记录后，异常事件进入事实账本、首页轻提示可打开对应异常详情、照片附件可随事件进入时间线”的能力。
+
+| 能力 | 当前结论 | 证据 |
+|---|---|---|
+| 异常事件落库 | 已具备 | 主开发库 `pet_events` 已存在 `health/abnormal_symptom` 记录：`0d1ea9c8-24b8-4e68-8fe2-8fb31a5418f4`，payload 含 `episode_id`、`symptom_kinds`、`severity`、`attachment_asset_ids` |
+| episode 关联 | 已具备 | 主开发库 `abnormal_episodes` 已生成 `fcdd1ada-ac6e-461a-af37-fa4a7e2d640d`，`created_event_id` 指向对应异常事件 |
+| 首页轻提示 | 已具备 | 主开发库 `attention_hints` 已生成 active `open_abnormal_episode`；本轮修复后 `route_payload` 同时携带 `episode_id` 和可读取的 `event_id` |
+| 详情读取 | 已具备 | 诊断包显示创建后直接读取 `/api/v1/pet-events/0d1ea9c8-24b8-4e68-8fe2-8fb31a5418f4` 返回 200；原点击轻提示 404 的根因是把 `episode_id` 当作 `pet_event_id` 请求，已通过合同测试和客户端路由修复 |
+| 照片附件 | 能力具备 | 合同测试 `abnormal_event_attachment_upload_enters_pet_timeline` 验证异常事件附件绑定后进入时间线和详情；本轮主库真实记录未上传照片，因此 `attachment_asset_ids=[]` |
+| iOS 路由 | 已具备 | `AttentionHintRoutePayload` 解码 `event_id`，首页异常轻提示优先用 `event_id` 打开 `PetRecordDetailRoute.abnormal` |
+
+本节点当前覆盖范围是：异常记录创建、异常事件结构、episode 关联、首页轻提示、时间线/详情读取、照片附件字段闭环。异常 episode 的完整状态页、后续更新节奏、恢复/加重分支仍由后续节点继续收敛。
 
 ### 5.3 第一轮验证场景
 

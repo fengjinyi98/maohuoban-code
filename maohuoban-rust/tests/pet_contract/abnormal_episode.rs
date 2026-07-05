@@ -59,7 +59,10 @@ async fn create_abnormal_episode_writes_episode_and_event() {
         .expect("create abnormal event");
     assert_eq!(create_response.status(), StatusCode::CREATED);
 
-    // 验证首页出现 attention_hint
+    let create_body = response_json(create_response).await;
+    let event_id = create_body["data"]["id"].as_str().expect("event id");
+
+    // 验证首页出现 attention_hint，且跳转目标可直接读取事件详情
     let dashboard_response = app
         .router()
         .oneshot(empty_request(
@@ -77,6 +80,29 @@ async fn create_abnormal_episode_writes_episode_and_event() {
     assert_eq!(
         hints[0]["kind"], "open_abnormal_episode",
         "first hint should be open_abnormal_episode"
+    );
+    assert_eq!(
+        hints[0]["route"]["kind"], "abnormal_detail",
+        "abnormal hint should route to abnormal detail"
+    );
+    assert_eq!(
+        hints[0]["route"]["payload"]["event_id"], event_id,
+        "abnormal hint route payload must carry the readable pet event id"
+    );
+
+    let detail_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load abnormal event detail from hint route");
+    assert_eq!(
+        detail_response.status(),
+        StatusCode::OK,
+        "abnormal hint event_id should resolve to pet event detail"
     );
 }
 
