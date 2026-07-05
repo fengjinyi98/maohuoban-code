@@ -2,13 +2,11 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::NaiveDate;
 
-use uuid::Uuid;
-
-use crate::pet::{FoodInventoryCategory, FoodInventoryStatus};
+use crate::pet::FoodInventoryCategory;
 
 use super::{
-    DietTrendAnalysis, DietTrendCalibration, DietTrendConfidence, DietTrendExplanation,
-    DietTrendFeedingSample, DietTrendHealthContext, DietTrendSegment, DietTrendSummary,
+    DietTrendCalibration, DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample,
+    DietTrendHealthContext, DietTrendSegment, DietTrendSummary,
 };
 
 const LOW_CONFIDENCE_THRESHOLD: f64 = 0.35;
@@ -72,14 +70,6 @@ pub fn build_diet_trend_summary(
         "observing"
     }
     .to_owned();
-    let calibration = build_calibration(&included_samples);
-    let analysis = build_analysis(
-        window_days,
-        total_score,
-        &segments,
-        &health_context,
-        &calibration,
-    );
 
     DietTrendSummary {
         window_days,
@@ -87,119 +77,17 @@ pub fn build_diet_trend_summary(
         segments,
         confidence,
         health_context,
-        calibration,
-        analysis,
+        calibration: DietTrendCalibration {
+            confidence: "low".to_owned(),
+            grams_per_score: None,
+            daily_grams: None,
+            reason: "还没有形成可验证的库存消耗闭环，当前只输出相对趋势。".to_owned(),
+        },
         explanation: DietTrendExplanation {
             title: "饮食趋势是怎么生成的".to_owned(),
             body: "我们会结合喂食记录、储物柜食品分类和库存引用生成饮食趋势。记录越连续、食品引用越完整，趋势参考价值越高。当前结果用于日常观察，不等同于精准称重或诊断结论。".to_owned(),
         },
     }
-}
-
-fn build_calibration(samples: &[&DietTrendFeedingSample]) -> DietTrendCalibration {
-    let Some(cycle) = completed_cycle_calibration(samples) else {
-        return DietTrendCalibration {
-            confidence: "low".to_owned(),
-            grams_per_score: None,
-            daily_grams: None,
-            reason: "还没有形成可验证的库存消耗闭环，当前只输出相对趋势。".to_owned(),
-        };
-    };
-
-    DietTrendCalibration {
-        confidence: if cycle.cycle_count >= 2 {
-            "high".to_owned()
-        } else {
-            "medium".to_owned()
-        },
-        grams_per_score: Some(cycle.grams_per_score),
-        daily_grams: Some(cycle.daily_grams),
-        reason: format!(
-            "已根据 {} 个完整库存消耗周期估算：{}g / {:.2} score。",
-            cycle.cycle_count, cycle.total_grams, cycle.total_score
-        ),
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct CompletedCycleCalibration {
-    cycle_count: usize,
-    total_grams: i32,
-    total_score: f64,
-    grams_per_score: f64,
-    daily_grams: f64,
-}
-
-fn completed_cycle_calibration(
-    samples: &[&DietTrendFeedingSample],
-) -> Option<CompletedCycleCalibration> {
-    let mut cycles: HashMap<Uuid, CompletedCycleAccumulator> = HashMap::new();
-    for sample in samples {
-        if !is_baseline_health_context(&sample.health_context) {
-            continue;
-        }
-        if sample.inventory_status != Some(FoodInventoryStatus::Depleted) {
-            continue;
-        }
-        let food_item_id = sample.food_item_id?;
-        let package_weight_grams = sample.package_weight_grams?;
-        if package_weight_grams <= 0 {
-            continue;
-        }
-        let cycle = cycles
-            .entry(food_item_id)
-            .or_insert(CompletedCycleAccumulator {
-                package_weight_grams,
-                total_score: 0.0,
-                active_days: BTreeSet::new(),
-            });
-        if cycle.package_weight_grams != package_weight_grams {
-            continue;
-        }
-        cycle.total_score += amount_score(&sample.amount_text);
-        cycle.active_days.insert(sample.occurred_at.date_naive());
-    }
-
-    let completed_cycles = cycles
-        .values()
-        .filter(|cycle| cycle.total_score > 0.0 && !cycle.active_days.is_empty())
-        .collect::<Vec<_>>();
-    if completed_cycles.is_empty() {
-        return None;
-    }
-
-    let total_grams = completed_cycles
-        .iter()
-        .map(|cycle| cycle.package_weight_grams)
-        .sum::<i32>();
-    let total_score = completed_cycles
-        .iter()
-        .map(|cycle| cycle.total_score)
-        .sum::<f64>();
-    let active_day_count = completed_cycles
-        .iter()
-        .map(|cycle| cycle.active_days.len())
-        .sum::<usize>();
-    if total_grams <= 0 || total_score <= 0.0 || active_day_count == 0 {
-        return None;
-    }
-
-    let grams_per_score = f64::from(total_grams) / total_score;
-    let daily_average_score = total_score / count_to_f64(active_day_count);
-    Some(CompletedCycleCalibration {
-        cycle_count: completed_cycles.len(),
-        total_grams,
-        total_score: round_two(total_score),
-        grams_per_score: round_two(grams_per_score),
-        daily_grams: round_two(daily_average_score * grams_per_score),
-    })
-}
-
-#[derive(Debug, Clone)]
-struct CompletedCycleAccumulator {
-    package_weight_grams: i32,
-    total_score: f64,
-    active_days: BTreeSet<NaiveDate>,
 }
 
 fn build_segments(
@@ -235,83 +123,6 @@ fn build_segments(
             }
         })
         .collect()
-}
-
-fn build_analysis(
-    window_days: i64,
-    total_score: f64,
-    segments: &[DietTrendSegment],
-    health_context: &DietTrendHealthContext,
-    calibration: &DietTrendCalibration,
-) -> DietTrendAnalysis {
-    if total_score == 0.0 {
-        return DietTrendAnalysis {
-            headline: format!("近 {window_days} 天还没有可分析饮食记录"),
-            summary: "继续记录喂食后，会开始形成饮食结构和个体习惯参考。".to_owned(),
-            observations: vec!["当前样本不足，只展示记录，不做趋势判断。".to_owned()],
-        };
-    }
-
-    let active_segments = segments
-        .iter()
-        .filter(|segment| segment.percentage > 0)
-        .collect::<Vec<_>>();
-    let leading = active_segments
-        .first()
-        .map_or("饮食记录".to_owned(), |segment| {
-            format!("{}占比最高", segment.title)
-        });
-    let structure = active_segments
-        .iter()
-        .take(4)
-        .map(|segment| format!("{} {}%", segment.title, segment.percentage))
-        .collect::<Vec<_>>()
-        .join("，");
-    let baseline_titles = segments
-        .iter()
-        .filter(|segment| segment.baseline_score.is_some())
-        .map(|segment| segment.title.clone())
-        .collect::<Vec<_>>();
-
-    let headline = if baseline_titles.is_empty() {
-        format!("近 {window_days} 天正在积累饮食样本")
-    } else {
-        format!("近 {window_days} 天已形成饮食结构参考")
-    };
-    let summary = if structure.is_empty() {
-        format!("{leading}，当前已开始形成饮食结构。")
-    } else {
-        format!("{leading}，当前结构为{structure}。")
-    };
-
-    let mut observations = Vec::new();
-    if baseline_titles.is_empty() {
-        observations.push("健康记录还在积累中，暂时只做结构观察。".to_owned());
-    } else {
-        observations.push(format!(
-            "{}已形成个体习惯参考，后续会持续观察是否偏离自身习惯。",
-            baseline_titles.join("、")
-        ));
-    }
-    if health_context.excluded_sample_count == 0 {
-        observations.push("当前没有异常或就医期喂食样本参与对照。".to_owned());
-    } else {
-        observations.push(format!(
-            "{} 条异常或就医期样本已单独保留，没有进入健康基线。",
-            health_context.excluded_sample_count
-        ));
-    }
-    if calibration.daily_grams.is_some() {
-        observations.push("已形成完整库存消耗闭环，可输出日均克数估算。".to_owned());
-    } else {
-        observations.push("还没有形成完整库存消耗闭环，暂不输出克数估算。".to_owned());
-    }
-
-    DietTrendAnalysis {
-        headline,
-        summary,
-        observations,
-    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -570,9 +381,6 @@ fn rounded_percentage(score: f64, total_score: f64) -> i64 {
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
-    use uuid::Uuid;
-
-    use crate::pet::FoodInventoryStatus;
 
     use super::*;
 
@@ -646,51 +454,6 @@ mod tests {
     }
 
     #[test]
-    fn diet_trend_summary_exposes_user_readable_analysis() {
-        let mut samples = Vec::new();
-        for day in 1..=14 {
-            samples.push(dated_sample(
-                FoodInventoryCategory::MainFood,
-                "正常",
-                true,
-                2026,
-                7,
-                day,
-                "healthy",
-            ));
-            samples.push(dated_sample(
-                FoodInventoryCategory::WetFood,
-                "正常",
-                true,
-                2026,
-                7,
-                day,
-                "healthy",
-            ));
-        }
-
-        let summary = build_diet_trend_summary(&samples, 30);
-
-        assert_eq!(summary.analysis.headline, "近 30 天已形成饮食结构参考");
-        assert!(summary.analysis.summary.contains("主粮"));
-        assert!(summary.analysis.summary.contains("湿粮/罐头"));
-        assert!(
-            summary
-                .analysis
-                .observations
-                .iter()
-                .any(|item| item.contains("已形成个体习惯参考"))
-        );
-        assert!(
-            summary
-                .analysis
-                .observations
-                .iter()
-                .any(|item| item.contains("暂不输出克数估算"))
-        );
-    }
-
-    #[test]
     fn diet_trend_summary_excludes_abnormal_and_medical_samples_from_baseline() {
         let mut samples = (1..=13)
             .map(|day| {
@@ -748,84 +511,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn diet_trend_summary_calibrates_grams_from_completed_inventory_cycle() {
-        let food_item_id = Uuid::new_v4();
-        let samples = (1..=30)
-            .flat_map(|day| {
-                [
-                    completed_cycle_sample(food_item_id, day, "正常"),
-                    completed_cycle_sample(food_item_id, day, "正常"),
-                ]
-            })
-            .collect::<Vec<_>>();
-
-        let summary = build_diet_trend_summary(&samples, 60);
-
-        assert_eq!(summary.calibration.confidence, "medium");
-        assert_eq!(summary.calibration.grams_per_score, Some(25.0));
-        assert_eq!(summary.calibration.daily_grams, Some(50.0));
-        assert!(summary.calibration.reason.contains("完整库存消耗周期"));
-        assert!(
-            summary
-                .analysis
-                .observations
-                .iter()
-                .any(|item| item.contains("已形成完整库存消耗闭环"))
-        );
-        assert!(
-            summary
-                .analysis
-                .observations
-                .iter()
-                .all(|item| !item.contains("暂不输出克数估算"))
-        );
-    }
-
-    #[test]
-    fn diet_trend_summary_cross_validates_multiple_completed_cycles() {
-        let first_food_item_id = Uuid::new_v4();
-        let second_food_item_id = Uuid::new_v4();
-        let mut samples = Vec::new();
-        for day in 1..=30 {
-            samples.push(dated_completed_cycle_sample(
-                first_food_item_id,
-                2026,
-                5,
-                day,
-                "正常",
-            ));
-            samples.push(dated_completed_cycle_sample(
-                first_food_item_id,
-                2026,
-                5,
-                day,
-                "正常",
-            ));
-            samples.push(dated_completed_cycle_sample(
-                second_food_item_id,
-                2026,
-                6,
-                day,
-                "少一点",
-            ));
-            samples.push(dated_completed_cycle_sample(
-                second_food_item_id,
-                2026,
-                6,
-                day,
-                "少一点",
-            ));
-        }
-
-        let summary = build_diet_trend_summary(&samples, 60);
-
-        assert_eq!(summary.calibration.confidence, "high");
-        assert_eq!(summary.calibration.grams_per_score, Some(28.57));
-        assert_eq!(summary.calibration.daily_grams, Some(50.0));
-        assert!(summary.calibration.reason.contains("2 个完整库存消耗周期"));
-    }
-
     fn sample(
         category: FoodInventoryCategory,
         amount_text: &str,
@@ -835,9 +520,6 @@ mod tests {
             category,
             amount_text: amount_text.to_owned(),
             occurred_at: Utc.with_ymd_and_hms(2026, 7, 4, 8, 0, 0).unwrap(),
-            food_item_id: has_food_item.then(Uuid::new_v4),
-            package_weight_grams: None,
-            inventory_status: None,
             has_food_item,
             has_inventory_snapshot: has_food_item,
             health_context: "healthy".to_owned(),
@@ -857,40 +539,9 @@ mod tests {
             category,
             amount_text: amount_text.to_owned(),
             occurred_at: Utc.with_ymd_and_hms(year, month, day, 8, 0, 0).unwrap(),
-            food_item_id: has_food_item.then(Uuid::new_v4),
-            package_weight_grams: None,
-            inventory_status: None,
             has_food_item,
             has_inventory_snapshot: has_food_item,
             health_context: health_context.to_owned(),
-        }
-    }
-
-    fn completed_cycle_sample(
-        food_item_id: Uuid,
-        day: u32,
-        amount_text: &str,
-    ) -> DietTrendFeedingSample {
-        dated_completed_cycle_sample(food_item_id, 2026, 6, day, amount_text)
-    }
-
-    fn dated_completed_cycle_sample(
-        food_item_id: Uuid,
-        year: i32,
-        month: u32,
-        day: u32,
-        amount_text: &str,
-    ) -> DietTrendFeedingSample {
-        DietTrendFeedingSample {
-            category: FoodInventoryCategory::MainFood,
-            amount_text: amount_text.to_owned(),
-            occurred_at: Utc.with_ymd_and_hms(year, month, day, 8, 0, 0).unwrap(),
-            food_item_id: Some(food_item_id),
-            package_weight_grams: Some(1500),
-            inventory_status: Some(FoodInventoryStatus::Depleted),
-            has_food_item: true,
-            has_inventory_snapshot: true,
-            health_context: "healthy".to_owned(),
         }
     }
 }

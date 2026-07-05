@@ -224,36 +224,6 @@ pub struct FoodInventoryItemDetail {
     pub consumption_summary: FoodInventoryConsumptionSummary,
 }
 
-/// FoodInventoryConsumptionCycle 食品资产消耗周期
-/// 核心职责：
-/// - 表达用户确认一个包装单位已消耗完成的事实
-/// - 为饮食趋势克重校准提供显式周期锚点
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryConsumptionCycle {
-    pub id: Uuid,
-    pub food_item_id: Uuid,
-    pub scope_type: FoodScopeType,
-    pub scope_id: Uuid,
-    pub confirmed_by_user_id: Uuid,
-    pub sequence_no: i32,
-    pub consumed_quantity: i32,
-    pub package_weight_grams: Option<i32>,
-    pub package_unit: Option<String>,
-    pub confirmed_at: DateTime<Utc>,
-    pub created_at: DateTime<Utc>,
-}
-
-/// FoodInventoryConsumeOneResult 食品资产消耗确认结果
-/// 核心职责：
-/// - 返回扣减后的库存资产
-/// - 返回本次确认形成的消耗周期和用户可读提示
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryConsumeOneResult {
-    pub item: FoodInventoryItem,
-    pub consumption_cycle: FoodInventoryConsumptionCycle,
-    pub message: String,
-}
-
 /// FoodInventoryLinkedPet 食品资产关联宠物
 /// 核心职责：
 /// - 表达某个食品资产与宠物的事实关联来源
@@ -293,7 +263,7 @@ pub struct FoodInventoryFeedingTimelineEntry {
 /// FoodInventoryConsumptionSummary 食品资产消耗统计
 /// 核心职责：
 /// - 汇总客观喂食次数、跨度和模糊份量分布
-/// - 表达单个食品维度的用户可读消耗分析
+/// - 不表达尚未完成的克重估算和健康预警结论
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FoodInventoryConsumptionSummary {
     pub feeding_count: i64,
@@ -301,11 +271,6 @@ pub struct FoodInventoryConsumptionSummary {
     pub last_fed_at: Option<DateTime<Utc>>,
     pub active_days: i64,
     pub amount_distribution: Vec<FoodInventoryAmountDistributionItem>,
-    pub headline: String,
-    pub usage_rhythm: String,
-    pub portion_stability: String,
-    pub calibration_state: String,
-    pub observations: Vec<String>,
 }
 
 /// FoodInventoryAmountDistributionItem 模糊份量分布项
@@ -395,18 +360,6 @@ pub trait FoodInventoryRepository: Send + Sync {
         owner_user_id: Uuid,
     ) -> PetResult<FoodInventoryItemDetail>;
 
-    async fn list_consumption_cycles(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-    ) -> PetResult<Vec<FoodInventoryConsumptionCycle>>;
-
-    async fn list_cycle_still_using_checks(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-    ) -> PetResult<Vec<(Uuid, DateTime<Utc>)>>;
-
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem>;
 
     async fn delete_item(
@@ -420,17 +373,5 @@ pub trait FoodInventoryRepository: Send + Sync {
         item_id: Uuid,
         editor_user_id: Uuid,
         quantity: i32,
-    ) -> PetResult<FoodInventoryItem>;
-
-    async fn consume_one_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryConsumeOneResult>;
-
-    async fn mark_cycle_still_using(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
     ) -> PetResult<FoodInventoryItem>;
 }

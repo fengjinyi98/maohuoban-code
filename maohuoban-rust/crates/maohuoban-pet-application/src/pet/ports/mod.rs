@@ -9,9 +9,8 @@ pub use album::{
 pub use diet::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietContextItem, DietRepository,
     FoodInventoryAmountDistributionItem, FoodInventoryChangeHint, FoodInventoryChangeHints,
-    FoodInventoryConsumeOneResult, FoodInventoryConsumptionCycle, FoodInventoryConsumptionSummary,
-    FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail, FoodInventoryLinkedPet,
-    FoodInventoryRepository, NewFoodInventoryItem, PetCurrentDietContext,
+    FoodInventoryConsumptionSummary, FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail,
+    FoodInventoryLinkedPet, FoodInventoryRepository, NewFoodInventoryItem, PetCurrentDietContext,
     PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetDietTrendSummary,
     RecentDietChangeFact, RecentFeedingFact, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
     UpdateFoodInventoryItem,

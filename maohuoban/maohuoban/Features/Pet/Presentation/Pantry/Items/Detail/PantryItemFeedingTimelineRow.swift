@@ -18,8 +18,7 @@ struct PantryItemFeedingTimelineRow: View {
                 Text(occurredTimeText)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 64, alignment: .trailing)
+                    .frame(width: 44, alignment: .trailing)
 
                 MHBTimelineDotLine(
                     isFirst: isFirst,
@@ -69,10 +68,35 @@ struct PantryItemFeedingTimelineRow: View {
     }
 
     private var occurredTimeText: String {
-        if let text = MHBUTCDateDisplayFormatter.localShortText(fromUTCString: entry.occurredAt) {
-            return text
+        if let date = MHBUTCDateDisplayFormatter.date(fromUTCString: entry.occurredAt) {
+            return date.pantryTimelineHourMinuteText
         }
 
-        return entry.occurredAt
+        return entry.occurredAt.pantryClockTimeText ?? entry.occurredAt
+    }
+}
+
+private extension String {
+    var pantryClockTimeText: String? {
+        guard let regex = try? NSRegularExpression(pattern: #"\b\d{1,2}:\d{2}\b"#) else {
+            return nil
+        }
+
+        let range = NSRange(startIndex..<endIndex, in: self)
+        guard let match = regex.firstMatch(in: self, range: range),
+              let swiftRange = Range(match.range, in: self) else {
+            return nil
+        }
+
+        return String(self[swiftRange])
+    }
+}
+
+private extension Date {
+    var pantryTimelineHourMinuteText: String {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: self)
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+        return String(format: "%02d:%02d", hour, minute)
     }
 }

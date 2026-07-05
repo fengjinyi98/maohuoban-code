@@ -14,13 +14,6 @@ where
     api_response(StatusCode::OK, true, code, message, Some(data))
 }
 
-pub(super) fn ok_response_with_message<T>(code: &'static str, message: &str, data: T) -> Response
-where
-    T: Serialize,
-{
-    api_response(StatusCode::OK, true, code, message, Some(data))
-}
-
 pub(super) fn created_response<T>(code: &'static str, message: &'static str, data: T) -> Response
 where
     T: Serialize,

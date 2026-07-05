@@ -33,13 +33,9 @@ struct PetDietTrendDetailScreen: View {
 
                 PetDietTrendDetailSegmentList(segments: presentation.segments)
 
-                PetDietTrendAnalysisSection(
-                    headline: presentation.headline,
-                    summaryText: presentation.summaryText,
-                    observations: presentation.observations
-                )
-
                 PetDietTrendDetailMetricGrid(presentation: presentation)
+
+                PetDietTrendDetailSegmentMetrics(segments: presentation.segments)
 
                 PetDietTrendDetailEvidenceSection(presentation: presentation)
             }

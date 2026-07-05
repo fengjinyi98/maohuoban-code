@@ -229,11 +229,10 @@ struct HomeRouteDestinationScreen: View {
                 },
                 onOpenRoute: onRouteRequested
             )
-        case .pantryItemDetail(let context, let itemID, let promptKind):
+        case .pantryItemDetail(let context, let itemID):
             PantryItemDetailScreen(
                 itemID: itemID,
                 context: context,
-                promptKind: promptKind,
                 currentUserID: currentUserID,
                 onNavigate: { route -> HomeRoute in
                     switch route {
@@ -250,10 +249,7 @@ struct HomeRouteDestinationScreen: View {
                 onOpenRecordDetail: { detailRoute in
                     onRouteRequested(.petRecordDetail(detailRoute))
                 },
-                onOpenRoute: onRouteRequested,
-                onInventoryMutationCompleted: {
-                    onHomeMutationCompleted(nil)
-                }
+                onOpenRoute: onRouteRequested
             )
         case .addPantryItem:
             AddPantryItemScreen(

@@ -67,101 +67,6 @@ async fn diet_trend_summary_returns_baseline_and_excludes_abnormal_days() {
 }
 
 #[tokio::test]
-async fn diet_trend_summary_returns_inventory_cycle_calibration() {
-    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
-    app.reset().await;
-    let user_id = login_user_id(&app, "13800139045").await;
-    let pet_id = create_pet(&app, &user_id).await;
-    let main_food_id =
-        create_food_inventory_item_with_spec(&app, &user_id, "完整周期主粮", "main_food", "1.5kg")
-            .await;
-
-    for day in 1..=30 {
-        for hour in [8, 20] {
-            create_feeding_event(
-                &app,
-                &user_id,
-                &pet_id,
-                &main_food_id,
-                "main_food",
-                "正常",
-                &format!("2026-06-{day:02}T{hour:02}:00:00Z"),
-            )
-            .await;
-        }
-    }
-    update_food_inventory_status(&app, &user_id, &main_food_id, "depleted").await;
-
-    let body = load_diet_trend_summary(&app, &user_id, &pet_id).await;
-
-    assert_eq!(body["data"]["calibration"]["confidence"], "medium");
-    assert_eq!(body["data"]["calibration"]["grams_per_score"], 25.0);
-    assert_eq!(body["data"]["calibration"]["daily_grams"], 50.0);
-    assert!(
-        body["data"]["calibration"]["reason"]
-            .as_str()
-            .expect("calibration reason")
-            .contains("完整库存消耗周期")
-    );
-}
-
-#[tokio::test]
-async fn diet_trend_summary_returns_cross_validated_inventory_cycle_calibration() {
-    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
-    app.reset().await;
-    let user_id = login_user_id(&app, "13800139046").await;
-    let pet_id = create_pet(&app, &user_id).await;
-    let first_food_id = create_food_inventory_item_with_spec(
-        &app,
-        &user_id,
-        "五月完整周期主粮",
-        "main_food",
-        "100g",
-    )
-    .await;
-    let second_food_id = create_food_inventory_item_with_spec(
-        &app,
-        &user_id,
-        "六月完整周期主粮",
-        "main_food",
-        "100g",
-    )
-    .await;
-
-    for (food_item_id, amount_text, occurred_at) in [
-        (&first_food_id, "正常", "2026-07-01T08:00:00Z"),
-        (&first_food_id, "正常", "2026-07-02T08:00:00Z"),
-        (&second_food_id, "少一点", "2026-07-03T08:00:00Z"),
-        (&second_food_id, "少一点", "2026-07-04T08:00:00Z"),
-    ] {
-        create_feeding_event(
-            &app,
-            &user_id,
-            &pet_id,
-            food_item_id,
-            "main_food",
-            amount_text,
-            occurred_at,
-        )
-        .await;
-    }
-    update_food_inventory_status(&app, &user_id, &first_food_id, "depleted").await;
-    update_food_inventory_status(&app, &user_id, &second_food_id, "depleted").await;
-
-    let body = load_diet_trend_summary(&app, &user_id, &pet_id).await;
-
-    assert_eq!(body["data"]["calibration"]["confidence"], "high");
-    assert_eq!(body["data"]["calibration"]["grams_per_score"], 57.14);
-    assert_eq!(body["data"]["calibration"]["daily_grams"], 50.0);
-    assert!(
-        body["data"]["calibration"]["reason"]
-            .as_str()
-            .expect("calibration reason")
-            .contains("2 个完整库存消耗周期")
-    );
-}
-
-#[tokio::test]
 async fn diet_trend_summary_rejects_cross_user_pet_access() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -184,7 +89,7 @@ async fn diet_trend_summary_rejects_cross_user_pet_access() {
 
 fn assert_diet_trend_summary_meta(body: &serde_json::Value) {
     assert_eq!(body["code"], "pet.diet_trend_summary_loaded");
-    assert_eq!(body["data"]["window_days"], 60);
+    assert_eq!(body["data"]["window_days"], 30);
     assert_eq!(body["data"]["status"], "collecting_baseline");
     assert_eq!(body["data"]["confidence"]["level"], "medium");
     assert!(
@@ -348,16 +253,6 @@ async fn create_food_inventory_item(
     name: &str,
     category: &str,
 ) -> String {
-    create_food_inventory_item_with_spec(app, user_id, name, category, "1kg").await
-}
-
-async fn create_food_inventory_item_with_spec(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    user_id: &str,
-    name: &str,
-    category: &str,
-    spec: &str,
-) -> String {
     let response = app
         .router()
         .oneshot(json_request(
@@ -369,7 +264,7 @@ async fn create_food_inventory_item_with_spec(
                 "category": category,
                 "quantity": 1,
                 "unit": "件",
-                "spec": spec,
+                "spec": "1kg",
                 "production_date": "2025-07-15",
                 "shelf_life_months": 18
             }),
@@ -383,27 +278,6 @@ async fn create_food_inventory_item_with_spec(
         .as_str()
         .expect("food item id")
         .to_owned()
-}
-
-async fn update_food_inventory_status(
-    app: &maohuoban_rust::test_support::AuthTestApp,
-    user_id: &str,
-    food_item_id: &str,
-    status: &str,
-) {
-    let response = app
-        .router()
-        .oneshot(json_request(
-            "PATCH",
-            &format!("/api/v1/food-inventory/items/{food_item_id}"),
-            json!({
-                "inventory_status": status
-            }),
-            Some(user_id),
-        ))
-        .await
-        .expect("update food inventory status");
-    assert_eq!(response.status(), StatusCode::OK);
 }
 
 async fn create_feeding_event(

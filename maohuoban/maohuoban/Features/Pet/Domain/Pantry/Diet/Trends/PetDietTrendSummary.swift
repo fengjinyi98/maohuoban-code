@@ -12,7 +12,6 @@ struct PetDietTrendSummary: Decodable, Equatable, Hashable {
     let healthContext: PetDietTrendHealthContext
     let calibration: PetDietTrendCalibration
     let explanation: PetDietTrendExplanation
-    let analysis: PetDietTrendAnalysis
 
     enum CodingKeys: String, CodingKey {
         case windowDays = "window_days"
@@ -22,6 +21,5 @@ struct PetDietTrendSummary: Decodable, Equatable, Hashable {
         case healthContext = "health_context"
         case calibration
         case explanation
-        case analysis
     }
 }

@@ -219,34 +219,4 @@ extension DefaultPetRepository {
         }
         return item
     }
-
-    func consumeOneFoodInventoryItem(
-        itemID: String,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryConsumeOneResult {
-        let response: MHBAPIResponse<FoodInventoryConsumeOneResult> = try await client.post(
-            path: "/api/v1/food-inventory/items/\(itemID)/consume-one",
-            body: FoodInventoryEmptyRequest(),
-            headers: try userHeaders(currentUserID: currentUserID)
-        )
-        guard let result = response.data else {
-            throw MHBAPIError.business(code: "pet.no_data", message: "确认消耗失败", statusCode: 500)
-        }
-        return result
-    }
-
-    func markFoodInventoryCycleStillUsing(
-        itemID: String,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryItem {
-        let response: MHBAPIResponse<FoodInventoryItem> = try await client.post(
-            path: "/api/v1/food-inventory/items/\(itemID)/cycle-checks/still-using",
-            body: FoodInventoryEmptyRequest(),
-            headers: try userHeaders(currentUserID: currentUserID)
-        )
-        guard let item = response.data else {
-            throw MHBAPIError.business(code: "pet.no_data", message: "确认还在吃失败", statusCode: 500)
-        }
-        return item
-    }
 }

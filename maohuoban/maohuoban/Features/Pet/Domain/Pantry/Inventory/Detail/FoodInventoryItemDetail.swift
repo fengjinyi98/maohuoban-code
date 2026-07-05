@@ -10,18 +10,6 @@ struct FoodInventoryItemDetail: Decodable, Equatable {
     let feedingTimeline: [FoodInventoryFeedingTimelineEntry]
     let consumptionSummary: FoodInventoryConsumptionSummary
 
-    init(
-        item: FoodInventoryItem,
-        linkedPets: [FoodInventoryLinkedPet],
-        feedingTimeline: [FoodInventoryFeedingTimelineEntry],
-        consumptionSummary: FoodInventoryConsumptionSummary
-    ) {
-        self.item = item
-        self.linkedPets = linkedPets
-        self.feedingTimeline = feedingTimeline
-        self.consumptionSummary = consumptionSummary
-    }
-
     enum CodingKeys: String, CodingKey {
         case item
         case linkedPets = "linked_pets"

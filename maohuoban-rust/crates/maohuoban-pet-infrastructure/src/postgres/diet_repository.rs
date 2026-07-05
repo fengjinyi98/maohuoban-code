@@ -8,7 +8,7 @@ use maohuoban_pet_application::pet::{
 };
 use maohuoban_pet_domain::pet::{
     DietAssignmentRole, DietTrendFeedingSample, FoodInventoryCategory, FoodInventoryItem,
-    FoodInventoryStatus, FoodScopeType, FoodSnapshot, PetDietAssignment, PetError, PetResult,
+    FoodScopeType, FoodSnapshot, PetDietAssignment, PetError, PetResult,
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -399,9 +399,6 @@ impl DietRepository for PostgresDietRepository {
             SELECT
                 feeding.occurred_at,
                 feeding.event_payload,
-                inventory.id AS food_item_id,
-                inventory.package_weight_grams,
-                inventory.inventory_status,
                 CASE
                     WHEN EXISTS (
                         SELECT 1
@@ -422,8 +419,6 @@ impl DietRepository for PostgresDietRepository {
                     ELSE 'healthy'
                 END AS health_context
             FROM pet_events feeding
-            LEFT JOIN food_inventory_items inventory
-              ON inventory.id = NULLIF(feeding.event_payload->>'food_item_id', '')::uuid
             WHERE pet_id = $1
               AND event_kind = 'daily'
               AND event_subkind = 'feeding'
@@ -461,12 +456,6 @@ impl DietRepository for PostgresDietRepository {
                     .and_then(|value| value.as_str())
                     .and_then(|value| Uuid::parse_str(value).ok())
                     .is_some();
-                let food_item_id: Option<Uuid> = row.get("food_item_id");
-                let package_weight_grams: Option<i32> = row.get("package_weight_grams");
-                let inventory_status: Option<String> = row.get("inventory_status");
-                let inventory_status = inventory_status
-                    .as_deref()
-                    .and_then(|value| FoodInventoryStatus::try_from(value).ok());
                 let has_inventory_snapshot = payload
                     .get("food_snapshot")
                     .and_then(|value| value.as_object())
@@ -480,9 +469,6 @@ impl DietRepository for PostgresDietRepository {
                     category,
                     amount_text,
                     occurred_at,
-                    food_item_id,
-                    package_weight_grams,
-                    inventory_status,
                     has_food_item,
                     has_inventory_snapshot,
                     health_context: row.get("health_context"),

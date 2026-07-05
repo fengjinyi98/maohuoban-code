@@ -22,10 +22,8 @@ pub use agent_confirmation_task::{
 };
 pub use diet_assignment::{DietAssignmentRole, DietAssignmentStatus, PetDietAssignment};
 pub use diet_trend::{
-    DietInventoryAttentionCandidate, DietInventoryConsumptionCycleSample,
-    DietInventoryCycleCheckSample, DietTrendConfidence, DietTrendExplanation,
-    DietTrendFeedingSample, DietTrendSegment, DietTrendSummary,
-    build_diet_inventory_attention_candidates, build_diet_trend_summary,
+    DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample, DietTrendSegment,
+    DietTrendSummary, build_diet_trend_summary,
 };
 pub use event::{
     EventKind, EventVisibility, PetEvent, PetEventAttachmentAsset, PetTimeline, PetTimelineEntry,

@@ -80,7 +80,6 @@ pub enum AttentionHintRouteKind {
     PreventiveCareDetail,
     WeightRecord,
     AiChat,
-    PantryItemDetail,
 }
 
 /// AttentionHintCreator 创建来源
@@ -226,10 +225,6 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&AttentionHintRouteKind::AiChat).unwrap(),
             "\"ai_chat\""
-        );
-        assert_eq!(
-            serde_json::to_string(&AttentionHintRouteKind::PantryItemDetail).unwrap(),
-            "\"pantry_item_detail\""
         );
     }
 

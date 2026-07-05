@@ -109,63 +109,6 @@ final class PetFoodInventoryItemDetailStore {
         }
     }
 
-    func consumeOneItem(
-        itemID: String,
-        currentUserID: String?
-    ) async -> String? {
-        guard let currentUserID else {
-            errorMessage = "缺少当前用户信息"
-            return nil
-        }
-        isMutating = true
-        defer { isMutating = false }
-        do {
-            let result = try await repository.consumeOneFoodInventoryItem(
-                itemID: itemID,
-                currentUserID: currentUserID
-            )
-            if case .loaded(let detail) = phase {
-                let updatedDetail = FoodInventoryItemDetail(
-                    item: result.item,
-                    linkedPets: detail.linkedPets,
-                    feedingTimeline: detail.feedingTimeline,
-                    consumptionSummary: detail.consumptionSummary
-                )
-                phase = .loaded(updatedDetail)
-            }
-            PetFoodInventoryMutationSignal.post()
-            await load(itemID: itemID, currentUserID: currentUserID, force: true)
-            return result.message
-        } catch {
-            errorMessage = error.localizedDescription
-            return nil
-        }
-    }
-
-    func markCycleStillUsing(
-        itemID: String,
-        currentUserID: String?
-    ) async -> Bool {
-        guard let currentUserID else {
-            errorMessage = "缺少当前用户信息"
-            return false
-        }
-        isMutating = true
-        defer { isMutating = false }
-        do {
-            _ = try await repository.markFoodInventoryCycleStillUsing(
-                itemID: itemID,
-                currentUserID: currentUserID
-            )
-            PetFoodInventoryMutationSignal.post()
-            await load(itemID: itemID, currentUserID: currentUserID, force: true)
-            return true
-        } catch {
-            errorMessage = error.localizedDescription
-            return false
-        }
-    }
-
     func setCurrentStaple(
         petID: String,
         foodItemID: String,

@@ -7,8 +7,7 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::super::{
-    FoodInventoryConsumeOneResult, FoodInventoryConsumptionCycle, FoodInventoryItemDetail,
-    FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
+    FoodInventoryItemDetail, FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
 
 /// PetService food inventory 方法组
@@ -54,16 +53,6 @@ pub(super) async fn load_food_inventory_item_detail(
         .await
 }
 
-pub(super) async fn list_food_inventory_consumption_cycles(
-    food_inventory: &Arc<dyn FoodInventoryRepository>,
-    scope_type: FoodScopeType,
-    scope_id: Uuid,
-) -> PetResult<Vec<FoodInventoryConsumptionCycle>> {
-    food_inventory
-        .list_consumption_cycles(scope_type, scope_id)
-        .await
-}
-
 pub(super) async fn update_food_inventory_item(
     food_inventory: &Arc<dyn FoodInventoryRepository>,
     mut input: UpdateFoodInventoryItem,
@@ -97,28 +86,6 @@ pub(super) async fn restock_food_inventory_item(
     ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
     food_inventory
         .restock_item(item_id, editor_user_id, quantity)
-        .await
-}
-
-pub(super) async fn consume_one_food_inventory_item(
-    food_inventory: &Arc<dyn FoodInventoryRepository>,
-    item_id: Uuid,
-    editor_user_id: Uuid,
-) -> PetResult<FoodInventoryConsumeOneResult> {
-    ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
-    food_inventory
-        .consume_one_item(item_id, editor_user_id)
-        .await
-}
-
-pub(super) async fn mark_food_inventory_cycle_still_using(
-    food_inventory: &Arc<dyn FoodInventoryRepository>,
-    item_id: Uuid,
-    editor_user_id: Uuid,
-) -> PetResult<FoodInventoryItem> {
-    ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
-    food_inventory
-        .mark_cycle_still_using(item_id, editor_user_id)
         .await
 }
 
@@ -249,7 +216,10 @@ fn derive_package_weight_grams(category: FoodInventoryCategory, spec: Option<&st
 }
 
 fn normalize_spec_text(spec: &str) -> String {
-    spec.trim().to_lowercase().replace([' ', '　'], "")
+    spec.trim()
+        .to_lowercase()
+        .replace(' ', "")
+        .replace('　', "")
 }
 
 fn parse_weight_with_unit(spec: &str) -> Option<i32> {

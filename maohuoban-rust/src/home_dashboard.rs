@@ -1,5 +1,3 @@
-#[path = "home_dashboard/services/attention_summary.rs"]
-mod attention_summary;
 mod diagnostics;
 mod merchant_summary;
 mod pet_summary;
@@ -11,7 +9,6 @@ use std::{
 };
 
 use crate::home_dashboard::{
-    attention_summary::home_attention_hints,
     diagnostics::{
         record_home_empty_state, record_home_media_metadata, record_home_pet_list,
         record_home_selected_pet_output,
@@ -29,10 +26,10 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    AttentionHint, HomeDashboardSnapshot, HomeDietTrendAnalysis, HomeDietTrendCalibration,
-    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendHealthContext,
-    HomeDietTrendSegment, HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity,
-    HomeIdentityKind, HomePantryPreviewItem, HomeTimelineEvent,
+    HomeDashboardSnapshot, HomeDietTrendCalibration, HomeDietTrendConfidence,
+    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
+    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
+    HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::{MediaAssetDisplayMetadata, PetService};
 use maohuoban_pet_domain::pet::{
@@ -175,8 +172,13 @@ impl HybridHomeDashboardProvider {
             .gallery_album_summaries(user_id, selected_pet.id)
             .await?;
         snapshot.attention_hints = self
-            .load_home_attention_hints(user_id, selected_pet.id)
-            .await?;
+            .pet_service
+            .load_attention_hints(selected_pet.id)
+            .await
+            .map_err(|error| to_home_error(&error))?
+            .into_iter()
+            .filter_map(|value| serde_json::from_value(value).ok())
+            .collect();
         snapshot.partner_recommendation = self
             .recommendation_service
             .recommend_home_partner(HomeRecommendationContext {
@@ -198,42 +200,6 @@ impl HybridHomeDashboardProvider {
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
         Ok(snapshot)
-    }
-
-    /// `load_home_attention_hints` 加载首页轻提醒
-    /// 核心职责：
-    /// - 从专属事实源聚合首页轻提醒
-    /// - 保持轻提醒独立于首页时间线窗口
-    async fn load_home_attention_hints(
-        &self,
-        user_id: Uuid,
-        pet_id: Uuid,
-    ) -> HomeResult<Vec<AttentionHint>> {
-        let diet_inventory_candidates = self
-            .pet_service
-            .load_diet_inventory_attention_candidates(user_id, pet_id, 180)
-            .await
-            .map_err(|error| to_home_error(&error))?;
-        let mut stored_attention_hints = self
-            .pet_service
-            .load_attention_hints(pet_id)
-            .await
-            .map_err(|error| to_home_error(&error))?
-            .into_iter()
-            .filter_map(|value| serde_json::from_value(value).ok())
-            .collect();
-        let mut hints = home_attention_hints(
-            pet_id,
-            &diet_inventory_candidates,
-            &mut stored_attention_hints,
-        );
-        hints.sort_by(|left, right| {
-            right
-                .priority
-                .cmp(&left.priority)
-                .then_with(|| right.created_at.cmp(&left.created_at))
-        });
-        Ok(hints)
     }
 
     /// `empty_state_snapshot` 生成首页空态快照
@@ -326,7 +292,6 @@ fn pet_owner_snapshot_base(
         .collect();
     snapshot.recent_timeline = recent_home_timeline(&timeline.entries);
     snapshot.reminders = reminders_from_events(&timeline.events);
-    snapshot.attention_hints = Vec::new();
     snapshot.pantry_items =
         home_pantry_preview_items(food_inventory_items.to_vec(), diet_role_labels);
     snapshot.merchant_dashboard = None;
@@ -454,11 +419,6 @@ fn home_diet_trend_summary(
         explanation: HomeDietTrendExplanation {
             title: summary.explanation.title,
             body: summary.explanation.body,
-        },
-        analysis: HomeDietTrendAnalysis {
-            headline: summary.analysis.headline,
-            summary: summary.analysis.summary,
-            observations: summary.analysis.observations,
         },
     }
 }

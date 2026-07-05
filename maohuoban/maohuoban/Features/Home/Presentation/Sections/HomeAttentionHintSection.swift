@@ -40,7 +40,11 @@ private struct HomeAttentionHintRow: View {
                     .foregroundStyle(tintColor)
                     .frame(width: 28, height: 28)
 
-                HomeAttentionHintMarqueeText(text: displayTitle)
+                Text(displayTitle)
+                    .font(MHBTheme.Typography.callout.weight(.medium))
+                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
                 Spacer(minLength: MHBTheme.Spacing.s3)
 
@@ -79,7 +83,7 @@ private struct HomeAttentionHintRow: View {
         case .weightStale:
             "scalemass.fill"
         case .feedingPatternChanged:
-            "takeoutbag.and.cup.and.straw.fill"
+            "calendar.badge.clock"
         }
     }
 
@@ -115,15 +119,6 @@ private struct HomeAttentionHintRow: View {
             return .petRecordDetail(.unsupported(recordID: recordID))
         case .aiChat:
             return .petRecordDetail(.unsupported(recordID: recordID))
-        case .pantryItemDetail:
-            return .pantryItemDetail(
-                context: PetPantryEntryContext(
-                    sourcePetID: recordContext.petID,
-                    sourcePetName: recordContext.petName
-                ),
-                itemID: payload?.foodItemID ?? recordID,
-                promptKind: payload?.inventoryPromptKind
-            )
         }
     }
 }

@@ -10,8 +10,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use maohuoban_pet_domain::pet::{
-    DietInventoryAttentionCandidate, DietTrendFeedingSample, EventKind, FoodInventoryItem,
-    PetError, PetEvent, PetProfile, PetResult, PetTimeline, PetTimelineEntry,
+    EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline, PetTimelineEntry,
 };
 use uuid::Uuid;
 
@@ -253,45 +252,6 @@ impl PetService {
         .await
     }
 
-    pub async fn list_food_inventory_consumption_cycles(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-    ) -> PetResult<Vec<super::FoodInventoryConsumptionCycle>> {
-        food_inventory::list_food_inventory_consumption_cycles(
-            &self.food_inventory,
-            scope_type,
-            scope_id,
-        )
-        .await
-    }
-
-    pub async fn consume_one_food_inventory_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<super::FoodInventoryConsumeOneResult> {
-        food_inventory::consume_one_food_inventory_item(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-        )
-        .await
-    }
-
-    pub async fn mark_food_inventory_cycle_still_using(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        food_inventory::mark_food_inventory_cycle_still_using(
-            &self.food_inventory,
-            item_id,
-            editor_user_id,
-        )
-        .await
-    }
-
     pub async fn create_pet_weight_record(
         &self,
         input: NewPetWeightRecord,
@@ -505,47 +465,6 @@ impl PetService {
         pet_id: Uuid,
     ) -> PetResult<PetDietTrendSummary> {
         diet::load_pet_diet_trend_summary(&self.repository, &self.diet, owner_user_id, pet_id).await
-    }
-
-    /// load_pet_diet_trend_feeding_samples 加载宠物饮食趋势喂食样本
-    /// 核心职责：
-    /// - 校验宠物访问权限
-    /// - 为首页轻提醒和饮食分析提供统一饮食事实来源
-    pub async fn load_pet_diet_trend_feeding_samples(
-        &self,
-        owner_user_id: Uuid,
-        pet_id: Uuid,
-        window_days: i64,
-    ) -> PetResult<Vec<DietTrendFeedingSample>> {
-        diet::load_pet_diet_trend_feeding_samples(
-            &self.repository,
-            &self.diet,
-            owner_user_id,
-            pet_id,
-            window_days,
-        )
-        .await
-    }
-
-    /// load_diet_inventory_attention_candidates 加载饮食库存提醒候选
-    /// 核心职责：
-    /// - 通过饮食算法层生成库存提醒候选
-    /// - 保持首页只消费提醒结果
-    pub async fn load_diet_inventory_attention_candidates(
-        &self,
-        owner_user_id: Uuid,
-        pet_id: Uuid,
-        window_days: i64,
-    ) -> PetResult<Vec<DietInventoryAttentionCandidate>> {
-        diet::load_diet_inventory_attention_candidates(
-            &self.repository,
-            &self.diet,
-            &self.food_inventory,
-            owner_user_id,
-            pet_id,
-            window_days,
-        )
-        .await
     }
 
     /// 加载储物柜变化线索（弱线索）

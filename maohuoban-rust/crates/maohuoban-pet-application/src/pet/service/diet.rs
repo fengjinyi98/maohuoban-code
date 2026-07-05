@@ -2,20 +2,17 @@ use std::{collections::HashSet, sync::Arc};
 
 use chrono::{Duration, Utc};
 use maohuoban_pet_domain::pet::{
-    AgentConfirmedFactPayload, DietAssignmentRole, DietChangePayload,
-    DietInventoryAttentionCandidate, DietInventoryConsumptionCycleSample,
-    DietInventoryCycleCheckSample, DietTrendFeedingSample, EventKind, EventVisibility,
+    AgentConfirmedFactPayload, DietAssignmentRole, DietChangePayload, EventKind, EventVisibility,
     FeedingCorrectionPayload, FoodScopeType, PetDietAssignment, PetError, PetEvent,
-    PetIdentityContext, PetResult, build_diet_inventory_attention_candidates,
-    build_diet_trend_summary,
+    PetIdentityContext, PetResult, build_diet_trend_summary,
 };
 use uuid::Uuid;
 
 use super::super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietRepository,
-    FoodInventoryChangeHints, FoodInventoryConsumptionCycle, FoodInventoryRepository, NewPetEvent,
-    PetCurrentDietContext, PetDietConfirmationCandidate, PetDietConfirmationCandidates,
-    PetDietTrendSummary, PetRepository, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
+    FoodInventoryChangeHints, FoodInventoryRepository, NewPetEvent, PetCurrentDietContext,
+    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetDietTrendSummary,
+    PetRepository, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
 use super::food_inventory;
 
@@ -152,81 +149,11 @@ pub(super) async fn load_pet_diet_trend_summary(
     pet_id: Uuid,
 ) -> PetResult<PetDietTrendSummary> {
     ensure_pet_access(repository, pet_id, owner_user_id).await?;
-    let window_days = 60;
+    let window_days = 30;
     let samples = diet
         .load_diet_trend_feeding_samples(pet_id, Utc::now() - Duration::days(window_days))
         .await?;
     Ok(build_diet_trend_summary(&samples, window_days))
-}
-
-/// 加载宠物饮食趋势喂食样本
-/// 核心职责：
-/// - 校验宠物访问权限
-/// - 为首页轻提醒和饮食分析提供统一饮食事实来源
-pub(super) async fn load_pet_diet_trend_feeding_samples(
-    repository: &Arc<dyn PetRepository>,
-    diet: &Arc<dyn DietRepository>,
-    owner_user_id: Uuid,
-    pet_id: Uuid,
-    window_days: i64,
-) -> PetResult<Vec<DietTrendFeedingSample>> {
-    ensure_pet_access(repository, pet_id, owner_user_id).await?;
-    diet.load_diet_trend_feeding_samples(pet_id, Utc::now() - Duration::days(window_days))
-        .await
-}
-
-/// 加载饮食库存提醒候选
-/// 核心职责：
-/// - 汇总喂食样本、食品库存和已确认消耗周期
-/// - 输出饮食算法层提醒候选，供首页映射展示
-pub(super) async fn load_diet_inventory_attention_candidates(
-    repository: &Arc<dyn PetRepository>,
-    diet: &Arc<dyn DietRepository>,
-    food_inventory: &Arc<dyn FoodInventoryRepository>,
-    owner_user_id: Uuid,
-    pet_id: Uuid,
-    window_days: i64,
-) -> PetResult<Vec<DietInventoryAttentionCandidate>> {
-    ensure_pet_access(repository, pet_id, owner_user_id).await?;
-    let samples = diet
-        .load_diet_trend_feeding_samples(pet_id, Utc::now() - Duration::days(window_days))
-        .await?;
-    let items = food_inventory
-        .list_items(FoodScopeType::User, owner_user_id, None, None)
-        .await?;
-    let cycles = food_inventory
-        .list_consumption_cycles(FoodScopeType::User, owner_user_id)
-        .await?;
-    let cycle_checks = food_inventory
-        .list_cycle_still_using_checks(FoodScopeType::User, owner_user_id)
-        .await?;
-    let cycle_samples = cycles
-        .iter()
-        .map(cycle_sample_from_consumption_cycle)
-        .collect::<Vec<_>>();
-    let check_samples = cycle_checks
-        .into_iter()
-        .map(|(food_item_id, checked_at)| DietInventoryCycleCheckSample {
-            food_item_id,
-            checked_at,
-        })
-        .collect::<Vec<_>>();
-    Ok(build_diet_inventory_attention_candidates(
-        &items,
-        &samples,
-        &cycle_samples,
-        &check_samples,
-    ))
-}
-
-fn cycle_sample_from_consumption_cycle(
-    cycle: &FoodInventoryConsumptionCycle,
-) -> DietInventoryConsumptionCycleSample {
-    DietInventoryConsumptionCycleSample {
-        food_item_id: cycle.food_item_id,
-        package_weight_grams: cycle.package_weight_grams,
-        confirmed_at: cycle.confirmed_at,
-    }
 }
 
 /// 加载储物柜变化线索（弱线索）

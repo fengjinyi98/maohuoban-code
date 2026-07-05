@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use maohuoban_pet_application::pet::{
-    FoodInventoryAmountDistributionItem, FoodInventoryConsumeOneResult,
-    FoodInventoryConsumptionCycle, FoodInventoryConsumptionSummary,
+    FoodInventoryAmountDistributionItem, FoodInventoryConsumptionSummary,
     FoodInventoryFeedingTimelineEntry, FoodInventoryItemDetail, FoodInventoryLinkedPet,
     FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
@@ -9,52 +8,11 @@ use maohuoban_pet_domain::pet::{
     FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot,
     PetError, PetResult, PetSex, PetSpecies,
 };
-use sqlx::{PgPool, Postgres, Row, Transaction};
+use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use super::food_inventory_rows::FoodInventoryItemRow;
-
-/// FoodInventoryConsumptionCycleRow 食品资产消耗周期数据库行
-/// 核心职责：
-/// - 映射 food_inventory_consumption_cycles 表
-/// - 转换为应用层消耗周期读模型
-#[derive(Debug, sqlx::FromRow)]
-struct FoodInventoryConsumptionCycleRow {
-    id: Uuid,
-    food_item_id: Uuid,
-    scope_type: String,
-    scope_id: Uuid,
-    confirmed_by_user_id: Uuid,
-    sequence_no: i32,
-    consumed_quantity: i32,
-    package_weight_grams: Option<i32>,
-    package_unit: Option<String>,
-    confirmed_at: chrono::DateTime<chrono::Utc>,
-    created_at: chrono::DateTime<chrono::Utc>,
-}
-
-impl TryFrom<FoodInventoryConsumptionCycleRow> for FoodInventoryConsumptionCycle {
-    type Error = PetError;
-
-    fn try_from(row: FoodInventoryConsumptionCycleRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: row.id,
-            food_item_id: row.food_item_id,
-            scope_type: FoodScopeType::try_from(row.scope_type.as_str()).map_err(|_| {
-                PetError::Infrastructure("unknown cycle scope_type from database".to_owned())
-            })?,
-            scope_id: row.scope_id,
-            confirmed_by_user_id: row.confirmed_by_user_id,
-            sequence_no: row.sequence_no,
-            consumed_quantity: row.consumed_quantity,
-            package_weight_grams: row.package_weight_grams,
-            package_unit: row.package_unit,
-            confirmed_at: row.confirmed_at,
-            created_at: row.created_at,
-        })
-    }
-}
 
 /// parse_pet_species 解析宠物物种数据库值
 /// 核心职责：
@@ -87,133 +45,6 @@ impl PostgresFoodInventoryRepository {
     #[must_use]
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
-    }
-
-    /// `lock_consumable_item` 锁定待确认消耗的食品资产
-    /// 核心职责：
-    /// - 在事务中锁定库存行
-    /// - 校验当前库存仍可确认消耗
-    async fn lock_consumable_item(
-        transaction: &mut Transaction<'_, Postgres>,
-        item_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        let current_row: Option<FoodInventoryItemRow> = sqlx::query_as(
-            r#"
-            SELECT * FROM food_inventory_items
-            WHERE id = $1 AND archived_at IS NULL
-            FOR UPDATE
-            "#,
-        )
-        .bind(item_id)
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!("failed to lock food inventory item: {error}"))
-        })?;
-
-        let current = current_row
-            .map(FoodInventoryItem::try_from)
-            .transpose()?
-            .ok_or(PetError::FoodInventoryNotFound)?;
-
-        if current.quantity <= 0 || current.inventory_status == FoodInventoryStatus::Depleted {
-            return Err(PetError::InvalidInput(
-                "当前库存已经没有可确认消耗的数量".to_owned(),
-            ));
-        }
-        Ok(current)
-    }
-
-    /// `next_consumption_sequence_no` 计算食品资产消耗周期序号
-    /// 核心职责：
-    /// - 基于同一库存物品已有周期生成下一个序号
-    /// - 保持周期记录按用户确认顺序递增
-    async fn next_consumption_sequence_no(
-        transaction: &mut Transaction<'_, Postgres>,
-        item_id: Uuid,
-    ) -> PetResult<i32> {
-        sqlx::query_scalar(
-            r#"
-            SELECT COALESCE(MAX(sequence_no), 0) + 1
-            FROM food_inventory_consumption_cycles
-            WHERE food_item_id = $1
-            "#,
-        )
-        .bind(item_id)
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to calculate food inventory consumption sequence: {error}"
-            ))
-        })
-    }
-
-    /// `insert_consumption_cycle` 写入食品资产消耗周期
-    /// 核心职责：
-    /// - 记录用户确认吃完一份库存的事实
-    /// - 固化本周期的规格快照
-    async fn insert_consumption_cycle(
-        transaction: &mut Transaction<'_, Postgres>,
-        current: &FoodInventoryItem,
-        editor_user_id: Uuid,
-        sequence_no: i32,
-    ) -> PetResult<FoodInventoryConsumptionCycleRow> {
-        sqlx::query_as(
-            r#"
-            INSERT INTO food_inventory_consumption_cycles (
-                id, food_item_id, scope_type, scope_id, confirmed_by_user_id,
-                sequence_no, consumed_quantity, package_weight_grams, package_unit
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, 1, $7, $8
-            )
-            RETURNING *
-            "#,
-        )
-        .bind(Uuid::new_v4())
-        .bind(current.id)
-        .bind(current.scope_type.as_str())
-        .bind(current.scope_id)
-        .bind(editor_user_id)
-        .bind(sequence_no)
-        .bind(current.package_weight_grams)
-        .bind(current.package_unit.as_deref().or(current.unit.as_deref()))
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to insert food inventory consumption cycle: {error}"
-            ))
-        })
-    }
-
-    /// `decrement_consumed_item` 扣减已确认消耗的食品资产库存
-    /// 核心职责：
-    /// - 将库存数量扣减一份
-    /// - 按剩余数量更新库存状态
-    async fn decrement_consumed_item(
-        transaction: &mut Transaction<'_, Postgres>,
-        item_id: Uuid,
-    ) -> PetResult<FoodInventoryItemRow> {
-        sqlx::query_as(
-            r#"
-            UPDATE food_inventory_items SET
-                quantity = quantity - 1,
-                inventory_status = CASE
-                    WHEN quantity - 1 <= 0 THEN 'depleted'
-                    ELSE 'in_use'
-                END,
-                updated_at = now()
-            WHERE id = $1 AND archived_at IS NULL
-            RETURNING *
-            "#,
-        )
-        .bind(item_id)
-        .fetch_one(&mut **transaction)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!("failed to consume food inventory item: {error}"))
-        })
     }
 
     async fn record_change(
@@ -426,7 +257,6 @@ impl PostgresFoodInventoryRepository {
 }
 
 fn build_consumption_summary(
-    item: &FoodInventoryItem,
     timeline: &[FoodInventoryFeedingTimelineEntry],
 ) -> FoodInventoryConsumptionSummary {
     let feeding_count = i64::try_from(timeline.len()).unwrap_or(i64::MAX);
@@ -467,108 +297,12 @@ fn build_consumption_summary(
         });
     }
 
-    let headline = build_consumption_headline(item, feeding_count, active_days);
-    let usage_rhythm = build_usage_rhythm(feeding_count, active_days);
-    let portion_stability = build_portion_stability(&amount_distribution);
-    let calibration_state = build_calibration_state(item);
-    let observations = build_consumption_observations(
-        item,
-        feeding_count,
-        &usage_rhythm,
-        &portion_stability,
-        &calibration_state,
-    );
-
     FoodInventoryConsumptionSummary {
         feeding_count,
         first_fed_at,
         last_fed_at,
         active_days,
         amount_distribution,
-        headline,
-        usage_rhythm,
-        portion_stability,
-        calibration_state,
-        observations,
-    }
-}
-
-fn build_consumption_headline(
-    item: &FoodInventoryItem,
-    feeding_count: i64,
-    active_days: i64,
-) -> String {
-    if feeding_count == 0 {
-        return format!("{}还没有喂食记录", item.name);
-    }
-
-    format!(
-        "{}近 {} 天被记录 {} 次",
-        item.name, active_days, feeding_count
-    )
-}
-
-fn build_usage_rhythm(feeding_count: i64, active_days: i64) -> String {
-    if feeding_count == 0 || active_days == 0 {
-        return "还没有形成使用节奏".to_owned();
-    }
-
-    let daily_average = round_one(count_ratio(feeding_count, active_days));
-    if daily_average >= 1.0 {
-        format!("平均每天约 {daily_average:.1} 次")
-    } else {
-        format!("平均约每 {} 天 1 次", (1.0 / daily_average).round())
-    }
-}
-
-fn build_portion_stability(distribution: &[FoodInventoryAmountDistributionItem]) -> String {
-    let Some(primary) = distribution.iter().max_by_key(|item| item.count) else {
-        return "还没有份量结构".to_owned();
-    };
-
-    format!(
-        "以{}为主，占 {}%",
-        primary.amount_text,
-        percentage_text(primary.ratio)
-    )
-}
-
-fn build_calibration_state(item: &FoodInventoryItem) -> String {
-    match item.package_weight_grams {
-        Some(weight) if weight > 0 => "已有规格数据，等待完整库存消耗闭环后输出克数估算".to_owned(),
-        _ => "缺少结构化规格，暂不输出克数估算".to_owned(),
-    }
-}
-
-fn build_consumption_observations(
-    item: &FoodInventoryItem,
-    feeding_count: i64,
-    usage_rhythm: &str,
-    portion_stability: &str,
-    calibration_state: &str,
-) -> Vec<String> {
-    if feeding_count == 0 {
-        return vec!["开始喂食并关联该物品后，会生成物品维度的消耗趋势。".to_owned()];
-    }
-
-    let category_text = food_category_text(item.category);
-    vec![
-        format!("该物品作为{category_text}参与饮食趋势统计。"),
-        usage_rhythm.to_owned(),
-        portion_stability.to_owned(),
-        calibration_state.to_owned(),
-    ]
-}
-
-fn food_category_text(category: FoodInventoryCategory) -> &'static str {
-    match category {
-        FoodInventoryCategory::MainFood => "主粮",
-        FoodInventoryCategory::WetFood => "湿粮/罐头",
-        FoodInventoryCategory::Treats => "零食",
-        FoodInventoryCategory::Nutrition => "营养品",
-        FoodInventoryCategory::Other => "其他",
-        FoodInventoryCategory::CatLitter => "猫砂",
-        FoodInventoryCategory::Medicine => "药品",
     }
 }
 
@@ -583,21 +317,6 @@ fn count_ratio(count: i64, total: i64) -> f64 {
         return 0.0;
     }
     f64::from(count) / f64::from(total)
-}
-
-fn round_one(value: f64) -> f64 {
-    (value * 10.0).round() / 10.0
-}
-
-fn percentage_text(ratio: f64) -> i64 {
-    let value = (ratio * 100.0).round().clamp(0.0, 100.0);
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "百分比已四舍五入并限制在 0..=100"
-    )]
-    {
-        value as i64
-    }
 }
 
 #[async_trait]
@@ -718,7 +437,7 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             .load_item_feeding_timeline(item_id, owner_user_id)
             .await?;
         let linked_pets = self.load_item_linked_pets(item_id, owner_user_id).await?;
-        let consumption_summary = build_consumption_summary(&item, &feeding_timeline);
+        let consumption_summary = build_consumption_summary(&feeding_timeline);
 
         Ok(FoodInventoryItemDetail {
             item,
@@ -726,62 +445,6 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             feeding_timeline,
             consumption_summary,
         })
-    }
-
-    async fn list_consumption_cycles(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-    ) -> PetResult<Vec<FoodInventoryConsumptionCycle>> {
-        let rows: Vec<FoodInventoryConsumptionCycleRow> = sqlx::query_as(
-            r#"
-            SELECT *
-            FROM food_inventory_consumption_cycles
-            WHERE scope_type = $1 AND scope_id = $2
-            ORDER BY food_item_id ASC, sequence_no ASC
-            "#,
-        )
-        .bind(scope_type.as_str())
-        .bind(scope_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to list food inventory consumption cycles: {error}"
-            ))
-        })?;
-
-        rows.into_iter()
-            .map(FoodInventoryConsumptionCycle::try_from)
-            .collect()
-    }
-
-    async fn list_cycle_still_using_checks(
-        &self,
-        scope_type: FoodScopeType,
-        scope_id: Uuid,
-    ) -> PetResult<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>> {
-        let rows: Vec<(Uuid, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
-            r#"
-            SELECT food_item_id, MAX(changed_at) AS checked_at
-            FROM food_inventory_item_changes
-            WHERE scope_type = $1
-              AND scope_id = $2
-              AND change_kind = 'cycle_checked_still_using'
-            GROUP BY food_item_id
-            "#,
-        )
-        .bind(scope_type.as_str())
-        .bind(scope_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to list food inventory cycle checks: {error}"
-            ))
-        })?;
-
-        Ok(rows)
     }
 
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem> {
@@ -918,150 +581,6 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
                 Ok(item)
             }
             None => Err(PetError::FoodInventoryNotFound),
-        }
-    }
-
-    async fn consume_one_item(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryConsumeOneResult> {
-        let mut transaction = self.pool.begin().await.map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to begin food inventory consumption: {error}"
-            ))
-        })?;
-
-        let current = Self::lock_consumable_item(&mut transaction, item_id).await?;
-        let next_sequence_no =
-            Self::next_consumption_sequence_no(&mut transaction, item_id).await?;
-        let cycle_row = Self::insert_consumption_cycle(
-            &mut transaction,
-            &current,
-            editor_user_id,
-            next_sequence_no,
-        )
-        .await?;
-        let updated_row = Self::decrement_consumed_item(&mut transaction, item_id).await?;
-
-        transaction.commit().await.map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to commit food inventory consumption: {error}"
-            ))
-        })?;
-
-        let item = FoodInventoryItem::try_from(updated_row)?;
-        self.record_change(&item, editor_user_id, "consumed")
-            .await?;
-        let consumption_cycle = FoodInventoryConsumptionCycle::try_from(cycle_row)?;
-        let package_unit = consumption_cycle.package_unit.as_deref().unwrap_or("件");
-        let message = format!("已吃完 {} 1 {}", item.name, package_unit);
-
-        Ok(FoodInventoryConsumeOneResult {
-            item,
-            consumption_cycle,
-            message,
-        })
-    }
-
-    async fn mark_cycle_still_using(
-        &self,
-        item_id: Uuid,
-        editor_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItem> {
-        let item = self
-            .find_item(item_id)
-            .await?
-            .ok_or(PetError::FoodInventoryNotFound)?;
-        self.record_change(&item, editor_user_id, "cycle_checked_still_using")
-            .await?;
-        Ok(item)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use chrono::{TimeZone, Utc};
-
-    use super::*;
-
-    #[test]
-    fn consumption_summary_exposes_item_analysis() {
-        let item = food_item(FoodInventoryCategory::MainFood, Some(2_500));
-        let timeline = (1..=30)
-            .flat_map(|day| {
-                [
-                    feeding_entry(day, 8, "正常"),
-                    feeding_entry(day, 20, if day % 5 == 0 { "少一点" } else { "正常" }),
-                ]
-            })
-            .collect::<Vec<_>>();
-
-        let summary = build_consumption_summary(&item, &timeline);
-
-        assert_eq!(summary.feeding_count, 60);
-        assert_eq!(summary.active_days, 30);
-        assert_eq!(summary.headline, "梅录主粮近 30 天被记录 60 次");
-        assert_eq!(summary.usage_rhythm, "平均每天约 2.0 次");
-        assert!(summary.portion_stability.contains("正常"));
-        assert!(summary.calibration_state.contains("完整库存消耗闭环"));
-        assert!(
-            summary
-                .observations
-                .iter()
-                .any(|item| item.contains("主粮"))
-        );
-    }
-
-    fn food_item(
-        category: FoodInventoryCategory,
-        package_weight_grams: Option<i32>,
-    ) -> FoodInventoryItem {
-        let now = Utc.with_ymd_and_hms(2026, 7, 5, 0, 0, 0).unwrap();
-        FoodInventoryItem {
-            id: Uuid::new_v4(),
-            scope_type: FoodScopeType::User,
-            scope_id: Uuid::new_v4(),
-            created_by_user_id: Uuid::new_v4(),
-            name: "梅录主粮".to_owned(),
-            brand: None,
-            category,
-            inventory_status: FoodInventoryStatus::InUse,
-            quantity: 1,
-            unit: Some("袋".to_owned()),
-            spec: Some("2.5kg".to_owned()),
-            package_weight_grams,
-            package_count: 1,
-            package_unit: Some("袋".to_owned()),
-            production_date: None,
-            shelf_life_months: None,
-            expiry_date: None,
-            cover_asset_id: None,
-            cover_url: None,
-            barcode: None,
-            source_kind: maohuoban_pet_domain::pet::FoodSourceKind::Manual,
-            note: None,
-            created_at: now,
-            updated_at: now,
-            archived_at: None,
-        }
-    }
-
-    fn feeding_entry(day: u32, hour: u32, amount_text: &str) -> FoodInventoryFeedingTimelineEntry {
-        FoodInventoryFeedingTimelineEntry {
-            event_id: Uuid::new_v4(),
-            pet_id: Uuid::new_v4(),
-            pet_name: "梅录".to_owned(),
-            pet_species: PetSpecies::Cat,
-            pet_sex: PetSex::Female,
-            pet_avatar_asset_id: None,
-            pet_avatar_url: None,
-            occurred_at: Utc.with_ymd_and_hms(2026, 6, day, hour, 0, 0).unwrap(),
-            title: "已喂食".to_owned(),
-            summary: None,
-            amount_text: amount_text.to_owned(),
-            food_role: Some("main_food".to_owned()),
-            food_snapshot: None,
         }
     }
 }

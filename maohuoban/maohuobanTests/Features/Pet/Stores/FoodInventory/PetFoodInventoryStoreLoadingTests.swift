@@ -148,20 +148,6 @@ final class PetFoodInventoryStoreLoadingTests: XCTestCase {
             fatalError("not used")
         }
 
-        func consumeOneFoodInventoryItem(
-            itemID: String,
-            currentUserID: String
-        ) async throws(MHBAPIError) -> FoodInventoryConsumeOneResult {
-            fatalError("not used")
-        }
-
-        func markFoodInventoryCycleStillUsing(
-            itemID: String,
-            currentUserID: String
-        ) async throws(MHBAPIError) -> FoodInventoryItem {
-            fatalError("not used")
-        }
-
         func setPetCurrentStaple(
             petID: String,
             foodItemID: String,
