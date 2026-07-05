@@ -5,7 +5,7 @@ import CoreGraphics
 // 核心职责：
 // - 根据设备能力生成点按聚焦和曝光配置
 // - 隔离相机硬件能力差异对控制器的影响
-struct MHBResponsiveCameraFocusConfiguration: Equatable {
+nonisolated struct MHBResponsiveCameraFocusConfiguration: Equatable {
     let focusPoint: CGPoint?
     let focusMode: AVCaptureDevice.FocusMode?
     let exposurePoint: CGPoint?
