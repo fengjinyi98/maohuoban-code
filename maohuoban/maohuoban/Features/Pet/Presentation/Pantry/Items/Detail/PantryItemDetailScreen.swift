@@ -10,10 +10,12 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
 
     let itemID: String
     let context: PetPantryEntryContext
+    let promptKind: String?
     let currentUserID: String?
     let onNavigate: (PetPantryRoute) -> Route
     var onOpenRecordDetail: (PetRecordDetailRoute) -> Void = { _ in }
     var onOpenRoute: (Route) -> Void = { _ in }
+    var onInventoryMutationCompleted: () -> Void = {}
 
     @State private var store = PetFoodInventoryItemDetailStore()
     @State private var isDeleteConfirmationPresented = false
@@ -21,38 +23,49 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
     @State private var restockAmount = 1
 
     var body: some View {
-        MHBScreenScrollView {
-            PantryItemDetailPhaseView(
-                phase: store.phase,
-                onOpenFeedingRecord: { entry in
-                    let recordContext = PetRecordEntryContext(
-                        petID: entry.petID,
-                        petName: entry.petName,
-                        petAvatarURL: entry.petAvatarURL,
-                        petSpecies: entry.petSpecies,
-                        petSex: entry.petSex
+        GeometryReader { proxy in
+            let bottomInset = proxy.safeAreaInsets.bottom
+
+            ZStack(alignment: .bottom) {
+                MHBScreenScrollView {
+                    PantryItemDetailPhaseView(
+                        phase: store.phase,
+                        onOpenFeedingRecord: { entry in
+                            let recordContext = PetRecordEntryContext(
+                                petID: entry.petID,
+                                petName: entry.petName,
+                                petAvatarURL: entry.petAvatarURL,
+                                petSpecies: entry.petSpecies,
+                                petSex: entry.petSex
+                            )
+                            onOpenRecordDetail(.feeding(recordID: entry.eventID, context: recordContext))
+                        }
                     )
-                    onOpenRecordDetail(.feeding(recordID: entry.eventID, context: recordContext))
+                        .padding(.horizontal, MHBTheme.Spacing.s5)
+                        .padding(.top, MHBTheme.Spacing.s5)
+                        .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
                 }
-            )
-                .padding(.horizontal, MHBTheme.Spacing.s5)
-                .padding(.top, MHBTheme.Spacing.s5)
-                .padding(.bottom, MHBTheme.Spacing.s8)
-        }
-        .background(MHBTheme.ColorToken.background.color)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .loaded(let detail) = store.phase {
-                PantryItemConsumeCTASection(
-                    item: detail.item,
-                    isSubmitting: store.isMutating,
-                    onConsumeOne: consumeOneItem
-                )
-                .padding(.horizontal, MHBTheme.Spacing.s5)
-                .padding(.top, MHBTheme.Spacing.s3)
-                .padding(.bottom, MHBTheme.Spacing.s3)
-                .background(.regularMaterial)
+
+                if case .loaded(let detail) = store.phase {
+                    MHBBottomFloatingDualActionCTA(
+                        secondaryTitle: store.isMutating ? "确认中" : "还在吃",
+                        secondarySystemImage: "clock",
+                        secondaryTint: MHBTheme.ColorToken.teal.color,
+                        primaryTitle: store.isMutating ? "确认中" : "已吃完一袋",
+                        primarySystemImage: "checkmark",
+                        primaryTint: MHBTheme.ColorToken.primary.color,
+                        bottomInset: bottomInset,
+                        secondaryAction: markCycleStillUsing,
+                        primaryAction: consumeOneItem
+                    )
+                    .disabled(!canConsume(detail.item))
+                    .zIndex(2)
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
         }
+        .ignoresSafeArea(.container, edges: .bottom)
+        .background(MHBTheme.ColorToken.background.color)
         .navigationTitle("物品详情")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -135,16 +148,41 @@ struct PantryItemDetailScreen<Route: Hashable>: View {
     }
 
     private func consumeOneItem() {
+        guard case .loaded(let detail) = store.phase, canConsume(detail.item) else {
+            return
+        }
         Task {
             if let message = await store.consumeOneItem(
                 itemID: itemID,
                 currentUserID: currentUserID
             ) {
                 MHBToastPresenter().success(message)
+                onInventoryMutationCompleted()
             } else if let errorMessage = store.errorMessage {
                 MHBToastPresenter().danger(errorMessage)
             }
         }
+    }
+
+    private func markCycleStillUsing() {
+        guard case .loaded(let detail) = store.phase, canConsume(detail.item) else {
+            return
+        }
+        Task {
+            if await store.markCycleStillUsing(itemID: itemID, currentUserID: currentUserID) {
+                MHBToastPresenter().success("已记录还在吃")
+                onInventoryMutationCompleted()
+            } else if let errorMessage = store.errorMessage {
+                MHBToastPresenter().danger(errorMessage)
+            }
+        }
+    }
+
+    private func canConsume(_ item: FoodInventoryItem) -> Bool {
+        item.quantity > 0
+            && item.inventoryStatus != .depleted
+            && item.inventoryStatus != .archived
+            && !store.isMutating
     }
 
     private func setCurrentStaple(itemID: String) {

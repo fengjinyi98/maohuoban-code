@@ -40,11 +40,7 @@ private struct HomeAttentionHintRow: View {
                     .foregroundStyle(tintColor)
                     .frame(width: 28, height: 28)
 
-                Text(displayTitle)
-                    .font(MHBTheme.Typography.callout.weight(.medium))
-                    .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HomeAttentionHintMarqueeText(text: displayTitle)
 
                 Spacer(minLength: MHBTheme.Spacing.s3)
 
@@ -125,7 +121,8 @@ private struct HomeAttentionHintRow: View {
                     sourcePetID: recordContext.petID,
                     sourcePetName: recordContext.petName
                 ),
-                itemID: payload?.foodItemID ?? recordID
+                itemID: payload?.foodItemID ?? recordID,
+                promptKind: payload?.inventoryPromptKind
             )
         }
     }

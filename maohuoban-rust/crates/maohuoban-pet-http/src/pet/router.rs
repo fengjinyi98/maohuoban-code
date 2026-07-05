@@ -147,6 +147,10 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             post(food_inventory::consume_one_food_inventory_item),
         )
         .route(
+            "/api/v1/food-inventory/items/{item_id}/cycle-checks/still-using",
+            post(food_inventory::mark_food_inventory_cycle_still_using),
+        )
+        .route(
             "/api/v1/pets/{pet_id}/diet/staple",
             post(diet_assignment::set_pet_current_staple),
         )

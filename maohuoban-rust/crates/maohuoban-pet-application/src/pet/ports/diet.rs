@@ -395,6 +395,18 @@ pub trait FoodInventoryRepository: Send + Sync {
         owner_user_id: Uuid,
     ) -> PetResult<FoodInventoryItemDetail>;
 
+    async fn list_consumption_cycles(
+        &self,
+        scope_type: FoodScopeType,
+        scope_id: Uuid,
+    ) -> PetResult<Vec<FoodInventoryConsumptionCycle>>;
+
+    async fn list_cycle_still_using_checks(
+        &self,
+        scope_type: FoodScopeType,
+        scope_id: Uuid,
+    ) -> PetResult<Vec<(Uuid, DateTime<Utc>)>>;
+
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem>;
 
     async fn delete_item(
@@ -415,4 +427,10 @@ pub trait FoodInventoryRepository: Send + Sync {
         item_id: Uuid,
         editor_user_id: Uuid,
     ) -> PetResult<FoodInventoryConsumeOneResult>;
+
+    async fn mark_cycle_still_using(
+        &self,
+        item_id: Uuid,
+        editor_user_id: Uuid,
+    ) -> PetResult<FoodInventoryItem>;
 }

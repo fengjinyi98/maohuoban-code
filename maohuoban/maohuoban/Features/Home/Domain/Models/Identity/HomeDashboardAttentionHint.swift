@@ -112,6 +112,7 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
     let taskID: String?
     let sourceHintID: String?
     let foodItemID: String?
+    let inventoryPromptKind: String?
 
     enum CodingKeys: String, CodingKey {
         case episodeID = "episode_id"
@@ -119,6 +120,7 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
         case taskID = "task_id"
         case sourceHintID = "source_hint_id"
         case foodItemID = "food_item_id"
+        case inventoryPromptKind = "inventory_prompt_kind"
     }
 
     init(from decoder: Decoder) throws {
@@ -128,5 +130,6 @@ struct AttentionHintRoutePayload: Decodable, Equatable {
         taskID = try container.decodeIfPresent(String.self, forKey: .taskID)
         sourceHintID = try container.decodeIfPresent(String.self, forKey: .sourceHintID)
         foodItemID = try container.decodeIfPresent(String.self, forKey: .foodItemID)
+        inventoryPromptKind = try container.decodeIfPresent(String.self, forKey: .inventoryPromptKind)
     }
 }

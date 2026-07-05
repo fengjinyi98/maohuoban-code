@@ -31,7 +31,7 @@ enum HomeRoute: Hashable {
     case petDietTrendDetail(summary: PetDietTrendSummary, petName: String?)
     case petPantry(PetPantryEntryContext)
     case pantryCategoryDetail(context: PetPantryEntryContext, category: PantryCategory)
-    case pantryItemDetail(context: PetPantryEntryContext, itemID: String)
+    case pantryItemDetail(context: PetPantryEntryContext, itemID: String, promptKind: String? = nil)
     case addPantryItem
     case editPantryItem(PantryItem)
 }

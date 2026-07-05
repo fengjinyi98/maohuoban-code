@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class HomeDietTrendPresentationTests: XCTestCase {
     func testCollectingBaselineStatusUsesChineseDisplayText() {
-        let presentation = HomeDietTrendPresentation(
+        let presentation = PetDietTrendPresentation(
             summary: Self.summary(status: "collecting_baseline")
         )
 
@@ -26,7 +26,7 @@ final class HomeDietTrendPresentationTests: XCTestCase {
     }
 
     func testPresentationFormatsBaselineAndExcludedSamples() {
-        let presentation = HomeDietTrendPresentation(
+        let presentation = PetDietTrendPresentation(
             summary: Self.summary(
                 status: "observing",
                 baselineScore: 1.0,
@@ -40,12 +40,11 @@ final class HomeDietTrendPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.statusText, "趋势观察中")
         XCTAssertEqual(presentation.baselineProgressText, "已形成部分品类基线")
         XCTAssertEqual(presentation.excludedSampleText, "2 条样本未进入健康基线（异常期、就医期）")
-        XCTAssertEqual(presentation.segments[0].baselineText, "1")
-        XCTAssertEqual(presentation.segments[0].ratioText, "75%")
+        XCTAssertEqual(presentation.segments[0].percentageText, "100%")
     }
 
     func testPresentationKeepsOtherCategoryAsLowConfidenceTrendSegment() {
-        let presentation = HomeDietTrendPresentation(
+        let presentation = PetDietTrendPresentation(
             summary: Self.summary(
                 status: "collecting_baseline",
                 segments: [
@@ -66,8 +65,7 @@ final class HomeDietTrendPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.segments[0].id, "other")
         XCTAssertEqual(presentation.segments[0].title, "其他")
         XCTAssertEqual(presentation.segments[0].percentageText, "18%")
-        XCTAssertEqual(presentation.segments[0].baselineText, "不参与基线")
-        XCTAssertEqual(presentation.segments[0].baselineSampleText, "0 天")
+        XCTAssertEqual(presentation.segments[0].percentage, 18)
     }
 
     private static func summary(
@@ -113,6 +111,11 @@ final class HomeDietTrendPresentationTests: XCTestCase {
             explanation: PetDietTrendExplanation(
                 title: "饮食趋势是怎么生成的",
                 body: "后端说明"
+            ),
+            analysis: PetDietTrendAnalysis(
+                headline: "继续记录喂食",
+                summary: "样本还在积累",
+                observations: []
             )
         )
     }

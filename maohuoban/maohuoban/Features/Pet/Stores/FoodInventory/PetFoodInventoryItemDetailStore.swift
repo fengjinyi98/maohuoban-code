@@ -142,6 +142,30 @@ final class PetFoodInventoryItemDetailStore {
         }
     }
 
+    func markCycleStillUsing(
+        itemID: String,
+        currentUserID: String?
+    ) async -> Bool {
+        guard let currentUserID else {
+            errorMessage = "缺少当前用户信息"
+            return false
+        }
+        isMutating = true
+        defer { isMutating = false }
+        do {
+            _ = try await repository.markFoodInventoryCycleStillUsing(
+                itemID: itemID,
+                currentUserID: currentUserID
+            )
+            PetFoodInventoryMutationSignal.post()
+            await load(itemID: itemID, currentUserID: currentUserID, force: true)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func setCurrentStaple(
         petID: String,
         foodItemID: String,

@@ -59,6 +59,29 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         XCTAssertEqual(detail.item.id, "food-a")
     }
 
+    func testItemDetailStoreMarksCycleStillUsingAndRefreshesDetail() async {
+        let repository = StubPetFoodInventoryRepository(
+            items: [
+                foodItem(id: "food-a", name: "当前主粮", status: .inUse)
+            ],
+            dietContext: PetCurrentDietContext(
+                currentStaple: nil,
+                tryingFoods: [],
+                usualTreats: [],
+                usualNutritions: [],
+                recentFeedingEvents: []
+            )
+        )
+        let store = PetFoodInventoryItemDetailStore(repository: repository)
+
+        await store.load(itemID: "food-a", currentUserID: "user-1")
+        let succeeded = await store.markCycleStillUsing(itemID: "food-a", currentUserID: "user-1")
+
+        XCTAssertTrue(succeeded)
+        XCTAssertEqual(repository.markedCycleStillUsingItemID, "food-a")
+        XCTAssertEqual(repository.loadedItemDetailIDs, ["food-a", "food-a"])
+    }
+
     func testLoadItemsMarksCurrentStapleAsDefaultFeedingOption() async {
         let repository = StubPetFoodInventoryRepository(
             items: [
@@ -358,6 +381,7 @@ final class PetFoodInventoryStoreTests: XCTestCase {
         private(set) var updatedDraft: FoodInventoryDraft?
         private(set) var deletedItemID: String?
         private(set) var loadedItemDetailIDs: [String] = []
+        private(set) var markedCycleStillUsingItemID: String?
 
         init(
             items: [FoodInventoryItem],
@@ -387,7 +411,12 @@ final class PetFoodInventoryStoreTests: XCTestCase {
                     firstFedAt: nil,
                     lastFedAt: nil,
                     activeDays: 0,
-                    amountDistribution: []
+                    amountDistribution: [],
+                    headline: "暂无喂食记录",
+                    usageRhythm: "继续记录后生成节奏分析",
+                    portionStability: "样本不足",
+                    calibrationState: "collecting_baseline",
+                    observations: []
                 )
             )
         }
@@ -476,6 +505,37 @@ final class PetFoodInventoryStoreTests: XCTestCase {
             currentUserID: String
         ) async throws(MHBAPIError) -> FoodInventoryItem {
             items[0]
+        }
+
+        func consumeOneFoodInventoryItem(
+            itemID: String,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> FoodInventoryConsumeOneResult {
+            FoodInventoryConsumeOneResult(
+                item: items[0],
+                consumptionCycle: FoodInventoryConsumptionCycle(
+                    id: "cycle-1",
+                    foodItemID: itemID,
+                    scopeType: "user",
+                    scopeID: currentUserID,
+                    confirmedByUserID: currentUserID,
+                    sequenceNo: 1,
+                    consumedQuantity: 1,
+                    packageWeightGrams: 5_400,
+                    packageUnit: "袋",
+                    confirmedAt: "2026-07-05T00:00:00Z",
+                    createdAt: "2026-07-05T00:00:00Z"
+                ),
+                message: "已确认吃完一袋"
+            )
+        }
+
+        func markFoodInventoryCycleStillUsing(
+            itemID: String,
+            currentUserID: String
+        ) async throws(MHBAPIError) -> FoodInventoryItem {
+            markedCycleStillUsingItemID = itemID
+            return items[0]
         }
 
         func setPetCurrentStaple(

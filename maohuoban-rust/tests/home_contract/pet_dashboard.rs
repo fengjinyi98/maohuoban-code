@@ -422,6 +422,19 @@ async fn home_dashboard_returns_low_food_inventory_attention_hint() {
     )
     .await;
 
+    for index in 0..60 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-05-{:02}T08:00:00Z", (index % 30) + 1),
+        )
+        .await;
+    }
+    consume_home_food_inventory_package(&app, &user_id, &main_food_id).await;
     for index in 0..50 {
         append_home_test_feeding_event(
             &app,
@@ -429,12 +442,8 @@ async fn home_dashboard_returns_low_food_inventory_attention_hint() {
             &pet_id,
             &main_food_id,
             "main_food",
-            if index % 5 == 0 {
-                "多一点"
-            } else {
-                "正常"
-            },
-            &format!("2026-07-{:02}T08:00:00Z", (index % 25) + 1),
+            "正常",
+            &format!("2026-07-{:02}T08:00:00Z", (index % 25) + 6),
         )
         .await;
     }
@@ -452,6 +461,242 @@ async fn home_dashboard_returns_low_food_inventory_attention_hint() {
     assert_eq!(hint["title"], "高爷家益生菌猫粮可能快吃完了");
     assert_eq!(hint["route"]["kind"], "pantry_item_detail");
     assert_eq!(hint["route"]["payload"]["food_item_id"], main_food_id);
+}
+
+#[tokio::test]
+async fn home_dashboard_returns_low_food_inventory_attention_hint_outside_recent_timeline_window() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138242").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id = create_home_food_inventory_item_with_quantity(
+        &app,
+        &user_id,
+        "高爷家益生菌猫粮",
+        "main_food",
+        2,
+        "1.5kg",
+    )
+    .await;
+
+    for index in 0..60 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-05-{:02}T08:00:00Z", (index % 30) + 1),
+        )
+        .await;
+    }
+    consume_home_food_inventory_package(&app, &user_id, &main_food_id).await;
+    for index in 0..50 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-07-{:02}T08:00:00Z", (index % 25) + 6),
+        )
+        .await;
+    }
+    for index in 0..55 {
+        append_home_test_event(
+            &app,
+            &user_id,
+            &pet_id,
+            json!({
+                "event_kind": "health",
+                "event_subkind": "weight",
+                "title": "体重记录",
+                "summary": "近期稳定",
+                "visibility": "private",
+                "occurred_at": format!("2026-08-{:02}T09:00:00Z", (index % 27) + 1),
+                "event_payload": {
+                    "weight_kg": 5.2
+                }
+            }),
+        )
+        .await;
+    }
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let hints = dashboard_body["data"]["attention_hints"]
+        .as_array()
+        .expect("attention hints");
+    let hint = hints
+        .iter()
+        .find(|hint| hint["source_ref_id"] == main_food_id)
+        .expect("low food inventory hint should use diet facts beyond recent timeline window");
+
+    assert_eq!(hint["title"], "高爷家益生菌猫粮可能快吃完了");
+}
+
+#[tokio::test]
+async fn home_dashboard_clears_low_food_inventory_attention_hint_after_consuming_current_package() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138243").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id = create_home_food_inventory_item_with_quantity(
+        &app,
+        &user_id,
+        "高爷家益生菌猫粮",
+        "main_food",
+        2,
+        "1.5kg",
+    )
+    .await;
+
+    for index in 0..60 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-05-{:02}T08:00:00Z", (index % 30) + 1),
+        )
+        .await;
+    }
+    consume_home_food_inventory_package(&app, &user_id, &main_food_id).await;
+    for index in 0..50 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-07-{:02}T08:00:00Z", (index % 25) + 6),
+        )
+        .await;
+    }
+
+    let before_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    assert!(
+        before_body["data"]["attention_hints"]
+            .as_array()
+            .expect("attention hints before consume")
+            .iter()
+            .any(|hint| hint["source_ref_id"] == main_food_id)
+    );
+
+    consume_home_food_inventory_package(&app, &user_id, &main_food_id).await;
+
+    let after_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    assert!(
+        after_body["data"]["attention_hints"]
+            .as_array()
+            .expect("attention hints after consume")
+            .iter()
+            .all(|hint| hint["source_ref_id"] != main_food_id),
+        "confirmed consumed package should clear current-cycle low inventory hint"
+    );
+}
+
+#[tokio::test]
+async fn home_dashboard_returns_cycle_confirmation_hint_without_completed_cycle() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138244").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id = create_home_food_inventory_item_with_quantity(
+        &app,
+        &user_id,
+        "高爷家益生菌猫粮",
+        "main_food",
+        2,
+        "1.5kg",
+    )
+    .await;
+
+    for day in 1..=14 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-07-{day:02}T08:00:00Z"),
+        )
+        .await;
+    }
+
+    let dashboard_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    let hints = dashboard_body["data"]["attention_hints"]
+        .as_array()
+        .expect("attention hints");
+    let hint = hints
+        .iter()
+        .find(|hint| hint["source_ref_id"] == main_food_id)
+        .expect("cycle confirmation hint should be generated before first completed cycle");
+
+    assert_eq!(hint["kind"], "feeding_pattern_changed");
+    assert_eq!(hint["title"], "确认高爷家益生菌猫粮是否吃完一袋");
+    assert_eq!(hint["route"]["kind"], "pantry_item_detail");
+    assert_eq!(hint["route"]["payload"]["food_item_id"], main_food_id);
+    assert_eq!(
+        hint["route"]["payload"]["inventory_prompt_kind"],
+        "cycle_confirmation"
+    );
+}
+
+#[tokio::test]
+async fn home_dashboard_clears_cycle_confirmation_hint_after_still_using_check() {
+    let app = maohuoban_rust::test_support::spawn_home_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138245").await;
+    let pet_id = create_home_test_pet(&app, &user_id).await;
+    let main_food_id = create_home_food_inventory_item_with_quantity(
+        &app,
+        &user_id,
+        "高爷家益生菌猫粮",
+        "main_food",
+        2,
+        "1.5kg",
+    )
+    .await;
+
+    for day in 1..=14 {
+        append_home_test_feeding_event(
+            &app,
+            &user_id,
+            &pet_id,
+            &main_food_id,
+            "main_food",
+            "正常",
+            &format!("2026-07-{day:02}T08:00:00Z"),
+        )
+        .await;
+    }
+
+    let before_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    assert!(
+        before_body["data"]["attention_hints"]
+            .as_array()
+            .expect("attention hints before still using")
+            .iter()
+            .any(|hint| hint["source_ref_id"] == main_food_id)
+    );
+
+    mark_home_food_inventory_package_still_using(&app, &user_id, &main_food_id).await;
+
+    let after_body = load_user_home_dashboard_for_pet(&app, &user_id, &pet_id).await;
+    assert!(
+        after_body["data"]["attention_hints"]
+            .as_array()
+            .expect("attention hints after still using")
+            .iter()
+            .all(|hint| hint["source_ref_id"] != main_food_id),
+        "still using check should cool down first-cycle confirmation hint"
+    );
 }
 
 #[tokio::test]
@@ -672,6 +917,40 @@ async fn set_home_pet_current_staple(
         .await
         .expect("set current staple for home pantry preview");
     assert_eq!(response.status(), StatusCode::CREATED);
+}
+
+async fn consume_home_food_inventory_package(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    food_item_id: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "POST",
+            &format!("/api/v1/food-inventory/items/{food_item_id}/consume-one"),
+            Some(user_id),
+        ))
+        .await
+        .expect("consume food inventory package");
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+async fn mark_home_food_inventory_package_still_using(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    user_id: &str,
+    food_item_id: &str,
+) {
+    let response = app
+        .router()
+        .oneshot(contextual_empty_request(
+            "POST",
+            &format!("/api/v1/food-inventory/items/{food_item_id}/cycle-checks/still-using"),
+            Some(user_id),
+        ))
+        .await
+        .expect("mark food inventory package still using");
+    assert_eq!(response.status(), StatusCode::OK);
 }
 
 async fn append_home_test_feeding_event(

@@ -252,6 +252,11 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
             explanation: PetDietTrendExplanation(
                 title: "饮食趋势是怎么生成的",
                 body: "后端说明"
+            ),
+            analysis: PetDietTrendAnalysis(
+                headline: "主粮摄入稳定",
+                summary: "近 30 天主粮记录可用于观察",
+                observations: []
             )
         )
         let backendSnapshot = HomeDashboardSnapshot(

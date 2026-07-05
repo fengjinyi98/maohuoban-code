@@ -1,3 +1,5 @@
+#[path = "home_dashboard/services/attention_summary.rs"]
+mod attention_summary;
 mod diagnostics;
 mod merchant_summary;
 mod pet_summary;
@@ -9,6 +11,7 @@ use std::{
 };
 
 use crate::home_dashboard::{
+    attention_summary::home_attention_hints,
     diagnostics::{
         record_home_empty_state, record_home_media_metadata, record_home_pet_list,
         record_home_selected_pet_output,
@@ -26,12 +29,10 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
-    AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone, HomeDashboardSnapshot,
-    HomeDietTrendAnalysis, HomeDietTrendCalibration, HomeDietTrendConfidence,
-    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
-    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
-    HomePantryPreviewItem, HomeTimelineEvent,
+    AttentionHint, HomeDashboardSnapshot, HomeDietTrendAnalysis, HomeDietTrendCalibration,
+    HomeDietTrendConfidence, HomeDietTrendExplanation, HomeDietTrendHealthContext,
+    HomeDietTrendSegment, HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity,
+    HomeIdentityKind, HomePantryPreviewItem, HomeTimelineEvent,
 };
 use maohuoban_pet_application::pet::{MediaAssetDisplayMetadata, PetService};
 use maohuoban_pet_domain::pet::{
@@ -42,8 +43,6 @@ use maohuoban_recommendation_application::recommendation::{
 };
 use tokio::sync::RwLock;
 use uuid::Uuid;
-
-const FOOD_INVENTORY_LOW_REMAINING_SCORE_RATIO: f64 = 0.2;
 
 /// `InMemoryHomeDashboardProvider` 内存首页快照提供器
 /// 核心职责：
@@ -175,21 +174,9 @@ impl HybridHomeDashboardProvider {
         snapshot.gallery_albums = self
             .gallery_album_summaries(user_id, selected_pet.id)
             .await?;
-        let mut stored_attention_hints = self
-            .pet_service
-            .load_attention_hints(selected_pet.id)
-            .await
-            .map_err(|error| to_home_error(&error))?
-            .into_iter()
-            .filter_map(|value| serde_json::from_value(value).ok())
-            .collect();
-        snapshot.attention_hints.append(&mut stored_attention_hints);
-        snapshot.attention_hints.sort_by(|left, right| {
-            right
-                .priority
-                .cmp(&left.priority)
-                .then_with(|| right.created_at.cmp(&left.created_at))
-        });
+        snapshot.attention_hints = self
+            .load_home_attention_hints(user_id, selected_pet.id)
+            .await?;
         snapshot.partner_recommendation = self
             .recommendation_service
             .recommend_home_partner(HomeRecommendationContext {
@@ -211,6 +198,42 @@ impl HybridHomeDashboardProvider {
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
         Ok(snapshot)
+    }
+
+    /// `load_home_attention_hints` 加载首页轻提醒
+    /// 核心职责：
+    /// - 从专属事实源聚合首页轻提醒
+    /// - 保持轻提醒独立于首页时间线窗口
+    async fn load_home_attention_hints(
+        &self,
+        user_id: Uuid,
+        pet_id: Uuid,
+    ) -> HomeResult<Vec<AttentionHint>> {
+        let diet_inventory_candidates = self
+            .pet_service
+            .load_diet_inventory_attention_candidates(user_id, pet_id, 180)
+            .await
+            .map_err(|error| to_home_error(&error))?;
+        let mut stored_attention_hints = self
+            .pet_service
+            .load_attention_hints(pet_id)
+            .await
+            .map_err(|error| to_home_error(&error))?
+            .into_iter()
+            .filter_map(|value| serde_json::from_value(value).ok())
+            .collect();
+        let mut hints = home_attention_hints(
+            pet_id,
+            &diet_inventory_candidates,
+            &mut stored_attention_hints,
+        );
+        hints.sort_by(|left, right| {
+            right
+                .priority
+                .cmp(&left.priority)
+                .then_with(|| right.created_at.cmp(&left.created_at))
+        });
+        Ok(hints)
     }
 
     /// `empty_state_snapshot` 生成首页空态快照
@@ -303,8 +326,7 @@ fn pet_owner_snapshot_base(
         .collect();
     snapshot.recent_timeline = recent_home_timeline(&timeline.entries);
     snapshot.reminders = reminders_from_events(&timeline.events);
-    snapshot.attention_hints =
-        food_inventory_attention_hints(selected_pet.id, &timeline.events, food_inventory_items);
+    snapshot.attention_hints = Vec::new();
     snapshot.pantry_items =
         home_pantry_preview_items(food_inventory_items.to_vec(), diet_role_labels);
     snapshot.merchant_dashboard = None;
@@ -325,136 +347,6 @@ fn recent_home_timeline(
         .take(4)
         .map(timeline_entry_summary)
         .collect::<Vec<_>>()
-}
-
-/// `food_inventory_attention_hints` 生成库存消耗轻提示
-/// 核心职责：
-/// - 基于当前宠物喂食事件和库存规格估算物品是否接近吃完
-/// - 输出首页 `attention_hints`，不直接修改库存事实
-fn food_inventory_attention_hints(
-    pet_id: Uuid,
-    events: &[maohuoban_pet_domain::pet::PetEvent],
-    food_inventory_items: &[FoodInventoryItem],
-) -> Vec<AttentionHint> {
-    let items_by_id = food_inventory_items
-        .iter()
-        .map(|item| (item.id, item))
-        .collect::<HashMap<_, _>>();
-    let mut scores_by_item_id: HashMap<Uuid, f64> = HashMap::new();
-
-    for event in events {
-        if event.event_subkind.as_deref() != Some("feeding") {
-            continue;
-        }
-        let Some(food_item_id) = event
-            .event_payload
-            .get("food_item_id")
-            .and_then(|value| value.as_str())
-            .and_then(|value| Uuid::parse_str(value).ok())
-        else {
-            continue;
-        };
-        let amount_text = event
-            .event_payload
-            .get("amount_text")
-            .and_then(|value| value.as_str())
-            .unwrap_or("正常");
-        *scores_by_item_id.entry(food_item_id).or_insert(0.0) += feeding_amount_score(amount_text);
-    }
-
-    scores_by_item_id
-        .into_iter()
-        .filter_map(|(item_id, score)| {
-            let item = *items_by_id.get(&item_id)?;
-            food_inventory_attention_hint_for_item(pet_id, item, score)
-        })
-        .collect()
-}
-
-fn food_inventory_attention_hint_for_item(
-    pet_id: Uuid,
-    item: &FoodInventoryItem,
-    score: f64,
-) -> Option<AttentionHint> {
-    if item.quantity <= 0
-        || item.package_weight_grams.is_none()
-        || !item.category.is_diet_context_eligible()
-    {
-        return None;
-    }
-    if item.category == FoodInventoryCategory::WetFood {
-        return None;
-    }
-
-    let package_score_capacity = estimated_package_score_capacity(item.category);
-    if package_score_capacity <= 0.0 {
-        return None;
-    }
-    let current_package_score = current_package_score(score, package_score_capacity);
-    let remaining_ratio =
-        ((package_score_capacity - current_package_score) / package_score_capacity).clamp(0.0, 1.0);
-    if remaining_ratio > FOOD_INVENTORY_LOW_REMAINING_SCORE_RATIO {
-        return None;
-    }
-
-    let now = chrono::Utc::now();
-    Some(AttentionHint {
-        id: Uuid::new_v4(),
-        pet_id,
-        kind: AttentionHintKind::FeedingPatternChanged,
-        title: format!("{}可能快吃完了", item.name),
-        subtitle: "确认后会更新库存和饮食趋势".to_owned(),
-        icon: "takeoutbag.and.cup.and.straw.fill".to_owned(),
-        tone: AttentionHintTone::Notice,
-        priority: 40,
-        status: AttentionHintStatus::Active,
-        source_ref_type: Some("food_inventory_item".to_owned()),
-        source_ref_id: Some(item.id),
-        route: AttentionHintRoute {
-            kind: AttentionHintRouteKind::PantryItemDetail,
-            payload: Some(serde_json::json!({ "food_item_id": item.id })),
-        },
-        display_from: None,
-        display_until: None,
-        created_by: AttentionHintCreator::BusinessRule,
-        created_at: now,
-        updated_at: now,
-        resolved_at: None,
-    })
-}
-
-fn estimated_package_score_capacity(category: FoodInventoryCategory) -> f64 {
-    match category {
-        FoodInventoryCategory::MainFood => 60.0,
-        FoodInventoryCategory::Treats => 24.0,
-        FoodInventoryCategory::Nutrition | FoodInventoryCategory::Other => 30.0,
-        FoodInventoryCategory::WetFood
-        | FoodInventoryCategory::CatLitter
-        | FoodInventoryCategory::Medicine => 0.0,
-    }
-}
-
-fn current_package_score(total_score: f64, package_score_capacity: f64) -> f64 {
-    let normalized_total = (total_score * 100.0).round();
-    let normalized_capacity = (package_score_capacity * 100.0).round();
-    if normalized_total <= 0.0 || normalized_capacity <= 0.0 {
-        return 0.0;
-    }
-    let remaining = normalized_total % normalized_capacity;
-    let normalized_score = if remaining == 0.0 {
-        normalized_capacity
-    } else {
-        remaining
-    };
-    normalized_score / 100.0
-}
-
-fn feeding_amount_score(amount_text: &str) -> f64 {
-    match amount_text.trim() {
-        "少一点" => 0.75,
-        "多一点" => 1.25,
-        _ => 1.0,
-    }
 }
 
 fn to_home_error(error: &PetError) -> HomeError {

@@ -728,6 +728,62 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         })
     }
 
+    async fn list_consumption_cycles(
+        &self,
+        scope_type: FoodScopeType,
+        scope_id: Uuid,
+    ) -> PetResult<Vec<FoodInventoryConsumptionCycle>> {
+        let rows: Vec<FoodInventoryConsumptionCycleRow> = sqlx::query_as(
+            r#"
+            SELECT *
+            FROM food_inventory_consumption_cycles
+            WHERE scope_type = $1 AND scope_id = $2
+            ORDER BY food_item_id ASC, sequence_no ASC
+            "#,
+        )
+        .bind(scope_type.as_str())
+        .bind(scope_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to list food inventory consumption cycles: {error}"
+            ))
+        })?;
+
+        rows.into_iter()
+            .map(FoodInventoryConsumptionCycle::try_from)
+            .collect()
+    }
+
+    async fn list_cycle_still_using_checks(
+        &self,
+        scope_type: FoodScopeType,
+        scope_id: Uuid,
+    ) -> PetResult<Vec<(Uuid, chrono::DateTime<chrono::Utc>)>> {
+        let rows: Vec<(Uuid, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+            r#"
+            SELECT food_item_id, MAX(changed_at) AS checked_at
+            FROM food_inventory_item_changes
+            WHERE scope_type = $1
+              AND scope_id = $2
+              AND change_kind = 'cycle_checked_still_using'
+            GROUP BY food_item_id
+            "#,
+        )
+        .bind(scope_type.as_str())
+        .bind(scope_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!(
+                "failed to list food inventory cycle checks: {error}"
+            ))
+        })?;
+
+        Ok(rows)
+    }
+
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem> {
         let result: Option<FoodInventoryItemRow> = sqlx::query_as(
             r#"
@@ -906,6 +962,20 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             consumption_cycle,
             message,
         })
+    }
+
+    async fn mark_cycle_still_using(
+        &self,
+        item_id: Uuid,
+        editor_user_id: Uuid,
+    ) -> PetResult<FoodInventoryItem> {
+        let item = self
+            .find_item(item_id)
+            .await?
+            .ok_or(PetError::FoodInventoryNotFound)?;
+        self.record_change(&item, editor_user_id, "cycle_checked_still_using")
+            .await?;
+        Ok(item)
     }
 }
 

@@ -7,8 +7,8 @@ use maohuoban_pet_domain::pet::{
 use uuid::Uuid;
 
 use super::super::{
-    FoodInventoryConsumeOneResult, FoodInventoryItemDetail, FoodInventoryRepository,
-    NewFoodInventoryItem, UpdateFoodInventoryItem,
+    FoodInventoryConsumeOneResult, FoodInventoryConsumptionCycle, FoodInventoryItemDetail,
+    FoodInventoryRepository, NewFoodInventoryItem, UpdateFoodInventoryItem,
 };
 
 /// PetService food inventory 方法组
@@ -51,6 +51,16 @@ pub(super) async fn load_food_inventory_item_detail(
 ) -> PetResult<FoodInventoryItemDetail> {
     food_inventory
         .load_item_detail(item_id, owner_user_id)
+        .await
+}
+
+pub(super) async fn list_food_inventory_consumption_cycles(
+    food_inventory: &Arc<dyn FoodInventoryRepository>,
+    scope_type: FoodScopeType,
+    scope_id: Uuid,
+) -> PetResult<Vec<FoodInventoryConsumptionCycle>> {
+    food_inventory
+        .list_consumption_cycles(scope_type, scope_id)
         .await
 }
 
@@ -98,6 +108,17 @@ pub(super) async fn consume_one_food_inventory_item(
     ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
     food_inventory
         .consume_one_item(item_id, editor_user_id)
+        .await
+}
+
+pub(super) async fn mark_food_inventory_cycle_still_using(
+    food_inventory: &Arc<dyn FoodInventoryRepository>,
+    item_id: Uuid,
+    editor_user_id: Uuid,
+) -> PetResult<FoodInventoryItem> {
+    ensure_food_inventory_editor(food_inventory, item_id, editor_user_id).await?;
+    food_inventory
+        .mark_cycle_still_using(item_id, editor_user_id)
         .await
 }
 

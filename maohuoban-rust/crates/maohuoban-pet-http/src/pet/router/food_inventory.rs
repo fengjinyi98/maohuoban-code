@@ -277,3 +277,28 @@ pub(super) async fn consume_one_food_inventory_item(
         Err(error) => error_response(&error),
     }
 }
+
+/// mark_food_inventory_cycle_still_using 确认当前包装仍在使用
+/// 核心职责：
+/// - 记录用户对首次库存周期轻提醒的“还在吃”反馈
+/// - 让首页轻提醒由后端业务状态统一消除
+pub(super) async fn mark_food_inventory_cycle_still_using(
+    State(state): State<PetHttpState>,
+    Path(item_id): Path<Uuid>,
+    actor: AuthenticatedUser,
+) -> Response {
+    let editor_user_id = actor.user_id();
+
+    match state
+        .pet
+        .mark_food_inventory_cycle_still_using(item_id, editor_user_id)
+        .await
+    {
+        Ok(item) => ok_response(
+            "food_inventory.cycle_still_using_checked",
+            "已记录还在吃",
+            item,
+        ),
+        Err(error) => error_response(&error),
+    }
+}

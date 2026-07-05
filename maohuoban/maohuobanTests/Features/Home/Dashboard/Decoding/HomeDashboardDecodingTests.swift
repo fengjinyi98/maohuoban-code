@@ -7,6 +7,73 @@ import XCTest
 // - 验证编辑档案与首页预览上下文映射保留后端媒体信息
 @MainActor
 final class HomeDashboardDecodingTests: XCTestCase {
+    func testAttentionHintDecodesInventoryPromptKind() throws {
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "code": "ok",
+              "message": "首页已加载",
+              "data": {
+                "identity": {
+                  "kind": "pet_owner",
+                  "display_name": "毛伙伴用户",
+                  "city": null,
+                  "verification_badge": null
+                },
+                "selected_pet": null,
+                "pet_switcher": [],
+                "reminders": [],
+                "quick_actions": [],
+                "partner_recommendation": null,
+                "recent_timeline": [],
+                "merchant_dashboard": null,
+                "empty_state": null,
+                "recommended_content": [],
+                "attention_hints": [
+                  {
+                    "id": "hint-1",
+                    "pet_id": "pet-1",
+                    "kind": "feeding_pattern_changed",
+                    "title": "确认主粮是否吃完一袋",
+                    "subtitle": "确认后会开始校准饮食趋势",
+                    "icon": "takeoutbag.and.cup.and.straw.fill",
+                    "tone": "notice",
+                    "priority": 60,
+                    "status": "active",
+                    "source_ref_type": "food_inventory_item",
+                    "source_ref_id": "food-1",
+                    "route": {
+                      "kind": "pantry_item_detail",
+                      "payload": {
+                        "food_item_id": "food-1",
+                        "inventory_prompt_kind": "cycle_confirmation"
+                      }
+                    },
+                    "display_from": null,
+                    "display_until": null,
+                    "created_by": "business_rule",
+                    "created_at": "2026-07-05T00:00:00Z",
+                    "updated_at": "2026-07-05T00:00:00Z",
+                    "resolved_at": null
+                  }
+                ]
+              }
+            }
+            """#.utf8
+        )
+
+        let response = try JSONDecoder().decode(
+            MHBAPIResponse<HomeDashboardSnapshot>.self,
+            from: data
+        )
+
+        let hint = try XCTUnwrap(response.data?.attentionHints.first)
+        XCTAssertEqual(hint.route.kind, .pantryItemDetail)
+        XCTAssertEqual(hint.route.payload?.foodItemID, "food-1")
+        XCTAssertEqual(hint.route.payload?.inventoryPromptKind, "cycle_confirmation")
+    }
+
     func testPetOwnerEventDerivedDashboardJSONDecodesIntoSnapshot() throws {
         let data = Data(
             #"""
