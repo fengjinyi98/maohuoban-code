@@ -394,7 +394,7 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 |---|---|---|---|
 | 1. 正常事实记录 | 便便正常、精神不错、食欲正常、喂食等记录已具备闭环 | 持续补充更多正常事实类型，例如体重、饮水、睡眠等 | 已验证能力具备 |
 | 2. 创建异常记录 | 异常事件结构、照片附件、时间线和详情读取已具备闭环 | 后续扩展更完整的异常详情页和 episode 状态展示 | 已验证能力具备 |
-| 3. abnormal_episode | 已有异常追踪目标文档和后端模型方向 | 补齐 episode 创建、状态、详情读取和事件关联 | 待验证 |
+| 3. abnormal_episode | episode 创建、状态更新、详情读取、事件关联和 Agent 只读工具已具备闭环 | 后续扩展 episode 状态页、追踪计划和分支策略展示 | 已验证能力具备 |
 | 4. 延迟追踪计划 | 目前仍偏产品讨论 | 需要 follow-up plan / attention hint / reminder trigger 的最小规则 | 未开始 |
 | 5. 异常更新入口 | 当前需要明确入口形态 | 补齐结构化异常更新 Sheet，必要时接 Agent 聊天入口 | 未开始 |
 | 6. 异常更新落库 | 待实现 | 写入 abnormal_followup，并更新 episode 状态 | 未开始 |
@@ -437,6 +437,21 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | iOS 路由 | 已具备 | `AttentionHintRoutePayload` 解码 `event_id`，首页异常轻提示优先用 `event_id` 打开 `PetRecordDetailRoute.abnormal` |
 
 本节点当前覆盖范围是：异常记录创建、异常事件结构、episode 关联、首页轻提示、时间线/详情读取、照片附件字段闭环。异常 episode 的完整状态页、后续更新节奏、恢复/加重分支仍由后续节点继续收敛。
+
+### 5.2.3 节点 3：abnormal_episode 验证记录
+
+当前节点已具备“异常 episode 作为父追踪对象，聚合父异常、追加观察、恢复记录，并进入 Agent 可读事实工具”的能力。
+
+| 能力 | 当前结论 | 证据 |
+|---|---|---|
+| episode 创建 | 已具备 | 创建 `health/abnormal_symptom` 时后端事务写入 `abnormal_episodes`，并把 `episode_id` 回写到父异常事件 payload |
+| 状态更新 | 已具备 | 追加观察写入 `health/symptom_followup` 后更新 `last_observed_at/latest_event_id`；恢复写入 `health/abnormal_recovery` 后更新 `status=recovered/recovered_at/latest_event_id` |
+| 事件关联 | 已具备 | 后端按 `event_payload.episode_id` 聚合同 episode 的追加观察、恢复和就诊关联；删除父异常时关闭 episode 并软删子事件，避免孤儿追加观察 |
+| Agent 工具 schema | 已具备 | Runtime 注册 `load_pet_abnormal_episode_facts`，scope 为 `pet.abnormal_episode.read`，只读、无需确认，schema 只声明 `health.abnormal_episode.*` |
+| Agent 事实读取 | 已具备 | 合同测试 `ai_chat_stream_loads_abnormal_episode_facts_without_quick_fact_payload` 验证 Agent 工具读取父异常、追加观察、恢复、附件存在性和最近追踪时间 |
+| 单一职责边界 | 已具备 | `load_pet_abnormal_episode_facts` 不返回便便、精神、食欲 quick facts；近期健康 quick facts 继续由 `load_pet_recent_health_facts` 提供，Runtime 按问题组合调用 |
+
+本节点当前覆盖范围是：episode 父对象、状态、父子事件聚合、附件存在性、Agent 只读事实工具和合同测试。后续延迟追踪计划、好转/持续/加重分支、诊前资料包仍在后续节点实现。
 
 ### 5.3 第一轮验证场景
 

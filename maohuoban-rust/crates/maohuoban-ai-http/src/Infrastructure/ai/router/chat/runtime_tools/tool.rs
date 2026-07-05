@@ -43,6 +43,13 @@ impl AiToolDefinition for RuntimePetContextTool {
 
     fn parameters_schema(&self) -> serde_json::Value {
         match self.kind {
+            RuntimePetContextToolKind::AbnormalEpisodeFacts => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "episode_id": { "type": "string", "format": "uuid" }
+                },
+                "required": []
+            }),
             RuntimePetContextToolKind::PrepareObservationWrite => serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -146,6 +153,17 @@ impl RuntimePetContextTool {
                 self.providers
                     .identity_fact_provider
                     .load_identity_fact_package(ctx.actor_user_id, &self.target_pet)
+                    .await
+            }
+            RuntimePetContextToolKind::AbnormalEpisodeFacts => {
+                let episode_id = optional_uuid_arg(args, "episode_id")?;
+                self.providers
+                    .abnormal_episode_fact_provider
+                    .load_abnormal_episode_fact_package(
+                        ctx.actor_user_id,
+                        &self.target_pet,
+                        episode_id,
+                    )
                     .await
             }
             RuntimePetContextToolKind::CurrentDiet => {
@@ -293,4 +311,22 @@ fn observation_commit_fact_package(event_id: Uuid) -> AiFactPackage {
     });
     package.fact_strength = AiFactStrength::Strong;
     package
+}
+
+/// optional_uuid_arg 解析可选 UUID 工具参数
+/// 核心职责：
+/// - 允许模型省略可选 ID 参数
+/// - 对非法 UUID 返回稳定无效入参错误
+fn optional_uuid_arg(args: &serde_json::Value, key: &str) -> AiResult<Option<Uuid>> {
+    let Some(value) = args.get(key) else {
+        return Ok(None);
+    };
+    let Some(raw) = value.as_str() else {
+        return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(format!(
+            "{key} 必须是 UUID 字符串"
+        )));
+    };
+    Uuid::parse_str(raw)
+        .map(Some)
+        .map_err(|_| maohuoban_ai_domain::ai::AiError::InvalidInput(format!("{key} 格式无效")))
 }

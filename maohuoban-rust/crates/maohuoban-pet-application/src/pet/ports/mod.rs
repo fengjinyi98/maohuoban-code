@@ -1,7 +1,9 @@
+mod abnormal_episode_facts;
 mod album;
 mod diet;
 mod media;
 
+pub use abnormal_episode_facts::{PetAbnormalEpisodeEventFact, PetAbnormalEpisodeFacts};
 pub use album::{
     AddPetAlbumAssetInput, CreatePetAlbumInput, PetAlbumAssetPage, PetAlbumListPage,
     PetAlbumRepository, UpdatePetAlbumInput,
@@ -406,6 +408,16 @@ pub trait PetRepository: Send + Sync {
     /// - 按 priority DESC, created_at DESC 排序
     /// - 返回 JSON Value 列表，由调用方反序列化为领域类型
     async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>>;
+
+    /// load_abnormal_episode_facts 读取异常 episode 追踪事实
+    /// 核心职责：
+    /// - 按授权宠物读取当前或指定异常 episode
+    /// - 返回父异常、追加观察、恢复和附件存在性读模型
+    async fn load_abnormal_episode_facts(
+        &self,
+        pet_id: Uuid,
+        episode_id: Option<Uuid>,
+    ) -> PetResult<Option<PetAbnormalEpisodeFacts>>;
 
     /// update_episode_for_followup 更新异常 episode 的观察时间线
     /// 核心职责：

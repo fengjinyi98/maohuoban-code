@@ -18,9 +18,9 @@ use axum::{
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, ChatTurnTransactionPort, FoodInventoryHintProvider, LlmProvider,
-    MemoryRepository, PetDietConfirmationCandidateProvider, PetDietFactProvider,
-    PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
-    SessionSummaryRepository, SessionTurnRepository,
+    MemoryRepository, PetAbnormalEpisodeFactProvider, PetDietConfirmationCandidateProvider,
+    PetDietFactProvider, PetHealthQuickFactProvider, PetIdentityFactProvider,
+    PetObservationWriteProvider, SessionSummaryRepository, SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 
@@ -50,6 +50,7 @@ pub struct AiHttpState {
 #[derive(Clone)]
 pub struct AiPetContextProviders {
     pub identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+    pub abnormal_episode_fact_provider: Arc<dyn PetAbnormalEpisodeFactProvider>,
     pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
     pub health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
@@ -62,6 +63,7 @@ impl AiPetContextProviders {
     #[must_use]
     pub fn new(
         identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
+        abnormal_episode_fact_provider: Arc<dyn PetAbnormalEpisodeFactProvider>,
         diet_fact_provider: Arc<dyn PetDietFactProvider>,
         health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
         food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
@@ -70,6 +72,7 @@ impl AiPetContextProviders {
     ) -> Self {
         Self {
             identity_fact_provider,
+            abnormal_episode_fact_provider,
             diet_fact_provider,
             health_quick_fact_provider,
             food_inventory_hint_provider,

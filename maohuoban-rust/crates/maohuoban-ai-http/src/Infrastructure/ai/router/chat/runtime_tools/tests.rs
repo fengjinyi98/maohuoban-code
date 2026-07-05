@@ -7,15 +7,15 @@
 #[cfg(test)]
 #[allow(clippy::module_inception)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use async_trait::async_trait;
     use maohuoban_ai_application::ai::ports::{
         AiRequestGateLog, AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite,
         FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput,
-        PetDietConfirmationCandidateProvider, PetDietFactProvider, PetHealthQuickFactProvider,
-        PetIdentityFactProvider, PetObservationWriteProvider, PreparedObservationWrite,
-        SessionSummaryRepository, SessionTurnRepository,
+        PetAbnormalEpisodeFactProvider, PetDietConfirmationCandidateProvider, PetDietFactProvider,
+        PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
+        PreparedObservationWrite, SessionSummaryRepository, SessionTurnRepository,
     };
     use maohuoban_ai_application::ai::tools::{AiToolContext, AiToolDefinition};
     use maohuoban_ai_domain::ai::{
@@ -204,12 +204,42 @@ mod tests {
     #[derive(Clone)]
     struct EmptyObservationWriteProvider;
 
+    #[derive(Default)]
+    struct CapturedAbnormalEpisodeCall {
+        actor_user_id: Option<Uuid>,
+        target_pet_id: Option<Uuid>,
+        episode_id: Option<Uuid>,
+    }
+
+    #[derive(Clone)]
+    struct CapturingAbnormalEpisodeProvider {
+        captured: Arc<Mutex<CapturedAbnormalEpisodeCall>>,
+    }
+
+    impl CapturingAbnormalEpisodeProvider {
+        fn new(captured: Arc<Mutex<CapturedAbnormalEpisodeCall>>) -> Self {
+            Self { captured }
+        }
+    }
+
     #[async_trait]
     impl PetIdentityFactProvider for EmptyPetContextProvider {
         async fn load_identity_fact_package(
             &self,
             _actor_user_id: Uuid,
             target_pet: &AiPetDisplaySnapshot,
+        ) -> AiResult<AiFactPackage> {
+            Ok(fact_package_for(target_pet))
+        }
+    }
+
+    #[async_trait]
+    impl PetAbnormalEpisodeFactProvider for EmptyPetContextProvider {
+        async fn load_abnormal_episode_fact_package(
+            &self,
+            _actor_user_id: Uuid,
+            target_pet: &AiPetDisplaySnapshot,
+            _episode_id: Option<Uuid>,
         ) -> AiResult<AiFactPackage> {
             Ok(fact_package_for(target_pet))
         }
@@ -255,6 +285,22 @@ mod tests {
             _actor_user_id: Uuid,
             target_pet: &AiPetDisplaySnapshot,
         ) -> AiResult<AiFactPackage> {
+            Ok(fact_package_for(target_pet))
+        }
+    }
+
+    #[async_trait]
+    impl PetAbnormalEpisodeFactProvider for CapturingAbnormalEpisodeProvider {
+        async fn load_abnormal_episode_fact_package(
+            &self,
+            actor_user_id: Uuid,
+            target_pet: &AiPetDisplaySnapshot,
+            episode_id: Option<Uuid>,
+        ) -> AiResult<AiFactPackage> {
+            let mut captured = self.captured.lock().expect("capture abnormal call");
+            captured.actor_user_id = Some(actor_user_id);
+            captured.target_pet_id = Some(target_pet.pet_id);
+            captured.episode_id = episode_id;
             Ok(fact_package_for(target_pet))
         }
     }
@@ -345,6 +391,52 @@ mod tests {
         );
     }
 
+    #[test]
+    fn runtime_abnormal_episode_tool_schema_declares_only_episode_facts() {
+        let schema = RuntimePetContextToolKind::AbnormalEpisodeFacts.fact_schema();
+
+        assert_eq!(
+            schema.fact_keys,
+            vec![
+                "health.abnormal_episode.status",
+                "health.abnormal_episode.initial_event",
+                "health.abnormal_episode.timeline",
+                "health.abnormal_episode.attachments",
+                "health.abnormal_episode.followup_gap",
+            ]
+        );
+        assert!(
+            schema
+                .natural_language_summary
+                .contains("异常 episode 的状态、父异常记录、追加观察、恢复和附件存在性")
+        );
+        assert!(
+            !schema
+                .natural_language_summary
+                .contains("便便是否正常、精神状态是否正常、食欲是否正常"),
+            "abnormal episode tool must not duplicate quick fact responsibilities"
+        );
+    }
+
+    #[test]
+    fn runtime_registry_registers_abnormal_episode_tool_as_readonly_private_context() {
+        let state = runtime_state();
+        let target_pet = test_pet();
+        let registry =
+            super::super::build_runtime_tool_registry(&state, Uuid::new_v4(), &target_pet);
+
+        let tool = registry
+            .list_definitions()
+            .into_iter()
+            .find(|tool| tool.name == "load_pet_abnormal_episode_facts")
+            .expect("abnormal episode facts tool should be registered");
+
+        assert_eq!(tool.toolset, Toolset::PrivatePetContext);
+        assert!(tool.read_only);
+        assert!(!tool.requires_confirmation);
+        assert_eq!(tool.scope, "pet.abnormal_episode.read");
+    }
+
     #[tokio::test]
     async fn runtime_current_pet_tool_uses_authorized_target_without_model_pet_id() {
         let tool = runtime_identity_tool();
@@ -365,6 +457,33 @@ mod tests {
         assert!(result.denied_reason().is_none());
         assert!(result.failed_reason().is_none());
         assert_eq!(result.facts()[0].value, "当前目标宠物事实");
+    }
+
+    #[tokio::test]
+    async fn runtime_abnormal_episode_tool_uses_authorized_target_and_optional_episode_id() {
+        let captured = Arc::new(Mutex::new(CapturedAbnormalEpisodeCall::default()));
+        let actor_user_id = Uuid::new_v4();
+        let episode_id = Uuid::new_v4();
+        let tool = runtime_abnormal_episode_tool(captured.clone());
+
+        let result = tool
+            .execute(
+                &AiToolContext {
+                    actor_user_id,
+                    authorized_pet_id: tool.target_pet.pet_id,
+                    gateway_context:
+                        maohuoban_ai_application::ai::tools::ToolGatewayExecutionContext::default(),
+                    gateway_observer: None,
+                },
+                &json!({ "episode_id": episode_id }),
+            )
+            .await;
+
+        assert!(result.is_success());
+        let captured = captured.lock().expect("captured abnormal call");
+        assert_eq!(captured.actor_user_id, Some(actor_user_id));
+        assert_eq!(captured.target_pet_id, Some(tool.target_pet.pet_id));
+        assert_eq!(captured.episode_id, Some(episode_id));
     }
 
     #[test]
@@ -449,6 +568,7 @@ mod tests {
                 provider.clone(),
                 provider.clone(),
                 provider.clone(),
+                provider.clone(),
                 provider,
                 Arc::new(EmptyObservationWriteProvider),
             ),
@@ -461,6 +581,27 @@ mod tests {
                 pet_species: "cat".to_owned(),
                 profile_number: "MHB001".to_owned(),
             },
+        }
+    }
+
+    fn runtime_abnormal_episode_tool(
+        captured: Arc<Mutex<CapturedAbnormalEpisodeCall>>,
+    ) -> RuntimePetContextTool {
+        let provider = Arc::new(EmptyPetContextProvider);
+        RuntimePetContextTool {
+            kind: RuntimePetContextToolKind::AbnormalEpisodeFacts,
+            providers: AiPetContextProviders::new(
+                provider.clone(),
+                Arc::new(CapturingAbnormalEpisodeProvider::new(captured)),
+                provider.clone(),
+                provider.clone(),
+                provider.clone(),
+                provider,
+                Arc::new(EmptyObservationWriteProvider),
+            ),
+            session_repository: Arc::new(EmptySessionRepository),
+            session_id: Uuid::new_v4(),
+            target_pet: test_pet(),
         }
     }
 
@@ -491,6 +632,7 @@ mod tests {
                 ),
             ),
             pet_context_providers: AiPetContextProviders::new(
+                provider.clone(),
                 provider.clone(),
                 provider.clone(),
                 provider.clone(),

@@ -63,10 +63,10 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use thiserror::Error;
 
 use crate::infrastructure::ai::{
-    PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
-    PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
-    PetServiceHealthQuickFactProvider, PetServiceIdentityFactProvider,
-    PetServiceObservationWriteProvider,
+    PetServiceAbnormalEpisodeFactProvider, PetServiceAuthorizedPetCatalog,
+    PetServiceDietConfirmationCandidateProvider, PetServiceDietFactProvider,
+    PetServiceFoodInventoryHintProvider, PetServiceHealthQuickFactProvider,
+    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
 };
 
 /// `BackendConfig` 后端启动配置
@@ -439,6 +439,9 @@ fn build_ai_http_state(
         pet_resolver: ai_pet_resolver,
         pet_context_providers: AiPetContextProviders::new(
             Arc::new(PetServiceIdentityFactProvider::new(Arc::clone(pet_service))),
+            Arc::new(PetServiceAbnormalEpisodeFactProvider::new(Arc::clone(
+                pet_service,
+            ))),
             Arc::new(PetServiceDietFactProvider::new(Arc::clone(pet_service))),
             Arc::new(PetServiceHealthQuickFactProvider::new(Arc::clone(
                 pet_service,

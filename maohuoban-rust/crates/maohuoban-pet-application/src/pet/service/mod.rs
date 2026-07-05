@@ -18,6 +18,7 @@ use self::validation::{
     normalize_compact_text, normalize_optional_compact_text, validate_optional_microchip,
     validate_optional_weight, validate_pet_name, validate_text,
 };
+use super::PetAbnormalEpisodeFacts;
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
     DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
@@ -461,6 +462,26 @@ impl PetService {
             limit,
         )
         .await
+    }
+
+    /// 加载 Agent 异常 episode 追踪事实（强事实）
+    pub async fn load_abnormal_episode_facts(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+        episode_id: Option<Uuid>,
+    ) -> PetResult<Option<PetAbnormalEpisodeFacts>> {
+        if self
+            .repository
+            .authorize_pet_access(pet_id, owner_user_id)
+            .await?
+            .is_none()
+        {
+            return Err(PetError::PetNotFound);
+        }
+        self.repository
+            .load_abnormal_episode_facts(pet_id, episode_id)
+            .await
     }
 
     /// 加载储物柜变化线索（弱线索）

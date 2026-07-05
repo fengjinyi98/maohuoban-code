@@ -12,6 +12,7 @@ use maohuoban_ai_domain::ai::{AiFactStrength, ToolFactField, ToolFactSchema, Too
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RuntimePetContextToolKind {
     Identity,
+    AbnormalEpisodeFacts,
     CurrentDiet,
     RecentHealthFacts,
     FoodInventoryHints,
@@ -21,9 +22,10 @@ pub(super) enum RuntimePetContextToolKind {
 }
 
 impl RuntimePetContextToolKind {
-    pub(super) fn all() -> [Self; 7] {
+    pub(super) fn all() -> [Self; 8] {
         [
             Self::Identity,
+            Self::AbnormalEpisodeFacts,
             Self::CurrentDiet,
             Self::RecentHealthFacts,
             Self::FoodInventoryHints,
@@ -36,6 +38,7 @@ impl RuntimePetContextToolKind {
     pub(super) fn name(self) -> &'static str {
         match self {
             Self::Identity => "load_pet_identity_context",
+            Self::AbnormalEpisodeFacts => "load_pet_abnormal_episode_facts",
             Self::CurrentDiet => "load_pet_current_diet_context",
             Self::RecentHealthFacts => "load_pet_recent_health_facts",
             Self::FoodInventoryHints => "load_food_inventory_change_hints",
@@ -50,6 +53,9 @@ impl RuntimePetContextToolKind {
             Self::Identity => {
                 "加载目标宠物身份档案上下文。调用成功后前端会基于工具结果渲染宠物资料卡，最终正文应避免重复列出品种、性别、生日、年龄、来到世界天数和到家陪伴天数等资料卡字段，只补充用户问题需要的解释、观察或确认问题"
             }
+            Self::AbnormalEpisodeFacts => {
+                "加载目标宠物异常 episode 追踪事实，只返回异常 episode、父异常记录、追加观察、恢复、就诊关联和附件存在性，不返回便便、精神、食欲 quick facts"
+            }
             Self::CurrentDiet => "加载目标宠物当前饮食上下文",
             Self::RecentHealthFacts => "加载目标宠物近期健康快捷事实",
             Self::FoodInventoryHints => "加载目标宠物储物柜变化弱线索",
@@ -62,6 +68,7 @@ impl RuntimePetContextToolKind {
     pub(super) fn scope(self) -> &'static str {
         match self {
             Self::Identity => "pet.identity.read",
+            Self::AbnormalEpisodeFacts => "pet.abnormal_episode.read",
             Self::CurrentDiet => "pet.current_diet.read",
             Self::RecentHealthFacts => "pet.recent_health_facts.read",
             Self::FoodInventoryHints => "food_inventory_change_hints.read",
@@ -74,6 +81,7 @@ impl RuntimePetContextToolKind {
     pub(super) fn requested_scope(self) -> &'static str {
         match self {
             Self::Identity => "pet_identity",
+            Self::AbnormalEpisodeFacts => "pet_abnormal_episode",
             Self::CurrentDiet => "pet_current_diet",
             Self::RecentHealthFacts => "pet_recent_health_facts",
             Self::FoodInventoryHints => "food_inventory_change_hints",
@@ -86,6 +94,7 @@ impl RuntimePetContextToolKind {
     pub(super) fn domain_tag(self) -> &'static str {
         match self {
             Self::Identity => "identity",
+            Self::AbnormalEpisodeFacts => "abnormal_episode",
             Self::CurrentDiet => "diet",
             Self::RecentHealthFacts => "health",
             Self::FoodInventoryHints => "inventory",
@@ -99,6 +108,10 @@ impl RuntimePetContextToolKind {
             Self::Identity => ToolProgressText {
                 started: "正在加载宠物档案".to_owned(),
                 completed: "宠物档案加载完成".to_owned(),
+            },
+            Self::AbnormalEpisodeFacts => ToolProgressText {
+                started: "正在加载异常追踪".to_owned(),
+                completed: "异常追踪加载完成".to_owned(),
             },
             Self::CurrentDiet => ToolProgressText {
                 started: "正在加载饮食上下文".to_owned(),
@@ -130,6 +143,7 @@ impl RuntimePetContextToolKind {
     pub(super) fn fact_schema(self) -> ToolFactSchema {
         match self {
             Self::Identity => identity_fact_schema(),
+            Self::AbnormalEpisodeFacts => abnormal_episode_fact_schema(),
             Self::CurrentDiet => diet_fact_schema(),
             Self::RecentHealthFacts => health_quick_fact_schema(),
             Self::FoodInventoryHints => inventory_hint_fact_schema(),
@@ -248,6 +262,59 @@ fn health_quick_fact_schema() -> ToolFactSchema {
                 "食欲正常吗".to_owned(),
             ],
         }],
+        default_strength: Some(AiFactStrength::Strong),
+    }
+}
+
+/// abnormal_episode_fact_schema 异常 episode 追踪事实 schema
+fn abnormal_episode_fact_schema() -> ToolFactSchema {
+    ToolFactSchema {
+        fact_keys: vec![
+            "health.abnormal_episode.status".to_owned(),
+            "health.abnormal_episode.initial_event".to_owned(),
+            "health.abnormal_episode.timeline".to_owned(),
+            "health.abnormal_episode.attachments".to_owned(),
+            "health.abnormal_episode.followup_gap".to_owned(),
+        ],
+        description: "宠物异常 episode 追踪事实".to_owned(),
+        natural_language_summary:
+            "可回答异常 episode 的状态、父异常记录、追加观察、恢复和附件存在性".to_owned(),
+        fields: vec![
+            ToolFactField {
+                key: "health.abnormal_episode.status".to_owned(),
+                label: "异常追踪状态".to_owned(),
+                meaning: "异常 episode 当前状态，例如追踪中、已恢复或已归档".to_owned(),
+                example_queries: vec!["这个异常现在怎么样了".to_owned(), "异常恢复了吗".to_owned()],
+            },
+            ToolFactField {
+                key: "health.abnormal_episode.initial_event".to_owned(),
+                label: "父异常记录".to_owned(),
+                meaning: "触发 episode 的原始异常事件，包含发生时间、摘要和附件存在性".to_owned(),
+                example_queries: vec!["最早是哪条异常".to_owned(), "一开始记录了什么".to_owned()],
+            },
+            ToolFactField {
+                key: "health.abnormal_episode.timeline".to_owned(),
+                label: "追踪时间线".to_owned(),
+                meaning: "异常 episode 下的追加观察、恢复、就诊关联等事件序列".to_owned(),
+                example_queries: vec![
+                    "后续追加了哪些观察".to_owned(),
+                    "进展时间线是什么".to_owned(),
+                ],
+            },
+            ToolFactField {
+                key: "health.abnormal_episode.attachments".to_owned(),
+                label: "附件存在性".to_owned(),
+                meaning: "异常父记录和追加观察是否存在照片等附件，用于判断证据是否完整".to_owned(),
+                example_queries: vec!["有照片吗".to_owned(), "追加观察有没有附件".to_owned()],
+            },
+            ToolFactField {
+                key: "health.abnormal_episode.followup_gap".to_owned(),
+                label: "追踪间隔".to_owned(),
+                meaning: "最近一次追加观察或异常记录距离当前的时间间隔，用于判断是否需要继续追踪"
+                    .to_owned(),
+                example_queries: vec!["多久没追踪了".to_owned(), "还需要补观察吗".to_owned()],
+            },
+        ],
         default_strength: Some(AiFactStrength::Strong),
     }
 }

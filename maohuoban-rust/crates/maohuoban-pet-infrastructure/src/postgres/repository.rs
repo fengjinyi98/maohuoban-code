@@ -3,9 +3,9 @@ use chrono::{DateTime, Datelike, Duration, Utc};
 use maohuoban_pet_application::pet::{
     AbnormalSymptomEventInput, AddPetExternalIdentifier, AddPetGuardian, BindUploadedPetMediaInput,
     DeletePetProfile, MediaAssetDisplayMetadata, NewPetEvent, NewPetProfile, NewPetWeightRecord,
-    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetRepository, PetWeightRecord,
-    ReplacePetExternalIdentifier, RestorePetProfile, TradePetImport, TradePetImportInput,
-    UpdatePetEvent, UpdatePetProfile, UpdatePetWeightRecord,
+    PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetAbnormalEpisodeFacts,
+    PetRepository, PetWeightRecord, ReplacePetExternalIdentifier, RestorePetProfile,
+    TradePetImport, TradePetImportInput, UpdatePetEvent, UpdatePetProfile, UpdatePetWeightRecord,
 };
 use maohuoban_pet_application::pet::{
     DeletePetEvent, DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord,
@@ -18,6 +18,7 @@ use maohuoban_pet_domain::pet::{
 use sqlx::PgPool;
 use uuid::Uuid;
 
+mod abnormal_episode_facts;
 mod abnormal_event_handler;
 mod event_attachments;
 mod event_queries;
@@ -266,6 +267,15 @@ impl PetRepository for PostgresPetRepository {
 
     async fn load_attention_hints(&self, pet_id: Uuid) -> PetResult<Vec<serde_json::Value>> {
         self.load_attention_hints_query(pet_id).await
+    }
+
+    async fn load_abnormal_episode_facts(
+        &self,
+        pet_id: Uuid,
+        episode_id: Option<Uuid>,
+    ) -> PetResult<Option<PetAbnormalEpisodeFacts>> {
+        self.load_abnormal_episode_facts_query(pet_id, episode_id)
+            .await
     }
 
     async fn create_pet_event(&self, input: NewPetEvent) -> PetResult<PetEvent> {
