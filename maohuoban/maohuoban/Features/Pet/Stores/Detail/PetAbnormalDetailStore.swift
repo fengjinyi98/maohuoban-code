@@ -11,6 +11,7 @@ import Observation
 final class PetAbnormalDetailStore {
     var phase: PetAbnormalDetailPhase = .idle
     var actionPhase: PetAbnormalDetailActionPhase = .idle
+    private(set) var progressRecords: [PetAbnormalRecordDetailPresentation.RelatedRecord] = []
     private(set) var isMutating = false
 
     var isLoading: Bool { phase == .loading }
@@ -35,6 +36,7 @@ final class PetAbnormalDetailStore {
         guard phase != .loading else { return }
 
         phase = .loading
+        progressRecords = []
         do {
             let response = try await repository.loadEventDetail(
                 eventID: eventID,
@@ -45,6 +47,7 @@ final class PetAbnormalDetailStore {
                 return
             }
             phase = .loaded(event)
+            await loadProgressRecords(event: event, currentUserID: currentUserID)
         } catch {
             phase = .failed(error.toastMessage)
         }
@@ -200,6 +203,97 @@ final class PetAbnormalDetailStore {
     private var currentEpisodeID: String? {
         guard case .loaded(let event) = phase else { return nil }
         return event.eventPayload?.episodeID
+    }
+
+    private func loadProgressRecords(
+        event: PetEventDetail,
+        currentUserID: String
+    ) async {
+        guard let petID = event.petID, !petID.isEmpty else {
+            progressRecords = [Self.progressRecord(from: event)]
+            return
+        }
+        guard let episodeID = event.eventPayload?.episodeID, !episodeID.isEmpty else {
+            progressRecords = [Self.progressRecord(from: event)]
+            return
+        }
+
+        do {
+            let response = try await repository.loadTimeline(
+                petID: petID,
+                currentUserID: currentUserID
+            )
+            let timelineRecords = response.data?.events
+                .filter { entry in
+                    entry.id != event.id && entry.eventPayload?.episodeID == episodeID
+                }
+                .sorted { $0.occurredAt < $1.occurredAt } ?? []
+            let records = timelineRecords.compactMap { entry in
+                Self.progressRecord(from: entry, currentEventID: event.id)
+            }
+            progressRecords = [Self.progressRecord(from: event)] + records
+        } catch {
+            progressRecords = [Self.progressRecord(from: event)]
+        }
+    }
+
+    private static func progressRecord(
+        from event: PetEventDetail
+    ) -> PetAbnormalRecordDetailPresentation.RelatedRecord {
+        PetAbnormalRecordDetailPresentation.RelatedRecord(
+            id: event.id,
+            timeText: displayTimeText(fromUTCString: event.occurredAt),
+            kind: .abnormal,
+            title: event.title,
+            subtitle: event.summary ?? "异常记录",
+            isCurrentRecord: true
+        )
+    }
+
+    private static func progressRecord(
+        from entry: PetTimelineEntry,
+        currentEventID: String
+    ) -> PetAbnormalRecordDetailPresentation.RelatedRecord? {
+        guard let kind = progressKind(for: entry.subkind) else { return nil }
+        return PetAbnormalRecordDetailPresentation.RelatedRecord(
+            id: entry.id,
+            timeText: displayTimeText(fromUTCString: entry.occurredAt),
+            kind: kind,
+            title: entry.title,
+            subtitle: progressSubtitle(for: entry),
+            isCurrentRecord: entry.id == currentEventID
+        )
+    }
+
+    private static func progressKind(
+        for subkind: String?
+    ) -> PetAbnormalRecordDetailPresentation.RelatedRecord.Kind? {
+        switch subkind {
+        case "abnormal_symptom":
+            .abnormal
+        case "symptom_followup":
+            .observation
+        case "abnormal_recovery":
+            .recovery
+        default:
+            nil
+        }
+    }
+
+    private static func progressSubtitle(for entry: PetTimelineEntry) -> String {
+        let payloadNote = entry.eventPayload?.note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let payloadNote, !payloadNote.isEmpty {
+            return payloadNote
+        }
+        let summary = entry.summary?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let summary, !summary.isEmpty {
+            return summary
+        }
+        return entry.title
+    }
+
+    private static func displayTimeText(fromUTCString utcString: String) -> String {
+        MHBUTCDateDisplayFormatter.localShortText(fromUTCString: utcString) ?? utcString
     }
 }
 

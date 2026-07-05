@@ -65,6 +65,44 @@ struct PetEventDetailPayload: Decodable, Equatable {
         case dueText = "due_text"
     }
 
+    init(
+        foodItemID: String? = nil,
+        foodRole: String? = nil,
+        amountText: String? = nil,
+        foodSnapshot: FoodSnapshot? = nil,
+        isDefaultFood: Bool? = nil,
+        symptomKinds: [String]? = nil,
+        severity: String? = nil,
+        symptomDetails: [String]? = nil,
+        note: String? = nil,
+        episodeID: String? = nil,
+        attachmentAssetIDs: [String]? = nil,
+        name: String? = nil,
+        executionMethod: String? = nil,
+        executionName: String? = nil,
+        completedAt: String? = nil,
+        nextDueAt: String? = nil,
+        dueText: String? = nil
+    ) {
+        self.foodItemID = foodItemID
+        self.foodRole = foodRole
+        self.amountText = amountText
+        self.foodSnapshot = foodSnapshot
+        self.isDefaultFood = isDefaultFood
+        self.symptomKinds = symptomKinds
+        self.severity = severity
+        self.symptomDetails = symptomDetails
+        self.note = note
+        self.episodeID = episodeID
+        self.attachmentAssetIDs = attachmentAssetIDs
+        self.name = name
+        self.executionMethod = executionMethod
+        self.executionName = executionName
+        self.completedAt = completedAt
+        self.nextDueAt = nextDueAt
+        self.dueText = dueText
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         foodItemID = try container.decodeIfPresent(String.self, forKey: .foodItemID)

@@ -179,7 +179,7 @@ private struct PetAbnormalDetailContentView: View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
             PetAbnormalRecordDetailHeader(
                 title: event.title,
-                timeText: event.occurredAt,
+                timeText: MHBUTCDateDisplayFormatter.localShortText(fromUTCString: event.occurredAt) ?? event.occurredAt,
                 severity: severity,
                 pet: PetAbnormalRecordPetIdentity(event: event, context: recordContext)
             )
@@ -210,6 +210,11 @@ private struct PetAbnormalDetailContentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            PetAbnormalRecordProgressSection(
+                records: store.progressRecords,
+                onOpenRecord: { _ in }
+            )
 
             PetAbnormalRecordEpisodeActions(
                 onSelectAction: onSelectAction

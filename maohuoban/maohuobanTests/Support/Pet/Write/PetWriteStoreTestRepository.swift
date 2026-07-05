@@ -18,6 +18,7 @@ final class CapturingPetRepository: PetRepository {
     var updateWeightRecordResult: Result<MHBAPIResponse<PetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var deleteWeightRecordResult: Result<MHBAPIResponse<DeletedPetWeightRecord>, MHBAPIError> = .failure(.invalidResponse)
     var loadTimelineResult: Result<MHBAPIResponse<PetTimeline>, MHBAPIError> = .failure(.invalidResponse)
+    var loadEventDetailResult: Result<MHBAPIResponse<PetEventDetail>, MHBAPIError> = .failure(.invalidResponse)
     var deleteEventResult: Result<MHBAPIResponse<DeletedPetEvent>, MHBAPIError> = .failure(.invalidResponse)
     private(set) var callOrder: [String] = []
     private(set) var receivedCreateDraft: PetProfileDraft?
@@ -40,6 +41,8 @@ final class CapturingPetRepository: PetRepository {
     private(set) var receivedCreateWeightUserID: String?
     private(set) var receivedLoadWeightRecordID: String?
     private(set) var receivedLoadWeightUserID: String?
+    private(set) var receivedLoadEventDetailID: String?
+    private(set) var receivedLoadEventDetailUserID: String?
     private(set) var receivedTimelinePetID: String?
     private(set) var receivedTimelineUserID: String?
     private(set) var loadTimelineCallCount = 0
@@ -94,7 +97,14 @@ final class CapturingPetRepository: PetRepository {
         eventID: String,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<PetEventDetail> {
-        throw .invalidResponse
+        receivedLoadEventDetailID = eventID
+        receivedLoadEventDetailUserID = currentUserID
+        switch loadEventDetailResult {
+        case .success(let response):
+            return response
+        case .failure(let error):
+            throw error
+        }
     }
 
     func loadTimeline(
