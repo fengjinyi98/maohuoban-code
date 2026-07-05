@@ -224,10 +224,10 @@ Rust 类型、函数、配置、核心服务顶部使用中文职责型注释：
 
 ### 12.1.1 磁盘清理与开发媒资保护
 
-1. 清理 `/private/tmp`、`/private/var/folders/**/T` 或系统“临时文件”时，必须排除 `maohuoban-code-rustfs-media` 目录；该目录是本地开发媒体对象存储，包含用户上传图片、视频和派生媒资。
-2. 删除 `maohuoban-code-rustfs-media` 会导致数据库中的 `asset_id` 仍存在但对象文件丢失，后端会出现 `Object at location ... not found`。
-3. 本地开发运行后端时，推荐显式设置 `MAOHUOBAN_MEDIA_STORAGE_ROOT=/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media`，避免媒资落在 macOS 临时目录并被系统或清理脚本回收。
-4. `.local-media/` 属于本地开发数据目录，只允许用户明确确认后清理；日常磁盘清理、构建缓存清理和测试产物清理不得删除该目录。
+1. 本地开发媒体对象存储默认路径固定为 `/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media`，后端本地运行不依赖 `MAOHUOBAN_MEDIA_STORAGE_ROOT` 环境变量才能保护媒资。
+2. `.local-media/` 属于本地开发数据目录，包含用户上传图片、视频和派生媒资；只允许用户明确确认后清理。
+3. 日常磁盘清理、构建缓存清理和测试产物清理不得删除 `.local-media/`，否则数据库中的 `asset_id` 仍存在但对象文件丢失，后端会出现 `Object at location ... not found`。
+4. 清理 `/private/tmp`、`/private/var/folders/**/T` 或系统“临时文件”时，仍必须排除历史临时对象目录 `maohuoban-code-rustfs-media`，避免旧开发实例还在使用临时对象根。
 
 ### 12.2 iOS 真机交互复测分工
 

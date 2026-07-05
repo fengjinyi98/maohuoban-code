@@ -1,5 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
+use maohuoban_media_storage::default_local_media_storage_root;
 use uuid::Uuid;
 
 use super::AuthTestApp;
@@ -114,10 +115,8 @@ pub struct MediaAssetStorageState {
 }
 
 fn media_storage_root() -> PathBuf {
-    env::var("MAOHUOBAN_MEDIA_STORAGE_ROOT").map_or_else(
-        |_| env::temp_dir().join("maohuoban-code-rustfs-media"),
-        PathBuf::from,
-    )
+    env::var("MAOHUOBAN_MEDIA_STORAGE_ROOT")
+        .map_or_else(|_| default_local_media_storage_root(), PathBuf::from)
 }
 
 fn count_files(root: &std::path::Path) -> usize {

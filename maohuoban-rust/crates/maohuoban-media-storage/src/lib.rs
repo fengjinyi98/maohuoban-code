@@ -16,6 +16,17 @@ use thiserror::Error;
 
 const DEFAULT_BUCKET: &str = "maohuoban-pet-media";
 const DEFAULT_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
+const DEFAULT_LOCAL_MEDIA_STORAGE_ROOT: &str =
+    "/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media";
+
+/// default_local_media_storage_root 本地开发媒体对象默认根目录
+/// 核心职责：
+/// - 让本地对象存储默认落在仓库受保护目录
+/// - 避免系统临时目录清理导致数据库 asset_id 与对象文件断链
+#[must_use]
+pub fn default_local_media_storage_root() -> PathBuf {
+    PathBuf::from(DEFAULT_LOCAL_MEDIA_STORAGE_ROOT)
+}
 
 /// MediaStorageConfig 媒体对象存储配置
 /// 核心职责：
@@ -109,10 +120,8 @@ impl MediaStorageConfig {
             .with_cache_control(cache_control));
         }
 
-        let root = env::var("MAOHUOBAN_MEDIA_STORAGE_ROOT").map_or_else(
-            |_| env::temp_dir().join("maohuoban-code-rustfs-media"),
-            PathBuf::from,
-        );
+        let root = env::var("MAOHUOBAN_MEDIA_STORAGE_ROOT")
+            .map_or_else(|_| default_local_media_storage_root(), PathBuf::from);
         Ok(Self::local(root, default_bucket).with_cache_control(cache_control))
     }
 
@@ -278,4 +287,17 @@ fn cache_control_from_env() -> Option<String> {
             }
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_local_media_storage_root_uses_repo_local_media_directory() {
+        assert_eq!(
+            default_local_media_storage_root(),
+            PathBuf::from("/Users/fengjinyi/Developer/maohuoban-code/.local-media/rustfs-media")
+        );
+    }
 }
