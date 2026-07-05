@@ -160,7 +160,8 @@ extension AIAssistantStore {
                         text: dto.content,
                         referenceChips: dto.citations.map(\.label),
                         references: dto.citations.map(\.reference),
-                        contentBlocks: dto.contentBlocks
+                        contentBlocks: dto.contentBlocks,
+                        createdAt: MHBUTCDateDisplayFormatter.date(fromUTCString: dto.createdAt)
                     )
                 }
             }

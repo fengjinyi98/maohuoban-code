@@ -14,6 +14,7 @@ struct AIAssistantScreen: View {
     @State private var fpsMonitor = MHBFPSMonitor()
     @State private var timelineContentHeight: CGFloat = 0
     @State private var timelineViewportHeight: CGFloat = 0
+    @State private var isScrolledToBottom = true
 
     private static let bottomAnchorID = "ai.assistant.bottom"
     private let onOpenReference: (AIAssistantReference) -> Void
@@ -60,7 +61,17 @@ struct AIAssistantScreen: View {
                                 )
                         }
                     }
+                    .background(alignment: .bottom) {
+                        GeometryReader { bottomProxy in
+                            Color.clear
+                                .preference(
+                                    key: AIAssistantBottomAnchorOffsetKey.self,
+                                    value: bottomProxy.frame(in: .named("ai.assistant.scroll")).maxY
+                                )
+                        }
+                    }
                 }
+                .coordinateSpace(name: "ai.assistant.scroll")
                 .scrollDismissesKeyboard(.interactively)
                 .onAppear {
                     timelineViewportHeight = viewportProxy.size.height
@@ -71,6 +82,9 @@ struct AIAssistantScreen: View {
                 .onPreferenceChange(AIAssistantTimelineContentHeightKey.self) { height in
                     timelineContentHeight = height
                 }
+                .onPreferenceChange(AIAssistantBottomAnchorOffsetKey.self) { bottomMaxY in
+                    updateBottomVisibility(bottomMaxY: bottomMaxY)
+                }
                 .onChange(of: store.messages.count) { _, _ in
                     scrollToBottomIfNeeded(proxy: proxy, animated: true)
                 }
@@ -80,6 +94,16 @@ struct AIAssistantScreen: View {
                 .onChange(of: store.pendingAction) { _, _ in
                     scrollToBottomIfNeeded(proxy: proxy, animated: true)
                 }
+                .overlay(alignment: .bottom) {
+                    if shouldShowScrollToLatestButton {
+                        AIAssistantScrollToLatestButton {
+                            scrollToBottom(proxy: proxy, animated: true)
+                        }
+                        .padding(.bottom, MHBTheme.Spacing.s4)
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    }
+                }
+                .animation(.smooth(duration: 0.22), value: shouldShowScrollToLatestButton)
             }
         }
         .background(MHBTheme.ColorToken.cardSolid.color.ignoresSafeArea())
@@ -287,6 +311,18 @@ struct AIAssistantScreen: View {
         ) else {
             return
         }
+        guard isScrolledToBottom else { return }
+        scrollToBottom(proxy: proxy, animated: animated)
+    }
+
+    private var shouldShowScrollToLatestButton: Bool {
+        AIAssistantScrollStateTracker.shouldShowScrollToLatestButton(
+            messageCount: store.messages.count,
+            isScrolledToBottom: isScrolledToBottom
+        )
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         if animated {
             withAnimation(.smooth(duration: 0.2)) {
                 proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
@@ -294,62 +330,15 @@ struct AIAssistantScreen: View {
         } else {
             proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
         }
+        isScrolledToBottom = true
     }
-}
 
-// AIAssistantTimelineContentHeightKey AI 消息列表内容高度
-// 核心职责：
-// - 将消息列表实际高度传回页面
-// - 支持自动滚动规则避免短内容贴底
-private struct AIAssistantTimelineContentHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-// AIAssistantMessageTimeline AI 对话消息时间线
-// 核心职责：
-// - 渲染用户与助手消息
-// - 独立展示后端 agent_activity 进度文案
-// - 承载待确认动作卡片和滚动锚点
-private struct AIAssistantMessageTimeline: View {
-    let messages: [AIAssistantMessage]
-    let activeAgentActivityText: String?
-    let pendingAction: AIAssistantProposedAction?
-    let bottomAnchorID: String
-    let onConfirmPendingAction: () -> Void
-    let onCancelPendingAction: () -> Void
-    let onOpenReference: (AIAssistantReference) -> Void
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-            ForEach(messages) { message in
-                AIAssistantMessageBubble(
-                    message: message,
-                    showsEmptyStreamingIndicator: activeAgentActivityText == nil,
-                    onOpenReference: onOpenReference
-                )
-            }
-
-            if let activeAgentActivityText {
-                AIAssistantThinkingStatus(displayText: activeAgentActivityText)
-                    .padding(.top, MHBTheme.Spacing.s1)
-            }
-
-            if let pendingAction {
-                AIAssistantProposedActionCard(
-                    action: pendingAction,
-                    onConfirm: onConfirmPendingAction,
-                    onCancel: onCancelPendingAction
-                )
-            }
-
-            Color.clear
-                .frame(height: 1)
-                .id(bottomAnchorID)
-        }
+    private func updateBottomVisibility(bottomMaxY: CGFloat) {
+        guard timelineViewportHeight > 0 else { return }
+        let threshold: CGFloat = 28
+        let nextIsScrolledToBottom = bottomMaxY <= timelineViewportHeight + threshold
+        guard nextIsScrolledToBottom != isScrolledToBottom else { return }
+        isScrolledToBottom = nextIsScrolledToBottom
     }
 }
 

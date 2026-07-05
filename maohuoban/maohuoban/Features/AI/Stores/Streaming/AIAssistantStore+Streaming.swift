@@ -34,10 +34,10 @@ extension AIAssistantStore {
             )
         }
 
-        messages.append(AIAssistantMessage(role: .user, text: text))
+        messages.append(AIAssistantMessage(role: .user, text: text, createdAt: Date()))
         clearAttachment()
         let assistantReplyStartIndex = messages.count
-        let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", createdAt: Date(), isStreaming: true)
         messages.append(placeholder)
         pendingReferenceChips = []
         pendingReferences = []
@@ -202,7 +202,7 @@ extension AIAssistantStore {
 
     func ensureStreamingPlaceholderExists() {
         guard streamingEngine.activeMessageID == nil else { return }
-        let placeholder = AIAssistantMessage(role: .assistant, text: "", isStreaming: true)
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", createdAt: Date(), isStreaming: true)
         messages.append(placeholder)
         beginStreaming(messageID: placeholder.id)
         streamingRevision += 1
@@ -240,7 +240,8 @@ extension AIAssistantStore {
                     text: finalText,
                     referenceChips: referenceChips,
                     references: references,
-                    contentBlocks: contentBlocks
+                    contentBlocks: contentBlocks,
+                    createdAt: Date()
                 )
             )
         }
@@ -279,7 +280,7 @@ extension AIAssistantStore {
             messages[index].text = text
             messages[index].isStreaming = false
         } else {
-            messages.append(AIAssistantMessage(role: .assistant, text: text))
+            messages.append(AIAssistantMessage(role: .assistant, text: text, createdAt: Date()))
         }
         streamingRevision += 1
     }

@@ -83,6 +83,26 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testLoadingSessionMessagesMapsCreatedAtToMessage() async {
+        let sessionID = "test-session"
+        let json = """
+        [{"id":"00000000-0000-0000-0000-000000000000","role":"user","content":"昨天的记录","content_blocks":[],"created_at":"2026-07-04T08:59:00Z"}]
+        """
+        let data = json.data(using: .utf8)!
+        let messages = try! JSONDecoder().decode([AIMessageDTO].self, from: data)
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(messages: messages)
+        )
+        store.currentChatSessionID = sessionID
+
+        await store.loadSessionMessages(sessionID: sessionID)
+
+        XCTAssertEqual(store.messages.count, 1)
+        XCTAssertEqual(store.messages[0].createdAt, MHBUTCDateDisplayFormatter.date(fromUTCString: "2026-07-04T08:59:00Z"))
+    }
+
+    @MainActor
     func testNewConversationShowsDefaultTitleAndSuggestedPrompts() {
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(selectedPetName: "雪球"),

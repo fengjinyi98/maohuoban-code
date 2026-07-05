@@ -22,6 +22,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
     var referenceChips: [String]
     var references: [AIAssistantReference]
     var contentBlocks: [AIAssistantContentBlock]
+    let createdAt: Date?
     var isStreaming: Bool
     private(set) var streamingRevision: Int
 
@@ -32,6 +33,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
         referenceChips: [String] = [],
         references: [AIAssistantReference] = [],
         contentBlocks: [AIAssistantContentBlock] = [],
+        createdAt: Date? = nil,
         isStreaming: Bool = false,
         streamingRevision: Int = 0
     ) {
@@ -41,6 +43,7 @@ struct AIAssistantMessage: Identifiable, Hashable {
         self.referenceChips = referenceChips
         self.references = references
         self.contentBlocks = contentBlocks
+        self.createdAt = createdAt
         self.isStreaming = isStreaming
         self.streamingRevision = streamingRevision
     }
