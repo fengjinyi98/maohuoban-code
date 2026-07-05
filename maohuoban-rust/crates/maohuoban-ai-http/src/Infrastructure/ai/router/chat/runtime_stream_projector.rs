@@ -147,11 +147,7 @@ impl AgentEventSseProjector {
         let display_text = activity_text_for_tool(tool_name, &self.pet_name);
         self.tool_names_by_call_id
             .insert(tool_call_id.to_owned(), tool_name.to_owned());
-        if self
-            .visible_output_plan
-            .allows(VisibleBlockKind::PetProfileCard)
-            && tool_name == "load_pet_identity_context"
-        {
+        if tool_name == "load_pet_identity_context" {
             return vec![self.pet_profile_skeleton_event(display_text)];
         }
         vec![AiStreamEvent::ExecutionTraceStarted { display_text }]
@@ -245,9 +241,7 @@ impl AgentEventSseProjector {
                 final_text,
                 ..
             } => {
-                if self
-                    .visible_output_plan
-                    .allows(VisibleBlockKind::PetProfileCard)
+                if self.should_render_pet_profile_card()
                     && self.requires_profile_content_blocks()
                     && super::content_block_projector::project_pet_profile_content_blocks(
                         &self.package,
@@ -266,9 +260,7 @@ impl AgentEventSseProjector {
                         package: &self.package,
                         verification_context: self.verification_context(),
                         streamed_delta_text: &self.streamed_delta_text,
-                        include_pet_profile_blocks: self
-                            .visible_output_plan
-                            .allows(VisibleBlockKind::PetProfileCard),
+                        include_pet_profile_blocks: self.should_render_pet_profile_card(),
                     },
                     &mut output,
                 );
@@ -349,6 +341,12 @@ impl AgentEventSseProjector {
 
     fn requires_profile_content_blocks(&self) -> bool {
         self.identity_context_tool_required && self.identity_context_tool_succeeded
+    }
+
+    fn should_render_pet_profile_card(&self) -> bool {
+        self.visible_output_plan
+            .allows(VisibleBlockKind::PetProfileCard)
+            || self.identity_context_tool_succeeded
     }
 
     fn pet_profile_skeleton_event(&self, title: String) -> AiStreamEvent {

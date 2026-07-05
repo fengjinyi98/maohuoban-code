@@ -58,18 +58,20 @@ private struct AIAssistantLegacyReferenceChipFlow: View {
     let chips: [String]
 
     var body: some View {
+        let uniqueChips = AIAssistantReferenceLabelSet.uniqueLabels(from: chips)
+
         ViewThatFits(in: .horizontal) {
             HStack(spacing: MHBTheme.Spacing.s2) {
-                chipsContent
+                chipsContent(uniqueChips)
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                chipsContent
+                chipsContent(uniqueChips)
             }
         }
     }
 
-    private var chipsContent: some View {
+    private func chipsContent(_ chips: [String]) -> some View {
         ForEach(chips, id: \.self) { chip in
             Text(chip)
                 .font(MHBTheme.Typography.caption)

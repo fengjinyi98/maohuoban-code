@@ -7,6 +7,22 @@ import XCTest
 // - 验证聚合后仍保留每条可追溯来源
 @MainActor
 final class AIAssistantReferenceGroupingTests: XCTestCase {
+    func testUniqueLabelsKeepsOrderAndDropsBlankDuplicates() {
+        let labels = AIAssistantReferenceLabelSet.uniqueLabels(from: [
+            " 当前主粮: 渴望六种鱼全期猫粮 ",
+            "最近喂食: 渴望六种鱼全期猫粮",
+            "最近喂食: 渴望六种鱼全期猫粮",
+            "",
+            "  ",
+            "当前主粮: 渴望六种鱼全期猫粮"
+        ])
+
+        XCTAssertEqual(labels, [
+            "当前主粮: 渴望六种鱼全期猫粮",
+            "最近喂食: 渴望六种鱼全期猫粮"
+        ])
+    }
+
     func testGroupsRepeatedReferencesBySourceKindAndTitle() {
         let references = [
             AIAssistantReference(

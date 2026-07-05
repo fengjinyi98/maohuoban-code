@@ -27,6 +27,21 @@ pub fn identity_fact_package(name: &str) -> AiFactPackage {
     package
 }
 
+pub fn diet_fact_package(name: &str) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    let candidate = AiPetCandidate {
+        pet_id: Uuid::new_v4(),
+        name: name.to_owned(),
+        avatar_url: Some("/uploads/pets/meilu.png".to_owned()),
+        species: "cat".to_owned(),
+        profile_number: "P001".to_owned(),
+    };
+    package.target_pet = Some((&candidate).into());
+    package.facts = vec![strong_fact("diet.current_staple", "渴望六种鱼全期猫粮")];
+    package.fact_strength = AiFactStrength::Strong;
+    package
+}
+
 fn strong_fact(key: &str, value: &str) -> AiFactEntry {
     AiFactEntry {
         key: key.to_owned(),

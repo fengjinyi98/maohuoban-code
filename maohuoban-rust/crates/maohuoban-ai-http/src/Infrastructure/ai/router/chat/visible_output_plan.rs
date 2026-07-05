@@ -68,10 +68,7 @@ pub(super) fn plan_visible_output(
     if target_pet.is_none() {
         return VisibleOutputPlan::empty();
     }
-    if matches!(
-        surface,
-        AiConversationSurface::PetProfile | AiConversationSurface::HomePrivate
-    ) {
+    if matches!(surface, AiConversationSurface::PetProfile) {
         return VisibleOutputPlan::pet_profile_card();
     }
 

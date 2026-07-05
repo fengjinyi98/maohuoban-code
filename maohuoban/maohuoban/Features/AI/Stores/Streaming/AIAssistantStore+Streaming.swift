@@ -183,8 +183,11 @@ extension AIAssistantStore {
     func appendPendingReferenceChip(_ label: String) {
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedLabel.isEmpty == false else { return }
-        guard pendingReferenceChips.contains(trimmedLabel) == false else { return }
-        pendingReferenceChips.append(trimmedLabel)
+        let uniqueLabels = AIAssistantReferenceLabelSet.uniqueLabels(from: pendingReferenceChips + [trimmedLabel])
+        guard uniqueLabels.count > AIAssistantReferenceLabelSet.uniqueLabels(from: pendingReferenceChips).count else {
+            return
+        }
+        pendingReferenceChips = uniqueLabels
     }
 
     func appendPendingReference(_ reference: AIAssistantReference) {

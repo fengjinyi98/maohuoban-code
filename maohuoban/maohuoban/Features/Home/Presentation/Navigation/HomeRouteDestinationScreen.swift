@@ -18,7 +18,7 @@ struct HomeRouteDestinationScreen: View {
             AIAssistantScreen(
                 context: context,
                 onOpenReference: { reference in
-                    if let route = route(for: reference) {
+                    if let route = route(for: reference, context: context) {
                         onRouteRequested(route)
                     }
                 }
@@ -246,8 +246,20 @@ struct HomeRouteDestinationScreen: View {
         }
     }
 
-    private func route(for reference: AIAssistantReference) -> HomeRoute? {
+    private func route(
+        for reference: AIAssistantReference,
+        context: AIAssistantEntryContext
+    ) -> HomeRoute? {
         guard reference.sourceKind == "pet_event" else { return nil }
-        return .petRecordDetail(.unsupported(recordID: reference.sourceID.uuidString))
+        return .petRecordDetail(
+            .auto(
+                recordID: reference.sourceID.uuidString,
+                context: PetRecordEntryContext(
+                    petID: context.selectedPetID,
+                    petName: context.selectedPetName,
+                    petAvatarURL: context.selectedPetAvatarURL
+                )
+            )
+        )
     }
 }

@@ -9,7 +9,7 @@ mod replay_agent_event;
 #[path = "support/replay/replay_fixture.rs"]
 mod replay_fixture;
 
-pub use fact_helpers::identity_fact_package;
+pub use fact_helpers::{diet_fact_package, identity_fact_package};
 pub use pet_display_snapshot::pet_display_snapshot;
 pub use replay_agent_event::replay_agent_event;
 pub use replay_fixture::{REPLAY_CASE_JSON, ReplayFixture};

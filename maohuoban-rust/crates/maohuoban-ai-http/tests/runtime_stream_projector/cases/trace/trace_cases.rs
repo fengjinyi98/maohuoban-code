@@ -18,7 +18,7 @@ fn projector_emits_execution_trace_completed_before_answer_delta() {
     events.extend(projector.project(AgentEvent::ToolStarted {
         turn_id,
         tool_call_id: "call_1".to_owned(),
-        tool_name: "load_pet_identity_context".to_owned(),
+        tool_name: "load_pet_current_diet_context".to_owned(),
     }));
     events.extend(projector.project(AgentEvent::ToolFinished {
         turn_id,

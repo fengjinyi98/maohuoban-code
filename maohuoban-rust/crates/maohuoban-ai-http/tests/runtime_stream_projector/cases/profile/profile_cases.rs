@@ -5,7 +5,7 @@ use maohuoban_ai_domain::ai::{
 use uuid::Uuid;
 
 use crate::runtime_stream_projector::AgentEventSseProjector;
-use crate::support::{identity_fact_package, pet_display_snapshot};
+use crate::support::{diet_fact_package, identity_fact_package, pet_display_snapshot};
 use crate::visible_output_plan::{VisibleOutputPlan, plan_visible_output};
 
 #[test]
@@ -187,7 +187,7 @@ fn projector_emits_pet_profile_heading_and_skeleton_when_identity_tool_starts() 
 }
 
 #[test]
-fn projector_does_not_trigger_pet_profile_skeleton_from_activity_text_without_visible_plan() {
+fn projector_emits_pet_profile_skeleton_when_identity_tool_starts_without_visible_plan() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let mut projector =
@@ -202,26 +202,27 @@ fn projector_does_not_trigger_pet_profile_skeleton_from_activity_text_without_vi
     assert!(
         matches!(
             events.as_slice(),
-            [AiStreamEvent::ExecutionTraceStarted { display_text }]
-                if display_text == "正在整理梅录的宠物档案"
+            [AiStreamEvent::ContentBlockDelta { content_blocks }]
+                if matches!(
+                    content_blocks.as_slice(),
+                    [
+                        AiContentBlock::SectionHeading { text, .. },
+                        AiContentBlock::PetProfileCardSkeleton { title, .. },
+                    ] if text == "这是梅录的宠物信息"
+                        && title == "正在整理梅录的宠物档案"
+                )
         ),
-        "activity text must not create pet profile content blocks without an explicit plan: {events:?}"
-    );
-    assert!(
-        events
-            .iter()
-            .all(|event| !matches!(event, AiStreamEvent::ContentBlockDelta { .. })),
-        "content block delta must be driven by visible output plan: {events:?}"
+        "identity tool start should create pet profile skeleton without preloaded plan: {events:?}"
     );
 }
 
 #[test]
-fn visible_output_plan_allows_pet_profile_card_on_home_private_with_target_pet() {
+fn visible_output_plan_does_not_preload_pet_profile_card_on_home_private() {
     let target_pet = pet_display_snapshot("豆包");
 
     let plan = plan_visible_output(AiConversationSurface::HomePrivate, Some(&target_pet));
 
-    assert_eq!(plan, VisibleOutputPlan::pet_profile_card());
+    assert_eq!(plan, VisibleOutputPlan::empty());
 }
 
 #[test]
@@ -241,7 +242,45 @@ fn visible_output_plan_does_not_create_pet_profile_card_without_target_pet() {
 }
 
 #[test]
-fn projector_does_not_emit_final_pet_profile_blocks_without_visible_plan() {
+fn projector_does_not_emit_pet_profile_card_for_home_private_diet_answer() {
+    let message_id = Uuid::new_v4();
+    let turn_id = AgentTurnId::new();
+    let target_pet = pet_display_snapshot("梅录");
+    let mut projector = AgentEventSseProjector::new(
+        message_id,
+        Some(diet_fact_package("梅录")),
+        "梅录",
+        true,
+        plan_visible_output(AiConversationSurface::HomePrivate, Some(&target_pet)),
+    );
+
+    let events = projector.project(AgentEvent::TurnFinished {
+        turn_id,
+        message_id,
+        final_text: "梅录最近吃的是渴望六种鱼全期猫粮。".to_owned(),
+        status: AgentTurnStatus::Completed,
+        termination_reason: None,
+    });
+
+    let content_blocks = events
+        .iter()
+        .find_map(|event| match event {
+            AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
+            _ => None,
+        })
+        .expect("home private diet answer should complete");
+
+    assert!(
+        matches!(
+            content_blocks.as_slice(),
+            [AiContentBlock::Paragraph { .. }]
+        ),
+        "diet answer should not render pet profile card: {content_blocks:?}"
+    );
+}
+
+#[test]
+fn projector_emits_final_pet_profile_blocks_after_identity_tool_without_visible_plan() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
     let mut projector =
@@ -274,13 +313,13 @@ fn projector_does_not_emit_final_pet_profile_blocks_without_visible_plan() {
             AiStreamEvent::AnswerCompleted { content_blocks, .. } => Some(content_blocks),
             _ => None,
         })
-        .expect("turn should complete without profile UI blocks");
+        .expect("identity tool turn should complete with profile UI blocks");
 
     assert!(
         content_blocks
             .iter()
-            .all(|block| !matches!(block, AiContentBlock::PetProfileCard { .. })),
-        "final pet profile UI blocks must require visible output plan: {content_blocks:?}"
+            .any(|block| matches!(block, AiContentBlock::PetProfileCard { .. })),
+        "final pet profile UI blocks should be triggered by identity tool success: {content_blocks:?}"
     );
 }
 

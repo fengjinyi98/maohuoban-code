@@ -7,6 +7,7 @@ import MaohuobanDesignSystem
 // - 明确快速事实详情页只承载便便正常、精神不错、食欲正常三类记录
 // - 将喂食、异常、体重、驱虫、疫苗、就诊和遛弯分发给各自详情页，避免通用详情页漂移
 enum PetRecordDetailRoute: Hashable, Identifiable {
+    case auto(recordID: String, context: PetRecordEntryContext)
     case quickFact(recordID: String, kind: PetQuickFactDetailKind, context: PetRecordEntryContext)
     case feeding(recordID: String, context: PetRecordEntryContext)
     case abnormal(recordID: String, context: PetRecordEntryContext)
@@ -19,6 +20,8 @@ enum PetRecordDetailRoute: Hashable, Identifiable {
 
     var id: String {
         switch self {
+        case .auto(let recordID, _):
+            "auto-\(recordID)"
         case .quickFact(let recordID, _, _):
             "quickFact-\(recordID)"
         case .feeding(let recordID, _):
@@ -53,6 +56,13 @@ struct PetRecordDetailDestinationScreen: View {
 
     var body: some View {
         switch route {
+        case .auto(let recordID, let context):
+            PetRecordDetailAutoRouteScreen(
+                recordID: recordID,
+                context: context,
+                currentUserID: currentUserID,
+                onRecordDeleted: onRecordDeleted
+            )
         case .quickFact(let recordID, let kind, let context):
             PetQuickFactDetailScreen(
                 recordID: recordID,
