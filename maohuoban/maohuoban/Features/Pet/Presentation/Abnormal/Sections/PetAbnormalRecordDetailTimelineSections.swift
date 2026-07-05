@@ -10,9 +10,19 @@ struct PetAbnormalRecordProgressSection: View {
     let highlightedRecordID: String?
 
     var body: some View {
-        PetAbnormalRecordDetailSection(title: "进展时间线") {
+        VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
+            Text("进展时间线")
+                .font(MHBTheme.Typography.section)
+                .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                .textCase(.uppercase)
+
             if records.isEmpty {
                 PetAbnormalRecordProgressEmptyState()
+                    .padding(MHBTheme.Spacing.s4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(MHBTheme.ColorToken.cardSolid.color)
+                    .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.extraLarge, style: .continuous))
+                    .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.02), radius: 10, y: 3)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(records.enumerated()), id: \.element.id) { index, record in
@@ -41,11 +51,13 @@ private struct PetAbnormalRecordProgressRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(record.timeText)
+            Text(record.timeText.replacingOccurrences(of: " ", with: "\n"))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
+                .multilineTextAlignment(.trailing)
+                .lineSpacing(2)
                 .frame(width: 56, alignment: .trailing)
-                .padding(.top, 18)
+                .padding(.top, 20)
 
             PetAbnormalRecordTimelineNode(
                 tint: record.kind.tint,
@@ -54,7 +66,7 @@ private struct PetAbnormalRecordProgressRow: View {
                 isLast: isLast
             )
 
-            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
+            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
                 HStack(spacing: MHBTheme.Spacing.s2) {
                     Text(record.title)
                         .font(MHBTheme.Typography.callout.weight(.semibold))
@@ -71,7 +83,7 @@ private struct PetAbnormalRecordProgressRow: View {
                 }
 
                 Text(record.subtitle)
-                    .font(MHBTheme.Typography.caption)
+                    .font(MHBTheme.Typography.footnote)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -80,13 +92,16 @@ private struct PetAbnormalRecordProgressRow: View {
                         assetIDs: record.attachmentAssetIDs,
                         thumbnailSize: 64
                     )
-                    .padding(.top, MHBTheme.Spacing.s2)
+                    .padding(.top, MHBTheme.Spacing.s1)
                 }
             }
-            .padding(.top, 16)
-            .padding(.bottom, MHBTheme.Spacing.s5)
-
-            Spacer(minLength: MHBTheme.Spacing.s2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(MHBTheme.Spacing.s3)
+            .background(MHBTheme.ColorToken.cardSolid.color)
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
+            .shadow(color: MHBTheme.ColorToken.labelPrimary.color.opacity(0.02), radius: 10, y: 3)
+            .padding(.top, 8)
+            .padding(.bottom, MHBTheme.Spacing.s4)
         }
     }
 }
@@ -107,10 +122,10 @@ private struct PetAbnormalRecordTimelineNode: View {
                 if isFirst && isLast {
                     Color.clear
                 } else if isFirst {
-                    Color.clear.frame(height: 26)
+                    Color.clear.frame(height: 28)
                     Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color)
                 } else if isLast {
-                    Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color).frame(height: 26)
+                    Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color).frame(height: 28)
                     Color.clear
                 } else {
                     Rectangle().fill(MHBTheme.ColorToken.separatorSoft.color)
@@ -122,9 +137,9 @@ private struct PetAbnormalRecordTimelineNode: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 32, height: 32)
-                .background(MHBTheme.ColorToken.cardSolid.color, in: Circle())
                 .background(tint.opacity(0.12), in: Circle())
-                .padding(.top, 10)
+                .background(MHBTheme.ColorToken.background.color, in: Circle())
+                .padding(.top, 12)
         }
         .frame(width: 48)
     }
