@@ -513,6 +513,27 @@ async fn abnormal_followup_second_turn_restores_agent_context_from_session() {
             .expect("confirmation task uuid");
     prepare_mock.assert();
 
+    let persisted_session: (Option<String>, Option<Uuid>, Option<Uuid>, Option<Uuid>) =
+        sqlx::query_as(
+            r"
+            SELECT chat_context_kind, abnormal_episode_id, source_hint_id, agent_followup_id
+            FROM ai_chat_sessions
+            WHERE id = $1
+            ",
+        )
+        .bind(chat_session_id)
+        .fetch_one(app.pool())
+        .await
+        .expect("load restored abnormal followup session context");
+
+    assert_eq!(
+        persisted_session.0.as_deref(),
+        Some("abnormal_episode_followup")
+    );
+    assert_eq!(persisted_session.1, Some(fixture.episode_id));
+    assert_eq!(persisted_session.2, Some(source_hint_id));
+    assert_eq!(persisted_session.3, Some(agent_followup_id));
+
     let prepared_task: (
         Option<serde_json::Value>,
         Option<Uuid>,

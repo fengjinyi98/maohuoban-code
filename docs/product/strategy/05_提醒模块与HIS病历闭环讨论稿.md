@@ -487,7 +487,7 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 首页 `更新情况` | 已具备 | iOS 解码 actions payload，push 异常详情并通过 `opensFollowupSheet` 自动弹追加观察 Sheet；真机构建和安装已通过 |
 | 首页 `问问毛球` | 已具备上下文传递 | iOS 将 `abnormal_episode_id/source_hint_id/agent_followup_id` 传入 AI chat request；后端持久化到 `ai_chat_sessions` |
 | 同 episode 会话复用 | 已具备 | `find_active_abnormal_episode_session` 让同一 abnormal episode 的第二轮轻提醒进入同一 AI session；session 冲突更新会刷新当前 `source_hint_id/agent_followup_id`，避免只复用聊天壳但恢复旧追踪轮次；合同测试 `abnormal_followup_entry_reuses_same_agent_session_and_context` 已通过 |
-| 同 Agent 上下文复用 | 已具备 | 验收口径同时校验同一 `ai_chat_sessions.id`、`chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`、最新 `source_hint_id/agent_followup_id`、Runtime `AiToolContext.observation_write_context` 和 provider workflow 注入；合同测试 `abnormal_followup_second_turn_restores_agent_context_from_session` 验证第二轮只带 `chat_session_id` 时写入工具仍能拿到当前 episode/followup 上下文 |
+| 同 Agent 上下文复用 | 已具备 | 验收口径同时校验同一 `ai_chat_sessions.id`、session 持久化字段 `chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`、最新 `source_hint_id/agent_followup_id`、Runtime `AiToolContext.observation_write_context`、写入工具上下文和 provider workflow 注入；合同测试 `abnormal_followup_second_turn_restores_agent_context_from_session` 验证第二轮只带 `chat_session_id` 时，后端仍从 session 恢复当前 episode/followup 上下文 |
 | 会话列表上下文下发 | 已具备 | `GET /api/v1/ai/chat-sessions` 返回 `chat_context_kind/abnormal_episode_id/source_hint_id/agent_followup_id`，前端可按 episode 定位同一 Agent 追踪会话；合同测试 `ai_chat_sessions_returns_abnormal_episode_context` 已通过 |
 | iOS 异常入口会话恢复 | 已具备 | `AIAssistantStore.restoreAbnormalEpisodeConversationIfNeeded()` 在 abnormal episode 入口从历史列表匹配同 episode session 并加载消息，并把发送请求使用的 effective context 刷新为历史 session 下发的最新 `source_hint_id/agent_followup_id`；测试 `testAbnormalEpisodeEntryRestoresExistingSessionAndMessages`、`testAbnormalEpisodeRestoredSessionSendsLatestAgentContext` 已通过 |
 | Agent workflow skill 动态 planning 入口 | 已具备 | 新增 `TaskType::AbnormalEpisodeFollowupPlanning`、`workflow.abnormal_episode_proactive_followup_planning`，Runtime 从恢复后的 `ObservationWriteContext` 派生该 task type；合同测试 `abnormal_episode_followup_planning_comes_from_runtime_context_not_user_text`、`builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill` 已通过 |
@@ -676,7 +676,7 @@ Tool 输出应保持事实型和结构化。已有专门 tool 能返回近期便
 
 Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只有用户反馈并确认后写入的 `symptom_followup` 才成为事实账本事件。经 Agent 聊天归纳并由用户确认写入的追加观察，在异常详情进展时间线、首页事件线和全部时间线中统一显示“毛球更新”标签。
 
-同一个 abnormal episode 的 Agent 追踪上下文必须由后端 session 保持。验收标准不能只看聊天会话 ID 复用；同一 `ai_chat_sessions.id` 必须持续保留 `chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`，并在用户从新一轮轻提醒再次进入时刷新当前 `source_hint_id/agent_followup_id`。后续 turn、Runtime tool 执行和 provider workflow 注入都必须从该 session 恢复上下文：episode 级上下文保持同一个，当前追踪轮次上下文保持最新。前端可以携带入口上下文，但后端写入工具不能依赖模型或前端在每次工具调用中重新传 episode。
+同一个 abnormal episode 的 Agent 追踪上下文必须由后端 session 保持。验收标准不能只看聊天会话 ID 复用；同一 `ai_chat_sessions.id` 必须持续保留 `chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`，并在用户从新一轮轻提醒再次进入时刷新当前 `source_hint_id/agent_followup_id`。后续 turn 必须从 session 恢复上下文，并贯穿四层：history 会话字段、Runtime `ObservationWriteContext`、受控写入 tool、provider workflow skill 注入。episode 级上下文保持同一个，当前追踪轮次上下文保持最新。前端可以携带入口上下文，但后端写入工具不能依赖模型或前端在每次工具调用中重新传 episode。
 
 #### 5.3.7 TDD 任务拆分
 
@@ -700,7 +700,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 | Rust 编译 | `cargo check --workspace --all-targets` |
 | 后端主动追踪合同 | `cargo test -p maohuoban_rust --test pet_contract agent_proactive_followup -- --nocapture --test-threads=1` |
 | Agent 会话上下文合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_entry -- --nocapture --test-threads=1`；`cargo test -p maohuoban_rust --test ai_contract abnormal_followup_entry_reuses_same_agent_session_and_context -- --nocapture --test-threads=1` |
-| Agent 上下文恢复合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_second_turn_restores_agent_context_from_session -- --nocapture`；必须同时断言 session 上下文字段、Runtime 写入上下文和 provider workflow 注入，不能只断言 `chat_session_id` 相同 |
+| Agent 上下文恢复合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_second_turn_restores_agent_context_from_session -- --nocapture`；必须同时断言同一 `chat_session_id`、session 持久化上下文字段、Runtime 写入上下文、受控写入 tool 上下文和 provider workflow 注入 |
 | 会话列表上下文合同 | `cargo test -p maohuoban_rust --test ai_contract ai_chat_sessions_returns_abnormal_episode_context -- --nocapture --test-threads=1`；历史列表必须返回 `chat_context_kind/abnormal_episode_id/source_hint_id/agent_followup_id`，供 iOS 异常入口恢复同一 Agent 追踪会话 |
 | Agent 确认写回合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_agent_confirmed_write_keeps_episode_context -- --nocapture --test-threads=1` |
 | Agent skill 合同 | 覆盖 tool 调用组合、计划 JSON、医疗边界、无图片理解 |
@@ -725,7 +725,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 |---|---|
 | 单一事实源 | 病情事实只来自 `pet_events` 和 episode 聚合，轻提醒只是待处理信号 |
 | Tool schema 收敛 | 读取工具只返回职责内事实；写入工具必须有权限、确认和后端校验 |
-| Agent 上下文不丢 | 同 episode 后续轻提醒和确认写回必须复用同一 `ai_chat_sessions.id` 及其 abnormal episode context；新一轮轻提醒入口必须刷新 session 内当前 `source_hint_id/agent_followup_id`；Runtime planning、写入工具和 provider 请求都必须从该 context 注入异常追踪 workflow skill；只复用聊天会话但丢失 Agent 上下文字段视为失败 |
+| Agent 上下文不丢 | 同 episode 后续轻提醒和确认写回必须复用同一 `ai_chat_sessions.id` 及其 abnormal episode context；新一轮轻提醒入口必须刷新 session 内当前 `source_hint_id/agent_followup_id`；history 会话字段、Runtime `ObservationWriteContext`、写入工具和 provider 请求都必须从该 context 注入异常追踪 workflow skill；只复用聊天会话但丢失 Agent 上下文字段视为失败 |
 | Skill 不写库 | Skill 输出规划、建议、草稿；数据库状态由 application service 和 repository 负责 |
 | Scheduler 不推理 | Scheduler 只看时间和状态，不生成医疗文案 |
 | 照片只作附件 | 附件只作为原始材料和存在性事实，不参与 Agent 图片理解 |
