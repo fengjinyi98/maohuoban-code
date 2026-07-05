@@ -41,20 +41,29 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
 
     @MainActor
     func testPantryItemFormUsesSingleScreenForCreateAndEditModesAtCompileTime() {
-        let item = PantryItem(
+        let item = FoodInventoryItem(
             id: "item-1",
+            scopeType: "user",
+            scopeID: "user-1",
+            createdByUserID: "user-1",
             name: "主粮",
             brand: "品牌",
-            coverAssetID: "asset-1",
-            imageURL: "/media/asset-1.jpg",
             category: .mainFood,
-            status: .sealed,
-            statusDate: "2026-07-04",
-            statusLabel: "# 未拆封囤货",
+            inventoryStatus: .sealed,
             quantity: 1,
             unit: "件",
             spec: "5kg",
-            expiryDate: "2027-07-04"
+            productionDate: "2026-01-04",
+            shelfLifeMonths: 18,
+            expiryDate: "2027-07-04",
+            coverAssetID: "asset-1",
+            coverURL: "/media/asset-1.jpg",
+            barcode: nil,
+            sourceKind: "manual",
+            note: nil,
+            createdAt: "2026-07-04T00:00:00Z",
+            updatedAt: "2026-07-04T00:00:00Z",
+            archivedAt: nil
         )
 
         _ = AddPantryItemScreen(mode: .create, currentUserID: "user-1")
