@@ -16,6 +16,8 @@ struct PetAbnormalRecordActionSheet: View {
     @Binding var recoveryNote: String
     let petID: String?
     let currentUserID: String?
+    @State private var attachmentStore = PetEventAttachmentUploadStore()
+    @State private var isPhotoPickerPresented = false
 
     var body: some View {
         NavigationStack {
@@ -42,6 +44,26 @@ struct PetAbnormalRecordActionSheet: View {
                     observationNote: $observationNote,
                     recoveryNote: $recoveryNote
                 )
+
+                if action == .addObservation {
+                    HomeQuickFactOptionalPhotoSection(
+                        title: "照片（可选）",
+                        attachments: attachmentStore.attachments,
+                        canAddMore: attachmentStore.canAddMore,
+                        onAdd: {
+                            isPhotoPickerPresented = true
+                        },
+                        onRemove: attachmentStore.removeAttachment(id:),
+                        onRetry: { id in
+                            Task {
+                                await attachmentStore.retryAttachment(
+                                    id: id,
+                                    currentUserID: currentUserID
+                                )
+                            }
+                        }
+                    )
+                }
 
                 if let message = actionMessage {
                     Text(message)
@@ -70,7 +92,12 @@ struct PetAbnormalRecordActionSheet: View {
                     .background(submitButtonColor, in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .disabled(store.isSubmitting || petID == nil)
+                .disabled(
+                    store.isSubmitting
+                    || petID == nil
+                    || attachmentStore.isUploading
+                    || attachmentStore.hasFailedUploads
+                )
             }
             .padding(MHBTheme.Spacing.s5)
             .background(MHBTheme.ColorToken.background.color)
@@ -86,10 +113,31 @@ struct PetAbnormalRecordActionSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(store.isSubmitting)
+        .fullScreenCover(isPresented: $isPhotoPickerPresented) {
+            MHBMediaPickerScreen(
+                title: "添加照片",
+                request: MHBMediaPickerRequest(
+                    maxSelectionCount: attachmentStore.remainingSelectionCount,
+                    filter: .images,
+                    autoConfirmSingleSelection: attachmentStore.remainingSelectionCount == 1,
+                    showsCameraEntry: false
+                ),
+                onComplete: handlePhotoPickerResult(_:),
+                onCancel: {
+                    isPhotoPickerPresented = false
+                }
+            )
+        }
     }
 
     private var submitTitle: String {
-        switch action {
+        if attachmentStore.isUploading {
+            return "照片上传中"
+        }
+        if attachmentStore.hasFailedUploads {
+            return "照片需处理"
+        }
+        return switch action {
         case .addObservation: "追加观察"
         case .linkClinicVisit: "关联就诊"
         case .markRecovered: "标记恢复"
@@ -119,7 +167,8 @@ struct PetAbnormalRecordActionSheet: View {
                 petID: petID,
                 note: observationNote,
                 currentUserID: currentUserID,
-                lifeStatus: nil
+                lifeStatus: nil,
+                attachmentAssetIDs: attachmentStore.uploadedAssetIDs
             )
         case .markRecovered:
             await store.markRecovered(
@@ -130,6 +179,17 @@ struct PetAbnormalRecordActionSheet: View {
             )
         case .linkClinicVisit:
             break
+        }
+    }
+
+    private func handlePhotoPickerResult(_ result: MHBMediaPickerResult) {
+        isPhotoPickerPresented = false
+        Task {
+            await attachmentStore.uploadPickedImages(
+                result.images,
+                localIdentifiers: result.imageLocalIdentifiers,
+                currentUserID: currentUserID
+            )
         }
     }
 }

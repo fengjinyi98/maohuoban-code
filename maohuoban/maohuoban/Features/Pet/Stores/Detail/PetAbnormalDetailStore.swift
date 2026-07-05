@@ -57,7 +57,8 @@ final class PetAbnormalDetailStore {
         petID: String,
         note: String,
         currentUserID: String?,
-        lifeStatus: String?
+        lifeStatus: String?,
+        attachmentAssetIDs: [String] = []
     ) async {
         guard let currentUserID, !currentUserID.isEmpty else {
             actionPhase = .failed("请先登录")
@@ -77,6 +78,9 @@ final class PetAbnormalDetailStore {
         }
         if let episodeID = currentEpisodeID {
             payload["episode_id"] = .string(episodeID)
+        }
+        if !attachmentAssetIDs.isEmpty {
+            payload["attachment_asset_ids"] = .stringArray(attachmentAssetIDs)
         }
 
         let draft = PetEventDraft(

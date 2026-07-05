@@ -107,6 +107,121 @@ async fn create_abnormal_episode_writes_episode_and_event() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn deleting_abnormal_event_resolves_episode_and_attention_hint() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139136").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "花卷",
+                "species": "cat",
+                "breed": "狸花",
+                "sex": "female",
+                "birthday": "2025-03-01"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let create_pet_body = response_json(create_pet_response).await;
+    let pet_id = create_pet_body["data"]["id"]
+        .as_str()
+        .expect("pet id")
+        .to_owned();
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/pets/{pet_id}/events"),
+            json!({
+                "event_kind": "health",
+                "event_subkind": "abnormal_symptom",
+                "title": "异常：精神差",
+                "summary": "今天精神变差",
+                "visibility": "private",
+                "occurred_at": "2026-06-27T10:00:00Z",
+                "event_payload": {
+                    "symptom_kinds": ["energy"],
+                    "severity": "obvious"
+                }
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create abnormal event");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let event_id = create_body["data"]["id"]
+        .as_str()
+        .expect("event id")
+        .to_owned();
+    let episode_id = create_body["data"]["event_payload"]["episode_id"]
+        .as_str()
+        .expect("episode id")
+        .to_owned();
+
+    let delete_response = app
+        .router()
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete abnormal event");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    let episode_status: String =
+        sqlx::query_scalar(r"SELECT status FROM abnormal_episodes WHERE id = $1::uuid")
+            .bind(&episode_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load episode status");
+    assert_eq!(episode_status, "closed");
+
+    let active_hint_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM attention_hints
+        WHERE source_ref_id = $1::uuid
+          AND source_ref_type = 'abnormal_episode'
+          AND kind = 'open_abnormal_episode'
+          AND status = 'active'
+        ",
+    )
+    .bind(&episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count active abnormal hints");
+    assert_eq!(active_hint_count, 0);
+
+    let dashboard_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            &format!("/api/v1/home/dashboard?selected_pet_id={pet_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("load dashboard");
+    assert_eq!(dashboard_response.status(), StatusCode::OK);
+    let dashboard = response_json(dashboard_response).await;
+    let hints = dashboard["data"]["attention_hints"].as_array().unwrap();
+    assert!(
+        hints.is_empty(),
+        "deleted abnormal event must remove home attention hint"
+    );
+}
+
+#[tokio::test]
 async fn symptom_followup_does_not_create_extra_hints() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

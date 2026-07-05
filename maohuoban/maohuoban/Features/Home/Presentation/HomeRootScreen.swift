@@ -94,6 +94,13 @@ struct HomeRootScreen: View {
                 deletedRecordID: deletedRecordID,
                 onRecordDeleted: { recordID in
                     deletedRecordID = recordID
+                    Task {
+                        await store.load(
+                            currentUserID: currentUserID,
+                            selectedPetID: selectedPetID,
+                            force: true
+                        )
+                    }
                 }
             ) { mutatedPetID in
                 if let mutatedPetID {

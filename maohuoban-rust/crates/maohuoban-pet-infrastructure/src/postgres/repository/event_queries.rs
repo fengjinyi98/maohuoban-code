@@ -378,6 +378,7 @@ impl PostgresPetRepository {
         &self,
         input: DeletePetEvent,
     ) -> PetResult<DeletedPetEvent> {
+        let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
         let result = sqlx::query(
             r#"
             UPDATE pet_events e
@@ -405,13 +406,52 @@ impl PostgresPetRepository {
         )
         .bind(input.event_id)
         .bind(input.actor_user_id)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(to_infrastructure_error)?;
 
         if result.rows_affected() == 0 {
             return Err(PetError::PetEventNotFound);
         }
+
+        let closed_episode_ids = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            UPDATE abnormal_episodes
+            SET status = 'closed',
+                updated_at = now()
+            WHERE created_event_id = $1::uuid
+              AND status IN ('open', 'watching', 'recovering')
+            RETURNING id
+            "#,
+        )
+        .bind(input.event_id)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        if !closed_episode_ids.is_empty() {
+            sqlx::query(
+                r#"
+                UPDATE attention_hints
+                SET status = 'resolved',
+                    resolved_at = now(),
+                    updated_at = now()
+                WHERE source_ref_id = ANY($1)
+                  AND source_ref_type = 'abnormal_episode'
+                  AND kind = 'open_abnormal_episode'
+                  AND status = 'active'
+                "#,
+            )
+            .bind(&closed_episode_ids)
+            .execute(&mut *transaction)
+            .await
+            .map_err(to_infrastructure_error)?;
+        }
+
+        transaction
+            .commit()
+            .await
+            .map_err(to_infrastructure_error)?;
 
         Ok(DeletedPetEvent {
             id: input.event_id,
