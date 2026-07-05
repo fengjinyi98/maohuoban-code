@@ -6,7 +6,7 @@ import Foundation
 // - 为单一物品表单页面提供初始草稿和保存语义
 enum PantryItemFormMode: Hashable {
     case create
-    case edit(PantryItem)
+    case edit(FoodInventoryItem)
 
     var title: String {
         switch self {
@@ -31,7 +31,7 @@ enum PantryItemFormMode: Hashable {
         case .create:
             nil
         case .edit(let item):
-            item.imageURL
+            item.coverURL
         }
     }
 
@@ -40,7 +40,7 @@ enum PantryItemFormMode: Hashable {
         case .create:
             FoodInventoryDraft(unit: "件")
         case .edit(let item):
-            FoodInventoryDraft(pantryItem: item)
+            FoodInventoryDraft(foodInventoryItem: item)
         }
     }
 }

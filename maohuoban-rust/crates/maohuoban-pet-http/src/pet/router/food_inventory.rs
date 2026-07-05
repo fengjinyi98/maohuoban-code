@@ -70,7 +70,10 @@ pub(super) async fn create_food_inventory_item(
 ) -> Response {
     let actor_user_id = actor.user_id();
 
-    let input = request.into_new(FoodScopeType::User, actor_user_id, actor_user_id);
+    let input = match request.into_new(FoodScopeType::User, actor_user_id, actor_user_id) {
+        Ok(input) => input,
+        Err(error) => return error_response(&error),
+    };
 
     match state.pet.create_food_inventory_item(input).await {
         Ok(item) => created_response("food_inventory.item_created", "食品资产已入库", item),
@@ -138,7 +141,10 @@ pub(super) async fn update_food_inventory_item(
 ) -> Response {
     let editor_user_id = actor.user_id();
 
-    let input = request.into_update(item_id, editor_user_id);
+    let input = match request.into_update(item_id, editor_user_id) {
+        Ok(input) => input,
+        Err(error) => return error_response(&error),
+    };
 
     match state.pet.update_food_inventory_item(input).await {
         Ok(item) => ok_response("food_inventory.item_updated", "食品资产已更新", item),
@@ -209,6 +215,8 @@ pub(super) async fn restock_food_inventory_item(
                     quantity: None,
                     unit: None,
                     spec: None,
+                    production_date: None,
+                    shelf_life_months: None,
                     expiry_date: None,
                     cover_asset_id: None,
                     barcode: None,

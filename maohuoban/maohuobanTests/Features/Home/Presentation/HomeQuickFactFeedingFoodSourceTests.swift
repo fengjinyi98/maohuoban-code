@@ -92,6 +92,8 @@ final class HomeQuickFactFeedingFoodSourceTests: XCTestCase {
             quantity: 12,
             unit: "罐",
             spec: "85g",
+            productionDate: "2026-01-01",
+            shelfLifeMonths: 18,
             expiryDate: nil,
             coverAssetID: nil,
             coverURL: nil,

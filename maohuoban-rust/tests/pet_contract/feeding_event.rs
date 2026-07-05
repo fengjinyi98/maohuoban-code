@@ -508,7 +508,9 @@ async fn create_food_inventory_item(
                 "inventory_status": "in_use",
                 "quantity": 1,
                 "unit": "袋",
-                "spec": "5.4kg"
+                "spec": "5.4kg",
+                "production_date": "2026-01-01",
+                "shelf_life_months": 18
             }),
             Some(user_id),
         ))
@@ -541,6 +543,8 @@ async fn create_food_inventory_item_with_status_and_cover(
                 "quantity": 1,
                 "unit": "袋",
                 "spec": "5.4kg",
+                "production_date": "2026-01-01",
+                "shelf_life_months": 18,
                 "cover_asset_id": cover_asset_id
             }),
             Some(user_id),

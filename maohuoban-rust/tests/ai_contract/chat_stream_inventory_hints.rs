@@ -281,7 +281,9 @@ async fn create_food_inventory_item(
                 "brand": "Ziwi",
                 "category": "wet_food",
                 "inventory_status": "sealed",
-                "quantity": 1
+                "quantity": 1,
+                "production_date": "2026-01-01",
+                "shelf_life_months": 18
             }),
         ))
         .await

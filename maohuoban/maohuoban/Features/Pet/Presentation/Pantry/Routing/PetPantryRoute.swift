@@ -5,6 +5,6 @@ import Foundation
 // - 定义储物柜内部导航目标
 enum PetPantryRoute: Hashable {
     case addItem
-    case editItem(PantryItem)
+    case editItem(FoodInventoryItem)
     case categoryDetail(PantryCategory)
 }

@@ -37,22 +37,24 @@ extension FoodInventoryDraft {
             quantity: Int(draft.initialStock) ?? 1,
             unit: "件",
             spec: draft.specification,
-            expiryDate: draft.expiryInfo,
+            productionDate: "",
+            shelfLifeMonths: nil,
             coverAssetID: nil,
             note: ""
         )
     }
 
-    init(pantryItem item: PantryItem) {
+    init(foodInventoryItem item: FoodInventoryItem) {
         self.init(
             name: item.name,
-            brand: item.brand == "未填写品牌" ? "" : item.brand,
-            category: FoodInventoryCategory(pantryCategory: item.category),
-            initialStatus: FoodInventoryStatus(pantryStatus: item.status),
+            brand: item.brand ?? "",
+            category: item.category,
+            initialStatus: item.inventoryStatus,
             quantity: item.quantity,
             unit: item.unit ?? "件",
             spec: item.spec ?? "",
-            expiryDate: item.expiryDate ?? "",
+            productionDate: item.productionDate,
+            shelfLifeMonths: item.shelfLifeMonths,
             coverAssetID: item.coverAssetID,
             note: ""
         )

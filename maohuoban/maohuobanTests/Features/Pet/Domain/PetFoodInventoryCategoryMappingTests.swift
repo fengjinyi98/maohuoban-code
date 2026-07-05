@@ -21,7 +21,9 @@ final class PetFoodInventoryCategoryMappingTests: XCTestCase {
           "quantity": 1,
           "unit": "件",
           "spec": null,
-          "expiry_date": null
+          "production_date": "2026-01-01",
+          "shelf_life_months": 18,
+          "expiry_date": "2027-07-01"
         }
         """
         let item = try JSONDecoder().decode(PantryItem.self, from: Data(json.utf8))
@@ -43,6 +45,8 @@ final class PetFoodInventoryCategoryMappingTests: XCTestCase {
             quantity: 1,
             unit: "件",
             spec: nil,
+            productionDate: "2026-01-01",
+            shelfLifeMonths: 18,
             expiryDate: nil,
             coverAssetID: nil,
             barcode: nil,

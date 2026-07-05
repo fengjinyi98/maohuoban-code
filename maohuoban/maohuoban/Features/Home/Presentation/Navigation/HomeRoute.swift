@@ -31,7 +31,7 @@ enum HomeRoute: Hashable {
     case petPantry(PetPantryEntryContext)
     case pantryCategoryDetail(context: PetPantryEntryContext, category: PantryCategory)
     case addPantryItem
-    case editPantryItem(PantryItem)
+    case editPantryItem(FoodInventoryItem)
 }
 
 extension HomeRoute {

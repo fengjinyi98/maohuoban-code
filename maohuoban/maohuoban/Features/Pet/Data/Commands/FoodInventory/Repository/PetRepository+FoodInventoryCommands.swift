@@ -71,6 +71,9 @@ extension DefaultPetRepository {
         draft: FoodInventoryDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem {
+        guard let shelfLifeMonths = draft.shelfLifeMonths else {
+            throw MHBAPIError.business(code: "pet.invalid_input", message: "请填写保质期月份", statusCode: 400)
+        }
         let body = FoodInventoryCreateRequest(
             name: draft.name,
             brand: draft.brand.isEmpty ? nil : draft.brand,
@@ -79,7 +82,8 @@ extension DefaultPetRepository {
             quantity: draft.quantity,
             unit: draft.unit.isEmpty ? nil : draft.unit,
             spec: draft.spec.isEmpty ? nil : draft.spec,
-            expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
+            production_date: draft.productionDate,
+            shelf_life_months: shelfLifeMonths,
             cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
@@ -99,6 +103,9 @@ extension DefaultPetRepository {
         draft: FoodInventoryDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> FoodInventoryItem {
+        guard let shelfLifeMonths = draft.shelfLifeMonths else {
+            throw MHBAPIError.business(code: "pet.invalid_input", message: "请填写保质期月份", statusCode: 400)
+        }
         let body = FoodInventoryUpdateRequest(
             name: draft.name.isEmpty ? nil : draft.name,
             brand: draft.brand.isEmpty ? nil : draft.brand,
@@ -107,7 +114,8 @@ extension DefaultPetRepository {
             quantity: draft.quantity > 0 ? draft.quantity : nil,
             unit: draft.unit.isEmpty ? nil : draft.unit,
             spec: draft.spec.isEmpty ? nil : draft.spec,
-            expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
+            production_date: draft.productionDate,
+            shelf_life_months: shelfLifeMonths,
             cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
@@ -135,7 +143,8 @@ extension DefaultPetRepository {
             quantity: nil,
             unit: nil,
             spec: nil,
-            expiry_date: nil,
+            production_date: nil,
+            shelf_life_months: nil,
             cover_asset_id: nil,
             note: nil
         )

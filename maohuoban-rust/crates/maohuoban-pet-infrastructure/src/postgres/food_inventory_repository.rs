@@ -65,11 +65,11 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
             INSERT INTO food_inventory_items (
                 id, scope_type, scope_id, created_by_user_id,
                 name, brand, category, inventory_status,
-                quantity, unit, spec, expiry_date,
+                quantity, unit, spec, production_date, shelf_life_months, expiry_date,
                 cover_asset_id, barcode, source_kind, note
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                $10, $11, $12, $13, $14, $15, $16
+                $10, $11, $12, $13, $14, $15, $16, $17, $18
             )
             RETURNING *
             "#,
@@ -85,6 +85,8 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         .bind(input.quantity)
         .bind(input.unit.as_deref())
         .bind(input.spec.as_deref())
+        .bind(input.production_date)
+        .bind(input.shelf_life_months)
         .bind(input.expiry_date)
         .bind(input.cover_asset_id)
         .bind(input.barcode.as_deref())
@@ -156,10 +158,12 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
                 quantity = COALESCE($6, quantity),
                 unit = COALESCE($7, unit),
                 spec = COALESCE($8, spec),
-                expiry_date = COALESCE($9, expiry_date),
-                cover_asset_id = COALESCE($10, cover_asset_id),
-                barcode = COALESCE($11, barcode),
-                note = COALESCE($12, note),
+                production_date = COALESCE($9, production_date),
+                shelf_life_months = COALESCE($10, shelf_life_months),
+                expiry_date = COALESCE($11, expiry_date),
+                cover_asset_id = COALESCE($12, cover_asset_id),
+                barcode = COALESCE($13, barcode),
+                note = COALESCE($14, note),
                 updated_at = now()
             WHERE id = $1 AND archived_at IS NULL
             RETURNING *
@@ -173,6 +177,8 @@ impl FoodInventoryRepository for PostgresFoodInventoryRepository {
         .bind(input.quantity)
         .bind(input.unit.as_deref())
         .bind(input.spec.as_deref())
+        .bind(input.production_date)
+        .bind(input.shelf_life_months)
         .bind(input.expiry_date)
         .bind(input.cover_asset_id)
         .bind(input.barcode.as_deref())

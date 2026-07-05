@@ -21,6 +21,8 @@ pub struct FoodInventoryItem {
     pub quantity: i32,
     pub unit: Option<String>,
     pub spec: Option<String>,
+    pub production_date: NaiveDate,
+    pub shelf_life_months: i32,
     pub expiry_date: Option<NaiveDate>,
     pub cover_asset_id: Option<Uuid>,
     pub cover_url: Option<String>,

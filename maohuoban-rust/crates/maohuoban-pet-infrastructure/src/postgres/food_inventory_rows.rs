@@ -23,6 +23,8 @@ pub(super) struct FoodInventoryItemRow {
     quantity: i32,
     unit: Option<String>,
     spec: Option<String>,
+    production_date: Option<NaiveDate>,
+    shelf_life_months: Option<i32>,
     expiry_date: Option<NaiveDate>,
     cover_asset_id: Option<Uuid>,
     barcode: Option<String>,
@@ -56,6 +58,12 @@ impl TryFrom<FoodInventoryItemRow> for FoodInventoryItem {
             quantity: row.quantity,
             unit: row.unit,
             spec: row.spec,
+            production_date: row.production_date.ok_or_else(|| {
+                PetError::Infrastructure("food inventory production_date is missing".to_owned())
+            })?,
+            shelf_life_months: row.shelf_life_months.ok_or_else(|| {
+                PetError::Infrastructure("food inventory shelf_life_months is missing".to_owned())
+            })?,
             expiry_date: row.expiry_date,
             cover_asset_id: row.cover_asset_id,
             cover_url: row

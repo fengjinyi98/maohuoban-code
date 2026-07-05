@@ -4,7 +4,7 @@ import Foundation
 // 核心职责：
 // - 表达空间级储物柜食品资产，供多宠共用
 // - 支持分类、库存状态和来源追踪
-struct FoodInventoryItem: Identifiable, Codable, Equatable {
+struct FoodInventoryItem: Identifiable, Codable, Equatable, Hashable {
     let id: String
     let scopeType: String
     let scopeID: String
@@ -16,6 +16,8 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
     let quantity: Int
     let unit: String?
     let spec: String?
+    let productionDate: String
+    let shelfLifeMonths: Int
     let expiryDate: String?
     let coverAssetID: String?
     let coverURL: String?
@@ -34,6 +36,8 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         case name, brand, category
         case inventoryStatus = "inventory_status"
         case quantity, unit, spec
+        case productionDate = "production_date"
+        case shelfLifeMonths = "shelf_life_months"
         case expiryDate = "expiry_date"
         case coverAssetID = "cover_asset_id"
         case coverURL = "cover_url"
@@ -57,6 +61,8 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         quantity: Int,
         unit: String?,
         spec: String?,
+        productionDate: String,
+        shelfLifeMonths: Int,
         expiryDate: String?,
         coverAssetID: String?,
         coverURL: String? = nil,
@@ -78,6 +84,8 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
         self.quantity = quantity
         self.unit = unit
         self.spec = spec
+        self.productionDate = productionDate
+        self.shelfLifeMonths = shelfLifeMonths
         self.expiryDate = expiryDate
         self.coverAssetID = coverAssetID
         self.coverURL = coverURL
@@ -91,7 +99,7 @@ struct FoodInventoryItem: Identifiable, Codable, Equatable {
 }
 
 /// FoodInventoryCategory 食品分类（与后端枚举对齐）
-enum FoodInventoryCategory: String, Codable, Equatable, CaseIterable {
+enum FoodInventoryCategory: String, Codable, Equatable, Hashable, CaseIterable {
     case mainFood = "main_food"
     case wetFood = "wet_food"
     case treats = "treats"
@@ -114,7 +122,7 @@ enum FoodInventoryCategory: String, Codable, Equatable, CaseIterable {
 }
 
 /// FoodInventoryStatus 库存状态（与后端枚举对齐）
-enum FoodInventoryStatus: String, Codable, Equatable, CaseIterable {
+enum FoodInventoryStatus: String, Codable, Equatable, Hashable, CaseIterable {
     case active = "active"
     case sealed = "sealed"
     case inUse = "in_use"
@@ -147,11 +155,14 @@ struct FoodInventoryDraft {
     var quantity: Int = 1
     var unit: String = ""
     var spec: String = ""
-    var expiryDate: String = ""
+    var productionDate: String = ""
+    var shelfLifeMonths: Int?
     var coverAssetID: String?
     var note: String = ""
 
     var isValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !productionDate.isEmpty
+            && shelfLifeMonths != nil
     }
 }

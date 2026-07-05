@@ -27,6 +27,8 @@ final class PetFoodInventoryDisplayMappingTests: XCTestCase {
             quantity: 2,
             unit: "袋",
             spec: "5.4kg",
+            productionDate: "2026-01-01",
+            shelfLifeMonths: 18,
             expiryDate: "2027-01-15",
             coverAssetID: nil,
             barcode: nil,

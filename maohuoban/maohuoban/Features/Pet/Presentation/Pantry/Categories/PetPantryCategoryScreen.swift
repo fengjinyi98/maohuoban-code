@@ -122,9 +122,10 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
                 },
                 onEdit: { item in
                     selectedItem = nil
+                    guard let inventoryItem = store.items.first(where: { $0.id == item.id }) else { return }
                     Task { @MainActor in
                         await Task.yield()
-                        onOpenRoute(onNavigate(.editItem(item)))
+                        onOpenRoute(onNavigate(.editItem(inventoryItem)))
                     }
                 },
                 onDelete: { itemID in

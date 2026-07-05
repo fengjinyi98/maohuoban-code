@@ -422,7 +422,9 @@ async fn create_home_food_inventory_item(
                 "brand": "测试品牌",
                 "category": category,
                 "inventory_status": "sealed",
-                "quantity": 1
+                "quantity": 1,
+                "production_date": "2026-01-01",
+                "shelf_life_months": 18
             }),
             Some(user_id),
         ))
@@ -451,6 +453,8 @@ async fn create_home_food_inventory_item_with_cover(
                 "category": category,
                 "inventory_status": "sealed",
                 "quantity": 1,
+                "production_date": "2026-01-01",
+                "shelf_life_months": 18,
                 "cover_asset_id": cover_asset_id
             }),
             Some(user_id),
