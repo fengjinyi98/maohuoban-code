@@ -110,6 +110,13 @@ async fn upsert_session_in_tx(
              created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (id) DO UPDATE SET
+            primary_pet_id = EXCLUDED.primary_pet_id,
+            surface = EXCLUDED.surface,
+            source_hint_id = EXCLUDED.source_hint_id,
+            source_task_id = EXCLUDED.source_task_id,
+            chat_context_kind = EXCLUDED.chat_context_kind,
+            abnormal_episode_id = EXCLUDED.abnormal_episode_id,
+            agent_followup_id = EXCLUDED.agent_followup_id,
             pet_display_snapshot = EXCLUDED.pet_display_snapshot,
             status = EXCLUDED.status,
             updated_at = EXCLUDED.updated_at

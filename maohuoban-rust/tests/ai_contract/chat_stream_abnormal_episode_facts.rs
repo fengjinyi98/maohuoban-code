@@ -195,8 +195,8 @@ async fn abnormal_followup_entry_reuses_same_agent_session_and_context() {
     assert_eq!(persisted.2, Some(source_hint_id));
     assert_eq!(
         persisted.3,
-        Some(first_followup_id),
-        "session keeps original entry followup context while later turns append to same agent context"
+        Some(second_followup_id),
+        "reused abnormal episode session must keep the latest proactive followup context for later chat_session_id-only turns"
     );
     assert_eq!(persisted.4, 2);
 }
