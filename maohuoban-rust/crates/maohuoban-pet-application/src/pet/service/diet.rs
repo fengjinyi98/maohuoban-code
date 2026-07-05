@@ -11,8 +11,8 @@ use uuid::Uuid;
 use super::super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietRepository,
     FoodInventoryChangeHints, FoodInventoryRepository, NewPetEvent, PetCurrentDietContext,
-    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetRepository,
-    SetPetCurrentStapleInput, SetPetDietAssignmentInput,
+    PetDietConfirmationCandidate, PetDietConfirmationCandidates, PetRecentHealthFacts,
+    PetRepository, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
 use super::food_inventory;
 
@@ -139,6 +139,18 @@ pub(super) async fn load_pet_current_diet_context(
 ) -> PetResult<PetCurrentDietContext> {
     ensure_pet_access(repository, pet_id, owner_user_id).await?;
     diet.load_pet_current_diet_context(pet_id).await
+}
+
+/// 加载近期健康快捷事实（强事实）
+pub(super) async fn load_recent_health_quick_facts(
+    repository: &Arc<dyn PetRepository>,
+    diet: &Arc<dyn DietRepository>,
+    owner_user_id: Uuid,
+    pet_id: Uuid,
+    limit: i64,
+) -> PetResult<PetRecentHealthFacts> {
+    ensure_pet_access(repository, pet_id, owner_user_id).await?;
+    diet.load_recent_health_quick_facts(pet_id, limit).await
 }
 
 /// 加载储物柜变化线索（弱线索）

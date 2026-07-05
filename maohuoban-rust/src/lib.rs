@@ -65,7 +65,8 @@ use thiserror::Error;
 use crate::infrastructure::ai::{
     PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
     PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
-    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
+    PetServiceHealthQuickFactProvider, PetServiceIdentityFactProvider,
+    PetServiceObservationWriteProvider,
 };
 
 /// `BackendConfig` 后端启动配置
@@ -439,6 +440,9 @@ fn build_ai_http_state(
         pet_context_providers: AiPetContextProviders::new(
             Arc::new(PetServiceIdentityFactProvider::new(Arc::clone(pet_service))),
             Arc::new(PetServiceDietFactProvider::new(Arc::clone(pet_service))),
+            Arc::new(PetServiceHealthQuickFactProvider::new(Arc::clone(
+                pet_service,
+            ))),
             Arc::new(PetServiceFoodInventoryHintProvider::new(Arc::clone(
                 pet_service,
             ))),

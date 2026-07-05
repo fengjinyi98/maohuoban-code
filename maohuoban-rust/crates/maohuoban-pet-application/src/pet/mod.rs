@@ -26,10 +26,11 @@ pub use ports::{
     MediaCropMetadata, NewFoodInventoryItem, NewPetEvent, NewPetProfile, NewPetWeightRecord,
     PendingPetLivePhotoUploadInput, PendingPetMediaUploadInput, PetAlbumAssetPage,
     PetAlbumListPage, PetAlbumRepository, PetCurrentDietContext, PetDietConfirmationCandidate,
-    PetDietConfirmationCandidates, PetRepository, PetWeightRecord, PetWeightRecordSource,
-    RecentDietChangeFact, RecentFeedingFact, ReplacePetExternalIdentifier, RestorePetProfile,
-    SetPetCurrentStapleInput, SetPetDietAssignmentInput, TradePetImport, TradePetImportInput,
-    UpdateFoodInventoryItem, UpdatePetAlbumInput, UpdatePetEvent, UpdatePetProfile,
-    UpdatePetProfileResult, UpdatePetWeightRecord,
+    PetDietConfirmationCandidates, PetRecentHealthFacts, PetRepository, PetWeightRecord,
+    PetWeightRecordSource, RecentDietChangeFact, RecentFeedingFact, RecentHealthQuickFact,
+    ReplacePetExternalIdentifier, RestorePetProfile, SetPetCurrentStapleInput,
+    SetPetDietAssignmentInput, TradePetImport, TradePetImportInput, UpdateFoodInventoryItem,
+    UpdatePetAlbumInput, UpdatePetEvent, UpdatePetProfile, UpdatePetProfileResult,
+    UpdatePetWeightRecord,
 };
 pub use service::PetService;

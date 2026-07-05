@@ -13,9 +13,9 @@ mod tests {
     use maohuoban_ai_application::ai::ports::{
         AiRequestGateLog, AiSessionRepository, ChatTurnTransactionPort, CommittedObservationWrite,
         FinalizerTxInput, FoodInventoryHintProvider, IngressTxInput,
-        PetDietConfirmationCandidateProvider, PetDietFactProvider, PetIdentityFactProvider,
-        PetObservationWriteProvider, PreparedObservationWrite, SessionSummaryRepository,
-        SessionTurnRepository,
+        PetDietConfirmationCandidateProvider, PetDietFactProvider, PetHealthQuickFactProvider,
+        PetIdentityFactProvider, PetObservationWriteProvider, PreparedObservationWrite,
+        SessionSummaryRepository, SessionTurnRepository,
     };
     use maohuoban_ai_application::ai::tools::{AiToolContext, AiToolDefinition};
     use maohuoban_ai_domain::ai::{
@@ -227,6 +227,17 @@ mod tests {
     }
 
     #[async_trait]
+    impl PetHealthQuickFactProvider for EmptyPetContextProvider {
+        async fn load_recent_health_quick_fact_package(
+            &self,
+            _actor_user_id: Uuid,
+            target_pet: &AiPetDisplaySnapshot,
+        ) -> AiResult<AiFactPackage> {
+            Ok(fact_package_for(target_pet))
+        }
+    }
+
+    #[async_trait]
     impl FoodInventoryHintProvider for EmptyPetContextProvider {
         async fn load_food_inventory_hint_package(
             &self,
@@ -310,6 +321,18 @@ mod tests {
                 "pet_identity.world_days",
                 "pet_identity.companionship_days",
             ]
+        );
+    }
+
+    #[test]
+    fn runtime_health_tool_schema_declares_quick_fact_facts() {
+        let schema = RuntimePetContextToolKind::RecentHealthFacts.fact_schema();
+
+        assert_eq!(schema.fact_keys, vec!["health.recent_quick_fact"]);
+        assert!(
+            schema
+                .natural_language_summary
+                .contains("便便是否正常、精神状态是否正常、食欲是否正常")
         );
     }
 
@@ -416,6 +439,7 @@ mod tests {
                 provider.clone(),
                 provider.clone(),
                 provider.clone(),
+                provider.clone(),
                 provider,
                 Arc::new(EmptyObservationWriteProvider),
             ),
@@ -458,6 +482,7 @@ mod tests {
                 ),
             ),
             pet_context_providers: AiPetContextProviders::new(
+                provider.clone(),
                 provider.clone(),
                 provider.clone(),
                 provider.clone(),

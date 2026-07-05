@@ -27,8 +27,8 @@ use super::{
     UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
 };
 use super::{
-    FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
-    SetPetDietAssignmentInput,
+    FoodInventoryChangeHints, PetCurrentDietContext, PetRecentHealthFacts,
+    SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
 use maohuoban_pet_domain::pet::{FoodScopeType, PetDietAssignment, PetIdentityContext};
 
@@ -444,6 +444,23 @@ impl PetService {
     ) -> PetResult<PetCurrentDietContext> {
         diet::load_pet_current_diet_context(&self.repository, &self.diet, owner_user_id, pet_id)
             .await
+    }
+
+    /// 加载 Agent 近期健康快捷事实（强事实）
+    pub async fn load_recent_health_quick_facts(
+        &self,
+        owner_user_id: Uuid,
+        pet_id: Uuid,
+        limit: i64,
+    ) -> PetResult<PetRecentHealthFacts> {
+        diet::load_recent_health_quick_facts(
+            &self.repository,
+            &self.diet,
+            owner_user_id,
+            pet_id,
+            limit,
+        )
+        .await
     }
 
     /// 加载储物柜变化线索（弱线索）

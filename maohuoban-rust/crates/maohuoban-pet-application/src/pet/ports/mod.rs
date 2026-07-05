@@ -10,8 +10,9 @@ pub use diet::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DietContextItem, DietRepository,
     FoodInventoryChangeHint, FoodInventoryChangeHints, FoodInventoryRepository,
     NewFoodInventoryItem, PetCurrentDietContext, PetDietConfirmationCandidate,
-    PetDietConfirmationCandidates, RecentDietChangeFact, RecentFeedingFact,
-    SetPetCurrentStapleInput, SetPetDietAssignmentInput, UpdateFoodInventoryItem,
+    PetDietConfirmationCandidates, PetRecentHealthFacts, RecentDietChangeFact, RecentFeedingFact,
+    RecentHealthQuickFact, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
+    UpdateFoodInventoryItem,
 };
 pub use media::{
     BindUploadedPetMediaInput, MediaAssetDisplayMetadata, MediaCropMetadata,

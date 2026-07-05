@@ -62,6 +62,13 @@ pub trait DietRepository: Send + Sync {
     async fn load_pet_current_diet_context(&self, pet_id: Uuid)
     -> PetResult<PetCurrentDietContext>;
 
+    /// 加载近期健康快捷事实（强事实）
+    async fn load_recent_health_quick_facts(
+        &self,
+        pet_id: Uuid,
+        limit: i64,
+    ) -> PetResult<PetRecentHealthFacts>;
+
     /// 加载近期储物柜变化线索（弱线索）
     async fn load_food_inventory_change_hints(
         &self,
@@ -127,6 +134,28 @@ pub struct RecentDietChangeFact {
     pub to_food_item_id: Uuid,
     pub assignment_id: Uuid,
     pub transition_state: String,
+}
+
+/// RecentHealthQuickFact 近期健康快捷事实
+/// 核心职责：
+/// - 暴露便便、精神、食欲等 quick fact 的事件来源
+/// - 让 Agent 读取已入库的日常健康强事实
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecentHealthQuickFact {
+    pub event_id: Uuid,
+    pub occurred_at: chrono::DateTime<chrono::Utc>,
+    pub title: String,
+    pub summary: Option<String>,
+    pub quick_fact_kind: String,
+}
+
+/// PetRecentHealthFacts 宠物近期健康事实集合
+/// 核心职责：
+/// - 汇总可进入 Agent 上下文的健康 quick facts
+/// - 保持健康事实和饮食事实读取模型分离
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PetRecentHealthFacts {
+    pub quick_facts: Vec<RecentHealthQuickFact>,
 }
 
 /// FoodInventoryChangeHint 储物柜变化线索（弱线索）

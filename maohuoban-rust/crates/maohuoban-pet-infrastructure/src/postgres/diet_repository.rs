@@ -3,8 +3,8 @@ use chrono::{DateTime, Utc};
 
 use maohuoban_pet_application::pet::{
     DietContextItem, DietRepository, FoodInventoryChangeHint, FoodInventoryChangeHints,
-    PetCurrentDietContext, RecentDietChangeFact, RecentFeedingFact, SetPetCurrentStapleInput,
-    SetPetDietAssignmentInput,
+    PetCurrentDietContext, PetRecentHealthFacts, RecentDietChangeFact, RecentFeedingFact,
+    RecentHealthQuickFact, SetPetCurrentStapleInput, SetPetDietAssignmentInput,
 };
 use maohuoban_pet_domain::pet::{
     DietAssignmentRole, FoodInventoryItem, FoodScopeType, FoodSnapshot, PetDietAssignment,
@@ -346,6 +346,60 @@ impl DietRepository for PostgresDietRepository {
             recent_feeding_events,
             recent_diet_changes,
         })
+    }
+
+    async fn load_recent_health_quick_facts(
+        &self,
+        pet_id: Uuid,
+        limit: i64,
+    ) -> PetResult<PetRecentHealthFacts> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, occurred_at, title, summary, event_payload
+            FROM pet_events
+            WHERE pet_id = $1
+              AND event_kind = 'daily'
+              AND event_subkind = 'quick_fact'
+              AND visibility = 'private'
+              AND superseded_by_event_id IS NULL
+              AND event_payload->>'quick_fact_kind' IN (
+                  'poop_normal',
+                  'energy_normal',
+                  'appetite_normal'
+              )
+            ORDER BY occurred_at DESC, created_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(pet_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| {
+            PetError::Infrastructure(format!("failed to load health quick facts: {error}"))
+        })?;
+
+        let mut quick_facts = Vec::new();
+        for row in rows {
+            let payload: serde_json::Value = row.get("event_payload");
+            let Some(quick_fact_kind) = payload
+                .get("quick_fact_kind")
+                .and_then(serde_json::Value::as_str)
+                .map(ToOwned::to_owned)
+            else {
+                continue;
+            };
+
+            quick_facts.push(RecentHealthQuickFact {
+                event_id: row.get("id"),
+                occurred_at: row.get("occurred_at"),
+                title: row.get("title"),
+                summary: row.get("summary"),
+                quick_fact_kind,
+            });
+        }
+
+        Ok(PetRecentHealthFacts { quick_facts })
     }
 
     async fn load_food_inventory_change_hints(

@@ -240,6 +240,9 @@ mod chat_non_stream;
 #[path = "ai_contract/chat_stream_diet_context.rs"]
 mod chat_stream_diet_context;
 
+#[path = "ai_contract/chat_stream_health_quick_facts.rs"]
+mod chat_stream_health_quick_facts;
+
 #[path = "ai_contract/chat_stream_inventory_hints.rs"]
 mod chat_stream_inventory_hints;
 

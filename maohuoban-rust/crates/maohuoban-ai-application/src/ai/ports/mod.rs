@@ -8,6 +8,7 @@ pub mod chat_turn_transaction;
 pub mod diet_confirmation_candidates;
 pub mod diet_context;
 pub mod food_inventory_hints;
+pub mod health_quick_facts;
 pub mod identity_context;
 pub mod llm;
 pub mod memory_candidate_repository;
@@ -25,6 +26,7 @@ pub use chat_turn_transaction::{ChatTurnTransactionPort, FinalizerTxInput, Ingre
 pub use diet_confirmation_candidates::PetDietConfirmationCandidateProvider;
 pub use diet_context::{EmptyPetDietFactProvider, PetDietFactProvider};
 pub use food_inventory_hints::FoodInventoryHintProvider;
+pub use health_quick_facts::{EmptyPetHealthQuickFactProvider, PetHealthQuickFactProvider};
 pub use identity_context::{EmptyPetIdentityFactProvider, PetIdentityFactProvider};
 pub use llm::{DisabledLlmProvider, FakeLlmProvider, LlmProvider};
 pub use memory_candidate_repository::{MemoryCandidateRepository, NoopMemoryCandidateRepository};

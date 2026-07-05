@@ -1,18 +1,19 @@
 //! RuntimePetContextToolKind 运行时宠物上下文工具类型
 //! 核心职责：
-//! - 声明四种宠物上下文工具的身份标识和元数据
+//! - 声明宠物上下文工具的身份标识和元数据
 //! - 为每种工具提供 name、scope、fact_schema 等稳定映射
 
 use maohuoban_ai_domain::ai::{AiFactStrength, ToolFactField, ToolFactSchema, ToolProgressText};
 
 /// RuntimePetContextToolKind 运行时宠物上下文工具类型
 /// 核心职责：
-/// - 枚举四种宠物上下文工具类型
+/// - 枚举宠物上下文工具类型
 /// - 每种类型携带完整的工具元数据和事实 schema
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RuntimePetContextToolKind {
     Identity,
     CurrentDiet,
+    RecentHealthFacts,
     FoodInventoryHints,
     DietConfirmationCandidates,
     PrepareObservationWrite,
@@ -20,10 +21,11 @@ pub(super) enum RuntimePetContextToolKind {
 }
 
 impl RuntimePetContextToolKind {
-    pub(super) fn all() -> [Self; 6] {
+    pub(super) fn all() -> [Self; 7] {
         [
             Self::Identity,
             Self::CurrentDiet,
+            Self::RecentHealthFacts,
             Self::FoodInventoryHints,
             Self::DietConfirmationCandidates,
             Self::PrepareObservationWrite,
@@ -35,6 +37,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => "load_pet_identity_context",
             Self::CurrentDiet => "load_pet_current_diet_context",
+            Self::RecentHealthFacts => "load_pet_recent_health_facts",
             Self::FoodInventoryHints => "load_food_inventory_change_hints",
             Self::DietConfirmationCandidates => "load_pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "prepare_pet_observation_write",
@@ -46,6 +49,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => "加载目标宠物身份档案上下文",
             Self::CurrentDiet => "加载目标宠物当前饮食上下文",
+            Self::RecentHealthFacts => "加载目标宠物近期健康快捷事实",
             Self::FoodInventoryHints => "加载目标宠物储物柜变化弱线索",
             Self::DietConfirmationCandidates => "加载目标宠物饮食待确认候选",
             Self::PrepareObservationWrite => "准备写入宠物观察记录并创建确认任务",
@@ -57,6 +61,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => "pet.identity.read",
             Self::CurrentDiet => "pet.current_diet.read",
+            Self::RecentHealthFacts => "pet.recent_health_facts.read",
             Self::FoodInventoryHints => "food_inventory_change_hints.read",
             Self::DietConfirmationCandidates => "pet.diet_confirmation_candidates.read",
             Self::PrepareObservationWrite => "pet.observation.write_prepare",
@@ -68,6 +73,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => "pet_identity",
             Self::CurrentDiet => "pet_current_diet",
+            Self::RecentHealthFacts => "pet_recent_health_facts",
             Self::FoodInventoryHints => "food_inventory_change_hints",
             Self::DietConfirmationCandidates => "pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "pet_observation_write_prepare",
@@ -79,6 +85,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => "identity",
             Self::CurrentDiet => "diet",
+            Self::RecentHealthFacts => "health",
             Self::FoodInventoryHints => "inventory",
             Self::DietConfirmationCandidates => "diet_confirmation",
             Self::PrepareObservationWrite | Self::CommitObservationWrite => "observation",
@@ -94,6 +101,10 @@ impl RuntimePetContextToolKind {
             Self::CurrentDiet => ToolProgressText {
                 started: "正在加载饮食上下文".to_owned(),
                 completed: "饮食上下文加载完成".to_owned(),
+            },
+            Self::RecentHealthFacts => ToolProgressText {
+                started: "正在加载近期健康记录".to_owned(),
+                completed: "近期健康记录加载完成".to_owned(),
             },
             Self::FoodInventoryHints => ToolProgressText {
                 started: "正在加载储物柜线索".to_owned(),
@@ -118,6 +129,7 @@ impl RuntimePetContextToolKind {
         match self {
             Self::Identity => identity_fact_schema(),
             Self::CurrentDiet => diet_fact_schema(),
+            Self::RecentHealthFacts => health_quick_fact_schema(),
             Self::FoodInventoryHints => inventory_hint_fact_schema(),
             Self::DietConfirmationCandidates => confirmation_candidate_fact_schema(),
             Self::PrepareObservationWrite => observation_write_prepare_fact_schema(),
@@ -212,6 +224,28 @@ fn diet_fact_schema() -> ToolFactSchema {
                 example_queries: vec!["最近吃了什么".to_owned(), "最近喂了什么".to_owned()],
             },
         ],
+        default_strength: Some(AiFactStrength::Strong),
+    }
+}
+
+/// health_quick_fact_schema 健康快捷事实 schema
+fn health_quick_fact_schema() -> ToolFactSchema {
+    ToolFactSchema {
+        fact_keys: vec!["health.recent_quick_fact".to_owned()],
+        description: "宠物近期健康快捷事实".to_owned(),
+        natural_language_summary:
+            "可回答目标宠物近期便便是否正常、精神状态是否正常、食欲是否正常等已确认快捷记录"
+                .to_owned(),
+        fields: vec![ToolFactField {
+            key: "health.recent_quick_fact".to_owned(),
+            label: "近期健康快捷记录".to_owned(),
+            meaning: "宠物近期便便、精神、食欲等快捷记录标题、摘要、类型和发生时间".to_owned(),
+            example_queries: vec![
+                "今天便便正常吗".to_owned(),
+                "精神怎么样".to_owned(),
+                "食欲正常吗".to_owned(),
+            ],
+        }],
         default_strength: Some(AiFactStrength::Strong),
     }
 }

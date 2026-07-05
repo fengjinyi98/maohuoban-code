@@ -1,6 +1,7 @@
 mod diet_confirmation_candidates;
 mod diet_context;
 mod food_inventory_hints;
+mod health_quick_facts;
 mod identity_context;
 mod observation_write;
 mod pet_catalog;
@@ -10,6 +11,7 @@ mod provider;
 pub(crate) use diet_confirmation_candidates::PetServiceDietConfirmationCandidateProvider;
 pub(crate) use diet_context::PetServiceDietFactProvider;
 pub(crate) use food_inventory_hints::PetServiceFoodInventoryHintProvider;
+pub(crate) use health_quick_facts::PetServiceHealthQuickFactProvider;
 pub(crate) use identity_context::PetServiceIdentityFactProvider;
 pub(crate) use observation_write::PetServiceObservationWriteProvider;
 pub(crate) use pet_catalog::PetServiceAuthorizedPetCatalog;

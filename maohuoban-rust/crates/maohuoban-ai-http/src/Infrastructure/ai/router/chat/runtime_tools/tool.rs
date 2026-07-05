@@ -154,6 +154,12 @@ impl RuntimePetContextTool {
                     .load_current_diet_fact_package(ctx.actor_user_id, &self.target_pet)
                     .await
             }
+            RuntimePetContextToolKind::RecentHealthFacts => {
+                self.providers
+                    .health_quick_fact_provider
+                    .load_recent_health_quick_fact_package(ctx.actor_user_id, &self.target_pet)
+                    .await
+            }
             RuntimePetContextToolKind::FoodInventoryHints => {
                 self.providers
                     .food_inventory_hint_provider

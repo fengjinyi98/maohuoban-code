@@ -19,8 +19,8 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AiSessionRepository, ChatTurnTransactionPort, FoodInventoryHintProvider, LlmProvider,
     MemoryRepository, PetDietConfirmationCandidateProvider, PetDietFactProvider,
-    PetIdentityFactProvider, PetObservationWriteProvider, SessionSummaryRepository,
-    SessionTurnRepository,
+    PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
+    SessionSummaryRepository, SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 
@@ -51,6 +51,7 @@ pub struct AiHttpState {
 pub struct AiPetContextProviders {
     pub identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
     pub diet_fact_provider: Arc<dyn PetDietFactProvider>,
+    pub health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
     pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
@@ -62,6 +63,7 @@ impl AiPetContextProviders {
     pub fn new(
         identity_fact_provider: Arc<dyn PetIdentityFactProvider>,
         diet_fact_provider: Arc<dyn PetDietFactProvider>,
+        health_quick_fact_provider: Arc<dyn PetHealthQuickFactProvider>,
         food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
         diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
         observation_write_provider: Arc<dyn PetObservationWriteProvider>,
@@ -69,6 +71,7 @@ impl AiPetContextProviders {
         Self {
             identity_fact_provider,
             diet_fact_provider,
+            health_quick_fact_provider,
             food_inventory_hint_provider,
             diet_confirmation_candidate_provider,
             observation_write_provider,
