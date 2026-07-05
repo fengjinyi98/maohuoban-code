@@ -291,6 +291,99 @@ async fn scheduler_run_once_projects_due_agent_followup_hint() {
 }
 
 #[tokio::test]
+async fn scheduler_run_once_writes_first_agent_followup_message() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139142").await;
+
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "花卷").await;
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+
+    let result = maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
+        .await
+        .expect("run agent followup scheduler");
+
+    assert_eq!(result.projected_hints, 1);
+
+    let session: (
+        uuid::Uuid,
+        Option<String>,
+        Option<uuid::Uuid>,
+        Option<uuid::Uuid>,
+    ) = sqlx::query_as(
+        r"
+            SELECT id, chat_context_kind, abnormal_episode_id, agent_followup_id
+            FROM ai_chat_sessions
+            WHERE abnormal_episode_id = $1::uuid
+              AND actor_user_id = $2::uuid
+              AND status = 'active'
+            ORDER BY updated_at DESC
+            LIMIT 1
+            ",
+    )
+    .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+    .bind(user_id.parse::<uuid::Uuid>().expect("user uuid"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load abnormal followup session");
+
+    assert_eq!(session.1.as_deref(), Some("abnormal_episode_followup"));
+    assert_eq!(
+        session.2,
+        Some(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+    );
+    assert_eq!(session.3, Some(followup_id));
+
+    let message: (String, String, String) = sqlx::query_as(
+        r"
+        SELECT role, content, status
+        FROM ai_messages
+        WHERE session_id = $1
+        ORDER BY created_at ASC
+        LIMIT 1
+        ",
+    )
+    .bind(session.0)
+    .fetch_one(app.pool())
+    .await
+    .expect("load first proactive agent message");
+
+    assert_eq!(message.0, "assistant");
+    assert_eq!(
+        message.1,
+        "饭团早上记录了拉肚子，已经 6 小时了。现在便便、精神和食欲有好转吗？"
+    );
+    assert_eq!(message.2, "completed");
+
+    let second_result =
+        maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
+            .await
+            .expect("rerun agent followup scheduler");
+    assert_eq!(second_result.projected_hints, 0);
+    assert_eq!(second_result.proactive_messages, 0);
+    let message_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_messages
+        WHERE session_id = $1
+          AND role = 'assistant'
+          AND content = $2
+        ",
+    )
+    .bind(session.0)
+    .bind(message.1)
+    .fetch_one(app.pool())
+    .await
+    .expect("count proactive agent messages");
+    assert_eq!(message_count, 1);
+}
+
+#[tokio::test]
 async fn future_agent_followup_does_not_show_before_due_at() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;

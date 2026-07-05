@@ -82,6 +82,7 @@ fn spawn_agent_followup_scheduler(pool: sqlx::PgPool) -> tokio::task::JoinHandle
                 Ok(result) if result.projected_hints > 0 => {
                     tracing::info!(
                         projected_hints = result.projected_hints,
+                        proactive_messages = result.proactive_messages,
                         "Agent 主动追踪轻提醒投影完成"
                     );
                 }
