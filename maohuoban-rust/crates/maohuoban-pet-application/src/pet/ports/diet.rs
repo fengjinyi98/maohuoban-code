@@ -1,9 +1,8 @@
 use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use maohuoban_pet_domain::pet::{
-    DietAssignmentRole, DietTrendFeedingSample, DietTrendSummary, FoodInventoryCategory,
-    FoodInventoryItem, FoodInventoryStatus, FoodScopeType, FoodSnapshot, PetDietAssignment,
-    PetResult, PetSex, PetSpecies,
+    DietAssignmentRole, FoodInventoryCategory, FoodInventoryItem, FoodInventoryStatus,
+    FoodScopeType, FoodSnapshot, PetDietAssignment, PetResult,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -70,13 +69,6 @@ pub trait DietRepository: Send + Sync {
         scope_id: Uuid,
         since: chrono::DateTime<chrono::Utc>,
     ) -> PetResult<FoodInventoryChangeHints>;
-
-    /// 加载饮食趋势喂食样本
-    async fn load_diet_trend_feeding_samples(
-        &self,
-        pet_id: Uuid,
-        since: chrono::DateTime<chrono::Utc>,
-    ) -> PetResult<Vec<DietTrendFeedingSample>>;
 }
 
 /// DietContextItem 饮食上下文单项
@@ -108,8 +100,6 @@ pub struct PetCurrentDietContext {
     pub recent_feeding_events: Vec<RecentFeedingFact>,
     pub recent_diet_changes: Vec<RecentDietChangeFact>,
 }
-
-pub type PetDietTrendSummary = DietTrendSummary;
 
 /// RecentFeedingFact 最近喂食事实
 /// 核心职责：
@@ -212,78 +202,6 @@ pub struct ConfirmPetDietCandidateResult {
     pub correction_event_id: Option<Uuid>,
 }
 
-/// FoodInventoryItemDetail 食品资产详情读模型
-/// 核心职责：
-/// - 汇总单个食品资产基础信息、关联宠物、喂食时间线和消耗统计
-/// - 作为物品详情页的单一后端数据源
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryItemDetail {
-    pub item: FoodInventoryItem,
-    pub linked_pets: Vec<FoodInventoryLinkedPet>,
-    pub feeding_timeline: Vec<FoodInventoryFeedingTimelineEntry>,
-    pub consumption_summary: FoodInventoryConsumptionSummary,
-}
-
-/// FoodInventoryLinkedPet 食品资产关联宠物
-/// 核心职责：
-/// - 表达某个食品资产与宠物的事实关联来源
-/// - 支持由喂食事件和饮食配置共同聚合
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryLinkedPet {
-    pub pet_id: Uuid,
-    pub pet_name: String,
-    pub species: PetSpecies,
-    pub sex: PetSex,
-    pub avatar_asset_id: Option<Uuid>,
-    pub avatar_url: Option<String>,
-    pub source: String,
-}
-
-/// FoodInventoryFeedingTimelineEntry 食品资产喂食时间线条目
-/// 核心职责：
-/// - 表达某个食品资产参与过的喂食事件
-/// - 保留事件快照用于详情页稳定展示
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryFeedingTimelineEntry {
-    pub event_id: Uuid,
-    pub pet_id: Uuid,
-    pub pet_name: String,
-    pub pet_species: PetSpecies,
-    pub pet_sex: PetSex,
-    pub pet_avatar_asset_id: Option<Uuid>,
-    pub pet_avatar_url: Option<String>,
-    pub occurred_at: DateTime<Utc>,
-    pub title: String,
-    pub summary: Option<String>,
-    pub amount_text: String,
-    pub food_role: Option<String>,
-    pub food_snapshot: Option<FoodSnapshot>,
-}
-
-/// FoodInventoryConsumptionSummary 食品资产消耗统计
-/// 核心职责：
-/// - 汇总客观喂食次数、跨度和模糊份量分布
-/// - 不表达尚未完成的克重估算和健康预警结论
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryConsumptionSummary {
-    pub feeding_count: i64,
-    pub first_fed_at: Option<DateTime<Utc>>,
-    pub last_fed_at: Option<DateTime<Utc>>,
-    pub active_days: i64,
-    pub amount_distribution: Vec<FoodInventoryAmountDistributionItem>,
-}
-
-/// FoodInventoryAmountDistributionItem 模糊份量分布项
-/// 核心职责：
-/// - 统计少一点、正常、多一点等用户选择的出现次数
-/// - 提供详情页消耗分析的基础数据
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FoodInventoryAmountDistributionItem {
-    pub amount_text: String,
-    pub count: i64,
-    pub ratio: f64,
-}
-
 /// NewFoodInventoryItem 新建食品资产输入
 /// 核心职责：
 /// - 汇总创建储物柜食品资产所需字段
@@ -300,11 +218,7 @@ pub struct NewFoodInventoryItem {
     pub quantity: i32,
     pub unit: Option<String>,
     pub spec: Option<String>,
-    pub package_weight_grams: Option<i32>,
-    pub package_count: i32,
-    pub package_unit: Option<String>,
-    pub production_date: Option<NaiveDate>,
-    pub shelf_life_months: Option<i32>,
+    pub expiry_date: Option<NaiveDate>,
     pub cover_asset_id: Option<Uuid>,
     pub barcode: Option<String>,
     pub source_kind: maohuoban_pet_domain::pet::FoodSourceKind,
@@ -326,11 +240,7 @@ pub struct UpdateFoodInventoryItem {
     pub quantity: Option<i32>,
     pub unit: Option<String>,
     pub spec: Option<String>,
-    pub package_weight_grams: Option<i32>,
-    pub package_count: Option<i32>,
-    pub package_unit: Option<String>,
-    pub production_date: Option<NaiveDate>,
-    pub shelf_life_months: Option<i32>,
+    pub expiry_date: Option<NaiveDate>,
     pub cover_asset_id: Option<Uuid>,
     pub barcode: Option<String>,
     pub note: Option<String>,
@@ -353,12 +263,6 @@ pub trait FoodInventoryRepository: Send + Sync {
     ) -> PetResult<Vec<FoodInventoryItem>>;
 
     async fn find_item(&self, item_id: Uuid) -> PetResult<Option<FoodInventoryItem>>;
-
-    async fn load_item_detail(
-        &self,
-        item_id: Uuid,
-        owner_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItemDetail>;
 
     async fn update_item(&self, input: UpdateFoodInventoryItem) -> PetResult<FoodInventoryItem>;
 

@@ -1,7 +1,6 @@
 mod abnormal_episode;
 mod agent_confirmation_task;
 mod diet_assignment;
-mod diet_trend;
 mod event;
 mod external_identifier;
 mod food_event_payloads;
@@ -21,10 +20,6 @@ pub use agent_confirmation_task::{
     AgentConfirmationTask, ConfirmationTaskKind, ConfirmationTaskStatus,
 };
 pub use diet_assignment::{DietAssignmentRole, DietAssignmentStatus, PetDietAssignment};
-pub use diet_trend::{
-    DietTrendConfidence, DietTrendExplanation, DietTrendFeedingSample, DietTrendSegment,
-    DietTrendSummary, build_diet_trend_summary,
-};
 pub use event::{
     EventKind, EventVisibility, PetEvent, PetEventAttachmentAsset, PetTimeline, PetTimelineEntry,
     PetTimelineEntrySource,

@@ -228,7 +228,6 @@ struct PetRecordHistoryScreen: View {
             petID: currentPetID,
             petName: selectedPet?.name ?? context.petName,
             petAvatarURL: selectedPet?.avatarURL ?? context.petAvatarURL,
-            petSpecies: selectedPet?.species ?? context.petSpecies,
             petSex: selectedPet?.sex ?? context.petSex,
             lifeStatus: selectedPet?.lifeStatus ?? context.lifeStatus,
             availablePets: availablePets

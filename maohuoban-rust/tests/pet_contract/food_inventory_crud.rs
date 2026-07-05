@@ -16,11 +16,11 @@ async fn food_inventory_crud_persists_user_scoped_assets() {
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
+                "inventory_status": "sealed",
                 "quantity": 1,
                 "unit": "袋",
                 "spec": "5.4kg",
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "expiry_date": "2027-01-15"
             }),
             Some(&user_id),
         ))
@@ -180,9 +180,8 @@ async fn food_inventory_item_persists_uploaded_cover_asset() {
             json!({
                 "name": "封面主粮",
                 "category": "main_food",
+                "inventory_status": "sealed",
                 "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18,
                 "cover_asset_id": cover_asset_id
             }),
             Some(&user_id),
@@ -214,39 +213,6 @@ async fn food_inventory_item_persists_uploaded_cover_asset() {
         get_body["data"]["cover_url"],
         format!("/api/v1/media/assets/{cover_asset_id}/content")
     );
-}
-
-#[tokio::test]
-async fn food_inventory_item_derives_package_weight_from_unitless_food_spec() {
-    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
-    app.reset().await;
-    let user_id = login_user_id(&app, "13800139041").await;
-
-    let create_response = app
-        .router()
-        .oneshot(json_request(
-            "POST",
-            "/api/v1/food-inventory/items",
-            json!({
-                "name": "巅峰鸡肉主食罐",
-                "brand": "ZIWI",
-                "category": "wet_food",
-                "quantity": 12,
-                "unit": "件",
-                "spec": "185",
-                "package_unit": "罐",
-                "production_date": "2026-07-05",
-                "shelf_life_months": 36
-            }),
-            Some(&user_id),
-        ))
-        .await
-        .expect("create wet food inventory item");
-    assert_eq!(create_response.status(), StatusCode::CREATED);
-    let create_body = response_json(create_response).await;
-    assert_eq!(create_body["data"]["spec"], "185");
-    assert_eq!(create_body["data"]["package_unit"], "罐");
-    assert_eq!(create_body["data"]["package_weight_grams"], 185);
 }
 
 #[tokio::test]
@@ -291,9 +257,8 @@ async fn food_inventory_item_updates_uploaded_cover_asset() {
             json!({
                 "name": "替换封面主粮",
                 "category": "main_food",
+                "inventory_status": "sealed",
                 "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18,
                 "cover_asset_id": first_cover_asset_id
             }),
             Some(&user_id),
@@ -358,9 +323,8 @@ async fn food_inventory_item_rejects_cross_user_mutation() {
                 "name": "爱肯拿鸡肉",
                 "brand": "Acana",
                 "category": "main_food",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(&owner_user_id),
         ))
@@ -413,18 +377,13 @@ async fn food_inventory_archived_status_only_comes_from_delete_endpoint() {
                 "name": "错误归档状态",
                 "category": "main_food",
                 "inventory_status": "archived",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "quantity": 1
             }),
             Some(&user_id),
         ))
         .await
         .expect("create archived food inventory item");
-    assert_eq!(
-        create_archived_response.status(),
-        StatusCode::UNPROCESSABLE_ENTITY
-    );
+    assert_eq!(create_archived_response.status(), StatusCode::BAD_REQUEST);
 
     let create_response = app
         .router()
@@ -435,9 +394,8 @@ async fn food_inventory_archived_status_only_comes_from_delete_endpoint() {
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(&user_id),
         ))
@@ -504,9 +462,8 @@ async fn food_inventory_restock_with_invalid_status_does_not_change_quantity() {
             json!({
                 "name": "渴望六种鱼",
                 "category": "main_food",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(&user_id),
         ))
@@ -562,9 +519,8 @@ async fn food_inventory_change_hints_track_mutation_kinds() {
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(&user_id),
         ))
@@ -606,9 +562,8 @@ async fn food_inventory_change_hints_track_mutation_kinds() {
                 "name": "复购罐头",
                 "brand": "ZIWI",
                 "category": "wet_food",
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(&user_id),
         ))

@@ -16,7 +16,6 @@ enum HomeQuickFactSheet: String, Identifiable {
 // - 为后续接入食品库保留稳定语义
 enum HomeQuickFactFeedingFoodKind: String, CaseIterable, Identifiable {
     case mainFood
-    case wetFood
     case snack
     case supplement
     case other
@@ -26,7 +25,6 @@ enum HomeQuickFactFeedingFoodKind: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .mainFood: "主粮"
-        case .wetFood: "湿粮/罐头"
         case .snack: "零食"
         case .supplement: "营养品"
         case .other: "其他"
@@ -36,7 +34,6 @@ enum HomeQuickFactFeedingFoodKind: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .mainFood: "takeoutbag.and.cup.and.straw.fill"
-        case .wetFood: "cup.and.saucer.fill"
         case .snack: "birthday.cake.fill"
         case .supplement: "pills.fill"
         case .other: "ellipsis.circle.fill"
@@ -126,8 +123,6 @@ private extension HomeQuickFactFeedingFoodKind {
         switch self {
         case .mainFood:
             "main_food"
-        case .wetFood:
-            "wet_food"
         case .snack:
             "treats"
         case .supplement:

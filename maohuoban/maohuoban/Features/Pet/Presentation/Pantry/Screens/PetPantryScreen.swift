@@ -5,7 +5,7 @@ import MaohuobanDesignSystem
 // 核心职责：
 // - 展示用户级食品物资的分类卡片
 // - 提供搜索和添加入口
-// - 使用入口宠物上下文标记当前饮食配置
+// - 使用入口宠物上下文展示饮食摘要
 struct PetPantryScreen<Route: Hashable>: View {
     let context: PetPantryEntryContext
     let currentUserID: String?
@@ -63,9 +63,20 @@ struct PetPantryScreen<Route: Hashable>: View {
                             alignment: .center
                         )
                     } else {
-                        categoriesGrid
-                            .padding(.horizontal, MHBTheme.Spacing.s5)
-                            .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                        VStack(spacing: MHBTheme.Spacing.s5) {
+                            if let sourcePetName = context.sourcePetName, context.sourcePetID != nil {
+                                PetPantryDietSummarySection(
+                                    petName: sourcePetName,
+                                    rows: store.dietSummaryRows
+                                )
+                                .padding(.horizontal, MHBTheme.Spacing.s5)
+                                .padding(.top, MHBTheme.Spacing.s4)
+                            }
+
+                            categoriesGrid
+                                .padding(.horizontal, MHBTheme.Spacing.s5)
+                                .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8)
+                        }
                     }
                 }
 

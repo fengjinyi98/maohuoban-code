@@ -26,14 +26,12 @@ use maohuoban_home_application::home::{
     pet_owner_home_template,
 };
 use maohuoban_home_domain::home::{
-    HomeDashboardSnapshot, HomeDietTrendCalibration, HomeDietTrendConfidence,
-    HomeDietTrendExplanation, HomeDietTrendHealthContext, HomeDietTrendSegment,
-    HomeDietTrendSummary, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
+    HomeDashboardSnapshot, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
     HomePantryPreviewItem, HomeTimelineEvent,
 };
-use maohuoban_pet_application::pet::{MediaAssetDisplayMetadata, PetService};
+use maohuoban_pet_application::pet::PetService;
 use maohuoban_pet_domain::pet::{
-    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError, PetProfile, PetTimeline,
+    FoodInventoryCategory, FoodInventoryItem, FoodScopeType, PetError,
 };
 use maohuoban_recommendation_application::recommendation::{
     HomeRecommendationContext, RecommendationService,
@@ -153,24 +151,38 @@ impl HybridHomeDashboardProvider {
             .list_food_inventory_items(FoodScopeType::User, user_id, None, None)
             .await
             .map_err(|error| to_home_error(&error))?;
-        let diet_role_labels = self
-            .pet_service
-            .load_pet_current_diet_context(user_id, selected_pet.id)
-            .await
-            .map(diet_role_labels)
-            .map_err(|error| to_home_error(&error))?;
-        let mut snapshot = pet_owner_snapshot_base(
-            user_id,
-            &pets,
+        let weight_projection = home_weight_projection(&timeline.events);
+
+        let mut snapshot = pet_owner_home_template();
+        snapshot.identity = HomeIdentity {
+            kind: HomeIdentityKind::PetOwner,
+            display_name: "毛伙伴用户".to_owned(),
+            city: None,
+            verification_badge: None,
+        };
+        let selected_summary = pet_hero_summary(
             selected_pet,
             &media_metadata,
-            &timeline,
-            &food_inventory_items,
-            &diet_role_labels,
+            home_pet_stats(weight_projection, &food_inventory_items),
+            weight_projection.map(HomeWeightProjection::latest_weight_grams),
         );
+        record_home_selected_pet_output(
+            user_id,
+            selected_pet,
+            &selected_summary,
+            pets.len(),
+            &media_metadata,
+        );
+        snapshot.selected_pet = Some(selected_summary);
+        snapshot.pet_switcher = pets
+            .iter()
+            .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id, &media_metadata))
+            .collect();
+        snapshot.recent_timeline = recent_home_timeline(&timeline.entries);
         snapshot.gallery_albums = self
             .gallery_album_summaries(user_id, selected_pet.id)
             .await?;
+        snapshot.reminders = reminders_from_events(&timeline.events);
         snapshot.attention_hints = self
             .pet_service
             .load_attention_hints(selected_pet.id)
@@ -189,13 +201,13 @@ impl HybridHomeDashboardProvider {
             .await
             .unwrap_or_default()
             .map(partner_recommendation_summary);
-        snapshot.diet_trend_summary = Some(
-            self.pet_service
-                .load_pet_diet_trend_summary(user_id, selected_pet.id)
-                .await
-                .map_err(|error| to_home_error(&error))
-                .map(home_diet_trend_summary)?,
-        );
+        let diet_role_labels = self
+            .pet_service
+            .load_pet_current_diet_context(user_id, selected_pet.id)
+            .await
+            .map(diet_role_labels)
+            .map_err(|error| to_home_error(&error))?;
+        snapshot.pantry_items = home_pantry_preview_items(food_inventory_items, &diet_role_labels);
         snapshot.merchant_dashboard = None;
         snapshot.empty_state = None;
         snapshot.recommended_content = Vec::new();
@@ -249,55 +261,6 @@ impl HomeDashboardProvider for HybridHomeDashboardProvider {
         }
         self.fallback.get_dashboard_snapshot(context).await
     }
-}
-
-/// `pet_owner_snapshot_base` 生成宠物主首页基础快照
-/// 核心职责：
-/// - 组装仅依赖已加载数据的首页基础区块
-/// - 保持异步读取职责留在 provider 入口
-fn pet_owner_snapshot_base(
-    user_id: Uuid,
-    pets: &[PetProfile],
-    selected_pet: &PetProfile,
-    media_metadata: &HashMap<Uuid, MediaAssetDisplayMetadata>,
-    timeline: &PetTimeline,
-    food_inventory_items: &[FoodInventoryItem],
-    diet_role_labels: &HashMap<Uuid, String>,
-) -> HomeDashboardSnapshot {
-    let weight_projection = home_weight_projection(&timeline.events);
-    let mut snapshot = pet_owner_home_template();
-    snapshot.identity = HomeIdentity {
-        kind: HomeIdentityKind::PetOwner,
-        display_name: "毛伙伴用户".to_owned(),
-        city: None,
-        verification_badge: None,
-    };
-    let selected_summary = pet_hero_summary(
-        selected_pet,
-        media_metadata,
-        home_pet_stats(weight_projection, food_inventory_items),
-        weight_projection.map(HomeWeightProjection::latest_weight_grams),
-    );
-    record_home_selected_pet_output(
-        user_id,
-        selected_pet,
-        &selected_summary,
-        pets.len(),
-        media_metadata,
-    );
-    snapshot.selected_pet = Some(selected_summary);
-    snapshot.pet_switcher = pets
-        .iter()
-        .map(|pet| pet_switch_item(pet, pet.id == selected_pet.id, media_metadata))
-        .collect();
-    snapshot.recent_timeline = recent_home_timeline(&timeline.entries);
-    snapshot.reminders = reminders_from_events(&timeline.events);
-    snapshot.pantry_items =
-        home_pantry_preview_items(food_inventory_items.to_vec(), diet_role_labels);
-    snapshot.merchant_dashboard = None;
-    snapshot.empty_state = None;
-    snapshot.recommended_content = Vec::new();
-    snapshot
 }
 
 /// `recent_home_timeline` 生成首页最近时间线摘要
@@ -377,49 +340,6 @@ fn gallery_album_summary(
         cover_asset_id: summary.cover_asset_id,
         cover_url: summary.cover_url,
         photo_count: summary.photo_count,
-    }
-}
-
-fn home_diet_trend_summary(
-    summary: maohuoban_pet_application::pet::PetDietTrendSummary,
-) -> HomeDietTrendSummary {
-    HomeDietTrendSummary {
-        window_days: summary.window_days,
-        status: summary.status,
-        segments: summary
-            .segments
-            .into_iter()
-            .map(|segment| HomeDietTrendSegment {
-                category: segment.category,
-                title: segment.title,
-                score: segment.score,
-                percentage: segment.percentage,
-                baseline_score: segment.baseline_score,
-                baseline_sample_days: segment.baseline_sample_days,
-                current_ratio: segment.current_ratio,
-                ema_score: segment.ema_score,
-            })
-            .collect(),
-        confidence: HomeDietTrendConfidence {
-            level: summary.confidence.level,
-            score: summary.confidence.score,
-            basis: summary.confidence.basis,
-        },
-        health_context: HomeDietTrendHealthContext {
-            included_sample_count: summary.health_context.included_sample_count,
-            excluded_sample_count: summary.health_context.excluded_sample_count,
-            excluded_reasons: summary.health_context.excluded_reasons,
-        },
-        calibration: HomeDietTrendCalibration {
-            confidence: summary.calibration.confidence,
-            grams_per_score: summary.calibration.grams_per_score,
-            daily_grams: summary.calibration.daily_grams,
-            reason: summary.calibration.reason,
-        },
-        explanation: HomeDietTrendExplanation {
-            title: summary.explanation.title,
-            body: summary.explanation.body,
-        },
     }
 }
 

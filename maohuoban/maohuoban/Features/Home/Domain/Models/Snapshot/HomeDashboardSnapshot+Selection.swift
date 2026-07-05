@@ -61,7 +61,6 @@ extension HomeDashboardSnapshot {
             emptyState: emptyState,
             recommendedContent: recommendedContent.isEmpty ? fallback.recommendedContent : recommendedContent,
             pantryItems: pantryItems,
-            dietTrendSummary: dietTrendSummary,
             attentionHints: attentionHints
         )
     }
@@ -87,7 +86,6 @@ extension HomeDashboardSnapshot {
             emptyState: emptyState,
             recommendedContent: recommendedContent,
             pantryItems: pantryItems,
-            dietTrendSummary: dietTrendSummary,
             attentionHints: attentionHints
         )
     }

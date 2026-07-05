@@ -5,7 +5,7 @@ import Observation
 // 核心职责：
 // - 持有储物柜食品资产列表和加载状态
 // - 提供创建、更新、删除、补库存命令
-// - 将用户级食品资产和宠物当前主粮加载收敛到单一状态出口
+// - 将用户级食品资产加载和宠物级饮食上下文加载收敛到单一状态出口
 @MainActor
 @Observable
 final class PetFoodInventoryStore {
@@ -13,6 +13,7 @@ final class PetFoodInventoryStore {
 
     var items: [FoodInventoryItem] = []
     var currentStapleFoodItemID: String?
+    var dietSummaryRows: [PetPantryDietSummaryRow] = []
     var isLoading = false
     var coverUploadProgress: Double?
     var errorMessage: String?
@@ -36,15 +37,16 @@ final class PetFoodInventoryStore {
         self.repository = repository
     }
 
-    // loadItems 加载用户储物柜资产和可选宠物饮食上下文
+    // loadItems 加载用户储物柜资产和可选宠物饮食摘要
     // 核心职责：
     // - 始终按当前用户加载储物柜资产
-    // - 仅在入口携带宠物上下文时追加加载当前主粮
+    // - 仅在入口携带宠物上下文时追加加载饮食配置摘要
     func loadItems(currentUserID: String, contextPetID: String? = nil) async {
         isLoading = true
         errorMessage = nil
         items = []
         currentStapleFoodItemID = nil
+        dietSummaryRows = []
         do {
             items = try await repository.listFoodInventoryItems(currentUserID: currentUserID)
             if let contextPetID {
@@ -53,6 +55,7 @@ final class PetFoodInventoryStore {
                     currentUserID: currentUserID
                 )
                 currentStapleFoodItemID = context.currentStaple?.foodItemID
+                dietSummaryRows = PetPantryDietSummaryRow.rows(from: context)
             }
         } catch {
             errorMessage = error.localizedDescription

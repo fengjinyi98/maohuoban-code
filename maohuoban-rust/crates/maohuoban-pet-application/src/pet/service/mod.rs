@@ -18,14 +18,13 @@ use self::validation::{
     normalize_compact_text, normalize_optional_compact_text, validate_optional_microchip,
     validate_optional_weight, validate_pet_name, validate_text,
 };
-use super::PetDietTrendSummary;
 use super::{
     ConfirmPetDietCandidateInput, ConfirmPetDietCandidateResult, DeletePetEvent, DeletePetProfile,
-    DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryItemDetail,
-    FoodInventoryRepository, NewPetEvent, NewPetProfile, NewPetWeightRecord,
-    PetDietConfirmationCandidates, PetProfileDiagnostics, PetRepository, PetWeightRecord,
-    PetWeightRecordSource, RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetEvent,
-    UpdatePetProfile, UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
+    DeletePetWeightRecord, DeletedPetEvent, DeletedPetWeightRecord, FoodInventoryRepository,
+    NewPetEvent, NewPetProfile, NewPetWeightRecord, PetDietConfirmationCandidates,
+    PetProfileDiagnostics, PetRepository, PetWeightRecord, PetWeightRecordSource,
+    RestorePetProfile, TradePetImport, TradePetImportInput, UpdatePetEvent, UpdatePetProfile,
+    UpdatePetProfileResult, UpdatePetWeightRecord, record_pet_profile,
 };
 use super::{
     FoodInventoryChangeHints, PetCurrentDietContext, SetPetCurrentStapleInput,
@@ -239,19 +238,6 @@ impl PetService {
         Ok(event)
     }
 
-    pub async fn load_food_inventory_item_detail(
-        &self,
-        item_id: Uuid,
-        owner_user_id: Uuid,
-    ) -> PetResult<FoodInventoryItemDetail> {
-        food_inventory::load_food_inventory_item_detail(
-            &self.food_inventory,
-            item_id,
-            owner_user_id,
-        )
-        .await
-    }
-
     pub async fn create_pet_weight_record(
         &self,
         input: NewPetWeightRecord,
@@ -456,15 +442,6 @@ impl PetService {
     ) -> PetResult<PetCurrentDietContext> {
         diet::load_pet_current_diet_context(&self.repository, &self.diet, owner_user_id, pet_id)
             .await
-    }
-
-    /// 加载宠物饮食趋势摘要
-    pub async fn load_pet_diet_trend_summary(
-        &self,
-        owner_user_id: Uuid,
-        pet_id: Uuid,
-    ) -> PetResult<PetDietTrendSummary> {
-        diet::load_pet_diet_trend_summary(&self.repository, &self.diet, owner_user_id, pet_id).await
     }
 
     /// 加载储物柜变化线索（弱线索）

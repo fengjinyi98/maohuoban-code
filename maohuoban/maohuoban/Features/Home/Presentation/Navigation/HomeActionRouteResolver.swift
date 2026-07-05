@@ -8,7 +8,6 @@ struct HomeActionRoutingContext: Hashable {
     let selectedPetID: String?
     let selectedPetName: String?
     let selectedPetAvatarURL: String?
-    let selectedPetSpecies: PetRecordPetSpecies
     let selectedPetSex: PetRecordPetSex
     let selectedPetLifeStatus: String?
     let availablePets: [PetRecordSwitchPet]
@@ -19,7 +18,6 @@ struct HomeActionRoutingContext: Hashable {
         selectedPetID: String? = nil,
         selectedPetName: String? = nil,
         selectedPetAvatarURL: String? = nil,
-        selectedPetSpecies: PetRecordPetSpecies = .other,
         selectedPetSex: PetRecordPetSex = .unknown,
         selectedPetLifeStatus: String? = nil,
         availablePets: [PetRecordSwitchPet] = [],
@@ -29,7 +27,6 @@ struct HomeActionRoutingContext: Hashable {
         self.selectedPetID = selectedPetID
         self.selectedPetName = selectedPetName
         self.selectedPetAvatarURL = selectedPetAvatarURL
-        self.selectedPetSpecies = selectedPetSpecies
         self.selectedPetSex = selectedPetSex
         self.selectedPetLifeStatus = selectedPetLifeStatus
         self.availablePets = availablePets
@@ -41,7 +38,6 @@ struct HomeActionRoutingContext: Hashable {
         self.selectedPetID = snapshot.selectedPet?.id
         self.selectedPetName = snapshot.selectedPet?.name
         self.selectedPetAvatarURL = snapshot.selectedPet?.avatarURL
-        self.selectedPetSpecies = snapshot.selectedPet.map { PetRecordPetSpecies(homeDashboardSpecies: $0.species) } ?? .other
         self.selectedPetSex = PetRecordPetSex(homeDashboardSex: snapshot.selectedPet?.sex)
         self.selectedPetLifeStatus = snapshot.selectedPet?.lifeStatus
         self.availablePets = snapshot.petSwitcher.map { item in
@@ -107,7 +103,6 @@ enum HomeActionRouteResolver {
                     petID: context.selectedPetID,
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
-                    petSpecies: context.selectedPetSpecies,
                     petSex: context.selectedPetSex,
                     lifeStatus: context.selectedPetLifeStatus,
                     availablePets: context.availablePets
@@ -120,7 +115,6 @@ enum HomeActionRouteResolver {
                         petID: context.selectedPetID,
                         petName: context.selectedPetName,
                         petAvatarURL: context.selectedPetAvatarURL,
-                        petSpecies: context.selectedPetSpecies,
                         petSex: context.selectedPetSex,
                         lifeStatus: context.selectedPetLifeStatus,
                         availablePets: context.availablePets
@@ -136,7 +130,6 @@ enum HomeActionRouteResolver {
                     petID: context.selectedPetID,
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL,
-                    petSpecies: context.selectedPetSpecies,
                     petSex: context.selectedPetSex,
                     lifeStatus: context.selectedPetLifeStatus,
                     availablePets: context.availablePets
@@ -185,7 +178,6 @@ enum HomeReminderRouteResolver {
                 petID: context.selectedPetID,
                 petName: context.selectedPetName,
                 petAvatarURL: context.selectedPetAvatarURL,
-                petSpecies: context.selectedPetSpecies,
                 petSex: context.selectedPetSex,
                 lifeStatus: context.selectedPetLifeStatus,
                 availablePets: context.availablePets
@@ -196,7 +188,6 @@ enum HomeReminderRouteResolver {
                 petID: context.selectedPetID,
                 petName: context.selectedPetName,
                 petAvatarURL: context.selectedPetAvatarURL,
-                petSpecies: context.selectedPetSpecies,
                 petSex: context.selectedPetSex,
                 lifeStatus: context.selectedPetLifeStatus,
                 availablePets: context.availablePets
@@ -220,7 +211,6 @@ enum HomeReminderRouteResolver {
             petID: context.selectedPetID,
             petName: context.selectedPetName,
             petAvatarURL: context.selectedPetAvatarURL,
-            petSpecies: context.selectedPetSpecies,
             petSex: context.selectedPetSex,
             lifeStatus: context.selectedPetLifeStatus,
             availablePets: context.availablePets

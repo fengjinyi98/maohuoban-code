@@ -9,9 +9,6 @@ struct PetFoodSnapshot: Decodable, Equatable {
     let brand: String?
     let category: String
     let spec: String?
-    let packageWeightGrams: Int?
-    let packageCount: Int?
-    let packageUnit: String?
     let coverAssetID: String?
     let coverURL: String?
 
@@ -20,9 +17,6 @@ struct PetFoodSnapshot: Decodable, Equatable {
         case brand
         case category
         case spec
-        case packageWeightGrams = "package_weight_grams"
-        case packageCount = "package_count"
-        case packageUnit = "package_unit"
         case coverAssetID = "cover_asset_id"
         case coverURL = "cover_url"
     }

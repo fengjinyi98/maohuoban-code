@@ -62,10 +62,6 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(agent_diet::get_pet_current_diet_context),
         )
         .route(
-            "/api/v1/pets/{pet_id}/diet-trend-summary",
-            get(agent_diet::get_pet_diet_trend_summary),
-        )
-        .route(
             "/api/v1/pets/{pet_id}/albums",
             get(album::list_pet_albums).post(album::create_pet_album),
         )
@@ -133,10 +129,6 @@ pub fn build_pet_router(pet: Arc<PetService>) -> Router {
             get(food_inventory::get_food_inventory_item)
                 .patch(food_inventory::update_food_inventory_item)
                 .delete(food_inventory::delete_food_inventory_item),
-        )
-        .route(
-            "/api/v1/food-inventory/items/{item_id}/detail",
-            get(food_inventory::get_food_inventory_item_detail),
         )
         .route(
             "/api/v1/food-inventory/items/{item_id}/restock",

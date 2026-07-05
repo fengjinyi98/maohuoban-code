@@ -13,6 +13,7 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
     var onOpenRoute: (Route) -> Void = { _ in }
 
     @State private var store = PetFoodInventoryStore()
+    @State private var selectedItem: PantryItem?
 
     var filteredItems: [PantryItem] {
         store.pantryItems.filter { $0.category == category }
@@ -97,12 +98,88 @@ struct PetPantryCategoryScreen<Route: Hashable>: View {
         ) {
             ForEach(filteredItems) { item in
                 Button {
-                    onOpenRoute(onNavigate(.itemDetail(itemID: item.id)))
+                    selectedItem = item
                 } label: {
                     PantryItemCard(item: item)
                 }
                 .buttonStyle(.plain)
             }
+        }
+        .sheet(item: $selectedItem) { item in
+            PantryItemActionSheet(
+                item: item,
+                allowsDietAssignment: context.sourcePetID != nil,
+                onMarkSealed: { itemID in
+                    guard let currentUserID else { return }
+                    Task {
+                        _ = await store.markItemStatus(
+                            itemID: itemID,
+                            status: .sealed,
+                            currentUserID: currentUserID
+                        )
+                        selectedItem = nil
+                    }
+                },
+                onEdit: { item in
+                    selectedItem = nil
+                    Task { @MainActor in
+                        await Task.yield()
+                        onOpenRoute(onNavigate(.editItem(item)))
+                    }
+                },
+                onDelete: { itemID in
+                    guard let currentUserID else { return }
+                    Task {
+                        _ = await store.deleteItem(itemID: itemID, currentUserID: currentUserID)
+                        selectedItem = nil
+                    }
+                },
+                onRestock: { itemID, quantity in
+                    guard let currentUserID else { return }
+                    Task {
+                        _ = await store.restockItem(itemID: itemID, quantity: quantity, currentUserID: currentUserID)
+                        selectedItem = nil
+                    }
+                },
+                onSetCurrentStaple: { itemID in
+                    guard let currentUserID, let sourcePetID = context.sourcePetID else { return }
+                    Task {
+                        _ = await store.setCurrentStaple(
+                            petID: sourcePetID,
+                            foodItemID: itemID,
+                            currentUserID: currentUserID
+                        )
+                        selectedItem = nil
+                    }
+                },
+                onSetTrying: { itemID in
+                    setFoodAssignment(itemID: itemID, role: .trying)
+                },
+                onSetUsualTreat: { itemID in
+                    setFoodAssignment(itemID: itemID, role: .usualTreat)
+                },
+                onSetUsualNutrition: { itemID in
+                    setFoodAssignment(itemID: itemID, role: .usualNutrition)
+                },
+                onSetNotSuitable: { itemID in
+                    setFoodAssignment(itemID: itemID, role: .notSuitable)
+                }
+            )
+                .presentationDetents([.height(540)])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func setFoodAssignment(itemID: String, role: PetDietAssignmentRole) {
+        guard let currentUserID, let sourcePetID = context.sourcePetID else { return }
+        Task {
+            _ = await store.setFoodAssignment(
+                petID: sourcePetID,
+                foodItemID: itemID,
+                role: role,
+                currentUserID: currentUserID
+            )
+            selectedItem = nil
         }
     }
 }

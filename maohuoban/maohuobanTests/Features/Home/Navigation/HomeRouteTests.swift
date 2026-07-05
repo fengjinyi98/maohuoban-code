@@ -103,33 +103,6 @@ final class HomeRouteTests: XCTestCase {
     }
 
     @MainActor
-    func testFeedingRecordDetailRouteCarriesRowPetContext() {
-        let context = PetRecordEntryContext(
-            petID: "pet-row",
-            petName: "布丁",
-            petAvatarURL: "/api/v1/media/assets/avatar-1/content",
-            petSpecies: .cat,
-            petSex: .male
-        )
-        let route = PetRecordDetailRoute.feeding(
-            recordID: "feeding-1",
-            context: context
-        )
-
-        guard case .feeding(let recordID, let routeContext) = route else {
-            XCTFail("Expected feeding record detail route")
-            return
-        }
-
-        XCTAssertEqual(recordID, "feeding-1")
-        XCTAssertEqual(routeContext.petID, "pet-row")
-        XCTAssertEqual(routeContext.petName, "布丁")
-        XCTAssertEqual(routeContext.petAvatarURL, "/api/v1/media/assets/avatar-1/content")
-        XCTAssertEqual(routeContext.petSpecies, .cat)
-        XCTAssertEqual(routeContext.petSex, .male)
-    }
-
-    @MainActor
     func testHealthReminderRoutesToTimelineEventDetail() {
         let reminder = HomeDashboardSnapshot.Reminder(
             id: "event-1",

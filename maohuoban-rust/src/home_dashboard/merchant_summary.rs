@@ -61,7 +61,6 @@ pub(super) fn merchant_home_snapshot_from_workspace(
         empty_state: None,
         recommended_content: Vec::new(),
         pantry_items: Vec::new(),
-        diet_trend_summary: None,
     }
 }
 

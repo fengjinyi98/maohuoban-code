@@ -7,8 +7,8 @@ use maohuoban_pet_application::pet::{
     SetPetDietAssignmentInput,
 };
 use maohuoban_pet_domain::pet::{
-    DietAssignmentRole, DietTrendFeedingSample, FoodInventoryCategory, FoodInventoryItem,
-    FoodScopeType, FoodSnapshot, PetDietAssignment, PetError, PetResult,
+    DietAssignmentRole, FoodInventoryItem, FoodScopeType, FoodSnapshot, PetDietAssignment,
+    PetError, PetResult,
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -387,95 +387,5 @@ impl DietRepository for PostgresDietRepository {
             .collect();
 
         Ok(FoodInventoryChangeHints { hints })
-    }
-
-    async fn load_diet_trend_feeding_samples(
-        &self,
-        pet_id: Uuid,
-        since: DateTime<Utc>,
-    ) -> PetResult<Vec<DietTrendFeedingSample>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                feeding.occurred_at,
-                feeding.event_payload,
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM pet_events marker
-                        WHERE marker.pet_id = feeding.pet_id
-                          AND marker.superseded_by_event_id IS NULL
-                          AND date(timezone('UTC', marker.occurred_at)) = date(timezone('UTC', feeding.occurred_at))
-                          AND marker.event_subkind IN ('medical_record', 'preventive_vaccine', 'preventive_deworming')
-                    ) THEN 'medical'
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM pet_events marker
-                        WHERE marker.pet_id = feeding.pet_id
-                          AND marker.superseded_by_event_id IS NULL
-                          AND date(timezone('UTC', marker.occurred_at)) = date(timezone('UTC', feeding.occurred_at))
-                          AND marker.event_subkind IN ('abnormal_symptom', 'symptom_followup')
-                    ) THEN 'abnormal'
-                    ELSE 'healthy'
-                END AS health_context
-            FROM pet_events feeding
-            WHERE pet_id = $1
-              AND event_kind = 'daily'
-              AND event_subkind = 'feeding'
-              AND occurred_at >= $2
-              AND superseded_by_event_id IS NULL
-            ORDER BY occurred_at ASC
-            "#,
-        )
-        .bind(pet_id)
-        .bind(since)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|error| {
-            PetError::Infrastructure(format!(
-                "failed to load diet trend feeding samples: {error}"
-            ))
-        })?;
-
-        let samples = rows
-            .into_iter()
-            .filter_map(|row| {
-                let occurred_at: DateTime<Utc> = row.get("occurred_at");
-                let payload: serde_json::Value = row.get("event_payload");
-                let category = payload
-                    .get("food_role")
-                    .and_then(|value| value.as_str())
-                    .and_then(|value| FoodInventoryCategory::try_from(value).ok())?;
-                let amount_text = payload
-                    .get("amount_text")
-                    .and_then(|value| value.as_str())
-                    .unwrap_or("正常")
-                    .to_owned();
-                let has_food_item = payload
-                    .get("food_item_id")
-                    .and_then(|value| value.as_str())
-                    .and_then(|value| Uuid::parse_str(value).ok())
-                    .is_some();
-                let has_inventory_snapshot = payload
-                    .get("food_snapshot")
-                    .and_then(|value| value.as_object())
-                    .is_some_and(|snapshot| {
-                        snapshot
-                            .get("category")
-                            .and_then(|value| value.as_str())
-                            .is_some()
-                    });
-                Some(DietTrendFeedingSample {
-                    category,
-                    amount_text,
-                    occurred_at,
-                    has_food_item,
-                    has_inventory_snapshot,
-                    health_context: row.get("health_context"),
-                })
-            })
-            .collect();
-
-        Ok(samples)
     }
 }

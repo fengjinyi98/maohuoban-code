@@ -11,20 +11,6 @@ extension DefaultPetRepository {
         return response.data?.items ?? []
     }
 
-    func loadFoodInventoryItemDetail(
-        itemID: String,
-        currentUserID: String
-    ) async throws(MHBAPIError) -> FoodInventoryItemDetail {
-        let response: MHBAPIResponse<FoodInventoryItemDetail> = try await client.get(
-            path: "/api/v1/food-inventory/items/\(itemID)/detail",
-            headers: try userHeaders(currentUserID: currentUserID)
-        )
-        guard let detail = response.data else {
-            throw MHBAPIError.business(code: "pet.no_data", message: "物品详情加载失败", statusCode: 500)
-        }
-        return detail
-    }
-
     func loadPetCurrentDietContext(
         petID: String,
         currentUserID: String
@@ -89,14 +75,11 @@ extension DefaultPetRepository {
             name: draft.name,
             brand: draft.brand.isEmpty ? nil : draft.brand,
             category: draft.category.rawValue,
+            inventory_status: draft.initialStatus.rawValue,
             quantity: draft.quantity,
             unit: draft.unit.isEmpty ? nil : draft.unit,
-            spec: draft.normalizedSpec,
-            package_weight_grams: draft.resolvedPackageWeightGrams,
-            package_count: draft.resolvedPackageCount,
-            package_unit: draft.resolvedPackageUnit,
-            production_date: draft.normalizedProductionDate,
-            shelf_life_months: draft.shelfLifeMonths,
+            spec: draft.spec.isEmpty ? nil : draft.spec,
+            expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
             cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
@@ -120,15 +103,11 @@ extension DefaultPetRepository {
             name: draft.name.isEmpty ? nil : draft.name,
             brand: draft.brand.isEmpty ? nil : draft.brand,
             category: draft.category.rawValue,
-            inventory_status: nil,
+            inventory_status: draft.initialStatus.rawValue,
             quantity: draft.quantity > 0 ? draft.quantity : nil,
             unit: draft.unit.isEmpty ? nil : draft.unit,
-            spec: draft.normalizedSpec,
-            package_weight_grams: draft.resolvedPackageWeightGrams,
-            package_count: draft.resolvedPackageCount,
-            package_unit: draft.resolvedPackageUnit,
-            production_date: draft.normalizedProductionDate,
-            shelf_life_months: draft.shelfLifeMonths,
+            spec: draft.spec.isEmpty ? nil : draft.spec,
+            expiry_date: draft.expiryDate.isEmpty ? nil : draft.expiryDate,
             cover_asset_id: draft.coverAssetID,
             note: draft.note.isEmpty ? nil : draft.note
         )
@@ -156,11 +135,7 @@ extension DefaultPetRepository {
             quantity: nil,
             unit: nil,
             spec: nil,
-            package_weight_grams: nil,
-            package_count: nil,
-            package_unit: nil,
-            production_date: nil,
-            shelf_life_months: nil,
+            expiry_date: nil,
             cover_asset_id: nil,
             note: nil
         )

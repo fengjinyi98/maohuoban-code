@@ -10,7 +10,6 @@ struct PetFeedingDetailPresentation {
         let id: String
         let name: String
         let avatarSource: MHBAvatarSource
-        let species: MHBAvatarSpecies
         let sex: MHBAvatarSex
 
         var avatarPet: MHBAvatarPet {
@@ -18,7 +17,7 @@ struct PetFeedingDetailPresentation {
                 id: id,
                 name: name,
                 source: avatarSource,
-                species: species,
+                species: .other,
                 sex: sex
             )
         }
@@ -64,7 +63,6 @@ struct PetFeedingDetailPresentation {
             id: context.resolvedPetID ?? event.petID ?? "",
             name: context.resolvedPetName ?? "",
             avatarSource: petAvatarSource(context: context),
-            species: context.resolvedPetSpecies.avatarSpecies,
             sex: context.resolvedPetSex.avatarSex
         )
     }
@@ -102,8 +100,6 @@ struct PetFeedingDetailPresentation {
         switch rawValue {
         case "main_food":
             "主粮"
-        case "wet_food":
-            "湿粮/罐头"
         case "treats":
             "零食"
         case "nutrition":
@@ -117,8 +113,6 @@ struct PetFeedingDetailPresentation {
 
     private static func foodRoleSystemImage(_ rawValue: String?) -> String {
         switch rawValue {
-        case "wet_food":
-            "cup.and.saucer.fill"
         case "nutrition":
             "pills.fill"
         case "treats":

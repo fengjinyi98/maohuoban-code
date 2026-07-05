@@ -403,9 +403,8 @@ async fn create_food_inventory_item_with_category(
                 "name": name,
                 "brand": "Orijen",
                 "category": category,
-                "quantity": 1,
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "inventory_status": "sealed",
+                "quantity": 1
             }),
             Some(user_id),
         ))

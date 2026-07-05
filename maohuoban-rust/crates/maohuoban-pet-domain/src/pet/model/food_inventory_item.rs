@@ -21,11 +21,6 @@ pub struct FoodInventoryItem {
     pub quantity: i32,
     pub unit: Option<String>,
     pub spec: Option<String>,
-    pub package_weight_grams: Option<i32>,
-    pub package_count: i32,
-    pub package_unit: Option<String>,
-    pub production_date: Option<NaiveDate>,
-    pub shelf_life_months: Option<i32>,
     pub expiry_date: Option<NaiveDate>,
     pub cover_asset_id: Option<Uuid>,
     pub cover_url: Option<String>,
@@ -41,7 +36,7 @@ pub struct FoodInventoryItem {
 /// 核心职责：
 /// - 一期固定 user scope
 /// - 预留 household 与 merchant
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FoodScopeType {
     User,
@@ -77,7 +72,7 @@ impl TryFrom<&str> for FoodScopeType {
 /// 核心职责：
 /// - 约束储物柜分类枚举
 /// - 区分 Agent 饮食上下文可消费分类
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FoodInventoryCategory {
     MainFood,
@@ -131,11 +126,12 @@ impl TryFrom<&str> for FoodInventoryCategory {
 
 /// FoodInventoryStatus 库存状态
 /// 核心职责：
-/// - 表达食品资产从入库到消耗完成的生命周期
+/// - 表达资产当前可用与归档状态
 /// - 支持 sealed / in_use / depleted 流转
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FoodInventoryStatus {
+    Active,
     Sealed,
     InUse,
     Depleted,
@@ -146,6 +142,7 @@ impl FoodInventoryStatus {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Active => "active",
             Self::Sealed => "sealed",
             Self::InUse => "in_use",
             Self::Depleted => "depleted",
@@ -164,6 +161,7 @@ impl TryFrom<&str> for FoodInventoryStatus {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
+            "active" => Ok(Self::Active),
             "sealed" => Ok(Self::Sealed),
             "in_use" => Ok(Self::InUse),
             "depleted" => Ok(Self::Depleted),

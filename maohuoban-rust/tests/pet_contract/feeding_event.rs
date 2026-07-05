@@ -194,7 +194,9 @@ async fn feeding_event_snapshot_includes_inventory_cover_and_marks_sealed_item_i
 
     let pet_id = create_pet(&app, &user_id).await;
     let cover_asset_id = upload_food_inventory_cover(&app, &user_id).await;
-    let food_item_id = create_food_inventory_item_with_cover(&app, &user_id, &cover_asset_id).await;
+    let food_item_id =
+        create_food_inventory_item_with_status_and_cover(&app, &user_id, "sealed", &cover_asset_id)
+            .await;
 
     let event_response = app
         .router()
@@ -501,11 +503,10 @@ async fn create_food_inventory_item(
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
+                "inventory_status": "in_use",
                 "quantity": 1,
                 "unit": "袋",
-                "spec": "5.4kg",
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18
+                "spec": "5.4kg"
             }),
             Some(user_id),
         ))
@@ -519,9 +520,10 @@ async fn create_food_inventory_item(
         .to_owned()
 }
 
-async fn create_food_inventory_item_with_cover(
+async fn create_food_inventory_item_with_status_and_cover(
     app: &maohuoban_rust::test_support::AuthTestApp,
     user_id: &str,
+    inventory_status: &str,
     cover_asset_id: &str,
 ) -> String {
     let response = app
@@ -533,11 +535,10 @@ async fn create_food_inventory_item_with_cover(
                 "name": "渴望六种鱼",
                 "brand": "Orijen",
                 "category": "main_food",
+                "inventory_status": inventory_status,
                 "quantity": 1,
                 "unit": "袋",
                 "spec": "5.4kg",
-                "production_date": "2025-07-15",
-                "shelf_life_months": 18,
                 "cover_asset_id": cover_asset_id
             }),
             Some(user_id),

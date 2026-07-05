@@ -7,10 +7,10 @@ import XCTest
 // - 保护分类、状态和品牌展示不回退到 mock 模型
 @MainActor
 final class PetFoodInventoryDisplayMappingTests: XCTestCase {
-    func testFoodInventoryStatusesUseBusinessLifecycleOnly() {
+    func testEditableStatusesExcludeArchived() {
         XCTAssertEqual(
-            FoodInventoryStatus.allCases,
-            [.sealed, .inUse, .depleted, .archived]
+            FoodInventoryStatus.editableCases,
+            [.active, .sealed, .inUse, .depleted]
         )
     }
 
@@ -27,9 +27,6 @@ final class PetFoodInventoryDisplayMappingTests: XCTestCase {
             quantity: 2,
             unit: "袋",
             spec: "5.4kg",
-            packageWeightGrams: 5400,
-            packageCount: 1,
-            packageUnit: "袋",
             expiryDate: "2027-01-15",
             coverAssetID: nil,
             barcode: nil,
@@ -48,13 +45,10 @@ final class PetFoodInventoryDisplayMappingTests: XCTestCase {
         XCTAssertEqual(pantryItem.category, .supplements)
         XCTAssertEqual(pantryItem.status, .inUse)
         XCTAssertEqual(pantryItem.statusDate, "2026-06-25")
-        XCTAssertEqual(pantryItem.statusLabel, "# 喂食中")
+        XCTAssertEqual(pantryItem.statusLabel, "# 消耗中")
         XCTAssertEqual(pantryItem.quantity, 2)
         XCTAssertEqual(pantryItem.unit, "袋")
         XCTAssertEqual(pantryItem.spec, "5.4kg")
         XCTAssertEqual(pantryItem.expiryDate, "2027-01-15")
-        XCTAssertEqual(pantryItem.packageWeightGrams, 5400)
-        XCTAssertEqual(pantryItem.packageCount, 1)
-        XCTAssertEqual(pantryItem.packageUnit, "袋")
     }
 }

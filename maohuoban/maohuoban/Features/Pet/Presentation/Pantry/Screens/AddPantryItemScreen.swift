@@ -14,7 +14,7 @@ struct AddPantryItemScreen: View {
 
     @State private var draft: FoodInventoryDraft
     @State private var store = PetFoodInventoryStore()
-    @State private var productionDate: Date
+    @State private var expiryDate: Date
     @State private var showImagePicker = false
     @State private var selectedCoverImage: UIImage?
     @State private var uploadedCoverURL: String?
@@ -30,7 +30,7 @@ struct AddPantryItemScreen: View {
         self.onSaved = onSaved
         let initialDraft = mode.initialDraft
         self._draft = State(initialValue: initialDraft)
-        self._productionDate = State(initialValue: Self.parseDate(initialDraft.productionDate) ?? Date())
+        self._expiryDate = State(initialValue: Self.parseDate(initialDraft.expiryDate) ?? Date())
     }
 
     var body: some View {
@@ -99,7 +99,7 @@ struct AddPantryItemScreen: View {
             Divider()
             PantryFormRow(label: "品牌名称", placeholder: "例如：ORIJEN 渴望", text: $draft.brand)
             Divider()
-            PantryFormRow(label: "规格", placeholder: "例如：2kg 或 85g", text: $draft.spec)
+            PantryFormRow(label: "单品规格", placeholder: "例如：5.4kg 或 170g", text: $draft.spec)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
@@ -123,6 +123,22 @@ struct AddPantryItemScreen: View {
                     }
                 }
             }
+
+            Divider()
+
+            tagSelectorRow(title: "库存状态") {
+                MHBFlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                    ForEach(FoodInventoryStatus.editableCases, id: \.rawValue) { status in
+                        PantryInteractiveTag(
+                            title: status.displayLabel,
+                            isActive: draft.initialStatus == status,
+                            style: .blue
+                        ) {
+                            draft.initialStatus = status
+                        }
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
@@ -136,22 +152,20 @@ struct AddPantryItemScreen: View {
             PantryFormRow(label: "库存数量", placeholder: "输入入库数量 (如: 1)", text: quantityText)
             Divider()
             HStack(alignment: .center, spacing: 0) {
-                Text("生产日期")
+                Text("保质期限")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Color(hex: "888888"))
                     .frame(width: 80, alignment: .leading)
 
-                DatePicker("", selection: $productionDate, displayedComponents: .date)
+                DatePicker("", selection: $expiryDate, displayedComponents: .date)
                     .labelsHidden()
-                    .onChange(of: productionDate) { _, newValue in
-                        draft.productionDate = Self.formatDate(newValue)
+                    .onChange(of: expiryDate) { _, newValue in
+                        draft.expiryDate = Self.formatDate(newValue)
                     }
 
                 Spacer()
             }
             .padding(.vertical, 16)
-            Divider()
-            PantryFormRow(label: "保质期", placeholder: "输入月份数 (如: 18)", text: shelfLifeMonthsText)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
@@ -165,19 +179,6 @@ struct AddPantryItemScreen: View {
             get: { "\(draft.quantity)" },
             set: { value in
                 draft.quantity = Int(value.filter(\.isNumber)) ?? 0
-            }
-        )
-    }
-
-    private var shelfLifeMonthsText: Binding<String> {
-        Binding(
-            get: {
-                guard let shelfLifeMonths = draft.shelfLifeMonths else { return "" }
-                return "\(shelfLifeMonths)"
-            },
-            set: { value in
-                let digits = value.filter(\.isNumber)
-                draft.shelfLifeMonths = digits.isEmpty ? nil : Int(digits)
             }
         )
     }

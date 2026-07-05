@@ -58,7 +58,6 @@ pub fn pet_owner_home_template() -> HomeDashboardSnapshot {
         empty_state: None,
         recommended_content: Vec::new(),
         pantry_items: Vec::new(),
-        diet_trend_summary: None,
     }
 }
 
@@ -105,7 +104,6 @@ pub fn new_user_home_snapshot() -> HomeDashboardSnapshot {
             source_text: "毛伙伴指南".to_owned(),
         }],
         pantry_items: Vec::new(),
-        diet_trend_summary: None,
     }
 }
 
@@ -187,6 +185,5 @@ pub fn merchant_home_snapshot() -> HomeDashboardSnapshot {
         empty_state: None,
         recommended_content: Vec::new(),
         pantry_items: Vec::new(),
-        diet_trend_summary: None,
     }
 }

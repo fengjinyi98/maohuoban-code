@@ -124,12 +124,7 @@ private struct HomeTimelineRow: View {
                 .frame(width: 44, alignment: .trailing)
 
             // 2. 时间线垂直连接线及圆点
-            MHBTimelineDotLine(
-                isFirst: isFirst,
-                isLast: isLast,
-                lineColor: .white.opacity(0.15),
-                dotColor: .white.opacity(0.5)
-            )
+            TimelineDotLine(isFirst: isFirst, isLast: isLast)
 
             // 3. 图标 (圆形或圆角矩形，根据类型有不同的配色方案)
             iconView

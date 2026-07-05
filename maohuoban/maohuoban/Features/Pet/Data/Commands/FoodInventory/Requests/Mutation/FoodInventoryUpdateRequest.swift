@@ -11,11 +11,7 @@ struct FoodInventoryUpdateRequest: Encodable {
     let quantity: Int?
     let unit: String?
     let spec: String?
-    let package_weight_grams: Int?
-    let package_count: Int?
-    let package_unit: String?
-    let production_date: String?
-    let shelf_life_months: Int?
+    let expiry_date: String?
     let cover_asset_id: String?
     let note: String?
 }

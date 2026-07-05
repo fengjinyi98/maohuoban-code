@@ -255,7 +255,6 @@ struct HomeDashboardLoadedView: View {
                     petID: routingContext.selectedPetID,
                     petName: routingContext.selectedPetName,
                     petAvatarURL: routingContext.selectedPetAvatarURL,
-                    petSpecies: routingContext.selectedPetSpecies,
                     petSex: routingContext.selectedPetSex,
                     lifeStatus: routingContext.selectedPetLifeStatus,
                     availablePets: routingContext.availablePets
@@ -270,7 +269,6 @@ struct HomeDashboardLoadedView: View {
                 petID: routingContext.selectedPetID,
                 petName: routingContext.selectedPetName,
                 petAvatarURL: routingContext.selectedPetAvatarURL,
-                petSpecies: routingContext.selectedPetSpecies,
                 petSex: routingContext.selectedPetSex,
                 lifeStatus: routingContext.selectedPetLifeStatus,
                 availablePets: routingContext.availablePets
@@ -288,7 +286,6 @@ struct HomeDashboardLoadedView: View {
                     petID: routingContext.selectedPetID,
                     petName: routingContext.selectedPetName,
                     petAvatarURL: routingContext.selectedPetAvatarURL,
-                    petSpecies: routingContext.selectedPetSpecies,
                     petSex: routingContext.selectedPetSex,
                     lifeStatus: routingContext.selectedPetLifeStatus,
                     availablePets: routingContext.availablePets

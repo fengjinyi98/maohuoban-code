@@ -38,17 +38,9 @@ enum PantryItemFormMode: Hashable {
     var initialDraft: FoodInventoryDraft {
         switch self {
         case .create:
-            FoodInventoryDraft(unit: "件", productionDate: Self.todayString())
+            FoodInventoryDraft(unit: "件")
         case .edit(let item):
             FoodInventoryDraft(pantryItem: item)
         }
-    }
-
-    private static func todayString() -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: Date())
     }
 }

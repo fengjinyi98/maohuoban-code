@@ -84,16 +84,6 @@ struct HomeDashboardContentSections: View {
                 )
             }
 
-            if let dietTrendSummary = snapshot.dietTrendSummary {
-                HomeDietTrendSection(
-                    summary: dietTrendSummary,
-                    route: .petDietTrendDetail(
-                        summary: dietTrendSummary,
-                        petName: snapshot.selectedPet?.name
-                    )
-                )
-            }
-
             if let pantryItems = snapshot.pantryItems {
                 let pantryContext = PetPantryEntryContext(
                     sourcePetID: snapshot.selectedPet?.id,
@@ -143,7 +133,6 @@ struct HomeDashboardContentSections: View {
             petID: routingContext.selectedPetID,
             petName: routingContext.selectedPetName,
             petAvatarURL: routingContext.selectedPetAvatarURL,
-            petSpecies: routingContext.selectedPetSpecies,
             petSex: routingContext.selectedPetSex,
             lifeStatus: routingContext.selectedPetLifeStatus,
             availablePets: routingContext.availablePets

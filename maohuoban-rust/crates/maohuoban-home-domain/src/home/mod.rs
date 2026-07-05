@@ -3,9 +3,7 @@ mod model;
 pub use model::{
     AttentionHint, AttentionHintCreator, AttentionHintKind, AttentionHintRoute,
     AttentionHintRouteKind, AttentionHintStatus, AttentionHintTone, HeroLivePhotoCrop,
-    HeroLivePhotoSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot,
-    HomeDietTrendCalibration, HomeDietTrendConfidence, HomeDietTrendExplanation,
-    HomeDietTrendHealthContext, HomeDietTrendSegment, HomeDietTrendSummary, HomeEmptyState,
+    HeroLivePhotoSummary, HomeAction, HomeActionKind, HomeDashboardSnapshot, HomeEmptyState,
     HomeEmptyStateKind, HomeGalleryAlbumSummary, HomeIdentity, HomeIdentityKind,
     HomePantryPreviewItem, HomeReminder, HomeReminderKind, HomeTimelineEvent,
     HomeTimelineEventKind, MerchantDashboardSummary, MerchantLitterSummary, MerchantPetStatus,

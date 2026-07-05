@@ -14,23 +14,12 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertFalse(source.contains(".contextMenu"))
     }
 
-    func testPetPantryScreenUsesSpaceLevelTitleOnly() throws {
+    func testPetPantryScreenUsesSpaceLevelTitleAndDietSummary() throws {
         let source = try sourceContents("Features/Pet/Presentation/Pantry/Screens/PetPantryScreen.swift")
 
         XCTAssertFalse(source.contains("\\(petName)的储物柜"))
         XCTAssertTrue(source.contains("家庭储物柜"))
-        XCTAssertFalse(source.contains("PetPantryDietSummarySection"))
-        XCTAssertFalse(source.contains("PetPantryDietTrendSection"))
-        XCTAssertFalse(source.contains("store.dietTrendSummary"))
-    }
-
-    func testHomeDashboardRendersDietTrendBeforePantrySection() throws {
-        let dashboardSource = try sourceContents("Features/Home/Presentation/Sections/Dashboard/HomeDashboardContentSections.swift")
-        let trendIndex = try XCTUnwrap(dashboardSource.range(of: "HomeDietTrendSection")?.lowerBound)
-        let pantryIndex = try XCTUnwrap(dashboardSource.range(of: "HomePantrySection")?.lowerBound)
-
-        XCTAssertLessThan(trendIndex, pantryIndex)
-        XCTAssertTrue(dashboardSource.contains("snapshot.dietTrendSummary"))
+        XCTAssertTrue(source.contains("PetPantryDietSummarySection"))
     }
 
     @MainActor
@@ -65,11 +54,6 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
             quantity: 1,
             unit: "件",
             spec: "5kg",
-            packageWeightGrams: 5000,
-            packageCount: 1,
-            packageUnit: "袋",
-            productionDate: "2025-07-04",
-            shelfLifeMonths: 24,
             expiryDate: "2027-07-04"
         )
 
@@ -93,18 +77,16 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertFalse(source.contains("已归档"))
     }
 
-    func testPetPantryItemDetailMenuUsesDeleteCopyAndItemInformationCopy() throws {
+    func testPetPantryItemActionSheetUsesDeleteCopyAndItemInformationCopy() throws {
         let categorySource = try sourceContents("Features/Pet/Presentation/Pantry/Categories/PetPantryCategoryScreen.swift")
-        let detailStoreSource = try sourceContents("Features/Pet/Stores/FoodInventory/PetFoodInventoryItemDetailStore.swift")
-        let detailMenuSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/Detail/PantryItemDetailMoreMenu.swift")
+        let actionSheetSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift")
 
-        XCTAssertTrue(categorySource.contains("onOpenRoute(onNavigate(.itemDetail(itemID: item.id)))"))
-        XCTAssertTrue(detailStoreSource.contains("deleteFoodInventoryItem("))
-        XCTAssertTrue(detailMenuSource.contains("编辑物品信息"))
-        XCTAssertTrue(detailMenuSource.contains("移出储物柜"))
-        XCTAssertTrue(detailMenuSource.contains("onDelete"))
-        XCTAssertFalse(detailMenuSource.contains("编辑物品档案"))
-        XCTAssertFalse(detailMenuSource.contains("onArchive"))
+        XCTAssertTrue(categorySource.contains("store.deleteItem("))
+        XCTAssertTrue(actionSheetSource.contains("编辑物品信息"))
+        XCTAssertTrue(actionSheetSource.contains("移出储物柜"))
+        XCTAssertTrue(actionSheetSource.contains("onDelete"))
+        XCTAssertFalse(actionSheetSource.contains("编辑物品档案"))
+        XCTAssertFalse(actionSheetSource.contains("onArchive"))
     }
 
     func testPetPantryItemEditUsesPushFormAndImmediateCoverUploadBoundary() throws {
@@ -112,12 +94,9 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         let addSource = try sourceContents("Features/Pet/Presentation/Pantry/Screens/AddPantryItemScreen.swift")
         let destinationSource = try sourceContents("Features/Home/Presentation/Navigation/HomeRouteDestinationScreen.swift")
 
-        let detailScreenSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/Detail/PantryItemDetailScreen.swift")
-
         XCTAssertFalse(categorySource.contains("@State private var editingItem"))
         XCTAssertFalse(categorySource.contains(".sheet(item: $editingItem)"))
-        XCTAssertTrue(categorySource.contains("onOpenRoute(onNavigate(.itemDetail(itemID: item.id)))"))
-        XCTAssertTrue(detailScreenSource.contains("onNavigate(.editItem(PantryItem(foodInventoryItem: detail.item)))"))
+        XCTAssertTrue(categorySource.contains("onOpenRoute(onNavigate(.editItem(item)))"))
 
         XCTAssertTrue(destinationSource.contains("mode: .create"))
         XCTAssertTrue(destinationSource.contains("mode: .edit(item)"))
@@ -129,18 +108,17 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
     }
 
     func testPetPantryCategoryScreenExposesDietAssignmentActions() throws {
-        let detailScreenSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/Detail/PantryItemDetailScreen.swift")
-        let detailStoreSource = try sourceContents("Features/Pet/Stores/FoodInventory/PetFoodInventoryItemDetailStore.swift")
-        let menuSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/Detail/PantryItemDetailDietAssignmentMenu.swift")
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Categories/PetPantryCategoryScreen.swift")
+        let actionSheetSource = try sourceContents("Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift")
 
-        XCTAssertTrue(detailStoreSource.contains("setCurrentStaple("))
-        XCTAssertTrue(detailStoreSource.contains("setFoodAssignment("))
-        XCTAssertTrue(menuSource.contains("设为当前主粮"))
-        XCTAssertTrue(menuSource.contains("标记为尝试中"))
-        XCTAssertTrue(menuSource.contains("设为常用零食"))
-        XCTAssertTrue(menuSource.contains("设为常用营养品"))
-        XCTAssertTrue(menuSource.contains("设为不适合"))
-        XCTAssertTrue(detailScreenSource.contains("role: .notSuitable"))
+        XCTAssertTrue(source.contains("setCurrentStaple("))
+        XCTAssertTrue(source.contains("setFoodAssignment("))
+        XCTAssertTrue(actionSheetSource.contains("设为当前主粮"))
+        XCTAssertTrue(actionSheetSource.contains("标记为尝试中"))
+        XCTAssertTrue(actionSheetSource.contains("设为常用零食"))
+        XCTAssertTrue(actionSheetSource.contains("设为常用营养品"))
+        XCTAssertTrue(actionSheetSource.contains("设为不适合"))
+        XCTAssertTrue(source.contains("role: .notSuitable"))
     }
 
     func testHomePantryPreviewCardsRouteOnlyToCategoryDetail() throws {
@@ -190,8 +168,8 @@ final class PetPantryScreenMockBoundaryTests: XCTestCase {
         XCTAssertTrue(source.contains(".aspectRatio(contentMode: .fill)"))
     }
 
-    func testPantryItemDetailCoverRendersThumbnailFlush() throws {
-        let source = try sourceContents("Features/Pet/Presentation/Pantry/Items/Detail/PantryItemDetailCover.swift")
+    func testPantryItemActionSheetRendersThumbnailFlush() throws {
+        let source = try sourceContents("Features/Pet/Presentation/Pantry/Items/PantryItemActionSheet.swift")
 
         XCTAssertFalse(source.contains("LinearGradient("))
         XCTAssertFalse(source.contains(".aspectRatio(contentMode: .fit)"))

@@ -15,22 +15,18 @@ use super::media::UploadPetMediaRequest;
 /// - 接收前端储物柜入库表单数据
 /// - 转换为应用层输入
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct CreateFoodInventoryItemRequest {
     name: String,
     brand: Option<String>,
     #[serde(default = "default_category")]
     category: FoodInventoryCategory,
+    #[serde(default = "default_initial_status")]
+    inventory_status: FoodInventoryStatus,
     #[serde(default = "default_quantity")]
     quantity: i32,
     unit: Option<String>,
     spec: Option<String>,
-    package_weight_grams: Option<i32>,
-    #[serde(default = "default_package_count")]
-    package_count: i32,
-    package_unit: Option<String>,
-    production_date: Option<NaiveDate>,
-    shelf_life_months: Option<i32>,
+    expiry_date: Option<NaiveDate>,
     cover_asset_id: Option<Uuid>,
     barcode: Option<String>,
     source_kind: Option<FoodSourceKind>,
@@ -41,11 +37,11 @@ fn default_category() -> FoodInventoryCategory {
     FoodInventoryCategory::MainFood
 }
 
-fn default_quantity() -> i32 {
-    1
+fn default_initial_status() -> FoodInventoryStatus {
+    FoodInventoryStatus::Sealed
 }
 
-fn default_package_count() -> i32 {
+fn default_quantity() -> i32 {
     1
 }
 
@@ -63,15 +59,11 @@ impl CreateFoodInventoryItemRequest {
             name: self.name,
             brand: self.brand,
             category: self.category,
-            inventory_status: FoodInventoryStatus::Sealed,
+            inventory_status: self.inventory_status,
             quantity: self.quantity,
             unit: self.unit,
             spec: self.spec,
-            package_weight_grams: self.package_weight_grams,
-            package_count: self.package_count,
-            package_unit: self.package_unit,
-            production_date: self.production_date,
-            shelf_life_months: self.shelf_life_months,
+            expiry_date: self.expiry_date,
             cover_asset_id: self.cover_asset_id,
             barcode: self.barcode,
             source_kind: self.source_kind.unwrap_or(FoodSourceKind::Manual),
@@ -85,7 +77,6 @@ impl CreateFoodInventoryItemRequest {
 /// - 接收前端编辑表单可选字段
 /// - 转换"不限选"为 None
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct UpdateFoodInventoryItemRequest {
     name: Option<String>,
     brand: Option<String>,
@@ -94,11 +85,7 @@ pub(crate) struct UpdateFoodInventoryItemRequest {
     quantity: Option<i32>,
     unit: Option<String>,
     spec: Option<String>,
-    package_weight_grams: Option<i32>,
-    package_count: Option<i32>,
-    package_unit: Option<String>,
-    production_date: Option<NaiveDate>,
-    shelf_life_months: Option<i32>,
+    expiry_date: Option<NaiveDate>,
     cover_asset_id: Option<Uuid>,
     barcode: Option<String>,
     note: Option<String>,
@@ -120,11 +107,7 @@ impl UpdateFoodInventoryItemRequest {
             quantity: self.quantity,
             unit: self.unit,
             spec: self.spec,
-            package_weight_grams: self.package_weight_grams,
-            package_count: self.package_count,
-            package_unit: self.package_unit,
-            production_date: self.production_date,
-            shelf_life_months: self.shelf_life_months,
+            expiry_date: self.expiry_date,
             cover_asset_id: self.cover_asset_id,
             barcode: self.barcode,
             note: self.note,

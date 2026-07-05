@@ -21,8 +21,6 @@ final class PetFoodInventoryCategoryMappingTests: XCTestCase {
           "quantity": 1,
           "unit": "件",
           "spec": null,
-          "production_date": null,
-          "shelf_life_months": null,
           "expiry_date": null
         }
         """
@@ -45,8 +43,6 @@ final class PetFoodInventoryCategoryMappingTests: XCTestCase {
             quantity: 1,
             unit: "件",
             spec: nil,
-            productionDate: nil,
-            shelfLifeMonths: nil,
             expiryDate: nil,
             coverAssetID: nil,
             barcode: nil,
