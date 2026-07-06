@@ -11,7 +11,8 @@ final class FailingAIAssistantRepository: AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String?
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             continuation.finish(throwing: MHBAPIError.business(
@@ -76,6 +77,16 @@ final class FailingAIAssistantRepository: AIAssistantRepository {
         throw .business(
             code: "ai.unsupported_action",
             message: "当前建议动作暂不支持确认",
+            statusCode: 400
+        )
+    }
+
+    func rejectConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持取消确认任务",
             statusCode: 400
         )
     }

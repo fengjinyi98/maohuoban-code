@@ -8,6 +8,11 @@ use futures_util::StreamExt;
 use httpmock::MockServer;
 use maohuoban_ai_application::ai::tools::ToolRegistry;
 use maohuoban_ai_domain::ai::LlmToolCall;
+use maohuoban_pet_application::pet::AgentConfirmationTaskRepository;
+use maohuoban_pet_domain::pet::{
+    AgentConfirmationTask, ConfirmationTaskKind, ConfirmationTaskStatus,
+};
+use maohuoban_pet_infrastructure::postgres::PostgresAgentConfirmationTaskRepository;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -70,6 +75,71 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
     assert_runtime_tool_diagnostics(&events);
+}
+
+/// 用户拒绝确认任务时，后端关闭任务且不写入宠物事件
+#[tokio::test]
+async fn ai_chat_confirmation_task_reject_dismisses_without_pet_event() {
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139025", "ios-ai-runtime-reject").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = Uuid::parse_str(pet["id"].as_str().expect("pet id")).expect("pet uuid");
+    let repo = PostgresAgentConfirmationTaskRepository::new(app.pool().clone());
+    let confirmation_task_id = Uuid::new_v4();
+
+    repo.create(AgentConfirmationTask {
+        id: confirmation_task_id,
+        pet_id,
+        task_kind: ConfirmationTaskKind::SymptomFollowup,
+        question_text: "是否确认写入这条观察记录？".to_owned(),
+        candidate_payload: Some(json!({
+            "event_kind": "health",
+            "event_subkind": "symptom_followup",
+            "note": "精神好转，食欲仍减少"
+        })),
+        source_hint_id: None,
+        source_ref_type: None,
+        source_ref_id: None,
+        status: ConfirmationTaskStatus::Pending,
+        answer_payload: None,
+        resolved_event_id: None,
+        created_at: chrono::DateTime::from_timestamp_nanos(0),
+        resolved_at: None,
+    })
+    .await
+    .expect("create confirmation task");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            &format!("/api/v1/ai/confirmation-tasks/{confirmation_task_id}/reject"),
+            &access_token,
+            json!({}),
+        ))
+        .await
+        .expect("reject confirmation task");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let updated = repo
+        .get_by_id(confirmation_task_id)
+        .await
+        .expect("load rejected task");
+    assert_eq!(updated.status, ConfirmationTaskStatus::Dismissed);
+    assert_eq!(updated.resolved_event_id, None);
+    assert_eq!(updated.answer_payload, Some(json!({"decision": "reject"})));
+
+    let event_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM pet_events WHERE pet_id = $1::uuid AND event_subkind IN ('agent_observation_note', 'symptom_followup')",
+    )
+    .bind(pet_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count pet events");
+    assert_eq!(event_count, 0);
 }
 
 /// Runtime 工具链支持 followup 再发第二次工具调用后再完成回答
@@ -172,6 +242,30 @@ async fn ai_chat_stream_prepare_and_commit_observation_write() {
         .as_str()
         .expect("confirmation task id")
         .to_owned();
+    assert_eq!(
+        confirmation_event["preview"]["title"].as_str(),
+        Some("准备记录一条观察")
+    );
+    assert_eq!(
+        confirmation_event["preview"]["event_subkind"].as_str(),
+        Some("agent_observation_note")
+    );
+    assert_eq!(
+        confirmation_event["preview"]["note"].as_str(),
+        Some("今天拉稀")
+    );
+    assert_eq!(
+        confirmation_event["preview"]["source_label"].as_str(),
+        Some("毛球更新")
+    );
+    assert_eq!(
+        confirmation_event["actions"][0]["kind"].as_str(),
+        Some("approve")
+    );
+    assert_eq!(
+        confirmation_event["actions"][1]["kind"].as_str(),
+        Some("reject")
+    );
 
     let confirmation_count: i64 =
         sqlx::query_scalar(r"SELECT COUNT(*) FROM agent_confirmation_tasks WHERE id = $1::uuid")

@@ -25,7 +25,11 @@ mod tests {
         AiPetDisplaySnapshot, AiProposedAction, AiResult, AiSessionTurn,
         AiToolConfirmationRequirement, SessionSummary, Toolset,
     };
+    use maohuoban_pet_application::pet::AgentConfirmationTaskRepository;
     use maohuoban_pet_domain::pet::PetResult;
+    use maohuoban_pet_domain::pet::{
+        AgentConfirmationTask, ConfirmationTaskKind, ConfirmationTaskStatus,
+    };
     use serde_json::json;
     use uuid::Uuid;
 
@@ -39,6 +43,7 @@ mod tests {
     struct EmptyChatTurnTransaction;
     struct EmptySessionSummaryRepository;
     struct EmptyAbnormalFollowupPlanProvider;
+    struct EmptyAgentConfirmationTaskRepository;
 
     #[async_trait]
     impl AiSessionRepository for EmptySessionRepository {
@@ -221,6 +226,48 @@ mod tests {
             _chat_session_id: Uuid,
             _superseded_at: chrono::DateTime<chrono::Utc>,
         ) -> AiResult<()> {
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl AgentConfirmationTaskRepository for EmptyAgentConfirmationTaskRepository {
+        async fn create(&self, task: AgentConfirmationTask) -> PetResult<AgentConfirmationTask> {
+            Ok(task)
+        }
+
+        async fn list_pending_by_pet(
+            &self,
+            _pet_id: Uuid,
+        ) -> PetResult<Vec<AgentConfirmationTask>> {
+            Ok(Vec::new())
+        }
+
+        async fn get_by_id(&self, id: Uuid) -> PetResult<AgentConfirmationTask> {
+            Ok(AgentConfirmationTask {
+                id,
+                pet_id: Uuid::nil(),
+                task_kind: ConfirmationTaskKind::SymptomFollowup,
+                question_text: String::new(),
+                candidate_payload: None,
+                source_hint_id: None,
+                source_ref_type: None,
+                source_ref_id: None,
+                status: ConfirmationTaskStatus::Pending,
+                answer_payload: None,
+                resolved_event_id: None,
+                created_at: chrono::DateTime::from_timestamp_nanos(0),
+                resolved_at: None,
+            })
+        }
+
+        async fn update_status(
+            &self,
+            _id: Uuid,
+            _status: &str,
+            _answer_payload: Option<serde_json::Value>,
+            _resolved_event_id: Option<Uuid>,
+        ) -> PetResult<()> {
             Ok(())
         }
     }
@@ -693,6 +740,7 @@ mod tests {
                 abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
             }),
             observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+            confirmation_task_repository: Arc::new(EmptyAgentConfirmationTaskRepository),
         }
     }
 

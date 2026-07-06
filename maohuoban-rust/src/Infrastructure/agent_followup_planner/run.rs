@@ -204,6 +204,7 @@ fn build_planner_tool_registry(
     session_id: Uuid,
     target_pet: &AiPetDisplaySnapshot,
 ) -> ToolRegistry {
+    let confirmation_tasks = Arc::new(PostgresAgentConfirmationTaskRepository::new(pool.clone()));
     build_ai_runtime_tool_registry(
         &maohuoban_ai_http::ai::router::AiHttpState {
             llm_provider: runtime_context.llm_provider.clone(),
@@ -231,6 +232,7 @@ fn build_planner_tool_registry(
                 .providers
                 .observation_write_provider
                 .clone(),
+            confirmation_task_repository: confirmation_tasks,
         },
         session_id,
         target_pet,

@@ -385,15 +385,17 @@ impl RuntimePetContextTool {
             .await
         {
             Ok(prepared) => {
+                let mut confirmation = prepared.confirmation;
+                confirmation.args = args.clone();
                 self.record_tool_access(
                     ctx.actor_user_id,
                     true,
                     None,
                     args,
-                    &observation_prepare_fact_package(&prepared.confirmation.confirmation_task_id),
+                    &observation_prepare_fact_package(&confirmation.confirmation_task_id),
                 )
                 .await;
-                AiToolResult::requires_confirmation(prepared.confirmation)
+                AiToolResult::requires_confirmation(confirmation)
             }
             Err(error) => {
                 let safe_message = error.to_string();

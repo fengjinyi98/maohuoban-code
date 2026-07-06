@@ -15,6 +15,8 @@ maohuoban-ai-domain.workspace = true
 maohuoban-auth-application.workspace = true
 maohuoban-auth-domain.workspace = true
 maohuoban-auth-http.workspace = true
+maohuoban-pet-application.workspace = true
+maohuoban-pet-domain.workspace = true
 maohuoban_diagnostics.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -22,7 +24,6 @@ tokio.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-maohuoban-pet-domain.workspace = true
 tokio.workspace = true
 tower.workspace = true
 

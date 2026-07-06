@@ -173,11 +173,12 @@ enum AIAssistantDiagnostics {
                 "status": .string(status),
                 "display_text_length_bucket": .string(lengthBucket(displayText.count)),
             ]
-        case .confirmationTask(let taskID, let questionText):
+        case .confirmationTask(let taskID, let questionText, let preview, _):
             [
                 "event_name": .string("confirmation_task"),
                 "confirmation_task_id_prefix": .string(prefix(taskID.uuidString)),
                 "question_length_bucket": .string(lengthBucket(questionText.count)),
+                "preview_note_length_bucket": .string(lengthBucket(preview.note.count)),
             ]
         case .delta(let text):
             [

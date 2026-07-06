@@ -13,6 +13,7 @@ struct ChatStreamRequestBody: Encodable {
     let abnormalEpisodeID: String?
     let sourceHintID: String?
     let agentFollowupID: String?
+    let confirmationTaskID: String?
 
     enum CodingKeys: String, CodingKey {
         case message
@@ -23,5 +24,6 @@ struct ChatStreamRequestBody: Encodable {
         case abnormalEpisodeID = "abnormal_episode_id"
         case sourceHintID = "source_hint_id"
         case agentFollowupID = "agent_followup_id"
+        case confirmationTaskID = "confirmation_task_id"
     }
 }

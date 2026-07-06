@@ -7,7 +7,12 @@ import Foundation
 enum AIStreamEventDTO {
     case messageStarted(chatSessionID: UUID, messageID: UUID, title: String)
     case agentActivity(displayText: String, status: String)
-    case confirmationTask(taskID: UUID, questionText: String)
+    case confirmationTask(
+        taskID: UUID,
+        questionText: String,
+        preview: AIStreamConfirmationTaskPreviewPayload,
+        actions: [AIStreamConfirmationTaskActionPayload]
+    )
     case delta(text: String)
     case contentBlockDelta(contentBlocks: [AIAssistantContentBlock])
     case citation(reference: AIAssistantReference)

@@ -43,7 +43,12 @@ enum AIStreamEventDecoder {
             return .agentActivity(displayText: payload.displayText, status: payload.status)
         case "confirmation_task":
             guard let payload = try? decoder.decode(AIStreamConfirmationTaskPayload.self, from: jsonData) else { return nil }
-            return .confirmationTask(taskID: payload.taskID, questionText: payload.questionText)
+            return .confirmationTask(
+                taskID: payload.taskID,
+                questionText: payload.questionText,
+                preview: payload.preview,
+                actions: payload.actions
+            )
         case "message_completed", "answer_completed":
             guard let payload = try? decoder.decode(AIStreamMessageCompletedPayload.self, from: jsonData) else {
                 return nil

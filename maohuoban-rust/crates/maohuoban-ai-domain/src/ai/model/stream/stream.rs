@@ -288,6 +288,8 @@ pub enum AiStreamEvent {
     ConfirmationTask {
         confirmation_task_id: Uuid,
         question_text: String,
+        preview: AiConfirmationTaskPreview,
+        actions: Vec<AiConfirmationTaskAction>,
     },
     MessageCompleted {
         message_id: Uuid,
@@ -318,6 +320,39 @@ pub enum AiStreamEvent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         safe_fallback_text: Option<String>,
     },
+}
+
+/// AiConfirmationTaskPreview AI 确认任务预览
+/// 核心职责：
+/// - 承载用户确认前可查看的候选写入内容
+/// - 让前端确认卡展示与真实写入候选保持同源
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiConfirmationTaskPreview {
+    pub title: String,
+    pub event_subkind: String,
+    pub note: String,
+    pub source_label: String,
+}
+
+/// AiConfirmationTaskAction AI 确认任务动作
+/// 核心职责：
+/// - 固定确认卡可执行动作集合
+/// - 区分确认写入和取消写入的用户授权语义
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AiConfirmationTaskAction {
+    pub kind: AiConfirmationTaskActionKind,
+    pub label: String,
+}
+
+/// AiConfirmationTaskActionKind AI 确认任务动作类型
+/// 核心职责：
+/// - 约束前端回传确认任务决策
+/// - 避免把自然语言“可以/不要”当作写入授权
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiConfirmationTaskActionKind {
+    Approve,
+    Reject,
 }
 
 /// AiToolCallStatus 工具调用状态

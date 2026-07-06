@@ -104,12 +104,16 @@ impl AgentEventSseProjector {
                 turn_id,
                 confirmation_task_id,
                 question_text,
+                preview,
+                actions,
                 ..
             } => {
                 vec![UserVisibleTurnEvent::ConfirmationTask {
                     turn_id,
                     confirmation_task_id,
                     question_text,
+                    preview,
+                    actions,
                 }]
             }
             AgentEvent::MessageDelta { turn_id, text } => {
@@ -276,10 +280,14 @@ impl AgentEventSseProjector {
             UserVisibleTurnEvent::ConfirmationTask {
                 confirmation_task_id,
                 question_text,
+                preview,
+                actions,
                 ..
             } => output.push(AiStreamEvent::ConfirmationTask {
                 confirmation_task_id,
                 question_text,
+                preview,
+                actions,
             }),
             UserVisibleTurnEvent::Error {
                 code,

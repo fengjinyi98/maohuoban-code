@@ -1,5 +1,6 @@
 use maohuoban_ai_domain::ai::{
-    AgentEvent, AgentToolStatus, AgentTurnStatus, AgentTurnTerminationReason, LoopStep,
+    AgentEvent, AgentToolStatus, AgentTurnStatus, AgentTurnTerminationReason,
+    AiConfirmationTaskAction, AiConfirmationTaskActionKind, AiConfirmationTaskPreview, LoopStep,
     LoopToolResult, LoopToolStatus, ModelCallOutcome,
 };
 use uuid::Uuid;
@@ -172,6 +173,7 @@ fn append_tool_events(
                 events,
             ),
             LoopToolStatus::RequiresConfirmation => {
+                let tool_name = tool_result.tool_call.name.clone();
                 append_tool_finished(
                     turn_id,
                     tool_result.tool_call.id,
@@ -186,6 +188,8 @@ fn append_tool_events(
                         confirmation_task_id: Uuid::parse_str(&confirmation.confirmation_task_id)
                             .unwrap_or_else(|_| Uuid::new_v4()),
                         question_text: confirmation.question_text,
+                        preview: confirmation_task_preview(&tool_name, &confirmation.args),
+                        actions: confirmation_task_actions(),
                     });
                     flow = StepFlow::Stop;
                 }
@@ -194,6 +198,51 @@ fn append_tool_events(
     }
 
     flow
+}
+
+/// confirmation_task_preview 构建确认任务展示预览
+/// 核心职责：
+/// - 从已创建的工具确认需求投影用户可见候选内容
+/// - 保持确认卡展示与后续 commit 使用同一个确认任务来源
+fn confirmation_task_preview(
+    tool_name: &str,
+    args: &serde_json::Value,
+) -> AiConfirmationTaskPreview {
+    let note = args
+        .get("note")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("待确认记录")
+        .trim()
+        .to_owned();
+    let (title, event_subkind) = if tool_name == "prepare_pet_observation_write" {
+        ("准备记录一条观察", "agent_observation_note")
+    } else {
+        ("准备执行一项确认", "agent_confirmation")
+    };
+
+    AiConfirmationTaskPreview {
+        title: title.to_owned(),
+        event_subkind: event_subkind.to_owned(),
+        note,
+        source_label: "毛球更新".to_owned(),
+    }
+}
+
+/// confirmation_task_actions 构建确认任务动作集合
+/// 核心职责：
+/// - 固定确认卡显式授权动作
+/// - 让前端避免用自然语言文本表达写入授权
+fn confirmation_task_actions() -> Vec<AiConfirmationTaskAction> {
+    vec![
+        AiConfirmationTaskAction {
+            kind: AiConfirmationTaskActionKind::Approve,
+            label: "确认写入".to_owned(),
+        },
+        AiConfirmationTaskAction {
+            kind: AiConfirmationTaskActionKind::Reject,
+            label: "取消".to_owned(),
+        },
+    ]
 }
 
 /// append_tool_finished 追加工具完成事件

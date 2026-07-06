@@ -5,8 +5,8 @@ use crate::ai::AiFactPackage;
 
 use super::super::provider_error::ProviderErrorCategory;
 use super::super::{
-    AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConversationSurface, LlmFinishReason,
-    LlmUsage, ModelLabel,
+    AgentId, AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConfirmationTaskAction,
+    AiConfirmationTaskPreview, AiConversationSurface, LlmFinishReason, LlmUsage, ModelLabel,
 };
 use super::termination_reason::AgentTurnTerminationReason;
 
@@ -60,6 +60,8 @@ pub enum AgentEvent {
         turn_id: AgentTurnId,
         confirmation_task_id: Uuid,
         question_text: String,
+        preview: AiConfirmationTaskPreview,
+        actions: Vec<AiConfirmationTaskAction>,
     },
     NeedsClarification {
         turn_id: AgentTurnId,

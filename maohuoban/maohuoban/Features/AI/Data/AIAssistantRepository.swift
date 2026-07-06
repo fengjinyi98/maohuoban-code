@@ -11,7 +11,8 @@ protocol AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String?
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error>
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]>
@@ -31,6 +32,9 @@ protocol AIAssistantRepository {
     func confirmProposedAction(
         _ action: AIAssistantProposedAction
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO>
+    func rejectConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO>
 }
 
 // DefaultAIAssistantRepository 默认 AI 助手数据仓库
@@ -51,7 +55,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String? = nil
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -66,7 +71,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                         selectedPetID: selectedPetID,
                         surface: surface,
                         chatSessionID: chatSessionID,
-                        entryContext: entryContext
+                        entryContext: entryContext,
+                        confirmationTaskID: confirmationTaskID
                     )
                     let (bytes, response) = try await session.bytes(for: request)
 
@@ -197,6 +203,15 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         )
     }
 
+    func rejectConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        try await client.post(
+            path: "/api/v1/ai/confirmation-tasks/\(taskID)/reject",
+            body: AIChatSessionEmptyRequestBody()
+        )
+    }
+
     // MARK: - Private
 
     private func buildStreamRequest(
@@ -204,7 +219,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String?
     ) throws(MHBAPIError) -> URLRequest {
         let url = client.baseURL.appending(path: "/api/v1/ai/chat/stream")
         var request = URLRequest(url: url)
@@ -222,7 +238,8 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
             chatContextKind: entryContext.chatContextKind,
             abnormalEpisodeID: entryContext.abnormalEpisodeID,
             sourceHintID: entryContext.sourceHintID,
-            agentFollowupID: entryContext.agentFollowupID
+            agentFollowupID: entryContext.agentFollowupID,
+            confirmationTaskID: confirmationTaskID
         )
         do {
             request.httpBody = try JSONEncoder().encode(body)
@@ -248,6 +265,8 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var pinnedStates: [Bool] = []
     var deletedSessionIDs: [String] = []
     var activatedAbnormalEpisodeIDs: [String] = []
+    var streamConfirmationTaskIDs: [String?] = []
+    var rejectedConfirmationTaskIDs: [String] = []
     var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
 
     init(
@@ -278,8 +297,10 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String? = nil
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        streamConfirmationTaskIDs.append(confirmationTaskID)
         return AsyncThrowingStream { continuation in
             for event in streamEvents {
                 continuation.yield(event)
@@ -351,6 +372,21 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         case .failure(let error):
             throw error
         }
+    }
+
+    func rejectConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        rejectedConfirmationTaskIDs.append(taskID)
+        return MHBAPIResponse(
+            success: true,
+            code: "ai.confirmation_task_rejected",
+            message: "已取消这条待确认记录",
+            data: AIConfirmationTaskMutationResultDTO(
+                confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
+                status: "dismissed"
+            )
+        )
     }
 
     private func sessionMutationResponse(

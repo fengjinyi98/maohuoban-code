@@ -53,7 +53,8 @@ extension AIAssistantStore {
                 selectedPetID: self.effectiveEntryContext.selectedPetID,
                 surface: "home_private",
                 chatSessionID: self.currentChatSessionID,
-                entryContext: self.effectiveEntryContext
+                entryContext: self.effectiveEntryContext,
+                confirmationTaskID: nil
             )
             do {
                 for try await event in stream {
@@ -95,10 +96,19 @@ extension AIAssistantStore {
         case .agentActivity(let displayText, let status):
             applyAgentActivity(displayText: displayText, status: status)
 
-        case .confirmationTask(let taskID, let questionText):
+        case .confirmationTask(let taskID, let questionText, let preview, let actions):
             pendingConfirmationTask = PendingConfirmationTask(
                 id: taskID.uuidString,
-                questionText: questionText
+                questionText: questionText,
+                preview: PendingConfirmationTaskPreview(
+                    title: preview.title,
+                    eventSubkind: preview.eventSubkind,
+                    note: preview.note,
+                    sourceLabel: preview.sourceLabel
+                ),
+                actions: actions.map {
+                    PendingConfirmationTaskAction(kind: $0.kind, label: $0.label)
+                }
             )
 
         case .delta(let text):

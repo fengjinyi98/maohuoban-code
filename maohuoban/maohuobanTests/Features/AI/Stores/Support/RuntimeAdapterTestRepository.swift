@@ -7,6 +7,8 @@ import Foundation
 // - 屏蔽历史和确认接口依赖
 final class RuntimeAdapterTestRepository: AIAssistantRepository {
     private let streamEvents: [AIStreamEventDTO]
+    private(set) var streamConfirmationTaskIDs: [String?] = []
+    private(set) var rejectedConfirmationTaskIDs: [String] = []
 
     init(streamEvents: [AIStreamEventDTO]) {
         self.streamEvents = streamEvents
@@ -17,9 +19,11 @@ final class RuntimeAdapterTestRepository: AIAssistantRepository {
         selectedPetID: String?,
         surface: String,
         chatSessionID: String?,
-        entryContext: AIAssistantEntryContext
+        entryContext: AIAssistantEntryContext,
+        confirmationTaskID: String?
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
-        AsyncThrowingStream { continuation in
+        streamConfirmationTaskIDs.append(confirmationTaskID)
+        return AsyncThrowingStream { continuation in
             for event in streamEvents {
                 continuation.yield(event)
             }
@@ -63,5 +67,20 @@ final class RuntimeAdapterTestRepository: AIAssistantRepository {
         _ action: AIAssistantProposedAction
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIAssistantActionConfirmationResultDTO> {
         throw .business(code: "ai.unsupported_action", message: "当前建议动作暂不支持确认", statusCode: 400)
+    }
+
+    func rejectConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        rejectedConfirmationTaskIDs.append(taskID)
+        return MHBAPIResponse(
+            success: true,
+            code: "ai.confirmation_task_rejected",
+            message: "ok",
+            data: AIConfirmationTaskMutationResultDTO(
+                confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
+                status: "dismissed"
+            )
+        )
     }
 }

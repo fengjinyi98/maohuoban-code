@@ -24,17 +24,58 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
     }
 
     func testConfirmationEventExposesAssistantStatus() async {
+        let taskID = UUID()
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(),
-            repository: RuntimeAdapterTestRepository(streamEvents: Self.confirmationEvents())
+            repository: RuntimeAdapterTestRepository(streamEvents: Self.confirmationEvents(taskID: taskID))
         )
         store.draftText = "帮我确认换粮"
         store.submitDraft()
 
         try? await Task.sleep(nanoseconds: 200_000_000)
 
+        XCTAssertEqual(store.pendingConfirmationTask?.id, taskID.uuidString)
         XCTAssertEqual(store.pendingConfirmationTask?.questionText, "是否确认把毛球的主粮改为鸡肉配方？")
+        XCTAssertEqual(store.pendingConfirmationTask?.preview.note, "精神好转，食欲仍减少")
+        XCTAssertEqual(store.pendingConfirmationTask?.actions.map(\.kind), ["approve", "reject"])
         XCTAssertFalse(store.isStreaming)
+    }
+
+    func testConfirmPendingConfirmationTaskUsesConfirmationTaskID() async {
+        let taskID = UUID()
+        let repository = RuntimeAdapterTestRepository(streamEvents: [
+            .messageCompleted(
+                messageID: UUID(),
+                finalText: "已写入这条观察。",
+                referenceChips: [],
+                references: []
+            )
+        ])
+        let store = AIAssistantStore(context: AIAssistantEntryContext(), repository: repository)
+        store.pendingConfirmationTask = Self.pendingConfirmationTask(id: taskID)
+
+        store.confirmPendingConfirmationTask()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(repository.streamConfirmationTaskIDs, [taskID.uuidString])
+        XCTAssertNil(store.pendingConfirmationTask)
+        XCTAssertEqual(store.messages.first?.text, "确认写入")
+    }
+
+    func testRejectPendingConfirmationTaskCallsRepositoryAndClearsTask() async {
+        let taskID = UUID()
+        let repository = RuntimeAdapterTestRepository(streamEvents: [])
+        let store = AIAssistantStore(context: AIAssistantEntryContext(), repository: repository)
+        store.pendingConfirmationTask = Self.pendingConfirmationTask(id: taskID)
+
+        store.rejectPendingConfirmationTask()
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertEqual(repository.rejectedConfirmationTaskIDs, [taskID.uuidString])
+        XCTAssertNil(store.pendingConfirmationTask)
+        XCTAssertEqual(store.messages.last?.text, "已取消这条记录。")
     }
 
     func testAgentActivityUsesBackendTextAndClearsWhenCompleted() async {
@@ -217,13 +258,23 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         ]
     }
 
-    private static func confirmationEvents() -> [AIStreamEventDTO] {
+    private static func confirmationEvents(taskID: UUID = UUID()) -> [AIStreamEventDTO] {
         [
             .messageStarted(chatSessionID: UUID(), messageID: UUID(), title: "换粮确认"),
             .agentActivity(displayText: "正在查看毛球待确认喂食记录", status: "completed"),
             .confirmationTask(
-                taskID: UUID(),
-                questionText: "是否确认把毛球的主粮改为鸡肉配方？"
+                taskID: taskID,
+                questionText: "是否确认把毛球的主粮改为鸡肉配方？",
+                preview: AIStreamConfirmationTaskPreviewPayload(
+                    title: "准备记录一条观察",
+                    eventSubkind: "agent_observation_note",
+                    note: "精神好转，食欲仍减少",
+                    sourceLabel: "毛球更新"
+                ),
+                actions: [
+                    AIStreamConfirmationTaskActionPayload(kind: "approve", label: "确认写入"),
+                    AIStreamConfirmationTaskActionPayload(kind: "reject", label: "取消")
+                ]
             ),
             .messageCompleted(
                 messageID: UUID(),
@@ -257,6 +308,23 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
                 birth: "梅录已经2岁15天啦。",
                 arrival: "它来到你身边1年10个月了。"
             )
+        )
+    }
+
+    private static func pendingConfirmationTask(id: UUID) -> PendingConfirmationTask {
+        PendingConfirmationTask(
+            id: id.uuidString,
+            questionText: "是否确认写入这条观察？",
+            preview: PendingConfirmationTaskPreview(
+                title: "准备记录一条观察",
+                eventSubkind: "agent_observation_note",
+                note: "精神好转，食欲仍减少",
+                sourceLabel: "毛球更新"
+            ),
+            actions: [
+                PendingConfirmationTaskAction(kind: "approve", label: "确认写入"),
+                PendingConfirmationTaskAction(kind: "reject", label: "取消")
+            ]
         )
     }
 }

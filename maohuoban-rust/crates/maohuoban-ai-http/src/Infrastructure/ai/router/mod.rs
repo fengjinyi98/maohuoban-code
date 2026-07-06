@@ -4,6 +4,7 @@
 //! - 用户身份只来自后端 token，不信任请求体 actor_user_id 字段
 
 mod chat;
+mod confirmation_tasks;
 mod diagnostics;
 mod diagnostics_common;
 mod history;
@@ -26,6 +27,7 @@ use maohuoban_ai_application::ai::ports::{
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::tools::ToolRegistry;
 use maohuoban_ai_domain::ai::AiPetDisplaySnapshot;
+use maohuoban_pet_application::pet::AgentConfirmationTaskRepository;
 use uuid::Uuid;
 
 pub use self::chat::{require_ai_chat_auth, snapshot_ai_chat_request};
@@ -58,6 +60,7 @@ pub struct AiHttpState {
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub confirmation_task_repository: Arc<dyn AgentConfirmationTaskRepository>,
 }
 
 /// AiPetContextProviders AI 宠物上下文 provider 集合
@@ -148,6 +151,17 @@ pub fn build_ai_history_router() -> Router<AiHttpState> {
             "/api/v1/ai/chat-sessions/{id}/messages",
             get(history::handle_get_session_messages),
         )
+}
+
+/// build_ai_confirmation_task_router 构建 AI 确认任务路由
+/// 核心职责：
+/// - 承载用户显式确认任务操作
+/// - 保持确认任务状态机由后端统一落库
+pub fn build_ai_confirmation_task_router() -> Router<AiHttpState> {
+    Router::new().route(
+        "/api/v1/ai/confirmation-tasks/{id}/reject",
+        post(confirmation_tasks::handle_reject_confirmation_task),
+    )
 }
 
 /// build_ai_router_state 绑定 AI 路由共享状态

@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::super::{AgentToolStatus, AgentTurnId, AgentTurnStatus};
+use super::super::{
+    AgentToolStatus, AgentTurnId, AgentTurnStatus, AiConfirmationTaskAction,
+    AiConfirmationTaskPreview,
+};
 
 /// UserVisibleTurnEvent Agent turn 用户可见事件
 /// 核心职责：
@@ -34,6 +37,8 @@ pub enum UserVisibleTurnEvent {
         turn_id: AgentTurnId,
         confirmation_task_id: Uuid,
         question_text: String,
+        preview: AiConfirmationTaskPreview,
+        actions: Vec<AiConfirmationTaskAction>,
     },
     Error {
         turn_id: AgentTurnId,

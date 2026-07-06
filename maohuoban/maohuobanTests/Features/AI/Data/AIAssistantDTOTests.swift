@@ -348,15 +348,23 @@ final class AIAssistantDTOTests: XCTestCase {
     }
 
     func testDecodeConfirmationTaskEvent() {
-        let json = #"{"confirmation_task_id":"\#(UUID.zeroString)","question_text":"是否确认把毛球的主粮改为鸡肉配方？"}"#
+        let json = """
+        {"confirmation_task_id":"\(UUID.zeroString)","question_text":"是否确认写入这条观察？","preview":{"title":"准备记录一条观察","event_subkind":"agent_observation_note","note":"精神好转，食欲仍减少","source_label":"毛球更新"},"actions":[{"kind":"approve","label":"确认写入"},{"kind":"reject","label":"取消"}]}
+        """
         let result = AIStreamEventDecoder.decode(event: "confirmation_task", data: json)
 
-        guard case let .confirmationTask(taskID, questionText) = result else {
+        guard case let .confirmationTask(taskID, questionText, preview, actions) = result else {
             XCTFail("expected confirmationTask")
             return
         }
         XCTAssertEqual(taskID, UUID(uuidString: UUID.zeroString))
-        XCTAssertEqual(questionText, "是否确认把毛球的主粮改为鸡肉配方？")
+        XCTAssertEqual(questionText, "是否确认写入这条观察？")
+        XCTAssertEqual(preview.title, "准备记录一条观察")
+        XCTAssertEqual(preview.eventSubkind, "agent_observation_note")
+        XCTAssertEqual(preview.note, "精神好转，食欲仍减少")
+        XCTAssertEqual(preview.sourceLabel, "毛球更新")
+        XCTAssertEqual(actions.map(\.kind), ["approve", "reject"])
+        XCTAssertEqual(actions.map(\.label), ["确认写入", "取消"])
     }
 
     func testDecodeUnknownEventReturnsNil() {

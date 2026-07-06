@@ -11,9 +11,12 @@ struct AIAssistantMessageTimeline: View {
     let abnormalEpisodeContextCard: AIAssistantAbnormalEpisodeContextCard?
     let activeAgentActivityText: String?
     let pendingAction: AIAssistantProposedAction?
+    let pendingConfirmationTask: PendingConfirmationTask?
     let bottomAnchorID: String
     let onConfirmPendingAction: () -> Void
     let onCancelPendingAction: () -> Void
+    let onConfirmPendingConfirmationTask: () -> Void
+    let onRejectPendingConfirmationTask: () -> Void
     let onOpenReference: (AIAssistantReference) -> Void
     let onOpenAbnormalEpisodeContext: (AIAssistantAbnormalEpisodeContextCard) -> Void
 
@@ -52,6 +55,14 @@ struct AIAssistantMessageTimeline: View {
                     action: pendingAction,
                     onConfirm: onConfirmPendingAction,
                     onCancel: onCancelPendingAction
+                )
+            }
+
+            if let pendingConfirmationTask {
+                AIAssistantConfirmationTaskCard(
+                    task: pendingConfirmationTask,
+                    onConfirm: onConfirmPendingConfirmationTask,
+                    onCancel: onRejectPendingConfirmationTask
                 )
             }
 

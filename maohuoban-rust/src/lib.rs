@@ -19,7 +19,7 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_http::ai::router::{
     AiHttpState, AiPetContextProviderParts, AiPetContextProviders, build_ai_chat_router,
-    build_ai_history_router, build_ai_router_state,
+    build_ai_confirmation_task_router, build_ai_history_router, build_ai_router_state,
 };
 use maohuoban_ai_infrastructure::provider::LlmProviderRegistryConfig;
 use maohuoban_ai_infrastructure::repository::{
@@ -431,10 +431,18 @@ fn build_authenticated_ai_routes(
             maohuoban_ai_http::ai::router::snapshot_ai_chat_request,
         ));
     let ai_history_routes = build_ai_history_router().route_layer(middleware::from_fn_with_state(
-        auth_middleware_state,
+        auth_middleware_state.clone(),
         require_authenticated_user,
     ));
-    build_ai_router_state(ai_chat_routes.merge(ai_history_routes), ai_http_state)
+    let ai_confirmation_task_routes = build_ai_confirmation_task_router().route_layer(
+        middleware::from_fn_with_state(auth_middleware_state, require_authenticated_user),
+    );
+    build_ai_router_state(
+        ai_chat_routes
+            .merge(ai_history_routes)
+            .merge(ai_confirmation_task_routes),
+        ai_http_state,
+    )
 }
 
 /// `AiHttpRepositories` AI HTTP 仓储集合
@@ -508,8 +516,9 @@ fn build_ai_http_state(
         }),
         observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
             Arc::clone(pet_service),
-            confirmation_tasks,
+            confirmation_tasks.clone(),
         )),
+        confirmation_task_repository: confirmation_tasks,
     }
 }
 

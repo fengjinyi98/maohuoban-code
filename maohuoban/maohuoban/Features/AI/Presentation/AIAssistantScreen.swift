@@ -44,12 +44,19 @@ struct AIAssistantScreen: View {
                         abnormalEpisodeContextCard: store.abnormalEpisodeContextCard,
                         activeAgentActivityText: store.activeAgentActivityText,
                         pendingAction: store.pendingAction,
+                        pendingConfirmationTask: store.pendingConfirmationTask,
                         bottomAnchorID: Self.bottomAnchorID,
                         onConfirmPendingAction: {
                             store.confirmPendingAction()
                         },
                         onCancelPendingAction: {
                             store.cancelPendingAction()
+                        },
+                        onConfirmPendingConfirmationTask: {
+                            store.confirmPendingConfirmationTask()
+                        },
+                        onRejectPendingConfirmationTask: {
+                            store.rejectPendingConfirmationTask()
                         },
                         onOpenReference: { reference in
                             onOpenReference(reference)
@@ -103,6 +110,9 @@ struct AIAssistantScreen: View {
                     scrollToBottomIfNeeded(proxy: proxy, animated: false)
                 }
                 .onChange(of: store.pendingAction) { _, _ in
+                    scrollToBottomIfNeeded(proxy: proxy, animated: true)
+                }
+                .onChange(of: store.pendingConfirmationTask) { _, _ in
                     scrollToBottomIfNeeded(proxy: proxy, animated: true)
                 }
                 .onChange(of: pendingFollowBottomRequest) { _, _ in

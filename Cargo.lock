@@ -1796,6 +1796,7 @@ dependencies = [
  "maohuoban-auth-application",
  "maohuoban-auth-domain",
  "maohuoban-auth-http",
+ "maohuoban-pet-application",
  "maohuoban-pet-domain",
  "maohuoban_diagnostics",
  "serde",
