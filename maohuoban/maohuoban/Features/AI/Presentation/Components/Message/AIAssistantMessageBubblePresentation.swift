@@ -6,15 +6,6 @@ import Foundation
 // - 避免正文 Markdown 投影块与原始文本重复展示
 struct AIAssistantMessageBubblePresentation {
     let message: AIAssistantMessage
-    let isFirstAssistantMessageInAbnormalEpisodeContext: Bool
-
-    init(
-        message: AIAssistantMessage,
-        isFirstAssistantMessageInAbnormalEpisodeContext: Bool = false
-    ) {
-        self.message = message
-        self.isFirstAssistantMessageInAbnormalEpisodeContext = isFirstAssistantMessageInAbnormalEpisodeContext
-    }
 
     var shouldShowContentBlocks: Bool {
         message.contentBlocks.isEmpty == false
@@ -29,16 +20,6 @@ struct AIAssistantMessageBubblePresentation {
         shouldShowText == false
             && message.isStreaming
             && shouldShowContentBlocks == false
-    }
-
-    var statusBadgeText: String? {
-        guard message.role == .assistant,
-              message.isStreaming == false,
-              isFirstAssistantMessageInAbnormalEpisodeContext
-        else {
-            return nil
-        }
-        return "毛球主动追问"
     }
 
     private var hasMarkdownAnswerContentBlock: Bool {

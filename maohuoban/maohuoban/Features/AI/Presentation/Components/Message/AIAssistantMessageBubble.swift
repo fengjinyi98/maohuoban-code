@@ -10,18 +10,15 @@ import MaohuobanDesignSystem
 struct AIAssistantMessageBubble: View {
     let message: AIAssistantMessage
     let showsEmptyStreamingIndicator: Bool
-    let showsProactiveFollowupBadge: Bool
     let onOpenReference: (AIAssistantReference) -> Void
 
     init(
         message: AIAssistantMessage,
         showsEmptyStreamingIndicator: Bool = true,
-        showsProactiveFollowupBadge: Bool = false,
         onOpenReference: @escaping (AIAssistantReference) -> Void = { _ in }
     ) {
         self.message = message
         self.showsEmptyStreamingIndicator = showsEmptyStreamingIndicator
-        self.showsProactiveFollowupBadge = showsProactiveFollowupBadge
         self.onOpenReference = onOpenReference
     }
 
@@ -32,14 +29,7 @@ struct AIAssistantMessageBubble: View {
             }
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-                let presentation = AIAssistantMessageBubblePresentation(
-                    message: message,
-                    isFirstAssistantMessageInAbnormalEpisodeContext: showsProactiveFollowupBadge
-                )
-
-                if let statusBadgeText = presentation.statusBadgeText {
-                    AIAssistantMessageStatusBadge(text: statusBadgeText)
-                }
+                let presentation = AIAssistantMessageBubblePresentation(message: message)
 
                 if presentation.shouldShowContentBlocks {
                     AIAssistantContentBlockList(blocks: message.contentBlocks)
@@ -146,25 +136,6 @@ struct AIAssistantMessageBubble: View {
             // TODO: 接入发送者消息编辑流程。
             break
         }
-    }
-}
-
-// AIAssistantMessageStatusBadge AI 消息状态标签
-// 核心职责：
-// - 标记主动追踪类助手消息的来源状态
-// - 使用轻量文本样式避免打断对话阅读
-struct AIAssistantMessageStatusBadge: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(MHBTheme.Typography.caption.weight(.semibold))
-            .foregroundStyle(MHBTheme.ColorToken.primary.color)
-            .padding(.horizontal, MHBTheme.Spacing.s2)
-            .padding(.vertical, MHBTheme.Spacing.s1)
-            .background(MHBTheme.ColorToken.primaryBackgroundSoft.color)
-            .clipShape(Capsule())
-            .accessibilityIdentifier("ai.assistant.message.status.badge")
     }
 }
 

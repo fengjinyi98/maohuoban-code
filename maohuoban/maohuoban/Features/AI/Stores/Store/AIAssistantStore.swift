@@ -71,8 +71,9 @@ final class AIAssistantStore {
         let petName = context.displayPetName
         return AIAssistantAbnormalEpisodeContextCard(
             episodeID: abnormalEpisodeID,
-            title: "正在追踪\(petName)的异常",
-            subtitle: "这个会话会围绕本次异常继续追问和整理更新。",
+            eventID: context.abnormalEventID,
+            title: "本次异常上文",
+            subtitle: "\(petName)的异常记录",
             petName: petName
         )
     }

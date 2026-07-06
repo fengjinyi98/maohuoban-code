@@ -113,33 +113,16 @@ final class AIAssistantMessageBubblePresentationTests: XCTestCase {
         XCTAssertTrue(presentation.shouldShowEmptyStreamingIndicator)
     }
 
-    func testFirstAssistantMessageInAbnormalEpisodeContextShowsProactiveFollowupBadge() {
+    func testAbnormalEpisodeAssistantMessageDoesNotExposeChatStatusBadge() {
         let message = AIAssistantMessage(
             role: .assistant,
             text: "早上记录了拉肚子，现在情况好转了吗？",
             isStreaming: false
         )
 
-        let presentation = AIAssistantMessageBubblePresentation(
-            message: message,
-            isFirstAssistantMessageInAbnormalEpisodeContext: true
-        )
+        let presentation = AIAssistantMessageBubblePresentation(message: message)
 
-        XCTAssertEqual(presentation.statusBadgeText, "毛球主动追问")
-    }
-
-    func testRegularAssistantMessageDoesNotShowProactiveFollowupBadge() {
-        let message = AIAssistantMessage(
-            role: .assistant,
-            text: "可以继续观察便便、精神和食欲。",
-            isStreaming: false
-        )
-
-        let presentation = AIAssistantMessageBubblePresentation(
-            message: message,
-            isFirstAssistantMessageInAbnormalEpisodeContext: false
-        )
-
-        XCTAssertNil(presentation.statusBadgeText)
+        XCTAssertTrue(presentation.shouldShowText)
+        XCTAssertFalse(presentation.shouldShowEmptyStreamingIndicator)
     }
 }

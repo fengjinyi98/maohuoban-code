@@ -15,6 +15,9 @@ protocol AIAssistantRepository {
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error>
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]>
+    func activateAbnormalEpisodeSession(
+        abnormalEpisodeID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionDTO>
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]>
     func renameChatSession(
         sessionID: String,
@@ -118,6 +121,15 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
         try await client.get(path: "/api/v1/ai/chat-sessions")
+    }
+
+    func activateAbnormalEpisodeSession(
+        abnormalEpisodeID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionDTO> {
+        try await client.post(
+            path: "/api/v1/ai/chat-sessions/abnormal-episode/activate",
+            body: AIAbnormalEpisodeSessionActivationRequestBody(abnormalEpisodeID: abnormalEpisodeID)
+        )
     }
 
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
@@ -235,6 +247,7 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var pinnedSessionIDs: [String] = []
     var pinnedStates: [Bool] = []
     var deletedSessionIDs: [String] = []
+    var activatedAbnormalEpisodeIDs: [String] = []
     var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
 
     init(
@@ -277,6 +290,16 @@ final class MockAIAssistantRepository: AIAssistantRepository {
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
         MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: sessions)
+    }
+
+    func activateAbnormalEpisodeSession(
+        abnormalEpisodeID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionDTO> {
+        activatedAbnormalEpisodeIDs.append(abnormalEpisodeID)
+        guard let session = sessions.first(where: { $0.abnormalEpisodeID == abnormalEpisodeID }) else {
+            throw .business(code: "ai.session_not_found", message: "异常追踪会话不存在", statusCode: 404)
+        }
+        return MHBAPIResponse(success: true, code: "ai.session_activated", message: "ok", data: session)
     }
 
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {

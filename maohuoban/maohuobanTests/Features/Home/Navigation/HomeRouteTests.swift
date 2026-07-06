@@ -11,7 +11,9 @@ final class HomeRouteTests: XCTestCase {
         let route = HomeRoute.petAssistant(
             AIAssistantEntryContext(
                 selectedPetID: "pet-1",
-                selectedPetName: "糯米"
+                selectedPetName: "糯米",
+                selectedPetAvatarURL: "/media/pet/avatar.png",
+                selectedPetSpecies: .cat
             )
         )
 
@@ -22,7 +24,89 @@ final class HomeRouteTests: XCTestCase {
 
         XCTAssertEqual(context.selectedPetID, "pet-1")
         XCTAssertEqual(context.selectedPetName, "糯米")
+        XCTAssertEqual(context.selectedPetAvatarURL, "/media/pet/avatar.png")
+        XCTAssertEqual(context.selectedPetSpecies, .cat)
         XCTAssertEqual(route.systemImage, "sparkles")
+    }
+
+    @MainActor
+    func testAttentionHintAskAgentRouteCarriesPetAndAbnormalContext() throws {
+        let hint = try decodeAttentionHint(
+            """
+            {
+              "id": "hint-1",
+              "pet_id": "pet-1",
+              "kind": "abnormal_followup_due",
+              "title": "异常追踪",
+              "subtitle": "需要更新",
+              "icon": "cross.case.fill",
+              "tone": "warning",
+              "priority": 90,
+              "status": "active",
+              "source_ref_type": "pet_event",
+              "source_ref_id": "event-from-source",
+              "route": {
+                "kind": "abnormal_detail",
+                "payload": {
+                  "event_id": "event-1",
+                  "episode_id": "episode-1",
+                  "agent_followup_id": "followup-route",
+                  "actions": [
+                    {
+                      "id": "ask_agent",
+                      "title": "问问毛球",
+                      "route_kind": "ai_chat",
+                      "chat_context": {
+                        "kind": "abnormal_episode_followup",
+                        "episode_id": "episode-1",
+                        "source_hint_id": "hint-from-chat",
+                        "agent_followup_id": "followup-chat"
+                      }
+                    }
+                  ]
+                }
+              },
+              "created_by": "agent",
+              "created_at": "2026-07-06T09:00:00Z",
+              "updated_at": "2026-07-06T09:00:00Z"
+            }
+            """
+        )
+        let action = try XCTUnwrap(hint.route.payload?.actions.first)
+        let recordContext = PetRecordEntryContext(
+            petID: "pet-1",
+            petName: "馒头",
+            petAvatarURL: "/media/pet/mantou.png",
+            availablePets: [
+                PetRecordSwitchPet(
+                    id: "pet-1",
+                    name: "馒头",
+                    species: .cat,
+                    breed: "英短",
+                    avatarURL: "/media/pet/mantou.png",
+                    isSelected: true
+                )
+            ]
+        )
+
+        let route = HomeAttentionHintRouteResolver.route(
+            for: action,
+            hint: hint,
+            petName: "馒头",
+            recordContext: recordContext
+        )
+
+        guard case .petAssistant(let context) = route else {
+            return XCTFail("ask agent action should route to pet assistant")
+        }
+        XCTAssertEqual(context.selectedPetID, "pet-1")
+        XCTAssertEqual(context.selectedPetName, "馒头")
+        XCTAssertEqual(context.selectedPetAvatarURL, "/media/pet/mantou.png")
+        XCTAssertEqual(context.selectedPetSpecies, .cat)
+        XCTAssertEqual(context.abnormalEpisodeID, "episode-1")
+        XCTAssertEqual(context.abnormalEventID, "event-1")
+        XCTAssertEqual(context.sourceHintID, "hint-from-chat")
+        XCTAssertEqual(context.agentFollowupID, "followup-chat")
     }
 
     @MainActor
@@ -231,5 +315,13 @@ final class HomeRouteTests: XCTestCase {
         )
 
         XCTAssertNil(route)
+    }
+
+    @MainActor
+    private func decodeAttentionHint(_ json: String) throws -> HomeDashboardSnapshot.AttentionHint {
+        try JSONDecoder().decode(
+            HomeDashboardSnapshot.AttentionHint.self,
+            from: Data(json.utf8)
+        )
     }
 }

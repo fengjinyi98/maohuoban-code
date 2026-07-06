@@ -21,6 +21,11 @@ struct HomeRouteDestinationScreen: View {
                     if let route = route(for: reference, context: context) {
                         onRouteRequested(route)
                     }
+                },
+                onOpenAbnormalEpisodeContext: { card in
+                    if let route = route(for: card, context: context) {
+                        onRouteRequested(route)
+                    }
                 }
             )
         case .createPet:
@@ -259,6 +264,24 @@ struct HomeRouteDestinationScreen: View {
                     petName: context.selectedPetName,
                     petAvatarURL: context.selectedPetAvatarURL
                 )
+            )
+        )
+    }
+
+    private func route(
+        for card: AIAssistantAbnormalEpisodeContextCard,
+        context: AIAssistantEntryContext
+    ) -> HomeRoute? {
+        guard let eventID = card.eventID else { return nil }
+        return .petRecordDetail(
+            .abnormal(
+                recordID: eventID,
+                context: PetRecordEntryContext(
+                    petID: context.selectedPetID,
+                    petName: context.selectedPetName,
+                    petAvatarURL: context.selectedPetAvatarURL
+                ),
+                opensFollowupSheet: false
             )
         )
     }

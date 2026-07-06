@@ -63,6 +63,18 @@ struct AIChatSessionMutationResultDTO: Decodable, Equatable {
     }
 }
 
+// AIAbnormalEpisodeSessionActivationRequestBody 异常追踪会话激活请求
+// 核心职责：
+// - 承载从轻提醒进入 AI 聊天时的 abnormal episode ID
+// - 让后端把后台追踪上下文升级为用户可见会话
+struct AIAbnormalEpisodeSessionActivationRequestBody: Encodable {
+    let abnormalEpisodeID: String
+
+    enum CodingKeys: String, CodingKey {
+        case abnormalEpisodeID = "abnormal_episode_id"
+    }
+}
+
 // AIPetDisplaySnapshotDTO 宠物展示快照 DTO
 // 核心职责：
 // - 解码后端返回的宠物展示快照

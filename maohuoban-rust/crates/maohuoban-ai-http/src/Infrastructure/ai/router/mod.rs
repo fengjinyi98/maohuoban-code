@@ -129,6 +129,10 @@ pub fn build_ai_history_router() -> Router<AiHttpState> {
             get(history::handle_list_sessions),
         )
         .route(
+            "/api/v1/ai/chat-sessions/abnormal-episode/activate",
+            post(history::handle_activate_abnormal_episode_session),
+        )
+        .route(
             "/api/v1/ai/chat-sessions/{id}/title",
             patch(history::handle_rename_session),
         )

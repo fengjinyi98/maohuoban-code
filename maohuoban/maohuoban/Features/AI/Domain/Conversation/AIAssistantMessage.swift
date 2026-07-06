@@ -10,6 +10,17 @@ struct AIAssistantMessage: Identifiable, Hashable {
         case assistant
         case user
         case system
+
+        init?(userVisibleRole rawValue: String) {
+            switch rawValue {
+            case "user":
+                self = .user
+            case "assistant":
+                self = .assistant
+            default:
+                return nil
+            }
+        }
     }
 
     let id: UUID

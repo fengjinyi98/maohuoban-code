@@ -55,38 +55,66 @@ extension AIAssistantStore {
         }
 
         do {
+            let activationResponse = try await repository.activateAbnormalEpisodeSession(
+                abnormalEpisodeID: abnormalEpisodeID
+            )
             let response = try await repository.fetchChatSessions()
-            guard let sessions = response.data else { return }
+            guard let sessions = response.data else {
+                if let session = activationResponse.data {
+                    await restoreAbnormalEpisodeConversation(
+                        from: session,
+                        abnormalEpisodeID: abnormalEpisodeID
+                    )
+                }
+                return
+            }
             histories = sessions.map { AIAssistantConversationHistory(from: $0) }
             guard let session = sessions.first(where: { dto in
                 dto.chatContextKind == "abnormal_episode_followup"
                     && dto.abnormalEpisodeID == abnormalEpisodeID
             }) else {
+                if let session = activationResponse.data {
+                    await restoreAbnormalEpisodeConversation(
+                        from: session,
+                        abnormalEpisodeID: abnormalEpisodeID
+                    )
+                }
                 return
             }
 
-            let sessionID = session.id.uuidString
-            selectedConversationHistoryID = sessionID
-            currentConversationTitle = session.title
-            currentChatSessionID = sessionID
-            effectiveEntryContext = AIAssistantEntryContext(
-                selectedPetID: context.selectedPetID,
-                selectedPetName: context.selectedPetName,
-                selectedPetAvatarURL: context.selectedPetAvatarURL,
-                selectedPetSpecies: context.selectedPetSpecies,
-                ugcContextTitle: context.ugcContextTitle,
-                abnormalEpisodeID: session.abnormalEpisodeID ?? context.abnormalEpisodeID,
-                sourceHintID: session.sourceHintID,
-                agentFollowupID: session.agentFollowupID
+            await restoreAbnormalEpisodeConversation(
+                from: session,
+                abnormalEpisodeID: abnormalEpisodeID
             )
-            draftText = ""
-            pendingAction = nil
-            activeAgentActivityText = nil
-            clearAttachment()
-            await loadSessionMessages(sessionID: sessionID)
         } catch {
             return
         }
+    }
+
+    private func restoreAbnormalEpisodeConversation(
+        from session: AIChatSessionDTO,
+        abnormalEpisodeID: String
+    ) async {
+        let sessionID = session.id.uuidString
+        selectedConversationHistoryID = sessionID
+        currentConversationTitle = session.title
+        currentChatSessionID = sessionID
+        effectiveEntryContext = AIAssistantEntryContext(
+            selectedPetID: context.selectedPetID,
+            selectedPetName: context.selectedPetName,
+            selectedPetAvatarURL: context.selectedPetAvatarURL,
+            selectedPetSpecies: context.selectedPetSpecies,
+            ugcContextTitle: context.ugcContextTitle,
+            abnormalEpisodeID: session.abnormalEpisodeID ?? abnormalEpisodeID,
+            abnormalEventID: context.abnormalEventID,
+            sourceHintID: session.sourceHintID,
+            agentFollowupID: session.agentFollowupID
+        )
+        draftText = ""
+        pendingAction = nil
+        activeAgentActivityText = nil
+        clearAttachment()
+        await loadSessionMessages(sessionID: sessionID)
     }
 
     func renameConversationHistory(
@@ -196,9 +224,12 @@ extension AIAssistantStore {
             let response = try await repository.fetchSessionMessages(sessionID: sessionID)
             guard currentChatSessionID == sessionID else { return }
             if let data = response.data {
-                messages = data.map { dto in
-                    AIAssistantMessage(
-                        role: dto.role == "user" ? .user : .assistant,
+                messages = data.compactMap { dto in
+                    guard let role = AIAssistantMessage.Role(userVisibleRole: dto.role) else {
+                        return nil
+                    }
+                    return AIAssistantMessage(
+                        role: role,
                         text: dto.content,
                         referenceChips: dto.citations.map(\.label),
                         references: dto.citations.map(\.reference),

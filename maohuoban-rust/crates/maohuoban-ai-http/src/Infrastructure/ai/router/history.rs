@@ -14,7 +14,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use maohuoban_ai_domain::ai::{
     AiChatSession, AiChatSessionContextStatus, AiCitation, AiCitationSourceKind, AiContentBlock,
-    AiError, AiPetCandidate, AiPetDisplaySnapshot,
+    AiError, AiMessageRole, AiPetCandidate, AiPetDisplaySnapshot,
 };
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
@@ -50,6 +50,15 @@ pub struct SessionMutationResultDTO {
     pub id: Uuid,
     pub title: String,
     pub is_pinned: bool,
+}
+
+/// ActivateAbnormalEpisodeSessionRequest 激活异常追踪会话请求
+/// 核心职责：
+/// - 接收轻提醒进入 AI 聊天时携带的 abnormal episode ID
+/// - 由后端将后台追踪上下文升级为用户可见聊天
+#[derive(Debug, Deserialize)]
+pub struct ActivateAbnormalEpisodeSessionRequest {
+    pub abnormal_episode_id: Uuid,
 }
 
 /// RenameChatSessionRequest 重命名会话请求
@@ -120,40 +129,7 @@ pub async fn handle_list_sessions(
 
     let mut items: Vec<ChatSessionItem> = Vec::new();
     for s in &sessions {
-        let messages = state
-            .session_repository
-            .list_messages_by_session(s.id)
-            .await
-            .unwrap_or_default();
-
-        let (last_preview, last_at) = if let Some(last) = messages.last() {
-            (
-                last.content.chars().take(50).collect(),
-                last.created_at.to_rfc3339(),
-            )
-        } else {
-            (String::new(), s.updated_at.to_rfc3339())
-        };
-
-        items.push(ChatSessionItem {
-            id: s.id,
-            title: s.title.clone(),
-            is_pinned: s.is_pinned,
-            chat_context_kind: s.chat_context_kind.clone(),
-            context_status: context_status_code(s.context_status).to_owned(),
-            abnormal_episode_id: s.abnormal_episode_id,
-            source_hint_id: s.source_hint_id,
-            agent_followup_id: s.agent_followup_id,
-            subtitle: format_subtitle(s.updated_at),
-            pet_display_snapshot: history_pet_snapshot(
-                s.pet_display_snapshot.as_ref(),
-                s.primary_pet_id,
-                &pet_candidates_by_id,
-            )
-            .map(pet_snapshot_dto),
-            last_message_preview: last_preview,
-            last_message_at: last_at,
-        });
+        items.push(session_item_with_pet_candidates(&state, s, &pet_candidates_by_id).await);
     }
 
     record_history_sessions_loaded(
@@ -198,6 +174,7 @@ pub async fn handle_get_session_messages(
 
     let dtos: Vec<MessageDTO> = messages
         .iter()
+        .filter(|m| is_user_visible_role(m.role))
         .map(|m| MessageDTO {
             id: m.id,
             role: format!("{:?}", m.role).to_lowercase(),
@@ -214,6 +191,45 @@ pub async fn handle_get_session_messages(
     let _ = session;
     record_history_messages_loaded(actor_user_id, session_id, dtos.len());
     ok_response("ai.messages_loaded", "消息列表已加载", dtos)
+}
+
+/// handle_activate_abnormal_episode_session 激活异常追踪会话
+/// 核心职责：
+/// - 将当前用户的后台异常追踪 session 标记为 visible
+/// - 返回同一个 session 的前端历史列表 DTO，供聊天页继续加载消息
+pub async fn handle_activate_abnormal_episode_session(
+    State(state): State<AiHttpState>,
+    actor: AuthenticatedUser,
+    Json(req): Json<ActivateAbnormalEpisodeSessionRequest>,
+) -> Response {
+    let actor_user_id = actor.user_id();
+    let session = match state
+        .session_repository
+        .find_active_abnormal_episode_session(actor_user_id, req.abnormal_episode_id)
+        .await
+    {
+        Ok(Some(session)) => session,
+        Ok(None) => return unauthorized_response(),
+        Err(error) => return ai_error_response(&error),
+    };
+
+    if let Err(error) = state
+        .session_repository
+        .activate_background_session(session.id, actor_user_id)
+        .await
+    {
+        return ai_error_response(&error);
+    }
+
+    match state.session_repository.get_session(session.id).await {
+        Ok(Some(session)) if session.actor_user_id == actor_user_id => ok_response(
+            "ai.session_activated",
+            "异常追踪会话已激活",
+            session_item(&state, actor_user_id, session).await,
+        ),
+        Ok(_) => unauthorized_response(),
+        Err(error) => ai_error_response(&error),
+    }
 }
 
 /// handle_rename_session 重命名当前用户会话
@@ -334,6 +350,68 @@ fn session_mutation_result(session: AiChatSession) -> SessionMutationResultDTO {
     }
 }
 
+async fn session_item(
+    state: &AiHttpState,
+    actor_user_id: Uuid,
+    session: AiChatSession,
+) -> ChatSessionItem {
+    let pet_candidates_by_id = state
+        .pet_resolver
+        .list_authorized_candidates(actor_user_id)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|candidate| (candidate.pet_id, candidate))
+        .collect::<HashMap<_, _>>();
+
+    session_item_with_pet_candidates(state, &session, &pet_candidates_by_id).await
+}
+
+async fn session_item_with_pet_candidates(
+    state: &AiHttpState,
+    session: &AiChatSession,
+    pet_candidates_by_id: &HashMap<Uuid, AiPetCandidate>,
+) -> ChatSessionItem {
+    let messages = state
+        .session_repository
+        .list_messages_by_session(session.id)
+        .await
+        .unwrap_or_default();
+
+    let visible_messages: Vec<_> = messages
+        .iter()
+        .filter(|m| is_user_visible_role(m.role))
+        .collect();
+    let (last_preview, last_at) = if let Some(last) = visible_messages.last() {
+        (
+            last.content.chars().take(50).collect(),
+            last.created_at.to_rfc3339(),
+        )
+    } else {
+        (String::new(), session.updated_at.to_rfc3339())
+    };
+
+    ChatSessionItem {
+        id: session.id,
+        title: session.title.clone(),
+        is_pinned: session.is_pinned,
+        chat_context_kind: session.chat_context_kind.clone(),
+        context_status: context_status_code(session.context_status).to_owned(),
+        abnormal_episode_id: session.abnormal_episode_id,
+        source_hint_id: session.source_hint_id,
+        agent_followup_id: session.agent_followup_id,
+        subtitle: format_subtitle(session.updated_at),
+        pet_display_snapshot: history_pet_snapshot(
+            session.pet_display_snapshot.as_ref(),
+            session.primary_pet_id,
+            pet_candidates_by_id,
+        )
+        .map(pet_snapshot_dto),
+        last_message_preview: last_preview,
+        last_message_at: last_at,
+    }
+}
+
 /// context_status_code 返回上下文状态编码
 /// 核心职责：
 /// - 向历史列表暴露稳定 snake_case 字段
@@ -407,6 +485,14 @@ fn history_pet_snapshot(
 /// - 避免历史 DTO 输出无效头像地址
 fn is_missing_url(value: Option<&str>) -> bool {
     value.is_none_or(|value| value.trim().is_empty())
+}
+
+/// is_user_visible_role 判断历史接口可返回的消息角色
+/// 核心职责：
+/// - 仅让用户与助手消息进入前端聊天历史
+/// - 将后台 planning system 消息保留在数据库审计层
+fn is_user_visible_role(role: AiMessageRole) -> bool {
+    matches!(role, AiMessageRole::User | AiMessageRole::Assistant)
 }
 
 /// pet_snapshot_dto 转换宠物快照 DTO

@@ -6,6 +6,7 @@ import Foundation
 // - 保持前端展示与后端 Agent 上下文字段一致
 struct AIAssistantAbnormalEpisodeContextCard: Equatable {
     let episodeID: String
+    let eventID: String?
     let title: String
     let subtitle: String
     let petName: String

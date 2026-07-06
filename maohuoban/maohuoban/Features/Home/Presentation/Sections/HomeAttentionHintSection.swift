@@ -120,51 +120,12 @@ private struct HomeAttentionHintRow: View {
     }
 
     private func route(for action: AttentionHintAction) -> HomeRoute {
-        switch action.routeKind {
-        case .abnormalDetail:
-            abnormalDetailRoute(
-                opensFollowupSheet: action.presentation?.autoOpenSheet == "abnormal_followup"
-            )
-        case .aiChat:
-            aiChatRoute(chatContext: action.chatContext)
-        case .weightRecord:
-            weightRoute()
-        case .reminderDetail, .preventiveCareDetail, .confirmationTask:
-            unsupportedRoute()
-        }
-    }
-
-    private func abnormalDetailRoute(opensFollowupSheet: Bool) -> HomeRoute {
-        let payload = hint.route.payload
-        let recordID = payload?.recordID
-            ?? hint.sourceRefID
-            ?? hint.id
-        let eventID = payload?.eventID ?? recordID
-        return .petRecordDetail(.abnormal(
-            recordID: eventID,
-            context: recordContext,
-            opensFollowupSheet: opensFollowupSheet
-        ))
-    }
-
-    private func aiChatRoute(chatContext: AttentionHintChatContext?) -> HomeRoute {
-        HomeRoute.petAssistant(AIAssistantEntryContext(
-            selectedPetID: recordContext.resolvedPetID,
-            selectedPetName: petName ?? recordContext.resolvedPetName,
-            abnormalEpisodeID: chatContext?.episodeID ?? hint.route.payload?.episodeID,
-            sourceHintID: chatContext?.sourceHintID ?? hint.id,
-            agentFollowupID: chatContext?.agentFollowupID ?? hint.route.payload?.agentFollowupID
-        ))
-    }
-
-    private func weightRoute() -> HomeRoute {
-        let recordID = hint.route.payload?.recordID ?? hint.sourceRefID ?? hint.id
-        return .petWeightRecordDetail(recordID: recordID, context: recordContext)
-    }
-
-    private func unsupportedRoute() -> HomeRoute {
-        let recordID = hint.route.payload?.recordID ?? hint.sourceRefID ?? hint.id
-        return .petRecordDetail(.unsupported(recordID: recordID))
+        HomeAttentionHintRouteResolver.route(
+            for: action,
+            hint: hint,
+            petName: petName,
+            recordContext: recordContext
+        )
     }
 }
 

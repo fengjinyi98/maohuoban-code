@@ -11,6 +11,7 @@ struct AIAssistantEntryContext: Hashable {
     let selectedPetSpecies: AIAssistantPetSpecies
     let ugcContextTitle: String?
     let abnormalEpisodeID: String?
+    let abnormalEventID: String?
     let sourceHintID: String?
     let agentFollowupID: String?
 
@@ -21,6 +22,7 @@ struct AIAssistantEntryContext: Hashable {
         selectedPetSpecies: AIAssistantPetSpecies = .other,
         ugcContextTitle: String? = nil,
         abnormalEpisodeID: String? = nil,
+        abnormalEventID: String? = nil,
         sourceHintID: String? = nil,
         agentFollowupID: String? = nil
     ) {
@@ -30,6 +32,7 @@ struct AIAssistantEntryContext: Hashable {
         self.selectedPetSpecies = selectedPetSpecies
         self.ugcContextTitle = ugcContextTitle
         self.abnormalEpisodeID = abnormalEpisodeID
+        self.abnormalEventID = abnormalEventID
         self.sourceHintID = sourceHintID
         self.agentFollowupID = agentFollowupID
     }

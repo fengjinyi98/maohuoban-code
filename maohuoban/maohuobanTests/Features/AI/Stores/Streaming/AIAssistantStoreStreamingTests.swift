@@ -261,6 +261,16 @@ private final class PendingStreamingAIAssistantRepository: AIAssistantRepository
         MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: [])
     }
 
+    func activateAbnormalEpisodeSession(
+        abnormalEpisodeID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionDTO> {
+        throw .business(
+            code: "ai.unsupported_action",
+            message: "当前测试仓库不支持激活异常追踪会话",
+            statusCode: 400
+        )
+    }
+
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {
         MHBAPIResponse(success: true, code: "ai.messages_loaded", message: "ok", data: [])
     }

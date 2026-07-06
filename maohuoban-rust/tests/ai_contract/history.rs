@@ -134,6 +134,22 @@ async fn ai_chat_sessions_returns_abnormal_episode_context() {
     .await
     .expect("insert abnormal episode session");
 
+    sqlx::query(
+        r"
+        INSERT INTO ai_messages
+            (id, session_id, role, content, content_blocks, status, citations, created_at)
+        VALUES
+            ($1, $3, 'system', '异常主动追踪 planning：内部规划提示', '[]'::jsonb, 'completed', '[]'::jsonb, now()),
+            ($2, $3, 'assistant', '现在情况好转了吗？', '[]'::jsonb, 'completed', '[]'::jsonb, now())
+        ",
+    )
+    .bind(uuid::Uuid::new_v4())
+    .bind(uuid::Uuid::new_v4())
+    .bind(session_id)
+    .execute(app.pool())
+    .await
+    .expect("insert abnormal session messages");
+
     let body = list_chat_sessions(&app, &access_token).await;
     let first = &body["data"][0];
 
@@ -143,6 +159,7 @@ async fn ai_chat_sessions_returns_abnormal_episode_context() {
     assert_eq!(first["abnormal_episode_id"], episode_id.to_string());
     assert_eq!(first["source_hint_id"], source_hint_id.to_string());
     assert_eq!(first["agent_followup_id"], agent_followup_id.to_string());
+    assert_eq!(first["last_message_preview"], "现在情况好转了吗？");
 }
 
 /// GET /api/v1/ai/chat-sessions 不返回后台异常追踪上下文
@@ -194,6 +211,85 @@ async fn ai_chat_sessions_hides_background_abnormal_tracking_context() {
             .any(|session| session["id"] == visible_session_id.to_string()),
         "visible chat session should still appear in history"
     );
+}
+
+/// POST /api/v1/ai/chat-sessions/abnormal-episode/activate 激活后台异常追踪会话
+#[tokio::test]
+async fn ai_chat_sessions_activate_background_abnormal_episode_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139123", "ios-ai-history-activate").await;
+    let actor_user_id = current_user_id(app.pool(), "13800139123").await;
+    let session_id = uuid::Uuid::new_v4();
+    let episode_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, chat_context_kind, abnormal_episode_id,
+             title, status, session_visibility, context_status, created_at, updated_at)
+        VALUES
+            ($1, $2, 'home_private', 'abnormal_episode_followup', $3,
+             '异常追踪', 'active', 'background', 'active', now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(actor_user_id)
+    .bind(episode_id)
+    .execute(app.pool())
+    .await
+    .expect("insert background abnormal session");
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_messages
+            (id, session_id, role, content, content_blocks, status, citations, created_at)
+        VALUES
+            ($1, $3, 'system', '异常主动追踪 planning：内部规划提示', '[]'::jsonb, 'completed', '[]'::jsonb, now()),
+            ($2, $3, 'assistant', '馒头现在情况好转了吗？', '[]'::jsonb, 'completed', '[]'::jsonb, now())
+        ",
+    )
+    .bind(uuid::Uuid::new_v4())
+    .bind(uuid::Uuid::new_v4())
+    .bind(session_id)
+    .execute(app.pool())
+    .await
+    .expect("insert background session messages");
+
+    let before = list_chat_sessions(&app, &access_token).await;
+    assert!(
+        before["data"]
+            .as_array()
+            .expect("sessions")
+            .iter()
+            .all(|session| session["id"] != session_id.to_string()),
+        "background session should be hidden before activation"
+    );
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat-sessions/abnormal-episode/activate",
+            &access_token,
+            json!({ "abnormal_episode_id": episode_id }),
+        ))
+        .await
+        .expect("activate abnormal episode session");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["data"]["id"], session_id.to_string());
+    assert_eq!(
+        body["data"]["last_message_preview"],
+        "馒头现在情况好转了吗？"
+    );
+
+    let messages = get_session_messages(&app, &access_token, &session_id.to_string()).await;
+    assert_eq!(messages["data"].as_array().expect("messages").len(), 1);
+    assert_eq!(messages["data"][0]["role"], "assistant");
+    assert_eq!(messages["data"][0]["content"], "馒头现在情况好转了吗？");
 }
 
 /// 历史列表和消息详情写入后端诊断计数
@@ -363,6 +459,56 @@ async fn ai_session_messages_returns_messages() {
     let first_msg = &messages[0];
     assert_eq!(first_msg["role"], "user");
     assert_eq!(first_msg["content"], "毛球精神不好");
+}
+
+/// GET /api/v1/ai/chat-sessions/{id}/messages 不返回后台 planning system 消息
+#[tokio::test]
+async fn ai_session_messages_hide_background_planning_system_messages() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token =
+        login_and_get_token(&app, "13800139122", "ios-ai-history-system-filter").await;
+    let actor_user_id = current_user_id(app.pool(), "13800139122").await;
+    let session_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, chat_context_kind, title, status,
+             session_visibility, context_status, activated_at, created_at, updated_at)
+        VALUES
+            ($1, $2, 'home_private', 'abnormal_episode_followup', '异常追踪', 'active',
+             'visible', 'active', now(), now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(actor_user_id)
+    .execute(app.pool())
+    .await
+    .expect("insert visible abnormal session");
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_messages
+            (id, session_id, role, content, content_blocks, status, citations, created_at)
+        VALUES
+            ($1, $3, 'system', '异常主动追踪 planning：内部规划提示', '[]'::jsonb, 'completed', '[]'::jsonb, now()),
+            ($2, $3, 'assistant', '现在情况好转了吗？', '[]'::jsonb, 'completed', '[]'::jsonb, now())
+        ",
+    )
+    .bind(uuid::Uuid::new_v4())
+    .bind(uuid::Uuid::new_v4())
+    .bind(session_id)
+    .execute(app.pool())
+    .await
+    .expect("insert system and assistant messages");
+
+    let body = get_session_messages(&app, &access_token, &session_id.to_string()).await;
+    let messages = body["data"].as_array().expect("messages array");
+
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0]["role"], "assistant");
+    assert_eq!(messages[0]["content"], "现在情况好转了吗？");
 }
 
 /// GET /api/v1/ai/chat-sessions/{id}/messages 回放结构化内容块

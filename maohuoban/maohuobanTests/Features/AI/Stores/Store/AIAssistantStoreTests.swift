@@ -103,6 +103,30 @@ final class AIAssistantStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testLoadingSessionMessagesSkipsSystemPlanningMessages() async {
+        let sessionID = "test-session"
+        let json = """
+        [
+            {"id":"00000000-0000-0000-0000-000000000000","role":"system","content":"异常主动追踪 planning：内部提示","content_blocks":[],"created_at":"2026-07-04T08:58:00Z"},
+            {"id":"11111111-1111-1111-1111-111111111111","role":"assistant","content":"现在情况好转了吗？","content_blocks":[],"created_at":"2026-07-04T08:59:00Z"}
+        ]
+        """
+        let data = json.data(using: .utf8)!
+        let messages = try! JSONDecoder().decode([AIMessageDTO].self, from: data)
+        let store = AIAssistantStore(
+            context: AIAssistantEntryContext(),
+            repository: MockAIAssistantRepository(messages: messages)
+        )
+        store.currentChatSessionID = sessionID
+
+        await store.loadSessionMessages(sessionID: sessionID)
+
+        XCTAssertEqual(store.messages.count, 1)
+        XCTAssertEqual(store.messages[0].role, .assistant)
+        XCTAssertEqual(store.messages[0].text, "现在情况好转了吗？")
+    }
+
+    @MainActor
     func testAbnormalEpisodeEntryRestoresExistingSessionAndMessages() async {
         let episodeID = "11111111-1111-1111-1111-111111111111"
         let sessionID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
@@ -126,18 +150,21 @@ final class AIAssistantStoreTests: XCTestCase {
         """
         let sessions = try! JSONDecoder().decode([AIChatSessionDTO].self, from: sessionJSON.data(using: .utf8)!)
         let messages = try! JSONDecoder().decode([AIMessageDTO].self, from: messageJSON.data(using: .utf8)!)
+        let repository = MockAIAssistantRepository(sessions: sessions, messages: messages)
         let store = AIAssistantStore(
             context: AIAssistantEntryContext(
                 selectedPetName: "雪球",
                 abnormalEpisodeID: episodeID,
+                abnormalEventID: "88888888-8888-8888-8888-888888888888",
                 sourceHintID: "66666666-6666-6666-6666-666666666666",
                 agentFollowupID: "77777777-7777-7777-7777-777777777777"
             ),
-            repository: MockAIAssistantRepository(sessions: sessions, messages: messages)
+            repository: repository
         )
 
         await store.restoreAbnormalEpisodeConversationIfNeeded()
 
+        XCTAssertEqual(repository.activatedAbnormalEpisodeIDs, [episodeID])
         XCTAssertEqual(store.currentChatSessionID, sessionID.uuidString)
         XCTAssertEqual(store.selectedConversationHistoryID, sessionID.uuidString)
         XCTAssertEqual(store.navigationTitle, "异常追踪")
@@ -177,6 +204,7 @@ final class AIAssistantStoreTests: XCTestCase {
             context: AIAssistantEntryContext(
                 selectedPetName: "雪球",
                 abnormalEpisodeID: episodeID,
+                abnormalEventID: "88888888-8888-8888-8888-888888888888",
                 sourceHintID: "66666666-6666-6666-6666-666666666666",
                 agentFollowupID: "77777777-7777-7777-7777-777777777777"
             ),
@@ -189,6 +217,7 @@ final class AIAssistantStoreTests: XCTestCase {
 
         XCTAssertEqual(repository.streamChatSessionIDs.last, sessionID.uuidString)
         XCTAssertEqual(repository.streamEntryContexts.last?.abnormalEpisodeID, episodeID)
+        XCTAssertEqual(repository.streamEntryContexts.last?.abnormalEventID, "88888888-8888-8888-8888-888888888888")
         XCTAssertEqual(repository.streamEntryContexts.last?.sourceHintID, "33333333-3333-3333-3333-333333333333")
         XCTAssertEqual(repository.streamEntryContexts.last?.agentFollowupID, "44444444-4444-4444-4444-444444444444")
     }
@@ -212,6 +241,7 @@ final class AIAssistantStoreTests: XCTestCase {
             context: AIAssistantEntryContext(
                 selectedPetName: "雪球",
                 abnormalEpisodeID: "episode-1",
+                abnormalEventID: "event-1",
                 sourceHintID: "hint-1",
                 agentFollowupID: "followup-1"
             ),
@@ -222,8 +252,9 @@ final class AIAssistantStoreTests: XCTestCase {
             store.abnormalEpisodeContextCard,
             AIAssistantAbnormalEpisodeContextCard(
                 episodeID: "episode-1",
-                title: "正在追踪雪球的异常",
-                subtitle: "这个会话会围绕本次异常继续追问和整理更新。",
+                eventID: "event-1",
+                title: "本次异常上文",
+                subtitle: "雪球的异常记录",
                 petName: "雪球"
             )
         )
@@ -400,6 +431,7 @@ private final class RecordingAIAssistantRepository: AIAssistantRepository {
     var messages: [AIMessageDTO]
     var streamChatSessionIDs: [String?] = []
     var streamEntryContexts: [AIAssistantEntryContext] = []
+    var activatedAbnormalEpisodeIDs: [String] = []
 
     init(
         streamEvents: [AIStreamEventDTO] = [],
@@ -430,6 +462,16 @@ private final class RecordingAIAssistantRepository: AIAssistantRepository {
 
     func fetchChatSessions() async throws(MHBAPIError) -> MHBAPIResponse<[AIChatSessionDTO]> {
         MHBAPIResponse(success: true, code: "ai.sessions_loaded", message: "ok", data: sessions)
+    }
+
+    func activateAbnormalEpisodeSession(
+        abnormalEpisodeID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIChatSessionDTO> {
+        activatedAbnormalEpisodeIDs.append(abnormalEpisodeID)
+        guard let session = sessions.first(where: { $0.abnormalEpisodeID == abnormalEpisodeID }) else {
+            throw .business(code: "ai.session_not_found", message: "异常追踪会话不存在", statusCode: 404)
+        }
+        return MHBAPIResponse(success: true, code: "ai.session_activated", message: "ok", data: session)
     }
 
     func fetchSessionMessages(sessionID: String) async throws(MHBAPIError) -> MHBAPIResponse<[AIMessageDTO]> {

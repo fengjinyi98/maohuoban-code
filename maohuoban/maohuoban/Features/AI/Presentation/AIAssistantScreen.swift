@@ -21,13 +21,16 @@ struct AIAssistantScreen: View {
 
     private static let bottomAnchorID = "ai.assistant.bottom"
     private let onOpenReference: (AIAssistantReference) -> Void
+    private let onOpenAbnormalEpisodeContext: (AIAssistantAbnormalEpisodeContextCard) -> Void
 
     init(
         context: AIAssistantEntryContext,
-        onOpenReference: @escaping (AIAssistantReference) -> Void = { _ in }
+        onOpenReference: @escaping (AIAssistantReference) -> Void = { _ in },
+        onOpenAbnormalEpisodeContext: @escaping (AIAssistantAbnormalEpisodeContextCard) -> Void = { _ in }
     ) {
         _store = State(initialValue: AIAssistantStore(context: context))
         self.onOpenReference = onOpenReference
+        self.onOpenAbnormalEpisodeContext = onOpenAbnormalEpisodeContext
     }
 
     var body: some View {
@@ -50,6 +53,9 @@ struct AIAssistantScreen: View {
                         },
                         onOpenReference: { reference in
                             onOpenReference(reference)
+                        },
+                        onOpenAbnormalEpisodeContext: { card in
+                            onOpenAbnormalEpisodeContext(card)
                         }
                     )
                     .padding(.horizontal, MHBTheme.Spacing.s4)

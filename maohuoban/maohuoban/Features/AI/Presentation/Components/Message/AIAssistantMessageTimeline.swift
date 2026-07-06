@@ -15,11 +15,17 @@ struct AIAssistantMessageTimeline: View {
     let onConfirmPendingAction: () -> Void
     let onCancelPendingAction: () -> Void
     let onOpenReference: (AIAssistantReference) -> Void
+    let onOpenAbnormalEpisodeContext: (AIAssistantAbnormalEpisodeContextCard) -> Void
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
             if let abnormalEpisodeContextCard {
-                AIAssistantAbnormalEpisodeContextCardView(card: abnormalEpisodeContextCard)
+                AIAssistantAbnormalEpisodeContextCardView(
+                    card: abnormalEpisodeContextCard,
+                    onOpen: {
+                        onOpenAbnormalEpisodeContext(abnormalEpisodeContextCard)
+                    }
+                )
             }
 
             if let firstMessageDate = messages.first?.createdAt {
@@ -29,14 +35,9 @@ struct AIAssistantMessageTimeline: View {
             }
 
             ForEach(messages) { message in
-                let presentation = AIAssistantMessageTimelinePresentation(
-                    messages: messages,
-                    hasAbnormalEpisodeContext: abnormalEpisodeContextCard != nil
-                )
                 AIAssistantMessageBubble(
                     message: message,
                     showsEmptyStreamingIndicator: activeAgentActivityText == nil,
-                    showsProactiveFollowupBadge: presentation.shouldShowProactiveFollowupBadge(for: message),
                     onOpenReference: onOpenReference
                 )
             }
