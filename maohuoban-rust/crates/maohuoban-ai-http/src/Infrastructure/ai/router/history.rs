@@ -13,8 +13,8 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiCitation, AiCitationSourceKind, AiContentBlock, AiError, AiPetCandidate,
-    AiPetDisplaySnapshot,
+    AiChatSession, AiChatSessionContextStatus, AiCitation, AiCitationSourceKind, AiContentBlock,
+    AiError, AiPetCandidate, AiPetDisplaySnapshot,
 };
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use serde::{Deserialize, Serialize};
@@ -34,6 +34,7 @@ pub struct ChatSessionItem {
     pub title: String,
     pub is_pinned: bool,
     pub chat_context_kind: Option<String>,
+    pub context_status: String,
     pub abnormal_episode_id: Option<Uuid>,
     pub source_hint_id: Option<Uuid>,
     pub agent_followup_id: Option<Uuid>,
@@ -139,6 +140,7 @@ pub async fn handle_list_sessions(
             title: s.title.clone(),
             is_pinned: s.is_pinned,
             chat_context_kind: s.chat_context_kind.clone(),
+            context_status: context_status_code(s.context_status).to_owned(),
             abnormal_episode_id: s.abnormal_episode_id,
             source_hint_id: s.source_hint_id,
             agent_followup_id: s.agent_followup_id,
@@ -329,6 +331,18 @@ fn session_mutation_result(session: AiChatSession) -> SessionMutationResultDTO {
         id: session.id,
         title: session.title,
         is_pinned: session.is_pinned,
+    }
+}
+
+/// context_status_code 返回上下文状态编码
+/// 核心职责：
+/// - 向历史列表暴露稳定 snake_case 字段
+/// - 让前端区分聊天记录与异常上下文生命周期
+fn context_status_code(status: AiChatSessionContextStatus) -> &'static str {
+    match status {
+        AiChatSessionContextStatus::Active => "active",
+        AiChatSessionContextStatus::Deleted => "deleted",
+        AiChatSessionContextStatus::Closed => "closed",
     }
 }
 

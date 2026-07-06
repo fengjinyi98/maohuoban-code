@@ -5,8 +5,9 @@
 
 use chrono::Utc;
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiContentBlock,
-    AiConversationSurface, AiMessage, AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot,
+    AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus, AiChatSessionVisibility,
+    AiCitation, AiCitationSourceKind, AiContentBlock, AiConversationSurface, AiMessage,
+    AiMessageRole, AiMessageStatus, AiPetDisplaySnapshot,
 };
 use uuid::Uuid;
 
@@ -29,6 +30,9 @@ pub(super) struct SessionRow {
     is_pinned: bool,
     pet_display_snapshot: Option<serde_json::Value>,
     status: String,
+    session_visibility: String,
+    context_status: String,
+    activated_at: Option<chrono::DateTime<Utc>>,
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
 }
@@ -83,6 +87,15 @@ impl From<SessionRow> for AiChatSession {
             "archived" => AiChatSessionStatus::Archived,
             _ => AiChatSessionStatus::Active,
         };
+        let session_visibility = match row.session_visibility.as_str() {
+            "background" => AiChatSessionVisibility::Background,
+            _ => AiChatSessionVisibility::Visible,
+        };
+        let context_status = match row.context_status.as_str() {
+            "deleted" => AiChatSessionContextStatus::Deleted,
+            "closed" => AiChatSessionContextStatus::Closed,
+            _ => AiChatSessionContextStatus::Active,
+        };
 
         let pet_display_snapshot = row
             .pet_display_snapshot
@@ -102,6 +115,9 @@ impl From<SessionRow> for AiChatSession {
             is_pinned: row.is_pinned,
             pet_display_snapshot,
             status,
+            session_visibility,
+            context_status,
+            activated_at: row.activated_at,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }

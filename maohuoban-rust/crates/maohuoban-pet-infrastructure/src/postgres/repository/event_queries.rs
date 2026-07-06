@@ -379,134 +379,11 @@ impl PostgresPetRepository {
         input: DeletePetEvent,
     ) -> PetResult<DeletedPetEvent> {
         let mut transaction = self.pool.begin().await.map_err(to_infrastructure_error)?;
-        let result = sqlx::query(
-            r#"
-            UPDATE pet_events e
-            SET superseded_by_event_id = e.id, updated_at = now()
-            FROM pet_profiles p
-            LEFT JOIN merchant_profiles merchant ON merchant.id = p.merchant_id
-            WHERE e.id = $1
-              AND p.id = e.pet_id
-              AND e.superseded_by_event_id IS NULL
-              AND (
-                  p.owner_user_id = $2
-                  OR e.actor_user_id = $2
-                  OR EXISTS (
-                      SELECT 1 FROM pet_guardians g
-                      WHERE g.pet_id = p.id
-                        AND g.guardian_user_id = $2
-                        AND g.status = 'active'
-                  )
-                  OR (
-                      merchant.owner_user_id = $2
-                      AND merchant.verification_status = 'verified'
-                  )
-              )
-            "#,
-        )
-        .bind(input.event_id)
-        .bind(input.actor_user_id)
-        .execute(&mut *transaction)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        if result.rows_affected() == 0 {
+        if !mark_pet_event_deleted(&mut transaction, &input).await? {
             return Err(PetError::PetEventNotFound);
         }
 
-        let closed_episode_ids = sqlx::query_scalar::<_, Uuid>(
-            r#"
-            UPDATE abnormal_episodes
-            SET status = 'closed',
-                next_followup_due_at = NULL,
-                last_followup_plan_id = NULL,
-                updated_at = now()
-            WHERE created_event_id = $1::uuid
-              AND status IN ('open', 'watching', 'recovering', 'recovered')
-            RETURNING id
-            "#,
-        )
-        .bind(input.event_id)
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(to_infrastructure_error)?;
-
-        if !closed_episode_ids.is_empty() {
-            let closed_episode_id_strings = closed_episode_ids
-                .iter()
-                .map(Uuid::to_string)
-                .collect::<Vec<_>>();
-            sqlx::query(
-                r#"
-                UPDATE pet_events
-                SET superseded_by_event_id = id,
-                    updated_at = now()
-                WHERE event_subkind IN (
-                    'symptom_followup',
-                    'abnormal_recovery',
-                    'clinic_visit_linked'
-                )
-                  AND superseded_by_event_id IS NULL
-                  AND event_payload->>'episode_id' = ANY($1)
-                "#,
-            )
-            .bind(&closed_episode_id_strings)
-            .execute(&mut *transaction)
-            .await
-            .map_err(to_infrastructure_error)?;
-
-            sqlx::query(
-                r#"
-                UPDATE attention_hints
-                SET status = 'resolved',
-                    resolved_at = now(),
-                    updated_at = now()
-                WHERE source_ref_id = ANY($1)
-                  AND source_ref_type = 'abnormal_episode'
-                  AND kind = 'open_abnormal_episode'
-                  AND status = 'active'
-                "#,
-            )
-            .bind(&closed_episode_ids)
-            .execute(&mut *transaction)
-            .await
-            .map_err(to_infrastructure_error)?;
-
-            sqlx::query(
-                r#"
-                UPDATE agent_proactive_followups
-                SET status = 'cancelled',
-                    resolved_at = now(),
-                    updated_at = now()
-                WHERE episode_id = ANY($1)
-                  AND status IN ('planning', 'scheduled', 'due')
-                "#,
-            )
-            .bind(&closed_episode_ids)
-            .execute(&mut *transaction)
-            .await
-            .map_err(to_infrastructure_error)?;
-
-            sqlx::query(
-                r#"
-                UPDATE attention_hints
-                SET status = 'resolved',
-                    resolved_at = now(),
-                    updated_at = now()
-                WHERE source_ref_type = 'agent_proactive_followup'
-                  AND source_ref_id IN (
-                      SELECT id FROM agent_proactive_followups
-                      WHERE episode_id = ANY($1)
-                  )
-                  AND kind = 'abnormal_followup_due'
-                  AND status = 'active'
-                "#,
-            )
-            .bind(&closed_episode_ids)
-            .execute(&mut *transaction)
-            .await
-            .map_err(to_infrastructure_error)?;
-        }
+        close_deleted_event_abnormal_episodes(&mut transaction, input.event_id).await?;
 
         transaction
             .commit()
@@ -518,6 +395,203 @@ impl PostgresPetRepository {
             deleted: true,
         })
     }
+}
+
+async fn mark_pet_event_deleted(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    input: &DeletePetEvent,
+) -> PetResult<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE pet_events e
+        SET superseded_by_event_id = e.id, updated_at = now()
+        FROM pet_profiles p
+        LEFT JOIN merchant_profiles merchant ON merchant.id = p.merchant_id
+        WHERE e.id = $1
+          AND p.id = e.pet_id
+          AND e.superseded_by_event_id IS NULL
+          AND (
+              p.owner_user_id = $2
+              OR e.actor_user_id = $2
+              OR EXISTS (
+                  SELECT 1 FROM pet_guardians g
+                  WHERE g.pet_id = p.id
+                    AND g.guardian_user_id = $2
+                    AND g.status = 'active'
+              )
+              OR (
+                  merchant.owner_user_id = $2
+                  AND merchant.verification_status = 'verified'
+              )
+          )
+        "#,
+    )
+    .bind(input.event_id)
+    .bind(input.actor_user_id)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+async fn close_deleted_event_abnormal_episodes(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> PetResult<()> {
+    let closed_episode_ids =
+        close_abnormal_episodes_created_by_event(transaction, event_id).await?;
+    if closed_episode_ids.is_empty() {
+        return Ok(());
+    }
+
+    mark_abnormal_episode_child_events_deleted(transaction, &closed_episode_ids).await?;
+    resolve_legacy_abnormal_episode_hints(transaction, &closed_episode_ids).await?;
+    cancel_agent_followups_for_closed_episodes(transaction, &closed_episode_ids).await?;
+    resolve_agent_followup_due_hints(transaction, &closed_episode_ids).await?;
+    mark_ai_abnormal_contexts_deleted(transaction, &closed_episode_ids).await
+}
+
+async fn close_abnormal_episodes_created_by_event(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> PetResult<Vec<Uuid>> {
+    sqlx::query_scalar::<_, Uuid>(
+        r#"
+        UPDATE abnormal_episodes
+        SET status = 'closed',
+            next_followup_due_at = NULL,
+            last_followup_plan_id = NULL,
+            updated_at = now()
+        WHERE created_event_id = $1::uuid
+          AND status IN ('open', 'watching', 'recovering', 'recovered')
+        RETURNING id
+        "#,
+    )
+    .bind(event_id)
+    .fetch_all(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)
+}
+
+async fn mark_abnormal_episode_child_events_deleted(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    closed_episode_ids: &[Uuid],
+) -> PetResult<()> {
+    let closed_episode_id_strings = closed_episode_ids
+        .iter()
+        .map(Uuid::to_string)
+        .collect::<Vec<_>>();
+    sqlx::query(
+        r#"
+        UPDATE pet_events
+        SET superseded_by_event_id = id,
+            updated_at = now()
+        WHERE event_subkind IN (
+            'symptom_followup',
+            'abnormal_recovery',
+            'clinic_visit_linked'
+        )
+          AND superseded_by_event_id IS NULL
+          AND event_payload->>'episode_id' = ANY($1)
+        "#,
+    )
+    .bind(&closed_episode_id_strings)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn resolve_legacy_abnormal_episode_hints(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    closed_episode_ids: &[Uuid],
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        UPDATE attention_hints
+        SET status = 'resolved',
+            resolved_at = now(),
+            updated_at = now()
+        WHERE source_ref_id = ANY($1)
+          AND source_ref_type = 'abnormal_episode'
+          AND kind = 'open_abnormal_episode'
+          AND status = 'active'
+        "#,
+    )
+    .bind(closed_episode_ids)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn cancel_agent_followups_for_closed_episodes(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    closed_episode_ids: &[Uuid],
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        UPDATE agent_proactive_followups
+        SET status = 'cancelled',
+            resolved_at = now(),
+            updated_at = now()
+        WHERE episode_id = ANY($1)
+          AND status IN ('planning', 'scheduled', 'due')
+        "#,
+    )
+    .bind(closed_episode_ids)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn resolve_agent_followup_due_hints(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    closed_episode_ids: &[Uuid],
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        UPDATE attention_hints
+        SET status = 'resolved',
+            resolved_at = now(),
+            updated_at = now()
+        WHERE source_ref_type = 'agent_proactive_followup'
+          AND source_ref_id IN (
+              SELECT id FROM agent_proactive_followups
+              WHERE episode_id = ANY($1)
+          )
+          AND kind = 'abnormal_followup_due'
+          AND status = 'active'
+        "#,
+    )
+    .bind(closed_episode_ids)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
+}
+
+async fn mark_ai_abnormal_contexts_deleted(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    closed_episode_ids: &[Uuid],
+) -> PetResult<()> {
+    sqlx::query(
+        r#"
+        UPDATE ai_chat_sessions
+        SET context_status = 'deleted',
+            updated_at = now()
+        WHERE abnormal_episode_id = ANY($1)
+          AND chat_context_kind = 'abnormal_episode_followup'
+          AND context_status = 'active'
+        "#,
+    )
+    .bind(closed_episode_ids)
+    .execute(&mut **transaction)
+    .await
+    .map_err(to_infrastructure_error)?;
+    Ok(())
 }
 
 #[derive(Debug, sqlx::FromRow)]

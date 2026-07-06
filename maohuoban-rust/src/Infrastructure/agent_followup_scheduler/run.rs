@@ -206,6 +206,7 @@ async fn ensure_abnormal_followup_session(
                 abnormal_episode_id = $3,
                 agent_followup_id = $4,
                 pet_display_snapshot = $5::jsonb,
+                context_status = 'active',
                 updated_at = $6
             WHERE id = $1
             ",
@@ -227,12 +228,14 @@ async fn ensure_abnormal_followup_session(
         INSERT INTO ai_chat_sessions (
             id, actor_user_id, primary_pet_id, surface, chat_context_kind,
             abnormal_episode_id, agent_followup_id, title, is_pinned,
-            pet_display_snapshot, status, created_at, updated_at
+            pet_display_snapshot, status, session_visibility, context_status,
+            activated_at, created_at, updated_at
         )
         VALUES (
             $1, $2, $3, 'home_private', 'abnormal_episode_followup',
             $4, $5, $6, false,
-            $7::jsonb, 'active', $8, $8
+            $7::jsonb, 'active', 'background', 'active',
+            NULL, $8, $8
         )
         ",
     )

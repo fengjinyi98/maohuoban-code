@@ -202,6 +202,87 @@ async fn abnormal_followup_entry_reuses_same_agent_session_and_context() {
 }
 
 #[tokio::test]
+async fn abnormal_followup_entry_activates_background_tracking_session() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+    let actor_user_id: Uuid = sqlx::query_scalar(
+        r"
+        SELECT owner_user_id
+        FROM pet_profiles
+        WHERE id = $1
+        ",
+    )
+    .bind(fixture.pet_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load fixture actor user id");
+    let background_session_id = Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, primary_pet_id, surface, source_hint_id,
+             chat_context_kind, abnormal_episode_id, agent_followup_id,
+             title, status, session_visibility, context_status,
+             created_at, updated_at)
+        VALUES
+            ($1, $2, $3, 'home_private', $4,
+             'abnormal_episode_followup', $5, $6,
+             '团团的异常追踪', 'active', 'background', 'active',
+             now(), now())
+        ",
+    )
+    .bind(background_session_id)
+    .bind(actor_user_id)
+    .bind(fixture.pet_id)
+    .bind(source_hint_id)
+    .bind(fixture.episode_id)
+    .bind(agent_followup_id)
+    .execute(app.pool())
+    .await
+    .expect("insert background abnormal tracking session");
+
+    let activated_session_id = send_abnormal_followup_entry_request(
+        &app,
+        &fixture,
+        source_hint_id,
+        agent_followup_id,
+        "我想问问毛球这次异常该怎么继续观察。",
+    )
+    .await;
+
+    assert_eq!(
+        activated_session_id, background_session_id,
+        "chat entry must reuse existing abnormal tracking context"
+    );
+
+    let persisted: (String, String, Option<chrono::DateTime<chrono::Utc>>, i64) = sqlx::query_as(
+        r"
+        SELECT session_visibility, context_status, activated_at,
+               (SELECT COUNT(*) FROM ai_chat_sessions WHERE abnormal_episode_id = $1) AS session_count
+        FROM ai_chat_sessions
+        WHERE id = $2
+        ",
+    )
+    .bind(fixture.episode_id)
+    .bind(background_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load activated background session");
+
+    assert_eq!(persisted.0, "visible");
+    assert_eq!(persisted.1, "active");
+    assert!(
+        persisted.2.is_some(),
+        "activated abnormal tracking session should record activated_at"
+    );
+    assert_eq!(persisted.3, 1);
+}
+
+#[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
     let _guard = diagnostics_test_lock().lock_owned().await;
@@ -649,7 +730,9 @@ async fn abnormal_followup_agent_can_save_planned_followup_from_session_context(
                 "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
                     .to_owned()
                     + planned_due_at
-                    + "\\\",\\\"message_title\\\":\\\"毛球稍后再确认\\\",\\\"message_body\\\":\\\"继续确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"用户仍在异常追踪中，需要稍后复查。\\\",\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
+                    + "\\\",\\\"message_title\\\":\\\"毛球稍后再确认\\\",\\\"message_body\\\":\\\"继续确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"用户仍在异常追踪中，需要稍后复查。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-05T08:00:00Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"elapsed_minutes\\\":470,\\\"selected_due_at\\\":\\\""
+                    + planned_due_at
+                    + "\\\",\\\"delay_minutes\\\":40,\\\"urgency_window\\\":\\\"short_delay\\\",\\\"reason\\\":\\\"仍在追踪中，短延迟复查\\\",\\\"time_tool_used\\\":true},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
@@ -776,7 +859,9 @@ async fn abnormal_followup_plan_can_save_branch_actions_from_session_context() {
                 "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_branch_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
                     .to_owned()
                     + due_at
-                    + "\\\",\\\"message_title\\\":\\\"毛球建议尽快处理\\\",\\\"message_body\\\":\\\"异常有加重迹象，建议联系医院并继续补充状态。\\\",\\\"rationale\\\":\\\"用户反馈加重，需要提供就医入口并持续追踪。\\\",\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\",\\\"book_clinic\\\"]}\"}}]}}]}\n\n\
+                    + "\\\",\\\"message_title\\\":\\\"毛球建议尽快处理\\\",\\\"message_body\\\":\\\"异常有加重迹象，建议联系医院并继续补充状态。\\\",\\\"rationale\\\":\\\"用户反馈加重，需要提供就医入口并持续追踪。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-05T18:00:00Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"elapsed_minutes\\\":1070,\\\"selected_due_at\\\":\\\""
+                    + due_at
+                    + "\\\",\\\"delay_minutes\\\":30,\\\"urgency_window\\\":\\\"immediate\\\",\\\"reason\\\":\\\"加重反馈需要尽快再次追踪\\\",\\\"time_tool_used\\\":true},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\",\\\"book_clinic\\\"]}\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );

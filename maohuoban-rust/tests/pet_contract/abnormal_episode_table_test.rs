@@ -1,7 +1,7 @@
 // AbnormalEpisode 数据表契约测试
 // 核心职责：
-// - 验证异常记录创建后 abnormal_episodes 表和 attention_hints 表有数据行
-// - 该测试验证 Phase 3 目标文档要求的：异常提交时创建 episode 并生成轻提示
+// - 验证异常记录创建后 abnormal_episodes 表有数据行
+// - 验证异常提交不再生成旧 open_abnormal_episode 轻提示
 
 use super::*;
 
@@ -100,7 +100,7 @@ async fn abnormal_symptom_writes_to_abnormal_episodes_table() {
         "abnormal_symptom should create row in abnormal_episodes table"
     );
 
-    // 验证 attention_hints 表有 open_abnormal_episode 行
+    // 验证创建异常不再写旧 open_abnormal_episode 轻提示，站内提醒由 Agent 主动追踪 due 计划承担
     let hint_count: i64 = sqlx::query_scalar(
         r"SELECT COUNT(*) FROM attention_hints WHERE pet_id = $1::uuid AND kind = 'open_abnormal_episode' AND status = 'active'",
     )
@@ -109,9 +109,9 @@ async fn abnormal_symptom_writes_to_abnormal_episodes_table() {
     .await
     .expect("count attention_hints");
 
-    assert!(
-        hint_count > 0,
-        "abnormal_symptom should create open_abnormal_episode hint in attention_hints table"
+    assert_eq!(
+        hint_count, 0,
+        "abnormal_symptom should not create legacy open_abnormal_episode hint"
     );
 }
 

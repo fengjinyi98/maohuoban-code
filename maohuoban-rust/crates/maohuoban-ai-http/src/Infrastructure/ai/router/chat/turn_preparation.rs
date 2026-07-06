@@ -4,9 +4,10 @@ use maohuoban_ai_application::ai::ports::{
     AiRequestGateLog, AiSessionRepository, AiToolAccessLog, IngressTxInput,
 };
 use maohuoban_ai_domain::ai::{
-    AgentTurnId, AiChatSession, AiChatSessionStatus, AiGateDecision, AiMessage, AiMessageRole,
-    AiMessageStatus, AiPetDisplaySnapshot, AiPetResolution, AiResult, AiSessionTurn,
-    AiSessionTurnStatus, AiStreamEvent,
+    AgentTurnId, AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus,
+    AiChatSessionVisibility, AiGateDecision, AiMessage, AiMessageRole, AiMessageStatus,
+    AiPetDisplaySnapshot, AiPetResolution, AiResult, AiSessionTurn, AiSessionTurnStatus,
+    AiStreamEvent,
 };
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -38,6 +39,8 @@ pub(super) struct ChatTurnContext {
     pub(super) effective_chat_context_kind: Option<String>,
     pub(super) effective_abnormal_episode_id: Option<Uuid>,
     pub(super) effective_agent_followup_id: Option<Uuid>,
+    requested_session_visibility: Option<AiChatSessionVisibility>,
+    requested_context_status: Option<AiChatSessionContextStatus>,
 }
 
 /// prepare_chat_turn_context 准备聊天轮次上下文
@@ -110,6 +113,12 @@ pub(super) async fn prepare_chat_turn_context(
         effective_chat_context_kind,
         effective_abnormal_episode_id,
         effective_agent_followup_id,
+        requested_session_visibility: requested_session
+            .as_ref()
+            .map(|session| session.session_visibility),
+        requested_context_status: requested_session
+            .as_ref()
+            .map(|session| session.context_status),
     })
 }
 
@@ -142,9 +151,21 @@ pub(super) async fn persist_prepared_chat_turn(
         is_pinned: false,
         pet_display_snapshot: context.target_pet.clone(),
         status: AiChatSessionStatus::Active,
+        session_visibility: AiChatSessionVisibility::Visible,
+        context_status: context
+            .requested_context_status
+            .unwrap_or(AiChatSessionContextStatus::Active),
+        activated_at: Some(now),
         created_at: now,
         updated_at: now,
     };
+
+    if context.requested_session_visibility == Some(AiChatSessionVisibility::Background) {
+        let _ = state
+            .session_repository
+            .activate_background_session(context.session_id, actor_user_id)
+            .await;
+    }
 
     let user_message = AiMessage {
         id: context.user_message_id,
@@ -381,6 +402,8 @@ async fn insert_pet_catalog_tool_log(
             allowed,
             denied_reason,
             returned_ref_ids,
+            request_payload: None,
+            response_payload: None,
             duration_ms: 0,
             risk_signal: None,
         })

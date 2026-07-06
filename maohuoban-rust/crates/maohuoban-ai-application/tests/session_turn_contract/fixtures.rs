@@ -1,6 +1,7 @@
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiConversationSurface, AiMessage, AiMessageRole,
-    AiMessageStatus, AiSessionTurn, AiSessionTurnStatus,
+    AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus, AiChatSessionVisibility,
+    AiConversationSurface, AiMessage, AiMessageRole, AiMessageStatus, AiSessionTurn,
+    AiSessionTurnStatus,
 };
 use uuid::Uuid;
 
@@ -136,6 +137,9 @@ pub fn chat_session() -> AiChatSession {
         is_pinned: false,
         pet_display_snapshot: None,
         status: AiChatSessionStatus::Active,
+        session_visibility: AiChatSessionVisibility::Visible,
+        context_status: AiChatSessionContextStatus::Active,
+        activated_at: Some(chrono::Utc::now()),
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
     }

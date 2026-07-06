@@ -9,8 +9,9 @@ use maohuoban_ai_application::ai::ports::{
     AiRequestGateLog, ChatTurnTransactionPort, FinalizerTxInput, IngressTxInput,
 };
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiError, AiMessage,
-    AiMessageRole, AiMessageStatus, AiResult, AiSessionTurn, AiSessionTurnStatus,
+    AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus, AiChatSessionVisibility,
+    AiCitation, AiCitationSourceKind, AiError, AiMessage, AiMessageRole, AiMessageStatus, AiResult,
+    AiSessionTurn, AiSessionTurnStatus,
 };
 use sqlx::PgPool;
 
@@ -100,6 +101,8 @@ async fn upsert_session_in_tx(
         AiChatSessionStatus::Active => "active",
         AiChatSessionStatus::Archived => "archived",
     };
+    let visibility_str = session_visibility_code(session.session_visibility);
+    let context_status_str = session_context_status_code(session.context_status);
 
     sqlx::query(
         r"
@@ -107,8 +110,8 @@ async fn upsert_session_in_tx(
             (id, actor_user_id, primary_pet_id, surface, source_hint_id,
              source_task_id, chat_context_kind, abnormal_episode_id,
              agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-             created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+             session_visibility, context_status, activated_at, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         ON CONFLICT (id) DO UPDATE SET
             primary_pet_id = EXCLUDED.primary_pet_id,
             surface = EXCLUDED.surface,
@@ -119,6 +122,9 @@ async fn upsert_session_in_tx(
             agent_followup_id = EXCLUDED.agent_followup_id,
             pet_display_snapshot = EXCLUDED.pet_display_snapshot,
             status = EXCLUDED.status,
+            session_visibility = EXCLUDED.session_visibility,
+            context_status = EXCLUDED.context_status,
+            activated_at = COALESCE(ai_chat_sessions.activated_at, EXCLUDED.activated_at),
             updated_at = EXCLUDED.updated_at
         ",
     )
@@ -135,6 +141,9 @@ async fn upsert_session_in_tx(
     .bind(session.is_pinned)
     .bind(snapshot_json)
     .bind(status_str)
+    .bind(visibility_str)
+    .bind(context_status_str)
+    .bind(session.activated_at)
     .bind(session.created_at)
     .bind(session.updated_at)
     .execute(&mut **tx)
@@ -423,6 +432,29 @@ fn surface_code(surface: maohuoban_ai_domain::ai::AiConversationSurface) -> &'st
         maohuoban_ai_domain::ai::AiConversationSurface::AbnormalDetail => "abnormal_detail",
         maohuoban_ai_domain::ai::AiConversationSurface::ConfirmationTask => "confirmation_task",
         maohuoban_ai_domain::ai::AiConversationSurface::UgcComment => "ugc_comment",
+    }
+}
+
+/// session_visibility_code 返回会话可见性编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 保持事务入口与 session 仓储写入一致
+fn session_visibility_code(visibility: AiChatSessionVisibility) -> &'static str {
+    match visibility {
+        AiChatSessionVisibility::Visible => "visible",
+        AiChatSessionVisibility::Background => "background",
+    }
+}
+
+/// session_context_status_code 返回会话上下文状态编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 保持事务入口与 session 仓储写入一致
+fn session_context_status_code(status: AiChatSessionContextStatus) -> &'static str {
+    match status {
+        AiChatSessionContextStatus::Active => "active",
+        AiChatSessionContextStatus::Deleted => "deleted",
+        AiChatSessionContextStatus::Closed => "closed",
     }
 }
 

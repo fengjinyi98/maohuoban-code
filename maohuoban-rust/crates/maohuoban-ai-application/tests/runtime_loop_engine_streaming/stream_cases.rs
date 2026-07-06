@@ -288,9 +288,9 @@ async fn agent_runtime_streaming_followup_can_chain_second_tool_call_before_fina
 
 #[tokio::test]
 async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
-    let provider = StreamingScriptedProvider::new(vec![tool_response(), final_response()]);
+    let provider = StreamingScriptedProvider::new(vec![diet_tool_response(), final_response()]);
     let mut registry = ToolRegistry::new();
-    registry.register(EchoIdentityTool::immediate());
+    registry.register(EchoDietTool);
 
     let engine = runtime_engine(provider.clone(), registry);
     let mut session = AgentSession::new(
@@ -314,13 +314,13 @@ async fn agent_runtime_pairs_assistant_tool_call_message_before_tool_results() {
                 && message
                     .tool_calls
                     .iter()
-                    .any(|tool_call| tool_call.id == "call_1")
+                    .any(|tool_call| tool_call.id == "call_2")
         })
         .expect("assistant tool_call message should be replayed");
     let tool_result_index = followup_messages
         .iter()
         .position(|message| {
-            message.role == LlmRole::Tool && message.tool_call_id.as_deref() == Some("call_1")
+            message.role == LlmRole::Tool && message.tool_call_id.as_deref() == Some("call_2")
         })
         .expect("tool result message should be present");
 

@@ -74,6 +74,30 @@ impl AiToolDefinition for RuntimePetContextTool {
                     "message_title": { "type": "string" },
                     "message_body": { "type": "string" },
                     "rationale": { "type": "string" },
+                    "time_decision": {
+                        "type": "object",
+                        "description": "模型选择 due_at 的可审计时间决策说明。该字段只用于审计，不会让代码替模型决定提醒时间。",
+                        "properties": {
+                            "now_at": { "type": "string", "format": "date-time" },
+                            "episode_started_at": { "type": "string", "format": "date-time" },
+                            "elapsed_minutes": { "type": "integer" },
+                            "selected_due_at": { "type": "string", "format": "date-time" },
+                            "delay_minutes": { "type": "integer" },
+                            "urgency_window": { "type": "string" },
+                            "reason": { "type": "string" },
+                            "time_tool_used": { "type": "boolean" }
+                        },
+                        "required": [
+                            "now_at",
+                            "episode_started_at",
+                            "elapsed_minutes",
+                            "selected_due_at",
+                            "delay_minutes",
+                            "urgency_window",
+                            "reason",
+                            "time_tool_used"
+                        ]
+                    },
                     "recommended_actions": {
                         "type": "array",
                         "items": {
@@ -92,6 +116,7 @@ impl AiToolDefinition for RuntimePetContextTool {
                     "message_title",
                     "message_body",
                     "rationale",
+                    "time_decision",
                     "recommended_actions"
                 ]
             }),
@@ -150,7 +175,7 @@ impl AiToolDefinition for RuntimePetContextTool {
         let result = self.execute_kind(ctx, args).await;
         match result {
             Ok(package) => {
-                self.record_tool_access(ctx.actor_user_id, true, None, &package)
+                self.record_tool_access(ctx.actor_user_id, true, None, args, &package)
                     .await;
                 AiToolResult::allowed_with_fact_package(package)
             }
@@ -162,6 +187,7 @@ impl AiToolDefinition for RuntimePetContextTool {
                     ctx.actor_user_id,
                     false,
                     Some(stable_code.clone()),
+                    args,
                     &AiFactPackage::empty(),
                 )
                 .await;
@@ -298,6 +324,7 @@ impl RuntimePetContextTool {
                     ctx.actor_user_id,
                     true,
                     None,
+                    args,
                     &observation_prepare_fact_package(&prepared.confirmation.confirmation_task_id),
                 )
                 .await;
@@ -309,6 +336,7 @@ impl RuntimePetContextTool {
                     ctx.actor_user_id,
                     false,
                     Some("pet.observation.write_prepare.failed".to_owned()),
+                    args,
                     &AiFactPackage::empty(),
                 )
                 .await;
@@ -323,6 +351,7 @@ impl RuntimePetContextTool {
         actor_user_id: Uuid,
         allowed: bool,
         denied_reason: Option<String>,
+        args: &serde_json::Value,
         package: &AiFactPackage,
     ) {
         let returned_ref_ids = package
@@ -341,6 +370,8 @@ impl RuntimePetContextTool {
                 allowed,
                 denied_reason,
                 returned_ref_ids,
+                request_payload: Some(args.clone()),
+                response_payload: Some(tool_response_payload(package)),
                 duration_ms: 0,
                 risk_signal: None,
             })
@@ -417,6 +448,26 @@ fn parse_followup_plan_draft(args: &serde_json::Value) -> AiResult<AbnormalFollo
         message_body: required_string_arg(args, "message_body")?,
         rationale: required_string_arg(args, "rationale")?,
         recommended_actions,
+        time_decision: args.get("time_decision").cloned().ok_or_else(|| {
+            maohuoban_ai_domain::ai::AiError::InvalidInput("缺少 time_decision".to_owned())
+        })?,
+    })
+}
+
+/// tool_response_payload 生成工具响应审计摘要
+/// 核心职责：
+/// - 记录工具返回事实的引用和事实桶数量
+/// - 避免在工具审计表重复写完整事实正文
+fn tool_response_payload(package: &AiFactPackage) -> serde_json::Value {
+    serde_json::json!({
+        "returned_ref_ids": package
+            .citations
+            .iter()
+            .map(|citation| citation.source_id.to_string())
+            .collect::<Vec<_>>(),
+        "fact_count": package.facts.len(),
+        "weak_hint_count": package.weak_hints.len(),
+        "pending_confirmation_count": package.pending_confirmations.len()
     })
 }
 

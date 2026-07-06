@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_ai_application::ai::ports::{AiRequestGateLog, AiSessionRepository, AiToolAccessLog};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiCitation, AiCitationSourceKind, AiError, AiMessage,
-    AiMessageRole, AiMessageStatus, AiProposedAction, AiProposedActionKind, AiProposedActionRisk,
-    AiResult,
+    AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus, AiChatSessionVisibility,
+    AiCitation, AiCitationSourceKind, AiError, AiMessage, AiMessageRole, AiMessageStatus,
+    AiProposedAction, AiProposedActionKind, AiProposedActionRisk, AiResult,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -55,6 +55,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             AiChatSessionStatus::Active => "active",
             AiChatSessionStatus::Archived => "archived",
         };
+        let visibility_str = session_visibility_code(session.session_visibility);
+        let context_status_str = session_context_status_code(session.context_status);
 
         sqlx::query(
             r"
@@ -62,8 +64,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
                 (id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                 created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                   session_visibility, context_status, activated_at, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             ON CONFLICT (id) DO UPDATE SET
                 primary_pet_id = EXCLUDED.primary_pet_id,
                 surface = EXCLUDED.surface,
@@ -74,6 +76,9 @@ impl AiSessionRepository for PostgresAiSessionRepository {
                 agent_followup_id = EXCLUDED.agent_followup_id,
                 pet_display_snapshot = EXCLUDED.pet_display_snapshot,
                 status = EXCLUDED.status,
+                session_visibility = EXCLUDED.session_visibility,
+                context_status = EXCLUDED.context_status,
+                activated_at = COALESCE(ai_chat_sessions.activated_at, EXCLUDED.activated_at),
                 updated_at = EXCLUDED.updated_at
             ",
         )
@@ -90,6 +95,9 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(session.is_pinned)
         .bind(snapshot_json)
         .bind(status_str)
+        .bind(visibility_str)
+        .bind(context_status_str)
+        .bind(session.activated_at)
         .bind(session.created_at)
         .bind(session.updated_at)
         .execute(&self.pool)
@@ -197,9 +205,11 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                   created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             FROM ai_chat_sessions
-            WHERE actor_user_id = $1 AND status = 'active'
+            WHERE actor_user_id = $1
+              AND status = 'active'
+              AND session_visibility = 'visible'
             ORDER BY is_pinned DESC, updated_at DESC
             LIMIT $2
             ",
@@ -269,7 +279,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                   created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             FROM ai_chat_sessions
             WHERE id = $1 AND status = 'active'
             ",
@@ -292,11 +302,12 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             SELECT id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                   created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             FROM ai_chat_sessions
             WHERE actor_user_id = $1
               AND abnormal_episode_id = $2
               AND status = 'active'
+              AND context_status = 'active'
             ORDER BY updated_at DESC
             LIMIT 1
             ",
@@ -308,6 +319,55 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .map_err(|e| AiError::Infrastructure(e.to_string()))?;
 
         Ok(row.map(Into::into))
+    }
+
+    async fn activate_background_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+    ) -> AiResult<()> {
+        sqlx::query(
+            r"
+            UPDATE ai_chat_sessions
+            SET session_visibility = 'visible',
+                activated_at = COALESCE(activated_at, now()),
+                updated_at = now()
+            WHERE id = $1
+              AND actor_user_id = $2
+              AND status = 'active'
+              AND session_visibility = 'background'
+              AND context_status = 'active'
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn mark_abnormal_episode_context_deleted(
+        &self,
+        abnormal_episode_id: Uuid,
+    ) -> AiResult<()> {
+        sqlx::query(
+            r"
+            UPDATE ai_chat_sessions
+            SET context_status = 'deleted',
+                updated_at = now()
+            WHERE abnormal_episode_id = $1
+              AND chat_context_kind = 'abnormal_episode_followup'
+              AND context_status = 'active'
+            ",
+        )
+        .bind(abnormal_episode_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(())
     }
 
     async fn rename_session(
@@ -324,7 +384,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                      created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             ",
         )
         .bind(session_id)
@@ -351,7 +411,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                      created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             ",
         )
         .bind(session_id)
@@ -377,7 +437,7 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
                    source_task_id, chat_context_kind, abnormal_episode_id,
                    agent_followup_id, title, is_pinned, pet_display_snapshot, status,
-                      created_at, updated_at
+                   session_visibility, context_status, activated_at, created_at, updated_at
             ",
         )
         .bind(session_id)
@@ -424,8 +484,9 @@ impl AiSessionRepository for PostgresAiSessionRepository {
             r"
             INSERT INTO ai_tool_access_logs
                 (session_id, actor_user_id, tool_name, requested_scope, target_pet_id,
-                 allowed, denied_reason, returned_ref_ids, duration_ms, risk_signal)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                 allowed, denied_reason, returned_ref_ids, request_payload, response_payload,
+                 duration_ms, risk_signal)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ",
         )
         .bind(log.session_id)
@@ -436,6 +497,8 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         .bind(log.allowed)
         .bind(&log.denied_reason)
         .bind(returned_ref_ids)
+        .bind(&log.request_payload)
+        .bind(&log.response_payload)
         .bind(log.duration_ms)
         .bind(&log.risk_signal)
         .execute(&self.pool)
@@ -567,5 +630,28 @@ fn proposed_action_risk_code(risk: AiProposedActionRisk) -> &'static str {
         AiProposedActionRisk::Low => "low",
         AiProposedActionRisk::Medium => "medium",
         AiProposedActionRisk::High => "high",
+    }
+}
+
+/// session_visibility_code 返回会话可见性编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 区分用户可见聊天与后台追踪上下文
+fn session_visibility_code(visibility: AiChatSessionVisibility) -> &'static str {
+    match visibility {
+        AiChatSessionVisibility::Visible => "visible",
+        AiChatSessionVisibility::Background => "background",
+    }
+}
+
+/// session_context_status_code 返回会话上下文状态编码
+/// 核心职责：
+/// - 使用稳定 snake_case 写入数据库
+/// - 表达业务上下文相对聊天记录的独立生命周期
+fn session_context_status_code(status: AiChatSessionContextStatus) -> &'static str {
+    match status {
+        AiChatSessionContextStatus::Active => "active",
+        AiChatSessionContextStatus::Deleted => "deleted",
+        AiChatSessionContextStatus::Closed => "closed",
     }
 }

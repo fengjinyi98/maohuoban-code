@@ -1,7 +1,7 @@
 // AbnormalEpisode 异常追踪合约测试
 // 核心职责：
 // - 验证异常记录创建时生成 episode + pet event
-// - 验证追加观察不会重复生成 hint
+// - 验证追加观察和创建异常不会生成旧 open_abnormal_episode hint
 // - 验证标记恢复后 attention_hints 为空
 
 use super::*;
@@ -62,7 +62,7 @@ async fn create_abnormal_episode_writes_episode_and_event() {
     let create_body = response_json(create_response).await;
     let event_id = create_body["data"]["id"].as_str().expect("event id");
 
-    // 验证首页出现 attention_hint，且跳转目标可直接读取事件详情
+    // 验证首页不再出现旧 open_abnormal_episode attention_hint
     let dashboard_response = app
         .router()
         .oneshot(empty_request(
@@ -76,18 +76,11 @@ async fn create_abnormal_episode_writes_episode_and_event() {
     let dashboard = response_json(dashboard_response).await;
     let hints = dashboard["data"]["attention_hints"].as_array().unwrap();
 
-    assert!(!hints.is_empty(), "expected at least one attention_hint");
-    assert_eq!(
-        hints[0]["kind"], "open_abnormal_episode",
-        "first hint should be open_abnormal_episode"
-    );
-    assert_eq!(
-        hints[0]["route"]["kind"], "abnormal_detail",
-        "abnormal hint should route to abnormal detail"
-    );
-    assert_eq!(
-        hints[0]["route"]["payload"]["event_id"], event_id,
-        "abnormal hint route payload must carry the readable pet event id"
+    assert!(
+        hints
+            .iter()
+            .all(|hint| hint["kind"] != "open_abnormal_episode"),
+        "abnormal creation should not create legacy open_abnormal_episode hint: {hints:?}"
     );
 
     let detail_response = app
@@ -370,7 +363,7 @@ async fn symptom_followup_does_not_create_extra_hints() {
         .await
         .expect("create followup event");
 
-    // 验证首页仍然只有 1 个 open_abnormal_episode hint
+    // 验证首页仍然没有旧 open_abnormal_episode hint
     let dashboard_response = app
         .router()
         .oneshot(empty_request(
@@ -384,12 +377,11 @@ async fn symptom_followup_does_not_create_extra_hints() {
     let dashboard = response_json(dashboard_response).await;
     let hints = dashboard["data"]["attention_hints"].as_array().unwrap();
 
-    // 追加观察不应生成新 hint
-    assert!(!hints.is_empty(), "should still have the original hint");
-    assert_eq!(hints.len(), 1, "followup should not add extra hints");
-    assert_eq!(
-        hints[0]["kind"], "open_abnormal_episode",
-        "should still be open_abnormal_episode"
+    assert!(
+        hints
+            .iter()
+            .all(|hint| hint["kind"] != "open_abnormal_episode"),
+        "followup should not create legacy open_abnormal_episode hint: {hints:?}"
     );
 }
 
@@ -445,7 +437,7 @@ async fn abnormal_recovery_removes_hints() {
         .await
         .expect("create abnormal event");
 
-    // 确认 hint 存在
+    // 确认创建异常后不写旧 open_abnormal_episode hint
     let check = app
         .router()
         .oneshot(empty_request(
@@ -457,7 +449,12 @@ async fn abnormal_recovery_removes_hints() {
         .expect("load dashboard");
     let check_body = response_json(check).await;
     let hints_before = check_body["data"]["attention_hints"].as_array().unwrap();
-    assert!(!hints_before.is_empty(), "should have hint before recovery");
+    assert!(
+        hints_before
+            .iter()
+            .all(|hint| hint["kind"] != "open_abnormal_episode"),
+        "abnormal creation should not create legacy open_abnormal_episode hint: {hints_before:?}"
+    );
 
     // 创建 recovery 事件
     let _ = app
@@ -481,7 +478,7 @@ async fn abnormal_recovery_removes_hints() {
         .await
         .expect("create recovery event");
 
-    // 验证 hint 已消除
+    // 验证恢复后仍无旧 open_abnormal_episode hint
     let after = app
         .router()
         .oneshot(empty_request(
@@ -493,5 +490,10 @@ async fn abnormal_recovery_removes_hints() {
         .expect("load dashboard");
     let after_body = response_json(after).await;
     let hints_after = after_body["data"]["attention_hints"].as_array().unwrap();
-    assert!(hints_after.is_empty(), "recovery should remove hints");
+    assert!(
+        hints_after
+            .iter()
+            .all(|hint| hint["kind"] != "open_abnormal_episode"),
+        "recovery should keep legacy open_abnormal_episode hint absent: {hints_after:?}"
+    );
 }

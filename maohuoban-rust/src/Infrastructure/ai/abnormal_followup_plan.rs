@@ -52,6 +52,8 @@ impl AbnormalFollowupPlanProvider for PetServiceAbnormalFollowupPlanProvider {
                 message_body: draft.message_body,
                 rationale: draft.rationale,
                 recommended_actions: draft.recommended_actions,
+                planning_decision: draft.time_decision,
+                source_turn_id: context.source_turn_id,
             })
             .await?;
 

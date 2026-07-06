@@ -12,8 +12,9 @@ use maohuoban_ai_application::ai::conversation_history::{
 use maohuoban_ai_application::ai::ports::{AiSessionRepository, NoopSessionSummaryRepository};
 use maohuoban_ai_application::ai::turn_context::{ContextBudgetPolicy, TurnContextBuilder};
 use maohuoban_ai_domain::ai::{
-    AiChatSession, AiChatSessionStatus, AiCitation, AiConversationSurface, AiMessage,
-    AiMessageRole, AiMessageStatus, RecentConversationEntry,
+    AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus, AiChatSessionVisibility,
+    AiCitation, AiConversationSurface, AiMessage, AiMessageRole, AiMessageStatus,
+    RecentConversationEntry,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -390,6 +391,9 @@ impl AiSessionRepository for FakeSessionRepository {
             is_pinned: false,
             pet_display_snapshot: None,
             status: AiChatSessionStatus::Active,
+            session_visibility: AiChatSessionVisibility::Visible,
+            context_status: AiChatSessionContextStatus::Active,
+            activated_at: Some(chrono::DateTime::from_timestamp(1, 0).expect("ts")),
             created_at: chrono::DateTime::from_timestamp(1, 0).expect("ts"),
             updated_at: chrono::DateTime::from_timestamp(1, 0).expect("ts"),
         }))
@@ -401,6 +405,21 @@ impl AiSessionRepository for FakeSessionRepository {
         _abnormal_episode_id: Uuid,
     ) -> maohuoban_ai_domain::ai::AiResult<Option<AiChatSession>> {
         Ok(None)
+    }
+
+    async fn activate_background_session(
+        &self,
+        _session_id: Uuid,
+        _actor_user_id: Uuid,
+    ) -> maohuoban_ai_domain::ai::AiResult<()> {
+        Ok(())
+    }
+
+    async fn mark_abnormal_episode_context_deleted(
+        &self,
+        _abnormal_episode_id: Uuid,
+    ) -> maohuoban_ai_domain::ai::AiResult<()> {
+        Ok(())
     }
 
     async fn rename_session(

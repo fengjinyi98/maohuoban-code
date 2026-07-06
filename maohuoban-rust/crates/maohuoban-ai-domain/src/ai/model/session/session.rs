@@ -60,6 +60,29 @@ pub enum AiChatSessionStatus {
     Archived,
 }
 
+/// AiChatSessionVisibility AI 会话可见性
+/// 核心职责：
+/// - 区分用户可见聊天记录与后台追踪上下文
+/// - 避免用归档状态表达非聊天历史语义
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiChatSessionVisibility {
+    Visible,
+    Background,
+}
+
+/// AiChatSessionContextStatus AI 会话上下文状态
+/// 核心职责：
+/// - 表达异常等业务上下文相对聊天记录的独立生命周期
+/// - 保持聊天记录可见性和业务上下文关闭互不替代
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AiChatSessionContextStatus {
+    Active,
+    Deleted,
+    Closed,
+}
+
 /// AiChatSession AI 会话
 /// 核心职责：
 /// - 持久化会话、actor user、primary pet、surface、来源上下文、标题、置顶和宠物展示快照
@@ -83,6 +106,10 @@ pub struct AiChatSession {
     pub is_pinned: bool,
     pub pet_display_snapshot: Option<AiPetDisplaySnapshot>,
     pub status: AiChatSessionStatus,
+    pub session_visibility: AiChatSessionVisibility,
+    pub context_status: AiChatSessionContextStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub activated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

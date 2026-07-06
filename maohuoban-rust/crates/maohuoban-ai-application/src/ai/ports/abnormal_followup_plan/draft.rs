@@ -11,4 +11,5 @@ pub struct AbnormalFollowupPlanDraft {
     pub message_body: String,
     pub rationale: String,
     pub recommended_actions: Vec<String>,
+    pub time_decision: serde_json::Value,
 }

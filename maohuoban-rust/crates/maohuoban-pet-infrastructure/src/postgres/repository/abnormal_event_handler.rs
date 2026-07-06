@@ -1,7 +1,7 @@
 // AbnormalEventHandler PostgreSQL 异常事件处理
 // 核心职责：
-// - 当异常症状事件提交时，原子创建 abnormal_episode + attention_hint
-// - 使用事务保证 episode、hint 一致性写入
+// - 当异常症状事件提交时，原子创建 abnormal_episode
+// - 使用事务保证 episode 与主动追踪计划一致性写入
 // - 避免跨 crate 依赖（不引用 home-domain）
 
 use chrono::{DateTime, Duration, Utc};
@@ -20,7 +20,7 @@ impl PostgresPetRepository {
     /// handle_abnormal_symptom_event 原子创建异常 episode 和 attention hint
     /// 核心职责：
     /// - 写入 abnormal_episodes 表
-    /// - 写入 attention_hints 表（kind = open_abnormal_episode）
+    /// - 不写旧 open_abnormal_episode 轻提醒，站内提醒由 Agent 主动追踪 due 计划承担
     /// - 返回 episode_id 供调用方填充 event_payload
     pub(super) async fn handle_abnormal_symptom_event_command(
         &self,
@@ -62,37 +62,6 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        // 2. 写入 attention_hints — route_payload 使用 jsonb 绑定
-        let route_payload: serde_json::Value = serde_json::json!({
-            "episode_id": episode_id,
-            "event_id": event_id
-        });
-
-        sqlx::query(
-            r#"
-            INSERT INTO attention_hints (
-                id, pet_id, kind, title, subtitle, icon, tone, priority,
-                status, source_ref_type, source_ref_id,
-                route_kind, route_payload, created_by,
-                created_at, updated_at
-            )
-            VALUES (
-                $1, $2, 'open_abnormal_episode', '异常追踪', '点击查看异常详情',
-                'exclamationmark.circle', 'notice', 10,
-                'active', 'abnormal_episode', $3,
-                'abnormal_detail', $4, 'system',
-                now(), now()
-            )
-            "#,
-        )
-        .bind(Uuid::new_v4())
-        .bind(pet_id)
-        .bind(episode_id)
-        .bind(&route_payload)
-        .execute(&mut *tx)
-        .await
-        .map_err(to_infrastructure_error)?;
-
         tx.commit().await.map_err(to_infrastructure_error)?;
 
         Ok(episode_id)
@@ -100,7 +69,7 @@ impl PostgresPetRepository {
 
     /// create_abnormal_symptom_event_command 事务级异常事件创建
     /// 核心职责：
-    /// - 在同一个事务中写入 pet_events + abnormal_episodes + attention_hints
+    /// - 在同一个事务中写入 pet_events + abnormal_episodes + agent_proactive_followups
     /// - 自动将 episode_id 写入 event_payload
     /// - 返回包含 episode_id 的完整 PetEvent
     #[allow(clippy::too_many_lines)]
@@ -196,36 +165,6 @@ impl PostgresPetRepository {
         .await
         .map_err(to_infrastructure_error)?;
 
-        // 3. attention_hints
-        let route_payload = serde_json::json!({
-            "episode_id": episode_id,
-            "event_id": event_id
-        });
-        sqlx::query(
-            r#"
-            INSERT INTO attention_hints (
-                id, pet_id, kind, title, subtitle, icon, tone, priority,
-                status, source_ref_type, source_ref_id,
-                route_kind, route_payload, created_by,
-                created_at, updated_at
-            )
-            VALUES (
-                $1, $2, 'open_abnormal_episode', '异常追踪', '点击查看异常详情',
-                'exclamationmark.circle', 'notice', 10,
-                'active', 'abnormal_episode', $3,
-                'abnormal_detail', $4, 'system',
-                now(), now()
-            )
-            "#,
-        )
-        .bind(Uuid::new_v4())
-        .bind(input.pet_id)
-        .bind(episode_id)
-        .bind(&route_payload)
-        .execute(&mut *tx)
-        .await
-        .map_err(to_infrastructure_error)?;
-
         Self::insert_initial_agent_followup_plan(
             &mut tx,
             input.pet_id,
@@ -257,7 +196,7 @@ impl PostgresPetRepository {
         severity: &str,
     ) -> PetResult<Uuid> {
         let followup_id = Uuid::new_v4();
-        let due_at = occurred_at + initial_followup_delay(severity);
+        let due_at = occurred_at + initial_followup_fallback_delay(severity);
         let message_body = initial_followup_message(primary_symptom);
         let recommended_actions = serde_json::json!(["update_observation", "chat_with_agent"]);
 
@@ -601,11 +540,13 @@ impl PostgresPetRepository {
             r#"
             UPDATE agent_proactive_followups
             SET status = 'scheduled',
+                source_turn_id = COALESCE($9, source_turn_id),
                 due_at = $4,
                 message_title = $5,
                 message_body = $6,
                 rationale = $7,
                 recommended_actions = $8::jsonb,
+                planning_decision = $10::jsonb,
                 updated_at = now()
             WHERE id = $1
               AND pet_id = $2
@@ -622,6 +563,8 @@ impl PostgresPetRepository {
         .bind(&input.message_body)
         .bind(&input.rationale)
         .bind(&recommended_actions)
+        .bind(input.source_turn_id)
+        .bind(&input.planning_decision)
         .fetch_optional(&mut *tx)
         .await
         .map_err(to_infrastructure_error)?;
@@ -705,7 +648,7 @@ impl PostgresPetRepository {
     }
 }
 
-fn initial_followup_delay(severity: &str) -> Duration {
+fn initial_followup_fallback_delay(severity: &str) -> Duration {
     match severity {
         "severe" => Duration::hours(2),
         "obvious" => Duration::hours(6),

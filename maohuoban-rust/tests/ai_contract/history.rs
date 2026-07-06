@@ -101,7 +101,7 @@ async fn ai_chat_sessions_returns_user_sessions() {
     );
 }
 
-/// GET /api/v1/ai/chat-sessions 返回异常追踪会话上下文
+/// GET /api/v1/ai/chat-sessions 返回已激活的异常追踪会话上下文
 #[tokio::test]
 async fn ai_chat_sessions_returns_abnormal_episode_context() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
@@ -117,10 +117,12 @@ async fn ai_chat_sessions_returns_abnormal_episode_context() {
         r"
         INSERT INTO ai_chat_sessions
             (id, actor_user_id, surface, source_hint_id, chat_context_kind,
-             abnormal_episode_id, agent_followup_id, title, status, created_at, updated_at)
+             abnormal_episode_id, agent_followup_id, title, status,
+             session_visibility, context_status, activated_at, created_at, updated_at)
         VALUES
             ($1, $2, 'home_private', $3, 'abnormal_episode_followup',
-             $4, $5, '异常追踪', 'active', now(), now())
+             $4, $5, '异常追踪', 'active',
+             'visible', 'active', now(), now(), now())
         ",
     )
     .bind(session_id)
@@ -137,9 +139,61 @@ async fn ai_chat_sessions_returns_abnormal_episode_context() {
 
     assert_eq!(first["id"], session_id.to_string());
     assert_eq!(first["chat_context_kind"], "abnormal_episode_followup");
+    assert_eq!(first["context_status"], "active");
     assert_eq!(first["abnormal_episode_id"], episode_id.to_string());
     assert_eq!(first["source_hint_id"], source_hint_id.to_string());
     assert_eq!(first["agent_followup_id"], agent_followup_id.to_string());
+}
+
+/// GET /api/v1/ai/chat-sessions 不返回后台异常追踪上下文
+#[tokio::test]
+async fn ai_chat_sessions_hides_background_abnormal_tracking_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139121", "ios-ai-history-bg").await;
+    let actor_user_id = current_user_id(app.pool(), "13800139121").await;
+    let background_session_id = uuid::Uuid::new_v4();
+    let visible_session_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, surface, chat_context_kind, abnormal_episode_id,
+             agent_followup_id, title, status, session_visibility, context_status,
+             created_at, updated_at)
+        VALUES
+            ($1, $2, 'home_private', 'abnormal_episode_followup', $3,
+             $4, '后台异常追踪', 'active', 'background', 'active',
+             now(), now()),
+            ($5, $2, 'home_private', NULL, NULL,
+             NULL, '真实聊天', 'active', 'visible', 'active',
+             now(), now())
+        ",
+    )
+    .bind(background_session_id)
+    .bind(actor_user_id)
+    .bind(uuid::Uuid::new_v4())
+    .bind(uuid::Uuid::new_v4())
+    .bind(visible_session_id)
+    .execute(app.pool())
+    .await
+    .expect("insert session visibility fixtures");
+
+    let body = list_chat_sessions(&app, &access_token).await;
+    let sessions = body["data"].as_array().expect("sessions array");
+
+    assert!(
+        sessions
+            .iter()
+            .all(|session| session["id"] != background_session_id.to_string()),
+        "background tracking context must stay hidden from chat history: {sessions:?}"
+    );
+    assert!(
+        sessions
+            .iter()
+            .any(|session| session["id"] == visible_session_id.to_string()),
+        "visible chat session should still appear in history"
+    );
 }
 
 /// 历史列表和消息详情写入后端诊断计数

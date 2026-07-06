@@ -163,7 +163,7 @@ fn workflow_abnormal_episode_proactive_followup_planning() -> SkillDefinition {
         title: "异常 episode 主动追踪规划".to_owned(),
         match_conditions: conditions,
         instruction_block:
-            "异常主动追踪 planning 必须先读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再输出 due_at、追问文案、规划理由和推荐动作；skill 只产出计划草稿，保存计划必须交给受控 tool 和 application service 校验。"
+            "异常主动追踪 planning 必须先读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再由模型自主判断并输出 due_at、追问文案、规划理由和推荐动作；同时必须输出 time_decision，包含 now_at、episode_started_at、elapsed_minutes、selected_due_at、delay_minutes、urgency_window、reason、time_tool_used，用于审计模型为什么选择该追问时间。弱线索只能作为待确认询问方向，不能写成已确认病因或已发生事实。skill 只产出计划草稿，保存计划必须交给受控 tool 和 application service 校验。"
                 .to_owned(),
         toolset_hints: SkillToolsetHints {
             allowed_toolsets: Vec::new(),

@@ -8,8 +8,9 @@ use maohuoban_ai_application::ai::ports::{
     AiRequestGateLog, ChatTurnTransactionPort, IngressTxInput,
 };
 use maohuoban_ai_domain::ai::{
-    AgentTurnId, AiChatSession, AiChatSessionStatus, AiConversationSurface, AiMessage,
-    AiMessageRole, AiMessageStatus, AiSessionTurn, AiSessionTurnStatus,
+    AgentTurnId, AiChatSession, AiChatSessionContextStatus, AiChatSessionStatus,
+    AiChatSessionVisibility, AiConversationSurface, AiMessage, AiMessageRole, AiMessageStatus,
+    AiSessionTurn, AiSessionTurnStatus,
 };
 use maohuoban_ai_infrastructure::repository::PostgresChatTurnTransaction;
 use uuid::Uuid;
@@ -107,6 +108,9 @@ fn build_ingress_fixture() -> IngressFixture {
             is_pinned: false,
             pet_display_snapshot: None,
             status: AiChatSessionStatus::Active,
+            session_visibility: AiChatSessionVisibility::Visible,
+            context_status: AiChatSessionContextStatus::Active,
+            activated_at: Some(now),
             created_at: now,
             updated_at: now,
         },

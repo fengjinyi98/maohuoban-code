@@ -2,19 +2,14 @@ use maohuoban_ai_domain::ai::{AgentEvent, AgentTurnId, AgentTurnStatus, AiStream
 use uuid::Uuid;
 
 use crate::runtime_stream_projector::AgentEventSseProjector;
-use crate::support::pet_profile_visible_output_plan;
+use crate::visible_output_plan::VisibleOutputPlan;
 
 #[test]
 fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_completion() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(
-        message_id,
-        None,
-        "梅录",
-        true,
-        pet_profile_visible_output_plan(),
-    );
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", true, VisibleOutputPlan::empty());
 
     let delta_events = projector.project(AgentEvent::MessageDelta {
         turn_id,
@@ -56,13 +51,8 @@ fn projector_reports_unrepaired_output_guard_failure_without_fallback_text_compl
 fn projector_reports_failed_turn_without_empty_answer_completion() {
     let message_id = Uuid::new_v4();
     let turn_id = AgentTurnId::new();
-    let mut projector = AgentEventSseProjector::new(
-        message_id,
-        None,
-        "梅录",
-        true,
-        pet_profile_visible_output_plan(),
-    );
+    let mut projector =
+        AgentEventSseProjector::new(message_id, None, "梅录", true, VisibleOutputPlan::empty());
 
     let events = projector.project(AgentEvent::TurnFinished {
         turn_id,

@@ -140,6 +140,8 @@ pub struct SaveAgentFollowupPlanInput {
     pub message_body: String,
     pub rationale: String,
     pub recommended_actions: Vec<String>,
+    pub planning_decision: serde_json::Value,
+    pub source_turn_id: Option<Uuid>,
 }
 
 /// SavedAgentFollowupPlan 已保存 Agent 主动追踪计划

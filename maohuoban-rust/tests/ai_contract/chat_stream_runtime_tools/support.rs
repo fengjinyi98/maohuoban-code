@@ -124,7 +124,7 @@ pub async fn spawn_runtime_tool_test_app(
 
 /// `assert_runtime_tool_stream_contract` 断言 Runtime 工具 SSE 合同
 /// 核心职责：
-/// - 验证执行轨迹、骨架卡片和最终回答事件
+/// - 验证执行轨迹和最终回答事件
 /// - 验证内部工具名和调用 ID 不暴露到 SSE
 pub fn assert_runtime_tool_stream_contract(text: &str) {
     assert!(
@@ -134,14 +134,14 @@ pub fn assert_runtime_tool_stream_contract(text: &str) {
     );
     let content_block_deltas = sse_event_data_all(text, "content_block_delta");
     assert!(
-        content_block_deltas.iter().any(|event| {
-            event["content_blocks"].as_array().is_some_and(|blocks| {
-                blocks.len() >= 2
-                    && blocks[0]["type"] == json!("section_heading")
-                    && blocks[1]["type"] == json!("pet_profile_card_skeleton")
+        content_block_deltas.iter().all(|event| {
+            event["content_blocks"].as_array().is_none_or(|blocks| {
+                blocks
+                    .iter()
+                    .all(|block| block["type"] != json!("pet_profile_card_skeleton"))
             })
         }),
-        "identity tool should emit pet profile skeleton content blocks, got: {content_block_deltas:?}"
+        "home private identity tool should not force pet profile skeleton blocks, got: {content_block_deltas:?}"
     );
     let completed_events = sse_event_data_all(text, "execution_trace_completed");
     assert!(
@@ -173,33 +173,10 @@ pub fn assert_runtime_tool_stream_contract(text: &str) {
     );
 }
 
-/// `assert_runtime_tool_profile_blocks` 断言宠物档案 UI blocks
-/// 核心职责：
-/// - 验证 `answer_completed` 携带结构化 `content_blocks`
-/// - 验证宠物身份工具结果投影为宠物档案卡片
-pub fn assert_runtime_tool_profile_blocks(text: &str) {
-    let completed_events = sse_event_data_all(text, "answer_completed");
-    assert!(
-        completed_events.iter().any(|event| {
-            event["content_blocks"]
-                .as_array()
-                .is_some_and(|blocks| blocks.len() >= 2)
-        }),
-        "identity tool followup should include structured content blocks, got: {completed_events:?}"
-    );
-    assert!(
-        completed_events.iter().any(|event| {
-            event["content_blocks"][0]["type"] == json!("section_heading")
-                && event["content_blocks"][1]["type"] == json!("pet_profile_card")
-        }),
-        "identity tool followup should project pet profile UI blocks, got: {completed_events:?}"
-    );
-}
-
 /// `assert_runtime_tool_diagnostics` 断言 Runtime 工具诊断事件
 /// 核心职责：
 /// - 验证 Tool Gateway 完成事件
-/// - 验证身份工具成功后进入资料卡渲染计划
+/// - 验证首页私域身份工具不强制进入资料卡渲染计划
 pub fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::DiagnosticEvent]) {
     assert_tool_gateway_diagnostic(events, "load_pet_identity_context", "success", None);
     assert!(events.iter().any(|event| {
@@ -214,16 +191,13 @@ pub fn assert_runtime_tool_diagnostics(events: &[maohuoban_diagnostics::Diagnost
         event.message == "ai.chat.render_plan.selected"
             && event.metadata["allowed_block_kinds"]
                 .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+                .is_some_and(Vec::is_empty)
     }));
     assert!(events.iter().any(|event| {
         event.message == "ai.chat.content_blocks.emitted"
-            && event.metadata["block_count"]
-                .as_u64()
-                .is_some_and(|count| count >= 2)
             && event.metadata["block_kinds"]
                 .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+                .is_none_or(|kinds| kinds.iter().all(|kind| kind != "pet_profile_card"))
     }));
 }
 

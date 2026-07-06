@@ -267,7 +267,7 @@ async fn ai_chat_non_stream_diagnostics_records_success_path_boundaries() {
     }));
 }
 
-/// 首页私域身份工具成功后必须记录 render plan 和 content blocks 观测
+/// 首页私域身份工具成功后必须记录空 render plan，资料卡渲染由显式可见计划决定
 #[tokio::test]
 async fn ai_chat_stream_diagnostics_records_render_plan_and_content_blocks() {
     let _guard = diagnostics_test_lock().lock_owned().await;
@@ -308,16 +308,13 @@ async fn ai_chat_stream_diagnostics_records_render_plan_and_content_blocks() {
             && event.metadata["surface"] == json!("home_private")
             && event.metadata["allowed_block_kinds"]
                 .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+                .is_some_and(Vec::is_empty)
     }));
-    assert!(events.iter().any(|event| {
-        event.message == "ai.chat.content_blocks.emitted"
-            && event.metadata["block_count"]
-                .as_u64()
-                .is_some_and(|count| count >= 2)
-            && event.metadata["block_kinds"]
+    assert!(events.iter().all(|event| {
+        event.message != "ai.chat.content_blocks.emitted"
+            || event.metadata["block_kinds"]
                 .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "pet_profile_card"))
+                .is_none_or(|kinds| kinds.iter().all(|kind| kind != "pet_profile_card"))
     }));
 }
 

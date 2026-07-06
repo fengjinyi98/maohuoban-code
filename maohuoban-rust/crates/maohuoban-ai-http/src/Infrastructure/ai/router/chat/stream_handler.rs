@@ -249,6 +249,7 @@ fn observation_write_context(
         abnormal_episode_id: context.effective_abnormal_episode_id,
         source_hint_id: context.effective_source_hint_id,
         agent_followup_id: context.effective_agent_followup_id,
+        source_turn_id: Some(context.turn_id.as_uuid()),
     }
 }
 

@@ -25,7 +25,7 @@ pub struct AiRequestGateLog {
 /// AiToolAccessLog AI 工具访问审计日志
 /// 核心职责：
 /// - 记录 Agent Gateway 工具调用和授权结果
-/// - 只保存引用 ID 和风险标签，避免写入完整私有 payload
+/// - 保存引用 ID、受控工具入参和风险标签，支撑后台 planning 审计
 pub struct AiToolAccessLog {
     pub session_id: Option<Uuid>,
     pub actor_user_id: Uuid,
@@ -35,6 +35,8 @@ pub struct AiToolAccessLog {
     pub allowed: bool,
     pub denied_reason: Option<String>,
     pub returned_ref_ids: Vec<String>,
+    pub request_payload: Option<serde_json::Value>,
+    pub response_payload: Option<serde_json::Value>,
     pub duration_ms: i64,
     pub risk_signal: Option<String>,
 }
@@ -91,6 +93,25 @@ pub trait AiSessionRepository: Send + Sync {
         actor_user_id: Uuid,
         abnormal_episode_id: Uuid,
     ) -> AiResult<Option<AiChatSession>>;
+
+    /// activate_background_session 激活后台追踪上下文为用户可见聊天
+    /// 核心职责：
+    /// - 用户从站内轻提醒进入聊天时复用同一个 session
+    /// - 只更新聊天可见性，不改变业务上下文归属
+    async fn activate_background_session(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+    ) -> AiResult<()>;
+
+    /// mark_abnormal_episode_context_deleted 标记异常上下文已删除
+    /// 核心职责：
+    /// - 异常事件删除时关闭对应 session 的业务上下文
+    /// - 保留已激活用户聊天记录本身的生命周期
+    async fn mark_abnormal_episode_context_deleted(
+        &self,
+        abnormal_episode_id: Uuid,
+    ) -> AiResult<()>;
 
     /// rename_session 重命名当前用户会话
     async fn rename_session(

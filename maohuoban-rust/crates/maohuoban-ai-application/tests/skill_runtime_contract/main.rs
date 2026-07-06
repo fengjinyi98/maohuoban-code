@@ -317,6 +317,20 @@ fn builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill() 
         bundle.merged_instruction
     );
     assert!(
+        bundle.merged_instruction.contains("time_decision")
+            && bundle.merged_instruction.contains("urgency_window")
+            && bundle.merged_instruction.contains("time_tool_used"),
+        "planning skill should require auditable model-owned time reasoning: {}",
+        bundle.merged_instruction
+    );
+    assert!(
+        bundle
+            .merged_instruction
+            .contains("弱线索只能作为待确认询问方向"),
+        "planning skill should keep weak hints out of confirmed rationale: {}",
+        bundle.merged_instruction
+    );
+    assert!(
         bundle
             .toolset_policy
             .preferred_toolsets

@@ -14,6 +14,7 @@ pub struct ObservationWriteContext {
     pub abnormal_episode_id: Option<Uuid>,
     pub source_hint_id: Option<Uuid>,
     pub agent_followup_id: Option<Uuid>,
+    pub source_turn_id: Option<Uuid>,
 }
 
 impl ObservationWriteContext {

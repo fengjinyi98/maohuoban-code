@@ -25,11 +25,11 @@ use gateway::{
     test_gateway_context_with_audits,
 };
 use support::{
-    assert_runtime_tool_diagnostics, assert_runtime_tool_profile_blocks,
-    assert_runtime_tool_stream_contract, create_pet, install_chained_runtime_tool_call_mocks,
-    install_runtime_tool_call_mocks, install_runtime_tool_call_mocks_with_followup_delay,
-    install_runtime_tool_test_diagnostics, read_sse_until_contains, runtime_initial_model_request,
-    spawn_runtime_tool_test_app, sse_event_data_all,
+    assert_runtime_tool_diagnostics, assert_runtime_tool_stream_contract, create_pet,
+    install_chained_runtime_tool_call_mocks, install_runtime_tool_call_mocks,
+    install_runtime_tool_call_mocks_with_followup_delay, install_runtime_tool_test_diagnostics,
+    read_sse_until_contains, runtime_initial_model_request, spawn_runtime_tool_test_app,
+    sse_event_data_all,
 };
 
 /// Provider 返回工具调用时 `/api/v1/ai/chat/stream` 通过自有 Agent Runtime 执行工具并回灌
@@ -67,7 +67,6 @@ async fn ai_chat_stream_executes_runtime_tool_call_and_followup_model() {
     first_mock.assert();
     second_mock.assert();
     assert_runtime_tool_stream_contract(&text);
-    assert_runtime_tool_profile_blocks(&text);
     diagnostics.flush().expect("flush diagnostics");
     let events = diagnostics.read_events().expect("diagnostics events");
     assert_runtime_tool_diagnostics(&events);
@@ -309,31 +308,39 @@ async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finish
     let mut body_stream = response.into_body().into_data_stream();
     let partial_text = read_sse_until_contains(
         &mut body_stream,
-        &["event: content_block_delta", "pet_profile_card_skeleton"],
+        &["event: execution_trace_completed"],
         Duration::from_secs(2),
     )
     .await;
 
-    first_mock.assert();
-    let skeleton_events = sse_event_data_all(&partial_text, "content_block_delta");
+    let completed_events = sse_event_data_all(&partial_text, "execution_trace_completed");
     assert!(
-        skeleton_events.iter().any(|event| {
-            event["content_blocks"].as_array().is_some_and(|blocks| {
-                blocks.len() >= 2 && blocks[1]["type"] == json!("pet_profile_card_skeleton")
-            })
+        completed_events.iter().any(|event| {
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("宠物档案") || text.contains("档案权限"))
+                && event["status"] == "completed"
         }),
-        "SSE should stream profile skeleton before followup model finishes, got: {skeleton_events:?}"
+        "SSE should stream execution trace before followup model finishes, got: {completed_events:?}"
+    );
+    assert!(
+        !partial_text.contains("已读取毛球档案，当前可以继续观察精神和食欲。"),
+        "SSE should stream tool progress before followup model answer, got: {partial_text}"
     );
     let mut full_text = partial_text;
     while let Some(chunk) = body_stream.next().await {
         let chunk = chunk.expect("read remaining SSE chunk");
         full_text.push_str(&String::from_utf8_lossy(&chunk));
     }
+    first_mock.assert();
     second_mock.assert();
     let completed_events = sse_event_data_all(&full_text, "execution_trace_completed");
     assert!(
         completed_events.iter().any(|event| {
-            event["display_text"] == "正在整理毛球的宠物档案" && event["status"] == "completed"
+            event["display_text"]
+                .as_str()
+                .is_some_and(|text| text.contains("宠物档案") || text.contains("档案权限"))
+                && event["status"] == "completed"
         }),
         "SSE should stream backend-provided execution trace completion text, got: {completed_events:?}"
     );

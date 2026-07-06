@@ -167,6 +167,38 @@ async fn abnormal_creation_creates_initial_agent_followup_plan() {
 }
 
 #[tokio::test]
+async fn abnormal_creation_initial_followup_due_is_planner_fallback() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139199").await;
+
+    let (_pet_id, _event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "糯米").await;
+
+    let fallback_due_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        r"
+        SELECT due_at
+        FROM agent_proactive_followups
+        WHERE episode_id = $1::uuid
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(episode_id.parse::<uuid::Uuid>().expect("episode uuid"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load initial fallback due_at");
+
+    let expected_fallback_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("expected fallback due_at")
+        .with_timezone(&chrono::Utc);
+    assert_eq!(
+        fallback_due_at, expected_fallback_due_at,
+        "initial due_at is only the planner fallback touchpoint before Agent dynamic planning"
+    );
+}
+
+#[tokio::test]
 async fn due_agent_followup_creates_actionable_abnormal_followup_hint() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -762,6 +794,126 @@ async fn deleting_parent_abnormal_event_clears_agent_followup_projection() {
             .await
             .expect("load followup status");
     assert_eq!(followup_status, "cancelled");
+}
+
+#[tokio::test]
+async fn deleted_abnormal_episode_closes_background_tracking_context() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139146").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "椰椰").await;
+    let session_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, primary_pet_id, surface, chat_context_kind,
+             abnormal_episode_id, title, status, session_visibility, context_status,
+             created_at, updated_at)
+        VALUES
+            ($1, $2::uuid, $3::uuid, 'home_private', 'abnormal_episode_followup',
+             $4::uuid, '椰椰的异常追踪', 'active', 'background', 'active',
+             now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(&user_id)
+    .bind(&pet_id)
+    .bind(&episode_id)
+    .execute(app.pool())
+    .await
+    .expect("insert background abnormal tracking session");
+
+    let delete_response = app
+        .router()
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete parent abnormal event");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    let session: (String, String, String) = sqlx::query_as(
+        r"
+        SELECT status, session_visibility, context_status
+        FROM ai_chat_sessions
+        WHERE id = $1
+        ",
+    )
+    .bind(session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load background tracking session after abnormal delete");
+
+    assert_eq!(session.0, "active");
+    assert_eq!(session.1, "background");
+    assert_eq!(session.2, "deleted");
+}
+
+#[tokio::test]
+async fn deleted_abnormal_episode_keeps_activated_chat_session_visible() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139147").await;
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "栗子").await;
+    let session_id = uuid::Uuid::new_v4();
+
+    sqlx::query(
+        r"
+        INSERT INTO ai_chat_sessions
+            (id, actor_user_id, primary_pet_id, surface, chat_context_kind,
+             abnormal_episode_id, title, status, session_visibility, context_status,
+             activated_at, created_at, updated_at)
+        VALUES
+            ($1, $2::uuid, $3::uuid, 'home_private', 'abnormal_episode_followup',
+             $4::uuid, '栗子的异常追踪', 'active', 'visible', 'active',
+             now(), now(), now())
+        ",
+    )
+    .bind(session_id)
+    .bind(&user_id)
+    .bind(&pet_id)
+    .bind(&episode_id)
+    .execute(app.pool())
+    .await
+    .expect("insert visible abnormal tracking chat session");
+
+    let delete_response = app
+        .router()
+        .oneshot(empty_request(
+            "DELETE",
+            &format!("/api/v1/pet-events/{event_id}"),
+            Some(&user_id),
+        ))
+        .await
+        .expect("delete parent abnormal event");
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    let session: (
+        String,
+        String,
+        String,
+        Option<chrono::DateTime<chrono::Utc>>,
+    ) = sqlx::query_as(
+        r"
+        SELECT status, session_visibility, context_status, activated_at
+        FROM ai_chat_sessions
+        WHERE id = $1
+        ",
+    )
+    .bind(session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load visible chat session after abnormal delete");
+
+    assert_eq!(session.0, "active");
+    assert_eq!(session.1, "visible");
+    assert_eq!(session.2, "deleted");
+    assert!(session.3.is_some());
 }
 
 #[tokio::test]

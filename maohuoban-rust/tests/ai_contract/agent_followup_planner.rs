@@ -134,9 +134,11 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
         String,
         String,
         serde_json::Value,
+        serde_json::Value,
+        Option<Uuid>,
     ) = sqlx::query_as(
         r"
-        SELECT status, due_at, message_title, message_body, rationale, recommended_actions
+        SELECT status, due_at, message_title, message_body, rationale, recommended_actions, planning_decision, source_turn_id
         FROM agent_proactive_followups
         WHERE id = $1
         ",
@@ -158,10 +160,29 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
         saved_plan.3,
         "团团早上有水样便，晚点请确认便便、精神和食欲是否好转。"
     );
-    assert_eq!(saved_plan.4, "明显腹泻需要在数小时后复查关键健康事实。");
+    assert_eq!(saved_plan.4, "明显腹泻需尽快首次追踪，但模型选择晚些复查。");
     assert_eq!(
         saved_plan.5,
         json!(["update_observation", "chat_with_agent"])
+    );
+    assert_eq!(saved_plan.6["urgency_window"], "short_delay");
+    let source_turn_id = saved_plan
+        .7
+        .expect("dynamic plan must keep source runtime turn id for audit");
+    let persisted_turn_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_session_turns
+        WHERE id = $1
+        ",
+    )
+    .bind(source_turn_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count persisted source turn");
+    assert_eq!(
+        persisted_turn_count, 1,
+        "source_turn_id must point to the planner runtime turn"
     );
 
     let episode_projection: (Option<chrono::DateTime<chrono::Utc>>, Option<Uuid>) = sqlx::query_as(
@@ -178,6 +199,36 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
 
     assert_eq!(episode_projection.0, Some(saved_plan.1));
     assert_eq!(episode_projection.1, Some(followup_id));
+
+    let save_tool_audit: (serde_json::Value, serde_json::Value, Option<String>) = sqlx::query_as(
+        r"
+        SELECT request_payload, response_payload, risk_signal
+        FROM ai_tool_access_logs
+        WHERE session_id = (
+            SELECT session_id
+            FROM ai_session_turns
+            WHERE id = $1
+        )
+          AND tool_name = 'save_abnormal_episode_followup_plan'
+        ORDER BY created_at DESC
+        LIMIT 1
+        ",
+    )
+    .bind(source_turn_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load save plan tool audit payloads");
+    assert_eq!(save_tool_audit.0["due_at"], planned_due_at);
+    assert_eq!(
+        save_tool_audit.0["time_decision"]["urgency_window"],
+        "short_delay"
+    );
+    assert_eq!(save_tool_audit.0["time_decision"]["time_tool_used"], true);
+    assert_eq!(save_tool_audit.1["fact_count"], 1);
+    assert!(
+        save_tool_audit.2.is_none(),
+        "planning audit must preserve model-submitted payloads without code-generated timing risk labels"
+    );
 }
 
 async fn create_abnormal_event_and_load_plan(
@@ -273,7 +324,9 @@ fn save_plan_sse(planned_due_at: &str) -> String {
     "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
         .to_owned()
         + planned_due_at
-        + "\\\",\\\"message_title\\\":\\\"毛球想晚点确认\\\",\\\"message_body\\\":\\\"团团早上有水样便，晚点请确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"明显腹泻需要在数小时后复查关键健康事实。\\\",\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
+        + "\\\",\\\"message_title\\\":\\\"毛球想晚点确认\\\",\\\"message_body\\\":\\\"团团早上有水样便，晚点请确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"明显腹泻需尽快首次追踪，但模型选择晚些复查。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-05T00:20:00Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"elapsed_minutes\\\":10,\\\"selected_due_at\\\":\\\""
+        + planned_due_at
+        + "\\\",\\\"delay_minutes\\\":500,\\\"urgency_window\\\":\\\"short_delay\\\",\\\"reason\\\":\\\"明显腹泻需要短延迟复查\\\",\\\"time_tool_used\\\":true},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
            data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":4,\"total_tokens\":16}}\n\n\
            data: [DONE]\n\n"
 }

@@ -12,9 +12,9 @@ use maohuoban_pet_application::pet::{
 };
 use uuid::Uuid;
 
-/// PetServiceAbnormalEpisodeFactProvider AI 异常 episode 事实适配器
+/// `PetServiceAbnormalEpisodeFactProvider` AI 异常 episode 事实适配器
 /// 核心职责：
-/// - 通过 PetService 读取授权异常 episode 追踪事实
+/// - 通过 `PetService` 读取授权异常 episode 追踪事实
 /// - 将父异常、追加观察、恢复和附件存在性映射为 AI 强事实
 #[derive(Clone)]
 pub(crate) struct PetServiceAbnormalEpisodeFactProvider {
@@ -50,7 +50,7 @@ impl PetAbnormalEpisodeFactProvider for PetServiceAbnormalEpisodeFactProvider {
     }
 }
 
-/// build_abnormal_episode_fact_package 构建异常 episode 事实包
+/// `build_abnormal_episode_fact_package` 构建异常 episode 事实包
 /// 核心职责：
 /// - 只输出异常 episode 相关事实
 /// - 保留 episode 与 pet event 引用供回答引用和审计使用
@@ -94,7 +94,7 @@ fn build_abnormal_episode_fact_package(
     builder.build()
 }
 
-/// add_status_fact 添加异常 episode 状态事实
+/// `add_status_fact` 添加异常 episode 状态事实
 /// 核心职责：
 /// - 暴露 episode 状态、症状、严重程度和恢复时间
 fn add_status_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisodeFacts) {
@@ -116,7 +116,7 @@ fn add_status_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisod
     });
 }
 
-/// add_initial_event_fact 添加父异常记录事实
+/// `add_initial_event_fact` 添加父异常记录事实
 /// 核心职责：
 /// - 暴露父异常标题、摘要、发生时间和附件数量
 fn add_initial_event_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisodeFacts) {
@@ -129,7 +129,7 @@ fn add_initial_event_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnorma
     });
 }
 
-/// add_timeline_facts 添加进展时间线事实
+/// `add_timeline_facts` 添加进展时间线事实
 /// 核心职责：
 /// - 暴露同 episode 的父事件、追加观察、恢复和就诊关联序列
 fn add_timeline_facts(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisodeFacts) {
@@ -144,7 +144,7 @@ fn add_timeline_facts(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpi
     }
 }
 
-/// add_attachment_fact 添加附件存在性事实
+/// `add_attachment_fact` 添加附件存在性事实
 /// 核心职责：
 /// - 统计 episode 内父异常和追加观察是否带照片附件
 fn add_attachment_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisodeFacts) {
@@ -161,15 +161,14 @@ fn add_attachment_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEp
     });
 }
 
-/// add_followup_gap_fact 添加追踪间隔事实
+/// `add_followup_gap_fact` 添加追踪间隔事实
 /// 核心职责：
 /// - 暴露最近一次进展时间，供 Agent 判断是否需要继续追踪
 fn add_followup_gap_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormalEpisodeFacts) {
     let latest_time = facts
         .timeline_events
         .last()
-        .map(|event| event.occurred_at)
-        .unwrap_or(facts.started_at);
+        .map_or(facts.started_at, |event| event.occurred_at);
     builder.add_strong_fact(AiFactEntry {
         key: "health.abnormal_episode.followup_gap".to_owned(),
         value: format!("latest_observed_at={latest_time}"),
@@ -178,7 +177,7 @@ fn add_followup_gap_fact(builder: &mut AiFactPackageBuilder, facts: &PetAbnormal
     });
 }
 
-/// add_event_citation 添加 pet event 引用
+/// `add_event_citation` 添加 pet event 引用
 /// 核心职责：
 /// - 为异常事件事实提供可追溯引用
 fn add_event_citation(builder: &mut AiFactPackageBuilder, event: &PetAbnormalEpisodeEventFact) {
@@ -193,7 +192,7 @@ fn add_event_citation(builder: &mut AiFactPackageBuilder, event: &PetAbnormalEpi
     });
 }
 
-/// event_fact_value 格式化异常事件事实
+/// `event_fact_value` 格式化异常事件事实
 /// 核心职责：
 /// - 将单个异常事件转成稳定文本事实
 fn event_fact_value(event: &PetAbnormalEpisodeEventFact) -> String {

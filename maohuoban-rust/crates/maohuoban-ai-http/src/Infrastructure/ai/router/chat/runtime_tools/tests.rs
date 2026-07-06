@@ -91,6 +91,21 @@ mod tests {
             Ok(None)
         }
 
+        async fn activate_background_session(
+            &self,
+            _session_id: Uuid,
+            _actor_user_id: Uuid,
+        ) -> AiResult<()> {
+            Ok(())
+        }
+
+        async fn mark_abnormal_episode_context_deleted(
+            &self,
+            _abnormal_episode_id: Uuid,
+        ) -> AiResult<()> {
+            Ok(())
+        }
+
         async fn rename_session(
             &self,
             _session_id: Uuid,
@@ -217,9 +232,9 @@ mod tests {
 
     #[derive(Default)]
     struct CapturedAbnormalEpisodeCall {
-        actor_user_id: Option<Uuid>,
-        target_pet_id: Option<Uuid>,
-        episode_id: Option<Uuid>,
+        actor_user: Option<Uuid>,
+        target_pet: Option<Uuid>,
+        episode: Option<Uuid>,
     }
 
     #[derive(Clone)]
@@ -309,9 +324,9 @@ mod tests {
             episode_id: Option<Uuid>,
         ) -> AiResult<AiFactPackage> {
             let mut captured = self.captured.lock().expect("capture abnormal call");
-            captured.actor_user_id = Some(actor_user_id);
-            captured.target_pet_id = Some(target_pet.pet_id);
-            captured.episode_id = episode_id;
+            captured.actor_user = Some(actor_user_id);
+            captured.target_pet = Some(target_pet.pet_id);
+            captured.episode = episode_id;
             Ok(fact_package_for(target_pet))
         }
     }
@@ -511,9 +526,9 @@ mod tests {
 
         assert!(result.is_success());
         let captured = captured.lock().expect("captured abnormal call");
-        assert_eq!(captured.actor_user_id, Some(actor_user_id));
-        assert_eq!(captured.target_pet_id, Some(tool.target_pet.pet_id));
-        assert_eq!(captured.episode_id, Some(episode_id));
+        assert_eq!(captured.actor_user, Some(actor_user_id));
+        assert_eq!(captured.target_pet, Some(tool.target_pet.pet_id));
+        assert_eq!(captured.episode, Some(episode_id));
     }
 
     #[test]
