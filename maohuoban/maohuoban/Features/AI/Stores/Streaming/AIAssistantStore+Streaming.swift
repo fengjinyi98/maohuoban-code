@@ -78,6 +78,45 @@ extension AIAssistantStore {
         }
     }
 
+    func startConfirmationTaskApprovalStream(taskID: String) {
+        let assistantReplyStartIndex = messages.count
+        let placeholder = AIAssistantMessage(role: .assistant, text: "", createdAt: Date(), isStreaming: true)
+        messages.append(placeholder)
+        pendingReferenceChips = []
+        pendingReferences = []
+        beginStreaming(messageID: placeholder.id)
+
+        streamingTask?.cancel()
+        streamingTask = Task { [weak self] in
+            guard let self else { return }
+            let completionSequenceBeforeStream = self.assistantReplyCompletionSequence
+            var didReceiveAssistantReply = false
+            let stream = self.repository.openConfirmationTaskApprovalStream(
+                taskID: taskID,
+                surface: "home_private"
+            )
+            do {
+                for try await event in stream {
+                    if Task.isCancelled { return }
+                    self.handleStreamEvent(event)
+                    if self.streamEventCompletesAssistantReply(event) {
+                        didReceiveAssistantReply = true
+                    }
+                }
+                if Task.isCancelled { return }
+                let didCompleteAssistantReply = didReceiveAssistantReply
+                    || self.assistantReplyCompletionSequence > completionSequenceBeforeStream
+                self.finishStreamIfAssistantReplyMissing(
+                    after: assistantReplyStartIndex,
+                    placeholderID: placeholder.id,
+                    didReceiveAssistantReply: didCompleteAssistantReply
+                )
+            } catch {
+                self.handleStreamError(error)
+            }
+        }
+    }
+
     func handleStreamEvent(_ event: AIStreamEventDTO) {
         Task {
             await AIAssistantDiagnostics.recordStreamEventConsumed(

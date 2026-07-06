@@ -309,8 +309,10 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains("prepare_pet_observation_write")
+            .body_contains("毛球追问后我反馈")
             .body_contains("便便仍稀，精神一般")
             .matches(request_without_tool_result)
+            .matches(|req| !request_body(req).contains("后端已完成确认写入"))
             .matches(|req| !request_body(req).contains("确认写入这次异常更新"));
         then.status(200)
             .header("content-type", "text/event-stream")
@@ -389,32 +391,15 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
     assert_eq!(prepared_task.2.as_deref(), Some("agent_proactive_followup"));
     assert_eq!(prepared_task.3, Some(agent_followup_id));
 
-    let commit_tool_mock = server.mock(|when, then| {
-        when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions")
-            .header("authorization", "Bearer contract-api-key")
-            .body_contains("\"stream\":true")
-            .body_contains("commit_pet_observation_write")
-            .body_contains(confirmation_task_id.to_string())
-            .body_contains("确认写入这次异常更新")
-            .matches(request_without_tool_result);
-        then.status(200)
-            .header("content-type", "text/event-stream")
-            .body(
-                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_commit_abnormal\",\"function\":{\"name\":\"commit_pet_observation_write\",\"arguments\":\"{\\\"confirmation_task_id\\\":\\\""
-                    .to_owned()
-                    + &confirmation_task_id.to_string()
-                    + "\\\"}\"}}]}}]}\n\n\
-                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
-                 data: [DONE]\n\n",
-            );
-    });
     let commit_answer_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
-            .body_contains("\"tool_call_id\":\"call_commit_abnormal\"");
+            .body_contains(confirmation_task_id.to_string())
+            .body_contains("后端已完成确认写入")
+            .matches(|req| !request_body(req).contains("确认写入这次异常更新"))
+            .matches(request_without_tool_result);
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
@@ -429,24 +414,51 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
         .clone()
         .oneshot(authorized_json_request(
             "POST",
-            "/api/v1/ai/chat/stream",
+            &format!("/api/v1/ai/confirmation-tasks/{confirmation_task_id}/approve/stream"),
             &fixture.access_token,
-            json!({
-                "message": "确认写入这次异常更新",
-                "surface": "home_private",
-                "selected_pet_id": fixture.pet_id.to_string(),
-                "chat_session_id": chat_session_id.to_string(),
-                "confirmation_task_id": confirmation_task_id.to_string()
-            }),
+            json!({}),
         ))
         .await
         .expect("send abnormal followup commit request");
 
-    assert_eq!(commit_response.status(), StatusCode::OK);
+    let commit_status = commit_response.status();
     let commit_text = response_text(commit_response).await;
-    commit_tool_mock.assert();
+    assert_eq!(commit_status, StatusCode::OK, "{commit_text}");
+    assert!(
+        commit_text.contains("已把这次异常更新写入进展时间线。"),
+        "{commit_text}"
+    );
     commit_answer_mock.assert();
-    assert!(commit_text.contains("已把这次异常更新写入进展时间线。"));
+
+    let user_confirmation_message_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_messages
+        WHERE session_id = $1
+          AND role = 'user'
+          AND content LIKE '%确认写入%'
+        ",
+    )
+    .bind(chat_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count confirmation user messages");
+    assert_eq!(user_confirmation_message_count, 0);
+
+    let persisted_assistant_message_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM ai_messages
+        WHERE session_id = $1
+          AND role = 'assistant'
+          AND content LIKE '%已把这次异常更新写入进展时间线%'
+        ",
+    )
+    .bind(chat_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count persisted assistant confirmation reply");
+    assert_eq!(persisted_assistant_message_count, 1);
 
     let written_event: (String, serde_json::Value) = sqlx::query_as(
         r"

@@ -100,4 +100,17 @@ final class FailingAIAssistantRepository: AIAssistantRepository {
             statusCode: 400
         )
     }
+
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.finish(throwing: MHBAPIError.business(
+                code: "ai.stream_failed",
+                message: "流式连接失败",
+                statusCode: 503
+            ))
+        }
+    }
 }

@@ -4,6 +4,7 @@
 //! - 隔离请求 DTO、标题生成和持久化辅助逻辑
 
 mod auth_middleware;
+mod confirmation_approval_stream;
 mod composition {
     pub(super) mod request;
     pub(super) mod title;
@@ -37,6 +38,7 @@ mod turn_preparation;
 mod visible_output_plan;
 
 pub use auth_middleware::require_ai_chat_auth;
+pub use confirmation_approval_stream::handle_approve_confirmation_task_stream;
 pub use non_stream::handle_chat;
 pub use request_snapshot_middleware::snapshot_ai_chat_request;
 pub use stream_handler::handle_chat_stream;

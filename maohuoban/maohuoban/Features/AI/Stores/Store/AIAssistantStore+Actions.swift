@@ -51,19 +51,8 @@ extension AIAssistantStore {
         guard let pendingConfirmationTask else { return }
         Task { [weak self] in
             guard let self else { return }
-            do {
-                _ = try await self.repository.approveConfirmationTask(taskID: pendingConfirmationTask.id)
-                self.pendingConfirmationTask = nil
-                self.messages.append(AIAssistantMessage(role: .assistant, text: "已写入这条观察。"))
-            } catch {
-                self.messages.append(
-                    AIAssistantMessage(
-                        role: .assistant,
-                        text: "写入失败，请稍后重试。",
-                        referenceChips: ["确认任务未完成"]
-                    )
-                )
-            }
+            self.pendingConfirmationTask = nil
+            self.startConfirmationTaskApprovalStream(taskID: pendingConfirmationTask.id)
         }
     }
 

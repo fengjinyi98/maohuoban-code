@@ -167,6 +167,10 @@ pub fn build_ai_confirmation_task_router() -> Router<AiHttpState> {
             "/api/v1/ai/confirmation-tasks/{id}/approve",
             post(confirmation_tasks::handle_approve_confirmation_task),
         )
+        .route(
+            "/api/v1/ai/confirmation-tasks/{id}/approve/stream",
+            post(chat::handle_approve_confirmation_task_stream),
+        )
 }
 
 /// build_ai_router_state 绑定 AI 路由共享状态

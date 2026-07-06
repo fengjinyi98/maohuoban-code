@@ -335,4 +335,13 @@ private final class PendingStreamingAIAssistantRepository: AIAssistantRepository
             statusCode: 400
         )
     }
+
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { continuation in
+            self.continuation = continuation
+        }
+    }
 }

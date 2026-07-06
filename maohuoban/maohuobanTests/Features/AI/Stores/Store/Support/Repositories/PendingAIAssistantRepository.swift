@@ -94,4 +94,11 @@ final class PendingAIAssistantRepository: AIAssistantRepository {
             statusCode: 400
         )
     }
+
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { _ in }
+    }
 }

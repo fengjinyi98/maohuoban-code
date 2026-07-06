@@ -8,6 +8,7 @@ import Foundation
 final class RuntimeAdapterTestRepository: AIAssistantRepository {
     private let streamEvents: [AIStreamEventDTO]
     private(set) var streamConfirmationTaskIDs: [String?] = []
+    private(set) var approvalStreamTaskIDs: [String] = []
     private(set) var approvedConfirmationTaskIDs: [String] = []
     private(set) var rejectedConfirmationTaskIDs: [String] = []
 
@@ -24,6 +25,19 @@ final class RuntimeAdapterTestRepository: AIAssistantRepository {
         confirmationTaskID: String?
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         streamConfirmationTaskIDs.append(confirmationTaskID)
+        return AsyncThrowingStream { continuation in
+            for event in streamEvents {
+                continuation.yield(event)
+            }
+            continuation.finish()
+        }
+    }
+
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        approvalStreamTaskIDs.append(taskID)
         return AsyncThrowingStream { continuation in
             for event in streamEvents {
                 continuation.yield(event)

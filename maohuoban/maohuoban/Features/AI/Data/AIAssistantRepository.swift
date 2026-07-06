@@ -38,6 +38,10 @@ protocol AIAssistantRepository {
     func approveConfirmationTask(
         taskID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO>
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error>
 }
 
 // DefaultAIAssistantRepository 默认 AI 助手数据仓库
@@ -77,49 +81,7 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
                         entryContext: entryContext,
                         confirmationTaskID: confirmationTaskID
                     )
-                    let (bytes, response) = try await session.bytes(for: request)
-
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        continuation.finish(throwing: MHBAPIError.invalidResponse)
-                        return
-                    }
-                    await AIAssistantDiagnostics.recordStreamResponseOpened(statusCode: httpResponse.statusCode)
-                    guard httpResponse.statusCode == 200 else {
-                        continuation.finish(throwing: MHBAPIError.business(
-                            code: "ai.stream_failed",
-                            message: "流式连接失败",
-                            statusCode: httpResponse.statusCode
-                        ))
-                        return
-                    }
-
-                    var parser = AIStreamEventParser()
-
-                    for try await line in bytes.lines {
-                        if Task.isCancelled { break }
-
-                        for parsedEvent in parser.consumeLine(line) {
-                            await AIAssistantDiagnostics.recordStreamEventReceived(
-                                eventName: parsedEvent.eventName,
-                                event: parsedEvent.event
-                            )
-                            if let event = parsedEvent.event {
-                                continuation.yield(event)
-                            }
-                        }
-                    }
-
-                    for parsedEvent in parser.finish() {
-                        await AIAssistantDiagnostics.recordStreamEventReceived(
-                            eventName: parsedEvent.eventName,
-                            event: parsedEvent.event
-                        )
-                        if let event = parsedEvent.event {
-                            continuation.yield(event)
-                        }
-                    }
-
-                    continuation.finish()
+                    try await consumeSSE(request: request, continuation: continuation)
                 } catch {
                     continuation.finish(throwing: error)
                 }
@@ -224,7 +186,76 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         )
     }
 
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let request = try buildConfirmationTaskApprovalStreamRequest(
+                        taskID: taskID,
+                        surface: surface
+                    )
+                    try await consumeSSE(request: request, continuation: continuation)
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     // MARK: - Private
+
+    private func consumeSSE(
+        request: URLRequest,
+        continuation: AsyncThrowingStream<AIStreamEventDTO, Error>.Continuation
+    ) async throws {
+        let (bytes, response) = try await session.bytes(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            continuation.finish(throwing: MHBAPIError.invalidResponse)
+            return
+        }
+        await AIAssistantDiagnostics.recordStreamResponseOpened(statusCode: httpResponse.statusCode)
+        guard httpResponse.statusCode == 200 else {
+            continuation.finish(throwing: MHBAPIError.business(
+                code: "ai.stream_failed",
+                message: "流式连接失败",
+                statusCode: httpResponse.statusCode
+            ))
+            return
+        }
+
+        var parser = AIStreamEventParser()
+
+        for try await line in bytes.lines {
+            if Task.isCancelled { break }
+
+            for parsedEvent in parser.consumeLine(line) {
+                await AIAssistantDiagnostics.recordStreamEventReceived(
+                    eventName: parsedEvent.eventName,
+                    event: parsedEvent.event
+                )
+                if let event = parsedEvent.event {
+                    continuation.yield(event)
+                }
+            }
+        }
+
+        for parsedEvent in parser.finish() {
+            await AIAssistantDiagnostics.recordStreamEventReceived(
+                eventName: parsedEvent.eventName,
+                event: parsedEvent.event
+            )
+            if let event = parsedEvent.event {
+                continuation.yield(event)
+            }
+        }
+
+        continuation.finish()
+    }
 
     private func buildStreamRequest(
         message: String,
@@ -260,6 +291,26 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         }
         return request
     }
+
+    private func buildConfirmationTaskApprovalStreamRequest(
+        taskID: String,
+        surface: String
+    ) throws(MHBAPIError) -> URLRequest {
+        let url = client.baseURL.appending(path: "/api/v1/ai/confirmation-tasks/\(taskID)/approve/stream")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+
+        try client.prepareRequest(&request)
+
+        do {
+            request.httpBody = try JSONEncoder().encode(AIConfirmationTaskApprovalStreamRequestBody(surface: surface))
+        } catch {
+            throw .decoding(error.localizedDescription)
+        }
+        return request
+    }
 }
 
 // MockAIAssistantRepository 测试用 AI 助手数据仓库
@@ -278,6 +329,7 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var deletedSessionIDs: [String] = []
     var activatedAbnormalEpisodeIDs: [String] = []
     var streamConfirmationTaskIDs: [String?] = []
+    var approvalStreamTaskIDs: [String] = []
     var rejectedConfirmationTaskIDs: [String] = []
     var approvedConfirmationTaskIDs: [String] = []
     var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
@@ -314,6 +366,19 @@ final class MockAIAssistantRepository: AIAssistantRepository {
         confirmationTaskID: String? = nil
     ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
         streamConfirmationTaskIDs.append(confirmationTaskID)
+        return AsyncThrowingStream { continuation in
+            for event in streamEvents {
+                continuation.yield(event)
+            }
+            continuation.finish()
+        }
+    }
+
+    func openConfirmationTaskApprovalStream(
+        taskID: String,
+        surface: String
+    ) -> AsyncThrowingStream<AIStreamEventDTO, Error> {
+        approvalStreamTaskIDs.append(taskID)
         return AsyncThrowingStream { continuation in
             for event in streamEvents {
                 continuation.yield(event)
