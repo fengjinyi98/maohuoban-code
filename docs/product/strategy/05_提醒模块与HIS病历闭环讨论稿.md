@@ -1,6 +1,6 @@
 # 提醒模块与 HIS 病历闭环讨论稿
 
-- 更新时间：2026-07-05
+- 更新时间：2026-07-06
 - 文档性质：产品与工程边界讨论稿
 - 适用范围：提醒模块、通知边界、异常追踪、诊前资料包、HIS 病历回流、App 病历展示
 - 非目标：本文不是目标文档、实施计划或接口契约；不直接约束当前迭代排期。
@@ -397,8 +397,8 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 3. abnormal_episode | episode 创建、状态更新、详情读取、事件关联和 Agent 只读事实工具已具备闭环 | 后续扩展 episode 状态页、追踪计划和分支策略展示 | 已验证能力具备 |
 | 4. Agent 主动追踪计划 | 已具备 proactive followup 表、异常创建/追加后 `planning` 计划意图、后台自动模型 planning job、Agent workflow skill、runtime task type、同上下文 planning 注入、受控保存 tool、application service 保存计划、due_at 到期投影、真实 scheduler 后台任务、到期首条主动追问消息落库、后台追踪 session 中间态、恢复/删除后的取消或 resolve 状态机，且恢复/删除会清空 episode 追踪投影并标记 AI 异常上下文关闭 | 后续扩展更完整 episode 状态展示 | 已验证能力具备 |
 | 5. 异常更新入口 | 已具备站内轻提醒 actions payload、`更新情况` 自动弹追加 Sheet、`问问毛球` 携带 abnormal episode 上下文并复用同一 Agent 会话和同一 Agent 上下文；到期时后端会把首条主动追问写入同一后台追踪会话；用户点击 `问问毛球` 后同一 session 才升级为可见聊天历史；会话列表只下发已激活异常追踪会话的上下文字段，iOS 入口会恢复同 episode session 并加载已落库主动追问；Agent 聊天首屏异常卡片和“毛球主动追问”标签已具备；Agent 写回事件已在异常详情、首页时间线、全部时间线显示“毛球更新”标签 | 后续扩展更多 episode 状态展示 | 已验证能力具备 |
-| 6. 异常更新落库 | 用户手动追加和 Agent 确认写回均可写入 `health/symptom_followup`，并更新 episode 状态；`condition_change=improved/unchanged/worsened` 分别进入 `recovering/watching/escalated` 分支；Agent 来源通过 `event_payload.source=agent_assisted_followup` 和首页 `source_label` 进入前端展示；追加后会生成下一轮 `planning` 计划并由后台 Agent planner 动态保存为 `scheduled` | 后续扩展更细就医预约闭环和状态展示 | 已验证能力具备 |
-| 7. Agent 追问 | 异常事件/episode 事实读取已打通；异常轻提醒进入 Agent 会话的上下文、同 episode 会话复用和同 Agent 上下文复用已打通；到期首条主动追问会写入同一后台追踪会话，用户点击 `问问毛球` 后才激活为可见聊天；iOS 进入异常追踪会话会恢复同 session 消息并对最新已完成 assistant 追问展示“毛球主动追问”；用户确认写回 `symptom_followup` 已打通；异常追踪 workflow skill 已能进入模型上下文；模型规划结果可通过受控 tool 保存；后台 planner 已能读取多源事实并生成下一轮轻提醒计划 | 只能基于结构化事实和用户文字追问，不解析照片 | 已验证能力具备 |
+| 6. 异常更新落库 | 用户手动追加和 Agent 确认写回均可写入 `health/symptom_followup`，并更新 episode 状态；`condition_change=improved/unchanged/worsened` 分别进入 `recovering/watching/escalated` 分支；Agent 来源通过 `event_payload.source=agent_assisted_followup` 和首页 `source_label` 进入前端展示；追加后会生成下一轮 `planning` 计划并由后台 Agent planner 动态保存为 `scheduled`；Agent 确认写回已升级为后端 `approve/stream` 授权流，确认动作作为授权命令处理，写入成功后同一 Agent Runtime 续跑 | 后续扩展更细就医预约闭环和状态展示 | 已验证能力具备 |
+| 7. Agent 追问 | 异常事件/episode 事实读取已打通；异常轻提醒进入 Agent 会话的上下文、同 episode 会话复用和同 Agent 上下文复用已打通；到期首条主动追问会写入同一后台追踪会话，用户点击 `问问毛球` 后才激活为可见聊天；iOS 进入异常追踪会话会恢复同 session 消息并对最新已完成 assistant 追问展示“毛球主动追问”；用户确认写回 `symptom_followup` 已打通；确认写入后同一会话继续由 Agent 回复，回复通过 SSE 返回并由 finalizer 持久化到 `ai_messages`；异常追踪 workflow skill 已能进入模型上下文；模型规划结果可通过受控 tool 保存；后台 planner 已能读取多源事实并生成下一轮轻提醒计划 | 只能基于结构化事实和用户文字追问，不解析照片 | 已验证能力具备 |
 | 8. 好转分支 | 已具备 `condition_change=improved` 后进入 `recovering`，并生成带 `mark_recovered` 动作的恢复确认 planning | 后续扩展更细恢复确认 UI | 已验证能力具备 |
 | 9. 持续分支 | 已具备 `condition_change=unchanged` 后进入 `watching`，并继续生成下一轮追踪 planning | 后续扩展超过窗口后的自动就医建议策略 | 已验证能力具备 |
 | 10. 加重分支 | 已具备 `condition_change=worsened` 后进入 `escalated`，并生成带 `book_clinic` 动作的追踪 planning；Agent planning tool schema 和 service 白名单允许保存分支动作 | 后续接入真实预约合作医院入口 | 已验证能力具备 |
@@ -505,10 +505,11 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 异常删除后的会话边界 | 已具备 | 删除父异常时只把相关 AI session 的 `context_status` 标记为 `deleted`；后台追踪上下文保持隐藏，已升级为真实聊天的 session 仍保留在历史中；合同测试 `deleted_abnormal_episode_closes_background_tracking_context`、`deleted_abnormal_episode_keeps_activated_chat_session_visible` 已通过 |
 | Agent 聊天首屏异常卡片 | 已具备 | iOS `AIAssistantStore.abnormalEpisodeContextCard` 从 `AIAssistantEntryContext.abnormalEpisodeID` 派生首屏卡片，`AIAssistantMessageTimeline` 在消息前展示；测试 `testAbnormalEpisodeEntryExposesContextCard` 和 `testDefaultEntryDoesNotExposeAbnormalEpisodeContextCard` 覆盖入口差异 |
 | Agent 主动追问消息标签 | 已具备 | iOS `AIAssistantMessageBubblePresentation` 对异常追踪入口的主动追问消息返回“毛球主动追问”，`AIAssistantMessageTimelinePresentation` 只对同 abnormal episode 上下文的最新已完成 assistant 消息传入标签状态，避免第二轮轻提醒误标旧消息；测试 `testFirstAssistantMessageInAbnormalEpisodeContextShowsProactiveFollowupBadge`、`testRegularAssistantMessageDoesNotShowProactiveFollowupBadge`、`testAbnormalEpisodeContextShowsBadgeOnLatestCompletedAssistantMessage` 已通过 |
-| Agent 确认写回 | 已具备 | `prepare_pet_observation_write` 在 `abnormal_episode_followup` 上下文中创建 `symptom_followup` 确认任务，用户确认后 `commit_pet_observation_write` 写入带 `episode_id/source/agent_followup_id` 的 `pet_events.health/symptom_followup`；合同测试 `abnormal_followup_agent_confirmed_write_keeps_episode_context` 已通过 |
+| Agent 确认写回 | 已具备 | `prepare_pet_observation_write` 在 `abnormal_episode_followup` 上下文中创建 `symptom_followup` 确认任务，确认任务保存待写入的观察内容和 episode/followup 上下文；用户授权后由后端提交写入带 `episode_id/source/agent_followup_id` 的 `pet_events.health/symptom_followup`；合同测试 `abnormal_followup_agent_confirmed_write_keeps_episode_context` 已通过 |
+| Agent 确认授权续跑 | 已具备 | 新增 `POST /api/v1/ai/confirmation-tasks/{id}/approve/stream`：用户确认被建模为授权命令，授权动作不创建 `role=user` 的“确认写入”消息；后端先提交确认任务并写入 `symptom_followup`，再用同一 abnormal episode session 创建内部 system turn 触发 Agent Runtime 续跑；assistant 回复通过 SSE 返回并由 finalizer 持久化到 `ai_messages`；合同测试 `abnormal_followup_agent_confirmed_write_keeps_episode_context` 和 iOS 测试 `testConfirmPendingConfirmationTaskStreamsBackendAssistantReply` 已通过 |
 | Agent 写回来源标签 | 已具备 | 后端首页摘要对 `event_payload.source=agent_assisted_followup` 输出 `source_label=毛球更新`；iOS 异常详情、首页时间线、全部时间线均展示“毛球更新”；合同测试 `home_dashboard_followup_timeline_routes_to_parent_abnormal_event` 和 iOS `HomeDashboardDecodingTests` 已通过 |
 
-当前已具备 Agent workflow skill 的动态 planning 入口、同 Agent 上下文恢复、模型计划草稿受控保存 tool、application service 校验保存 `agent_proactive_followups`、episode 下一轮计划投影回写、后台自动模型 planning job、用动态规划替换创建/追加后的默认 scheduled 文案与节奏、到期首条主动追问消息落库、后台追踪会话中间态、iOS 异常入口恢复同一追踪会话并展示“毛球主动追问”标签、恢复/删除后的终止投影清理，以及好转/持续/加重三分支的 episode 状态和下一轮计划动作。后续切片聚焦真实预约入口和更完整 episode 状态展示。
+当前已具备 Agent workflow skill 的动态 planning 入口、同 Agent 上下文恢复、模型计划草稿受控保存 tool、application service 校验保存 `agent_proactive_followups`、episode 下一轮计划投影回写、后台自动模型 planning job、用动态规划替换创建/追加后的默认 scheduled 文案与节奏、到期首条主动追问消息落库、后台追踪会话中间态、iOS 异常入口恢复同一追踪会话并展示“毛球主动追问”标签、恢复/删除后的终止投影清理、好转/持续/加重三分支的 episode 状态和下一轮计划动作，以及确认授权后由后端真实写入并驱动同一 Agent Runtime 续跑回复。后续切片聚焦真实预约入口和更完整 episode 状态展示。
 
 #### 5.3.1 目标边界
 
@@ -541,8 +542,11 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 -> 调度器到 due_at 生成/激活 abnormal_followup_due attention_hint
 -> 首页展示毛球主动追问轻提醒
 -> 用户选择“更新情况”或“问问毛球”
--> 用户在结构化入口提交，或在 Agent 会话中反馈并确认写回
--> 后端写入 symptom_followup 或关闭 episode
+-> 用户在结构化入口提交，或在 Agent 会话中反馈并看到确认卡
+-> 用户在确认卡点击授权确认
+-> 后端 approve/stream 把授权命令提交为 symptom_followup
+-> 同一 Agent session 续跑并返回真实 assistant 回复
+-> 或用户关闭 episode
 -> 后端 resolve 当前轻提醒并触发下一轮 planning 或归档
 ```
 
@@ -556,8 +560,8 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 计划保存 | Tool + Application service | 已具备 `save_abnormal_episode_followup_plan` 受控保存 tool；application service 校验后写 `agent_proactive_followups.status=scheduled`，episode 写 `next_followup_due_at/last_followup_plan_id` |
 | 到期触发 | Scheduler | `attention_hints.kind=abnormal_followup_due` |
 | 首条追问落库 | Scheduler + AI session repository | 同一 `abnormal_episode_followup` session 内的 assistant 消息 |
-| 用户响应 | iOS + Pet API / Agent chat | 追加观察、Agent 聊天反馈确认写回或关闭 episode |
-| Agent 写回 | Runtime tool + Pet application service | `pet_events.health/symptom_followup`，payload 带 `episode_id/source=agent_assisted_followup/agent_followup_id` |
+| 用户响应 | iOS + Pet API / Agent chat | 追加观察、Agent 聊天反馈后生成确认卡，或关闭 episode |
+| Agent 写回 | HTTP 授权端点 + Runtime tool + Pet application service | `approve/stream` 提交确认任务，写入 `pet_events.health/symptom_followup`，payload 带 `episode_id/source=agent_assisted_followup/agent_followup_id`；写入成功后同一 Agent session 续跑并返回真实 assistant 回复 |
 | 重规划/归档 | Application job + Agent skill | 下一次计划，或取消待办并终止追踪 |
 
 #### 5.3.3 站内轻提醒 UI 目标
@@ -629,9 +633,9 @@ Agent 能力拆分必须保持“skill 负责理解和流程策略，tool 负责
 | 类型 | 什么时候创建 | 职责 | 禁止承担 |
 |---|---|---|---|
 | Agent skill | 需要多步理解、追问策略、规划规则、跨 turn 一致行为、自然语言归纳时 | 异常追踪 planning、首条追问生成、根据用户反馈决定继续观察/建议就医/结束追踪、把自然语言整理成待确认追加观察、基于 `occurred_at/last_observed_at/now_at` 评估信息断层、结合身份/年龄上下文输出 `time_decision` 解释追问时间 | 直接写数据库、定时调度、绕过工具读取事实、把未确认用户话术写成事实 |
-| Agent tool | Agent 需要访问系统事实或执行受控副作用时 | 读取 episode facts、读取 quick facts、读取饮食/储物柜线索、提交经用户确认的追加观察、提交追踪计划结果 | 自行决定追踪节奏、隐藏多步业务策略、替代 skill 推理、返回和职责无关的综合摘要 |
+| Agent tool | Agent 需要访问系统事实或执行受控副作用时 | 读取 episode facts、读取 quick facts、读取饮食/储物柜线索、准备经用户确认的追加观察草稿、提交追踪计划结果 | 自行决定追踪节奏、隐藏多步业务策略、替代 skill 推理、返回和职责无关的综合摘要 |
 | Scheduler | 需要按时间触发系统动作时 | 扫描 `agent_proactive_followups.due_at`，生成/激活站内 `attention_hints` | 生成医疗建议、理解异常内容、改写 Agent 文案 |
-| Application service | 需要保证事务一致性和状态机时 | 创建 episode、保存计划、resolve hint、cancel plans、关闭/归档 episode | 把模型输出当作无校验事实直接入库 |
+| Application service | 需要保证事务一致性和状态机时 | 创建 episode、保存计划、resolve hint、cancel plans、关闭/归档 episode、提交用户授权后的确认任务并驱动 Agent 续跑 | 把模型输出当作无校验事实直接入库 |
 
 ##### 5.3.5.1 什么时候给 Agent 创建 Skill
 
@@ -666,7 +670,7 @@ Tool 输出应保持事实型和结构化。已有专门 tool 能返回近期便
 | 读取当前饮食和储物柜弱线索 | Tool：饮食 / food inventory hint 工具 |
 | 保存 Agent 规划结果 | Tool 提交候选计划，Application service 校验并入库 |
 | 到 `due_at` 出现首页轻提醒 | Scheduler |
-| 用户聊天反馈后写入 `symptom_followup` | Tool：需用户确认的写入工具，Application service 写事实账本 |
+| 用户聊天反馈后写入 `symptom_followup` | Tool 先准备确认任务；HTTP 授权端点收到用户确认后由 Application service 写事实账本，并触发同一 Agent Runtime 续跑 |
 | 用户关闭异常后取消待提醒 | Application service 事务内完成 |
 | 将 Agent 归纳后的追加观察打“毛球更新”标签 | Application service 写入来源字段，iOS 按来源渲染 |
 | 第二轮轻提醒再次进入聊天 | 后端复用同一个 `ai_chat_sessions.id`，并从 session 恢复同一个 abnormal episode Agent 上下文 |
@@ -683,6 +687,8 @@ Tool 输出应保持事实型和结构化。已有专门 tool 能返回近期便
 
 Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只有用户反馈并确认后写入的 `symptom_followup` 才成为事实账本事件。经 Agent 聊天归纳并由用户确认写入的追加观察，在异常详情进展时间线、首页事件线和全部时间线中统一显示“毛球更新”标签。
 
+确认卡的确认按钮是授权命令，不是聊天消息。iOS 点击确认后调用后端 `approve/stream`，不追加本地 `role=user` 确认文本，也不生成本地 assistant 成功话术；后端完成真实写入后由同一 Agent Runtime 检查写入结果并生成 assistant 回复，该回复通过 SSE 返回并持久化到 `ai_messages`。用户取消确认时，前端只提交取消授权动作，后续说明由 Agent 或产品流程基于同一上下文生成。
+
 同一个 abnormal episode 的 Agent 追踪上下文必须由后端 session 保持。验收标准不能只看聊天会话 ID 复用；同一 `ai_chat_sessions.id` 必须持续保留 `chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`，并在用户从新一轮轻提醒再次进入时刷新当前 `source_hint_id/agent_followup_id`。后续 turn 必须从 session 恢复上下文，并贯穿四层：history 会话字段、Runtime `ObservationWriteContext`、受控写入 tool、provider workflow skill 注入。episode 级上下文保持同一个，当前追踪轮次上下文保持最新。前端可以携带入口上下文，但后端写入工具不能依赖模型或前端在每次工具调用中重新传 episode。
 
 异常追踪 session 的历史可见性由后端控制。`session_visibility=background` 表示系统后台追踪上下文，不返回给用户历史列表；`session_visibility=visible` 表示用户已经主动进入聊天，成为真实聊天记录。异常删除或关闭只更新 `context_status=deleted/closed`，不能把已可见聊天记录归档、隐藏或删除；聊天记录生命周期只由用户主动删除聊天记录控制。后台追踪上下文在异常删除后保持不可见并标记上下文 deleted，避免空会话进入历史列表。
@@ -697,7 +703,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 | Task 3.1：Agent planning 保存 tool | 模型输出计划草稿后，经受控 tool 和 application service 校验保存为 scheduled followup；第二轮只带 `chat_session_id` 时仍从同一 Agent 上下文恢复 episode/followup 归属 | AI contract + PolicyGuard 合同测试 | AI tool schema、planning save port、application service、repository、PolicyGuard 精确放行 | `cargo test --test ai_contract abnormal_followup_agent_can_save_planned_followup_from_session_context -- --nocapture --test-threads=1`；`cargo test -p maohuoban-ai-application --test policy_guard policy_guard_allows_abnormal_followup_plan_tool_without_confirmation -- --nocapture` |
 | Task 4：调度器执行 | 到期计划被投影为 `abnormal_followup_due`，未到期计划不展示；到期后同一 abnormal episode Agent 会话写入首条 assistant 主动追问且幂等 | scheduler / repository 合同测试 | scheduler job、projection repository、AI session/message 写入 | `cargo test -p maohuoban_rust --test pet_contract agent_proactive_followup -- --nocapture --test-threads=1` |
 | Task 5：首页 actions UI | 两个文字按钮按 payload 路由，旧 hint 仍可查看 | iOS 状态源或 ViewModel 测试 | Home dashboard models、attention hint section、route | iOS Debug 真机构建 |
-| Task 6：Agent 聊天上下文和写回 | `问问毛球` 携带 episode context，复用同一 Agent 上下文；同 episode 第二轮轻提醒继续进入同一 session，同时刷新当前 `source_hint_id/agent_followup_id`；会话列表返回上下文字段，iOS 入口恢复同一 session 并加载已落库主动追问；用户确认后写 `symptom_followup` 并显示“毛球更新” | AI chat contract + iOS Store / presentation 测试 + pet timeline 来源测试 | AI entry context、chat request DTO、history DTO、write tool、timeline presentation | Rust contract + iOS Debug 真机构建 |
+| Task 6：Agent 聊天上下文和写回 | `问问毛球` 携带 episode context，复用同一 Agent 上下文；同 episode 第二轮轻提醒继续进入同一 session，同时刷新当前 `source_hint_id/agent_followup_id`；会话列表返回上下文字段，iOS 入口恢复同一 session 并加载已落库主动追问；用户确认授权后后端写 `symptom_followup`、同一 Agent Runtime 续跑回复并显示“毛球更新” | AI chat contract + iOS Store / presentation 测试 + pet timeline 来源测试 | AI entry context、chat request DTO、history DTO、confirmation approve stream、write tool、timeline presentation | Rust contract + iOS Debug 真机构建 |
 | Task 6.1：异常追踪会话中间态 | 后台 Agent 追踪 session 默认不进历史；用户点击 `问问毛球` 后复用同一 session 并升级为可见；异常删除只关闭上下文，不影响已可见聊天记录 | AI history contract + AI chat entry contract + pet delete contract | ai_chat_sessions migration、session repository、chat ingress、pet event delete transaction | `cargo test -p maohuoban_rust --test ai_contract ai_chat_sessions_hides_background_abnormal_tracking_context -- --nocapture --test-threads=1`；`cargo test -p maohuoban_rust --test ai_contract abnormal_followup_entry_activates_background_tracking_session -- --nocapture --test-threads=1`；`cargo test -p maohuoban_rust --test pet_contract deleted_abnormal_episode_keeps_activated_chat_session_visible -- --nocapture --test-threads=1` |
 
 每个 Task 完成时必须记录三类证据：失败测试红灯、最小绿灯命令、必要的 Debug 构建或合同测试结果。测试未按预期失败、实现需要跨越目标边界、工具和 skill 职责混淆时停止并回到本文更新边界。
@@ -714,7 +720,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 | 会话列表上下文合同 | `cargo test -p maohuoban_rust --test ai_contract ai_chat_sessions_returns_abnormal_episode_context -- --nocapture --test-threads=1`；历史列表必须返回已激活会话的 `chat_context_kind/context_status/abnormal_episode_id/source_hint_id/agent_followup_id`，供 iOS 异常入口恢复同一 Agent 追踪会话 |
 | 后台追踪会话隐藏合同 | `cargo test -p maohuoban_rust --test ai_contract ai_chat_sessions_hides_background_abnormal_tracking_context -- --nocapture --test-threads=1`；`session_visibility=background` 的异常追踪上下文不能进入用户历史列表 |
 | 追踪会话激活合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_entry_activates_background_tracking_session -- --nocapture --test-threads=1`；用户点击 `问问毛球` 进入聊天时必须复用同一后台追踪 session，并升级为 `session_visibility=visible`、写入 `activated_at` |
-| Agent 确认写回合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_agent_confirmed_write_keeps_episode_context -- --nocapture --test-threads=1` |
+| Agent 确认写回合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_agent_confirmed_write_keeps_episode_context -- --nocapture --test-threads=1`；必须覆盖 `approve/stream` 授权流、确认动作不进入 provider/user message、`pet_events.health/symptom_followup` 真实写入、同一 abnormal episode context 续跑、assistant 回复持久化到 `ai_messages` |
 | Agent skill 合同 | 覆盖 tool 调用组合、计划 JSON、医疗边界、无图片理解 |
 | Agent planning skill 入口合同 | `cargo test -p maohuoban-ai-application --test planning_contract abnormal_episode_followup -- --nocapture`；`cargo test -p maohuoban-ai-application --test skill_runtime_contract builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill -- --nocapture` |
 | 同 Agent 上下文注入合同 | `cargo test -p maohuoban_rust --test ai_contract abnormal_followup_second_turn_restores_agent_context_from_session -- --nocapture --test-threads=1`，provider 请求必须包含“异常主动追踪 planning”workflow 指令 |
@@ -727,6 +733,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 | 异常删除会话边界合同 | `cargo test -p maohuoban_rust --test pet_contract deleted_abnormal_episode_closes_background_tracking_context -- --nocapture --test-threads=1`；`cargo test -p maohuoban_rust --test pet_contract deleted_abnormal_episode_keeps_activated_chat_session_visible -- --nocapture --test-threads=1`，删除异常只更新 `context_status=deleted`，已可见聊天 session 继续保留 |
 | iOS 异常入口恢复测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone Air,OS=27.0' -only-testing:maohuobanTests/AIAssistantStoreTests/testAbnormalEpisodeEntryRestoresExistingSessionAndMessages -only-testing:maohuobanTests/AIAssistantStoreTests/testAbnormalEpisodeRestoredSessionSendsLatestAgentContext` |
 | iOS 主动追问标签测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone Air,OS=27.0' -only-testing:maohuobanTests/AIAssistantMessageBubblePresentationTests -only-testing:maohuobanTests/AIAssistantMessageTimelinePresentationTests` |
+| iOS 确认授权流测试 | `xcodebuild test -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'platform=iOS Simulator,name=iPhone Air,OS=27.0' -only-testing:maohuobanTests/AIAssistantStoreRuntimeAdapterTests/testConfirmPendingConfirmationTaskStreamsBackendAssistantReply`；确认按钮必须打开 approval stream，不调用旧 JSON approve，不追加本地 user/assistant 伪消息 |
 | iOS 构建 | `xcodebuild -project maohuoban/maohuoban.xcodeproj -scheme maohuoban -destination 'id=<当前连接真机设备ID>' -configuration Debug build` |
 | iOS 安装 | `xcrun devicectl device install app --device <当前连接真机设备ID> ~/Library/Developer/Xcode/DerivedData/maohuoban-*/Build/Products/Debug-iphoneos/maohuoban.app` |
 | 手动验收 | 创建异常 -> 到期轻提醒 -> `更新情况` 自动弹 Sheet -> 写入追加观察 -> hint 消失 -> 下一轮 planning 或归档 |
@@ -740,6 +747,7 @@ Agent 轻提醒本身不是病情事实，不进入异常进展时间线。只�
 | Tool schema 收敛 | 读取工具只返回职责内事实；写入工具必须有权限、确认和后端校验 |
 | Agent 上下文不丢 | 同 episode 后续轻提醒和确认写回必须复用同一 `ai_chat_sessions.id` 及其 abnormal episode context；新一轮轻提醒入口必须刷新 session 内当前 `source_hint_id/agent_followup_id`；history 会话字段、Runtime `ObservationWriteContext`、写入工具和 provider 请求都必须从该 context 注入异常追踪 workflow skill；只复用聊天会话但丢失 Agent 上下文字段视为失败 |
 | 聊天历史生命周期独立 | 异常追踪后台上下文和用户聊天记录必须由 `session_visibility` 区分；异常删除/关闭只更新 `context_status`，不得归档、隐藏或删除已激活聊天记录 |
+| 确认授权不是聊天消息 | 用户点击确认写入是授权命令，不得创建 `role=user` 的确认文本；前端不得伪造 assistant 成功回复，成功说明必须来自后端 Agent Runtime 和 finalizer |
 | Skill 不写库 | Skill 输出规划、建议、草稿；数据库状态由 application service 和 repository 负责 |
 | Scheduler 不推理 | Scheduler 只看时间和状态，不生成医疗文案 |
 | 照片只作附件 | 附件只作为原始材料和存在性事实，不参与 Agent 图片理解 |
