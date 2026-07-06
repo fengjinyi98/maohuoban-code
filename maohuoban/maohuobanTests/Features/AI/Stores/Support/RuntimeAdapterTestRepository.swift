@@ -8,6 +8,7 @@ import Foundation
 final class RuntimeAdapterTestRepository: AIAssistantRepository {
     private let streamEvents: [AIStreamEventDTO]
     private(set) var streamConfirmationTaskIDs: [String?] = []
+    private(set) var approvedConfirmationTaskIDs: [String] = []
     private(set) var rejectedConfirmationTaskIDs: [String] = []
 
     init(streamEvents: [AIStreamEventDTO]) {
@@ -80,6 +81,21 @@ final class RuntimeAdapterTestRepository: AIAssistantRepository {
             data: AIConfirmationTaskMutationResultDTO(
                 confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
                 status: "dismissed"
+            )
+        )
+    }
+
+    func approveConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        approvedConfirmationTaskIDs.append(taskID)
+        return MHBAPIResponse(
+            success: true,
+            code: "ai.confirmation_task_approved",
+            message: "ok",
+            data: AIConfirmationTaskMutationResultDTO(
+                confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
+                status: "answered"
             )
         )
     }

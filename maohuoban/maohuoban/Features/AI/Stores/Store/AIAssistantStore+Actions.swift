@@ -48,12 +48,23 @@ extension AIAssistantStore {
     }
 
     func confirmPendingConfirmationTask() {
-        guard let task = pendingConfirmationTask else { return }
-        pendingConfirmationTask = nil
-        runConfirmationTaskStream(
-            taskID: task.id,
-            userVisibleText: task.approveLabel
-        )
+        guard let pendingConfirmationTask else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await self.repository.approveConfirmationTask(taskID: pendingConfirmationTask.id)
+                self.pendingConfirmationTask = nil
+                self.messages.append(AIAssistantMessage(role: .assistant, text: "已写入这条观察。"))
+            } catch {
+                self.messages.append(
+                    AIAssistantMessage(
+                        role: .assistant,
+                        text: "写入失败，请稍后重试。",
+                        referenceChips: ["确认任务未完成"]
+                    )
+                )
+            }
+        }
     }
 
     func rejectPendingConfirmationTask() {
@@ -93,53 +104,4 @@ extension AIAssistantStore {
         }
     }
 
-    private func runConfirmationTaskStream(taskID: String, userVisibleText: String) {
-        messages.append(AIAssistantMessage(role: .user, text: userVisibleText, createdAt: Date()))
-        let assistantReplyStartIndex = messages.count
-        let placeholder = AIAssistantMessage(role: .assistant, text: "", createdAt: Date(), isStreaming: true)
-        messages.append(placeholder)
-        pendingReferenceChips = []
-        pendingReferences = []
-        beginStreaming(messageID: placeholder.id)
-
-        streamingTask?.cancel()
-        streamingTask = Task { [weak self] in
-            guard let self else { return }
-            let completionSequenceBeforeStream = self.assistantReplyCompletionSequence
-            var didReceiveAssistantReply = false
-            let stream = self.repository.openChatStream(
-                message: userVisibleText,
-                selectedPetID: self.effectiveEntryContext.selectedPetID,
-                surface: "home_private",
-                chatSessionID: self.currentChatSessionID,
-                entryContext: self.effectiveEntryContext,
-                confirmationTaskID: taskID
-            )
-            do {
-                for try await event in stream {
-                    if Task.isCancelled { return }
-                    self.handleStreamEvent(event)
-                    if self.streamEventCompletesAssistantReply(event) {
-                        didReceiveAssistantReply = true
-                    }
-                }
-                if Task.isCancelled { return }
-                let didCompleteAssistantReply = didReceiveAssistantReply
-                    || self.assistantReplyCompletionSequence > completionSequenceBeforeStream
-                self.finishStreamIfAssistantReplyMissing(
-                    after: assistantReplyStartIndex,
-                    placeholderID: placeholder.id,
-                    didReceiveAssistantReply: didCompleteAssistantReply
-                )
-            } catch {
-                self.handleStreamError(error)
-            }
-        }
-    }
-}
-
-private extension PendingConfirmationTask {
-    var approveLabel: String {
-        actions.first { $0.kind == "approve" }?.label ?? "确认写入"
-    }
 }

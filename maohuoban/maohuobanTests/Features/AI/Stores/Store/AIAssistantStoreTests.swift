@@ -508,4 +508,10 @@ private final class RecordingAIAssistantRepository: AIAssistantRepository {
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
         throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持取消确认任务", statusCode: 400)
     }
+
+    func approveConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        throw .business(code: "ai.unsupported_action", message: "当前测试仓库不支持确认任务写入", statusCode: 400)
+    }
 }

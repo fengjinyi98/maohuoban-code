@@ -158,10 +158,15 @@ pub fn build_ai_history_router() -> Router<AiHttpState> {
 /// - 承载用户显式确认任务操作
 /// - 保持确认任务状态机由后端统一落库
 pub fn build_ai_confirmation_task_router() -> Router<AiHttpState> {
-    Router::new().route(
-        "/api/v1/ai/confirmation-tasks/{id}/reject",
-        post(confirmation_tasks::handle_reject_confirmation_task),
-    )
+    Router::new()
+        .route(
+            "/api/v1/ai/confirmation-tasks/{id}/reject",
+            post(confirmation_tasks::handle_reject_confirmation_task),
+        )
+        .route(
+            "/api/v1/ai/confirmation-tasks/{id}/approve",
+            post(confirmation_tasks::handle_approve_confirmation_task),
+        )
 }
 
 /// build_ai_router_state 绑定 AI 路由共享状态

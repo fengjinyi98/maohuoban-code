@@ -35,6 +35,9 @@ protocol AIAssistantRepository {
     func rejectConfirmationTask(
         taskID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO>
+    func approveConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO>
 }
 
 // DefaultAIAssistantRepository 默认 AI 助手数据仓库
@@ -212,6 +215,15 @@ struct DefaultAIAssistantRepository: AIAssistantRepository {
         )
     }
 
+    func approveConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        try await client.post(
+            path: "/api/v1/ai/confirmation-tasks/\(taskID)/approve",
+            body: AIChatSessionEmptyRequestBody()
+        )
+    }
+
     // MARK: - Private
 
     private func buildStreamRequest(
@@ -267,6 +279,7 @@ final class MockAIAssistantRepository: AIAssistantRepository {
     var activatedAbnormalEpisodeIDs: [String] = []
     var streamConfirmationTaskIDs: [String?] = []
     var rejectedConfirmationTaskIDs: [String] = []
+    var approvedConfirmationTaskIDs: [String] = []
     var confirmResult: Result<MHBAPIResponse<AIAssistantActionConfirmationResultDTO>, MHBAPIError>
 
     init(
@@ -385,6 +398,21 @@ final class MockAIAssistantRepository: AIAssistantRepository {
             data: AIConfirmationTaskMutationResultDTO(
                 confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
                 status: "dismissed"
+            )
+        )
+    }
+
+    func approveConfirmationTask(
+        taskID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<AIConfirmationTaskMutationResultDTO> {
+        approvedConfirmationTaskIDs.append(taskID)
+        return MHBAPIResponse(
+            success: true,
+            code: "ai.confirmation_task_approved",
+            message: "已写入这条观察",
+            data: AIConfirmationTaskMutationResultDTO(
+                confirmationTaskID: UUID(uuidString: taskID) ?? UUID(),
+                status: "answered"
             )
         )
     }

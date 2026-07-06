@@ -142,6 +142,79 @@ async fn ai_chat_confirmation_task_reject_dismisses_without_pet_event() {
     assert_eq!(event_count, 0);
 }
 
+/// 用户确认写入是授权命令，不应作为聊天消息再次进入模型
+#[tokio::test]
+async fn ai_chat_confirmation_task_approve_commits_without_user_message() {
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139026", "ios-ai-runtime-approve").await;
+    let pet = create_pet(&app, &access_token, "毛球").await;
+    let pet_id = Uuid::parse_str(pet["id"].as_str().expect("pet id")).expect("pet uuid");
+    let repo = PostgresAgentConfirmationTaskRepository::new(app.pool().clone());
+    let confirmation_task_id = Uuid::new_v4();
+
+    repo.create(AgentConfirmationTask {
+        id: confirmation_task_id,
+        pet_id,
+        task_kind: ConfirmationTaskKind::SymptomFollowup,
+        question_text: "是否确认写入这条观察记录？".to_owned(),
+        candidate_payload: Some(json!({
+            "event_kind": "health",
+            "event_subkind": "agent_observation_note",
+            "note": "精神状态转好，食欲比平时少但仍有进食",
+            "source": "agent_runtime_confirmed_write"
+        })),
+        source_hint_id: None,
+        source_ref_type: None,
+        source_ref_id: None,
+        status: ConfirmationTaskStatus::Pending,
+        answer_payload: None,
+        resolved_event_id: None,
+        created_at: chrono::DateTime::from_timestamp_nanos(0),
+        resolved_at: None,
+    })
+    .await
+    .expect("create confirmation task");
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            &format!("/api/v1/ai/confirmation-tasks/{confirmation_task_id}/approve"),
+            &access_token,
+            json!({}),
+        ))
+        .await
+        .expect("approve confirmation task");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let updated = repo
+        .get_by_id(confirmation_task_id)
+        .await
+        .expect("load approved task");
+    assert_eq!(updated.status, ConfirmationTaskStatus::Answered);
+    assert!(updated.resolved_event_id.is_some());
+
+    let event_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM pet_events WHERE pet_id = $1::uuid AND event_subkind = 'agent_observation_note'",
+    )
+    .bind(pet_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count pet events");
+    assert_eq!(event_count, 1);
+
+    let confirmation_message_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM ai_messages WHERE role = 'user' AND content LIKE '%确认写入%'",
+    )
+    .fetch_one(app.pool())
+    .await
+    .expect("count confirmation user messages");
+    assert_eq!(confirmation_message_count, 0);
+}
+
 /// Runtime 工具链支持 followup 再发第二次工具调用后再完成回答
 #[tokio::test]
 async fn ai_chat_stream_supports_chained_runtime_tool_calls() {

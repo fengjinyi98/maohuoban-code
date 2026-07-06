@@ -41,16 +41,9 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
         XCTAssertFalse(store.isStreaming)
     }
 
-    func testConfirmPendingConfirmationTaskUsesConfirmationTaskID() async {
+    func testConfirmPendingConfirmationTaskApprovesWithoutSendingMessage() async {
         let taskID = UUID()
-        let repository = RuntimeAdapterTestRepository(streamEvents: [
-            .messageCompleted(
-                messageID: UUID(),
-                finalText: "已写入这条观察。",
-                referenceChips: [],
-                references: []
-            )
-        ])
+        let repository = RuntimeAdapterTestRepository(streamEvents: [])
         let store = AIAssistantStore(context: AIAssistantEntryContext(), repository: repository)
         store.pendingConfirmationTask = Self.pendingConfirmationTask(id: taskID)
 
@@ -58,9 +51,11 @@ final class AIAssistantStoreRuntimeAdapterTests: XCTestCase {
 
         try? await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(repository.streamConfirmationTaskIDs, [taskID.uuidString])
+        XCTAssertEqual(repository.approvedConfirmationTaskIDs, [taskID.uuidString])
+        XCTAssertTrue(repository.streamConfirmationTaskIDs.isEmpty)
         XCTAssertNil(store.pendingConfirmationTask)
-        XCTAssertEqual(store.messages.first?.text, "确认写入")
+        XCTAssertFalse(store.messages.contains { $0.role == .user && $0.text == "确认写入" })
+        XCTAssertEqual(store.messages.last?.text, "已写入这条观察。")
     }
 
     func testRejectPendingConfirmationTaskCallsRepositoryAndClearsTask() async {
