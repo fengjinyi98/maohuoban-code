@@ -8,7 +8,7 @@ mod validation;
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Datelike, FixedOffset, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Timelike, Utc};
 use maohuoban_pet_domain::pet::{
     EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline, PetTimelineEntry,
 };
@@ -793,6 +793,31 @@ fn validate_followup_message_date_consistency(
         ));
     }
 
+    validate_followup_message_day_period_consistency(message_body, episode_started_at)?;
+
+    Ok(())
+}
+
+fn validate_followup_message_day_period_consistency(
+    message_body: &str,
+    episode_started_at: DateTime<Utc>,
+) -> PetResult<()> {
+    let mentioned_periods = event_context_day_period_mentions(message_body);
+    if mentioned_periods.is_empty() {
+        return Ok(());
+    }
+
+    let shanghai_offset = FixedOffset::east_opt(8 * 60 * 60).expect("valid shanghai offset");
+    let local_hour = episode_started_at.with_timezone(&shanghai_offset).hour();
+    if mentioned_periods
+        .iter()
+        .any(|period| !period.contains_hour(local_hour))
+    {
+        return Err(PetError::InvalidInput(
+            "追踪提醒正文时段与异常发生时间不一致".to_owned(),
+        ));
+    }
+
     Ok(())
 }
 
@@ -806,6 +831,86 @@ fn mentions_abnormal_event_date_context(message_body: &str) -> bool {
     ["发现", "出现", "记录", "异常", "发生"]
         .iter()
         .any(|keyword| message_body.contains(keyword))
+}
+
+#[derive(Clone, Copy)]
+enum LocalDayPeriod {
+    Midnight,
+    Dawn,
+    Morning,
+    Forenoon,
+    Noon,
+    Afternoon,
+    Dusk,
+    Evening,
+}
+
+impl LocalDayPeriod {
+    fn token(self) -> &'static str {
+        match self {
+            Self::Midnight => "凌晨",
+            Self::Dawn => "清晨",
+            Self::Morning => "早上",
+            Self::Forenoon => "上午",
+            Self::Noon => "中午",
+            Self::Afternoon => "下午",
+            Self::Dusk => "傍晚",
+            Self::Evening => "晚上",
+        }
+    }
+
+    fn contains_hour(self, hour: u32) -> bool {
+        match self {
+            Self::Midnight => hour < 6,
+            Self::Dawn => (4..8).contains(&hour),
+            Self::Morning => (5..10).contains(&hour),
+            Self::Forenoon => (6..12).contains(&hour),
+            Self::Noon => (11..14).contains(&hour),
+            Self::Afternoon => (12..18).contains(&hour),
+            Self::Dusk => (17..20).contains(&hour),
+            Self::Evening => hour >= 18,
+        }
+    }
+}
+
+fn event_context_day_period_mentions(message_body: &str) -> Vec<LocalDayPeriod> {
+    [
+        LocalDayPeriod::Midnight,
+        LocalDayPeriod::Dawn,
+        LocalDayPeriod::Morning,
+        LocalDayPeriod::Forenoon,
+        LocalDayPeriod::Noon,
+        LocalDayPeriod::Afternoon,
+        LocalDayPeriod::Dusk,
+        LocalDayPeriod::Evening,
+    ]
+    .into_iter()
+    .filter(|period| day_period_mentions_event_context(message_body, period.token()))
+    .collect()
+}
+
+fn day_period_mentions_event_context(message_body: &str, period_token: &str) -> bool {
+    let chars: Vec<char> = message_body.chars().collect();
+    let token_chars: Vec<char> = period_token.chars().collect();
+    if chars.len() < token_chars.len() {
+        return false;
+    }
+
+    (0..=chars.len() - token_chars.len()).any(|index| {
+        chars[index..index + token_chars.len()] == token_chars
+            && mentions_abnormal_event_date_context(&nearby_chars(
+                &chars,
+                index,
+                token_chars.len(),
+                12,
+            ))
+    })
+}
+
+fn nearby_chars(chars: &[char], index: usize, token_len: usize, radius: usize) -> String {
+    let start = index.saturating_sub(radius);
+    let end = (index + token_len + radius).min(chars.len());
+    chars[start..end].iter().collect()
 }
 
 fn local_date_mentions(month: u32, day: u32) -> Vec<String> {

@@ -41,7 +41,7 @@ use maohuoban_auth_infrastructure::{
     security::{Argon2PasswordCredentialService, JwtTokenIssuer},
 };
 use maohuoban_home_application::home::{HomeDashboardService, new_user_home_snapshot};
-use maohuoban_home_http::home::build_home_router;
+use maohuoban_home_http::home::{HomeRealtimeHub, build_home_router};
 use maohuoban_legal_application::legal::LegalDocumentService;
 use maohuoban_legal_http::legal::build_legal_router;
 use maohuoban_legal_infrastructure::postgres::PostgresLegalDocumentRepository;
@@ -161,6 +161,7 @@ pub struct BackendApp {
     pub samecity_repository: PostgresSameCityRepository,
     pub ai_session_repository: PostgresAiSessionRepository,
     pub ai_session_turn_repository: PostgresSessionTurnRepository,
+    pub home_realtime_hub: HomeRealtimeHub,
 }
 
 /// `build_backend_app` 构建后端应用
@@ -215,6 +216,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         recommendation_service,
     );
     let home_service = Arc::new(HomeDashboardService::new(Box::new(home_provider.clone())));
+    let home_realtime_hub = HomeRealtimeHub::new();
     let ai_session_repository = PostgresAiSessionRepository::new(pool.clone());
     let ai_session_turn_repository = PostgresSessionTurnRepository::new(pool.clone());
     let ai_chat_turn_transaction = PostgresChatTurnTransaction::new(pool.clone());
@@ -230,31 +232,18 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         &pool,
         Arc::new(confirmation_task_repository),
     );
-    let auth_middleware_state = AuthMiddlewareState::new(auth_service.clone());
-    let auth_routes = build_auth_routes(
-        auth_service.clone(),
-        profile_service.clone(),
-        auth_middleware_state.clone(),
-    );
-    let protected_user_routes = build_protected_user_routes(
+    let router = build_backend_router(BackendRouterParts {
+        config: &config,
+        pool: &pool,
+        auth_service: auth_service.clone(),
+        profile_service: profile_service.clone(),
+        legal_service,
         home_service,
-        profile_service,
+        home_realtime_hub: home_realtime_hub.clone(),
         pet_service,
         samecity_service,
-        auth_middleware_state.clone(),
-    );
-    let ai_routes = build_authenticated_ai_routes(auth_middleware_state, ai_http_state);
-    let mut router = auth_routes
-        .merge(build_legal_router(legal_service))
-        .merge(build_media_content_router(pool.clone()))
-        .merge(protected_user_routes)
-        .merge(ai_routes);
-    if config.diagnostics_ingest_enabled {
-        router = router.merge(build_diagnostics_ingest_router(
-            diagnostics_ingest_config_from_env(),
-        )?);
-    }
-    let router = router.layer(axum::middleware::from_fn(record_http_network));
+        ai_http_state,
+    })?;
 
     Ok(BackendApp {
         router,
@@ -270,7 +259,58 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         samecity_repository,
         ai_session_repository,
         ai_session_turn_repository,
+        home_realtime_hub,
     })
+}
+
+/// `BackendRouterParts` 后端路由装配输入
+/// 核心职责：
+/// - 汇总根路由所需应用服务与基础设施句柄
+/// - 控制 `build_backend_router` 参数数量
+struct BackendRouterParts<'a> {
+    config: &'a BackendConfig,
+    pool: &'a PgPool,
+    auth_service: Arc<AuthService>,
+    profile_service: Arc<ProfileService>,
+    legal_service: Arc<LegalDocumentService>,
+    home_service: Arc<HomeDashboardService>,
+    home_realtime_hub: HomeRealtimeHub,
+    pet_service: Arc<PetService>,
+    samecity_service: Arc<SameCityService>,
+    ai_http_state: AiHttpState,
+}
+
+/// `build_backend_router` 装配后端根路由
+/// 核心职责：
+/// - 合并公开、受保护、AI、媒体和诊断路由
+/// - 安装全局网络诊断记录中间件
+fn build_backend_router(parts: BackendRouterParts<'_>) -> Result<Router, BackendError> {
+    let auth_middleware_state = AuthMiddlewareState::new(parts.auth_service.clone());
+    let auth_routes = build_auth_routes(
+        parts.auth_service,
+        parts.profile_service.clone(),
+        auth_middleware_state.clone(),
+    );
+    let protected_user_routes = build_protected_user_routes(
+        parts.home_service,
+        parts.home_realtime_hub,
+        parts.profile_service,
+        parts.pet_service,
+        parts.samecity_service,
+        auth_middleware_state.clone(),
+    );
+    let ai_routes = build_authenticated_ai_routes(auth_middleware_state, parts.ai_http_state);
+    let mut router = auth_routes
+        .merge(build_legal_router(parts.legal_service))
+        .merge(build_media_content_router(parts.pool.clone()))
+        .merge(protected_user_routes)
+        .merge(ai_routes);
+    if parts.config.diagnostics_ingest_enabled {
+        router = router.merge(build_diagnostics_ingest_router(
+            diagnostics_ingest_config_from_env(),
+        )?);
+    }
+    Ok(router.layer(axum::middleware::from_fn(record_http_network)))
 }
 
 /// `AuthComponents` 认证服务装配结果
@@ -358,12 +398,13 @@ fn build_auth_routes(
 /// - 统一安装用户认证中间件
 fn build_protected_user_routes(
     home_service: Arc<HomeDashboardService>,
+    home_realtime_hub: HomeRealtimeHub,
     profile_service: Arc<ProfileService>,
     pet_service: Arc<PetService>,
     samecity_service: Arc<SameCityService>,
     auth_middleware_state: AuthMiddlewareState,
 ) -> Router {
-    build_home_router(home_service)
+    build_home_router(home_service, home_realtime_hub)
         .merge(build_profile_router(profile_service))
         .merge(build_pet_router(pet_service))
         .merge(build_samecity_router(samecity_service))

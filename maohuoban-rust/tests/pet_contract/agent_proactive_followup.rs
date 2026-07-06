@@ -298,9 +298,14 @@ async fn scheduler_run_once_projects_due_agent_followup_hint() {
     let followup_id =
         insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
 
-    let result = maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
-        .await
-        .expect("run agent followup scheduler");
+    let realtime_hub = maohuoban_home_http::home::HomeRealtimeHub::new();
+    let result = maohuoban_rust::agent_followup_scheduler::run_once(
+        app.pool(),
+        planned_due_at,
+        &realtime_hub,
+    )
+    .await
+    .expect("run agent followup scheduler");
 
     assert_eq!(result.projected_hints, 1);
 
@@ -323,6 +328,46 @@ async fn scheduler_run_once_projects_due_agent_followup_hint() {
 }
 
 #[tokio::test]
+async fn scheduler_run_once_publishes_home_realtime_event_after_hint_projection() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13900139146").await;
+
+    let (pet_id, event_id, episode_id) =
+        create_pet_and_abnormal_episode(&app, &user_id, "豆包").await;
+
+    let planned_due_at = chrono::DateTime::parse_from_rfc3339("2026-07-05T06:10:00Z")
+        .expect("planned due_at")
+        .with_timezone(&chrono::Utc);
+    let followup_id =
+        insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
+    let realtime_hub = maohuoban_home_http::home::HomeRealtimeHub::new();
+    let mut receiver = realtime_hub.subscribe();
+
+    let result = maohuoban_rust::agent_followup_scheduler::run_once(
+        app.pool(),
+        planned_due_at,
+        &realtime_hub,
+    )
+    .await
+    .expect("run agent followup scheduler");
+
+    assert_eq!(result.projected_hints, 1);
+    let event = tokio::time::timeout(std::time::Duration::from_secs(1), receiver.recv())
+        .await
+        .expect("home realtime event should be published")
+        .expect("home realtime event");
+    assert_eq!(event.actor_user_id.to_string(), user_id);
+    assert_eq!(event.pet_id.to_string(), pet_id);
+    assert_eq!(
+        event.kind,
+        maohuoban_home_http::home::HomeRealtimeEventKind::AttentionHintProjected
+    );
+    assert_eq!(event.source_ref_type, "agent_proactive_followup");
+    assert_eq!(event.source_ref_id, followup_id);
+}
+
+#[tokio::test]
 async fn scheduler_run_once_writes_first_agent_followup_message() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -336,9 +381,14 @@ async fn scheduler_run_once_writes_first_agent_followup_message() {
     let followup_id =
         insert_scheduled_followup(&app, &pet_id, &episode_id, &event_id, planned_due_at).await;
 
-    let result = maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
-        .await
-        .expect("run agent followup scheduler");
+    let realtime_hub = maohuoban_home_http::home::HomeRealtimeHub::new();
+    let result = maohuoban_rust::agent_followup_scheduler::run_once(
+        app.pool(),
+        planned_due_at,
+        &realtime_hub,
+    )
+    .await
+    .expect("run agent followup scheduler");
 
     assert_eq!(result.projected_hints, 1);
 
@@ -392,10 +442,13 @@ async fn scheduler_run_once_writes_first_agent_followup_message() {
     );
     assert_eq!(message.2, "completed");
 
-    let second_result =
-        maohuoban_rust::agent_followup_scheduler::run_once(app.pool(), planned_due_at)
-            .await
-            .expect("rerun agent followup scheduler");
+    let second_result = maohuoban_rust::agent_followup_scheduler::run_once(
+        app.pool(),
+        planned_due_at,
+        &realtime_hub,
+    )
+    .await
+    .expect("rerun agent followup scheduler");
     assert_eq!(second_result.projected_hints, 0);
     assert_eq!(second_result.proactive_messages, 0);
     let message_count: i64 = sqlx::query_scalar(

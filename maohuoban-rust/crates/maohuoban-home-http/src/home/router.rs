@@ -1,18 +1,29 @@
 use std::sync::Arc;
 
+use async_stream::stream;
 use axum::{
     Json, Router,
     extract::{Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::{
+        IntoResponse, Response,
+        sse::{Event, KeepAlive, Sse},
+    },
     routing::get,
 };
+use futures_util::stream::Stream;
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
 use maohuoban_home_application::home::{HomeDashboardContext, HomeDashboardService, HomeError};
 use maohuoban_home_domain::home::HomeDashboardSnapshot;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::broadcast;
 use uuid::Uuid;
+
+mod realtime_event_data;
+
+use super::HomeRealtimeHub;
+use realtime_event_data::HomeRealtimeEventData;
 
 /// HomeHttpState 首页 HTTP 状态
 /// 核心职责：
@@ -21,12 +32,13 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct HomeHttpState {
     home: Arc<HomeDashboardService>,
+    realtime_hub: HomeRealtimeHub,
 }
 
 impl HomeHttpState {
     #[must_use]
-    pub const fn new(home: Arc<HomeDashboardService>) -> Self {
-        Self { home }
+    pub const fn new(home: Arc<HomeDashboardService>, realtime_hub: HomeRealtimeHub) -> Self {
+        Self { home, realtime_hub }
     }
 }
 
@@ -35,10 +47,11 @@ impl HomeHttpState {
 /// - 注册首页聚合快照接口
 /// - 将 HTTP 层限制在统一响应和 DTO 转换范围内
 #[must_use]
-pub fn build_home_router(home: Arc<HomeDashboardService>) -> Router {
+pub fn build_home_router(home: Arc<HomeDashboardService>, realtime_hub: HomeRealtimeHub) -> Router {
     Router::new()
         .route("/api/v1/home/dashboard", get(get_home_dashboard))
-        .with_state(HomeHttpState::new(home))
+        .route("/api/v1/home/events/stream", get(stream_home_events))
+        .with_state(HomeHttpState::new(home, realtime_hub))
 }
 
 async fn get_home_dashboard(
@@ -58,6 +71,40 @@ async fn get_home_dashboard(
         ),
         Err(error) => error_response(&error),
     }
+}
+
+async fn stream_home_events(
+    State(state): State<HomeHttpState>,
+    actor: AuthenticatedUser,
+) -> Sse<impl Stream<Item = Result<Event, std::convert::Infallible>>> {
+    let actor_user_id = actor.user_id();
+    let mut receiver = state.realtime_hub.subscribe();
+    let event_stream = stream! {
+        loop {
+            match receiver.recv().await {
+                Ok(event) if event.actor_user_id == actor_user_id => {
+                    let payload = HomeRealtimeEventData::from(event);
+                    match serde_json::to_string(&payload) {
+                        Ok(json) => {
+                            yield Ok(Event::default().event(payload.event).data(json));
+                        }
+                        Err(error) => {
+                            tracing::warn!(error = %error, "首页实时事件序列化失败");
+                        }
+                    }
+                }
+                Ok(_) => {}
+                Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                    tracing::warn!(skipped, "首页实时事件订阅端滞后");
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    break;
+                }
+            }
+        }
+    };
+
+    Sse::new(event_stream).keep_alive(KeepAlive::default())
 }
 
 /// HomeDashboardQuery 首页查询参数

@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use maohuoban_home_http::home::{HomeRealtimeEvent, HomeRealtimeEventKind, HomeRealtimeHub};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -14,18 +15,86 @@ use super::{AgentFollowupSchedulerError, AgentFollowupSchedulerRunResult};
 pub async fn run_once(
     pool: &PgPool,
     now_at: DateTime<Utc>,
+    realtime_hub: &HomeRealtimeHub,
 ) -> Result<AgentFollowupSchedulerRunResult, AgentFollowupSchedulerError> {
+    let projection_started_at = Utc::now();
     let projected_hints: i64 =
         sqlx::query_scalar(r"SELECT project_due_agent_proactive_followups($1::timestamptz)")
             .bind(now_at)
             .fetch_one(pool)
             .await?;
     let proactive_messages = write_due_followup_agent_messages(pool, now_at).await?;
+    if projected_hints > 0 {
+        publish_projected_attention_hints(pool, projection_started_at, realtime_hub).await?;
+    }
 
     Ok(AgentFollowupSchedulerRunResult {
         projected_hints,
         proactive_messages,
     })
+}
+
+struct ProjectedAttentionHintEvent {
+    actor_user_id: Uuid,
+    pet_id: Uuid,
+    hint_id: Uuid,
+    source_ref_type: String,
+    source_ref_id: Uuid,
+    occurred_at: DateTime<Utc>,
+}
+
+async fn publish_projected_attention_hints(
+    pool: &PgPool,
+    projection_started_at: DateTime<Utc>,
+    realtime_hub: &HomeRealtimeHub,
+) -> Result<(), AgentFollowupSchedulerError> {
+    let projected_hints = sqlx::query_as::<_, (Uuid, Uuid, Uuid, String, Uuid, DateTime<Utc>)>(
+        r"
+        SELECT p.owner_user_id,
+               h.pet_id,
+               h.id,
+               h.source_ref_type,
+               h.source_ref_id,
+               h.updated_at
+        FROM attention_hints h
+        JOIN pet_profiles p ON p.id = h.pet_id
+        JOIN agent_proactive_followups f
+          ON h.source_ref_type = 'agent_proactive_followup'
+         AND h.source_ref_id = f.id
+        WHERE h.kind = 'abnormal_followup_due'
+          AND h.status = 'active'
+          AND f.status = 'due'
+          AND f.updated_at >= $1
+        ORDER BY h.updated_at ASC
+        ",
+    )
+    .bind(projection_started_at)
+    .fetch_all(pool)
+    .await?;
+
+    for (actor_user_id, pet_id, hint_id, source_ref_type, source_ref_id, occurred_at) in
+        projected_hints
+    {
+        let event = ProjectedAttentionHintEvent {
+            actor_user_id,
+            pet_id,
+            hint_id,
+            source_ref_type,
+            source_ref_id,
+            occurred_at,
+        };
+        realtime_hub.publish(HomeRealtimeEvent {
+            actor_user_id: event.actor_user_id,
+            pet_id: event.pet_id,
+            hint_id: event.hint_id,
+            kind: HomeRealtimeEventKind::AttentionHintProjected,
+            source_ref_type: event.source_ref_type,
+            source_ref_id: event.source_ref_id,
+            occurred_at: event.occurred_at,
+        });
+    }
+
+    Ok(())
 }
 
 struct DueFollowupMessageTarget {

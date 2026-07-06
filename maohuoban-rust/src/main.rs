@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = build_backend_app(config).await?;
     let _agent_followup_planner_task =
         spawn_agent_followup_planner(planner_config, app.pool.clone());
-    let _agent_followup_scheduler_task = spawn_agent_followup_scheduler(app.pool.clone());
+    let _agent_followup_scheduler_task =
+        spawn_agent_followup_scheduler(app.pool.clone(), app.home_realtime_hub.clone());
     let listener = tokio::net::TcpListener::bind(&server_bind_addr).await?;
     tracing::info!(bind_addr = %server_bind_addr, "毛伙伴 Rust 服务已监听");
     axum::serve(listener, app.router).await?;
@@ -71,14 +72,18 @@ fn spawn_agent_followup_planner(
 /// 核心职责：
 /// - 周期扫描到期 abnormal followup plan
 /// - 将到期计划投影为首页轻提醒
-fn spawn_agent_followup_scheduler(pool: sqlx::PgPool) -> tokio::task::JoinHandle<()> {
+fn spawn_agent_followup_scheduler(
+    pool: sqlx::PgPool,
+    realtime_hub: maohuoban_home_http::home::HomeRealtimeHub,
+) -> tokio::task::JoinHandle<()> {
     let interval_duration = agent_followup_scheduler_interval_from_env();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(interval_duration);
         interval.tick().await;
         loop {
             interval.tick().await;
-            match agent_followup_scheduler::run_once(&pool, chrono::Utc::now()).await {
+            match agent_followup_scheduler::run_once(&pool, chrono::Utc::now(), &realtime_hub).await
+            {
                 Ok(result) if result.projected_hints > 0 => {
                     tracing::info!(
                         projected_hints = result.projected_hints,

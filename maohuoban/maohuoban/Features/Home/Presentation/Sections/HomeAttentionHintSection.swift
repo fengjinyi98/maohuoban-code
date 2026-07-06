@@ -47,7 +47,6 @@ private struct HomeAttentionHintRow: View {
                 Text(displayTitle)
                     .font(MHBTheme.Typography.callout.weight(.medium))
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HomeAttentionHintActionRow(

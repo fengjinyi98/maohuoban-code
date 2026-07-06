@@ -334,6 +334,11 @@ fn builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill() 
         bundle.merged_instruction
     );
     assert!(
+        bundle.merged_instruction.contains("08:51 属于早上或上午"),
+        "planning skill should keep Chinese day-period wording consistent with local event time: {}",
+        bundle.merged_instruction
+    );
+    assert!(
         bundle
             .toolset_policy
             .preferred_toolsets

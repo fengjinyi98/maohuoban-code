@@ -6,6 +6,7 @@ import MaohuobanDesignSystem
 // - 作为首页 Tab NavigationStack 的根内容
 // - 后续在此注册 HomeRoute 的 navigationDestination
 struct HomeRootScreen: View {
+    @Environment(\.scenePhase) private var scenePhase
     let currentUserStore: CurrentUserStore
     let tabState: MHBAppTabState
     let quickFactRefreshToken: Int
@@ -84,6 +85,12 @@ struct HomeRootScreen: View {
                 selectedPetID: selectedPetID
             )
         }
+        .task(id: currentUserID) {
+            guard currentUserID != nil else {
+                return
+            }
+            await HomeRealtimeEventConsumer(store: store).consume()
+        }
         .navigationDestination(for: HomeRoute.self) { route in
             HomeRouteDestinationScreen(
                 route: route,
@@ -113,6 +120,14 @@ struct HomeRootScreen: View {
                         force: true
                     )
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else {
+                return
+            }
+            Task {
+                await store.refreshLoadedContext()
             }
         }
         .onChange(of: store.phase) { _, phase in

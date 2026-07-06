@@ -138,6 +138,21 @@ final class HomeDashboardStore {
         }
     }
 
+    // refreshLoadedContext 刷新当前已加载首页上下文
+    // 核心职责：
+    // - 响应首页实时事件后刷新当前读模型
+    // - 避免生命周期重复加载保护拦截事件驱动刷新
+    func refreshLoadedContext() async {
+        guard let loadedContext else {
+            return
+        }
+        await load(
+            currentUserID: loadedContext.currentUserID,
+            selectedPetID: loadedContext.selectedPetID,
+            force: true
+        )
+    }
+
     private func beginLoadingPhase() {
         if case .loaded = phase {
             isRefreshing = true

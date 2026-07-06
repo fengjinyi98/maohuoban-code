@@ -67,116 +67,9 @@ impl AiToolDefinition for RuntimePetContextTool {
                 },
                 "required": ["confirmation_task_id"]
             }),
-            RuntimePetContextToolKind::SaveAbnormalFollowupPlan => serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "due_at": { "type": "string", "format": "date-time" },
-                    "message_title": { "type": "string" },
-                    "message_body": { "type": "string" },
-                    "rationale": { "type": "string" },
-                    "time_decision": {
-                        "type": "object",
-                        "description": "模型选择 due_at 的可审计时间决策说明。该字段只用于审计，不会让代码替模型决定提醒时间。",
-                        "properties": {
-                            "now_at": { "type": "string", "format": "date-time" },
-                            "occurred_at": { "type": "string", "format": "date-time" },
-                            "episode_started_at": { "type": "string", "format": "date-time" },
-                            "last_observed_at": {
-                                "anyOf": [
-                                    { "type": "string", "format": "date-time" },
-                                    { "type": "null" }
-                                ]
-                            },
-                            "elapsed_minutes": { "type": "integer" },
-                            "attention_timing": {
-                                "type": "string",
-                                "enum": [
-                                    "now_or_soon",
-                                    "scheduled_later",
-                                    "monitor_without_prompt"
-                                ]
-                            },
-                            "staleness_assessment": {
-                                "type": "object",
-                                "description": "模型对当前异常信息断层的判断。只用于审计模型如何理解 now_at - max(occurred_at,last_observed_at)。",
-                                "properties": {
-                                    "basis": { "type": "string" },
-                                    "staleness_minutes": { "type": "integer" },
-                                    "reason": { "type": "string" }
-                                },
-                                "required": [
-                                    "basis",
-                                    "staleness_minutes",
-                                    "reason"
-                                ]
-                            },
-                            "identity_context": {
-                                "type": "object",
-                                "description": "模型规划时使用的宠物基础身份事实摘要，例如物种、生日、出生至今天数或年龄阶段。",
-                                "properties": {
-                                    "species": { "type": "string" },
-                                    "birthday": {
-                                        "anyOf": [
-                                            { "type": "string" },
-                                            { "type": "null" }
-                                        ]
-                                    },
-                                    "world_days": {
-                                        "anyOf": [
-                                            { "type": "integer" },
-                                            { "type": "null" }
-                                        ]
-                                    },
-                                    "age_note": { "type": "string" }
-                                },
-                                "required": [
-                                    "species"
-                                ]
-                            },
-                            "selected_due_at": { "type": "string", "format": "date-time" },
-                            "delay_minutes": { "type": "integer" },
-                            "urgency_window": { "type": "string" },
-                            "reason": { "type": "string" },
-                            "time_tool_used": { "type": "boolean" }
-                        },
-                        "required": [
-                            "now_at",
-                            "occurred_at",
-                            "episode_started_at",
-                            "last_observed_at",
-                            "elapsed_minutes",
-                            "attention_timing",
-                            "staleness_assessment",
-                            "identity_context",
-                            "selected_due_at",
-                            "delay_minutes",
-                            "urgency_window",
-                            "reason",
-                            "time_tool_used"
-                        ]
-                    },
-                    "recommended_actions": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "update_observation",
-                                "chat_with_agent",
-                                "mark_recovered",
-                                "book_clinic"
-                            ]
-                        }
-                    }
-                },
-                "required": [
-                    "due_at",
-                    "message_title",
-                    "message_body",
-                    "rationale",
-                    "time_decision",
-                    "recommended_actions"
-                ]
-            }),
+            RuntimePetContextToolKind::SaveAbnormalFollowupPlan => {
+                abnormal_followup_plan_parameters_schema()
+            }
             _ => serde_json::json!({
                 "type": "object",
                 "properties": {},
@@ -257,6 +150,121 @@ impl AiToolDefinition for RuntimePetContextTool {
             }
         }
     }
+}
+
+/// abnormal_followup_plan_parameters_schema 构建异常主动追踪计划工具 schema
+/// 核心职责：
+/// - 约束模型只提交计划草稿字段
+/// - 固定 time_decision 审计字段结构
+fn abnormal_followup_plan_parameters_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "due_at": { "type": "string", "format": "date-time" },
+            "message_title": { "type": "string" },
+            "message_body": { "type": "string" },
+            "rationale": { "type": "string" },
+            "time_decision": abnormal_followup_plan_time_decision_schema(),
+            "recommended_actions": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "update_observation",
+                        "chat_with_agent",
+                        "mark_recovered",
+                        "book_clinic"
+                    ]
+                }
+            }
+        },
+        "required": [
+            "due_at",
+            "message_title",
+            "message_body",
+            "rationale",
+            "time_decision",
+            "recommended_actions"
+        ]
+    })
+}
+
+/// abnormal_followup_plan_time_decision_schema 构建追踪时间决策审计 schema
+/// 核心职责：
+/// - 固定模型解释 due_at 的必填证据字段
+/// - 避免计划保存绕过信息断层和身份上下文审计
+fn abnormal_followup_plan_time_decision_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "description": "模型选择 due_at 的可审计时间决策说明。该字段只用于审计，不会让代码替模型决定提醒时间。",
+        "properties": {
+            "now_at": { "type": "string", "format": "date-time" },
+            "occurred_at": { "type": "string", "format": "date-time" },
+            "episode_started_at": { "type": "string", "format": "date-time" },
+            "last_observed_at": {
+                "anyOf": [
+                    { "type": "string", "format": "date-time" },
+                    { "type": "null" }
+                ]
+            },
+            "elapsed_minutes": { "type": "integer" },
+            "attention_timing": {
+                "type": "string",
+                "enum": ["now_or_soon", "scheduled_later", "monitor_without_prompt"]
+            },
+            "staleness_assessment": {
+                "type": "object",
+                "description": "模型对当前异常信息断层的判断。只用于审计模型如何理解 now_at - max(occurred_at,last_observed_at)。",
+                "properties": {
+                    "basis": { "type": "string" },
+                    "staleness_minutes": { "type": "integer" },
+                    "reason": { "type": "string" }
+                },
+                "required": ["basis", "staleness_minutes", "reason"]
+            },
+            "identity_context": {
+                "type": "object",
+                "description": "模型规划时使用的宠物基础身份事实摘要，例如物种、生日、出生至今天数或年龄阶段。",
+                "properties": {
+                    "species": { "type": "string" },
+                    "birthday": {
+                        "anyOf": [
+                            { "type": "string" },
+                            { "type": "null" }
+                        ]
+                    },
+                    "world_days": {
+                        "anyOf": [
+                            { "type": "integer" },
+                            { "type": "null" }
+                        ]
+                    },
+                    "age_note": { "type": "string" }
+                },
+                "required": ["species"]
+            },
+            "selected_due_at": { "type": "string", "format": "date-time" },
+            "delay_minutes": { "type": "integer" },
+            "urgency_window": { "type": "string" },
+            "reason": { "type": "string" },
+            "time_tool_used": { "type": "boolean" }
+        },
+        "required": [
+            "now_at",
+            "occurred_at",
+            "episode_started_at",
+            "last_observed_at",
+            "elapsed_minutes",
+            "attention_timing",
+            "staleness_assessment",
+            "identity_context",
+            "selected_due_at",
+            "delay_minutes",
+            "urgency_window",
+            "reason",
+            "time_tool_used"
+        ]
+    })
 }
 
 impl RuntimePetContextTool {
